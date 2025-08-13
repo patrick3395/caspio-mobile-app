@@ -12,7 +12,7 @@
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",
     "sync": "npm run build:mobile && npx cap sync",
-    "appflow:build": "npm ci && npm run build:prod",
+    "appflow:build": "npm ci && npm run build:prod && npx cap add ios && npx cap sync ios",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint"
