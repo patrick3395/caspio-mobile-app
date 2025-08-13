@@ -1,0 +1,7 @@
+{
+  "name": "Caspio Mobile",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

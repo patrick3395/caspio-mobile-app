@@ -1,0 +1,71 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      Caspio App
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Caspio App</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <div id="container">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Caspio API Integration</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p><strong>Status:</strong> {{ authStatus }}</p>
+        
+        <ion-button expand="block" (click)="authenticate()" [disabled]="isAuthenticated">
+          Authenticate with Caspio
+        </ion-button>
+        
+        <ion-button expand="block" (click)="testApiCall()" [disabled]="!isAuthenticated" color="secondary">
+          Test API Call
+        </ion-button>
+        
+        <ion-button expand="block" (click)="discoverAllTables()" [disabled]="!isAuthenticated" color="tertiary">
+          Discover All Tables
+        </ion-button>
+        
+        <ion-button expand="block" (click)="generateAllModels()" [disabled]="!isAuthenticated" color="warning">
+          Generate Models & Services
+        </ion-button>
+        
+        <ion-button expand="block" (click)="testTableAccess()" [disabled]="!isAuthenticated" color="success">
+          Test Table Access
+        </ion-button>
+        
+        <p *ngIf="generationStatus" class="generation-status">
+          <strong>{{ generationStatus }}</strong>
+        </p>
+        
+        <ion-button expand="block" (click)="logout()" [disabled]="!isAuthenticated" color="danger">
+          Logout
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Next Steps</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>1. Replace placeholder credentials in environment files</p>
+        <p>2. Test authentication with your actual Caspio credentials</p>
+        <p>3. Explore available Caspio API endpoints</p>
+        <p>4. Build your data-driven features</p>
+        
+        <ion-button expand="block" fill="outline" color="success" routerLink="/test-form">
+          <ion-icon name="camera" slot="start"></ion-icon>
+          Test Photo Form
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
