@@ -1,6 +1,6 @@
 {
   "name": "ionic-app-base",
-  "version": "0.0.0",
+  "version": "1.0.2",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
@@ -12,7 +12,8 @@
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",
     "sync": "npm run build:mobile && npx cap sync",
-    "appflow:build": "npm ci && npm run build:prod && npx cap add ios && npx cap sync ios",
+    "appflow:build": "npm ci && npm run build:prod && npx cap add ios && npx cap sync ios && npm run set-ios-build-number",
+    "set-ios-build-number": "echo 'Build number will be set to 2 via capacitor.config.ts'",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint"
