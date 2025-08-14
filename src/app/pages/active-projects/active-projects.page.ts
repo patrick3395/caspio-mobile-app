@@ -69,7 +69,7 @@ export class ActiveProjectsPage implements OnInit {
             this.projectsService.getAllProjects().subscribe({
               next: (allProjects) => {
                 this.projects = allProjects.filter(p => 
-                  p.Status === 'Active' || p.Status === 'active'
+                  p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
                 );
                 this.loading = false;
                 console.log('Projects filtered locally:', this.projects);

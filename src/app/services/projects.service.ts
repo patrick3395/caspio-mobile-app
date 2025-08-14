@@ -9,6 +9,7 @@ export interface Project {
   City?: string;
   State?: string;
   Status?: string;
+  StatusID?: number | string;
   Project_Name?: string;
   Company_ID?: string;
   [key: string]: any;
@@ -25,8 +26,8 @@ export class ProjectsService {
   }
 
   getActiveProjects(): Observable<Project[]> {
-    // Fetch projects with Status = 'Active'
-    return this.caspioService.get<any>('/v2/tables/Projects/records?q.where=Status%3D%27Active%27').pipe(
+    // Fetch projects with StatusID = 1 (Active)
+    return this.caspioService.get<any>('/v2/tables/Projects/records?q.where=StatusID%3D1').pipe(
       map(response => response.Result || [])
     );
   }
