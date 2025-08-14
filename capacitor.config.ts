@@ -10,8 +10,7 @@ const config: CapacitorConfig = {
     cleartext: false
   },
   ios: {
-    preferredContentMode: 'mobile',
-    buildNumber: '2'
+    preferredContentMode: 'mobile'
   }
 };
 
