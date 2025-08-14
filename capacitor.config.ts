@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.caspio.mobileapp',
+  appId: 'com.nes.dcp',
   appName: 'Caspio Mobile',
   webDir: 'www',
   server: {
