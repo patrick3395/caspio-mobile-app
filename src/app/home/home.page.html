@@ -41,6 +41,10 @@
           Test Table Access
         </ion-button>
         
+        <ion-button expand="block" (click)="analyzeSpecificTables()" [disabled]="!isAuthenticated || analyzingTables" color="primary">
+          Analyze Table Structures
+        </ion-button>
+        
         <p *ngIf="generationStatus" class="generation-status">
           <strong>{{ generationStatus }}</strong>
         </p>

@@ -1,0 +1,39 @@
+<ion-header class="custom-header">
+  <ion-toolbar color="light">
+    <ion-title class="page-title">ACTIVE PROJECTS</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="projects-content">
+  <div class="projects-container">
+    <!-- Loading state -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading projects...</p>
+    </div>
+
+    <!-- Error state -->
+    <div *ngIf="error && !loading" class="error-container">
+      <p>{{ error }}</p>
+      <ion-button (click)="checkAuthAndLoadProjects()">Retry</ion-button>
+    </div>
+
+    <!-- Projects list -->
+    <div *ngIf="!loading && !error" class="projects-list">
+      <div class="project-item" *ngFor="let project of projects">
+        <div class="project-image">
+          <img [src]="getProjectImage(project)" alt="Project">
+        </div>
+        <div class="project-details">
+          <div class="project-address">{{ formatAddress(project) }}</div>
+          <div class="project-status">Active Project</div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div *ngIf="projects.length === 0" class="empty-state">
+        <p>No active projects found</p>
+      </div>
+    </div>
+  </div>
+</ion-content>

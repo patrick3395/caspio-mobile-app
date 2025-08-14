@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CaspioService } from '../services/caspio.service';
 import { ModelGeneratorService } from '../services/model-generator.service';
+import { TableAnalyzerService } from '../services/table-analyzer.service';
 
 @Component({
   selector: 'app-home',
@@ -12,10 +13,14 @@ export class HomePage implements OnInit {
   isAuthenticated = false;
   authStatus = 'Not authenticated';
   generationStatus = '';
+  tableDefinitions: any[] = [];
+  relationships: any = {};
+  analyzingTables = false;
 
   constructor(
     private caspioService: CaspioService,
-    private modelGenerator: ModelGeneratorService
+    private modelGenerator: ModelGeneratorService,
+    private tableAnalyzer: TableAnalyzerService
   ) {}
 
   ngOnInit() {
@@ -110,5 +115,67 @@ export class HomePage implements OnInit {
   logout() {
     this.caspioService.logout();
     this.checkAuthentication();
+  }
+
+  analyzeSpecificTables() {
+    this.analyzingTables = true;
+    this.authStatus = 'Analyzing table structures...';
+    
+    this.tableAnalyzer.analyzeAllTables().subscribe({
+      next: (definitions) => {
+        this.tableDefinitions = definitions;
+        this.relationships = this.tableAnalyzer.analyzeTableRelationships(definitions);
+        
+        console.log('====================================');
+        console.log('TABLE STRUCTURE ANALYSIS COMPLETE');
+        console.log('====================================');
+        
+        definitions.forEach(({ tableName, definition, error }) => {
+          if (error) {
+            console.log(`\n❌ ${tableName}: ${error}`);
+          } else if (definition && definition.Result && definition.Result.Fields) {
+            console.log(`\n📊 TABLE: ${tableName}`);
+            console.log('Fields:');
+            definition.Result.Fields.forEach((field: any) => {
+              console.log(`  - ${field.Name} (${field.Type})${field.IsUnique ? ' [UNIQUE]' : ''}${field.UniqueAllowNulls ? ' [ALLOW NULLS]' : ''}`);
+            });
+          }
+        });
+        
+        console.log('\n====================================');
+        console.log('TABLE RELATIONSHIPS');
+        console.log('====================================');
+        Object.keys(this.relationships).forEach(tableName => {
+          const rel = this.relationships[tableName];
+          if (rel.foreignKeys.length > 0 || rel.referencedBy.length > 0) {
+            console.log(`\n${tableName}:`);
+            if (rel.foreignKeys.length > 0) {
+              console.log('  Foreign Keys:');
+              rel.foreignKeys.forEach((fk: any) => {
+                console.log(`    - ${fk.field} -> ${fk.referencesTable}`);
+              });
+            }
+            if (rel.referencedBy.length > 0) {
+              console.log('  Referenced By:');
+              rel.referencedBy.forEach((ref: any) => {
+                console.log(`    - ${ref.table}.${ref.field}`);
+              });
+            }
+          }
+        });
+        
+        this.authStatus = `Analysis complete: ${definitions.length} tables analyzed`;
+        this.analyzingTables = false;
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('caspio_table_definitions', JSON.stringify(definitions));
+        localStorage.setItem('caspio_table_relationships', JSON.stringify(this.relationships));
+      },
+      error: (error) => {
+        console.error('Error analyzing tables:', error);
+        this.authStatus = 'Error analyzing tables: ' + error.message;
+        this.analyzingTables = false;
+      }
+    });
   }
 }
