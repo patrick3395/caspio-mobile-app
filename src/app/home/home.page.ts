@@ -130,7 +130,7 @@ export class HomePage implements OnInit {
         console.log('TABLE STRUCTURE ANALYSIS COMPLETE');
         console.log('====================================');
         
-        definitions.forEach(({ tableName, definition, error }) => {
+        definitions.forEach(({ tableName, definition, error }: any) => {
           if (error) {
             console.log(`\n❌ ${tableName}: ${error}`);
           } else if (definition && definition.Result && definition.Result.Fields) {

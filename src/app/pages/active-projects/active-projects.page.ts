@@ -6,6 +6,7 @@ import { CaspioService } from '../../services/caspio.service';
   selector: 'app-active-projects',
   templateUrl: './active-projects.page.html',
   styleUrls: ['./active-projects.page.scss'],
+  standalone: false
 })
 export class ActiveProjectsPage implements OnInit {
   projects: Project[] = [];
