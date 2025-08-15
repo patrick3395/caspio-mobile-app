@@ -18,8 +18,8 @@ const routes: Routes = [
     CommonModule,
     FormsModule,
     IonicModule,
-    RouterModule.forChild(routes)
-  ],
-  declarations: [TemplateFormPage]
+    RouterModule.forChild(routes),
+    TemplateFormPage  // Import the standalone component
+  ]
 })
 export class TemplateFormPageModule {}

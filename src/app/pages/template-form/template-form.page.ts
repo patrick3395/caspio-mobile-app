@@ -1,4 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 
@@ -6,6 +9,8 @@ import { CaspioService } from '../../services/caspio.service';
   selector: 'app-template-form',
   templateUrl: './template-form.page.html',
   styleUrls: ['./template-form.page.scss'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class TemplateFormPage implements OnInit {
   offersId: string = '';

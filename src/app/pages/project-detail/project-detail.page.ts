@@ -57,8 +57,8 @@ export class ProjectDetailPage implements OnInit {
         console.log('Project loaded:', project);
         
         // Load service name if OffersID is available
-        if (project.OffersID) {
-          await this.loadServiceName(project.OffersID);
+        if (project['OffersID']) {
+          await this.loadServiceName(project['OffersID']);
         }
       },
       error: (error) => {
@@ -103,8 +103,8 @@ export class ProjectDetailPage implements OnInit {
   }
 
   openTemplate() {
-    if (this.project && this.project.OffersID) {
-      this.router.navigate(['/template-form', this.projectId, this.project.OffersID]);
+    if (this.project && this.project['OffersID']) {
+      this.router.navigate(['/template-form', this.projectId, this.project['OffersID']]);
     }
   }
 }
