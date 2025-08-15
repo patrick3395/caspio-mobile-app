@@ -8,6 +8,48 @@ ion-toolbar {
   min-height: 100%;
 }
 
+// Save status indicator
+.save-status {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+  
+  &.info {
+    background: #f0f8ff;
+    color: #0066cc;
+    border: 1px solid #0066cc;
+  }
+  
+  &.success {
+    background: #f0fff4;
+    color: #28a745;
+    border: 1px solid #28a745;
+  }
+  
+  &.error {
+    background: #fff0f0;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 // Progress dots
 .progress-dots {
   display: flex;
@@ -26,6 +68,10 @@ ion-toolbar {
     &.active {
       background-color: #007AFF;
       transform: scale(1.2);
+    }
+    
+    &.completed {
+      background-color: #28a745;
     }
   }
 }
@@ -146,6 +192,12 @@ ion-toolbar {
     --padding-end: 12px;
     --inner-padding-end: 0;
     margin-bottom: 8px;
+    transition: all 0.3s ease;
+    
+    &.completed {
+      --background: #f8fff9;
+      border: 2px solid #28a745;
+    }
     
     ion-label {
       font-weight: 500;
@@ -155,12 +207,27 @@ ion-toolbar {
       &[position="stacked"] {
         margin-bottom: 8px;
       }
+      
+      &.completed {
+        color: #28a745;
+        font-weight: 600;
+        
+        span {
+          color: #28a745;
+          font-weight: bold;
+          margin-right: 4px;
+        }
+      }
     }
     
-    ion-input, ion-textarea, ion-select {
+    ion-input, ion-textarea, ion-select, ion-datetime {
       --padding-top: 8px;
       --padding-bottom: 8px;
       font-size: 15px;
+      
+      &.has-value {
+        --background: #f8fff9;
+      }
     }
     
     input[type="file"] {

@@ -12,12 +12,28 @@ import { CaspioService } from '../../services/caspio.service';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class TemplateFormPage implements OnInit {
+export class TemplateFormPage implements OnInit, OnDestroy {
   offersId: string = '';
   serviceName: string = '';
   projectId: string = '';
   currentSection: number = 1;
   serviceFee: number = 285.00;
+  currentServiceID: number | null = null;
+  
+  // Auto-save related
+  private destroy$ = new Subject<void>();
+  private autoSaveSubject = new Subject<{field: string, value: any}>();
+  saveStatus: string = '';
+  saveStatusType: 'info' | 'success' | 'error' = 'info';
+  
+  // Field completion tracking
+  fieldStates: { [key: string]: boolean } = {};
+  sectionProgress: { [key: string]: number } = {
+    general: 0,
+    information: 0,
+    structural: 0,
+    elevation: 0
+  };
   
   expandedSections: { [key: number]: boolean } = {
     1: true,
@@ -66,8 +82,20 @@ export class TemplateFormPage implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private caspioService: CaspioService
-  ) { }
+    private caspioService: CaspioService,
+    private serviceEfeService: ServiceEfeService
+  ) {
+    // Initialize auto-save with 1 second debounce (same as local server)
+    this.autoSaveSubject.pipe(
+      debounceTime(1000),
+      distinctUntilChanged((prev, curr) => 
+        prev.field === curr.field && prev.value === curr.value
+      ),
+      takeUntil(this.destroy$)
+    ).subscribe(({field, value}) => {
+      this.performAutoSave(field, value);
+    });
+  }
 
   async ngOnInit() {
     this.offersId = this.route.snapshot.paramMap.get('offersId') || '';
@@ -77,10 +105,78 @@ export class TemplateFormPage implements OnInit {
       await this.loadServiceName();
     }
     
-    // Auto-save every 30 seconds
-    setInterval(() => {
-      this.autoSave();
-    }, 30000);
+    // Check for existing Service_EFE record and load data
+    await this.initializeServiceRecord();
+  }
+  
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+  
+  async initializeServiceRecord() {
+    if (!this.projectId || this.projectId === 'new') return;
+    
+    try {
+      const checkResult = await this.serviceEfeService.checkServiceEFE(this.projectId).toPromise();
+      
+      if (checkResult?.exists && checkResult.ServiceID) {
+        this.currentServiceID = checkResult.ServiceID;
+        console.log('Found existing Service_EFE record:', this.currentServiceID);
+        
+        // Load existing data
+        if (checkResult.record) {
+          this.loadExistingData(checkResult.record);
+        }
+      } else {
+        // Create new Service_EFE record
+        console.log('Creating new Service_EFE record for project:', this.projectId);
+        const newRecord = await this.serviceEfeService.createServiceEFE(this.projectId).toPromise();
+        if (newRecord) {
+          // Wait and check again to get the ServiceID
+          await timer(1000).toPromise();
+          const recheckResult = await this.serviceEfeService.checkServiceEFE(this.projectId).toPromise();
+          if (recheckResult?.exists && recheckResult.ServiceID) {
+            this.currentServiceID = recheckResult.ServiceID;
+            console.log('New Service_EFE record created with ID:', this.currentServiceID);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing Service_EFE:', error);
+      this.showSaveStatus('Failed to initialize service record', 'error');
+    }
+  }
+  
+  loadExistingData(record: any) {
+    // Map database fields to form fields
+    const fieldMapping: { [key: string]: string } = {
+      'PrimaryPhoto': 'primaryPhoto',
+      'DateOfInspection': 'inspectionDate',
+      'TypeOfBuilding': 'buildingType',
+      'Style': 'style',
+      'InAttendance': 'attendance',
+      'WeatherConditions': 'weather',
+      'OutdoorTemperature': 'temperature',
+      'OccupancyFurnishings': 'occupancy',
+      'YearBuilt': 'yearBuilt',
+      'SquareFootage': 'squareFootage',
+      'FoundationType': 'foundationType',
+      'NumberOfStories': 'numberOfStories',
+      'ExteriorCladding': 'exteriorCladding',
+      'RoofCovering': 'roofCovering'
+    };
+    
+    Object.keys(fieldMapping).forEach(dbField => {
+      const formField = fieldMapping[dbField];
+      if (record[dbField]) {
+        this.formData[formField] = record[dbField];
+        this.fieldStates[formField] = true;
+      }
+    });
+    
+    this.updateAllSectionProgress();
+    this.showSaveStatus('Existing data loaded', 'success');
   }
 
   async loadServiceName() {
@@ -137,20 +233,102 @@ export class TemplateFormPage implements OnInit {
     }
   }
 
-  async autoSave() {
+  // Called when any field changes
+  onFieldChange(fieldName: string, value: any) {
+    // Update field state
+    if (value && value !== '') {
+      this.fieldStates[fieldName] = true;
+    } else {
+      this.fieldStates[fieldName] = false;
+    }
+    
+    // Update section progress
+    this.updateAllSectionProgress();
+    
+    // Trigger auto-save with debounce
+    this.autoSaveSubject.next({field: fieldName, value: value});
+  }
+  
+  // Perform the actual auto-save
+  async performAutoSave(fieldName: string, value: any) {
+    if (!this.currentServiceID) {
+      this.showSaveStatus('No service record found', 'error');
+      return;
+    }
+    
+    this.showSaveStatus('Saving...', 'info');
+    
     try {
-      // Save to localStorage for persistence
-      localStorage.setItem('templateFormData', JSON.stringify(this.formData));
-      console.log('Form auto-saved');
+      // Map form field to database field
+      const fieldMapping: { [key: string]: string } = {
+        'primaryPhoto': 'PrimaryPhoto',
+        'inspectionDate': 'DateOfInspection',
+        'buildingType': 'TypeOfBuilding',
+        'style': 'Style',
+        'attendance': 'InAttendance',
+        'weather': 'WeatherConditions',
+        'temperature': 'OutdoorTemperature',
+        'occupancy': 'OccupancyFurnishings',
+        'yearBuilt': 'YearBuilt',
+        'squareFootage': 'SquareFootage',
+        'foundationType': 'FoundationType',
+        'numberOfStories': 'NumberOfStories',
+        'exteriorCladding': 'ExteriorCladding',
+        'roofCovering': 'RoofCovering'
+      };
       
-      // If we have a project ID, save to Caspio
-      if (this.projectId && this.projectId !== 'new') {
-        // TODO: Implement Caspio save
-        console.log('Would save to Caspio for project:', this.projectId);
-      }
+      const dbField = fieldMapping[fieldName] || fieldName;
+      
+      await this.serviceEfeService.updateField(this.currentServiceID, dbField, value).toPromise();
+      
+      this.showSaveStatus('Saved', 'success');
+      console.log(`✅ Auto-saved ${fieldName}: ${value}`);
     } catch (error) {
       console.error('Auto-save error:', error);
+      this.showSaveStatus('Save failed', 'error');
     }
+  }
+  
+  // Update progress for all sections
+  updateAllSectionProgress() {
+    // General section fields
+    const generalFields = ['primaryPhoto', 'inspectionDate', 'buildingType', 'style', 
+                           'attendance', 'weather', 'temperature', 'occupancy'];
+    let generalCompleted = 0;
+    generalFields.forEach(field => {
+      if (this.fieldStates[field]) generalCompleted++;
+    });
+    this.sectionProgress.general = Math.round((generalCompleted / generalFields.length) * 100);
+    
+    // Information section fields  
+    const infoFields = ['yearBuilt', 'squareFootage', 'foundationType', 'numberOfStories',
+                        'exteriorCladding', 'roofCovering'];
+    let infoCompleted = 0;
+    infoFields.forEach(field => {
+      if (this.fieldStates[field]) infoCompleted++;
+    });
+    this.sectionProgress.information = Math.round((infoCompleted / infoFields.length) * 100);
+    
+    // TODO: Add structural and elevation sections
+  }
+  
+  // Show save status message
+  showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
+    this.saveStatus = message;
+    this.saveStatusType = type;
+    
+    // Auto-hide success messages after 2 seconds
+    if (type === 'success') {
+      setTimeout(() => {
+        this.saveStatus = '';
+      }, 2000);
+    }
+  }
+  
+  // Check if a field has value (for CSS classes)
+  hasValue(fieldName: string): boolean {
+    return this.fieldStates[fieldName] || false;
+  }
   }
 
   async submitForm() {

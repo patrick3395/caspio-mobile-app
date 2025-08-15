@@ -9,11 +9,23 @@
 
 <ion-content>
   <div class="template-container">
+    <!-- Save status indicator -->
+    <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
+         [class.success]="saveStatusType === 'success'" [class.error]="saveStatusType === 'error'">
+      {{ saveStatus }}
+    </div>
+    
     <!-- Progress dots -->
     <div class="progress-dots">
-      <span class="dot" [class.active]="currentSection === 1" (click)="goToSection(1)"></span>
-      <span class="dot" [class.active]="currentSection === 2" (click)="goToSection(2)"></span>
-      <span class="dot" [class.active]="currentSection === 3" (click)="goToSection(3)"></span>
+      <span class="dot" [class.active]="currentSection === 1" 
+            [class.completed]="sectionProgress.general > 80 && sectionProgress.information > 80"
+            (click)="goToSection(1)"></span>
+      <span class="dot" [class.active]="currentSection === 2" 
+            [class.completed]="sectionProgress.structural > 80"
+            (click)="goToSection(2)"></span>
+      <span class="dot" [class.active]="currentSection === 3" 
+            [class.completed]="sectionProgress.elevation > 80"
+            (click)="goToSection(3)"></span>
     </div>
 
     <form (ngSubmit)="submitForm()">
@@ -41,23 +53,34 @@
             
             <div class="subsection-content" *ngIf="expandedSubsections['general']">
               <div class="form-row">
-                <ion-item>
-                  <ion-label position="stacked">Primary Photo</ion-label>
+                <ion-item [class.completed]="hasValue('primaryPhoto')">
+                  <ion-label position="stacked" [class.completed]="hasValue('primaryPhoto')">
+                    <span *ngIf="hasValue('primaryPhoto')">✓ </span>Primary Photo
+                  </ion-label>
                   <input type="file" (change)="onFileSelected($event, 'primaryPhoto')" accept="image/*">
                 </ion-item>
               </div>
 
               <div class="form-row">
-                <ion-item>
-                  <ion-label position="stacked">Date of Inspection</ion-label>
-                  <ion-datetime [(ngModel)]="formData.inspectionDate" name="inspectionDate" displayFormat="MM/DD/YYYY"></ion-datetime>
+                <ion-item [class.completed]="hasValue('inspectionDate')">
+                  <ion-label position="stacked" [class.completed]="hasValue('inspectionDate')">
+                    <span *ngIf="hasValue('inspectionDate')">✓ </span>Date of Inspection
+                  </ion-label>
+                  <ion-datetime [(ngModel)]="formData.inspectionDate" name="inspectionDate" 
+                                displayFormat="MM/DD/YYYY"
+                                (ionChange)="onFieldChange('inspectionDate', $event.detail.value)"
+                                [class.has-value]="hasValue('inspectionDate')"></ion-datetime>
                 </ion-item>
               </div>
 
               <div class="form-row">
-                <ion-item>
-                  <ion-label position="stacked">Type of Building</ion-label>
-                  <ion-select [(ngModel)]="formData.buildingType" name="buildingType">
+                <ion-item [class.completed]="hasValue('buildingType')">
+                  <ion-label position="stacked" [class.completed]="hasValue('buildingType')">
+                    <span *ngIf="hasValue('buildingType')">✓ </span>Type of Building
+                  </ion-label>
+                  <ion-select [(ngModel)]="formData.buildingType" name="buildingType"
+                              (ionChange)="onFieldChange('buildingType', $event.detail.value)"
+                              [class.has-value]="hasValue('buildingType')">
                     <ion-select-option value="Single Family">Single Family</ion-select-option>
                     <ion-select-option value="Multi Family">Multi Family</ion-select-option>
                     <ion-select-option value="Commercial">Commercial</ion-select-option>
