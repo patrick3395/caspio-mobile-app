@@ -220,19 +220,37 @@ export class ProjectsService {
     return timer(1000).pipe(
       switchMap(() => this.getAllProjects()),
       map(projects => {
-        // Find projects matching our criteria
+        console.log('🔍 Looking for project with:', {
+          address: address,
+          city: city,
+          date: date
+        });
+        
+        // Log first few projects for debugging
+        if (projects && projects.length > 0) {
+          console.log('📋 Latest projects:', projects.slice(0, 3).map(p => ({
+            PK_ID: p.PK_ID,
+            ProjectID: p.ProjectID,
+            Address: p.Address,
+            City: p.City,
+            Date: p.Date
+          })));
+        }
+        
+        // Find projects matching our criteria - EXACT SAME as local server
+        // Only match on Address and City, not Date
         const matchingProjects = projects.filter(p => 
           p.Address === address && 
-          p.City === city && 
-          p.Date && p.Date.startsWith(date.split('T')[0])
+          p.City === city
         );
         
         if (matchingProjects.length > 0) {
-          // Get the most recent one (highest PK_ID)
+          // Sort by PK_ID descending and get the first (newest)
           const newProject = matchingProjects.sort((a, b) => 
             parseInt(b.PK_ID || '0') - parseInt(a.PK_ID || '0')
           )[0];
           console.log('📍 Found new project with PK_ID:', newProject.PK_ID);
+          console.log('📍 Project has ProjectID:', newProject.ProjectID);
           return newProject;
         }
         

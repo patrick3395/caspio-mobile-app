@@ -161,31 +161,39 @@ export class NewProjectPage implements OnInit {
       
       if (result?.success && result.projectId) {
         console.log('Project created with ID:', result.projectId);
+        console.log('Project data:', result.projectData);
         
         // Create Service_EFE record for the new project
+        // Use ProjectID if available, otherwise use PK_ID (exact same as local server)
         const projectData = result.projectData;
-        if (projectData?.ProjectID) {
+        const projectIdForService = projectData?.ProjectID || projectData?.PK_ID || result.projectId;
+        
+        if (projectIdForService && projectIdForService !== 'new') {
+          console.log('📝 Creating Service_EFE record for project:', projectIdForService);
           try {
-            await this.serviceEfeService.createServiceEFE(projectData.ProjectID).toPromise();
+            await this.serviceEfeService.createServiceEFE(projectIdForService).toPromise();
             console.log('✅ Service_EFE record created for project');
           } catch (error) {
-            console.error('Error creating Service_EFE record:', error);
+            console.error('❌ Failed to create Service_EFE record:', error);
             // Don't fail the whole process if Service_EFE creation fails
           }
+        } else {
+          console.log('⚠️ No valid project ID for Service_EFE creation');
         }
         
         await loading.dismiss();
         
-        // Show success message
-        const successAlert = await this.alertController.create({
-          header: 'Success',
-          message: 'Project created successfully!',
-          buttons: ['OK']
-        });
-        await successAlert.present();
-        
         // Navigate to the new project's detail page
-        this.router.navigate(['/project', result.projectId]);
+        // Use PK_ID for navigation (exact same as local server)
+        const navigationId = result.projectId !== 'new' ? result.projectId : null;
+        if (navigationId) {
+          console.log('🚀 Navigating to project:', navigationId);
+          this.router.navigate(['/project', navigationId]);
+        } else {
+          // Fallback to projects list if no ID
+          console.log('🚀 Navigating to projects list (no ID)');
+          this.router.navigate(['/tabs/active-projects']);  
+        }
       } else {
         throw new Error('Failed to create project');
       }

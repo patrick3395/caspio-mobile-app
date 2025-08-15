@@ -87,13 +87,29 @@ export class ServiceEfeService {
         const headers = this.getAuthHeaders();
         const data = { ProjectID: projectId };
         
-        return this.http.post<ServiceEFE>(`${this.apiBaseUrl}/tables/Service_EFE/records`, data, { headers }).pipe(
+        console.log('📤 Data being sent to Service_EFE:', data);
+        
+        return this.http.post<ServiceEFE>(`${this.apiBaseUrl}/tables/Service_EFE/records`, data, { 
+          headers,
+          observe: 'response' 
+        }).pipe(
           map(response => {
             console.log('✅ Service_EFE record created for project:', projectId);
-            return response;
+            console.log('📥 Response status:', response.status);
+            console.log('📥 Response body:', response.body);
+            // Handle 201 Created with empty body
+            if (response.status === 201) {
+              return { ProjectID: projectId } as ServiceEFE;
+            }
+            return response.body || { ProjectID: projectId } as ServiceEFE;
           }),
           catchError(error => {
             console.error('❌ Failed to create Service_EFE record:', error);
+            // Check if it's actually a success (201 status)
+            if (error.status === 201) {
+              console.log('✅ Service_EFE created (201 in error handler)');
+              return of({ ProjectID: projectId } as ServiceEFE);
+            }
             return throwError(() => error);
           })
         );
