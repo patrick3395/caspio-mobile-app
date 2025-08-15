@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-// Build number to set - increment this for each TestFlight build
-const BUILD_NUMBER = '3';
-const VERSION = '1.0.0';
+// Read configuration from ios-build-config.json
+const configPath = path.join(__dirname, '..', 'ios-build-config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+const BUILD_NUMBER = config.ios.buildNumber;
+const VERSION = config.ios.version;
 
 const infoPlistPath = path.join(__dirname, '..', 'ios', 'App', 'App', 'Info.plist');
 
