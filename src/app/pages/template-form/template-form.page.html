@@ -18,13 +18,13 @@
     <!-- Progress dots -->
     <div class="progress-dots">
       <span class="dot" [class.active]="currentSection === 1" 
-            [class.completed]="sectionProgress.general > 80 && sectionProgress.information > 80"
+            [class.completed]="sectionProgress['general'] > 80 && sectionProgress['information'] > 80"
             (click)="goToSection(1)"></span>
       <span class="dot" [class.active]="currentSection === 2" 
-            [class.completed]="sectionProgress.structural > 80"
+            [class.completed]="sectionProgress['structural'] > 80"
             (click)="goToSection(2)"></span>
       <span class="dot" [class.active]="currentSection === 3" 
-            [class.completed]="sectionProgress.elevation > 80"
+            [class.completed]="sectionProgress['elevation'] > 80"
             (click)="goToSection(3)"></span>
     </div>
 
