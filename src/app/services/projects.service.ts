@@ -23,24 +23,24 @@ export class ProjectsService {
   constructor(private caspioService: CaspioService) {}
 
   getProjectTableDefinition(): Observable<any> {
-    return this.caspioService.get('/v2/tables/Projects/definition');
+    return this.caspioService.get('/tables/Projects/definition');
   }
 
   getActiveProjects(): Observable<Project[]> {
     // Fetch projects with StatusID = 1 (Active)
-    return this.caspioService.get<any>('/v2/tables/Projects/records?q.where=StatusID%3D1').pipe(
+    return this.caspioService.get<any>('/tables/Projects/records?q.where=StatusID%3D1').pipe(
       map(response => response.Result || [])
     );
   }
 
   getAllProjects(): Observable<Project[]> {
-    return this.caspioService.get<any>('/v2/tables/Projects/records').pipe(
+    return this.caspioService.get<any>('/tables/Projects/records').pipe(
       map(response => response.Result || [])
     );
   }
 
   getProjectById(projectId: string): Observable<Project> {
-    return this.caspioService.get<any>(`/v2/tables/Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
+    return this.caspioService.get<any>(`/tables/Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
       map(response => response.Result && response.Result[0] || {})
     );
   }

@@ -38,7 +38,7 @@ export class TableAnalyzerService {
   }
 
   getTableDefinition(tableName: string): Observable<any> {
-    return this.caspioService.get(`/v2/tables/${tableName}/definition`).pipe(
+    return this.caspioService.get(`/tables/${tableName}/definition`).pipe(
       map(definition => ({
         tableName,
         definition
@@ -47,7 +47,7 @@ export class TableAnalyzerService {
   }
 
   getTableRecords(tableName: string, limit: number = 5): Observable<any> {
-    return this.caspioService.get(`/v2/tables/${tableName}/records?limit=${limit}`).pipe(
+    return this.caspioService.get(`/tables/${tableName}/records?limit=${limit}`).pipe(
       map(response => ({
         tableName,
         records: response
