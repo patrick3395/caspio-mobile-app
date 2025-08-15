@@ -129,4 +129,39 @@ export class ProjectDetailPage implements OnInit {
     }
     return [];
   }
+
+  getCityState(): string {
+    if (!this.project) return '';
+    const parts = [];
+    if (this.project.City) parts.push(this.project.City);
+    if (this.project.State) parts.push(this.project.State);
+    if (this.project.ZIP) parts.push(this.project.ZIP);
+    return parts.join(', ');
+  }
+
+  formatDate(date: any): string {
+    if (!date) return 'Not specified';
+    try {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch {
+      return date.toString();
+    }
+  }
+
+  uploadDocument(docType: string) {
+    console.log('Upload document:', docType);
+    // TODO: Implement file upload dialog and upload to Caspio Files API
+    // This will use the ServiceEfeService to upload files
+  }
+
+  viewDocument(docType: string) {
+    console.log('View document:', docType);
+    // TODO: Implement document viewer
+    // This will retrieve and display the document from Caspio
+  }
 }

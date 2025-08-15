@@ -32,79 +32,109 @@
       <img [src]="getStreetViewUrl()" alt="Street View">
     </div>
 
-    <!-- Project Information -->
-    <div class="project-info-section">
-      <h2 class="section-title">PROJECT DETAILS</h2>
-      <div class="project-title">{{ formatAddress() }}</div>
+    <!-- Project Information Section -->
+    <div class="info-section">
+      <h2 class="section-title">Project Information</h2>
       
-      <div class="detail-item">
-        <span class="detail-label">Status:</span>
-        <ion-badge color="success" class="status-badge">Active</ion-badge>
+      <div class="info-row">
+        <span class="info-label">Address:</span>
+        <span class="info-value">{{ project.Address || 'Not specified' }}</span>
       </div>
       
-      <div class="detail-item" *ngIf="project.Address">
-        <span class="detail-label">Address:</span>
-        <span class="detail-value">{{ project.Address }}</span>
+      <div class="info-row">
+        <span class="info-label">City, State:</span>
+        <span class="info-value">{{ getCityState() }}</span>
       </div>
       
-      <div class="detail-item" *ngIf="project.City">
-        <span class="detail-label">City:</span>
-        <span class="detail-value">{{ project.City }}</span>
+      <div class="info-row">
+        <span class="info-label">Inspection Date:</span>
+        <span class="info-value">{{ formatDate(project.InspectionDate) }}</span>
       </div>
       
-      <div class="detail-item" *ngIf="project.State">
-        <span class="detail-label">State:</span>
-        <span class="detail-value">{{ project.State }}</span>
-      </div>
-      
-      <div class="detail-item" *ngIf="project.Project_ID">
-        <span class="detail-label">Project ID:</span>
-        <span class="detail-value">{{ project.Project_ID }}</span>
-      </div>
-      
-      <div class="detail-item" *ngIf="project.Company_ID">
-        <span class="detail-label">Company ID:</span>
-        <span class="detail-value">{{ project.Company_ID }}</span>
-      </div>
-    </div>
-
-    <!-- Templates Section -->
-    <div class="templates-section" *ngIf="hasTemplates()">
-      <h2 class="section-title">TEMPLATES</h2>
-      <div class="template-list">
-        <div class="template-item" *ngFor="let template of getAvailableTemplates()">
-          <span class="template-name">{{ template.name }}</span>
-          <ion-button (click)="openTemplate(template)" size="small" fill="outline">
-            Open
-          </ion-button>
-        </div>
+      <div class="info-row">
+        <span class="info-label">Service Requested:</span>
+        <span class="info-value">{{ serviceName || 'Other' }}</span>
       </div>
     </div>
 
     <!-- Required Documents Section -->
-    <div class="documents-section">
+    <div class="info-section">
       <h2 class="section-title">Required Documents</h2>
-      <div class="document-list">
-        <div class="document-item">
-          <span class="document-name">Home Inspection Report</span>
-          <ion-button size="small" fill="solid" color="primary">
-            <ion-icon name="cloud-upload" slot="start"></ion-icon>
-            Upload
-          </ion-button>
+      
+      <div class="documents-table">
+        <div class="doc-header">
+          <div class="doc-col">Document</div>
+          <div class="doc-col">Status</div>
+          <div class="doc-col">Action</div>
         </div>
-        <div class="document-item">
-          <span class="document-name">Support Document 1</span>
-          <ion-button size="small" fill="solid" color="primary">
-            <ion-icon name="cloud-upload" slot="start"></ion-icon>
-            Upload
-          </ion-button>
+        
+        <div class="doc-row">
+          <div class="doc-col">Home Inspection Report</div>
+          <div class="doc-col">
+            <span class="status-badge status-required">Required</span>
+          </div>
+          <div class="doc-col">
+            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('InspectionReport')">
+              Upload
+            </ion-button>
+          </div>
         </div>
-        <div class="document-item">
-          <span class="document-name">Support Document 2</span>
-          <ion-button size="small" fill="solid" color="primary">
-            <ion-icon name="cloud-upload" slot="start"></ion-icon>
-            Upload
-          </ion-button>
+        
+        <div class="doc-row">
+          <div class="doc-col">Cubicasa</div>
+          <div class="doc-col">
+            <span class="status-badge status-uploaded">Uploaded</span>
+          </div>
+          <div class="doc-col">
+            <ion-button size="small" fill="solid" color="primary" (click)="viewDocument('Cubicasa')">
+              View
+            </ion-button>
+          </div>
+        </div>
+        
+        <div class="doc-row">
+          <div class="doc-col">Support Document 1</div>
+          <div class="doc-col">
+            <span class="status-badge status-optional">Optional</span>
+          </div>
+          <div class="doc-col">
+            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('SupportDocument1')">
+              Upload
+            </ion-button>
+          </div>
+        </div>
+        
+        <div class="doc-row">
+          <div class="doc-col">Support Document 2</div>
+          <div class="doc-col">
+            <span class="status-badge status-optional">Optional</span>
+          </div>
+          <div class="doc-col">
+            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('SupportDocument2')">
+              Upload
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Templates Section -->
+    <div class="info-section">
+      <h2 class="section-title">Templates</h2>
+      
+      <div class="templates-table">
+        <div class="template-row">
+          <div class="template-col">Service Template</div>
+          <div class="template-col">Action</div>
+        </div>
+        
+        <div class="template-row">
+          <div class="template-col">{{ serviceName || 'Other' }}</div>
+          <div class="template-col">
+            <ion-button size="small" fill="solid" color="success" (click)="openTemplate()">
+              Open Template
+            </ion-button>
+          </div>
         </div>
       </div>
     </div>
