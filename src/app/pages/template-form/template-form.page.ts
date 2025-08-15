@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
+import { ServiceEfeService } from '../../services/service-efe.service';
+import { Subject, timer } from 'rxjs';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-template-form',
@@ -228,8 +231,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       this.formData[fieldName] = file.name;
       console.log(`File selected for ${fieldName}:`, file.name);
       
-      // Auto-save when file is selected
-      this.autoSave();
+      // Trigger auto-save
+      this.onFieldChange(fieldName, file.name);
     }
   }
 
@@ -298,7 +301,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     generalFields.forEach(field => {
       if (this.fieldStates[field]) generalCompleted++;
     });
-    this.sectionProgress.general = Math.round((generalCompleted / generalFields.length) * 100);
+    this.sectionProgress['general'] = Math.round((generalCompleted / generalFields.length) * 100);
     
     // Information section fields  
     const infoFields = ['yearBuilt', 'squareFootage', 'foundationType', 'numberOfStories',
@@ -307,7 +310,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     infoFields.forEach(field => {
       if (this.fieldStates[field]) infoCompleted++;
     });
-    this.sectionProgress.information = Math.round((infoCompleted / infoFields.length) * 100);
+    this.sectionProgress['information'] = Math.round((infoCompleted / infoFields.length) * 100);
     
     // TODO: Add structural and elevation sections
   }
@@ -329,13 +332,13 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   hasValue(fieldName: string): boolean {
     return this.fieldStates[fieldName] || false;
   }
-  }
 
   async submitForm() {
+    if (!this.formData) return;
     console.log('Form submitted:', this.formData);
     
     // Validate required fields
-    if (!this.formData.requestedAddress || !this.formData.city) {
+    if (!this.formData['requestedAddress'] || !this.formData['city']) {
       alert('Please fill in all required fields');
       return;
     }
