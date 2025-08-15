@@ -112,6 +112,12 @@ export class CaspioService {
     return this.getCurrentToken() !== null;
   }
 
+  async ensureAuthenticated(): Promise<void> {
+    if (!this.isAuthenticated()) {
+      await this.authenticate().toPromise();
+    }
+  }
+
   get<T>(endpoint: string): Observable<T> {
     const token = this.getCurrentToken();
     if (!token) {

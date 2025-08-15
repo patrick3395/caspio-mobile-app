@@ -1,0 +1,186 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule, LoadingController, AlertController } from '@ionic/angular';
+import { Router } from '@angular/router';
+import { ProjectsService, ProjectCreationData } from '../../services/projects.service';
+import { ServiceEfeService } from '../../services/service-efe.service';
+
+declare var google: any;
+
+@Component({
+  selector: 'app-new-project',
+  templateUrl: './new-project.page.html',
+  styleUrls: ['./new-project.page.scss'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
+})
+export class NewProjectPage implements OnInit {
+  
+  formData: ProjectCreationData = {
+    company: '1',  // Noble Property Inspections
+    user: '1',     // Default user
+    dateOfRequest: new Date().toISOString().split('T')[0],
+    inspectionDate: '',
+    address: '',
+    city: '',
+    state: 'TX',
+    zip: '',
+    services: [],
+    fee: '265.00',
+    notes: ''
+  };
+
+  availableServices: any[] = [];
+  states = ['TX', 'GA', 'FL', 'CO', 'CA', 'AZ', 'SC', 'TN'];
+  
+  constructor(
+    private router: Router,
+    private projectsService: ProjectsService,
+    private serviceEfeService: ServiceEfeService,
+    private loadingController: LoadingController,
+    private alertController: AlertController
+  ) {}
+
+  async ngOnInit() {
+    await this.loadServices();
+    this.initializeGooglePlaces();
+  }
+
+  async loadServices() {
+    try {
+      // Load offers for Noble Property Inspections (CompanyID = 1)
+      const offers = await this.projectsService.getOffers(1).toPromise();
+      const serviceTypes = await this.projectsService.getServiceTypes().toPromise();
+      
+      // Match offers with service types to get names
+      this.availableServices = offers?.map(offer => {
+        const serviceType = serviceTypes?.find(t => t.TypeID === offer.TypeID);
+        return {
+          id: offer.OffersID || offer.PK_ID,
+          name: serviceType?.TypeName || offer.Description || offer.OfferName || 'Service'
+        };
+      }) || [];
+      
+      console.log('Available services:', this.availableServices);
+    } catch (error) {
+      console.error('Error loading services:', error);
+    }
+  }
+
+  initializeGooglePlaces() {
+    // Initialize Google Places Autocomplete
+    setTimeout(() => {
+      const addressInput = document.getElementById('address-input') as HTMLInputElement;
+      if (addressInput && typeof google !== 'undefined') {
+        const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+        });
+        
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.geometry) {
+            // Parse address components
+            let streetNumber = '';
+            let streetName = '';
+            
+            for (const component of place.address_components) {
+              const types = component.types;
+              
+              if (types.includes('street_number')) {
+                streetNumber = component.long_name;
+              }
+              if (types.includes('route')) {
+                streetName = component.long_name;
+              }
+              if (types.includes('locality')) {
+                this.formData.city = component.long_name;
+              }
+              if (types.includes('administrative_area_level_1')) {
+                this.formData.state = component.short_name;
+              }
+              if (types.includes('postal_code')) {
+                this.formData.zip = component.long_name;
+              }
+            }
+            
+            this.formData.address = streetNumber + ' ' + streetName;
+          }
+        });
+      }
+    }, 1000);
+  }
+
+  onServiceChange(serviceId: string, event: any) {
+    if (event.detail.checked) {
+      if (!this.formData.services.includes(serviceId)) {
+        this.formData.services.push(serviceId);
+      }
+    } else {
+      const index = this.formData.services.indexOf(serviceId);
+      if (index > -1) {
+        this.formData.services.splice(index, 1);
+      }
+    }
+  }
+
+  async createProject() {
+    // Validate required fields
+    if (!this.formData.address || !this.formData.city || !this.formData.state) {
+      const alert = await this.alertController.create({
+        header: 'Missing Information',
+        message: 'Please fill in all required fields.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating project...'
+    });
+    await loading.present();
+
+    try {
+      // Create the project (exact same logic as local server)
+      const result = await this.projectsService.createProject(this.formData).toPromise();
+      
+      if (result?.success && result.projectId) {
+        console.log('Project created with ID:', result.projectId);
+        
+        // Create Service_EFE record for the new project
+        const projectData = result.projectData;
+        if (projectData?.ProjectID) {
+          try {
+            await this.serviceEfeService.createServiceEFE(projectData.ProjectID).toPromise();
+            console.log('✅ Service_EFE record created for project');
+          } catch (error) {
+            console.error('Error creating Service_EFE record:', error);
+            // Don't fail the whole process if Service_EFE creation fails
+          }
+        }
+        
+        await loading.dismiss();
+        
+        // Navigate to the new project's detail page
+        this.router.navigate(['/project', result.projectId]);
+      } else {
+        throw new Error('Failed to create project');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: error.message || 'Failed to create project. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  goBack() {
+    this.router.navigate(['/tabs/active-projects']);
+  }
+}
