@@ -135,7 +135,7 @@ export class ProjectDetailPage implements OnInit {
     const parts = [];
     if (this.project.City) parts.push(this.project.City);
     if (this.project.State) parts.push(this.project.State);
-    if (this.project.ZIP) parts.push(this.project.ZIP);
+    if (this.project['ZIP']) parts.push(this.project['ZIP']);
     return parts.join(', ');
   }
 
