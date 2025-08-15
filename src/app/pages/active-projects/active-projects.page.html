@@ -20,7 +20,7 @@
 
     <!-- Projects list -->
     <div *ngIf="!loading && !error" class="projects-list">
-      <div class="project-item" *ngFor="let project of projects">
+      <div class="project-item" *ngFor="let project of projects" [routerLink]="['/project', project.PK_ID]">
         <div class="project-image">
           <img [src]="getProjectImage(project)" alt="Project">
         </div>

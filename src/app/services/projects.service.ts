@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 export interface Project {
+  PK_ID?: string;
   Project_ID?: string;
   Address?: string;
   City?: string;
@@ -39,7 +40,7 @@ export class ProjectsService {
   }
 
   getProjectById(projectId: string): Observable<Project> {
-    return this.caspioService.get<any>(`/v2/tables/Projects/records?q.where=Project_ID%3D%27${projectId}%27`).pipe(
+    return this.caspioService.get<any>(`/v2/tables/Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
       map(response => response.Result && response.Result[0] || {})
     );
   }

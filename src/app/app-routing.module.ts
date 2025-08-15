@@ -13,6 +13,14 @@ const routes: Routes = [
   {
     path: 'test-form',
     loadChildren: () => import('./test-form/test-form.module').then( m => m.TestFormPageModule)
+  },
+  {
+    path: 'project/:id',
+    loadChildren: () => import('./pages/project-detail/project-detail.module').then( m => m.ProjectDetailPageModule)
+  },
+  {
+    path: 'template-form/:projectId/:offersId',
+    loadChildren: () => import('./pages/template-form/template-form.module').then( m => m.TemplateFormPageModule)
   }
 ];
 

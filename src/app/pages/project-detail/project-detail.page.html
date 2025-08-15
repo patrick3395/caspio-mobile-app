@@ -1,0 +1,132 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()" color="primary">
+        <ion-icon name="arrow-back"></ion-icon>
+        Back to Projects
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Loading state -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading project...</p>
+  </div>
+
+  <!-- Error state -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-text color="danger">
+      <h2>Project Not Found</h2>
+      <p>The requested project could not be found.</p>
+    </ion-text>
+    <ion-button (click)="goBack()" color="primary">Back to Projects</ion-button>
+  </div>
+
+  <!-- Project details -->
+  <div *ngIf="project && !loading && !error" class="project-container">
+    <!-- Street View Header -->
+    <div class="street-view-header">
+      <img [src]="getStreetViewUrl()" alt="Street View">
+    </div>
+
+    <!-- Project Information -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>{{ formatAddress() }}</ion-card-title>
+        <ion-card-subtitle>Project Details</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item *ngIf="project.Project_ID">
+            <ion-label>
+              <strong>Project ID:</strong> {{ project.Project_ID }}
+            </ion-label>
+          </ion-item>
+          <ion-item *ngIf="project.Project_Name">
+            <ion-label>
+              <strong>Project Name:</strong> {{ project.Project_Name }}
+            </ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>
+              <strong>Status:</strong> 
+              <ion-badge color="success">Active</ion-badge>
+            </ion-label>
+          </ion-item>
+          <ion-item *ngIf="project.Company_ID">
+            <ion-label>
+              <strong>Company ID:</strong> {{ project.Company_ID }}
+            </ion-label>
+          </ion-item>
+          <ion-item *ngIf="project.Address">
+            <ion-label>
+              <strong>Address:</strong> {{ project.Address }}
+            </ion-label>
+          </ion-item>
+          <ion-item *ngIf="project.City">
+            <ion-label>
+              <strong>City:</strong> {{ project.City }}
+            </ion-label>
+          </ion-item>
+          <ion-item *ngIf="project.State">
+            <ion-label>
+              <strong>State:</strong> {{ project.State }}
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Templates Section -->
+    <ion-card *ngIf="serviceName">
+      <ion-card-header>
+        <ion-card-title>Templates</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item>
+            <ion-label>{{ serviceName }}</ion-label>
+            <ion-button slot="end" (click)="openTemplate()" color="primary">
+              Open Template
+            </ion-button>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Required Documents Section -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Required Documents</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item>
+            <ion-label>Home Inspection Report</ion-label>
+            <ion-button slot="end" fill="outline" size="small">
+              <ion-icon name="cloud-upload"></ion-icon>
+              Upload
+            </ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-label>Support Document 1</ion-label>
+            <ion-button slot="end" fill="outline" size="small">
+              <ion-icon name="cloud-upload"></ion-icon>
+              Upload
+            </ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-label>Support Document 2</ion-label>
+            <ion-button slot="end" fill="outline" size="small">
+              <ion-icon name="cloud-upload"></ion-icon>
+              Upload
+            </ion-button>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

@@ -172,4 +172,22 @@ export class CaspioService {
   logout(): void {
     this.clearToken();
   }
+
+  getOfferById(offersId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.get(`/tables/Offers/records?q.where=PK_ID=${offersId}`).subscribe({
+        next: (response: any) => {
+          if (response && response.Result && response.Result.length > 0) {
+            resolve(response.Result[0]);
+          } else {
+            resolve(null);
+          }
+        },
+        error: (error) => {
+          console.error('Error fetching offer:', error);
+          reject(error);
+        }
+      });
+    });
+  }
 }

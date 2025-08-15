@@ -1,0 +1,180 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/active-projects"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ serviceName || 'Template Form' }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="service-header">
+    <h1>{{ serviceName }}</h1>
+  </div>
+
+  <form (ngSubmit)="submitForm()">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Information</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="stacked">Company</ion-label>
+          <ion-select [(ngModel)]="formData.company" name="company" placeholder="Select Company">
+            <ion-select-option value="Noble Property Inspections">Noble Property Inspections</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">User</ion-label>
+          <ion-select [(ngModel)]="formData.user" name="user" placeholder="Select User">
+            <ion-select-option value="Patrick Bullock">Patrick Bullock</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Date of Request</ion-label>
+          <ion-datetime [(ngModel)]="formData.date" name="date" displayFormat="MM/DD/YYYY"></ion-datetime>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Inspection Date</ion-label>
+          <ion-datetime [(ngModel)]="formData.inspectionDate" name="inspectionDate" displayFormat="MM/DD/YYYY"></ion-datetime>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Requested Address</ion-label>
+          <ion-input [(ngModel)]="formData.requestedAddress" name="requestedAddress" placeholder="Enter address"></ion-input>
+        </ion-item>
+
+        <ion-row>
+          <ion-col size="6">
+            <ion-item>
+              <ion-label position="stacked">City</ion-label>
+              <ion-input [(ngModel)]="formData.city" name="city" placeholder="Missouri City"></ion-input>
+            </ion-item>
+          </ion-col>
+          <ion-col size="3">
+            <ion-item>
+              <ion-label position="stacked">State</ion-label>
+              <ion-select [(ngModel)]="formData.state" name="state" placeholder="TX">
+                <ion-select-option value="TX">TX</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-col>
+          <ion-col size="3">
+            <ion-item>
+              <ion-label position="stacked">Zip</ion-label>
+              <ion-input [(ngModel)]="formData.zip" name="zip" placeholder="77489"></ion-input>
+            </ion-item>
+          </ion-col>
+        </ion-row>
+
+        <ion-item>
+          <ion-label position="stacked">Service Type</ion-label>
+          <ion-select [(ngModel)]="formData.serviceType" name="serviceType" placeholder="Select Service">
+            <ion-select-option value="Engineers Damaged Truss Evaluation">Engineer's Damaged Truss Evaluation</ion-select-option>
+            <ion-select-option value="Engineers Foundation Evaluation">Engineer's Foundation Evaluation</ion-select-option>
+            <ion-select-option value="Standard Repair Permit and Printing Results">Standard Repair Permit and Printing Results</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">CalCities ID</ion-label>
+          <ion-input placeholder="(Optional)"></ion-input>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Structural Systems</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="stacked">Home Inspection Report</ion-label>
+          <div class="file-upload-container">
+            <ion-button size="small" fill="outline" expand="block">
+              <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+              Choose File
+            </ion-button>
+            <ion-text color="medium">
+              <p class="file-info">No file chosen</p>
+            </ion-text>
+          </div>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">or Home Inspection Link</ion-label>
+          <ion-input placeholder="Enter link"></ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Engineer's Evaluation Report</ion-label>
+          <div class="file-upload-container">
+            <ion-button size="small" fill="outline" expand="block">
+              <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+              Choose File
+            </ion-button>
+            <ion-text color="medium">
+              <p class="file-info">No file chosen</p>
+            </ion-text>
+          </div>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">or Engineer's Evaluation Link</ion-label>
+          <ion-input placeholder="Enter link"></ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Support Document</ion-label>
+          <div class="file-upload-container">
+            <ion-button size="small" fill="outline" expand="block">
+              <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+              Choose File
+            </ion-button>
+            <ion-text color="medium">
+              <p class="file-info">No file chosen</p>
+            </ion-text>
+          </div>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Elevation Plot</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="stacked">Notes</ion-label>
+          <ion-textarea 
+            [(ngModel)]="formData.notes" 
+            name="notes"
+            rows="4"
+            placeholder="Enter any additional notes or comments">
+          </ion-textarea>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card>
+      <ion-card-content>
+        <ion-row>
+          <ion-col size="6">
+            <ion-item lines="none">
+              <ion-label>Service Fee</ion-label>
+              <ion-text slot="end" class="fee-amount">$285.00</ion-text>
+            </ion-item>
+          </ion-col>
+          <ion-col size="6">
+            <ion-button expand="block" type="submit" color="primary">
+              Submit
+            </ion-button>
+          </ion-col>
+        </ion-row>
+      </ion-card-content>
+    </ion-card>
+  </form>
+</ion-content>
