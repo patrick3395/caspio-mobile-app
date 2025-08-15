@@ -154,9 +154,8 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   createNewProject() {
-    // Navigate to template form for new project creation
+    // Navigate to new project page
     console.log('Create new project clicked');
-    // Navigate to template form with 'new' as project ID to indicate new project
-    this.router.navigate(['/template-form', 'new', 'new']);
+    this.router.navigate(['/new-project']);
   }
 }

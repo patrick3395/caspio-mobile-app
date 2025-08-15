@@ -17,6 +17,10 @@ const routes: Routes = [
   {
     path: 'template-form/:projectId/:offersId',
     loadChildren: () => import('./pages/template-form/template-form.module').then( m => m.TemplateFormPageModule)
+  },
+  {
+    path: 'new-project',
+    loadComponent: () => import('./pages/new-project/new-project.page').then( m => m.NewProjectPage)
   }
 ];
 

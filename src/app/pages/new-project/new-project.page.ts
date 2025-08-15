@@ -19,9 +19,9 @@ export class NewProjectPage implements OnInit {
   
   formData: ProjectCreationData = {
     company: '1',  // Noble Property Inspections
-    user: '1',     // Default user
+    user: '1',     // Patrick Bullock
     dateOfRequest: new Date().toISOString().split('T')[0],
-    inspectionDate: '',
+    inspectionDate: new Date().toISOString().split('T')[0], // Default to today
     address: '',
     city: '',
     state: 'TX',
@@ -162,6 +162,14 @@ export class NewProjectPage implements OnInit {
         }
         
         await loading.dismiss();
+        
+        // Show success message
+        const successAlert = await this.alertController.create({
+          header: 'Success',
+          message: 'Project created successfully!',
+          buttons: ['OK']
+        });
+        await successAlert.present();
         
         // Navigate to the new project's detail page
         this.router.navigate(['/project', result.projectId]);
