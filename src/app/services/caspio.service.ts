@@ -48,6 +48,13 @@ export class CaspioService {
       }),
       catchError(error => {
         console.error('Authentication failed:', error);
+        console.error('Auth error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          message: error.message,
+          url: error.url,
+          error: error.error
+        });
         return throwError(() => error);
       })
     );
@@ -108,6 +115,7 @@ export class CaspioService {
   get<T>(endpoint: string): Observable<T> {
     const token = this.getCurrentToken();
     if (!token) {
+      console.error('No authentication token available for GET request to:', endpoint);
       return throwError(() => new Error('No authentication token available'));
     }
 
@@ -116,7 +124,22 @@ export class CaspioService {
       'Content-Type': 'application/json'
     });
 
-    return this.http.get<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers });
+    const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+    console.log('Making GET request to:', url);
+    
+    return this.http.get<T>(url, { headers }).pipe(
+      catchError(error => {
+        console.error(`GET request failed for ${endpoint}:`, error);
+        console.error('GET error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          message: error.message,
+          url: error.url,
+          error: error.error
+        });
+        return throwError(() => error);
+      })
+    );
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {

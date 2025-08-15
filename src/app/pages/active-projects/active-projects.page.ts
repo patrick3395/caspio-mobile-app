@@ -38,12 +38,15 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.caspioService.authenticate().subscribe({
       next: () => {
+        console.log('Authentication successful in ActiveProjects');
         this.loadActiveProjects();
       },
       error: (error) => {
-        this.error = 'Authentication failed';
+        const errorMessage = error?.error?.message || error?.message || 'Unknown error';
+        this.error = `Authentication failed: ${errorMessage}`;
         this.loading = false;
         console.error('Authentication error:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
       }
     });
   }
@@ -84,9 +87,48 @@ export class ActiveProjectsPage implements OnInit {
         });
       },
       error: (error) => {
-        this.error = 'Failed to get table structure';
+        const errorMessage = error?.error?.message || error?.message || 'Unknown error';
+        this.error = `Failed to get table structure: ${errorMessage}`;
         this.loading = false;
         console.error('Error getting table definition:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        // Try to load projects anyway without table definition
+        this.loadProjectsDirectly();
+      }
+    });
+  }
+
+  loadProjectsDirectly() {
+    console.log('Attempting to load projects directly without table definition...');
+    this.loading = true;
+    this.error = '';
+    
+    this.projectsService.getActiveProjects().subscribe({
+      next: (projects) => {
+        this.projects = projects;
+        this.loading = false;
+        this.error = '';
+        console.log('Projects loaded directly:', projects);
+      },
+      error: (error) => {
+        // If filtered query fails, try getting all projects and filter locally
+        this.projectsService.getAllProjects().subscribe({
+          next: (allProjects) => {
+            this.projects = allProjects.filter(p => 
+              p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
+            );
+            this.loading = false;
+            this.error = '';
+            console.log('All projects loaded and filtered:', this.projects);
+          },
+          error: (err) => {
+            const errorMessage = err?.error?.message || err?.message || 'Unknown error';
+            this.error = `Failed to load projects: ${errorMessage}`;
+            this.loading = false;
+            console.error('Error loading all projects:', err);
+            console.error('Full error details:', JSON.stringify(err, null, 2));
+          }
+        });
       }
     });
   }
