@@ -69,7 +69,7 @@ export class NewProjectPage implements OnInit {
   }
 
   initializeGooglePlaces() {
-    // Initialize Google Places Autocomplete
+    // Initialize Google Places Autocomplete - exact same as local server
     setTimeout(() => {
       const addressInput = document.getElementById('address-input') as HTMLInputElement;
       if (addressInput && typeof google !== 'undefined') {
@@ -80,33 +80,46 @@ export class NewProjectPage implements OnInit {
         
         autocomplete.addListener('place_changed', () => {
           const place = autocomplete.getPlace();
-          if (place.geometry) {
-            // Parse address components
-            let streetNumber = '';
-            let streetName = '';
-            
-            for (const component of place.address_components) {
-              const types = component.types;
-              
-              if (types.includes('street_number')) {
-                streetNumber = component.long_name;
-              }
-              if (types.includes('route')) {
-                streetName = component.long_name;
-              }
-              if (types.includes('locality')) {
-                this.formData.city = component.long_name;
-              }
-              if (types.includes('administrative_area_level_1')) {
-                this.formData.state = component.short_name;
-              }
-              if (types.includes('postal_code')) {
-                this.formData.zip = component.long_name;
-              }
-            }
-            
-            this.formData.address = streetNumber + ' ' + streetName;
+          
+          if (!place.geometry) {
+            return;
           }
+          
+          // Parse the address components - exact same as local server
+          let streetNumber = '';
+          let streetName = '';
+          let city = '';
+          let state = '';
+          let zip = '';
+          
+          for (const component of place.address_components) {
+            const types = component.types;
+            
+            if (types.includes('street_number')) {
+              streetNumber = component.long_name;
+            }
+            if (types.includes('route')) {
+              streetName = component.long_name;
+            }
+            if (types.includes('locality')) {
+              city = component.long_name;
+            }
+            if (types.includes('administrative_area_level_1')) {
+              state = component.short_name;
+            }
+            if (types.includes('postal_code')) {
+              zip = component.long_name;
+            }
+          }
+          
+          // Update the form fields - exact same as local server
+          this.formData.address = streetNumber + ' ' + streetName;
+          this.formData.city = city;
+          this.formData.state = state;
+          this.formData.zip = zip;
+          
+          // Trigger Angular change detection
+          addressInput.value = this.formData.address;
         });
       }
     }, 1000);

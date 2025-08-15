@@ -145,28 +145,68 @@ export class ProjectsService {
           'Content-Type': 'application/json'
         });
         
-        return this.http.post<any>(`${this.apiBaseUrl}/tables/Projects/records`, caspioData, { headers }).pipe(
+        return this.http.post<any>(`${this.apiBaseUrl}/tables/Projects/records`, caspioData, { 
+          headers,
+          observe: 'response' // Get full response to check status
+        }).pipe(
           switchMap(response => {
-            console.log('✅ Project created, response:', response);
+            console.log('✅ Project creation response status:', response.status);
+            console.log('📥 Response body:', response.body);
             
-            // Handle Caspio's 201 Created with location header
-            // Fetch the newly created project to get its PK_ID
-            return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
-              map(newProject => {
-                if (newProject) {
-                  return {
-                    success: true,
+            // Caspio returns 201 Created with empty body on success
+            if (response.status === 201 || response.status === 200) {
+              console.log('✅ Project created successfully');
+              
+              // Fetch the newly created project to get its PK_ID
+              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
+                map(newProject => {
+                  if (newProject) {
+                    return {
+                      success: true,
+                      message: 'Project created',
+                      projectId: newProject.PK_ID,
+                      projectData: newProject
+                    };
+                  }
+                  // Even if we can't find the project, return success
+                  // The project was created, we just can't find it yet
+                  return { 
+                    success: true, 
                     message: 'Project created',
-                    projectId: newProject.PK_ID,
-                    projectData: newProject
+                    projectId: 'new' // Fallback ID
                   };
-                }
-                return { success: true, message: 'Project created' };
-              })
-            );
+                })
+              );
+            } else {
+              return throwError(() => new Error('Failed to create project'));
+            }
           }),
           catchError(error => {
             console.error('Error creating project:', error);
+            
+            // Check if it's actually a success (201 status)
+            if (error.status === 201) {
+              console.log('✅ Project created (201 in error handler)');
+              // Still success, Caspio returns 201 with empty body
+              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
+                map(newProject => {
+                  if (newProject) {
+                    return {
+                      success: true,
+                      message: 'Project created',
+                      projectId: newProject.PK_ID,
+                      projectData: newProject
+                    };
+                  }
+                  return { 
+                    success: true, 
+                    message: 'Project created',
+                    projectId: 'new'
+                  };
+                })
+              );
+            }
+            
             return throwError(() => error);
           })
         );
