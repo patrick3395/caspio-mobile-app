@@ -154,11 +154,9 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   createNewProject() {
-    // Navigate to new project creation page
-    // For now, we'll just show an alert
+    // Navigate to template form for new project creation
     console.log('Create new project clicked');
-    // TODO: Implement navigation to project creation form
-    // this.router.navigate(['/new-project']);
-    alert('New project creation coming soon!');
+    // Navigate to template form with 'new' as project ID to indicate new project
+    this.router.navigate(['/template-form', 'new', 'new']);
   }
 }
