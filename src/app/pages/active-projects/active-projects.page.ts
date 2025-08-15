@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 
@@ -15,7 +16,8 @@ export class ActiveProjectsPage implements OnInit {
 
   constructor(
     private projectsService: ProjectsService,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -134,9 +136,13 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   getProjectImage(project: Project): string {
-    // Return a placeholder image for now
-    // You can update this to use actual project images if available
-    return 'assets/img/project-placeholder.svg';
+    const address = this.formatAddress(project);
+    if (!address) {
+      return 'assets/img/project-placeholder.svg';
+    }
+    const encodedAddress = encodeURIComponent(address);
+    const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
   }
 
   formatAddress(project: Project): string {
@@ -145,5 +151,14 @@ export class ActiveProjectsPage implements OnInit {
     if (project.City) parts.push(project.City);
     if (project.State) parts.push(project.State);
     return parts.join(', ');
+  }
+
+  createNewProject() {
+    // Navigate to new project creation page
+    // For now, we'll just show an alert
+    console.log('Create new project clicked');
+    // TODO: Implement navigation to project creation form
+    // this.router.navigate(['/new-project']);
+    alert('New project creation coming soon!');
   }
 }

@@ -102,9 +102,31 @@ export class ProjectDetailPage implements OnInit {
     this.router.navigate(['/tabs/active-projects']);
   }
 
-  openTemplate() {
+  openTemplate(template?: any) {
     if (this.project && this.project['OffersID']) {
       this.router.navigate(['/template-form', this.projectId, this.project['OffersID']]);
+    } else if (template) {
+      // Handle specific template navigation
+      console.log('Opening template:', template);
+      this.router.navigate(['/template-form', this.projectId, template.id]);
     }
+  }
+
+  hasTemplates(): boolean {
+    // Check if project has associated templates
+    // This will be true if the project has an OffersID or other template indicators
+    return !!(this.project && (this.project['OffersID'] || this.serviceName));
+  }
+
+  getAvailableTemplates(): any[] {
+    // Return available templates for this project
+    // For now, return a single template if service name exists
+    if (this.serviceName) {
+      return [{
+        id: this.project?.['OffersID'] || '1',
+        name: this.serviceName
+      }];
+    }
+    return [];
   }
 }

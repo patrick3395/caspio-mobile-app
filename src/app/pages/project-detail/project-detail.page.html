@@ -33,100 +33,80 @@
     </div>
 
     <!-- Project Information -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>{{ formatAddress() }}</ion-card-title>
-        <ion-card-subtitle>Project Details</ion-card-subtitle>
-      </ion-card-header>
-      <ion-card-content>
-        <ion-list>
-          <ion-item *ngIf="project.Project_ID">
-            <ion-label>
-              <strong>Project ID:</strong> {{ project.Project_ID }}
-            </ion-label>
-          </ion-item>
-          <ion-item *ngIf="project.Project_Name">
-            <ion-label>
-              <strong>Project Name:</strong> {{ project.Project_Name }}
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <strong>Status:</strong> 
-              <ion-badge color="success">Active</ion-badge>
-            </ion-label>
-          </ion-item>
-          <ion-item *ngIf="project.Company_ID">
-            <ion-label>
-              <strong>Company ID:</strong> {{ project.Company_ID }}
-            </ion-label>
-          </ion-item>
-          <ion-item *ngIf="project.Address">
-            <ion-label>
-              <strong>Address:</strong> {{ project.Address }}
-            </ion-label>
-          </ion-item>
-          <ion-item *ngIf="project.City">
-            <ion-label>
-              <strong>City:</strong> {{ project.City }}
-            </ion-label>
-          </ion-item>
-          <ion-item *ngIf="project.State">
-            <ion-label>
-              <strong>State:</strong> {{ project.State }}
-            </ion-label>
-          </ion-item>
-        </ion-list>
-      </ion-card-content>
-    </ion-card>
+    <div class="project-info-section">
+      <h2 class="section-title">PROJECT DETAILS</h2>
+      <div class="project-title">{{ formatAddress() }}</div>
+      
+      <div class="detail-item">
+        <span class="detail-label">Status:</span>
+        <ion-badge color="success" class="status-badge">Active</ion-badge>
+      </div>
+      
+      <div class="detail-item" *ngIf="project.Address">
+        <span class="detail-label">Address:</span>
+        <span class="detail-value">{{ project.Address }}</span>
+      </div>
+      
+      <div class="detail-item" *ngIf="project.City">
+        <span class="detail-label">City:</span>
+        <span class="detail-value">{{ project.City }}</span>
+      </div>
+      
+      <div class="detail-item" *ngIf="project.State">
+        <span class="detail-label">State:</span>
+        <span class="detail-value">{{ project.State }}</span>
+      </div>
+      
+      <div class="detail-item" *ngIf="project.Project_ID">
+        <span class="detail-label">Project ID:</span>
+        <span class="detail-value">{{ project.Project_ID }}</span>
+      </div>
+      
+      <div class="detail-item" *ngIf="project.Company_ID">
+        <span class="detail-label">Company ID:</span>
+        <span class="detail-value">{{ project.Company_ID }}</span>
+      </div>
+    </div>
 
     <!-- Templates Section -->
-    <ion-card *ngIf="serviceName">
-      <ion-card-header>
-        <ion-card-title>Templates</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        <ion-list>
-          <ion-item>
-            <ion-label>{{ serviceName }}</ion-label>
-            <ion-button slot="end" (click)="openTemplate()" color="primary">
-              Open Template
-            </ion-button>
-          </ion-item>
-        </ion-list>
-      </ion-card-content>
-    </ion-card>
+    <div class="templates-section" *ngIf="hasTemplates()">
+      <h2 class="section-title">TEMPLATES</h2>
+      <div class="template-list">
+        <div class="template-item" *ngFor="let template of getAvailableTemplates()">
+          <span class="template-name">{{ template.name }}</span>
+          <ion-button (click)="openTemplate(template)" size="small" fill="outline">
+            Open
+          </ion-button>
+        </div>
+      </div>
+    </div>
 
     <!-- Required Documents Section -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Required Documents</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        <ion-list>
-          <ion-item>
-            <ion-label>Home Inspection Report</ion-label>
-            <ion-button slot="end" fill="outline" size="small">
-              <ion-icon name="cloud-upload"></ion-icon>
-              Upload
-            </ion-button>
-          </ion-item>
-          <ion-item>
-            <ion-label>Support Document 1</ion-label>
-            <ion-button slot="end" fill="outline" size="small">
-              <ion-icon name="cloud-upload"></ion-icon>
-              Upload
-            </ion-button>
-          </ion-item>
-          <ion-item>
-            <ion-label>Support Document 2</ion-label>
-            <ion-button slot="end" fill="outline" size="small">
-              <ion-icon name="cloud-upload"></ion-icon>
-              Upload
-            </ion-button>
-          </ion-item>
-        </ion-list>
-      </ion-card-content>
-    </ion-card>
+    <div class="documents-section">
+      <h2 class="section-title">Required Documents</h2>
+      <div class="document-list">
+        <div class="document-item">
+          <span class="document-name">Home Inspection Report</span>
+          <ion-button size="small" fill="solid" color="primary">
+            <ion-icon name="cloud-upload" slot="start"></ion-icon>
+            Upload
+          </ion-button>
+        </div>
+        <div class="document-item">
+          <span class="document-name">Support Document 1</span>
+          <ion-button size="small" fill="solid" color="primary">
+            <ion-icon name="cloud-upload" slot="start"></ion-icon>
+            Upload
+          </ion-button>
+        </div>
+        <div class="document-item">
+          <span class="document-name">Support Document 2</span>
+          <ion-button size="small" fill="solid" color="primary">
+            <ion-icon name="cloud-upload" slot="start"></ion-icon>
+            Upload
+          </ion-button>
+        </div>
+      </div>
+    </div>
   </div>
 </ion-content>
