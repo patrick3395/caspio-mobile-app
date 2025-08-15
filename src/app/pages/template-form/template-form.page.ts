@@ -359,7 +359,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        this.formData = { ...this.formData, ...parsed };
+        if (this.formData && parsed) {
+          this.formData = { ...this.formData, ...parsed };
+        }
         console.log('Loaded saved form data');
       } catch (error) {
         console.error('Error loading saved data:', error);
