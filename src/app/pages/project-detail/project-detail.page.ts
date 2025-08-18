@@ -134,8 +134,8 @@ export class ProjectDetailPage implements OnInit {
       const types = await this.caspioService.getServiceTypes().toPromise();
       
       // Merge offer data with type names
-      this.availableOffers = offers.map((offer: any) => {
-        const type = types.find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
+      this.availableOffers = (offers || []).map((offer: any) => {
+        const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         return {
           ...offer,
           TypeName: type?.Type || offer.Service_Name || 'Unknown Service'
@@ -156,7 +156,7 @@ export class ProjectDetailPage implements OnInit {
       const services = await this.caspioService.getServicesByProject(this.projectId).toPromise();
       
       // Convert existing services to our selection format
-      this.selectedServices = services.map((service: any) => {
+      this.selectedServices = (services || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID === service.TypeID);
         return {
           instanceId: this.generateInstanceId(),
@@ -177,7 +177,7 @@ export class ProjectDetailPage implements OnInit {
 
   async loadAttachTemplates() {
     try {
-      this.attachTemplates = await this.caspioService.getAttachTemplates().toPromise();
+      this.attachTemplates = (await this.caspioService.getAttachTemplates().toPromise()) || [];
       console.log('Attach templates loaded:', this.attachTemplates);
     } catch (error) {
       console.error('Error loading attach templates:', error);
@@ -188,7 +188,7 @@ export class ProjectDetailPage implements OnInit {
     this.loadingDocuments = true;
     try {
       const attachments = await this.caspioService.getAttachmentsByProject(this.projectId).toPromise();
-      this.existingAttachments = attachments;
+      this.existingAttachments = attachments || [];
       console.log('Existing attachments loaded:', this.existingAttachments);
       this.updateDocumentsList();
     } catch (error) {
