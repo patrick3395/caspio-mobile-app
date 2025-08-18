@@ -52,8 +52,83 @@
       </div>
       
       <div class="info-row">
-        <span class="info-label">Service Requested:</span>
-        <span class="info-value">{{ serviceName || 'Other' }}</span>
+        <span class="info-label">Project ID:</span>
+        <span class="info-value">#{{ project.PK_ID || project.ProjectID }}</span>
+      </div>
+    </div>
+
+    <!-- Service Selection Section -->
+    <div class="info-section">
+      <h2 class="section-title">Services</h2>
+      
+      <!-- Loading services -->
+      <div *ngIf="loadingServices" class="services-loading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Loading services...</span>
+      </div>
+      
+      <!-- Service checkboxes -->
+      <div *ngIf="!loadingServices" class="services-grid">
+        <div *ngFor="let offer of availableOffers" class="service-item">
+          <ion-checkbox 
+            [checked]="isServiceSelected(offer.OffersID)"
+            (ionChange)="toggleService($event, offer)"
+            [disabled]="updatingServices">
+          </ion-checkbox>
+          <label (click)="toggleServiceByLabel(offer)">{{ offer.TypeName || offer.Service_Name }}</label>
+        </div>
+      </div>
+      
+      <!-- Selected Services with Date of Inspection -->
+      <div *ngIf="selectedServices.length > 0" class="selected-services">
+        <h3>Selected Services</h3>
+        <div *ngFor="let service of selectedServices; let i = index" class="service-detail-item">
+          <div class="service-header">
+            <span class="service-name">
+              {{ service.typeName }}
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="service-count">
+                (Instance {{ getServiceInstanceNumber(service) }})
+              </span>
+            </span>
+            <div class="service-actions">
+              <ion-button 
+                size="small" 
+                fill="clear" 
+                color="danger"
+                (click)="removeServiceInstance(service)"
+                [disabled]="updatingServices">
+                <ion-icon name="remove-circle"></ion-icon>
+              </ion-button>
+              <ion-button 
+                size="small" 
+                fill="clear" 
+                color="success"
+                (click)="duplicateService(service.offersId, service.typeName)"
+                [disabled]="updatingServices">
+                <ion-icon name="add-circle"></ion-icon>
+              </ion-button>
+            </div>
+          </div>
+          <div class="service-date">
+            <ion-item lines="none">
+              <ion-label>Date of Inspection:</ion-label>
+              <ion-datetime 
+                display-format="MMM DD, YYYY"
+                [value]="service.dateOfInspection"
+                (ionChange)="updateServiceDate(service, $event)"
+                [disabled]="updatingServices">
+              </ion-datetime>
+              <span *ngIf="service.saving" class="saving-indicator">
+                <ion-spinner name="dots"></ion-spinner>
+                Saving...
+              </span>
+              <span *ngIf="service.saved" class="saved-indicator">
+                <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                Saved
+              </span>
+            </ion-item>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -61,77 +136,130 @@
     <div class="info-section">
       <h2 class="section-title">Required Documents</h2>
       
-      <div class="documents-table">
+      <!-- Loading documents -->
+      <div *ngIf="loadingDocuments" class="documents-loading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Loading documents...</span>
+      </div>
+      
+      <!-- No services selected -->
+      <div *ngIf="!loadingDocuments && selectedServices.length === 0" class="no-services-message">
+        <ion-text color="medium">
+          <p>Please select services above to see required documents.</p>
+        </ion-text>
+      </div>
+      
+      <!-- Documents table -->
+      <div *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
         <div class="doc-header">
+          <div class="doc-col">Service</div>
           <div class="doc-col">Document</div>
           <div class="doc-col">Status</div>
           <div class="doc-col">Action</div>
         </div>
         
-        <div class="doc-row">
-          <div class="doc-col">Home Inspection Report</div>
-          <div class="doc-col">
-            <span class="status-badge status-required">Required</span>
+        <!-- Dynamic documents based on selected services -->
+        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
+          <div *ngFor="let doc of serviceDoc.documents; let isFirst = first" class="doc-row">
+            <div class="doc-col" *ngIf="isFirst" [attr.rowspan]="serviceDoc.documents.length">
+              {{ serviceDoc.serviceName }}
+              <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
+                #{{ serviceDoc.instanceNumber }}
+              </span>
+            </div>
+            <div class="doc-col">
+              {{ doc.title }}
+              <a *ngIf="!doc.required && !doc.uploaded" 
+                 (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
+                 class="remove-doc-link">
+                Remove
+              </a>
+            </div>
+            <div class="doc-col">
+              <span class="status-badge" [ngClass]="{
+                'status-uploaded': doc.uploaded,
+                'status-required': !doc.uploaded && doc.required,
+                'status-optional': !doc.uploaded && !doc.required
+              }">
+                {{ doc.uploaded ? 'Uploaded' : (doc.required ? 'Required' : 'Optional') }}
+              </span>
+            </div>
+            <div class="doc-col">
+              <!-- Upload button for documents without files -->
+              <ion-button 
+                *ngIf="!doc.uploaded"
+                size="small" 
+                fill="solid" 
+                color="primary" 
+                (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                Upload
+              </ion-button>
+              
+              <!-- Actions for uploaded documents -->
+              <div *ngIf="doc.uploaded" class="uploaded-actions">
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="primary" 
+                  (click)="viewDocument(doc)">
+                  View
+                </ion-button>
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="warning" 
+                  (click)="replaceDocument(doc)">
+                  Replace
+                </ion-button>
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="success" 
+                  (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                  + Add
+                </ion-button>
+              </div>
+            </div>
           </div>
-          <div class="doc-col">
-            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('InspectionReport')">
-              Upload
-            </ion-button>
-          </div>
-        </div>
-        
-        <div class="doc-row">
-          <div class="doc-col">Cubicasa</div>
-          <div class="doc-col">
-            <span class="status-badge status-uploaded">Uploaded</span>
-          </div>
-          <div class="doc-col">
-            <ion-button size="small" fill="solid" color="primary" (click)="viewDocument('Cubicasa')">
-              View
-            </ion-button>
-          </div>
-        </div>
-        
-        <div class="doc-row">
-          <div class="doc-col">Support Document 1</div>
-          <div class="doc-col">
-            <span class="status-badge status-optional">Optional</span>
-          </div>
-          <div class="doc-col">
-            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('SupportDocument1')">
-              Upload
-            </ion-button>
-          </div>
-        </div>
-        
-        <div class="doc-row">
-          <div class="doc-col">Support Document 2</div>
-          <div class="doc-col">
-            <span class="status-badge status-optional">Optional</span>
-          </div>
-          <div class="doc-col">
-            <ion-button size="small" fill="solid" color="primary" (click)="uploadDocument('SupportDocument2')">
-              Upload
-            </ion-button>
+          
+          <!-- Add optional documents link -->
+          <div class="doc-row add-doc-row">
+            <div class="doc-col"></div>
+            <div class="doc-col" colspan="3">
+              <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
+                + Add Document
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Templates Section -->
-    <div class="info-section">
+    <div class="info-section" *ngIf="selectedServices.length > 0">
       <h2 class="section-title">Templates</h2>
       
       <div class="templates-table">
-        <div class="template-row">
-          <div class="template-col">Service Template</div>
+        <div class="template-header">
+          <div class="template-col">Service</div>
+          <div class="template-col">Instance</div>
           <div class="template-col">Action</div>
         </div>
         
-        <div class="template-row">
-          <div class="template-col">{{ serviceName || 'Other' }}</div>
+        <div *ngFor="let service of selectedServices" class="template-row">
+          <div class="template-col">{{ service.typeName }}</div>
           <div class="template-col">
-            <ion-button size="small" fill="solid" color="success" (click)="openTemplate()">
+            <span *ngIf="getServiceCount(service.offersId) > 1">
+              Instance {{ getServiceInstanceNumber(service) }}
+            </span>
+            <span *ngIf="getServiceCount(service.offersId) === 1">-</span>
+          </div>
+          <div class="template-col">
+            <ion-button 
+              size="small" 
+              fill="solid" 
+              color="success" 
+              (click)="openTemplate(service)">
               Open Template
             </ion-button>
           </div>
@@ -139,4 +267,36 @@
       </div>
     </div>
   </div>
+
+  <!-- File upload input (hidden) -->
+  <input 
+    #fileInput 
+    type="file" 
+    style="display: none" 
+    (change)="handleFileSelect($event)"
+    accept="image/*,.pdf,.doc,.docx">
 </ion-content>
+
+<!-- Optional Documents Modal -->
+<ion-modal #optionalDocsModal>
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Add Document</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeOptionalDocsModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-list>
+        <ion-item *ngFor="let doc of optionalDocumentsList" (click)="addOptionalDocument(doc)">
+          <ion-label>
+            <h2>{{ doc.title }}</h2>
+            <p>{{ doc.required ? 'Required' : 'Optional' }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>

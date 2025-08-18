@@ -219,4 +219,72 @@ export class CaspioService {
       });
     });
   }
+
+  // Service Types methods
+  getServiceTypes(): Observable<any[]> {
+    return this.get<any>('/tables/Type/records').pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  // Offers methods
+  getOffersByCompany(companyId: string): Observable<any[]> {
+    return this.get<any>(`/tables/Offers/records?q.where=CompanyID=${companyId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  // Services table methods
+  getServicesByProject(projectId: string): Observable<any[]> {
+    return this.get<any>(`/tables/Services/records?q.where=ProjectID=${projectId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  createService(serviceData: any): Observable<any> {
+    return this.post<any>('/tables/Services/records', serviceData);
+  }
+
+  updateService(serviceId: string, updateData: any): Observable<any> {
+    return this.put<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`, updateData);
+  }
+
+  deleteService(serviceId: string): Observable<any> {
+    return this.delete<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`);
+  }
+
+  // Attach Templates methods
+  getAttachTemplates(): Observable<any[]> {
+    return this.get<any>('/tables/Attach_Templates/records').pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  // Attach (Attachments) table methods
+  getAttachmentsByProject(projectId: string): Observable<any[]> {
+    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  createAttachment(attachData: any): Observable<any> {
+    return this.post<any>('/tables/Attach/records', attachData);
+  }
+
+  updateAttachment(attachId: string, updateData: any): Observable<any> {
+    return this.put<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`, updateData);
+  }
+
+  deleteAttachment(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
+  }
+
+  // File upload method
+  uploadFileToAttachment(attachId: string, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Use the Files API endpoint for Attach table
+    return this.post<any>(`/files/Attach/${attachId}`, formData);
+  }
 }
