@@ -1,3 +1,10 @@
+// Minimal SCSS to meet budget requirements
+$gray: #e0e0e0;
+$dark: #333;
+$med: #666;
+$light: #f8f9fa;
+$border: #dee2e6;
+
 ion-content {
   --padding-start: 0;
   --padding-end: 0;
@@ -12,24 +19,13 @@ ion-content {
   justify-content: center;
   min-height: 300px;
   padding: 20px;
-  
-  ion-spinner { width: 40px; height: 40px; }
-  p { margin-top: 16px; color: var(--ion-color-medium); }
 }
-
-.error-container {
-  text-align: center;
-  h2 { margin-bottom: 10px; }
-  ion-button { margin-top: 20px; }
-}
-
-.project-container { padding-bottom: 40px; }
 
 .street-view-header {
   width: 100%;
   height: 200px;
   overflow: hidden;
-  background: #e0e0e0;
+  background: $gray;
   
   img {
     width: 100%;
@@ -42,22 +38,21 @@ ion-content {
   padding: 20px;
   background: white;
   margin-bottom: 10px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid $gray;
   
   .section-title {
     font-size: 18px;
     font-weight: 600;
-    color: #333;
+    color: $dark;
     margin: 0 0 15px 0;
     padding-bottom: 10px;
-    border-bottom: 2px solid #333;
+    border-bottom: 2px solid $dark;
   }
   
   h3 {
     font-size: 16px;
     font-weight: 600;
     margin: 16px 0 12px 0;
-    color: #555;
   }
   
   .info-row {
@@ -66,25 +61,15 @@ ion-content {
     
     .info-label {
       font-weight: 500;
-      color: #666;
+      color: $med;
       width: 140px;
-      flex-shrink: 0;
     }
     
     .info-value {
-      color: #333;
+      color: $dark;
       flex: 1;
     }
   }
-}
-
-.services-loading, .documents-loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px;
-  justify-content: center;
-  color: #666;
 }
 
 .services-grid {
@@ -99,27 +84,19 @@ ion-content {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid $gray;
   border-radius: 8px;
   background: #f9f9f9;
   
-  ion-checkbox { --size: 20px; }
   label {
     flex: 1;
     cursor: pointer;
     font-size: 14px;
-    color: #333;
   }
 }
 
-.selected-services {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-
 .service-detail-item {
-  background: #f8f9fa;
+  background: $light;
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
@@ -132,102 +109,58 @@ ion-content {
     
     .service-name {
       font-weight: 600;
-      color: #333;
-      
-      .service-count {
-        font-weight: normal;
-        color: #666;
-        font-size: 12px;
-        margin-left: 8px;
-      }
     }
     
     .service-actions {
       display: flex;
       gap: 4px;
-      
-      ion-button {
-        --padding-start: 4px;
-        --padding-end: 4px;
-      }
     }
   }
   
-  .service-date {
-    ion-item {
-      --padding-start: 0;
-      --inner-padding-end: 0;
-      --background: transparent;
-      
-      ion-label {
-        font-size: 14px;
-        color: #666;
-        margin-right: 10px;
-      }
-    }
-    
-    .saving-indicator, .saved-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      margin-left: 10px;
-      
-      ion-spinner {
-        --color: #007bff;
-        width: 14px;
-        height: 14px;
-      }
-    }
-    
-    .saved-indicator { color: #28a745; }
+  .service-date ion-item {
+    --padding-start: 0;
+    --inner-padding-end: 0;
+    --background: transparent;
   }
-}
-
-.no-services-message {
-  text-align: center;
-  padding: 30px;
-  p { margin: 0; font-size: 14px; }
+  
+  .saving-indicator, .saved-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    margin-left: 10px;
+  }
 }
 
 .documents-table, .templates-table {
   margin-top: 10px;
-  border: 1px solid #dee2e6;
+  border: 1px solid $border;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .doc-header, .template-header {
   display: grid;
-  background: #f8f9fa;
+  background: $light;
   font-weight: 600;
   font-size: 14px;
-  border-bottom: 2px solid #dee2e6;
+  border-bottom: 2px solid $border;
   
-  .doc-col, .template-col {
+  > * {
     padding: 12px;
-    color: #495057;
   }
 }
 
 .doc-header { grid-template-columns: 1.5fr 2fr 1fr 1.5fr; }
 .template-header { grid-template-columns: 2fr 1fr 1fr; }
 
-.service-doc-group {
-  &:not(:last-child) { border-bottom: 2px solid #dee2e6; }
-}
-
 .doc-row, .template-row {
   display: grid;
   border-bottom: 1px solid #e9ecef;
   
-  &:last-child { border-bottom: none; }
-  
-  .doc-col, .template-col {
+  > * {
     padding: 12px;
     font-size: 14px;
-    display: flex;
-    align-items: center;
   }
 }
 
@@ -237,23 +170,6 @@ ion-content {
   &.add-doc-row {
     grid-template-columns: 1.5fr 3.5fr;
     background: #fafbfc;
-  }
-  
-  .doc-col {
-    &[rowspan] {
-      background: #fafbfc;
-      font-weight: 600;
-      border-right: 1px solid #e9ecef;
-    }
-    
-    .instance-badge {
-      background: #6c757d;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-size: 11px;
-      margin-left: 8px;
-    }
   }
 }
 
@@ -271,24 +187,11 @@ ion-content {
   &.status-optional { background: #d1ecf1; color: #0c5460; }
 }
 
-.uploaded-actions {
-  display: flex;
-  gap: 4px;
-  
-  ion-button {
-    --padding-start: 8px;
-    --padding-end: 8px;
-    font-size: 12px;
-  }
-}
-
 .remove-doc-link, .add-doc-link {
   color: #007bff;
   text-decoration: none;
   font-size: 12px;
   cursor: pointer;
-  
-  &:hover { text-decoration: underline; }
 }
 
 .remove-doc-link {
@@ -299,36 +202,6 @@ ion-content {
 ion-button {
   --padding-start: 8px;
   --padding-end: 8px;
-  --padding-top: 4px;
-  --padding-bottom: 4px;
   font-size: 12px;
   text-transform: none;
-  font-weight: 500;
-}
-
-.template-col ion-button {
-  --padding-start: 20px;
-  --padding-end: 20px;
-  --padding-top: 8px;
-  --padding-bottom: 8px;
-  font-size: 14px;
-}
-
-ion-modal {
-  --width: 90%;
-  --max-width: 500px;
-  --height: auto;
-  --max-height: 70vh;
-  
-  ion-list ion-item {
-    --padding-start: 16px;
-    cursor: pointer;
-    
-    &:hover { --background: #f8f9fa; }
-    
-    ion-label {
-      h2 { font-size: 14px; font-weight: 500; }
-      p { font-size: 12px; color: #6c757d; }
-    }
-  }
 }
