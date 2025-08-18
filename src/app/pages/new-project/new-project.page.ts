@@ -18,14 +18,15 @@ declare var google: any;
 export class NewProjectPage implements OnInit {
   
   formData: ProjectCreationData = {
-    company: '1',  // Noble Property Inspections
-    user: '1',     // Patrick Bullock
-    dateOfRequest: new Date().toISOString().split('T')[0],
+    company: '1',  // Always Noble Property Inspections (CompanyID = 1)
     inspectionDate: new Date().toISOString().split('T')[0], // Default to today
     address: '',
+    // Keep these for potential future use but not required for creation
     city: '',
     state: 'TX',
     zip: '',
+    user: '1',
+    dateOfRequest: new Date().toISOString().split('T')[0],
     services: [],
     fee: '265.00',
     notes: ''
@@ -43,8 +44,8 @@ export class NewProjectPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    await this.loadServices();
-    this.initializeGooglePlaces();
+    // Simplified - no services loading needed
+    // this.initializeGooglePlaces(); // Removed for now since we only need address
   }
 
   async loadServices() {
@@ -139,11 +140,11 @@ export class NewProjectPage implements OnInit {
   }
 
   async createProject() {
-    // Validate required fields
-    if (!this.formData.address || !this.formData.city || !this.formData.state) {
+    // Validate required fields - only address and inspection date
+    if (!this.formData.address || !this.formData.inspectionDate) {
       const alert = await this.alertController.create({
         header: 'Missing Information',
-        message: 'Please fill in all required fields.',
+        message: 'Please enter the address and inspection date.',
         buttons: ['OK']
       });
       await alert.present();

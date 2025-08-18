@@ -34,6 +34,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   sectionProgress: { [key: string]: number } = {
     general: 0,
     information: 0,
+    foundation: 0,
     structural: 0,
     elevation: 0
   };
@@ -46,7 +47,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   
   expandedSubsections: { [key: string]: boolean } = {
     'general': true,
-    'information': false
+    'information': false,
+    'foundation': false
   };
   
   formData: any = {
@@ -69,6 +71,11 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     state: 'TX',
     zip: '',
     serviceType: '',
+    
+    // Foundation fields
+    foundationType: '',
+    foundationCondition: '',
+    foundationNotes: '',
     
     // Structural Systems fields
     homeInspectionReport: '',
@@ -167,7 +174,16 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       'FoundationType': 'foundationType',
       'NumberOfStories': 'numberOfStories',
       'ExteriorCladding': 'exteriorCladding',
-      'RoofCovering': 'roofCovering'
+      'RoofCovering': 'roofCovering',
+      'FoundationType': 'foundationType',
+      'FoundationCondition': 'foundationCondition',
+      'FoundationNotes': 'foundationNotes',
+      'HomeInspectionReport': 'homeInspectionReport',
+      'HomeInspectionLink': 'homeInspectionLink',
+      'EngineersEvaluationReport': 'engineersEvaluationReport',
+      'EngineerLink': 'engineerLink',
+      'SupportDocument': 'supportDocument',
+      'Notes': 'notes'
     };
     
     Object.keys(fieldMapping).forEach(dbField => {
@@ -224,16 +240,57 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     return Math.round((completed / fields.length) * 100);
   }
 
-  onFileSelected(event: any, fieldName: string) {
+  async onFileSelected(event: any, fieldName: string) {
     const file = event.target.files[0];
     if (file) {
       this.selectedFiles[fieldName] = file;
       this.formData[fieldName] = file.name;
       console.log(`File selected for ${fieldName}:`, file.name);
       
-      // Trigger auto-save
-      this.onFieldChange(fieldName, file.name);
+      // Mark field as completed
+      this.fieldStates[fieldName] = true;
+      this.updateAllSectionProgress();
+      
+      // Upload file if we have a Service_EFE record
+      if (this.currentServiceID) {
+        this.showSaveStatus('Uploading file...', 'info');
+        
+        try {
+          const result = await this.serviceEfeService.uploadFile(
+            this.currentServiceID, 
+            this.getDbFieldName(fieldName), 
+            file
+          ).toPromise();
+          
+          if (result?.success) {
+            this.showSaveStatus('File uploaded', 'success');
+            console.log('✅ File uploaded successfully:', result);
+          } else {
+            this.showSaveStatus('Upload failed', 'error');
+          }
+        } catch (error) {
+          console.error('File upload error:', error);
+          this.showSaveStatus('Upload failed', 'error');
+          
+          // Still save the filename reference
+          this.onFieldChange(fieldName, file.name);
+        }
+      } else {
+        // No Service_EFE record yet, just save filename for later
+        this.onFieldChange(fieldName, file.name);
+      }
     }
+  }
+  
+  // Helper method to get database field name
+  private getDbFieldName(formFieldName: string): string {
+    const fieldMapping: { [key: string]: string } = {
+      'primaryPhoto': 'PrimaryPhoto',
+      'homeInspectionReport': 'HomeInspectionReport',
+      'engineersEvaluationReport': 'EngineersEvaluationReport',
+      'supportDocument': 'SupportDocument'
+    };
+    return fieldMapping[formFieldName] || formFieldName;
   }
 
   // Called when any field changes
@@ -275,9 +332,17 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         'yearBuilt': 'YearBuilt',
         'squareFootage': 'SquareFootage',
         'foundationType': 'FoundationType',
+        'foundationCondition': 'FoundationCondition',
+        'foundationNotes': 'FoundationNotes',
         'numberOfStories': 'NumberOfStories',
         'exteriorCladding': 'ExteriorCladding',
-        'roofCovering': 'RoofCovering'
+        'roofCovering': 'RoofCovering',
+        'homeInspectionReport': 'HomeInspectionReport',
+        'homeInspectionLink': 'HomeInspectionLink',
+        'engineersEvaluationReport': 'EngineersEvaluationReport',
+        'engineerLink': 'EngineerLink',
+        'supportDocument': 'SupportDocument',
+        'notes': 'Notes'
       };
       
       const dbField = fieldMapping[fieldName] || fieldName;
@@ -312,7 +377,30 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     });
     this.sectionProgress['information'] = Math.round((infoCompleted / infoFields.length) * 100);
     
-    // TODO: Add structural and elevation sections
+    // Foundation section fields
+    const foundationFields = ['foundationType', 'foundationCondition', 'foundationNotes'];
+    let foundationCompleted = 0;
+    foundationFields.forEach(field => {
+      if (this.fieldStates[field]) foundationCompleted++;
+    });
+    this.sectionProgress['foundation'] = Math.round((foundationCompleted / foundationFields.length) * 100);
+    
+    // Structural Systems section fields
+    const structuralFields = ['homeInspectionReport', 'homeInspectionLink', 'engineersEvaluationReport', 
+                              'engineerLink', 'supportDocument'];
+    let structuralCompleted = 0;
+    structuralFields.forEach(field => {
+      if (this.fieldStates[field]) structuralCompleted++;
+    });
+    this.sectionProgress['structural'] = Math.round((structuralCompleted / structuralFields.length) * 100);
+    
+    // Elevation Plot section fields
+    const elevationFields = ['notes'];
+    let elevationCompleted = 0;
+    elevationFields.forEach(field => {
+      if (this.fieldStates[field]) elevationCompleted++;
+    });
+    this.sectionProgress['elevation'] = Math.round((elevationCompleted / elevationFields.length) * 100);
   }
   
   // Show save status message

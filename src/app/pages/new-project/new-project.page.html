@@ -15,47 +15,18 @@
     <div class="form-section">
       <h3 class="section-title">PROJECT DETAILS</h3>
       
+      <!-- Hidden Company field with default value of 1 -->
+      <input type="hidden" [(ngModel)]="formData.company" name="company" value="1">
+      
       <ion-item lines="full">
-        <ion-label position="stacked">Company</ion-label>
-        <ion-select [(ngModel)]="formData.company" name="company" required>
-          <ion-select-option value="1">Noble Property Inspections</ion-select-option>
-        </ion-select>
+        <ion-label position="stacked">Inspection Date</ion-label>
+        <ion-input 
+          type="date" 
+          [(ngModel)]="formData.inspectionDate" 
+          name="inspectionDate"
+          required>
+        </ion-input>
       </ion-item>
-
-      <ion-item lines="full">
-        <ion-label position="stacked">User</ion-label>
-        <ion-select [(ngModel)]="formData.user" name="user" required>
-          <ion-select-option value="1">Patrick Bullock</ion-select-option>
-        </ion-select>
-      </ion-item>
-
-      <ion-grid>
-        <ion-row>
-          <ion-col size="6">
-            <ion-item lines="full">
-              <ion-label position="stacked">Date of Request</ion-label>
-              <ion-input 
-                type="date" 
-                [(ngModel)]="formData.dateOfRequest" 
-                name="dateOfRequest"
-                readonly>
-              </ion-input>
-            </ion-item>
-          </ion-col>
-          <ion-col size="6">
-            <ion-item lines="full">
-              <ion-label position="stacked">Service Fee</ion-label>
-              <ion-input 
-                type="number" 
-                [(ngModel)]="formData.fee" 
-                name="fee"
-                placeholder="265.00"
-                step="0.01">
-              </ion-input>
-            </ion-item>
-          </ion-col>
-        </ion-row>
-      </ion-grid>
     </div>
 
     <!-- PROPERTY ADDRESS Section -->
@@ -72,96 +43,6 @@
           placeholder="Start typing an address..."
           required>
         </ion-input>
-      </ion-item>
-
-      <ion-grid>
-        <ion-row>
-          <ion-col size="5">
-            <ion-item lines="full">
-              <ion-label position="stacked">City</ion-label>
-              <ion-input 
-                type="text" 
-                [(ngModel)]="formData.city" 
-                name="city"
-                required>
-              </ion-input>
-            </ion-item>
-          </ion-col>
-          <ion-col size="3">
-            <ion-item lines="full">
-              <ion-label position="stacked">State</ion-label>
-              <ion-select [(ngModel)]="formData.state" name="state" required>
-                <ion-select-option *ngFor="let state of states" [value]="state">
-                  {{ state }}
-                </ion-select-option>
-              </ion-select>
-            </ion-item>
-          </ion-col>
-          <ion-col size="4">
-            <ion-item lines="full">
-              <ion-label position="stacked">ZIP Code</ion-label>
-              <ion-input 
-                type="text" 
-                [(ngModel)]="formData.zip" 
-                name="zip"
-                pattern="[0-9]{5}"
-                maxlength="5">
-              </ion-input>
-            </ion-item>
-          </ion-col>
-        </ion-row>
-      </ion-grid>
-    </div>
-
-    <!-- INSPECTION DETAILS Section -->
-    <div class="form-section">
-      <h3 class="section-title">INSPECTION DETAILS</h3>
-      
-      <ion-item lines="full">
-        <ion-label position="stacked">Inspection Date</ion-label>
-        <ion-input 
-          type="date" 
-          [(ngModel)]="formData.inspectionDate" 
-          name="inspectionDate"
-          required>
-        </ion-input>
-      </ion-item>
-    </div>
-
-    <!-- SERVICES REQUIRED Section -->
-    <div class="form-section">
-      <h3 class="section-title">SERVICES REQUIRED</h3>
-      
-      <div class="services-checkboxes">
-        <!-- Dynamic services loaded from Caspio -->
-        <ion-item lines="none" *ngFor="let service of availableServices">
-          <ion-checkbox 
-            slot="start"
-            [value]="service.id"
-            (ionChange)="onServiceChange(service.id, $event)">
-          </ion-checkbox>
-          <ion-label>{{ service.name }}</ion-label>
-        </ion-item>
-        
-        <!-- Show loading message if no services loaded yet -->
-        <ion-item lines="none" *ngIf="availableServices.length === 0">
-          <ion-label color="medium">Loading services...</ion-label>
-        </ion-item>
-      </div>
-    </div>
-
-    <!-- ADDITIONAL INFORMATION Section -->
-    <div class="form-section">
-      <h3 class="section-title">ADDITIONAL INFORMATION</h3>
-      
-      <ion-item lines="full">
-        <ion-label position="stacked">Notes</ion-label>
-        <ion-textarea 
-          [(ngModel)]="formData.notes" 
-          name="notes"
-          rows="4"
-          placeholder="Enter any additional notes...">
-        </ion-textarea>
       </ion-item>
     </div>
 

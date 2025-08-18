@@ -108,8 +108,8 @@ async function fetchServiceTypes() {
   });
 }
 
-// Helper function to create Service_EFE record
-async function createServiceEFERecord(projectId) {
+// Helper function to create Services record
+async function createServicesRecord(projectId) {
   const token = await getCaspioToken();
   
   return new Promise((resolve, reject) => {
@@ -121,7 +121,7 @@ async function createServiceEFERecord(projectId) {
     
     const options = {
       hostname: 'c2hcf092.caspio.com',
-      path: '/rest/v2/tables/Service_EFE/records',
+      path: '/rest/v2/tables/Services/records',
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -135,7 +135,7 @@ async function createServiceEFERecord(projectId) {
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
         if (res.statusCode === 201 || res.statusCode === 200) {
-          console.log('✅ Service_EFE record created for project:', projectId);
+          console.log('✅ Services record created for project:', projectId);
           try {
             const response = data ? JSON.parse(data) : {};
             resolve(response);
@@ -143,14 +143,14 @@ async function createServiceEFERecord(projectId) {
             resolve({ success: true });
           }
         } else {
-          console.error('❌ Failed to create Service_EFE record:', res.statusCode, data);
+          console.error('❌ Failed to create Services record:', res.statusCode, data);
           resolve(null); // Don't reject, just log error
         }
       });
     });
 
     req.on('error', (err) => {
-      console.error('Error creating Service_EFE record:', err);
+      console.error('Error creating Services record:', err);
       resolve(null); // Don't reject, just log error
     });
 
@@ -184,41 +184,54 @@ async function createProject(projectData) {
   const token = await getCaspioToken();
   
   console.log('🔍 Raw project data received:', projectData);
-  console.log('📝 State value from form:', projectData.state);
+  
+  // First, let's fetch a sample project to see what fields are expected
+  try {
+    const sampleProjects = await fetchActiveProjects();
+    if (sampleProjects && sampleProjects.length > 0) {
+      console.log('📋 Sample existing project data:', JSON.stringify(sampleProjects[0], null, 2));
+      console.log('🔑 Required fields from sample:', {
+        ProjectID: sampleProjects[0].ProjectID,
+        CompanyID: sampleProjects[0].CompanyID,
+        UserID: sampleProjects[0].UserID,
+        StatusID: sampleProjects[0].StatusID,
+        OffersID: sampleProjects[0].OffersID,
+        Fee: sampleProjects[0].Fee,
+        Date: sampleProjects[0].Date,
+        InspectionDate: sampleProjects[0].InspectionDate
+      });
+    }
+  } catch (err) {
+    console.log('Could not fetch sample project:', err.message);
+  }
   
   // Save original data for later lookup
   const originalAddress = projectData.address;
   const originalCity = projectData.city;
-  const originalDate = projectData.dateOfRequest || new Date().toISOString().split('T')[0];
+  const originalDate = new Date().toISOString().split('T')[0];
   
-  // Convert state abbreviation to StateID
-  const stateID = getStateIDFromAbbreviation(projectData.state);
-  
-  if (!stateID) {
-    throw new Error(`Unsupported state: ${projectData.state}. Supported states: TX, GA, FL, CO, CA, AZ, SC, TN`);
+  // Convert state abbreviation to StateID if provided
+  let stateID = 1; // Default to TX
+  if (projectData.state) {
+    stateID = getStateIDFromAbbreviation(projectData.state) || 1;
   }
   
-  // Get the first selected service TypeID and use it as OffersID
-  const selectedOffersID = projectData.services && projectData.services.length > 0 
-    ? parseInt(projectData.services[0]) 
-    : 1; // Default to 1 if none selected
-  
-  console.log('📝 Selected service for OffersID:', selectedOffersID);
-  
-  // Map form fields to Caspio fields matching the actual Caspio form
+  // Map form fields to Caspio - matching EXACT field names and types from table
   const caspioData = {
-    CompanyID: parseInt(projectData.company) || 1, // Company from dropdown
-    UserID: parseInt(projectData.user) || 1, // User from dropdown
-    Date: originalDate, // Date of Request
-    InspectionDate: projectData.inspectionDate,
-    Address: originalAddress,
-    City: originalCity,
-    StateID: stateID, // Now using numeric StateID from mapping
-    Zip: projectData.zip,
-    StatusID: 1, // Active status (1 = Active)
-    Fee: parseFloat(projectData.fee) || 265.00, // Service fee from form
-    Notes: projectData.notes || '', // Notes from textarea
-    OffersID: selectedOffersID, // Service type stored in OffersID field
+    // DO NOT include ProjectID - it's Autonumber (auto-generated)
+    CompanyID: 1, // Integer type
+    StatusID: 1, // Integer type - 1 = Active
+    UserID: 1, // Integer type
+    // OffersID: null, // Commented out - let them select services after project creation
+    // CubicasaID is optional Integer, leave it out
+    // Icon is Attachment type, leave it out
+    Address: originalAddress || '', // Text(255)
+    City: originalCity || '', // Text(255)
+    StateID: stateID, // Integer type
+    Zip: projectData.zip || '', // Text(255)
+    Date: new Date().toISOString(), // DateTime type - use full ISO string
+    InspectionDate: projectData.inspectionDate ? new Date(projectData.inspectionDate).toISOString() : new Date().toISOString() // DateTime
+    // Don't send null values or fields that don't exist in the table
   };
   
   console.log('📤 Data being sent to Caspio (with converted StateID):', caspioData);
@@ -275,9 +288,8 @@ async function createProject(projectData) {
               const newProject = matchingProjects.sort((a, b) => b.PK_ID - a.PK_ID)[0];
               console.log('📍 Found new project with PK_ID:', newProject.PK_ID);
               
-              // Create Service_EFE record for this project using ProjectID field
-              console.log('📝 Creating Service_EFE record for project:', newProject.ProjectID || newProject.PK_ID);
-              await createServiceEFERecord(newProject.ProjectID || newProject.PK_ID);
+              // Don't create Services record automatically - let user select services
+              // Services will be added when user selects them in the project details page
               
               resolve({ success: true, message: 'Project created', projectId: newProject.PK_ID });
               return;
@@ -361,6 +373,42 @@ async function fetchProjectById(projectId) {
     req.on('error', (err) => {
       console.error('Error fetching project:', err);
       resolve(null);
+    });
+    req.end();
+  });
+}
+
+// Function to fetch attachment templates from Caspio
+async function fetchAttachTemplates() {
+  const token = await getCaspioToken();
+  
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'c2hcf092.caspio.com',
+      path: '/rest/v2/tables/Attach_Templates/records',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(data);
+          console.log(`📋 Fetched ${response.Result ? response.Result.length : 0} attachment templates`);
+          resolve(response.Result || []);
+        } catch (err) {
+          console.error('Error parsing attachment templates:', err);
+          resolve([]);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.error('Error fetching attachment templates:', err);
+      resolve([]);
     });
     req.end();
   });
@@ -763,24 +811,9 @@ async function generateNewProjectHTML() {
             </div>
             
             <div class="form-group">
-                <label class="form-label" for="user">User</label>
-                <select id="user" name="user" class="form-input" required>
-                    <option value="1">Patrick Bullock</option>
-                </select>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="dateOfRequest">Date of Request</label>
-                    <input type="date" id="dateOfRequest" name="dateOfRequest" 
-                           class="form-input" value="${today}" readonly>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="fee">Service Fee</label>
-                    <input type="number" id="fee" name="fee" class="form-input" 
-                           value="265.00" step="0.01" min="0">
-                </div>
+                <label class="form-label" for="inspectionDate">Inspection Date</label>
+                <input type="date" id="inspectionDate" name="inspectionDate" 
+                       class="form-input" value="${today}" required>
             </div>
             
             <div class="section-title" style="margin-top: 30px;">Property Address</div>
@@ -816,28 +849,6 @@ async function generateNewProjectHTML() {
                     <label class="form-label" for="zip">ZIP Code</label>
                     <input type="text" id="zip" name="zip" class="form-input" pattern="[0-9]{5}" required>
                 </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 30px;">Inspection Details</div>
-            
-            <div class="form-group">
-                <label class="form-label" for="inspectionDate">Inspection Date</label>
-                <input type="date" id="inspectionDate" name="inspectionDate" 
-                       class="form-input" value="${today}" required>
-            </div>
-            
-            <div class="section-title" style="margin-top: 30px;">Services Required</div>
-            
-            <div class="checkbox-group">
-                ${serviceCheckboxes || '<p style="color: #999;">No services available</p>'}
-            </div>
-            
-            <div class="section-title" style="margin-top: 30px;">Additional Information</div>
-            
-            <div class="form-group">
-                <label class="form-label" for="notes">Notes</label>
-                <textarea id="notes" name="notes" class="form-input" rows="4" 
-                          placeholder="Enter any additional notes..."></textarea>
             </div>
             
             <button type="submit" class="submit-button" id="submitBtn" style="margin-top: 30px;">Create Project</button>
@@ -880,12 +891,22 @@ async function generateNewProjectHTML() {
                         <span class="info-value" style="color: #28a745; font-weight: 600;">Active</span>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Selected Services Card -->
-            <div class="form-card" style="margin-bottom: 20px;">
-                <div class="section-title">Selected Services</div>
-                <div id="selectedServicesList"></div>
+                
+                <!-- Services Selection Section -->
+                <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                    <div class="section-title" style="margin-bottom: 15px;">Select Services</div>
+                    <div id="servicesCheckboxList">
+                        <!-- Dynamically populated service checkboxes will go here -->
+                    </div>
+                    
+                    <!-- Selected Services with Duplicates -->
+                    <div id="selectedServicesContainer" style="margin-top: 20px;">
+                        <div class="section-title" style="margin-bottom: 10px; font-size: 14px;">Selected Services</div>
+                        <div id="selectedServicesList" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Selected services with plus buttons will appear here -->
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Required Documents Table -->
@@ -1057,13 +1078,6 @@ async function generateNewProjectHTML() {
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
             
-            // Get selected services
-            const selectedServices = [];
-            document.querySelectorAll('input[name="services"]:checked').forEach(cb => {
-                selectedServices.push(cb.value);
-            });
-            data.services = selectedServices;
-            
             // Send to server
             try {
                 const response = await fetch('/create-project', {
@@ -1135,14 +1149,16 @@ async function generateProjectDetailHTML(project) {
 </html>`;
   }
   
-  // Fetch service name if OffersID exists
+  // Fetch all necessary data
   let serviceName = 'Not specified';
+  const types = await fetchServiceTypes();
+  const offers = await fetchOffers(project.CompanyID || 1);
+  const attachTemplates = await fetchAttachTemplates();
+  
   if (project.OffersID) {
     try {
-      const offers = await fetchOffers(project.CompanyID || 1);
       const offer = offers.find(o => o.OffersID === project.OffersID);
       if (offer) {
-        const types = await fetchServiceTypes();
         const type = types.find(t => t.TypeID === offer.TypeID);
         serviceName = type ? type.TypeName : 'Service #' + project.OffersID;
       }
@@ -1242,46 +1258,72 @@ async function generateProjectDetailHTML(project) {
         }
         .documents-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .documents-table th {
             text-align: left;
-            padding: 12px;
+            padding: 14px 16px;
             background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 1px solid #e9ecef;
             font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6c757d;
         }
         .documents-table td {
-            padding: 12px;
-            border-bottom: 1px solid #dee2e6;
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #333;
+        }
+        .documents-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .documents-table tbody tr:hover {
+            background: #f8f9fa;
+            transition: background 0.2s;
         }
         .upload-btn {
             background: #007bff;
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
         .upload-btn:hover {
             background: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,123,255,0.3);
         }
         .template-btn {
             background: #28a745;
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
         .template-btn:hover {
             background: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(40,167,69,0.3);
         }
         .status-badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
@@ -1293,6 +1335,12 @@ async function generateProjectDetailHTML(project) {
         .status-pending {
             background: #fff3cd;
             color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status-optional {
+            background: #e7e8ea;
+            color: #5a6268;
+            border: 1px solid #d6d8db;
         }
         .content {
             padding: 20px;
@@ -1345,8 +1393,8 @@ async function generateProjectDetailHTML(project) {
     <img src="${streetViewUrl}" alt="Property" class="hero-image" onerror="this.src='${stockHomeImage}'">
     
     <div class="content">
-        <!-- Project Information -->
-        <div class="info-section">
+        <!-- Project Info Card with Service Selection -->
+        <div class="info-section" style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <h2 class="section-title">Project Information</h2>
             <div class="info-row">
                 <span class="info-label">Address:</span>
@@ -1360,9 +1408,21 @@ async function generateProjectDetailHTML(project) {
                 <span class="info-label">Inspection Date:</span>
                 <span class="info-value">${inspectionDate}</span>
             </div>
-            <div class="info-row">
-                <span class="info-label">Service Requested:</span>
-                <span class="info-value">${serviceName}</span>
+            
+            <!-- Services Selection Section -->
+            <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                <div class="section-title" style="margin-bottom: 15px; font-size: 16px;">Select Services</div>
+                <div id="servicesCheckboxList">
+                    <!-- Dynamically populated service checkboxes will go here -->
+                </div>
+                
+                <!-- Selected Services with Duplicates -->
+                <div id="selectedServicesContainer" style="margin-top: 20px;">
+                    <div class="section-title" style="margin-bottom: 10px; font-size: 14px;">Selected Services</div>
+                    <div id="selectedServicesList" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Selected services with plus buttons will appear here -->
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -1372,30 +1432,14 @@ async function generateProjectDetailHTML(project) {
             <table class="documents-table">
                 <thead>
                     <tr>
+                        <th>Service</th>
                         <th>Document</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${documents.map(doc => {
-                        const hasDocument = project[doc.field];
-                        const status = hasDocument ? 'Uploaded' : (doc.required ? 'Required' : 'Optional');
-                        const statusClass = hasDocument ? 'status-uploaded' : 'status-pending';
-                        
-                        return `
-                        <tr>
-                            <td>${doc.name}</td>
-                            <td><span class="status-badge ${statusClass}">${status}</span></td>
-                            <td>
-                                ${hasDocument 
-                                    ? `<button class="upload-btn">View</button>`
-                                    : `<button class="upload-btn">Upload</button>`
-                                }
-                            </td>
-                        </tr>
-                        `;
-                    }).join('')}
+                <tbody id="documentsTableBody">
+                    <!-- Will be populated by JavaScript based on selected services -->
                 </tbody>
             </table>
         </div>
@@ -1404,25 +1448,1619 @@ async function generateProjectDetailHTML(project) {
         <div class="info-section">
             <h2 class="section-title">Templates</h2>
             <table class="documents-table">
-                <thead>
-                    <tr>
-                        <th>Service Template</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>${serviceName}</td>
-                        <td>
-                            <button class="template-btn" onclick="window.open('/template/${project.OffersID}/${project.PK_ID}', '_blank')">
-                                Open Template
-                            </button>
-                        </td>
-                    </tr>
+                <tbody id="templatesTableBody">
+                    <!-- Will be populated by JavaScript based on selected services -->
                 </tbody>
             </table>
         </div>
     </div>
+    
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; border-radius: 12px; padding: 30px; max-width: 450px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;" id="confirmTitle">Confirm Deletion</h3>
+            <p style="color: #666; line-height: 1.6; margin: 0 0 25px 0;" id="confirmMessage"></p>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button id="confirmCancel" style="padding: 10px 24px; border: 1px solid #ddd; background: white; color: #666; border-radius: 6px; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                    Cancel
+                </button>
+                <button id="confirmDelete" style="padding: 10px 24px; border: none; background: #dc3545; color: white; border-radius: 6px; cursor: pointer; font-size: 15px; transition: all 0.2s;">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Store selected services
+        let selectedServices = [];
+        const projectId = '${project.PK_ID}';
+        const actualProjectId = '${project.ProjectID}'; // The actual ProjectID field for Services
+        
+        // Custom confirmation modal functions
+        function showConfirmModal(message, onConfirm, onCancel) {
+            const modal = document.getElementById('confirmModal');
+            const messageEl = document.getElementById('confirmMessage');
+            const confirmBtn = document.getElementById('confirmDelete');
+            const cancelBtn = document.getElementById('confirmCancel');
+            
+            messageEl.textContent = message;
+            modal.style.display = 'flex';
+            
+            // Remove old listeners
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            
+            // Add new listeners
+            newConfirmBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                if (onConfirm) onConfirm();
+            });
+            
+            newCancelBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                if (onCancel) onCancel();
+            });
+            
+            // Add hover effects
+            newConfirmBtn.onmouseover = () => newConfirmBtn.style.background = '#c82333';
+            newConfirmBtn.onmouseout = () => newConfirmBtn.style.background = '#dc3545';
+            newCancelBtn.onmouseover = () => newCancelBtn.style.background = '#f8f9fa';
+            newCancelBtn.onmouseout = () => newCancelBtn.style.background = 'white';
+        }
+        
+        // Service types data
+        const serviceTypes = ${JSON.stringify(types)};
+        const offers = ${JSON.stringify(offers)};
+        const attachTemplates = ${JSON.stringify(attachTemplates)};
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load manually added documents from localStorage
+            const manualDocsKey = \`project_\${projectId}_manual_docs\`;
+            const savedManualDocs = localStorage.getItem(manualDocsKey);
+            if (savedManualDocs) {
+                try {
+                    window.manualDocsAdded = JSON.parse(savedManualDocs);
+                    console.log('📄 Loaded manual documents from localStorage:', window.manualDocsAdded);
+                } catch (e) {
+                    console.error('Error parsing manual docs:', e);
+                    window.manualDocsAdded = [];
+                }
+            } else {
+                window.manualDocsAdded = [];
+            }
+            
+            populateServiceCheckboxes();
+            loadExistingServices();
+            loadExistingAttachments(); // Load existing attachments from Attach table
+            updateDocumentsTable(); // Initialize documents table
+            updateTemplatesTable(); // Initialize templates table
+        });
+        
+        // Populate service checkboxes
+        function populateServiceCheckboxes() {
+            const container = document.getElementById('servicesCheckboxList');
+            if (!container) return;
+            
+            let html = '';
+            serviceTypes.forEach(type => {
+                // Find corresponding offer for this company
+                const offer = offers.find(o => o.TypeID === type.TypeID);
+                if (offer) {
+                    html += \`
+                        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" 
+                                       value="\${offer.OffersID}" 
+                                       data-type-id="\${type.TypeID}"
+                                       data-type-name="\${type.TypeName}"
+                                       onchange="handleServiceToggle(this)"
+                                       style="margin-right: 10px;">
+                                <span>\${type.TypeName}</span>
+                            </label>
+                            <input type="date" 
+                                   id="inspection-date-\${offer.OffersID}"
+                                   style="display: none; padding: 5px; border: 1px solid #ddd; border-radius: 4px;"
+                                   onchange="updateServiceInspectionDate('\${offer.OffersID}', this.value)">
+                        </div>
+                    \`;
+                }
+            });
+            container.innerHTML = html;
+        }
+        
+        // Update inspection date for a service
+        window.updateServiceInspectionDate = async function(offersId, date) {
+            // Update all instances of this service with the new date
+            const servicesToUpdate = selectedServices.filter(service => service.offersId === offersId);
+            
+            for (const service of servicesToUpdate) {
+                service.inspectionDate = date;
+                
+                // If we have a serviceId, update the Services record in Caspio
+                if (service.serviceId) {
+                    try {
+                        const token = await getCaspioToken();
+                        const updateData = {
+                            DateOfInspection: date
+                        };
+                        
+                        console.log(\`📝 Updating DateOfInspection for Services record ID \${service.serviceId} to \${date}\`);
+                        
+                        // Use query parameter to update by PK_ID
+                        const response = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=PK_ID=\${service.serviceId}\`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': \`Bearer \${token}\`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(updateData)
+                        });
+                        
+                        if (response.ok) {
+                            console.log(\`✅ Updated DateOfInspection for service record \${service.serviceId}\`);
+                        } else {
+                            const errorText = await response.text();
+                            console.error(\`❌ Failed to update DateOfInspection for service \${service.serviceId}. Status: \${response.status}, Error: \${errorText}\`);
+                        }
+                    } catch (error) {
+                        console.error('Error updating DateOfInspection:', error);
+                    }
+                }
+            }
+            
+            // Update localStorage
+            const storageKey = \`project_\${projectId}_services\`;
+            const updatedServices = selectedServices.map(s => ({
+                offersId: s.offersId,
+                instanceId: s.instanceId,
+                typeId: s.typeId,
+                inspectionDate: s.inspectionDate,
+                serviceId: s.serviceId,
+                timestamp: new Date().toISOString()
+            }));
+            localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+            
+            console.log(\`Updated inspection date for all instances of service \${offersId} to \${date}\`);
+        }
+        
+        // Handle service checkbox toggle
+        function handleServiceToggle(checkbox) {
+            const offersId = checkbox.value;
+            const typeName = checkbox.dataset.typeName;
+            const typeId = checkbox.dataset.typeId;
+            const dateInput = document.getElementById(\`inspection-date-\${offersId}\`);
+            
+            if (checkbox.checked) {
+                // Show date input when checkbox is checked
+                if (dateInput) {
+                    dateInput.style.display = 'block';
+                    // Set default to today's date
+                    if (!dateInput.value) {
+                        dateInput.value = new Date().toISOString().split('T')[0];
+                    }
+                }
+                addService(offersId, typeName, typeId);
+            } else {
+                // Hide date input when unchecked
+                if (dateInput) {
+                    dateInput.style.display = 'none';
+                }
+                // removeService will handle the confirmation
+                // If user cancels, we need to re-check the checkbox
+                const originalState = checkbox.checked;
+                checkbox.checked = true; // Temporarily re-check
+                
+                removeService(offersId).then(() => {
+                    // Service was removed (user confirmed)
+                    checkbox.checked = false;
+                }).catch(() => {
+                    // Error or user cancelled
+                    checkbox.checked = true;
+                });
+            }
+        }
+        
+        // Add service to selected list
+        async function addService(offersId, typeName, typeId) {
+            const dateInput = document.getElementById(\`inspection-date-\${offersId}\`);
+            const inspectionDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+            
+            const service = {
+                offersId: offersId,
+                typeName: typeName,
+                typeId: typeId || '',
+                inspectionDate: inspectionDate,
+                instanceId: Date.now() // Unique ID for this instance
+            };
+            
+            // Create Services record and get ServiceID
+            const serviceId = await createServicesRecord(offersId, service.instanceId, typeId, inspectionDate);
+            if (serviceId) {
+                service.serviceId = serviceId; // Store the ServiceID for deletion later
+            }
+            
+            selectedServices.push(service);
+            updateSelectedServicesList();
+            
+            // Update localStorage with the serviceId
+            const storageKey = \`project_\${projectId}_services\`;
+            const updatedServices = selectedServices.map(s => ({
+                offersId: s.offersId,
+                instanceId: s.instanceId,
+                typeId: s.typeId,
+                inspectionDate: s.inspectionDate,
+                serviceId: s.serviceId,
+                timestamp: new Date().toISOString()
+            }));
+            localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+        }
+        
+        // Remove service from selected list
+        async function removeService(offersId) {
+            // Show confirmation dialog
+            const serviceName = selectedServices.find(s => s.offersId === offersId)?.typeName || 'this service';
+            const confirmMessage = \`Are you sure you want to delete \${serviceName}? Doing so will remove your uploaded documents and templates for this service.\`;
+            
+            return new Promise((resolve, reject) => {
+                showConfirmModal(confirmMessage, async () => {
+                    // User confirmed deletion
+                    await performServiceRemoval(offersId);
+                    resolve();
+                }, () => {
+                    // User cancelled
+                    const checkbox = document.querySelector(\`input[value="\${offersId}"]\`);
+                    if (checkbox) checkbox.checked = true;
+                    reject();
+                });
+            });
+        }
+        
+        // Perform the actual service removal
+        async function performServiceRemoval(offersId) {
+            
+            try {
+                // Instead of relying on tracked serviceIds, fetch and delete ALL Services records
+                // for this project that were created for this service
+                const token = await getCaspioToken();
+                
+                console.log('🔍 Fetching all Services records for ProjectID:', actualProjectId);
+                
+                // Get all Services records for this project
+                const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ProjectID=\${actualProjectId}\`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`
+                    }
+                });
+                
+                if (getResponse.ok) {
+                    const data = await getResponse.json();
+                    const allRecords = data.Result || [];
+                    console.log('Found', allRecords.length, 'Services records for this project');
+                    
+                    // Count how many records we need to keep for other services
+                    const otherServices = selectedServices.filter(s => s.offersId !== offersId);
+                    const otherServiceCount = otherServices.length;
+                    
+                    // Delete records until we have the right amount left
+                    const recordsToDelete = allRecords.length - otherServiceCount;
+                    console.log('Need to delete', recordsToDelete, 'records');
+                    
+                    // Delete the most recent records (they're likely the ones for this service)
+                    for (let i = 0; i < recordsToDelete && i < allRecords.length; i++) {
+                        const record = allRecords[allRecords.length - 1 - i]; // Start from most recent
+                        const pkId = record.PK_ID || record.ServiceID;
+                        
+                        if (pkId) {
+                            const deleteResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=PK_ID=\${pkId}\`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': \`Bearer \${token}\`
+                                }
+                            });
+                            
+                            if (deleteResponse.status === 200 || deleteResponse.status === 204) {
+                                console.log('✅ Deleted Services record with PK_ID:', pkId);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error removing service:', error);
+            }
+            
+            // Update local state
+            selectedServices = selectedServices.filter(s => s.offersId !== offersId);
+            updateSelectedServicesList();
+            
+            // Update localStorage
+            const storageKey = \`project_\${projectId}_services\`;
+            const updatedServices = selectedServices.map(s => ({
+                offersId: s.offersId,
+                instanceId: s.instanceId,
+                typeId: s.typeId,
+                inspectionDate: s.inspectionDate,
+                serviceId: s.serviceId,
+                timestamp: new Date().toISOString()
+            }));
+            localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+        }
+        
+        // Add duplicate service
+        async function duplicateService(offersId, typeName) {
+            // Find the original service to get its typeId and inspection date
+            const original = selectedServices.find(s => s.offersId === offersId);
+            const dateInput = document.getElementById(\`inspection-date-\${offersId}\`);
+            const inspectionDate = dateInput ? dateInput.value : (original?.inspectionDate || new Date().toISOString().split('T')[0]);
+            
+            const service = {
+                offersId: offersId,
+                typeName: typeName,
+                typeId: original?.typeId || '',
+                inspectionDate: inspectionDate,
+                instanceId: Date.now() + Math.random() // Unique ID for this instance
+            };
+            
+            // Create Services record and get ServiceID
+            const serviceId = await createServicesRecord(offersId, service.instanceId, service.typeId, service.inspectionDate);
+            if (serviceId) {
+                service.serviceId = serviceId;
+            }
+            
+            selectedServices.push(service);
+            updateSelectedServicesList();
+            
+            // Update localStorage with the serviceId
+            const storageKey = \`project_\${projectId}_services\`;
+            const updatedServices = selectedServices.map(s => ({
+                offersId: s.offersId,
+                instanceId: s.instanceId,
+                typeId: s.typeId,
+                inspectionDate: s.inspectionDate,
+                serviceId: s.serviceId,
+                timestamp: new Date().toISOString()
+            }));
+            localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+        }
+        
+        // Remove the last duplicate of a service
+        function removeLastDuplicate(offersId) {
+            // Find all instances of this service
+            const instances = selectedServices.filter(s => s.offersId === offersId);
+            
+            if (instances.length <= 1) {
+                // Shouldn't happen, but safety check
+                return;
+            }
+            
+            // Get the last instance
+            const lastInstance = instances[instances.length - 1];
+            const serviceName = lastInstance.typeName || 'this service';
+            
+            // Show confirmation dialog
+            const confirmMessage = \`Are you sure you want to delete this instance of \${serviceName}? Doing so will remove your uploaded documents and templates for this service instance.\`;
+            
+            showConfirmModal(confirmMessage, async () => {
+                // Remove the last instance
+                const indexToRemove = selectedServices.lastIndexOf(lastInstance);
+                if (indexToRemove !== -1) {
+                    selectedServices.splice(indexToRemove, 1);
+                }
+                
+                // Update UI immediately
+                updateSelectedServicesList();
+                
+                // Update localStorage
+                const storageKey = \`project_\${projectId}_services\`;
+                const updatedServices = selectedServices.map(s => ({
+                    offersId: s.offersId,
+                    instanceId: s.instanceId,
+                    timestamp: new Date().toISOString()
+                }));
+                localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+                
+                // Delete from Services table
+                console.log('🗑️ Attempting to delete Services record for:', lastInstance);
+                if (lastInstance.serviceId) {
+                    console.log('Using serviceId:', lastInstance.serviceId);
+                    await deleteServicesRecord(lastInstance.serviceId);
+                } else {
+                    console.log('No serviceId found, will delete most recent Services record');
+                    const deleted = await deleteRecentServicesRecord();
+                    if (deleted) {
+                        console.log('✅ Services record deleted successfully');
+                    } else {
+                        console.error('❌ Failed to delete Services record');
+                    }
+                }
+            }, () => {
+                // User cancelled - do nothing
+            });
+        }
+        
+        // Remove a single duplicate service instance (legacy function, keeping for compatibility)
+        async function removeDuplicate(offersId, instanceId) {
+            // Find the service to remove
+            const serviceToRemove = selectedServices.find(s => s.offersId === offersId && s.instanceId === instanceId);
+            const serviceName = serviceToRemove?.typeName || 'this service';
+            
+            // Show confirmation dialog
+            const confirmMessage = \`Are you sure you want to delete this instance of \${serviceName}? Doing so will remove your uploaded documents and templates for this service instance.\`;
+            
+            showConfirmModal(confirmMessage, async () => {
+                // User confirmed - proceed with deletion
+                console.log('Removing duplicate service:', serviceToRemove);
+                
+                // First, remove from local array BEFORE any async operations
+                const indexToRemove = selectedServices.findIndex(s => s.offersId === offersId && s.instanceId === instanceId);
+                if (indexToRemove !== -1) {
+                    selectedServices.splice(indexToRemove, 1);
+                }
+                
+                // Update UI immediately
+                updateSelectedServicesList();
+                
+                // If this was the last instance, uncheck the checkbox
+                const remaining = selectedServices.filter(s => s.offersId === offersId);
+                if (remaining.length === 0) {
+                    const checkbox = document.querySelector(\`input[value="\${offersId}"]\`);
+                    if (checkbox) checkbox.checked = false;
+                }
+                
+                // Update localStorage
+                const storageKey = \`project_\${projectId}_services\`;
+                const updatedServices = selectedServices.map(s => ({
+                    offersId: s.offersId,
+                    instanceId: s.instanceId,
+                    timestamp: new Date().toISOString()
+                }));
+                localStorage.setItem(storageKey, JSON.stringify(updatedServices));
+                
+                // Now try to delete from Services table (async, but UI already updated)
+                if (serviceToRemove && serviceToRemove.serviceId) {
+                    console.log('Deleting Services record with ID:', serviceToRemove.serviceId);
+                    await deleteServicesRecord(serviceToRemove.serviceId);
+                } else {
+                    console.log('No serviceId found, attempting to delete most recent Services record');
+                    // If no serviceId, try to delete the most recent Services record for this project
+                    await deleteRecentServicesRecord();
+                }
+            }, () => {
+                // User cancelled - do nothing
+            });
+        }
+        
+        // Delete the most recent Services record for this project
+        async function deleteRecentServicesRecord() {
+            try {
+                const token = await getCaspioToken();
+                console.log('🔍 Attempting to delete most recent Services record for ProjectID:', actualProjectId);
+                
+                // Get all Services records for this project
+                const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ProjectID=\${actualProjectId}\`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`
+                    }
+                });
+                
+                if (getResponse.ok) {
+                    const data = await getResponse.json();
+                    const records = data.Result || [];
+                    console.log(\`Found \${records.length} Services records for ProjectID \${actualProjectId}\`);
+                    
+                    if (records.length > 0) {
+                        // Sort by PK_ID or ServiceID to get the most recent
+                        records.sort((a, b) => {
+                            const aId = parseInt(a.PK_ID || a.ServiceID || 0);
+                            const bId = parseInt(b.PK_ID || b.ServiceID || 0);
+                            return bId - aId; // Descending order
+                        });
+                        
+                        // Delete the most recent record
+                        const mostRecent = records[0];
+                        const pkId = mostRecent.PK_ID || mostRecent.ServiceID;
+                        
+                        console.log('🗑️ Deleting Services record:', mostRecent);
+                        
+                        if (pkId) {
+                            // Try both PK_ID and ServiceID in case the field name varies
+                            const deleteResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=PK_ID=\${pkId}\`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': \`Bearer \${token}\`
+                                }
+                            });
+                            
+                            if (deleteResponse.status === 200 || deleteResponse.status === 204) {
+                                console.log('✅ Successfully deleted Services record with PK_ID:', pkId);
+                                return true;
+                            } else if (deleteResponse.status === 404) {
+                                // Try ServiceID if PK_ID didn't work
+                                console.log('PK_ID not found, trying ServiceID...');
+                                const deleteResponse2 = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ServiceID=\${pkId}\`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Authorization': \`Bearer \${token}\`
+                                    }
+                                });
+                                
+                                if (deleteResponse2.status === 200 || deleteResponse2.status === 204) {
+                                    console.log('✅ Successfully deleted Services record with ServiceID:', pkId);
+                                    return true;
+                                } else {
+                                    console.error('❌ Failed to delete Services record. Status:', deleteResponse2.status);
+                                    const errorText = await deleteResponse2.text();
+                                    console.error('Error details:', errorText);
+                                }
+                            } else {
+                                console.error('❌ Failed to delete Services record. Status:', deleteResponse.status);
+                                const errorText = await deleteResponse.text();
+                                console.error('Error details:', errorText);
+                            }
+                        } else {
+                            console.error('❌ No ID found for Services record');
+                        }
+                    } else {
+                        console.log('⚠️ No Services records found for this project');
+                    }
+                } else {
+                    console.error('❌ Failed to fetch Services records. Status:', getResponse.status);
+                }
+            } catch (error) {
+                console.error('❌ Error deleting recent Services record:', error);
+            }
+            return false;
+        }
+        
+        // Update the selected services display
+        function updateSelectedServicesList() {
+            const container = document.getElementById('selectedServicesList');
+            if (!container) return;
+            
+            if (selectedServices.length === 0) {
+                container.innerHTML = '<p style="color: #999;">No services selected</p>';
+                updateDocumentsTable(); // Update documents table
+                updateTemplatesTable(); // Update templates table
+                return;
+            }
+            
+            // Group services by type
+            const grouped = {};
+            selectedServices.forEach(service => {
+                if (!grouped[service.offersId]) {
+                    grouped[service.offersId] = {
+                        typeName: service.typeName,
+                        offersId: service.offersId,
+                        count: 0,
+                        instances: []
+                    };
+                }
+                grouped[service.offersId].count++;
+                grouped[service.offersId].instances.push(service);
+            });
+            
+            let html = '';
+            Object.values(grouped).forEach(group => {
+                // Escape the typeName for use in onclick attributes
+                // Using a different approach to avoid regex issues in template literals
+                let escapedTypeName = group.typeName;
+                escapedTypeName = escapedTypeName.split("'").join("\\\\'");
+                escapedTypeName = escapedTypeName.split('"').join('&quot;');
+                
+                html += \`
+                    <div style="display: flex; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 4px; margin-bottom: 5px;">
+                        <span style="flex: 1;">
+                            \${group.typeName} 
+                            \${group.count > 1 ? '(x' + group.count + ')' : ''}
+                        </span>
+                        <div style="display: flex; gap: 5px;">
+                            \${group.count > 1 ? \`
+                                <button onclick="removeLastDuplicate('\${group.offersId}')"
+                                        style="background: #dc3545; color: white; border: none; padding: 4px 8px; 
+                                               border-radius: 4px; cursor: pointer;">
+                                    -
+                                </button>
+                            \` : ''}
+                            <button onclick="duplicateService('\${group.offersId}', '\${escapedTypeName}')"
+                                    style="background: #28a745; color: white; border: none; padding: 4px 8px; 
+                                           border-radius: 4px; cursor: pointer;">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            });
+            
+            container.innerHTML = html;
+            updateDocumentsTable(); // Update documents table when services change
+            updateTemplatesTable(); // Update templates table when services change
+        }
+        
+        // Store existing attachments
+        let existingAttachments = [];
+        
+        // Define document types for each service (fallback for types not in Attach_Templates)
+        const serviceDocuments = {
+            "Engineer's Foundation Evaluation": [
+                { name: "Home Inspection Report", required: true },
+                { name: "Cubicasa", required: false }
+            ],
+            "HUD / FHA Engineering Evaluation for Manufactured/Mobile Homes": [
+                { name: "Home Inspection Report", required: true },
+                { name: "HUD Certification", required: true }
+            ],
+            "Engineer's Inspection Review": [
+                { name: "Home Inspection Report", required: true },
+                { name: "Review Documents", required: false }
+            ],
+            "Defect Cost Report": [
+                { name: "Home Inspection Report", required: true },
+                { name: "Cost Estimates", required: false }
+            ],
+            "Engineer's Load Bearing Wall Evaluation": [
+                { name: "Structural Plans", required: true },
+                { name: "Home Inspection Report", required: false }
+            ],
+            "Engineer's Damaged Truss Evaluation": [
+                { name: "Truss Documentation", required: true },
+                { name: "Home Inspection Report", required: false }
+            ],
+            "Engineer's Cost Segregation Analysis": [
+                { name: "Financial Documentation", required: true },
+                { name: "Property Details", required: true }
+            ],
+            "Engineer's WPI-8": [
+                { name: "WPI-8 Form", required: true },
+                { name: "Home Inspection Report", required: false }
+            ],
+            "Other": [
+                { name: "Home Inspection Report", required: false }
+            ]
+        };
+        
+        // Load existing attachments from Attach table
+        async function loadExistingAttachments() {
+            try {
+                const token = await getCaspioToken();
+                const response = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Attach/records?q.where=ProjectID=\${actualProjectId}\`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    existingAttachments = data.Result || [];
+                    console.log('📎 Loaded existing attachments:', existingAttachments);
+                    updateDocumentsTable(); // Refresh the table with loaded attachments
+                }
+            } catch (error) {
+                console.error('Error loading existing attachments:', error);
+            }
+        }
+        
+        // Update the documents table based on selected services
+        function updateDocumentsTable() {
+            const tbody = document.getElementById('documentsTableBody');
+            if (!tbody) return;
+            
+            // If no services selected, show default message
+            if (selectedServices.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">No services selected</td></tr>';
+                return;
+            }
+            
+            // Group templates by TypeID and Auto status
+            const templatesByType = {};
+            attachTemplates.forEach(template => {
+                if (!templatesByType[template.TypeID]) {
+                    templatesByType[template.TypeID] = {
+                        auto: [],
+                        manual: []
+                    };
+                }
+                if (template.Auto === 'Yes' || template.Auto === true || template.Auto === 1) {
+                    templatesByType[template.TypeID].auto.push(template);
+                } else {
+                    templatesByType[template.TypeID].manual.push(template);
+                }
+            });
+            
+            let html = '';
+            
+            // Group services by type to handle duplicates
+            const grouped = {};
+            selectedServices.forEach(service => {
+                if (!grouped[service.typeName]) {
+                    grouped[service.typeName] = {
+                        services: [],
+                        typeId: service.typeId
+                    };
+                }
+                grouped[service.typeName].services.push(service);
+            });
+            
+            // Create rows for each service and its documents
+            Object.entries(grouped).forEach(([serviceName, group]) => {
+                const typeId = group.typeId;
+                const services = group.services;
+                
+                // Get templates for this TypeID
+                const autoTemplates = templatesByType[typeId]?.auto || [];
+                const manualTemplates = templatesByType[typeId]?.manual || [];
+                
+                // Fall back to default documents if no templates found
+                let docs = [];
+                if (autoTemplates.length > 0) {
+                    // Use templates from Attach_Templates - Only show Auto=Yes AND Required
+                    docs = autoTemplates
+                        .filter(t => t.Required === 'Yes' || t.Required === true || t.Required === 1)
+                        .map(t => ({
+                            name: t.Title || t.AttachmentName || t.Name || 'Document',
+                            required: true,
+                            templateId: t.PK_ID || t.AttachmentID,
+                            auto: true
+                        }));
+                } else {
+                    // Fallback to predefined documents - ONLY show required ones
+                    const fallbackDocs = serviceDocuments[serviceName] || serviceDocuments["Other"];
+                    // Only include required documents
+                    docs = fallbackDocs
+                        .filter(d => d.required === true)
+                        .map(d => ({
+                            ...d,
+                            auto: true
+                        }));
+                }
+                
+                // For each instance of the service (handling duplicates)
+                services.forEach((service, instanceIndex) => {
+                    const serviceLabel = services.length > 1 ? 
+                        \`\${serviceName} #\${instanceIndex + 1}\` : 
+                        serviceName;
+                    
+                    // Track if we need to show manual templates
+                    // Always show Add button to allow adding any document type
+                    let showAddButton = true;
+                    
+                    // Include manually added documents for this service instance
+                    let allDocs = [...docs];
+                    if (window.manualDocsAdded) {
+                        const manualDocsForService = window.manualDocsAdded.filter(md => 
+                            md.serviceInstanceId === service.instanceId
+                        );
+                        manualDocsForService.forEach(md => {
+                            allDocs.push({
+                                name: md.name,
+                                required: md.required,
+                                templateId: md.templateId,
+                                auto: false
+                            });
+                        });
+                    }
+                    
+                    let rowCount = allDocs.length;
+                    
+                    // Add row for each document (auto and manual)
+                    allDocs.forEach((doc, docIndex) => {
+                        const isFirstDoc = docIndex === 0;
+                        const isLastDoc = docIndex === allDocs.length - 1;
+                        
+                        // Find existing attachments for this document
+                        const attachmentsForDoc = existingAttachments.filter(att => 
+                            att.TypeID === parseInt(typeId) && 
+                            att.Title === doc.name
+                        );
+                        
+                        // Create upload status HTML with sleeker, smaller buttons
+                        let uploadStatus = '';
+                        if (attachmentsForDoc.length > 0) {
+                            uploadStatus = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">';
+                            attachmentsForDoc.forEach((attachment, idx) => {
+                                const fileName = attachment.Link || 'Document';
+                                uploadStatus += \`
+                                    <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 10px; border-radius: 4px; width: 100%;">
+                                        <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+                                            <span style="color: #28a745; font-size: 13px; font-weight: bold;">&#10003;</span>
+                                            <span style="color: #333; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="\${fileName}">\${fileName}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                                            <a href="#" onclick="event.preventDefault(); replaceFile(\${attachment.AttachID}, '\${doc.name.replace(/'/g, "\\\\'")}', '\${serviceName.replace(/'/g, "\\\\'")}')" 
+                                               style="color: #6c757d; font-size: 11px; text-decoration: none;">
+                                                Replace
+                                            </a>
+                                            <a href="#" onclick="event.preventDefault(); removeAttachment(\${attachment.AttachID}, '\${fileName.replace(/'/g, "\\\\'")}')" 
+                                               style="color: #dc3545; font-size: 11px; text-decoration: none;">
+                                                Remove
+                                            </a>
+                                        </div>
+                                    </div>
+                                \`;
+                            });
+                            uploadStatus += \`
+                                <div style="margin-top: 4px;">
+                                    <a href="#" onclick="event.preventDefault(); handleAddMoreFiles(\${actualProjectId}, \${service.serviceId || 'null'}, \${typeId}, '\${doc.name.replace(/'/g, "\\\\'")}', '\${serviceName.replace(/'/g, "\\\\'")}')" 
+                                       style="color: #007bff; font-size: 12px; text-decoration: none;">
+                                        + Upload Another
+                                    </a>
+                                </div>
+                            </div>\`;
+                        } else {
+                            uploadStatus = \`
+                                <a href="#" onclick="event.preventDefault(); uploadNewFile(\${actualProjectId}, \${service.serviceId || 'null'}, \${typeId}, '\${doc.name.replace(/'/g, "\\\\'")}', '\${serviceName.replace(/'/g, "\\\\'")}')" 
+                                   style="color: #007bff; font-size: 12px; text-decoration: none; font-weight: 500;">
+                                    Upload
+                                </a>
+                            \`;
+                        }
+                        
+                        // Add remove document option for optional documents without uploads
+                        let removeDocOption = '';
+                        if (!doc.required && attachmentsForDoc.length === 0) {
+                            // For manually added documents
+                            if (!doc.auto) {
+                                removeDocOption = \`
+                                    <a href="#" onclick="event.preventDefault(); removeManualDocument('\${doc.name.replace(/'/g, "\\\\'")}', \${service.instanceId})"
+                                       style="color: #dc3545; font-size: 11px; text-decoration: none; margin-left: 10px;">
+                                        Remove
+                                    </a>
+                                \`;
+                            }
+                        }
+                        
+                        html += \`
+                            <tr>
+                                \${isFirstDoc ? \`<td rowspan="\${rowCount}" style="vertical-align: top; font-weight: 600; color: #212529; font-size: 14px; background: #fafbfc; border-right: 1px solid #e9ecef;">\${serviceLabel}</td>\` : ''}
+                                <td>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            \${doc.name}
+                                            \${isLastDoc && showAddButton ? \`
+                                                <div style="margin-top: 5px;">
+                                                    <a href="#" onclick="event.preventDefault(); showManualDocuments(\${typeId}, '\${serviceName.replace(/'/g, "\\\\'")}', \${instanceIndex})" 
+                                                       style="color: #007bff; font-size: 12px; text-decoration: none;">
+                                                        + Add
+                                                    </a>
+                                                </div>
+                                            \` : ''}
+                                        </div>
+                                        \${removeDocOption}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge \${attachmentsForDoc.length > 0 ? 'status-uploaded' : (doc.required ? 'status-pending' : 'status-optional')}">
+                                        \${attachmentsForDoc.length > 0 ? 'Uploaded' : (doc.required ? 'Required' : 'Optional')}
+                                    </span>
+                                </td>
+                                <td id="upload-cell-\${service.instanceId}-\${docIndex}">
+                                    \${uploadStatus}
+                                </td>
+                            </tr>
+                        \`;
+                    });
+                    
+                    // Add separator row between service instances
+                    if (instanceIndex < services.length - 1) {
+                        html += '<tr style="height: 5px;"><td colspan="4" style="border: none; background: transparent;"></td></tr>';
+                    }
+                });
+                
+                // Add separator between different service types
+                html += '<tr style="height: 15px;"><td colspan="4" style="border: none; background: transparent;"></td></tr>';
+            });
+            
+            tbody.innerHTML = html || '<tr><td colspan="4" style="text-align: center; color: #999;">No services selected</td></tr>';
+        }
+        
+        // Show manual documents popup
+        window.showManualDocuments = function(typeId, serviceName, instanceIndex) {
+            // Get manual templates from database
+            const manualTemplates = attachTemplates.filter(t => 
+                t.TypeID == typeId && 
+                (t.Auto === 'No' || t.Auto === false || t.Auto === 0)
+            );
+            
+            // Get auto templates that are optional (not required)
+            const optionalAutoTemplates = attachTemplates.filter(t =>
+                t.TypeID == typeId &&
+                (t.Auto === 'Yes' || t.Auto === true || t.Auto === 1) &&
+                (t.Required === 'No' || t.Required === false || t.Required === 0)
+            );
+            
+            let documentsToShow = [...manualTemplates, ...optionalAutoTemplates];
+            
+            // If no templates at all, check for fallback optional documents
+            if (documentsToShow.length === 0) {
+                const fallbackDocs = serviceDocuments[serviceName] || [];
+                const optionalFallbackDocs = fallbackDocs
+                    .filter(d => d.required === false)
+                    .map(d => ({
+                        Title: d.name,
+                        Required: false
+                    }));
+                
+                if (optionalFallbackDocs.length > 0) {
+                    documentsToShow = optionalFallbackDocs;
+                } else {
+                    // Provide common optional documents when no templates exist
+                    documentsToShow = [
+                        { Title: 'Additional Photos', Required: false },
+                        { Title: 'Supporting Documentation', Required: false },
+                        { Title: 'Client Notes', Required: false },
+                        { Title: 'Supplemental Report', Required: false },
+                        { Title: 'Cost Estimate', Required: false },
+                        { Title: 'Other Document', Required: false }
+                    ];
+                }
+            }
+            
+            // Create a modal to show manual document options
+            let modalHtml = \`
+                <div id="manualDocsModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; justify-content: center; align-items: center;">
+                    <div style="background: white; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto;">
+                        <h3 style="margin: 0 0 20px 0;">Additional Documents for \${serviceName}</h3>
+                        <div style="margin-bottom: 20px;">
+            \`;
+            
+            documentsToShow.forEach(template => {
+                const docName = template.Title || template.AttachmentName || template.Name || 'Document';
+                const isRequired = template.Required === 'Yes' || template.Required === true || template.Required === 1;
+                modalHtml += \`
+                    <div style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; cursor: pointer; transition: background 0.2s;"
+                         onmouseover="this.style.background='#f0f0f0'" 
+                         onmouseout="this.style.background='white'"
+                         onclick="addManualDocument(\${template.PK_ID || template.AttachmentID}, '\${docName.replace(/'/g, "\\\\'")}', \${isRequired}, '\${serviceName.replace(/'/g, "\\\\'")}', \${instanceIndex})">
+                        <strong>\${docName}</strong>
+                        \${isRequired ? '<span style="color: red; margin-left: 10px;">*Required</span>' : '<span style="color: #666; margin-left: 10px;">(Optional)</span>'}
+                    </div>
+                \`;
+            });
+            
+            modalHtml += \`
+                        </div>
+                        <button onclick="document.getElementById('manualDocsModal').remove()" 
+                                style="padding: 10px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            \`;
+            
+            // Add modal to page
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        // Add manual document to the table
+        window.addManualDocument = function(templateId, docName, isRequired, serviceName, instanceIndex) {
+            // Close modal
+            const modal = document.getElementById('manualDocsModal');
+            if (modal) modal.remove();
+            
+            // Find the services for this type
+            const servicesForType = selectedServices.filter(s => s.typeName === serviceName);
+            const service = servicesForType[instanceIndex];
+            
+            if (!service) {
+                console.error('Service not found for:', serviceName, 'at index:', instanceIndex);
+                return;
+            }
+            
+            // Initialize manual docs array if needed
+            if (!window.manualDocsAdded) {
+                window.manualDocsAdded = [];
+            }
+            
+            // Check if this document is already added for this service
+            const existingDoc = window.manualDocsAdded.find(md => 
+                md.serviceInstanceId === service.instanceId && 
+                md.name === docName
+            );
+            
+            if (existingDoc) {
+                console.log('Document already added:', docName);
+                return;
+            }
+            
+            // Add the new manual document
+            window.manualDocsAdded.push({
+                templateId: templateId,
+                name: docName,
+                required: isRequired,
+                serviceName: serviceName,
+                serviceInstanceId: service.instanceId,
+                typeId: service.typeId
+            });
+            
+            // Save to localStorage
+            const manualDocsKey = \`project_\${projectId}_manual_docs\`;
+            localStorage.setItem(manualDocsKey, JSON.stringify(window.manualDocsAdded));
+            
+            // Refresh the documents table to show the new document
+            updateDocumentsTable();
+        }
+        
+        // Handle uploading a new file
+        window.uploadNewFile = function(projectId, serviceId, typeId, docTitle, serviceName) {
+            const tempInput = document.createElement('input');
+            tempInput.type = 'file';
+            tempInput.onchange = function() {
+                handleFileUpload(tempInput, projectId, serviceId, typeId, docTitle, serviceName, null);
+            };
+            tempInput.click();
+        }
+        
+        // Handle replacing an existing file
+        window.replaceFile = function(attachId, docTitle, serviceName) {
+            const tempInput = document.createElement('input');
+            tempInput.type = 'file';
+            tempInput.onchange = function() {
+                handleFileUpload(tempInput, actualProjectId, null, null, docTitle, serviceName, attachId);
+            };
+            tempInput.click();
+        }
+        
+        // Handle removing a manual document entirely from the table
+        window.removeManualDocument = function(docName, serviceInstanceId) {
+            const confirmMessage = \`Are you sure you want to remove "\${docName}" from the documents list? This will remove the document requirement entirely.\`;
+            
+            showConfirmModal(confirmMessage, () => {
+                // Remove from the manualDocsAdded array
+                if (window.manualDocsAdded) {
+                    window.manualDocsAdded = window.manualDocsAdded.filter(md => 
+                        !(md.serviceInstanceId === serviceInstanceId && md.name === docName)
+                    );
+                    
+                    // Save updated list to localStorage
+                    const manualDocsKey = \`project_\${projectId}_manual_docs\`;
+                    localStorage.setItem(manualDocsKey, JSON.stringify(window.manualDocsAdded));
+                    
+                    console.log('📝 Removed manual document:', docName);
+                    
+                    // Refresh the documents table
+                    updateDocumentsTable();
+                }
+            }, () => {
+                // User cancelled - do nothing
+                console.log('User cancelled document removal');
+            });
+        }
+        
+        // Handle removing an attachment
+        window.removeAttachment = async function(attachId, fileName) {
+            // Show confirmation dialog
+            const confirmMessage = \`Are you sure you want to remove "\${fileName}"? This action cannot be undone.\`;
+            
+            showConfirmModal(confirmMessage, async () => {
+                try {
+                    const token = await getCaspioToken();
+                    
+                    console.log('🗑️ Deleting Attach record:', attachId);
+                    
+                    // Delete the Attach record
+                    const response = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Attach/records?q.where=AttachID=\${attachId}\`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': \`Bearer \${token}\`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ Attachment removed successfully');
+                        
+                        // Reload attachments to refresh the display
+                        await loadExistingAttachments();
+                        
+                        // Update the documents table
+                        updateDocumentsTable();
+                    } else {
+                        const errorText = await response.text();
+                        console.error('❌ Failed to remove attachment:', errorText);
+                        alert('Failed to remove attachment. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error removing attachment:', error);
+                    alert('An error occurred while removing the attachment.');
+                }
+            }, () => {
+                // User cancelled - do nothing
+                console.log('User cancelled attachment removal');
+            });
+        }
+        
+        // Handle adding more files (creates new Attach record)
+        window.handleAddMoreFiles = function(projectId, serviceId, typeId, docTitle, serviceName) {
+            // Create a temporary file input
+            const tempInput = document.createElement('input');
+            tempInput.type = 'file';
+            tempInput.onchange = function() {
+                handleFileUpload(tempInput, projectId, serviceId, typeId, docTitle, serviceName, null);
+            };
+            tempInput.click();
+        }
+        
+        // Handle file upload
+        window.handleFileUpload = async function(input, projectId, serviceId, typeId, docTitle, serviceName, replaceAttachId) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            console.log('📁 Uploading file:', file.name);
+            console.log('📋 For document:', docTitle);
+            console.log('🏠 Project ID:', projectId);
+            console.log('🔧 Service ID:', serviceId);
+            console.log('📊 Type ID:', typeId);
+            console.log('🔄 Replace Attach ID:', replaceAttachId);
+            
+            try {
+                const token = await getCaspioToken();
+                let attachId = replaceAttachId;
+                
+                if (attachId) {
+                    console.log('📝 Replacing file for existing Attach record:', attachId);
+                } else {
+                    // Create new Attach record
+                    const attachData = {
+                        ProjectID: parseInt(projectId),
+                        TypeID: parseInt(typeId),
+                        Title: docTitle,
+                        Notes: \`Uploaded for \${serviceName}\`
+                    };
+                    
+                    console.log('📤 Creating Attach record:', attachData);
+                    
+                    const response = await fetch('https://c2hcf092.caspio.com/rest/v2/tables/Attach/records', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': \`Bearer \${token}\`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(attachData)
+                    });
+                    
+                    if (response.ok) {
+                        // Get the created record ID
+                        const responseText = await response.text();
+                        
+                        if (responseText) {
+                            try {
+                                const result = JSON.parse(responseText);
+                                attachId = result.AttachID || result.PK_ID;
+                            } catch (e) {
+                                console.log('Could not parse response');
+                            }
+                        }
+                        
+                        // If we didn't get the ID from response, fetch the latest record
+                        if (!attachId) {
+                            const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Attach/records?q.where=ProjectID=\${projectId}&q.orderBy=AttachID%20DESC&q.limit=1\`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': \`Bearer \${token}\`
+                                }
+                            });
+                            
+                            if (getResponse.ok) {
+                                const data = await getResponse.json();
+                                const records = data.Result || [];
+                                if (records.length > 0) {
+                                    attachId = records[0].AttachID || records[0].PK_ID;
+                                }
+                            }
+                        }
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Failed to create Attach record:', errorText);
+                        button.textContent = originalText;
+                        button.disabled = false;
+                        alert('Failed to create attachment record. Please try again.');
+                        return;
+                    }
+                }
+                
+                // Now upload the file using our server-side endpoint
+                if (attachId && file) {
+                        console.log('📤 Uploading file to Attach record:', attachId);
+                        
+                        const formData = new FormData();
+                        formData.append('Attachment', file);
+                        
+                        const fileResponse = await fetch(\`/api/caspio/Attach/file/\${attachId}\`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (fileResponse.ok) {
+                            const result = await fileResponse.json();
+                            console.log('✅ File uploaded successfully:', result);
+                            
+                            // Update the Link field with the filename
+                            const updateData = {
+                                Link: file.name
+                            };
+                            
+                            const updateResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Attach/records?q.where=AttachID=\${attachId}\`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': \`Bearer \${token}\`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(updateData)
+                            });
+                            
+                            if (updateResponse.ok) {
+                                console.log('✅ Updated Link field with filename:', file.name);
+                            }
+                            
+                            // Reload attachments to refresh the display
+                            await loadExistingAttachments();
+                            
+                            // Update the entire documents table to show new state
+                            updateDocumentsTable();
+                        } else {
+                            const error = await fileResponse.json();
+                            console.error('Failed to upload file:', error);
+                            alert('Failed to upload file. Please try again.');
+                        }
+                    } else {
+                        console.log('✅ Attach record created (no file to upload)');
+                    }
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert('An error occurred during upload. Please try again.');
+            }
+            
+            // Clear the file input for potential re-upload
+            input.value = '';
+        }
+        
+        // Update the templates table based on selected services
+        // Function to open template - works for both web and mobile
+        window.openTemplate = function(offersId, projectPkId, serviceId) {
+            // For development server (web)
+            if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+                window.open('/template/' + offersId + '/' + projectPkId + '/' + serviceId, '_blank');
+            } 
+            // For mobile app
+            else {
+                // Store the IDs for mobile navigation
+                localStorage.setItem('currentOffersId', offersId);
+                localStorage.setItem('currentProjectPkId', projectPkId);
+                localStorage.setItem('currentServiceId', serviceId);
+                
+                // Get the actual ProjectID from the project data
+                const actualProjectId = '${project.ProjectID}';
+                localStorage.setItem('currentProjectID', actualProjectId);
+                
+                // Load template view for mobile
+                loadTemplateView(offersId, actualProjectId, serviceId);
+            }
+        }
+        
+        function updateTemplatesTable() {
+            const tbody = document.getElementById('templatesTableBody');
+            if (!tbody) return;
+            
+            if (selectedServices.length === 0) {
+                tbody.innerHTML = '<tr><td style="text-align: center; color: #999; padding: 20px;">No services selected</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            
+            // Group services by type to handle duplicates
+            const grouped = {};
+            selectedServices.forEach(service => {
+                if (!grouped[service.typeName]) {
+                    grouped[service.typeName] = {
+                        name: service.typeName,
+                        offersId: service.offersId,
+                        instances: []
+                    };
+                }
+                grouped[service.typeName].instances.push(service);
+            });
+            
+            // Create a row for each service instance with centered full-width button
+            Object.values(grouped).forEach(group => {
+                group.instances.forEach((service, index) => {
+                    const templateName = group.instances.length > 1 ? 
+                        \`\${group.name} Template #\${index + 1}\` : 
+                        \`\${group.name} Template\`;
+                    
+                    // Use the specific serviceId to associate with the Services record
+                    const serviceId = service.serviceId || service.instanceId || 'new';
+                    
+                    html += \`
+                        <tr>
+                            <td style="text-align: center; padding: 10px;">
+                                <button class="template-btn" 
+                                        onclick="openTemplate('\${group.offersId}', '\${projectId}', '\${serviceId}')"
+                                        style="width: 100%; padding: 12px 20px; background: #007bff; color: white; border: none; 
+                                               border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;
+                                               transition: background 0.2s; text-align: center;"
+                                        onmouseover="this.style.background='#0056b3'"
+                                        onmouseout="this.style.background='#007bff'"
+                                        data-service-id="\${serviceId}"
+                                        title="Open template for Service ID: \${serviceId}">
+                                    \${templateName}
+                                </button>
+                            </td>
+                        </tr>
+                    \`;
+                });
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        // Create service record in Caspio
+        async function createServicesRecord(offersId, instanceId, typeId, inspectionDate) {
+            try {
+                // Find the service in selectedServices to get all its data
+                const service = selectedServices.find(s => s.instanceId === instanceId);
+                
+                console.log('📝 Creating Services record:', {
+                    projectId: actualProjectId,
+                    offersId: offersId,
+                    typeId: service?.typeId || typeId,
+                    inspectionDate: service?.inspectionDate || inspectionDate,
+                    instanceId: instanceId
+                });
+                
+                // Create actual Services record in Caspio
+                const token = await getCaspioToken();
+                // Include ProjectID, TypeID, and DateOfInspection
+                const typeIdValue = parseInt(service?.typeId || typeId || '1');
+                const data = {
+                    ProjectID: parseInt(actualProjectId),
+                    TypeID: typeIdValue,
+                    DateOfInspection: service?.inspectionDate || new Date().toISOString().split('T')[0]
+                };
+                
+                console.log('📝 TypeID being sent:', typeIdValue, 'from typeId:', (service?.typeId || typeId));
+                
+                console.log('📤 Sending to Services table:', data);
+                
+                const response = await fetch('https://c2hcf092.caspio.com/rest/v2/tables/Services/records', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('📥 Response status:', response.status);
+                
+                if (response.status === 201 || response.status === 200) {
+                    console.log('✅ Services record created for OffersID:', offersId);
+                    const responseText = await response.text();
+                    console.log('Raw response:', responseText);
+                    
+                    // Caspio often returns empty response on 201 Created
+                    // We need to fetch the created record to get its ID
+                    if (!responseText || responseText === '') {
+                        console.log('Empty response, fetching created record...');
+                        
+                        // Wait a moment for the record to be created
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                        // Fetch the most recent Services record for this project
+                        const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ProjectID=\${actualProjectId}&q.orderBy=PK_ID%20DESC&q.limit=1\`, {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': \`Bearer \${token}\`
+                            }
+                        });
+                        
+                        if (getResponse.ok) {
+                            const data = await getResponse.json();
+                            const records = data.Result || [];
+                            if (records.length > 0) {
+                                const newRecord = records[0];
+                                console.log('Found created record:', newRecord);
+                                return newRecord.PK_ID || newRecord.ServiceID || null;
+                            }
+                        }
+                    } else {
+                        try {
+                            const result = JSON.parse(responseText);
+                            console.log('Parsed response:', result);
+                            // Return the ServiceID or PK_ID if available
+                            return result.ServiceID || result.PK_ID || null;
+                        } catch (e) {
+                            console.log('Could not parse response as JSON');
+                        }
+                    }
+                    return null;
+                } else {
+                    const errorText = await response.text();
+                    console.error('Failed to create Services record:', response.status, errorText);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error saving service selection:', error);
+                return null;
+            }
+        }
+        
+        // Delete Services record from Caspio
+        async function deleteServicesRecord(serviceId) {
+            try {
+                // If we don't have a serviceId, try to find records by ProjectID
+                if (!serviceId) {
+                    console.log('⚠️ No ServiceID available, searching by ProjectID:', actualProjectId);
+                    const token = await getCaspioToken();
+                    
+                    // First, get all Services records for this project
+                    const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ProjectID=\${actualProjectId}\`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': \`Bearer \${token}\`
+                        }
+                    });
+                    
+                    if (getResponse.ok) {
+                        const data = await getResponse.json();
+                        const records = data.Result || [];
+                        console.log('Found Services records to delete:', records);
+                        
+                        // Delete the most recent one (we can't identify specific ones without ServiceID)
+                        if (records.length > 0) {
+                            const recordToDelete = records[records.length - 1];
+                            const pkId = recordToDelete.PK_ID || recordToDelete.ServiceID;
+                            
+                            if (pkId) {
+                                const deleteResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=PK_ID=\${pkId}\`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Authorization': \`Bearer \${token}\`
+                                    }
+                                });
+                                
+                                if (deleteResponse.status === 200 || deleteResponse.status === 204) {
+                                    console.log('✅ Services record deleted by PK_ID:', pkId);
+                                } else {
+                                    console.error('Failed to delete by PK_ID:', deleteResponse.status);
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+                
+                const token = await getCaspioToken();
+                
+                console.log('🗑️ Deleting Services record with ServiceID:', serviceId);
+                
+                // Try deleting by ServiceID first
+                let response = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ServiceID=\${serviceId}\`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`
+                    }
+                });
+                
+                // If ServiceID doesn't work, try PK_ID
+                if (response.status === 404 || response.status === 400) {
+                    console.log('ServiceID not found, trying PK_ID:', serviceId);
+                    response = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=PK_ID=\${serviceId}\`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': \`Bearer \${token}\`
+                        }
+                    });
+                }
+                
+                if (response.status === 200 || response.status === 204) {
+                    console.log('✅ Services record deleted:', serviceId);
+                } else {
+                    const errorText = await response.text();
+                    console.error('Failed to delete Services record:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('Error deleting service record:', error);
+            }
+        }
+        
+        // Get Caspio token
+        async function getCaspioToken() {
+            const tokenUrl = 'https://c2hcf092.caspio.com/oauth/token';
+            const response = await fetch(tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'grant_type=client_credentials&client_id=${caspioConfig.clientId}&client_secret=${caspioConfig.clientSecret}'
+            });
+            const data = await response.json();
+            return data.access_token;
+        }
+        
+        // Load existing services for this project
+        async function loadExistingServices() {
+            // First, fetch actual Services records from Caspio for this project
+            try {
+                const token = await getCaspioToken();
+                const getResponse = await fetch(\`https://c2hcf092.caspio.com/rest/v2/tables/Services/records?q.where=ProjectID=\${actualProjectId}\`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': \`Bearer \${token}\`
+                    }
+                });
+                
+                let caspioServices = [];
+                if (getResponse.ok) {
+                    const data = await getResponse.json();
+                    caspioServices = data.Result || [];
+                    console.log('📋 Loaded existing Services records from Caspio:', caspioServices);
+                }
+                
+                // Load from localStorage
+                const storageKey = \`project_\${projectId}_services\`;
+                const savedServices = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                
+                // Reconstruct selectedServices array
+                savedServices.forEach(saved => {
+                const serviceType = serviceTypes.find(t => {
+                    const offer = offers.find(o => o.OffersID == saved.offersId);
+                    return offer && offer.TypeID === t.TypeID;
+                });
+                
+                if (serviceType) {
+                    // Try to find matching Caspio record by TypeID
+                    const matchingCaspioRecord = caspioServices.find(cs => 
+                        cs.TypeID == (saved.typeId || serviceType.TypeID)
+                    );
+                    
+                    selectedServices.push({
+                        offersId: saved.offersId,
+                        typeName: serviceType.TypeName,
+                        instanceId: saved.instanceId,
+                        typeId: saved.typeId,
+                        inspectionDate: saved.inspectionDate,
+                        serviceId: matchingCaspioRecord ? matchingCaspioRecord.PK_ID : saved.serviceId
+                    });
+                    
+                    // Check the corresponding checkbox
+                    const checkbox = document.querySelector(\`input[value="\${saved.offersId}"]\`);
+                    if (checkbox && !checkbox.checked) {
+                        checkbox.checked = true;
+                    }
+                    
+                    // Show and set the date input
+                    const dateInput = document.getElementById(\`inspection-date-\${saved.offersId}\`);
+                    if (dateInput && saved.inspectionDate) {
+                        dateInput.style.display = 'block';
+                        dateInput.value = saved.inspectionDate;
+                    }
+                }
+            });
+            
+            // Update display
+            if (selectedServices.length > 0) {
+                updateSelectedServicesList();
+            }
+            
+            // Also check if project has existing OffersID
+            const existingOffersId = '${project.OffersID || ''}';
+            if (existingOffersId && !selectedServices.find(s => s.offersId == existingOffersId)) {
+                const checkbox = document.querySelector(\`input[value="\${existingOffersId}"]\`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    handleServiceToggle(checkbox);
+                }
+            }
+            } catch (error) {
+                console.error('Error loading existing services:', error);
+            }
+        }
+    </script>
 </body>
 </html>`;
 }
@@ -1731,11 +3369,147 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }
-  } else if (pathname.startsWith('/api/caspio/Service_EFE/check/') && req.method === 'GET') {
-    // Check if Service_EFE record exists for a project
+  } else if (pathname.startsWith('/api/get-project/') && req.method === 'GET') {
+    // Get project details by ProjectID
+    const projectId = pathname.replace('/api/get-project/', '');
+    
+    try {
+      if (!accessToken) {
+        await authenticate();
+      }
+      
+      const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
+      const response = await fetch(`${apiBaseUrl}/tables/Projects/records?q.where=ProjectID=${projectId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.Result && data.Result.length > 0) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(data.Result[0]));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Project not found' }));
+        }
+      } else {
+        res.writeHead(response.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to fetch project' }));
+      }
+    } catch (err) {
+      console.error('Error fetching project:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  } else if (pathname === '/api/save-project-field' && req.method === 'POST') {
+    // Save a single project field
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { projectId, fieldName, value } = JSON.parse(body);
+        
+        if (!accessToken) {
+          await authenticate();
+        }
+        
+        const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
+        
+        // First get the PK_ID for this ProjectID
+        const getResponse = await fetch(`${apiBaseUrl}/tables/Projects/records?q.where=ProjectID=${projectId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!getResponse.ok) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Project not found' }));
+          return;
+        }
+        
+        const projectData = await getResponse.json();
+        if (!projectData.Result || projectData.Result.length === 0) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Project not found' }));
+          return;
+        }
+        
+        const pkId = projectData.Result[0].PK_ID;
+        
+        // Update the specific field
+        const updateData = { [fieldName]: value };
+        
+        const updateResponse = await fetch(`${apiBaseUrl}/tables/Projects/records?q.where=PK_ID=${pkId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (updateResponse.ok) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, fieldName, value }));
+        } else {
+          const errorText = await updateResponse.text();
+          console.error('Error updating project field:', errorText);
+          res.writeHead(updateResponse.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to update project field' }));
+        }
+      } catch (err) {
+        console.error('Error saving project field:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+  } else if (pathname.match(/^\/api\/caspio\/Services\/\d+$/) && req.method === 'GET') {
+    // Get specific Services record by PK_ID
+    const serviceId = pathname.split('/').pop();
+    
+    try {
+      if (!accessToken) {
+        await authenticate();
+      }
+      
+      const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
+      // Use PK_ID to fetch the record since that's the actual ID we have
+      const response = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=PK_ID=${serviceId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.Result && data.Result.length > 0) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          exists: true, 
+          ServiceID: serviceId,
+          record: data.Result[0]
+        }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ exists: false, message: 'Services record not found' }));
+      }
+    } catch (err) {
+      console.error('Error fetching Services:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  } else if (pathname.startsWith('/api/caspio/Services/check/') && req.method === 'GET') {
+    // Check if Services record exists for a project
     // The projectId here is actually the PK_ID from Projects table (e.g., 1860)
     // We need to first get the ProjectID from the Projects table
-    const pkId = pathname.replace('/api/caspio/Service_EFE/check/', '');
+    const pkId = pathname.replace('/api/caspio/Services/check/', '');
     
     try {
       if (!accessToken) {
@@ -1765,10 +3539,10 @@ const server = http.createServer(async (req, res) => {
       }
       
       const projectId = projectData.Result[0].ProjectID;
-      console.log(`🔍 Checking Service_EFE for ProjectID: ${projectId} (from PK_ID: ${pkId})`);
+      console.log(`🔍 Checking Services for ProjectID: ${projectId} (from PK_ID: ${pkId})`);
       
-      // Now check for Service_EFE record using the actual ProjectID
-      const response = await fetch(`${apiBaseUrl}/tables/Service_EFE/records?q.where=ProjectID=${projectId}`, {
+      // Now check for Services record using the actual ProjectID
+      const response = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=ProjectID=${projectId}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json'
@@ -1790,10 +3564,10 @@ const server = http.createServer(async (req, res) => {
         }
       } else {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to check Service_EFE' }));
+        res.end(JSON.stringify({ error: 'Failed to check Services' }));
       }
     } catch (err) {
-      console.error('Error checking Service_EFE:', err);
+      console.error('Error checking Services:', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -1861,8 +3635,169 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500);
       res.end('Error fetching file');
     }
-  } else if (pathname.match(/^\/api\/caspio\/Service_EFE\/file\/\d+$/) && req.method === 'POST') {
-    // Handle file upload for Service_EFE record
+  } else if (pathname.match(/^\/api\/caspio\/Attach\/file\/\d+$/) && req.method === 'POST') {
+    // Handle file upload for Attach record
+    const attachId = pathname.split('/').pop();
+    
+    let body = [];
+    req.on('data', chunk => {
+      body.push(chunk);
+    });
+    
+    req.on('end', async () => {
+      try {
+        if (!accessToken) {
+          await authenticate();
+        }
+        
+        // Parse multipart form data to extract file
+        const buffer = Buffer.concat(body);
+        const boundary = req.headers['content-type'].split('boundary=')[1];
+        
+        // Split the multipart data by boundary
+        const parts = buffer.toString('binary').split(`--${boundary}`);
+        
+        let fieldName = 'Attachment';
+        let fileName = null;
+        let fileContent = null;
+        let contentType = 'application/octet-stream';
+        
+        // Find the file part
+        for (const part of parts) {
+          if (part.includes('Content-Disposition: form-data')) {
+            // Extract filename
+            const fileMatch = part.match(/filename="([^"]+)"/);
+            if (fileMatch) {
+              fileName = fileMatch[1];
+              
+              // Extract content type if present
+              const typeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+              if (typeMatch) {
+                contentType = typeMatch[1];
+              }
+              
+              // Extract file content (after headers)
+              const headerEnd = part.indexOf('\r\n\r\n');
+              if (headerEnd !== -1) {
+                const dataStart = headerEnd + 4;
+                const dataEnd = part.lastIndexOf('\r\n');
+                if (dataEnd > dataStart) {
+                  fileContent = Buffer.from(part.substring(dataStart, dataEnd), 'binary');
+                }
+              }
+            }
+          }
+        }
+        
+        if (!fileName || !fileContent) {
+          console.error('No file found in request');
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No file found in request' }));
+          return;
+        }
+        
+        // Add timestamp to make filename unique
+        const timestamp = Date.now();
+        const uniqueFileName = `${timestamp}_${fileName}`;
+        
+        console.log(`Uploading file: ${uniqueFileName} (${fileContent.length} bytes) to Attach record: ${attachId}`);
+        
+        // Use Caspio Files API to upload directly to the Attach table
+        const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
+        
+        // Create multipart form data for Caspio
+        const formBoundary = `----FormBoundary${Date.now()}`;
+        const formData = [
+          `--${formBoundary}`,
+          `Content-Disposition: form-data; name="file"; filename="${uniqueFileName}"`,
+          `Content-Type: ${contentType}`,
+          '',
+          fileContent.toString('binary'),
+          `--${formBoundary}--`
+        ].join('\r\n');
+        
+        const formBuffer = Buffer.from(formData, 'binary');
+        
+        // For file fields, we need to store the file reference, not the actual file
+        // First upload to Caspio Files API, then store the reference
+        const fileResponse = await fetch(`${apiBaseUrl}/files`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': `multipart/form-data; boundary=${formBoundary}`,
+            'Accept': 'application/json'
+          },
+          body: formBuffer
+        });
+        
+        if (fileResponse.ok || fileResponse.status === 201) {
+          const fileResult = await fileResponse.json();
+          console.log('File uploaded to Caspio Files:', fileResult);
+          
+          // Extract the file reference
+          let fileUrl = '';
+          let externalKey = '';
+          if (fileResult.Result && fileResult.Result.length > 0) {
+            externalKey = fileResult.Result[0].ExternalKey || '';
+            const encodedFileName = encodeURIComponent(uniqueFileName);
+            fileUrl = `https://c2hcf092.caspio.com/dp/37d2600004f63e8fb40647078302/files/${externalKey}/${encodedFileName}`;
+          }
+          
+          // Update the Attach record with the file reference
+          const updateData = {
+            Attachment: fileUrl || fileName,
+            Link: fileName
+          };
+          
+          const updateResponse = await fetch(`${apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+          });
+          
+          if (updateResponse.ok) {
+            console.log('✅ File uploaded and linked to Attach record');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              message: 'File uploaded successfully',
+              fileName: fileName,
+              attachId: attachId,
+              fileUrl: fileUrl
+            }));
+          } else {
+            const errorText = await updateResponse.text();
+            console.error('Failed to update Attach record with file:', errorText);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              message: 'File uploaded but record update failed',
+              fileName: fileName,
+              attachId: attachId
+            }));
+          }
+        } else {
+          const errorText = await fileResponse.text();
+          console.error('Failed to upload file to Caspio Files:', errorText);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            success: false, 
+            error: 'Failed to upload file',
+            details: errorText
+          }));
+        }
+      } catch (err) {
+        console.error('Error processing file upload:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+  } else if (pathname.match(/^\/api\/caspio\/Services\/file\/\d+$/) && req.method === 'POST') {
+    // Handle file upload for Services record
     const serviceId = pathname.split('/').pop();
     
     let body = [];
@@ -1932,7 +3867,7 @@ const server = http.createServer(async (req, res) => {
         const timestamp = Date.now();
         const uniqueFileName = `${timestamp}_${fileName}`;
         
-        console.log(`Uploading file: ${uniqueFileName} (${fileContent.length} bytes) for field: ${fieldName} to Service_EFE record: ${serviceId}`);
+        console.log(`Uploading file: ${uniqueFileName} (${fileContent.length} bytes) for field: ${fieldName} to Services record: ${serviceId}`);
         
         // Use Caspio Files API to upload and get URL
         const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
@@ -1978,11 +3913,11 @@ const server = http.createServer(async (req, res) => {
           
           console.log(`File URL: ${fileUrl}`);
           
-          // Now update the Service_EFE record with the file URL or unique filename
+          // Now update the Services record with the file URL or unique filename
           const updateData = {};
           updateData[fieldName] = fileUrl || uniqueFileName;
           
-          const updateResponse = await fetch(`${apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`, {
+          const updateResponse = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=ServiceID=${serviceId}`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -2000,7 +3935,7 @@ const server = http.createServer(async (req, res) => {
               fileName: uniqueFileName,
               fileUrl: fileUrl
             }));
-            console.log(`✅ File uploaded and linked to Service_EFE record ${serviceId}: ${uniqueFileName}`);
+            console.log(`✅ File uploaded and linked to Services record ${serviceId}: ${uniqueFileName}`);
           } else {
             const errorText = await updateResponse.text();
             console.error('Failed to update record with file URL:', errorText);
@@ -2035,7 +3970,7 @@ const server = http.createServer(async (req, res) => {
             const updateData = {};
             updateData[fieldName] = fileName;
             
-            const updateResponse = await fetch(`${apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`, {
+            const updateResponse = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=ServiceID=${serviceId}`, {
               method: 'PUT',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -2070,7 +4005,7 @@ const server = http.createServer(async (req, res) => {
             const updateData = {};
             updateData[fieldName] = fileName; // Just save filename if file upload fails
             
-            const updateResponse = await fetch(`${apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`, {
+            const updateResponse = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=ServiceID=${serviceId}`, {
               method: 'PUT',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -2107,8 +4042,8 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: err.message }));
       }
     });
-  } else if (pathname.match(/^\/api\/caspio\/Service_EFE\/\d+$/) && req.method === 'PUT') {
-    // Update Service_EFE record
+  } else if (pathname.match(/^\/api\/caspio\/Services\/\d+$/) && req.method === 'PUT') {
+    // Update Services record
     const serviceId = pathname.split('/').pop();
     let body = '';
     req.on('data', chunk => {
@@ -2123,7 +4058,7 @@ const server = http.createServer(async (req, res) => {
         }
         
         const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
-        const response = await fetch(`${apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`, {
+        const response = await fetch(`${apiBaseUrl}/tables/Services/records?q.where=ServiceID=${serviceId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -2143,13 +4078,13 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'Failed to update' }));
         }
       } catch (err) {
-        console.error('Error updating Service_EFE:', err);
+        console.error('Error updating Services:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
     });
-  } else if (pathname === '/api/caspio/Service_EFE' && req.method === 'POST') {
-    // Handle Service_EFE data submission to Caspio
+  } else if (pathname === '/api/caspio/Services' && req.method === 'POST') {
+    // Handle Services data submission to Caspio
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
@@ -2163,9 +4098,9 @@ const server = http.createServer(async (req, res) => {
           await authenticate();
         }
         
-        // Create Service_EFE record in Caspio
+        // Create Services record in Caspio
         const apiBaseUrl = 'https://c2hcf092.caspio.com/rest/v2';
-        const response = await fetch(`${apiBaseUrl}/tables/Service_EFE/records`, {
+        const response = await fetch(`${apiBaseUrl}/tables/Services/records`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -2187,7 +4122,7 @@ const server = http.createServer(async (req, res) => {
         }
         
         const result = await response.json();
-        console.log('✅ Service_EFE record created:', result);
+        console.log('✅ Services record created:', result);
         
         res.writeHead(200, { 
           'Content-Type': 'application/json',
@@ -2196,24 +4131,26 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ 
           success: true, 
           ServiceID: result.ServiceID || serviceData.ServiceID,
-          message: 'Service_EFE record created successfully' 
+          message: 'Services record created successfully' 
         }));
         
       } catch (err) {
-        console.error('Error saving Service_EFE:', err);
+        console.error('Error saving Services:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
     });
   } else if (pathname.startsWith('/template/')) {
-    // Handle template page - NO CASPIO CONNECTION
+    // Handle template page - Service-specific template
     const parts = pathname.replace('/template/', '').split('/');
     const offersId = parts[0];
     const projectId = parts[1] || '';
+    const serviceId = parts[2] || ''; // ServiceID for this specific service instance
     
     try {
       // For now, just use a placeholder service name
       let serviceName = 'Template Form';
+      console.log(`📝 Loading template for OffersID: ${offersId}, ProjectID: ${projectId}, ServiceID: ${serviceId}`);
       
       const html = `
 <!DOCTYPE html>
@@ -2557,6 +4494,13 @@ const server = http.createServer(async (req, res) => {
     
     <div class="service-header">
         <h1>${serviceName}</h1>
+        <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 14px;">
+            <strong>Project ID:</strong> ${projectId || 'Not Set'} | 
+            <strong>Service Record ID (PK_ID):</strong> <span id="serviceIdDisplay">${serviceId || 'Not Set'}</span>
+            <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                This template is linked to Services table record #<span id="pkIdDisplay">${serviceId || 'Not Set'}</span>
+            </div>
+        </div>
     </div>
     
     <div class="container">
@@ -2568,15 +4512,200 @@ const server = http.createServer(async (req, res) => {
         </div>
         
         <form id="templateForm">
+            <!-- Project Details Section (saves to Projects table) -->
+            <div class="section-card" id="project-details-section">
+                <div class="section-header" onclick="toggleSection('project-details')">
+                    <div>
+                        <div class="section-title">
+                            <!-- Icon placeholder for Project Details -->
+                            <span style="display: inline-block; width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; background: #4CAF50; border-radius: 3px; color: white; text-align: center; line-height: 20px; font-size: 14px;">P</span>
+                            Project Details
+                        </div>
+                        <div class="section-description">Client and property information (saves to Projects table)</div>
+                    </div>
+                    <span class="expand-icon" id="project-details-icon">▼</span>
+                </div>
+                <div class="section-content" id="project-details-content">
+                    <div class="section-inner">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Client Name</label>
+                                <input type="text" class="form-input" name="ClientName" id="ClientName" 
+                                       placeholder="Enter client name" onblur="saveProjectField('ClientName', this.value)">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Agent Name</label>
+                                <input type="text" class="form-input" name="AgentName" id="AgentName" 
+                                       placeholder="Enter agent name" onblur="saveProjectField('AgentName', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Inspector Name</label>
+                                <input type="text" class="form-input" name="InspectorName" id="InspectorName" 
+                                       placeholder="Enter inspector name" onblur="saveProjectField('InspectorName', this.value)">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Year Built</label>
+                                <input type="text" class="form-input" name="YearBuilt" id="YearBuilt" 
+                                       placeholder="e.g., 2005" onblur="saveProjectField('YearBuilt', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Square Feet</label>
+                                <input type="text" class="form-input" name="SquareFeet" id="SquareFeet" 
+                                       placeholder="e.g., 2500" onblur="saveProjectField('SquareFeet', this.value)">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Type of Building</label>
+                                <select class="form-select" name="TypeOfBuilding" id="proj_TypeOfBuilding" 
+                                        onchange="saveProjectField('TypeOfBuilding', this.value)">
+                                    <option value="">Select Building Type</option>
+                                    <option value="Single Family">Single Family</option>
+                                    <option value="Multi Family">Multi Family</option>
+                                    <option value="Townhouse">Townhouse</option>
+                                    <option value="Condominium">Condominium</option>
+                                    <option value="Commercial">Commercial</option>
+                                    <option value="Mixed Use">Mixed Use</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Style</label>
+                                <select class="form-select" name="Style" id="proj_Style" 
+                                        onchange="saveProjectField('Style', this.value)">
+                                    <option value="">Select Style</option>
+                                    <option value="Ranch">Ranch</option>
+                                    <option value="Two Story">Two Story</option>
+                                    <option value="Split Level">Split Level</option>
+                                    <option value="Colonial">Colonial</option>
+                                    <option value="Contemporary">Contemporary</option>
+                                    <option value="Traditional">Traditional</option>
+                                    <option value="Mediterranean">Mediterranean</option>
+                                    <option value="Victorian">Victorian</option>
+                                    <option value="Craftsman">Craftsman</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">In Attendance</label>
+                                <input type="text" class="form-input" name="InAttendance" id="proj_InAttendance" 
+                                       placeholder="Names of people present" onblur="saveProjectField('InAttendance', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Weather Conditions</label>
+                                <select class="form-select" name="WeatherConditions" id="proj_WeatherConditions" 
+                                        onchange="saveProjectField('WeatherConditions', this.value)">
+                                    <option value="">Select Weather</option>
+                                    <option value="Clear">Clear</option>
+                                    <option value="Partly Cloudy">Partly Cloudy</option>
+                                    <option value="Cloudy">Cloudy</option>
+                                    <option value="Light Rain">Light Rain</option>
+                                    <option value="Heavy Rain">Heavy Rain</option>
+                                    <option value="Windy">Windy</option>
+                                    <option value="Foggy">Foggy</option>
+                                    <option value="Snow">Snow</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Outdoor Temperature (°F)</label>
+                                <input type="text" class="form-input" name="OutdoorTemperature" id="proj_OutdoorTemperature" 
+                                       placeholder="e.g., 75" onblur="saveProjectField('OutdoorTemperature', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Occupancy/Furnishings</label>
+                                <select class="form-select" name="OccupancyFurnishings" id="proj_OccupancyFurnishings" 
+                                        onchange="saveProjectField('OccupancyFurnishings', this.value)">
+                                    <option value="">Select Status</option>
+                                    <option value="Occupied - Furnished">Occupied - Furnished</option>
+                                    <option value="Occupied - Partially Furnished">Occupied - Partially Furnished</option>
+                                    <option value="Vacant - Furnished">Vacant - Furnished</option>
+                                    <option value="Vacant - Partially Furnished">Vacant - Partially Furnished</option>
+                                    <option value="Vacant - Unfurnished">Vacant - Unfurnished</option>
+                                    <option value="Under Construction">Under Construction</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">First Foundation Type</label>
+                                <select class="form-select" name="FirstFoundationType" id="FirstFoundationType" 
+                                        onchange="saveProjectField('FirstFoundationType', this.value)">
+                                    <option value="">Select Foundation Type</option>
+                                    <option value="Slab">Slab</option>
+                                    <option value="Crawl Space">Crawl Space</option>
+                                    <option value="Basement">Basement</option>
+                                    <option value="Pier and Beam">Pier and Beam</option>
+                                    <option value="Block and Base">Block and Base</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Second Foundation Type</label>
+                                <select class="form-select" name="SecondFoundationType" id="SecondFoundationType" 
+                                        onchange="saveProjectField('SecondFoundationType', this.value)">
+                                    <option value="">Select Foundation Type</option>
+                                    <option value="Slab">Slab</option>
+                                    <option value="Crawl Space">Crawl Space</option>
+                                    <option value="Basement">Basement</option>
+                                    <option value="Pier and Beam">Pier and Beam</option>
+                                    <option value="Block and Base">Block and Base</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Second Foundation Rooms</label>
+                                <input type="text" class="form-input" name="SecondFoundationRooms" id="SecondFoundationRooms" 
+                                       placeholder="List rooms" onblur="saveProjectField('SecondFoundationRooms', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Third Foundation Type</label>
+                                <select class="form-select" name="ThirdFoundationType" id="ThirdFoundationType" 
+                                        onchange="saveProjectField('ThirdFoundationType', this.value)">
+                                    <option value="">Select Foundation Type</option>
+                                    <option value="Slab">Slab</option>
+                                    <option value="Crawl Space">Crawl Space</option>
+                                    <option value="Basement">Basement</option>
+                                    <option value="Pier and Beam">Pier and Beam</option>
+                                    <option value="Block and Base">Block and Base</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Third Foundation Rooms</label>
+                                <input type="text" class="form-input" name="ThirdFoundationRooms" id="ThirdFoundationRooms" 
+                                       placeholder="List rooms" onblur="saveProjectField('ThirdFoundationRooms', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Owner/Occupant Interview</label>
+                            <textarea class="form-input" name="OwnerOccupantInterview" id="OwnerOccupantInterview" 
+                                      rows="4" placeholder="Enter interview notes" 
+                                      onblur="saveProjectField('OwnerOccupantInterview', this.value)"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Information Section -->
             <div class="section-card" id="section-1">
                 <div class="section-header" onclick="toggleSection(1)">
                     <div>
                         <div class="section-title">
-                            <!-- For development server -->
-                            <img src="/icons/information.png" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
-                            <!-- For mobile app deployment, use: -->
-                            <!-- <img src="assets/icons/information.png" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;"> -->
+                            <!-- Icon placeholder for Information -->
+                            <span style="display: inline-block; width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; background: #2196F3; border-radius: 3px; color: white; text-align: center; line-height: 20px; font-size: 14px;">i</span>
                             Information
                         </div>
                         <div class="section-description">Project details and contact information</div>
@@ -2587,11 +4716,11 @@ const server = http.createServer(async (req, res) => {
                     <div class="section-inner">
                         <!-- Subsections within Information -->
                         <div class="subsection-container">
-                            <!-- General Subsection - Service_EFE Table Fields -->
+                            <!-- General Subsection - Services Table Fields -->
                             <div class="subsection-card" id="general-card">
                                 <div class="subsection-header" onclick="toggleSubsection('general')">
                                     <div class="subsection-title-container">
-                                        <span class="subsection-title">General (Service_EFE Data)</span>
+                                        <span class="subsection-title">General (Services Data)</span>
                                         <span class="progress-badge" id="general-progress">0%</span>
                                     </div>
                                     <span class="subsection-expand-icon" id="general-icon">▼</span>
@@ -2600,7 +4729,7 @@ const server = http.createServer(async (req, res) => {
                                     <div class="subsection-inner">
                                         <!-- Hidden fields -->
                                         <input type="hidden" name="ProjectID" id="ProjectID" value="${projectId || ''}">
-                                        <input type="hidden" name="ServiceID" id="ServiceID" value="">
+                                        <input type="hidden" name="ServiceID" id="ServiceID" value="${serviceId || ''}">
                                         
                                         <div class="form-group">
                                             <label class="form-label">Primary Photo</label>
@@ -2905,7 +5034,7 @@ const server = http.createServer(async (req, res) => {
                 const formData = new FormData();
                 formData.append(fieldName, file);
                 
-                const response = await fetch('/api/caspio/Service_EFE/file/' + currentServiceID, {
+                const response = await fetch('/api/caspio/Services/file/' + currentServiceID, {
                     method: 'POST',
                     body: formData
                 });
@@ -2945,6 +5074,54 @@ const server = http.createServer(async (req, res) => {
             }
         }
         
+        // Function to save project field to Projects table
+        window.saveProjectField = async function(fieldName, value) {
+            const projectId = document.getElementById('ProjectID').value;
+            if (!projectId) {
+                console.error('No ProjectID found');
+                return;
+            }
+            
+            showSaveStatus('Saving...', 'saving');
+            
+            try {
+                const response = await fetch('/api/save-project-field', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        projectId: projectId,
+                        fieldName: fieldName,
+                        value: value
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showSaveStatus('Saved', 'success');
+                    
+                    // Mark field as having value for progress tracking
+                    if (value) {
+                        const element = document.getElementById(fieldName);
+                        if (element) {
+                            element.classList.add('has-value');
+                            element.closest('.form-group').classList.add('completed');
+                        }
+                    }
+                    
+                    setTimeout(() => hideStatus(), 2000);
+                } else {
+                    showSaveStatus('Error saving', 'error');
+                    console.error('Error saving project field:', result.error);
+                }
+            } catch (error) {
+                console.error('Error saving project field:', error);
+                showSaveStatus('Error saving', 'error');
+            }
+        }
+        
         // Function to calculate and update section progress
         function updateSectionProgress() {
             // General section fields
@@ -2969,6 +5146,44 @@ const server = http.createServer(async (req, res) => {
             }
         }
         
+        // Function to load existing project data
+        async function loadProjectData() {
+            const projectId = document.getElementById('ProjectID').value;
+            if (!projectId) {
+                console.log('No ProjectID found');
+                return;
+            }
+            
+            try {
+                const response = await fetch(\`/api/get-project/\${projectId}\`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Loaded project data:', data);
+                    
+                    // Populate the Project Details fields
+                    const projectFields = [
+                        'ClientName', 'AgentName', 'InspectorName', 'YearBuilt', 'SquareFeet',
+                        'TypeOfBuilding', 'Style', 'InAttendance', 'WeatherConditions', 
+                        'OutdoorTemperature', 'OccupancyFurnishings', 'FirstFoundationType',
+                        'SecondFoundationType', 'SecondFoundationRooms', 'ThirdFoundationType',
+                        'ThirdFoundationRooms', 'OwnerOccupantInterview'
+                    ];
+                    
+                    projectFields.forEach(fieldName => {
+                        const element = document.getElementById(fieldName);
+                        if (element && data[fieldName]) {
+                            element.value = data[fieldName];
+                            // Mark as having value for visual feedback
+                            element.classList.add('has-value');
+                            element.closest('.form-group').classList.add('completed');
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading project data:', error);
+            }
+        }
+        
         // Initialize field states on page load
         function initializeFieldStates() {
             // Check all form fields for existing values
@@ -2986,29 +5201,76 @@ const server = http.createServer(async (req, res) => {
         // Initialize or get ServiceID on page load
         window.addEventListener('load', async function() {
             const projectId = '${projectId}';
-            if (projectId) {
-                // Check if a Service_EFE record already exists for this project
+            const providedServiceId = '${serviceId}';
+            
+            // If ServiceID is provided, use it directly
+            if (providedServiceId && providedServiceId !== 'new') {
+                currentServiceID = providedServiceId;
+                document.getElementById('ServiceID').value = currentServiceID;
+                document.getElementById('serviceIdDisplay').textContent = currentServiceID;
+                document.getElementById('pkIdDisplay').textContent = currentServiceID;
+                console.log('Using Services record PK_ID:', currentServiceID);
+                console.log('ProjectID:', projectId);
+                
+                // Load existing data for this specific Services record
+                try {
+                    const response = await fetch('/api/caspio/Services/' + currentServiceID);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.record) {
+                            console.log('Services record loaded:', data.record);
+                            console.log('  - PK_ID (record ID):', data.record.PK_ID);
+                            console.log('  - ProjectID:', data.record.ProjectID);
+                            console.log('  - ServiceID field:', data.record.ServiceID);
+                            console.log('  - TypeID:', data.record.TypeID);
+                            
+                            // Update the hidden ProjectID field with the actual ProjectID
+                            if (data.record.ProjectID) {
+                                document.getElementById('ProjectID').value = data.record.ProjectID;
+                                console.log('Updated ProjectID hidden field to:', data.record.ProjectID);
+                            }
+                            
+                            loadExistingData(data.record);
+                            setTimeout(initializeFieldStates, 100);
+                        }
+                    } else {
+                        console.warn('Services record not found for PK_ID:', currentServiceID);
+                    }
+                } catch (error) {
+                    console.error('Error loading Services data:', error);
+                }
+            } else if (projectId) {
+                // If no ServiceID provided, check if we should create a new one
                 // Note: We're checking by ProjectID field value, not PK_ID
                 try {
-                    const response = await fetch('/api/caspio/Service_EFE/check/' + projectId);
+                    const response = await fetch('/api/caspio/Services/check/' + projectId);
                     if (response.ok) {
                         const data = await response.json();
                         if (data.exists && data.ServiceID) {
                             currentServiceID = data.ServiceID;
                             document.getElementById('ServiceID').value = currentServiceID;
-                            console.log('Found existing Service_EFE record with ServiceID:', currentServiceID);
+                            console.log('Found existing Services record with ServiceID:', currentServiceID);
+                            
+                            // Update the hidden ProjectID field with the actual ProjectID
+                            if (data.record && data.record.ProjectID) {
+                                document.getElementById('ProjectID').value = data.record.ProjectID;
+                                console.log('Updated ProjectID hidden field to:', data.record.ProjectID);
+                            }
+                            
                             // Load existing data
                             loadExistingData(data.record);
                             // Initialize field states after loading data
                             setTimeout(initializeFieldStates, 100);
+                            // Load project data for Project Details section
+                            loadProjectData();
                         } else {
-                            console.log('No Service_EFE record found, creating new one');
-                            // Create new Service_EFE record
+                            console.log('No Services record found, creating new one');
+                            // Create new Services record
                             await createServiceRecord();
                         }
                     }
                 } catch (error) {
-                    console.error('Error checking Service_EFE:', error);
+                    console.error('Error checking Services:', error);
                     // Create new record on error
                     await createServiceRecord();
                 }
@@ -3028,9 +5290,13 @@ const server = http.createServer(async (req, res) => {
                 
                 const projectData = await projectResponse.json();
                 const actualProjectId = projectData.ProjectID;
-                console.log('Creating Service_EFE record with ProjectID:', actualProjectId);
+                console.log('Creating Services record with ProjectID:', actualProjectId);
                 
-                const response = await fetch('/api/caspio/Service_EFE', {
+                // Update the hidden ProjectID field with the actual ProjectID
+                document.getElementById('ProjectID').value = actualProjectId;
+                console.log('Updated ProjectID hidden field to:', actualProjectId);
+                
+                const response = await fetch('/api/caspio/Services', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -3047,6 +5313,8 @@ const server = http.createServer(async (req, res) => {
                     showSaveStatus('Service record created', 'success');
                     // Initialize field states
                     initializeFieldStates();
+                    // Load project data for Project Details section
+                    loadProjectData();
                 }
             } catch (error) {
                 console.error('Error creating service record:', error);
@@ -3162,7 +5430,7 @@ const server = http.createServer(async (req, res) => {
                 }
                 
                 try {
-                    const response = await fetch('/api/caspio/Service_EFE/' + currentServiceID, {
+                    const response = await fetch('/api/caspio/Services/' + currentServiceID, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json'
@@ -3208,7 +5476,19 @@ const server = http.createServer(async (req, res) => {
                 event.stopPropagation();
             }
             
-            const section = document.getElementById('section-' + sectionNum);
+            // Handle both numeric and string section IDs
+            let sectionId;
+            if (sectionNum === 'project-details') {
+                sectionId = 'project-details-section';
+            } else {
+                sectionId = 'section-' + sectionNum;
+            }
+            
+            const section = document.getElementById(sectionId);
+            if (!section) {
+                console.error('Section not found:', sectionId);
+                return;
+            }
             const wasExpanded = section.classList.contains('expanded');
             
             // Close all sections
@@ -3281,7 +5561,7 @@ const server = http.createServer(async (req, res) => {
             submitButton.disabled = true;
             
             try {
-                // Save to Service_EFE table
+                // Save to Services table
                 const serviceData = {
                     ProjectID: data.ProjectID || '${projectId}',
                     ServiceID: data.ServiceID || '${offersId}',
@@ -3305,7 +5585,7 @@ const server = http.createServer(async (req, res) => {
                 };
                 
                 // Send to Caspio via our server endpoint
-                const response = await fetch('/api/caspio/Service_EFE', {
+                const response = await fetch('/api/caspio/Services', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -3390,3 +5670,566 @@ Press Ctrl+C to stop the server
     console.error('❌ Error fetching states:', err.message);
   }
 });
+
+// ============================================================================
+// MOBILE APP FUNCTIONS - Client-side JavaScript for Mobile Deployment
+// ============================================================================
+// These functions should be included in your mobile app's JavaScript
+// They replace server-side functionality with client-side equivalents
+
+// Mobile App Configuration
+const MOBILE_CONFIG = {
+  CASPIO_API_BASE: 'https://c2hcf092.caspio.com/rest/v2',
+  CLIENT_ID: 'a8e63f3e7e8f5034e4e890a0d967bc90e2df89b31e064e259e',
+  CLIENT_SECRET: '49e4e8adb30e4b44af9e96f006e63c37e23e757c7c394e329e',
+  ACCESS_TOKEN: null,
+  TOKEN_EXPIRY: null
+};
+
+// Mobile: Authenticate with Caspio
+async function mobileAuthenticate() {
+  try {
+    const response = await fetch('https://c2hcf092.caspio.com/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials&client_id=' + MOBILE_CONFIG.CLIENT_ID + 
+            '&client_secret=' + MOBILE_CONFIG.CLIENT_SECRET
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      MOBILE_CONFIG.ACCESS_TOKEN = data.access_token;
+      MOBILE_CONFIG.TOKEN_EXPIRY = Date.now() + (data.expires_in * 1000);
+      localStorage.setItem('caspio_token', data.access_token);
+      localStorage.setItem('caspio_token_expiry', MOBILE_CONFIG.TOKEN_EXPIRY);
+      return data.access_token;
+    }
+  } catch (error) {
+    console.error('Mobile authentication failed:', error);
+  }
+}
+
+// Mobile: Get valid token (refresh if needed)
+async function getMobileToken() {
+  if (MOBILE_CONFIG.ACCESS_TOKEN && MOBILE_CONFIG.TOKEN_EXPIRY > Date.now()) {
+    return MOBILE_CONFIG.ACCESS_TOKEN;
+  }
+  return await mobileAuthenticate();
+}
+
+// Mobile: Load template view (replaces server-side template generation)
+async function loadTemplateView(offersId, projectId, serviceId) {
+  try {
+    // Get token
+    const token = await getMobileToken();
+    
+    // Fetch service data if serviceId provided
+    let serviceData = null;
+    if (serviceId && serviceId !== 'new') {
+      const serviceResponse = await fetch(
+        MOBILE_CONFIG.CASPIO_API_BASE + '/tables/Services/records?q.where=PK_ID=' + serviceId,
+        {
+          headers: { 'Authorization': 'Bearer ' + token }
+        }
+      );
+      if (serviceResponse.ok) {
+        const data = await serviceResponse.json();
+        if (data.Result && data.Result.length > 0) {
+          serviceData = data.Result[0];
+        }
+      }
+    }
+    
+    // Generate template HTML
+    const templateHTML = generateMobileTemplate(offersId, projectId, serviceId, serviceData);
+    
+    // Replace current view with template
+    document.getElementById('app').innerHTML = templateHTML;
+    
+    // Initialize template functions
+    initializeMobileTemplate(projectId, serviceId, serviceData);
+    
+  } catch (error) {
+    console.error('Error loading template:', error);
+    alert('Failed to load template. Please try again.');
+  }
+}
+
+// Mobile: Generate template HTML (client-side)
+function generateMobileTemplate(offersId, projectId, serviceId, serviceData) {
+  const actualProjectId = serviceData ? serviceData.ProjectID : projectId;
+  
+  return `
+    <div class="template-container">
+      <div class="template-header">
+        <button onclick="backToProject()" class="back-button">← Back</button>
+        <h1>Service Template</h1>
+      </div>
+      
+      <div class="template-info">
+        <p>Project ID: <span id="projectIdDisplay">${actualProjectId}</span></p>
+        <p>Service Record ID: <span id="serviceIdDisplay">${serviceId || 'New'}</span></p>
+      </div>
+      
+      <!-- Project Details Section -->
+      <div class="section-card" id="project-details-section">
+        <div class="section-header" onclick="toggleMobileSection('project-details')">
+          <div>
+            <div class="section-title">
+              <span class="icon-placeholder">P</span>
+              Project Details
+            </div>
+            <div class="section-description">Client and property information</div>
+          </div>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content" style="display: none;">
+          <div class="section-inner">
+            <input type="hidden" id="ProjectID" value="${actualProjectId}">
+            <input type="hidden" id="ServiceID" value="${serviceId}">
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Client Name</label>
+                <input type="text" id="ClientName" class="form-input" 
+                       onblur="mobileAutoSave('ClientName', this.value)">
+              </div>
+              <div class="form-group">
+                <label>Agent Name</label>
+                <input type="text" id="AgentName" class="form-input"
+                       onblur="mobileAutoSave('AgentName', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Inspector Name</label>
+                <input type="text" id="InspectorName" class="form-input"
+                       onblur="mobileAutoSave('InspectorName', this.value)">
+              </div>
+              <div class="form-group">
+                <label>Year Built</label>
+                <input type="number" id="YearBuilt" class="form-input"
+                       onblur="mobileAutoSave('YearBuilt', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Square Feet</label>
+                <input type="number" id="SquareFeet" class="form-input"
+                       onblur="mobileAutoSave('SquareFeet', this.value)">
+              </div>
+              <div class="form-group">
+                <label>Type of Building</label>
+                <select id="TypeOfBuilding" class="form-select"
+                        onchange="mobileAutoSave('TypeOfBuilding', this.value)">
+                  <option value="">Select Type</option>
+                  <option value="Single Family">Single Family</option>
+                  <option value="Multi Family">Multi Family</option>
+                  <option value="Townhouse">Townhouse</option>
+                  <option value="Condominium">Condominium</option>
+                  <option value="Commercial">Commercial</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Style</label>
+                <select id="Style" class="form-select"
+                        onchange="mobileAutoSave('Style', this.value)">
+                  <option value="">Select Style</option>
+                  <option value="Ranch">Ranch</option>
+                  <option value="Two Story">Two Story</option>
+                  <option value="Split Level">Split Level</option>
+                  <option value="Colonial">Colonial</option>
+                  <option value="Contemporary">Contemporary</option>
+                  <option value="Traditional">Traditional</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>In Attendance</label>
+                <input type="text" id="InAttendance" class="form-input"
+                       onblur="mobileAutoSave('InAttendance', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Weather Conditions</label>
+                <input type="text" id="WeatherConditions" class="form-input"
+                       onblur="mobileAutoSave('WeatherConditions', this.value)">
+              </div>
+              <div class="form-group">
+                <label>Outdoor Temperature</label>
+                <input type="text" id="OutdoorTemperature" class="form-input"
+                       onblur="mobileAutoSave('OutdoorTemperature', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Occupancy/Furnishings</label>
+              <select id="OccupancyFurnishings" class="form-select"
+                      onchange="mobileAutoSave('OccupancyFurnishings', this.value)">
+                <option value="">Select Status</option>
+                <option value="Vacant">Vacant</option>
+                <option value="Occupied">Occupied</option>
+                <option value="Partially Furnished">Partially Furnished</option>
+                <option value="Fully Furnished">Fully Furnished</option>
+              </select>
+            </div>
+            
+            <h3>Foundation Information</h3>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>First Foundation Type</label>
+                <select id="FirstFoundationType" class="form-select"
+                        onchange="mobileAutoSave('FirstFoundationType', this.value)">
+                  <option value="">Select Type</option>
+                  <option value="Slab">Slab</option>
+                  <option value="Crawl Space">Crawl Space</option>
+                  <option value="Basement">Basement</option>
+                  <option value="Pier and Beam">Pier and Beam</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Second Foundation Type</label>
+                <select id="SecondFoundationType" class="form-select"
+                        onchange="mobileAutoSave('SecondFoundationType', this.value)">
+                  <option value="">Select Type</option>
+                  <option value="Slab">Slab</option>
+                  <option value="Crawl Space">Crawl Space</option>
+                  <option value="Basement">Basement</option>
+                  <option value="Pier and Beam">Pier and Beam</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Second Foundation Rooms</label>
+                <input type="text" id="SecondFoundationRooms" class="form-input"
+                       onblur="mobileAutoSave('SecondFoundationRooms', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Third Foundation Type</label>
+                <select id="ThirdFoundationType" class="form-select"
+                        onchange="mobileAutoSave('ThirdFoundationType', this.value)">
+                  <option value="">Select Type</option>
+                  <option value="Slab">Slab</option>
+                  <option value="Crawl Space">Crawl Space</option>
+                  <option value="Basement">Basement</option>
+                  <option value="Pier and Beam">Pier and Beam</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Third Foundation Rooms</label>
+                <input type="text" id="ThirdFoundationRooms" class="form-input"
+                       onblur="mobileAutoSave('ThirdFoundationRooms', this.value)">
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Owner/Occupant Interview</label>
+              <textarea id="OwnerOccupantInterview" class="form-input" rows="4"
+                        onblur="mobileAutoSave('OwnerOccupantInterview', this.value)"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Additional template sections would go here -->
+      
+      <div id="saveStatus" class="save-status" style="display: none;"></div>
+    </div>
+  `;
+}
+
+// Mobile: Initialize template functionality
+async function initializeMobileTemplate(projectId, serviceId, serviceData) {
+  // Load existing project data
+  await loadMobileProjectData(projectId);
+  
+  // If we have service data, populate service-specific fields
+  if (serviceData) {
+    // Populate any service-specific fields here
+    console.log('Service data loaded:', serviceData);
+  }
+}
+
+// Mobile: Load project data
+async function loadMobileProjectData(projectId) {
+  try {
+    const token = await getMobileToken();
+    const response = await fetch(
+      MOBILE_CONFIG.CASPIO_API_BASE + '/tables/Projects/records?q.where=ProjectID=' + projectId,
+      {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.Result && data.Result.length > 0) {
+        const projectData = data.Result[0];
+        
+        // Populate all project fields
+        const fields = [
+          'ClientName', 'AgentName', 'InspectorName', 'YearBuilt', 'SquareFeet',
+          'TypeOfBuilding', 'Style', 'InAttendance', 'WeatherConditions',
+          'OutdoorTemperature', 'OccupancyFurnishings', 'FirstFoundationType',
+          'SecondFoundationType', 'SecondFoundationRooms', 'ThirdFoundationType',
+          'ThirdFoundationRooms', 'OwnerOccupantInterview'
+        ];
+        
+        fields.forEach(field => {
+          const element = document.getElementById(field);
+          if (element && projectData[field]) {
+            element.value = projectData[field];
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error loading project data:', error);
+  }
+}
+
+// Mobile: Auto-save function for project fields
+async function mobileAutoSave(fieldName, value) {
+  const projectId = document.getElementById('ProjectID').value;
+  if (!projectId) {
+    console.error('No ProjectID found');
+    return;
+  }
+  
+  showMobileSaveStatus('Saving...', 'saving');
+  
+  try {
+    const token = await getMobileToken();
+    
+    // First get the PK_ID for this ProjectID
+    const getResponse = await fetch(
+      MOBILE_CONFIG.CASPIO_API_BASE + '/tables/Projects/records?q.where=ProjectID=' + projectId,
+      {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }
+    );
+    
+    if (!getResponse.ok) {
+      showMobileSaveStatus('Error: Project not found', 'error');
+      return;
+    }
+    
+    const projectData = await getResponse.json();
+    if (!projectData.Result || projectData.Result.length === 0) {
+      showMobileSaveStatus('Error: Project not found', 'error');
+      return;
+    }
+    
+    const pkId = projectData.Result[0].PK_ID;
+    
+    // Update the field
+    const updateData = { [fieldName]: value };
+    
+    const updateResponse = await fetch(
+      MOBILE_CONFIG.CASPIO_API_BASE + '/tables/Projects/records?q.where=PK_ID=' + pkId,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      }
+    );
+    
+    if (updateResponse.ok) {
+      showMobileSaveStatus('Saved', 'success');
+      setTimeout(() => hideMobileSaveStatus(), 2000);
+    } else {
+      showMobileSaveStatus('Error saving', 'error');
+    }
+  } catch (error) {
+    console.error('Error saving field:', error);
+    showMobileSaveStatus('Error saving', 'error');
+  }
+}
+
+// Mobile: Show save status
+function showMobileSaveStatus(message, type) {
+  const statusDiv = document.getElementById('saveStatus');
+  if (statusDiv) {
+    statusDiv.textContent = message;
+    statusDiv.className = 'save-status ' + type;
+    statusDiv.style.display = 'block';
+  }
+}
+
+// Mobile: Hide save status
+function hideMobileSaveStatus() {
+  const statusDiv = document.getElementById('saveStatus');
+  if (statusDiv) {
+    statusDiv.style.display = 'none';
+  }
+}
+
+// Mobile: Toggle section visibility
+function toggleMobileSection(sectionId) {
+  const section = document.getElementById(sectionId + '-section');
+  if (section) {
+    const content = section.querySelector('.section-content');
+    const icon = section.querySelector('.expand-icon');
+    
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      icon.textContent = '▲';
+    } else {
+      content.style.display = 'none';
+      icon.textContent = '▼';
+    }
+  }
+}
+
+// Mobile: Navigate back to project view
+function backToProject() {
+  // Reload the project detail view
+  // This would be implemented based on your mobile app's navigation
+  window.location.reload(); // Or use your app's navigation method
+}
+
+// Mobile: CSS styles for template (add to your mobile app's CSS)
+const mobileTemplateStyles = `
+  .template-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .template-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  
+  .back-button {
+    padding: 8px 16px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    margin-right: 20px;
+    cursor: pointer;
+  }
+  
+  .template-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .section-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  
+  .section-header {
+    padding: 15px;
+    background: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+  
+  .icon-placeholder {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 24px;
+    margin-right: 10px;
+    font-weight: bold;
+  }
+  
+  .section-content {
+    padding: 20px;
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .form-group {
+    flex: 1;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .form-input, .form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .save-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    z-index: 1000;
+  }
+  
+  .save-status.saving {
+    background: #ffc107;
+    color: #000;
+  }
+  
+  .save-status.success {
+    background: #28a745;
+    color: white;
+  }
+  
+  .save-status.error {
+    background: #dc3545;
+    color: white;
+  }
+`;
+
+// ============================================================================
+// END MOBILE APP FUNCTIONS
+// ============================================================================

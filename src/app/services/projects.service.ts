@@ -101,41 +101,24 @@ export class ProjectsService {
     return from(this.caspioService.ensureAuthenticated()).pipe(
       switchMap(() => {
         console.log('🔍 Raw project data received:', projectData);
-        console.log('📝 State value from form:', projectData.state);
         
         // Save original data for later lookup
         const originalAddress = projectData.address;
-        const originalCity = projectData.city;
-        const originalDate = projectData.dateOfRequest || new Date().toISOString().split('T')[0];
+        const originalDate = new Date().toISOString().split('T')[0];
         
-        // Convert state abbreviation to StateID
-        const stateID = this.getStateIDFromAbbreviation(projectData.state);
-        
-        if (!stateID) {
-          return throwError(() => new Error(`Unsupported state: ${projectData.state}. Supported states: TX, GA, FL, CO, CA, AZ, SC, TN`));
-        }
-        
-        // Get the first selected service TypeID and use it as OffersID
-        const selectedOffersID = projectData.services && projectData.services.length > 0 
-          ? parseInt(projectData.services[0]) 
-          : 1; // Default to 1 if none selected
-        
-        console.log('📝 Selected service for OffersID:', selectedOffersID);
-        
-        // Map form fields to Caspio fields (exact same mapping as local server)
+        // Simplified data - only Company (hardcoded to 1), Inspection Date, and Address
         const caspioData = {
-          CompanyID: parseInt(projectData.company) || 1, // Company from dropdown
-          UserID: parseInt(projectData.user) || 1, // User from dropdown
-          Date: originalDate, // Date of Request
+          CompanyID: parseInt(projectData.company) || 1, // Always 1 for now
           InspectionDate: projectData.inspectionDate,
           Address: originalAddress,
-          City: originalCity,
-          StateID: stateID, // Now using numeric StateID from mapping
-          Zip: projectData.zip,
+          Date: originalDate, // Current date for when project was created
           StatusID: 1, // Active status (1 = Active)
-          Fee: parseFloat(projectData.fee || '265.00'), // Service fee from form
-          Notes: projectData.notes || '', // Notes from textarea
-          OffersID: selectedOffersID, // Service type stored in OffersID field
+          // Set some default values for required fields that might exist in Caspio
+          City: '', // Will be populated later if needed
+          StateID: 1, // Default to TX (1) for now
+          UserID: 1, // Default user
+          Fee: 265.00, // Default fee
+          OffersID: 1, // Default service
         };
         
         console.log('📤 Data being sent to Caspio (with converted StateID):', caspioData);
@@ -158,7 +141,7 @@ export class ProjectsService {
               console.log('✅ Project created successfully');
               
               // Fetch the newly created project to get its PK_ID
-              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
+              return this.fetchNewProject(originalAddress, '', originalDate).pipe(
                 map(newProject => {
                   if (newProject) {
                     return {
@@ -214,17 +197,13 @@ export class ProjectsService {
     );
   }
 
-  // Fetch newly created project (same logic as local server)
+  // Fetch newly created project (simplified to only match on address)
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
     // Wait a moment for Caspio to process the insert
     return timer(1000).pipe(
       switchMap(() => this.getAllProjects()),
       map(projects => {
-        console.log('🔍 Looking for project with:', {
-          address: address,
-          city: city,
-          date: date
-        });
+        console.log('🔍 Looking for project with address:', address);
         
         // Log first few projects for debugging
         if (projects && projects.length > 0) {
@@ -232,16 +211,13 @@ export class ProjectsService {
             PK_ID: p.PK_ID,
             ProjectID: p.ProjectID,
             Address: p.Address,
-            City: p.City,
             Date: p.Date
           })));
         }
         
-        // Find projects matching our criteria - EXACT SAME as local server
-        // Only match on Address and City, not Date
+        // Find projects matching our criteria - simplified to only address
         const matchingProjects = projects.filter(p => 
-          p.Address === address && 
-          p.City === city
+          p.Address === address
         );
         
         if (matchingProjects.length > 0) {
