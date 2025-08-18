@@ -150,7 +150,10 @@ export class CaspioService {
 
   post<T>(endpoint: string, data: any): Observable<T> {
     const token = this.getCurrentToken();
+    console.log('🔍 DEBUG [CaspioService.post]: Token available:', !!token);
+    
     if (!token) {
+      console.error('❌ DEBUG [CaspioService.post]: No authentication token!');
       return throwError(() => new Error('No authentication token available'));
     }
 
@@ -163,7 +166,24 @@ export class CaspioService {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' })
     });
 
-    return this.http.post<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers });
+    const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+    console.log('🔍 DEBUG [CaspioService.post]: Making POST request to:', url);
+    console.log('🔍 DEBUG [CaspioService.post]: Request data:', data);
+    
+    return this.http.post<T>(url, data, { headers }).pipe(
+      tap(response => {
+        console.log('✅ DEBUG [CaspioService.post]: Request successful:', response);
+      }),
+      catchError(error => {
+        console.error('❌ DEBUG [CaspioService.post]: Request failed!');
+        console.error('URL:', url);
+        console.error('Error:', error);
+        console.error('Error status:', error?.status);
+        console.error('Error message:', error?.message);
+        console.error('Error body:', error?.error);
+        return throwError(() => error);
+      })
+    );
   }
 
   put<T>(endpoint: string, data: any): Observable<T> {
@@ -236,13 +256,32 @@ export class CaspioService {
 
   // Services table methods
   getServicesByProject(projectId: string): Observable<any[]> {
+    console.log('🔍 DEBUG [CaspioService]: Getting services for project:', projectId);
     return this.get<any>(`/tables/Services/records?q.where=ProjectID=${projectId}`).pipe(
-      map(response => response.Result || [])
+      map(response => {
+        console.log('🔍 DEBUG [CaspioService]: Services retrieved:', response?.Result);
+        return response.Result || [];
+      }),
+      catchError(error => {
+        console.error('❌ DEBUG [CaspioService]: Failed to get services:', error);
+        return throwError(() => error);
+      })
     );
   }
 
   createService(serviceData: any): Observable<any> {
-    return this.post<any>('/tables/Services/records', serviceData);
+    console.log('🔍 DEBUG [CaspioService]: createService called with:', serviceData);
+    return this.post<any>('/tables/Services/records', serviceData).pipe(
+      tap(response => {
+        console.log('✅ DEBUG [CaspioService]: Service created successfully:', response);
+      }),
+      catchError(error => {
+        console.error('❌ DEBUG [CaspioService]: Service creation failed:', error);
+        console.error('Error status:', error?.status);
+        console.error('Error body:', error?.error);
+        return throwError(() => error);
+      })
+    );
   }
 
   updateService(serviceId: string, updateData: any): Observable<any> {

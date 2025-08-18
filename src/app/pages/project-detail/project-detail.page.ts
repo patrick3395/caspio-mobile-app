@@ -79,23 +79,42 @@ export class ProjectDetailPage implements OnInit {
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
+    console.log('🔍 DEBUG: ProjectDetailPage initialized with projectId:', this.projectId);
+    
+    // Log environment config (without secrets)
+    console.log('🔍 DEBUG: API Base URL:', this.caspioService['http'] ? 'HttpClient available' : 'HttpClient NOT available');
+    
     if (this.projectId) {
       this.loadProject();
+    } else {
+      console.error('❌ DEBUG: No projectId provided!');
     }
   }
 
   async loadProject() {
+    console.log('🔍 DEBUG: loadProject called');
+    console.log('🔍 DEBUG: Current authentication status:', this.caspioService.isAuthenticated());
+    console.log('🔍 DEBUG: Current token:', this.caspioService.getCurrentToken());
+    
     if (!this.caspioService.isAuthenticated()) {
+      console.log('🔍 DEBUG: Not authenticated, attempting to authenticate...');
       this.caspioService.authenticate().subscribe({
         next: () => {
+          console.log('✅ DEBUG: Authentication successful');
           this.fetchProject();
         },
         error: (error) => {
           this.error = 'Authentication failed';
-          console.error('Authentication error:', error);
+          console.error('❌ DEBUG: Authentication error:', error);
+          console.error('Error details:', {
+            status: error?.status,
+            message: error?.message,
+            error: error?.error
+          });
         }
       });
     } else {
+      console.log('🔍 DEBUG: Already authenticated, fetching project...');
       this.fetchProject();
     }
   }
@@ -126,26 +145,35 @@ export class ProjectDetailPage implements OnInit {
 
   async loadAvailableOffers() {
     this.loadingServices = true;
+    console.log('🔍 DEBUG: Starting to load available offers...');
     try {
       // Load offers for company ID 1 (Noble Property Inspections)
+      console.log('🔍 DEBUG: Fetching offers for CompanyID=1...');
       const offers = await this.caspioService.getOffersByCompany('1').toPromise();
+      console.log('🔍 DEBUG: Offers received:', offers);
       
       // Also load Types table to get type names
+      console.log('🔍 DEBUG: Fetching service types...');
       const types = await this.caspioService.getServiceTypes().toPromise();
+      console.log('🔍 DEBUG: Types received:', types);
       
       // Merge offer data with type names
       this.availableOffers = (offers || []).map((offer: any) => {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
-        return {
+        const result = {
           ...offer,
           TypeName: type?.Type || offer.Service_Name || 'Unknown Service'
         };
+        console.log('🔍 DEBUG: Processed offer:', result);
+        return result;
       });
       
-      console.log('Available offers loaded:', this.availableOffers);
+      console.log('✅ Available offers loaded successfully:', this.availableOffers);
     } catch (error) {
-      console.error('Error loading offers:', error);
-      await this.showToast('Failed to load available services', 'danger');
+      console.error('❌ Error loading offers - Full details:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error stack:', (error as any)?.stack);
+      await this.showToast(`Failed to load services: ${(error as any)?.message || error}`, 'danger');
     } finally {
       this.loadingServices = false;
     }
@@ -204,11 +232,14 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async toggleService(event: any, offer: any) {
+    console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });
     const isChecked = event.detail.checked;
     
     if (isChecked) {
+      console.log('🔍 DEBUG: Checkbox checked, adding service...');
       await this.addService(offer);
     } else {
+      console.log('🔍 DEBUG: Checkbox unchecked, removing service...');
       await this.removeAllServiceInstances(offer.OffersID);
     }
   }
@@ -223,9 +254,18 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async addService(offer: any) {
+    console.log('🔍 DEBUG: Starting addService with offer:', offer);
     this.updatingServices = true;
     
     try {
+      // Validate offer data
+      if (!offer) {
+        throw new Error('No offer data provided');
+      }
+      if (!offer.TypeID) {
+        throw new Error('Offer missing TypeID');
+      }
+      
       // Create service record in Caspio
       const serviceData = {
         ProjectID: this.projectId,
@@ -233,26 +273,43 @@ export class ProjectDetailPage implements OnInit {
         DateOfInspection: new Date().toISOString()
       };
       
+      console.log('🔍 DEBUG: Creating service with data:', serviceData);
+      console.log('🔍 DEBUG: Calling caspioService.createService...');
+      
       const newService = await this.caspioService.createService(serviceData).toPromise();
+      
+      console.log('🔍 DEBUG: Service created successfully:', newService);
       
       // Add to selected services
       const selection: ServiceSelection = {
         instanceId: this.generateInstanceId(),
-        serviceId: newService.PK_ID,
-        offersId: offer.OffersID,
+        serviceId: newService?.PK_ID || newService?.id || 'temp_' + Date.now(),
+        offersId: offer.OffersID || offer.PK_ID,
         typeId: offer.TypeID,
-        typeName: offer.TypeName || offer.Service_Name,
+        typeName: offer.TypeName || offer.Service_Name || 'Service',
         dateOfInspection: serviceData.DateOfInspection
       };
+      
+      console.log('🔍 DEBUG: Adding selection to selectedServices:', selection);
       
       this.selectedServices.push(selection);
       this.saveToLocalStorage();
       this.updateDocumentsList();
       
+      console.log('✅ Service added successfully');
       await this.showToast(`${selection.typeName} added`, 'success');
     } catch (error) {
-      console.error('Error adding service:', error);
-      await this.showToast('Failed to add service', 'danger');
+      console.error('❌ Error adding service - Full details:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', (error as any)?.message);
+      console.error('Error stack:', (error as any)?.stack);
+      console.error('Error response:', (error as any)?.error);
+      
+      const errorMessage = (error as any)?.error?.Message || 
+                          (error as any)?.message || 
+                          'Unknown error occurred';
+      
+      await this.showToast(`Failed to add service: ${errorMessage}`, 'danger');
     } finally {
       this.updatingServices = false;
     }
@@ -633,11 +690,18 @@ export class ProjectDetailPage implements OnInit {
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    console.log(`🔍 DEBUG: Showing toast - Color: ${color}, Message: ${message}`);
     const toast = await this.toastController.create({
       message,
-      duration: 2000,
+      duration: color === 'danger' ? 5000 : 2000, // Show errors longer
       color,
-      position: 'bottom'
+      position: 'bottom',
+      buttons: color === 'danger' ? [
+        {
+          text: 'Dismiss',
+          role: 'cancel'
+        }
+      ] : []
     });
     await toast.present();
   }
