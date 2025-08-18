@@ -175,7 +175,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       'NumberOfStories': 'numberOfStories',
       'ExteriorCladding': 'exteriorCladding',
       'RoofCovering': 'roofCovering',
-      'FoundationType': 'foundationType',
       'FoundationCondition': 'foundationCondition',
       'FoundationNotes': 'foundationNotes',
       'HomeInspectionReport': 'homeInspectionReport',

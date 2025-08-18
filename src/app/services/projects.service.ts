@@ -104,6 +104,7 @@ export class ProjectsService {
         
         // Save original data for later lookup
         const originalAddress = projectData.address;
+        const originalCity = projectData.city || '';
         const originalDate = new Date().toISOString().split('T')[0];
         
         // Simplified data - only Company (hardcoded to 1), Inspection Date, and Address
@@ -114,7 +115,7 @@ export class ProjectsService {
           Date: originalDate, // Current date for when project was created
           StatusID: 1, // Active status (1 = Active)
           // Set some default values for required fields that might exist in Caspio
-          City: '', // Will be populated later if needed
+          City: originalCity, // Use the city from project data
           StateID: 1, // Default to TX (1) for now
           UserID: 1, // Default user
           Fee: 265.00, // Default fee
@@ -141,7 +142,7 @@ export class ProjectsService {
               console.log('✅ Project created successfully');
               
               // Fetch the newly created project to get its PK_ID
-              return this.fetchNewProject(originalAddress, '', originalDate).pipe(
+              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject) {
                     return {
