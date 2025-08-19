@@ -4,12 +4,26 @@ const { execSync } = require('child_process');
 
 console.log('=== Preparing iOS Build for Appflow ===');
 
-// Step 1: Check if iOS platform exists
+// Step 1: Check if iOS platform exists and is properly initialized
 const iosPath = path.join(process.cwd(), 'ios');
+const podfilePath = path.join(iosPath, 'App', 'Podfile');
 const iosExists = fs.existsSync(iosPath);
+const podfileExists = fs.existsSync(podfilePath);
 
-if (iosExists) {
-  console.log('✓ iOS platform already exists');
+if (iosExists && podfileExists) {
+  console.log('✓ iOS platform properly initialized');
+} else if (iosExists && !podfileExists) {
+  console.log('iOS platform exists but is incomplete. Removing and re-adding...');
+  try {
+    // Remove incomplete iOS platform
+    execSync('rm -rf ios', { stdio: 'inherit' });
+    // Re-add iOS platform
+    execSync('npx cap add ios', { stdio: 'inherit' });
+    console.log('✓ iOS platform re-added successfully');
+  } catch (error) {
+    console.error('Failed to re-add iOS platform:', error.message);
+    process.exit(1);
+  }
 } else {
   console.log('Adding iOS platform...');
   try {
@@ -21,14 +35,26 @@ if (iosExists) {
   }
 }
 
-// Step 2: Sync the iOS project
-console.log('Syncing iOS project...');
-try {
-  execSync('npx cap sync ios', { stdio: 'inherit' });
-  console.log('✓ iOS project synced');
-} catch (error) {
-  console.error('Failed to sync iOS project:', error.message);
-  process.exit(1);
+// Step 2: Sync the iOS project (only if Podfile exists)
+if (fs.existsSync(podfilePath)) {
+  console.log('Syncing iOS project...');
+  try {
+    execSync('npx cap sync ios', { stdio: 'inherit' });
+    console.log('✓ iOS project synced');
+  } catch (error) {
+    console.error('Failed to sync iOS project:', error.message);
+    // Try to copy without pod install
+    console.log('Attempting to copy without pod install...');
+    try {
+      execSync('npx cap copy ios', { stdio: 'inherit' });
+      console.log('✓ iOS project copied (without pod install)');
+    } catch (copyError) {
+      console.error('Failed to copy:', copyError.message);
+      process.exit(1);
+    }
+  }
+} else {
+  console.log('⚠️ Podfile not found, skipping sync');
 }
 
 // Step 3: Configure Info.plist for Appflow Live Updates
