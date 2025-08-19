@@ -2,9 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
+import { DeployService } from '../../services/deploy.service';
 import { Capacitor } from '@capacitor/core';
 
-declare const IonicDeploy: any;
 declare const cordova: any;
 
 @Component({
@@ -21,6 +21,7 @@ export class ActiveProjectsPage implements OnInit {
   constructor(
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
+    private deployService: DeployService,
     private router: Router
   ) {}
 
@@ -166,93 +167,56 @@ export class ActiveProjectsPage implements OnInit {
   async checkForUpdates() {
     console.log('Manual update check initiated');
     
-    const win = window as any;
-    
-    // Check all possible locations for the plugin
-    const possiblePlugins = [
-      typeof IonicDeploy !== 'undefined' ? IonicDeploy : null,
-      win.IonicDeploy,
-      win.IonicCordova, 
-      win.Deploy,
-      win.cordova?.plugin?.IonicDeploy,
-      win.cordova?.plugin?.Deploy,
-      win.Ionic?.Deploy
-    ].filter(p => p);
-    
-    console.log('Found plugins at:', possiblePlugins.length, 'locations');
-    
-    if (Capacitor.isNativePlatform() && possiblePlugins.length > 0) {
-      const deployPlugin = possiblePlugins[0];
+    // Wait a moment for the plugin to initialize
+    setTimeout(async () => {
+      const deployPlugin = this.deployService.getDeployPlugin();
       
-      try {
-        // First, log ALL properties and methods
-        console.log('Plugin object keys:', Object.keys(deployPlugin));
-        console.log('Plugin methods:', Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function'));
-        
-        // Try to find the right method names - cordova-plugin-ionic uses different names
-        const methodMap = {
-          check: deployPlugin.check || deployPlugin.checkForUpdate || deployPlugin.sync,
-          download: deployPlugin.download || deployPlugin.downloadUpdate,
-          extract: deployPlugin.extract || deployPlugin.extractUpdate,
-          reload: deployPlugin.reload || deployPlugin.reloadApp || deployPlugin.load,
-          getVersions: deployPlugin.getVersions || deployPlugin.getAvailableVersions,
-          getCurrentVersion: deployPlugin.getCurrentVersion || deployPlugin.getConfiguration
-        };
-        
-        console.log('Method mapping:', Object.keys(methodMap).map(k => `${k}: ${!!methodMap[k]}`));
-        
-        // Show what we found
-        const availableMethods = Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function').join(', ');
-        alert(`Plugin found!\nAvailable methods:\n${availableMethods || 'No methods found'}`);
-        
-        // If we have a sync method, use it (common in cordova-plugin-ionic)
-        if (deployPlugin.sync) {
-          console.log('Using sync method');
-          const result = await deployPlugin.sync({updateMethod: 'auto'});
-          console.log('Sync result:', result);
-          
-          if (result === 'true' || result === true) {
-            alert('Update downloaded and will be applied on next app start!');
-          } else {
-            alert('App is up to date!');
-          }
-        } 
-        // If check method exists, use it
-        else if (methodMap.check) {
-          console.log('Using check method');
-          const hasUpdate = await methodMap.check();
+      if (deployPlugin) {
+        try {
+          console.log('Using DeployService plugin');
+          const hasUpdate = await this.deployService.checkForUpdates();
           
           if (hasUpdate) {
-            alert('Update available! Downloading...');
-            
-            if (methodMap.download) {
-              await methodMap.download();
-              
-              if (methodMap.extract) {
-                await methodMap.extract();
-              }
-              
-              if (methodMap.reload) {
-                alert('Update installed! Restarting...');
-                await methodMap.reload();
-              }
-            }
+            alert('Update installed! The app will refresh with the new version.');
           } else {
             alert('App is up to date!');
           }
+        } catch (error: any) {
+          console.error('Update error:', error);
+          alert(`Update check error: ${error?.message || JSON.stringify(error)}`);
         }
-        // No recognized methods
-        else {
-          alert(`Plugin API not recognized.\nMethods found: ${availableMethods}\n\nPlease check console for details.`);
-        }
+      } else {
+        // Fallback: Try to find plugin manually
+        const win = window as any;
         
-      } catch (error: any) {
-        console.error('Update error:', error);
-        const errorMsg = error?.message || error?.error || JSON.stringify(error);
-        alert(`Error: ${errorMsg}`);
+        if (typeof cordova !== 'undefined' && cordova.plugin) {
+          console.log('Cordova plugins available:', Object.keys(cordova.plugin));
+          
+          // Look for the deploy plugin
+          const deploy = cordova.plugin.Deploy || cordova.plugin.IonicDeploy;
+          
+          if (deploy) {
+            console.log('Found deploy plugin, methods:', Object.keys(deploy).filter(k => typeof deploy[k] === 'function'));
+            
+            try {
+              const result = await deploy.sync({ updateMethod: 'auto' });
+              console.log('Sync result:', result);
+              
+              if (result === 'UPDATE_AVAILABLE') {
+                alert('Update installed! The app will refresh.');
+              } else {
+                alert('App is up to date!');
+              }
+            } catch (error: any) {
+              alert(`Sync error: ${error?.message || JSON.stringify(error)}`);
+            }
+          } else {
+            alert('Deploy plugin not found. Available plugins:\n' + Object.keys(cordova.plugin).join(', '));
+          }
+        } else {
+          alert('Cordova not available. Make sure the plugin is properly installed.');
+        }
       }
-    } else {
-      alert('Live updates plugin not found.\nMake sure cordova-plugin-ionic is installed.');
-    }
+    }, 1000);
   }
 }
