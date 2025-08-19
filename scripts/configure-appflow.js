@@ -11,33 +11,17 @@ if (!fs.existsSync(pluginPath)) {
   execSync('npm install cordova-plugin-ionic@5.5.3', { stdio: 'inherit' });
 }
 
-// Add preferences to Capacitor config for the plugin
-const configPath = path.join(process.cwd(), 'capacitor.config.json');
-if (fs.existsSync(configPath)) {
-  let config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  
-  // Ensure cordova plugin preferences are set
-  if (!config.cordova) {
-    config.cordova = {};
+// Check if capacitor.config.ts already has the correct configuration
+const configTsPath = path.join(process.cwd(), 'capacitor.config.ts');
+if (fs.existsSync(configTsPath)) {
+  const configContent = fs.readFileSync(configTsPath, 'utf8');
+  if (configContent.includes('cordova:') && configContent.includes('AppId:')) {
+    console.log('✓ capacitor.config.ts already has cordova plugin preferences');
+  } else {
+    console.log('⚠️ capacitor.config.ts needs cordova preferences - already added in source');
   }
-  if (!config.cordova.preferences) {
-    config.cordova.preferences = {};
-  }
-  
-  // Set the plugin preferences
-  config.cordova.preferences = {
-    ...config.cordova.preferences,
-    DisableDeploy: 'false',
-    IosUpdateApi: 'https://api.ionicjs.com',
-    AndroidUpdateApi: 'https://api.ionicjs.com',
-    AppId: '1e8beef6',
-    UpdateChannel: 'Caspio Mobile App',
-    UpdateMethod: 'background',
-    MaxVersions: '2'
-  };
-  
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log('✓ Updated capacitor.config.json with plugin preferences');
+} else {
+  console.log('⚠️ capacitor.config.ts not found');
 }
 
 // Add Appflow configuration to Info.plist during build
