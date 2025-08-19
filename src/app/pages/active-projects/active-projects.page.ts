@@ -175,18 +175,31 @@ export class ActiveProjectsPage implements OnInit {
     
     if (Capacitor.isNativePlatform() && deployPlugin) {
       try {
-        // Initialize if not already done
-        await deployPlugin.init({
+        // Try to configure the plugin first
+        const config = {
           appId: '1e8beef6',
           channel: 'Caspio Mobile App'
-        });
+        };
         
-        const currentVersion = await deployPlugin.getCurrentVersion();
-        console.log('Current deploy version:', currentVersion);
+        console.log('Initializing with config:', config);
         
+        // Some versions don't need init, try without it first
+        let currentVersion;
+        try {
+          currentVersion = await deployPlugin.getCurrentVersion();
+          console.log('Current version (no init):', currentVersion);
+        } catch (e) {
+          console.log('getCurrentVersion failed, trying init first');
+          await deployPlugin.configure(config);
+          currentVersion = await deployPlugin.getCurrentVersion();
+          console.log('Current version (after configure):', currentVersion);
+        }
+        
+        console.log('Checking for updates...');
         const update = await deployPlugin.checkForUpdate();
+        console.log('Update response:', update);
         
-        if (update.available) {
+        if (update && update.available) {
           console.log('Update available:', update);
           alert('Update found! Downloading...');
           
@@ -202,16 +215,20 @@ export class ActiveProjectsPage implements OnInit {
           await deployPlugin.reloadApp();
         } else {
           console.log('No updates available');
-          alert('App is up to date!');
+          alert('App is up to date! Current version: ' + (currentVersion?.versionId || 'unknown'));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Update check failed:', error);
-        alert('Update check failed. Error: ' + JSON.stringify(error));
+        const errorMsg = error?.message || error?.error || JSON.stringify(error);
+        alert('Update check failed: ' + errorMsg);
+        
+        // Log available methods on the plugin
+        console.log('Available plugin methods:', Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function'));
       }
     } else {
       console.log('Live updates not available');
       console.log('Available window properties:', Object.keys(win).filter(k => k.toLowerCase().includes('ionic') || k.toLowerCase().includes('deploy')));
-      alert('Live updates plugin not found. Please ensure Build 25 includes the cordova-plugin-ionic.');
+      alert('Live updates plugin not found. Please ensure Build 26 includes the cordova-plugin-ionic.');
     }
   }
 }
