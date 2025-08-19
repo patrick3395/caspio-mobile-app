@@ -18,6 +18,7 @@ const config: CapacitorConfig = {
         DisableDeploy: 'false',
         IosUpdateApi: 'https://api.ionicjs.com',
         AndroidUpdateApi: 'https://api.ionicjs.com',
+        AppId: '1e8beef6',
         UpdateChannel: 'Caspio Mobile App',
         UpdateMethod: 'background',
         MaxVersions: '2'

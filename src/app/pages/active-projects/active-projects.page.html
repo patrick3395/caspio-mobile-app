@@ -1,7 +1,10 @@
 <ion-header class="custom-header">
   <ion-toolbar color="light">
-    <ion-title class="page-title">🎉 AUTO-DEPLOY WORKING!</ion-title>
+    <ion-title class="page-title">📱 BUILD 25 - LIVE UPDATES READY!</ion-title>
     <ion-buttons slot="end">
+      <ion-button (click)="checkForUpdates()" fill="clear">
+        <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+      </ion-button>
       <ion-button (click)="createNewProject()" fill="clear">
         <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
       </ion-button>
