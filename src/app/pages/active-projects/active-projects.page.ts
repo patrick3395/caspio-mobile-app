@@ -2,10 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { DeployService } from '../../services/deploy.service';
+import { LiveUpdateService } from '../../services/live-update.service';
 import { Capacitor } from '@capacitor/core';
-
-declare const cordova: any;
 
 @Component({
   selector: 'app-active-projects',
@@ -21,7 +19,7 @@ export class ActiveProjectsPage implements OnInit {
   constructor(
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
-    private deployService: DeployService,
+    private liveUpdateService: LiveUpdateService,
     private router: Router
   ) {}
 
@@ -166,57 +164,6 @@ export class ActiveProjectsPage implements OnInit {
 
   async checkForUpdates() {
     console.log('Manual update check initiated');
-    
-    // Wait a moment for the plugin to initialize
-    setTimeout(async () => {
-      const deployPlugin = this.deployService.getDeployPlugin();
-      
-      if (deployPlugin) {
-        try {
-          console.log('Using DeployService plugin');
-          const hasUpdate = await this.deployService.checkForUpdates();
-          
-          if (hasUpdate) {
-            alert('Update installed! The app will refresh with the new version.');
-          } else {
-            alert('App is up to date!');
-          }
-        } catch (error: any) {
-          console.error('Update error:', error);
-          alert(`Update check error: ${error?.message || JSON.stringify(error)}`);
-        }
-      } else {
-        // Fallback: Try to find plugin manually
-        const win = window as any;
-        
-        if (typeof cordova !== 'undefined' && cordova.plugin) {
-          console.log('Cordova plugins available:', Object.keys(cordova.plugin));
-          
-          // Look for the deploy plugin
-          const deploy = cordova.plugin.Deploy || cordova.plugin.IonicDeploy;
-          
-          if (deploy) {
-            console.log('Found deploy plugin, methods:', Object.keys(deploy).filter(k => typeof deploy[k] === 'function'));
-            
-            try {
-              const result = await deploy.sync({ updateMethod: 'auto' });
-              console.log('Sync result:', result);
-              
-              if (result === 'UPDATE_AVAILABLE') {
-                alert('Update installed! The app will refresh.');
-              } else {
-                alert('App is up to date!');
-              }
-            } catch (error: any) {
-              alert(`Sync error: ${error?.message || JSON.stringify(error)}`);
-            }
-          } else {
-            alert('Deploy plugin not found. Available plugins:\n' + Object.keys(cordova.plugin).join(', '));
-          }
-        } else {
-          alert('Cordova not available. Make sure the plugin is properly installed.');
-        }
-      }
-    }, 1000);
+    await this.liveUpdateService.checkForUpdates();
   }
 }
