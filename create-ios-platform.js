@@ -29,4 +29,12 @@ if (fs.existsSync(xcodeprojPath)) {
   process.exit(1);
 }
 
+// Set the iOS build number
+console.log('Setting iOS build number...');
+try {
+  execSync('node scripts/set-ios-build-number.js', { stdio: 'inherit' });
+} catch (error) {
+  console.error('Failed to set build number:', error.message);
+}
+
 console.log('iOS platform ready for build');
