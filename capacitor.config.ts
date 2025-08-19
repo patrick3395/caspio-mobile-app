@@ -13,12 +13,11 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile'
   },
   plugins: {
-    Deploy: {
+    LiveUpdates: {
       appId: '1e8beef6',
-      channel: 'Production',
-      updateMethod: 'background',
-      maxVersions: 2,
-      minBackgroundDuration: 30
+      channel: 'Caspio Mobile App',  // Use your actual channel name
+      autoUpdateMethod: 'background',
+      maxVersions: 2
     }
   }
 };

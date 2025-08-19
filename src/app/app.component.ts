@@ -1,9 +1,7 @@
 import { Component } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
-
-// Declare Deploy plugin (will be available after install)
-declare var Deploy: any;
+import * as LiveUpdates from '@capacitor/live-updates';
 
 @Component({
   selector: 'app-root',
@@ -41,22 +39,17 @@ export class AppComponent {
   }
 
   async checkForUpdate() {
-    if (Capacitor.isNativePlatform() && typeof Deploy !== 'undefined') {
+    if (Capacitor.isNativePlatform()) {
       try {
         console.log('🔄 Checking for live updates...');
         
-        const currentVersion = await Deploy.getCurrentVersion();
-        console.log('Current version:', currentVersion);
+        // Sync with Appflow
+        const result = await LiveUpdates.sync();
         
-        const update = await Deploy.sync({
-          updateMethod: 'background'
-        }, (progress: number) => {
-          console.log(`Download progress: ${progress}%`);
-        });
-        
-        if (update) {
-          console.log('✅ Update installed!', update);
-          // The app will reload automatically with new version
+        if (result.activeApplicationPathChanged) {
+          console.log('✅ New update installed!');
+          // Reload to apply the update
+          await LiveUpdates.reload();
         } else {
           console.log('✅ App is up to date');
         }
