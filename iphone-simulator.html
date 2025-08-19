@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iPhone Simulator - Caspio Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .simulator-container {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            max-width: 1400px;
+            width: 100%;
+        }
+        
+        /* iPhone 14 Pro Frame */
+        .iphone-frame {
+            position: relative;
+            width: 393px;
+            height: 852px;
+            background: #1C1C1E;
+            border-radius: 61px;
+            box-shadow: 
+                0 0 0 12px #1C1C1E,
+                0 0 0 14px #2d2d2f,
+                0 50px 100px rgba(0, 0, 0, 0.5);
+            padding: 12px;
+            flex-shrink: 0;
+        }
+        
+        /* Dynamic Island */
+        .dynamic-island {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 126px;
+            height: 37px;
+            background: #000;
+            border-radius: 24px;
+            z-index: 10;
+        }
+        
+        /* Side Buttons */
+        .side-button {
+            position: absolute;
+            background: #1C1C1E;
+            box-shadow: -2px 0 4px rgba(0,0,0,0.3);
+        }
+        
+        .power-button {
+            right: -14px;
+            top: 210px;
+            width: 3px;
+            height: 95px;
+            border-radius: 0 3px 3px 0;
+        }
+        
+        .volume-up {
+            left: -14px;
+            top: 170px;
+            width: 3px;
+            height: 65px;
+            border-radius: 3px 0 0 3px;
+        }
+        
+        .volume-down {
+            left: -14px;
+            top: 250px;
+            width: 3px;
+            height: 65px;
+            border-radius: 3px 0 0 3px;
+        }
+        
+        .silent-switch {
+            left: -14px;
+            top: 130px;
+            width: 3px;
+            height: 30px;
+            border-radius: 3px 0 0 3px;
+        }
+        
+        /* Screen */
+        .iphone-screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 49px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 59px;
+            background: transparent;
+            z-index: 20;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 30px 8px;
+            pointer-events: none;
+        }
+        
+        .status-time {
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+        
+        .status-icons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-right: 5px;
+        }
+        
+        .status-icon {
+            color: white;
+            font-size: 13px;
+        }
+        
+        /* App iframe */
+        .app-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+            border-radius: 49px;
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            flex: 1;
+            max-width: 500px;
+        }
+        
+        .control-panel h2 {
+            color: #1C1C1E;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .device-selector {
+            margin-bottom: 25px;
+        }
+        
+        .device-selector label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .device-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .device-btn {
+            padding: 12px;
+            background: #f0f0f0;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .device-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .device-btn.active {
+            background: #007AFF;
+            color: white;
+            border-color: #007AFF;
+        }
+        
+        .status-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .status-info h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .status-label {
+            color: #999;
+        }
+        
+        .status-value {
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            animation: pulse 2s infinite;
+        }
+        
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 12px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: #0051D5;
+        }
+        
+        .action-btn.secondary {
+            background: #34C759;
+        }
+        
+        .action-btn.secondary:hover {
+            background: #2ca548;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .simulator-container {
+                flex-direction: column;
+            }
+            
+            .control-panel {
+                max-width: 393px;
+                width: 100%;
+            }
+        }
+        
+        /* Device Specific Sizes */
+        .iphone-frame.iphone-14-pro {
+            width: 393px;
+            height: 852px;
+        }
+        
+        .iphone-frame.iphone-14 {
+            width: 390px;
+            height: 844px;
+        }
+        
+        .iphone-frame.iphone-se {
+            width: 375px;
+            height: 667px;
+            border-radius: 40px;
+        }
+        
+        .iphone-frame.iphone-se .dynamic-island {
+            display: none;
+        }
+        
+        .iphone-frame.iphone-14-pro-max {
+            width: 430px;
+            height: 932px;
+        }
+    </style>
+</head>
+<body>
+    <div class="simulator-container">
+        <!-- iPhone Frame -->
+        <div class="iphone-frame iphone-14-pro" id="deviceFrame">
+            <!-- Dynamic Island -->
+            <div class="dynamic-island"></div>
+            
+            <!-- Side Buttons -->
+            <div class="side-button power-button"></div>
+            <div class="side-button volume-up"></div>
+            <div class="side-button volume-down"></div>
+            <div class="side-button silent-switch"></div>
+            
+            <!-- Screen -->
+            <div class="iphone-screen">
+                <!-- Status Bar -->
+                <div class="status-bar">
+                    <div class="status-time" id="statusTime">9:41</div>
+                    <div class="status-icons">
+                        <span class="status-icon">📶</span>
+                        <span class="status-icon">📶</span>
+                        <span class="status-icon">🔋</span>
+                    </div>
+                </div>
+                
+                <!-- App Content -->
+                <iframe 
+                    id="appFrame" 
+                    class="app-iframe" 
+                    src="http://localhost:8100"
+                    allow="camera; microphone; geolocation">
+                </iframe>
+            </div>
+        </div>
+        
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>
+                📱 iPhone Simulator
+                <span class="live-indicator">
+                    <span class="live-dot"></span>
+                    LIVE
+                </span>
+            </h2>
+            
+            <div class="device-selector">
+                <label>Select Device Model:</label>
+                <div class="device-buttons">
+                    <button class="device-btn active" onclick="switchDevice('iphone-14-pro')">
+                        iPhone 14 Pro
+                    </button>
+                    <button class="device-btn" onclick="switchDevice('iphone-14')">
+                        iPhone 14
+                    </button>
+                    <button class="device-btn" onclick="switchDevice('iphone-14-pro-max')">
+                        iPhone 14 Pro Max
+                    </button>
+                    <button class="device-btn" onclick="switchDevice('iphone-se')">
+                        iPhone SE
+                    </button>
+                </div>
+            </div>
+            
+            <div class="status-info">
+                <h3>Simulator Status</h3>
+                <div class="status-item">
+                    <span class="status-label">Connection:</span>
+                    <span class="status-value" id="connectionStatus">Connected</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Server:</span>
+                    <span class="status-value">localhost:8100</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Platform:</span>
+                    <span class="status-value">iOS 17.0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Live Reload:</span>
+                    <span class="status-value">Enabled ✓</span>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn" onclick="reloadApp()">
+                    🔄 Reload App
+                </button>
+                <button class="action-btn secondary" onclick="rotateDevice()">
+                    🔄 Rotate
+                </button>
+            </div>
+            
+            <div class="status-info" style="margin-top: 20px;">
+                <h3>📝 Instructions</h3>
+                <p style="font-size: 13px; color: #666; line-height: 1.6;">
+                    1. Start your dev server: <code>node live-reload-server.js</code><br>
+                    2. Edit files in <code>src/app/</code><br>
+                    3. Changes appear instantly in the simulator<br>
+                    4. This shows exactly how your app will look on iPhone
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Update time in status bar
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const timeStr = `${hours}:${minutes}`;
+            document.getElementById('statusTime').textContent = timeStr;
+        }
+        updateTime();
+        setInterval(updateTime, 60000);
+        
+        // Switch device
+        function switchDevice(device) {
+            const frame = document.getElementById('deviceFrame');
+            frame.className = `iphone-frame ${device}`;
+            
+            // Update active button
+            document.querySelectorAll('.device-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Log device switch
+            console.log(`Switched to ${device}`);
+        }
+        
+        // Reload app
+        function reloadApp() {
+            const iframe = document.getElementById('appFrame');
+            iframe.src = iframe.src;
+            console.log('App reloaded');
+        }
+        
+        // Rotate device (simple implementation)
+        let isRotated = false;
+        function rotateDevice() {
+            const frame = document.getElementById('deviceFrame');
+            if (isRotated) {
+                frame.style.transform = 'rotate(0deg)';
+            } else {
+                frame.style.transform = 'rotate(90deg)';
+            }
+            isRotated = !isRotated;
+        }
+        
+        // Check server connection
+        function checkConnection() {
+            fetch('http://localhost:8100')
+                .then(() => {
+                    document.getElementById('connectionStatus').textContent = 'Connected ✓';
+                    document.getElementById('connectionStatus').style.color = '#34C759';
+                })
+                .catch(() => {
+                    document.getElementById('connectionStatus').textContent = 'Disconnected ✗';
+                    document.getElementById('connectionStatus').style.color = '#FF3B30';
+                });
+        }
+        
+        checkConnection();
+        setInterval(checkConnection, 5000);
+        
+        // Listen for messages from iframe (for live reload)
+        window.addEventListener('message', (event) => {
+            if (event.data === 'reload') {
+                reloadApp();
+            }
+        });
+        
+        console.log('📱 iPhone Simulator Ready');
+        console.log('🔄 Live reload enabled');
+        console.log('✨ Edit your code and watch it update!');
+    </script>
+</body>
+</html>

@@ -11,6 +11,15 @@ const config: CapacitorConfig = {
   },
   ios: {
     preferredContentMode: 'mobile'
+  },
+  plugins: {
+    Deploy: {
+      appId: '1e8beef6',
+      channel: 'Production',
+      updateMethod: 'background',
+      maxVersions: 2,
+      minBackgroundDuration: 30
+    }
   }
 };
 

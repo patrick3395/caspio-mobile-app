@@ -1,0 +1,59 @@
+name: Live Deploy to TestFlight Devices
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'angular.json'
+      - 'ionic.config.json'
+
+jobs:
+  deploy-live-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build web assets
+        run: npm run build:prod
+      
+      - name: Deploy to Appflow
+        run: |
+          # Install Appflow CLI
+          npm install -g @ionic/cli
+          
+          # Deploy to Appflow (this will be picked up by apps)
+          ionic deploy manifest
+          ionic deploy upload --channel=Production
+        env:
+          IONIC_TOKEN: ${{ secrets.IONIC_TOKEN }}
+      
+      - name: Notify completion
+        run: echo "✅ Live update deployed! Apps will receive update on next launch."
+
+  # Only rebuild native app if native files changed
+  rebuild-native:
+    runs-on: macos-latest
+    if: |
+      contains(github.event.commits[0].modified, 'ios/') ||
+      contains(github.event.commits[0].modified, 'capacitor.config') ||
+      contains(github.event.commits[0].modified, 'package.json')
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Trigger native build
+        run: echo "Native files changed - rebuild required"
+        
+      # Your existing TestFlight build workflow here

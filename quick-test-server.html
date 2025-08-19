@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caspio Mobile Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .success {
+            color: #44ff44;
+        }
+        .info {
+            color: #ffff44;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Caspio Mobile API Test</h1>
+        
+        <div class="test-section">
+            <h3>Authentication Test</h3>
+            <button onclick="testAuth()">Test Authentication</button>
+            <button onclick="getToken()">Get Current Token</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Service Operations</h3>
+            <input type="text" id="projectId" placeholder="Enter Project ID" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            <button onclick="testGetServices()">Get Services</button>
+            <button onclick="testCreateService()">Create Test Service</button>
+            <button onclick="testGetOffers()">Get Available Offers</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Direct API Test</h3>
+            <input type="text" id="apiEndpoint" placeholder="/tables/Services/records" value="/tables/Services/records" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            <button onclick="testDirectAPI()">Test Endpoint</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            apiBaseUrl: 'https://c2hcf092.caspio.com/rest/v2',
+            tokenEndpoint: 'https://c2hcf092.caspio.com/oauth/token',
+            clientId: '01ddeb9d873748255f3edeccb5fbfa806695e43ffa5fff4f67',
+            clientSecret: '1d4e3ea85a2247f0929a0a995df66e6be183c463391375ae80'
+        };
+        
+        let currentToken = localStorage.getItem('caspio_token');
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}]`, message);
+        }
+        
+        async function testAuth() {
+            log('Testing authentication...', 'info');
+            try {
+                const response = await fetch(CONFIG.tokenEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `grant_type=client_credentials&client_id=${CONFIG.clientId}&client_secret=${CONFIG.clientSecret}`
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Auth failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                currentToken = data.access_token;
+                localStorage.setItem('caspio_token', currentToken);
+                log('✅ Authentication successful!', 'success');
+                log(`Token: ${currentToken.substring(0, 20)}...`, 'info');
+            } catch (error) {
+                log(`❌ Authentication failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function getToken() {
+            if (currentToken) {
+                log(`Current token: ${currentToken.substring(0, 20)}...`, 'info');
+            } else {
+                log('No token available. Please authenticate first.', 'error');
+            }
+        }
+        
+        async function testGetServices() {
+            const projectId = document.getElementById('projectId').value;
+            if (!projectId) {
+                log('Please enter a Project ID', 'error');
+                return;
+            }
+            
+            if (!currentToken) {
+                log('Please authenticate first', 'error');
+                return;
+            }
+            
+            log(`Getting services for project ${projectId}...`, 'info');
+            try {
+                const response = await fetch(`${CONFIG.apiBaseUrl}/tables/Services/records?q.where=ProjectID=${projectId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log(`✅ Found ${data.Result ? data.Result.length : 0} services`, 'success');
+                if (data.Result && data.Result.length > 0) {
+                    log(JSON.stringify(data.Result[0], null, 2), 'info');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCreateService() {
+            const projectId = document.getElementById('projectId').value;
+            if (!projectId) {
+                log('Please enter a Project ID', 'error');
+                return;
+            }
+            
+            if (!currentToken) {
+                log('Please authenticate first', 'error');
+                return;
+            }
+            
+            const serviceData = {
+                ProjectID: projectId,
+                TypeID: "1",
+                DateOfInspection: new Date().toISOString()
+            };
+            
+            log('Creating service with data: ' + JSON.stringify(serviceData), 'info');
+            
+            try {
+                const response = await fetch(`${CONFIG.apiBaseUrl}/tables/Services/records`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(serviceData)
+                });
+                
+                log(`Response status: ${response.status}`, 'info');
+                
+                if (response.status === 201) {
+                    log('✅ Service created successfully!', 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Failed: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testGetOffers() {
+            if (!currentToken) {
+                log('Please authenticate first', 'error');
+                return;
+            }
+            
+            log('Getting available offers...', 'info');
+            try {
+                const response = await fetch(`${CONFIG.apiBaseUrl}/tables/Offers/records?q.where=CompanyID=1`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log(`✅ Found ${data.Result ? data.Result.length : 0} offers`, 'success');
+                if (data.Result && data.Result.length > 0) {
+                    data.Result.forEach(offer => {
+                        log(`Offer: ${offer.Service_Name} (TypeID: ${offer.TypeID})`, 'info');
+                    });
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testDirectAPI() {
+            const endpoint = document.getElementById('apiEndpoint').value;
+            if (!endpoint) {
+                log('Please enter an endpoint', 'error');
+                return;
+            }
+            
+            if (!currentToken) {
+                log('Please authenticate first', 'error');
+                return;
+            }
+            
+            log(`Testing endpoint: ${endpoint}`, 'info');
+            try {
+                const response = await fetch(`${CONFIG.apiBaseUrl}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                log(`Response status: ${response.status}`, 'info');
+                const data = await response.json();
+                log(`✅ Response: ${JSON.stringify(data, null, 2).substring(0, 500)}...`, 'success');
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-authenticate on load
+        window.onload = () => {
+            log('Caspio API Test Tool Ready', 'success');
+            if (currentToken) {
+                log('Found existing token in localStorage', 'info');
+            } else {
+                log('No token found. Click "Test Authentication" to start.', 'info');
+            }
+        };
+    </script>
+</body>
+</html>
