@@ -3,6 +3,7 @@ import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
 
 declare const IonicDeploy: any;
+declare const cordova: any;
 
 @Component({
   selector: 'app-root',
