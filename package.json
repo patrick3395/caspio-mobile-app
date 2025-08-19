@@ -12,7 +12,6 @@
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",
     "sync": "npm run build:mobile && npx cap sync",
-    "appflow:build": "npm ci && npm install @capacitor/live-updates && npm run build:prod && (test -d ios || npx cap add ios) && npx cap copy ios && node scripts/set-ios-build-number.js",
     "set-ios-build-number": "node scripts/set-ios-build-number.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
