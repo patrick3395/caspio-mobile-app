@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { LiveUpdatesService } from '../../services/live-updates.service';
+import { IonicDeployService } from '../../services/ionic-deploy.service';
 
 @Component({
   selector: 'app-active-projects',
@@ -18,7 +18,7 @@ export class ActiveProjectsPage implements OnInit {
   constructor(
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
-    private liveUpdateService: LiveUpdatesService,
+    private deployService: IonicDeployService,
     private router: Router
   ) {}
 
@@ -163,6 +163,6 @@ export class ActiveProjectsPage implements OnInit {
 
   async checkForUpdates() {
     console.log('Manual update check initiated');
-    await this.liveUpdateService.checkForUpdates();
+    await this.deployService.checkForUpdates();
   }
 }

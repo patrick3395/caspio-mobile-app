@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 
-// Declare the LiveUpdate plugin - will be available at runtime on native platforms
-declare const LiveUpdate: any;
+// The cordova-plugin-ionic registers as IonicCordova in window
+declare const IonicCordova: any;
 
 @Injectable({
   providedIn: 'root'
@@ -32,8 +32,10 @@ export class LiveUpdatesService {
       return;
     }
 
-    // Check if LiveUpdate plugin is available
-    this.hasLiveUpdatePlugin = typeof LiveUpdate !== 'undefined';
+    // Check if LiveUpdate plugin is available - cordova-plugin-ionic registers as IonicCordova
+    const win = window as any;
+    const plugin = typeof IonicCordova !== 'undefined' ? IonicCordova : win.IonicCordova;
+    this.hasLiveUpdatePlugin = plugin !== undefined && plugin !== null && plugin.deploy;
     this.addDebug(`Plugin Available: ${this.hasLiveUpdatePlugin}`);
 
     if (!this.hasLiveUpdatePlugin) {
@@ -43,7 +45,7 @@ export class LiveUpdatesService {
 
     try {
       this.addDebug('Attempting to get current version info...');
-      const info = await LiveUpdate.getInfo();
+      const info = await plugin.deploy.getCurrentVersion();
       this.addDebug(`Current info: ${JSON.stringify(info)}`);
       
       if (info) {
@@ -68,10 +70,10 @@ export class LiveUpdatesService {
     }
 
     // Re-check plugin availability
-    this.hasLiveUpdatePlugin = typeof LiveUpdate !== 'undefined';
+    this.hasLiveUpdatePlugin = LiveUpdate !== undefined && LiveUpdate !== null;
     
     if (!this.hasLiveUpdatePlugin) {
-      const msg = 'LiveUpdate plugin not available\n\nThis means the @capacitor/live-updates plugin is not installed in the iOS build.';
+      const msg = 'LiveUpdate plugin not available\n\nThis means the @capawesome/capacitor-live-update plugin is not installed in the iOS build.';
       this.addDebug(msg);
       alert(msg);
       return;
