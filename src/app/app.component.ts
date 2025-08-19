@@ -40,36 +40,56 @@ export class AppComponent {
   }
 
   async checkForUpdate() {
-    if (Capacitor.isNativePlatform() && typeof IonicDeploy !== 'undefined') {
-      try {
-        console.log('🔄 Checking for live updates...');
-        
-        // Initialize the deploy plugin
-        await IonicDeploy.init({
-          appId: '1e8beef6',
-          channel: 'Caspio Mobile App'
-        });
-        
-        // Check for updates
-        const update = await IonicDeploy.checkForUpdate();
-        
-        if (update.available) {
-          console.log('📦 Update available, downloading...');
+    console.log('🔍 Checking for IonicDeploy plugin...');
+    console.log('Platform:', Capacitor.getPlatform());
+    console.log('Is Native:', Capacitor.isNativePlatform());
+    console.log('IonicDeploy available:', typeof IonicDeploy !== 'undefined');
+    
+    // Try alternative ways to access the plugin
+    const win = window as any;
+    console.log('Window.IonicDeploy:', typeof win.IonicDeploy);
+    console.log('Window.IonicCordova:', typeof win.IonicCordova);
+    console.log('Window.Deploy:', typeof win.Deploy);
+    
+    if (Capacitor.isNativePlatform()) {
+      // Try multiple ways to access the plugin
+      const deployPlugin = typeof IonicDeploy !== 'undefined' ? IonicDeploy : 
+                          win.IonicDeploy || win.IonicCordova || win.Deploy;
+      
+      if (deployPlugin) {
+        try {
+          console.log('🔄 Initializing live updates...');
           
-          // Download the update
-          await IonicDeploy.downloadUpdate((progress: number) => {
-            console.log(`Download progress: ${progress}%`);
+          // Initialize the deploy plugin
+          await deployPlugin.init({
+            appId: '1e8beef6',
+            channel: 'Caspio Mobile App'
           });
           
-          // Extract and reload
-          await IonicDeploy.extractUpdate();
-          console.log('✅ Update installed! Reloading...');
-          await IonicDeploy.reloadApp();
-        } else {
-          console.log('✅ App is up to date');
+          // Check for updates
+          const update = await deployPlugin.checkForUpdate();
+          
+          if (update.available) {
+            console.log('📦 Update available, downloading...');
+            
+            // Download the update
+            await deployPlugin.downloadUpdate((progress: number) => {
+              console.log(`Download progress: ${progress}%`);
+            });
+            
+            // Extract and reload
+            await deployPlugin.extractUpdate();
+            console.log('✅ Update installed! Reloading...');
+            await deployPlugin.reloadApp();
+          } else {
+            console.log('✅ App is up to date');
+          }
+        } catch (err) {
+          console.log('Live update check failed:', err);
         }
-      } catch (err) {
-        console.log('Live update check failed:', err);
+      } else {
+        console.log('⚠️ IonicDeploy plugin not found in Build 25');
+        console.log('Available plugins:', Object.keys(win).filter(k => k.toLowerCase().includes('ionic') || k.toLowerCase().includes('deploy')));
       }
     }
   }

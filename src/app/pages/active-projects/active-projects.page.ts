@@ -164,37 +164,54 @@ export class ActiveProjectsPage implements OnInit {
 
   async checkForUpdates() {
     console.log('Manual update check initiated');
+    console.log('Platform:', Capacitor.getPlatform());
+    console.log('Is Native:', Capacitor.isNativePlatform());
     
-    if (Capacitor.isNativePlatform() && typeof IonicDeploy !== 'undefined') {
+    const win = window as any;
+    const deployPlugin = typeof IonicDeploy !== 'undefined' ? IonicDeploy : 
+                        win.IonicDeploy || win.IonicCordova || win.Deploy;
+    
+    console.log('Deploy plugin found:', !!deployPlugin);
+    
+    if (Capacitor.isNativePlatform() && deployPlugin) {
       try {
-        const currentVersion = await IonicDeploy.getCurrentVersion();
+        // Initialize if not already done
+        await deployPlugin.init({
+          appId: '1e8beef6',
+          channel: 'Caspio Mobile App'
+        });
+        
+        const currentVersion = await deployPlugin.getCurrentVersion();
         console.log('Current deploy version:', currentVersion);
         
-        const update = await IonicDeploy.checkForUpdate();
+        const update = await deployPlugin.checkForUpdate();
         
         if (update.available) {
           console.log('Update available:', update);
+          alert('Update found! Downloading...');
           
-          await IonicDeploy.downloadUpdate((progress: number) => {
+          await deployPlugin.downloadUpdate((progress: number) => {
             console.log('Update download progress:', progress);
           });
           
-          await IonicDeploy.extractUpdate((progress: number) => {
+          await deployPlugin.extractUpdate((progress: number) => {
             console.log('Update extract progress:', progress);
           });
           
-          await IonicDeploy.reloadApp();
+          alert('Update installed! App will restart.');
+          await deployPlugin.reloadApp();
         } else {
           console.log('No updates available');
           alert('App is up to date!');
         }
       } catch (error) {
         console.error('Update check failed:', error);
-        alert('Update check failed. Please try again.');
+        alert('Update check failed. Error: ' + JSON.stringify(error));
       }
     } else {
-      console.log('Live updates not available in this environment');
-      alert('Live updates only work on native builds');
+      console.log('Live updates not available');
+      console.log('Available window properties:', Object.keys(win).filter(k => k.toLowerCase().includes('ionic') || k.toLowerCase().includes('deploy')));
+      alert('Live updates plugin not found. Please ensure Build 25 includes the cordova-plugin-ionic.');
     }
   }
 }
