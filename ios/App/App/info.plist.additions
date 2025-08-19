@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>IonAppId</key>
+    <string>1e8beef6</string>
+    <key>IonChannel</key>
+    <string>Caspio Mobile App</string>
+    <key>IonUpdateMethod</key>
+    <string>background</string>
+    <key>IonMaxVersions</key>
+    <string>2</string>
+    <key>IonApi</key>
+    <string>https://api.ionicjs.com</string>
+</dict>
+</plist>
