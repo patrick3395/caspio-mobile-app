@@ -12,6 +12,7 @@
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",
     "sync": "npm run build:mobile && npx cap sync",
+    "ionic:build:before": "npm run build:prod && bash scripts/appflow-ios-setup.sh",
     "set-ios-build-number": "node scripts/set-ios-build-number.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
