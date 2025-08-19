@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { LiveUpdateService } from '../../services/live-update.service';
+import { CapacitorLiveUpdateService } from '../../services/capacitor-live-update.service';
 import { Capacitor } from '@capacitor/core';
 
 @Component({
@@ -19,7 +19,7 @@ export class ActiveProjectsPage implements OnInit {
   constructor(
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
-    private liveUpdateService: LiveUpdateService,
+    private liveUpdateService: CapacitorLiveUpdateService,
     private router: Router
   ) {}
 
