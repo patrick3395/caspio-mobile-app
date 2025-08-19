@@ -13,11 +13,15 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile'
   },
   plugins: {
-    LiveUpdates: {
-      appId: '1e8beef6',
-      channel: 'Caspio Mobile App',  // Use your actual channel name
-      autoUpdateMethod: 'background',
-      maxVersions: 2
+    cordova: {
+      preferences: {
+        DisableDeploy: 'false',
+        IosUpdateApi: 'https://api.ionicjs.com',
+        AndroidUpdateApi: 'https://api.ionicjs.com',
+        UpdateChannel: 'Caspio Mobile App',
+        UpdateMethod: 'background',
+        MaxVersions: '2'
+      }
     }
   }
 };

@@ -1,7 +1,8 @@
 import { Component } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
-import * as LiveUpdates from '@capacitor/live-updates';
+
+declare const IonicDeploy: any;
 
 @Component({
   selector: 'app-root',
@@ -39,17 +40,31 @@ export class AppComponent {
   }
 
   async checkForUpdate() {
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && typeof IonicDeploy !== 'undefined') {
       try {
         console.log('🔄 Checking for live updates...');
         
-        // Sync with Appflow
-        const result = await LiveUpdates.sync();
+        // Initialize the deploy plugin
+        await IonicDeploy.init({
+          appId: '1e8beef6',
+          channel: 'Caspio Mobile App'
+        });
         
-        if (result.activeApplicationPathChanged) {
-          console.log('✅ New update installed!');
-          // Reload to apply the update
-          await LiveUpdates.reload();
+        // Check for updates
+        const update = await IonicDeploy.checkForUpdate();
+        
+        if (update.available) {
+          console.log('📦 Update available, downloading...');
+          
+          // Download the update
+          await IonicDeploy.downloadUpdate((progress: number) => {
+            console.log(`Download progress: ${progress}%`);
+          });
+          
+          // Extract and reload
+          await IonicDeploy.extractUpdate();
+          console.log('✅ Update installed! Reloading...');
+          await IonicDeploy.reloadApp();
         } else {
           console.log('✅ App is up to date');
         }
