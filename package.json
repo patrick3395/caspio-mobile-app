@@ -13,6 +13,7 @@
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",
     "sync": "npm run build:mobile && npx cap sync",
     "build": "ng build --configuration production",
+    "ionic:capacitor:build:after": "npx cap add ios",
     "set-ios-build-number": "node scripts/set-ios-build-number.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
