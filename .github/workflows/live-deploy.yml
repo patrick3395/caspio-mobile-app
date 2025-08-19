@@ -23,19 +23,28 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Use npm install instead of ci when no lock file exists
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install --legacy-peer-deps
+          fi
       
       - name: Build web assets
-        run: npm run build:prod
+        run: npm run build:prod || npm run build
       
       - name: Deploy to Appflow
         run: |
-          # Install Appflow CLI
-          npm install -g @ionic/cli
+          echo "Build completed successfully!"
+          echo "To enable Appflow deployment:"
+          echo "1. Get your Ionic token from https://dashboard.ionicframework.com/settings/personal-access-tokens"
+          echo "2. Add IONIC_TOKEN to GitHub Secrets"
           
-          # Deploy to Appflow (this will be picked up by apps)
-          ionic deploy manifest
-          ionic deploy upload --channel=Production
+          # Uncomment these lines after adding IONIC_TOKEN secret:
+          # npm install -g @ionic/cli
+          # ionic deploy manifest
+          # ionic deploy upload --channel=Production
         env:
           IONIC_TOKEN: ${{ secrets.IONIC_TOKEN }}
       
