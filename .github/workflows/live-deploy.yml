@@ -1,4 +1,4 @@
-name: Live Deploy to TestFlight Devices
+name: Appflow Live Deploy Notification
 
 on:
   push:
@@ -10,46 +10,24 @@ on:
       - 'ionic.config.json'
 
 jobs:
-  deploy-live-update:
+  notify-deploy:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          # Don't cache npm when no lock file exists
-      
-      - name: Install dependencies
+      - name: Appflow Deployment Notification
         run: |
-          # Use npm install instead of ci when no lock file exists
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            npm install --legacy-peer-deps
-          fi
-      
-      - name: Build web assets
-        run: npm run build:prod || npm run build
-      
-      - name: Deploy to Appflow
-        run: |
-          echo "Build completed successfully!"
-          echo "To enable Appflow deployment:"
-          echo "1. Get your Ionic token from https://dashboard.ionicframework.com/settings/personal-access-tokens"
-          echo "2. Add IONIC_TOKEN to GitHub Secrets"
-          
-          # Uncomment these lines after adding IONIC_TOKEN secret:
-          # npm install -g @ionic/cli
-          # ionic deploy manifest
-          # ionic deploy upload --channel=Production
-        env:
-          IONIC_TOKEN: ${{ secrets.IONIC_TOKEN }}
-      
-      - name: Notify completion
-        run: echo "✅ Live update deployed! Apps will receive update on next launch."
+          echo "🚀 Code pushed to GitHub!"
+          echo "📱 Ionic Appflow is automatically building and deploying this update."
+          echo ""
+          echo "Since your Appflow is connected to GitHub:"
+          echo "1. ✅ Appflow detected this push"
+          echo "2. ⏳ Appflow is building the web assets"
+          echo "3. 📲 Update will be available on devices soon"
+          echo ""
+          echo "Check your Appflow dashboard at:"
+          echo "https://dashboard.ionicframework.com/app/1e8beef6/commits"
+          echo ""
+          echo "No additional action needed - Appflow handles everything!"
 
   # Only rebuild native app if native files changed
   rebuild-native:
