@@ -1,24 +1,15 @@
 import { Injectable } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 
-// Try to import the plugin - it might not exist if not installed
-let LiveUpdate: any;
-let hasLiveUpdatePlugin = false;
-
-try {
-  const liveUpdateModule = require('@capacitor/live-updates');
-  LiveUpdate = liveUpdateModule.LiveUpdate;
-  hasLiveUpdatePlugin = true;
-  console.log('✅ @capacitor/live-updates module loaded successfully');
-} catch (error) {
-  console.warn('⚠️ @capacitor/live-updates not available:', error);
-}
+// Declare the LiveUpdate plugin - will be available at runtime on native platforms
+declare const LiveUpdate: any;
 
 @Injectable({
   providedIn: 'root'
 })
 export class LiveUpdatesService {
   private debugInfo: string[] = [];
+  private hasLiveUpdatePlugin = false;
 
   constructor() {
     this.initializeUpdates();
@@ -35,15 +26,18 @@ export class LiveUpdatesService {
     this.addDebug('=== Live Updates Initialization ===');
     this.addDebug(`Platform: ${Capacitor.getPlatform()}`);
     this.addDebug(`Is Native: ${Capacitor.isNativePlatform()}`);
-    this.addDebug(`Plugin Available: ${hasLiveUpdatePlugin}`);
 
     if (!Capacitor.isNativePlatform()) {
       this.addDebug('Not a native platform - live updates disabled');
       return;
     }
 
-    if (!hasLiveUpdatePlugin) {
-      this.addDebug('ERROR: @capacitor/live-updates plugin not found');
+    // Check if LiveUpdate plugin is available
+    this.hasLiveUpdatePlugin = typeof LiveUpdate !== 'undefined';
+    this.addDebug(`Plugin Available: ${this.hasLiveUpdatePlugin}`);
+
+    if (!this.hasLiveUpdatePlugin) {
+      this.addDebug('ERROR: LiveUpdate plugin not found');
       return;
     }
 
@@ -73,8 +67,11 @@ export class LiveUpdatesService {
       return;
     }
 
-    if (!hasLiveUpdatePlugin) {
-      const msg = '@capacitor/live-updates plugin not loaded\n\nThis means the plugin is not installed in the iOS build.';
+    // Re-check plugin availability
+    this.hasLiveUpdatePlugin = typeof LiveUpdate !== 'undefined';
+    
+    if (!this.hasLiveUpdatePlugin) {
+      const msg = 'LiveUpdate plugin not available\n\nThis means the @capacitor/live-updates plugin is not installed in the iOS build.';
       this.addDebug(msg);
       alert(msg);
       return;
@@ -145,5 +142,4 @@ ${this.debugInfo.slice(-10).join('\n')}
   getDebugInfo(): string[] {
     return this.debugInfo;
   }
-}
 }
