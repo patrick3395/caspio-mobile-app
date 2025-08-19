@@ -2,6 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
+import { Capacitor } from '@capacitor/core';
+
+declare const IonicDeploy: any;
 
 @Component({
   selector: 'app-active-projects',
@@ -157,5 +160,41 @@ export class ActiveProjectsPage implements OnInit {
     // Navigate to new project page
     console.log('Create new project clicked');
     this.router.navigate(['/new-project']);
+  }
+
+  async checkForUpdates() {
+    console.log('Manual update check initiated');
+    
+    if (Capacitor.isNativePlatform() && typeof IonicDeploy !== 'undefined') {
+      try {
+        const currentVersion = await IonicDeploy.getCurrentVersion();
+        console.log('Current deploy version:', currentVersion);
+        
+        const update = await IonicDeploy.checkForUpdate();
+        
+        if (update.available) {
+          console.log('Update available:', update);
+          
+          await IonicDeploy.downloadUpdate((progress: number) => {
+            console.log('Update download progress:', progress);
+          });
+          
+          await IonicDeploy.extractUpdate((progress: number) => {
+            console.log('Update extract progress:', progress);
+          });
+          
+          await IonicDeploy.reloadApp();
+        } else {
+          console.log('No updates available');
+          alert('App is up to date!');
+        }
+      } catch (error) {
+        console.error('Update check failed:', error);
+        alert('Update check failed. Please try again.');
+      }
+    } else {
+      console.log('Live updates not available in this environment');
+      alert('Live updates only work on native builds');
+    }
   }
 }
