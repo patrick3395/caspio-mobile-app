@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Capacitor, Plugins } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 
 @Injectable({
   providedIn: 'root'
@@ -75,11 +75,10 @@ export class LiveUpdateService {
         return;
       }
 
-      // Method 3: Check if plugin auto-registered to Plugins
-      const { Deploy } = Plugins as any;
-      if (Deploy) {
-        console.log('Using Plugins.Deploy');
-        const result = await Deploy.sync({ updateMethod: 'auto' });
+      // Method 3: Check if plugin registered to Capacitor registerPlugin
+      if ((Capacitor as any).Plugins?.Deploy) {
+        console.log('Using Capacitor.Plugins.Deploy');
+        const result = await (Capacitor as any).Plugins.Deploy.sync({ updateMethod: 'auto' });
         this.handleSyncResult(result);
         return;
       }
