@@ -164,71 +164,68 @@ export class ActiveProjectsPage implements OnInit {
 
   async checkForUpdates() {
     console.log('Manual update check initiated');
-    console.log('Platform:', Capacitor.getPlatform());
-    console.log('Is Native:', Capacitor.isNativePlatform());
     
     const win = window as any;
     const deployPlugin = typeof IonicDeploy !== 'undefined' ? IonicDeploy : 
                         win.IonicDeploy || win.IonicCordova || win.Deploy;
     
-    console.log('Deploy plugin found:', !!deployPlugin);
-    
     if (Capacitor.isNativePlatform() && deployPlugin) {
       try {
-        // Try to configure the plugin first
-        const config = {
-          appId: '1e8beef6',
-          channel: 'Caspio Mobile App'
-        };
+        // Log available methods first
+        console.log('Available plugin methods:', Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function'));
         
-        console.log('Initializing with config:', config);
-        
-        // Some versions don't need init, try without it first
+        // Get current version info
         let currentVersion;
         try {
           currentVersion = await deployPlugin.getCurrentVersion();
-          console.log('Current version (no init):', currentVersion);
+          console.log('Current version:', currentVersion);
         } catch (e) {
-          console.log('getCurrentVersion failed, trying init first');
-          await deployPlugin.configure(config);
-          currentVersion = await deployPlugin.getCurrentVersion();
-          console.log('Current version (after configure):', currentVersion);
+          console.log('No current version yet');
         }
         
+        // Check for updates - the plugin config is in capacitor.config.ts
         console.log('Checking for updates...');
         const update = await deployPlugin.checkForUpdate();
-        console.log('Update response:', update);
+        console.log('Update check response:', update);
         
         if (update && update.available) {
-          console.log('Update available:', update);
-          alert('Update found! Downloading...');
+          alert(`Update available!\nVersion: ${update.snapshot || 'unknown'}\nDownloading...`);
           
+          // Download with progress callback
           await deployPlugin.downloadUpdate((progress: number) => {
-            console.log('Update download progress:', progress);
+            console.log(`Download: ${progress}%`);
           });
           
+          // Extract the update
           await deployPlugin.extractUpdate((progress: number) => {
-            console.log('Update extract progress:', progress);
+            console.log(`Extract: ${progress}%`);
           });
           
-          alert('Update installed! App will restart.');
+          alert('Update installed! Restarting app...');
+          
+          // Reload to apply update
           await deployPlugin.reloadApp();
         } else {
-          console.log('No updates available');
-          alert('App is up to date! Current version: ' + (currentVersion?.versionId || 'unknown'));
+          const versionInfo = currentVersion ? `\nCurrent: ${currentVersion.versionId || currentVersion.snapshot || 'base'}` : '';
+          alert(`App is up to date!${versionInfo}`);
         }
       } catch (error: any) {
-        console.error('Update check failed:', error);
-        const errorMsg = error?.message || error?.error || JSON.stringify(error);
-        alert('Update check failed: ' + errorMsg);
+        console.error('Update error:', error);
         
-        // Log available methods on the plugin
-        console.log('Available plugin methods:', Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function'));
+        // More detailed error info
+        let errorDetail = '';
+        if (error?.message) errorDetail = error.message;
+        else if (error?.error) errorDetail = error.error;
+        else if (typeof error === 'string') errorDetail = error;
+        else errorDetail = JSON.stringify(error);
+        
+        alert(`Update check failed:\n${errorDetail}`);
+        
+        // Log methods for debugging
+        console.log('Plugin methods:', Object.keys(deployPlugin).filter(k => typeof deployPlugin[k] === 'function'));
       }
     } else {
-      console.log('Live updates not available');
-      console.log('Available window properties:', Object.keys(win).filter(k => k.toLowerCase().includes('ionic') || k.toLowerCase().includes('deploy')));
-      alert('Live updates plugin not found. Please ensure Build 26 includes the cordova-plugin-ionic.');
+      alert('Live updates plugin not available on this platform');
     }
   }
 }
