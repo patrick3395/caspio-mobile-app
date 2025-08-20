@@ -162,7 +162,7 @@ export class ProjectDetailPage implements OnInit {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         const result = {
           ...offer,
-          TypeName: type?.Type || offer.Service_Name || 'Unknown Service'
+          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service'
         };
         console.log('🔍 DEBUG: Processed offer:', result);
         return result;

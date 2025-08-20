@@ -75,7 +75,7 @@
             (ionChange)="toggleService($event, offer)"
             [disabled]="updatingServices">
           </ion-checkbox>
-          <label (click)="toggleServiceByLabel(offer)">{{ offer.TypeName || offer.Service_Name }}</label>
+          <label (click)="toggleServiceByLabel(offer)">{{ offer.TypeName || offer.Service_Name || offer.Description }}</label>
         </div>
       </div>
       

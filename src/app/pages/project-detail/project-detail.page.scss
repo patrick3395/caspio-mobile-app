@@ -79,6 +79,12 @@ ion-content {
   margin-bottom: 20px;
 }
 
+.selected-services {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid $gray;
+}
+
 .service-item {
   display: flex;
   align-items: center;
@@ -97,6 +103,7 @@ ion-content {
 
 .service-detail-item {
   background: $light;
+  border: 2px solid #e3e3e3;
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
@@ -109,6 +116,13 @@ ion-content {
     
     .service-name {
       font-weight: 600;
+      color: $dark;
+    }
+    
+    .service-count {
+      font-weight: normal;
+      color: $med;
+      font-size: 13px;
     }
     
     .service-actions {
@@ -117,10 +131,28 @@ ion-content {
     }
   }
   
-  .service-date ion-item {
-    --padding-start: 0;
-    --inner-padding-end: 0;
-    --background: transparent;
+  .service-date {
+    background: white;
+    border-radius: 4px;
+    padding: 8px;
+    border-left: 4px solid #007bff;
+    
+    ion-item {
+      --padding-start: 0;
+      --inner-padding-end: 0;
+      --background: transparent;
+      
+      ion-label {
+        color: $med;
+        font-size: 13px;
+        margin-right: 10px;
+      }
+      
+      ion-datetime {
+        color: $dark;
+        font-weight: 500;
+      }
+    }
   }
   
   .saving-indicator, .saved-indicator {
