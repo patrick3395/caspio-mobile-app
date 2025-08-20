@@ -44,8 +44,26 @@ export class NewProjectPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Simplified - no services loading needed
-    // this.initializeGooglePlaces(); // Removed for now since we only need address
+    // Initialize Google Places for address autocomplete
+    this.loadGoogleMapsScript();
+  }
+
+  loadGoogleMapsScript() {
+    // Check if Google Maps is already loaded
+    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+      this.initializeGooglePlaces();
+      return;
+    }
+
+    // Load Google Maps script
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A&libraries=places';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      this.initializeGooglePlaces();
+    };
+    document.head.appendChild(script);
   }
 
   async loadServices() {
@@ -140,11 +158,12 @@ export class NewProjectPage implements OnInit {
   }
 
   async createProject() {
-    // Validate required fields - only address and inspection date
-    if (!this.formData.address || !this.formData.inspectionDate) {
+    // Validate required fields - address, city, state, zip, and inspection date
+    if (!this.formData.address || !this.formData.city || !this.formData.state || 
+        !this.formData.zip || !this.formData.inspectionDate) {
       const alert = await this.alertController.create({
         header: 'Missing Information',
-        message: 'Please enter the address and inspection date.',
+        message: 'Please fill in all required fields including address, city, state, zip, and inspection date.',
         buttons: ['OK']
       });
       await alert.present();

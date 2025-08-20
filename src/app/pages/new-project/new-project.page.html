@@ -44,6 +44,47 @@
           required>
         </ion-input>
       </ion-item>
+
+      <ion-item lines="full">
+        <ion-label position="stacked">City</ion-label>
+        <ion-input 
+          type="text" 
+          [(ngModel)]="formData.city" 
+          name="city"
+          placeholder="City"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="full">
+        <ion-label position="stacked">State</ion-label>
+        <ion-select 
+          [(ngModel)]="formData.state" 
+          name="state"
+          placeholder="Select State"
+          required>
+          <ion-select-option value="TX">Texas</ion-select-option>
+          <ion-select-option value="GA">Georgia</ion-select-option>
+          <ion-select-option value="FL">Florida</ion-select-option>
+          <ion-select-option value="CO">Colorado</ion-select-option>
+          <ion-select-option value="CA">California</ion-select-option>
+          <ion-select-option value="AZ">Arizona</ion-select-option>
+          <ion-select-option value="SC">South Carolina</ion-select-option>
+          <ion-select-option value="TN">Tennessee</ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item lines="full">
+        <ion-label position="stacked">Zip Code</ion-label>
+        <ion-input 
+          type="text" 
+          [(ngModel)]="formData.zip" 
+          name="zip"
+          placeholder="Zip Code"
+          pattern="[0-9]{5}"
+          required>
+        </ion-input>
+      </ion-item>
     </div>
 
     <!-- Submit Button -->
