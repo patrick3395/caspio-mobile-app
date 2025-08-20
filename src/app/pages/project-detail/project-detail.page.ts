@@ -270,7 +270,7 @@ export class ProjectDetailPage implements OnInit {
       const serviceData = {
         ProjectID: this.projectId,
         TypeID: offer.TypeID,
-        DateOfInspection: new Date().toISOString()
+        DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
       
       console.log('🔍 DEBUG: Creating service with data:', serviceData);
@@ -384,6 +384,43 @@ export class ProjectDetailPage implements OnInit {
   getServiceInstanceNumber(service: ServiceSelection): number {
     const sameTypeServices = this.selectedServices.filter(s => s.offersId === service.offersId);
     return sameTypeServices.findIndex(s => s.instanceId === service.instanceId) + 1;
+  }
+
+  formatDateForInput(dateString: string): string {
+    if (!dateString) return new Date().toISOString().split('T')[0];
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  }
+
+  async updateServiceDateFromInput(service: ServiceSelection, event: any) {
+    const newDate = event.target.value;
+    if (!newDate) return;
+    
+    service.dateOfInspection = new Date(newDate).toISOString();
+    service.saving = true;
+    service.saved = false;
+    
+    try {
+      if (service.serviceId && service.serviceId !== 'temp_' + service.serviceId) {
+        await this.caspioService.updateService(service.serviceId, {
+          DateOfInspection: service.dateOfInspection
+        }).toPromise();
+        
+        service.saved = true;
+        setTimeout(() => {
+          service.saved = false;
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error updating service date:', error);
+      await this.showToast('Failed to update date', 'danger');
+    } finally {
+      service.saving = false;
+    }
   }
 
   async updateServiceDate(service: ServiceSelection, event: any) {
