@@ -282,52 +282,106 @@ ion-content {
   margin-top: 10px;
   border: 1px solid $border;
   border-radius: 8px;
-  overflow-x: auto;
+  overflow: hidden;
   max-width: 100%;
   
   .doc-row {
     display: grid;
-    grid-template-columns: minmax(100px, 1.2fr) minmax(120px, 1.5fr) minmax(70px, 0.8fr) minmax(90px, 1fr);
+    grid-template-columns: 30% 40% 30%;
     min-height: 48px;
     align-items: center;
     border-bottom: 1px solid #e9ecef;
     
     > div {
-      padding: 10px 8px;
-      font-size: 13px;
+      padding: 10px 12px;
+      font-size: 14px;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    > div:nth-child(1) { padding-left: 12px; }
-    > div:nth-child(2) { }
-    > div:nth-child(3) { text-align: center; }
-    > div:nth-child(4) { 
-      text-align: center;
-      padding-right: 8px;
-      ion-button {
-        --padding-start: 4px;
-        --padding-end: 4px;
+    
+    .doc-service {
+      font-weight: 600;
+      padding-left: 12px;
+    }
+    
+    .doc-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .uploaded-text {
+        color: #28a745;
+        font-weight: 500;
+      }
+      
+      .doc-status {
         font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #d1ecf1;
+        color: #0c5460;
+        
+        &.required {
+          background: #f8d7da;
+          color: #721c24;
+        }
+      }
+      
+      .remove-doc-link {
+        margin-left: auto;
+        color: #dc3545;
+        font-size: 12px;
+        cursor: pointer;
+        text-decoration: none;
+      }
+    }
+    
+    .doc-actions {
+      text-align: center;
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+      
+      ion-button {
+        --padding-start: 8px;
+        --padding-end: 8px;
+        font-size: 12px;
+        margin: 2px;
+      }
+      
+      .uploaded-actions {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
+    
+    &.uploaded {
+      .doc-title span:first-child {
+        color: #28a745;
+        font-weight: 500;
       }
     }
   }
   
   .doc-header {
     display: grid;
-    grid-template-columns: minmax(100px, 1.2fr) minmax(120px, 1.5fr) minmax(70px, 0.8fr) minmax(90px, 1fr);
+    grid-template-columns: 30% 40% 30%;
     background: $light;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14px;
     border-bottom: 2px solid $border;
     
     > div {
-      padding: 10px 8px;
+      padding: 12px;
     }
     
     > div:nth-child(1) { padding-left: 12px; }
     > div:nth-child(2) { }
     > div:nth-child(3) { text-align: center; }
-    > div:nth-child(4) { text-align: center; padding-right: 8px; }
   }
   
   .service-doc-group {
@@ -360,7 +414,7 @@ ion-content {
   
   .add-doc-row {
     background: #fafbfc;
-    grid-template-columns: minmax(100px, 1.2fr) minmax(280px, 3.3fr);
+    grid-template-columns: 30% 40% 30%;
     
     > div:nth-child(2) {
       text-align: left;
@@ -371,17 +425,6 @@ ion-content {
 
 .template-row { grid-template-columns: 2fr 1fr 1fr; }
 
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  
-  &.status-uploaded { background: #d4edda; color: #155724; }
-  &.status-required { background: #f8d7da; color: #721c24; }
-  &.status-optional { background: #d1ecf1; color: #0c5460; }
-}
 
 .remove-doc-link, .add-doc-link {
   color: #007bff;

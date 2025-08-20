@@ -1,5 +1,20 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.22 - 2025-01-20
+### Fixed
+- **Document Table UI Improvements**:
+  - Removed Status column - status now shown as badge next to document name
+  - Uploaded documents show green text for visual confirmation
+  - Fixed table content overflow with proper text truncation
+  - Simplified to 3-column layout (Service, Document, Actions)
+- **Document Upload Fix**:
+  - Added validation for integer IDs before upload
+  - Improved AttachID retrieval after record creation
+  - Better error handling with detailed logging
+  - Fixed Files API endpoint issues
+
+---
+
 ## Version 1.1.21 - 2025-01-20
 ### Fixed
 - **Document Table Responsive Layout**:

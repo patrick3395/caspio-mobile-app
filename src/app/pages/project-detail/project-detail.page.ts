@@ -593,11 +593,20 @@ export class ProjectDetailPage implements OnInit {
       const { serviceId, typeId, doc, action } = this.currentUploadContext;
       
       if (action === 'upload' || action === 'additional') {
-        // Create new Attach record
+        // Create new Attach record - ensure all IDs are valid integers
+        const projectIdNum = parseInt(this.projectId);
+        const typeIdNum = parseInt(typeId);
+        const serviceIdNum = parseInt(serviceId);
+        
+        if (isNaN(projectIdNum) || isNaN(typeIdNum) || isNaN(serviceIdNum)) {
+          console.error('Invalid IDs:', { projectId: this.projectId, typeId, serviceId });
+          throw new Error('Invalid ID values');
+        }
+        
         const attachData = {
-          ProjectID: parseInt(this.projectId), // Ensure integer
-          TypeID: parseInt(typeId), // Ensure integer
-          ServiceID: parseInt(serviceId), // Ensure integer
+          ProjectID: projectIdNum,
+          TypeID: typeIdNum,
+          ServiceID: serviceIdNum,
           Title: doc.title || 'Document',
           Notes: `Uploaded via mobile app on ${new Date().toLocaleDateString()}`,
           Link: file.name
@@ -612,11 +621,22 @@ export class ProjectDetailPage implements OnInit {
         const newAttach = await this.caspioService.createAttachment(attachData).toPromise();
         console.log('📋 New attachment created:', newAttach);
         
-        // Get the AttachID from the response
-        const attachId = newAttach?.AttachID || newAttach?.PK_ID || newAttach?.id;
+        // Caspio returns empty response on success, need to fetch the created record
+        // Wait a moment for the record to be created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Fetch the attachment we just created
+        const attachments = await this.caspioService.getAttachments(this.projectId).toPromise();
+        const latestAttach = attachments
+          .filter((a: any) => a.Link === file.name && a.Title === (doc.title || 'Document'))
+          .sort((a: any, b: any) => parseInt(b.AttachID) - parseInt(a.AttachID))[0];
+        
+        const attachId = latestAttach?.AttachID;
         if (!attachId) {
+          console.error('Could not find created attachment record');
           throw new Error('Failed to get AttachID from created record');
         }
+        console.log('📌 Found AttachID:', attachId);
         
         // Upload file to Caspio Files API
         await this.uploadFileToCaspio(attachId, file);
@@ -651,11 +671,22 @@ export class ProjectDetailPage implements OnInit {
       console.log('📤 Uploading file to Attach folder:', file.name, 'AttachID:', attachId);
       
       // Use the service method which handles authentication
-      await this.caspioService.uploadFileToAttachment(attachId, file).toPromise();
+      const response = await this.caspioService.uploadFileToAttachment(attachId, file).toPromise();
+      console.log('📥 Upload response:', response);
       
       console.log('✅ File uploaded successfully to Attach folder');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error uploading file to Caspio:', error);
+      console.error('Error details:', {
+        status: error.status,
+        message: error.message,
+        error: error.error
+      });
+      
+      // If it's a 404, the Files API might not be available or the AttachID is wrong
+      if (error.status === 404) {
+        console.error('Files API endpoint not found or AttachID is invalid');
+      }
       throw error;
     }
   }
