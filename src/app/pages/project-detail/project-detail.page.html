@@ -85,7 +85,7 @@
         <div class="services-table">
           <div class="table-header">
             <div class="col-service">Service</div>
-            <div class="col-date">Date</div>
+            <div class="col-date col-date-header">Date</div>
             <div class="col-actions">Actions</div>
           </div>
           <div *ngFor="let service of selectedServices" class="table-row">
@@ -152,22 +152,22 @@
       <!-- Documents table -->
       <div *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
         <div class="doc-header">
-          <div class="doc-col">Service</div>
-          <div class="doc-col">Document</div>
-          <div class="doc-col">Status</div>
-          <div class="doc-col">Action</div>
+          <div>Service</div>
+          <div>Document</div>
+          <div>Status</div>
+          <div>Actions</div>
         </div>
         
         <!-- Dynamic documents based on selected services -->
         <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
           <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" class="doc-row">
-            <div class="doc-col doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + serviceDoc.documents.length">
+            <div class="doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + serviceDoc.documents.length">
               {{ serviceDoc.serviceName }}
               <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
                 #{{ serviceDoc.instanceNumber }}
               </span>
             </div>
-            <div class="doc-col">
+            <div>
               {{ doc.title }}
               <a *ngIf="!doc.required && !doc.uploaded" 
                  (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
@@ -175,7 +175,7 @@
                 Remove
               </a>
             </div>
-            <div class="doc-col">
+            <div>
               <span class="status-badge" [ngClass]="{
                 'status-uploaded': doc.uploaded,
                 'status-required': !doc.uploaded && doc.required,
@@ -184,7 +184,7 @@
                 {{ doc.uploaded ? 'Uploaded' : (doc.required ? 'Required' : 'Optional') }}
               </span>
             </div>
-            <div class="doc-col">
+            <div>
               <!-- Upload button for documents without files -->
               <ion-button 
                 *ngIf="!doc.uploaded"

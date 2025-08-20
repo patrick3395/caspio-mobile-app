@@ -1,5 +1,18 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.5 - 2025-01-20
+### Fixed
+- **Table Alignment Issues**:
+  - Date header now properly centered with forced centering CSS
+  - Documents table columns properly aligned
+  - Removed unnecessary doc-col classes for proper grid layout
+  - Added Cubicasa service document mapping (Floor Plan, 3D Model, Measurements)
+- **UI Improvements**:
+  - Upload buttons already present for service documents
+  - Better document status badges
+
+---
+
 ## Version 1.1.4 - 2025-01-20
 ### Added
 - **Enhanced Debugging for 400 Error**:

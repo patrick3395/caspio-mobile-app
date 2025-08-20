@@ -128,10 +128,12 @@ ion-content {
     > div {
       padding: 12px;
       color: $med;
-      
-      &:nth-child(2) {
-        text-align: center; // Center the "Date" header
-      }
+    }
+    
+    .col-date-header {
+      text-align: center !important; // Force center the "Date" header
+      display: flex;
+      justify-content: center;
     }
   }
   

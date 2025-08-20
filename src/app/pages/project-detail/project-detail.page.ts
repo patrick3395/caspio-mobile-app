@@ -493,6 +493,7 @@ export class ProjectDetailPage implements OnInit {
         'foundation survey': ['Foundation Report', 'Elevation Certificate'],
         'mold inspection': ['Mold Report', 'Lab Results'],
         'radon testing': ['Radon Report', 'Test Results'],
+        'cubicasa': ['Floor Plan', '3D Model', 'Measurements'],
         'other': ['Service Report', 'Documentation']
       };
       
