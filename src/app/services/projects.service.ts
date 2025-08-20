@@ -130,20 +130,34 @@ export class ProjectsService {
           return `${month}/${day}/${year}`;
         };
         
-        // Required fields based on Caspio table:
-        // Address*, StateID*, OffersID*, Fee*
+        // Validate required fields
+        if (!projectData.address) {
+          console.error('❌ Address is required but missing!');
+          return throwError(() => new Error('Address is required'));
+        }
+        
+        // Build payload with required fields
+        // Based on Caspio table: Address*, StateID*, OffersID*, Fee*
         const caspioData: any = {
-          CompanyID: 1, // Noble Property Inspections
-          Address: projectData.address || '', // Required
-          City: projectData.city || '',
+          CompanyID: 1, // Noble Property Inspections (might be required)
+          Address: projectData.address.trim(), // Required - trimmed
           StateID: stateId || 1, // Required - must be numeric ID
-          Zip: projectData.zip || '',
-          InspectionDate: formatDateForCaspio(projectData.inspectionDate || originalDate),
           OffersID: 1, // Required - default service type
-          Fee: 265.00, // Required - default fee
-          StatusID: 1, // Active status
-          UserID: 1 // Default user
+          Fee: 265.00, // Required - as decimal
+          StatusID: 1, // Active status (might be required)
+          UserID: 1 // Default user (might be required)
         };
+        
+        // Add optional fields only if they have values
+        if (projectData.city) {
+          caspioData.City = projectData.city;
+        }
+        if (projectData.zip) {
+          caspioData.Zip = projectData.zip;
+        }
+        if (projectData.inspectionDate) {
+          caspioData.InspectionDate = formatDateForCaspio(projectData.inspectionDate);
+        }
         
         // Add notes only if provided
         if (projectData.notes && projectData.notes.trim()) {

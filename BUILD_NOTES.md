@@ -1,5 +1,18 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.2 - 2025-01-20
+### Fixed
+- **Project Creation 400 Error - Attempt 2**:
+  - Simplified payload to essential fields only
+  - Address validation to ensure it's not empty
+  - StateID must be numeric (1 for TX, etc.)
+  - Fee as decimal 265.00
+  - Removed Date field (might be auto-generated)
+  - Added CompanyID, StatusID, UserID back
+  - Optional fields only added if they have values
+
+---
+
 ## Version 1.1.1 - 2025-01-20
 ### Fixed
 - **Project Creation 404/400 Errors**: Fixed by including ALL required fields per Caspio table
