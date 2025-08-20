@@ -64,14 +64,9 @@
           name="state"
           placeholder="Select State"
           required>
-          <ion-select-option value="TX">Texas</ion-select-option>
-          <ion-select-option value="GA">Georgia</ion-select-option>
-          <ion-select-option value="FL">Florida</ion-select-option>
-          <ion-select-option value="CO">Colorado</ion-select-option>
-          <ion-select-option value="CA">California</ion-select-option>
-          <ion-select-option value="AZ">Arizona</ion-select-option>
-          <ion-select-option value="SC">South Carolina</ion-select-option>
-          <ion-select-option value="TN">Tennessee</ion-select-option>
+          <ion-select-option *ngFor="let state of states" [value]="state.StateID.toString()">
+            {{ state.State }} - {{ getStateName(state.State) }}
+          </ion-select-option>
         </ion-select>
       </ion-item>
 

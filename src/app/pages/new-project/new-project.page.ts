@@ -33,7 +33,7 @@ export class NewProjectPage implements OnInit {
   };
 
   availableServices: any[] = [];
-  states = ['TX', 'GA', 'FL', 'CO', 'CA', 'AZ', 'SC', 'TN'];
+  states: any[] = []; // Will be loaded from Caspio
   
   constructor(
     private router: Router,
@@ -45,11 +45,44 @@ export class NewProjectPage implements OnInit {
 
   async ngOnInit() {
     console.log('🔍 NewProjectPage: ngOnInit called');
+    
+    // Load states from Caspio
+    await this.loadStates();
+    
     // Initialize Google Places for address autocomplete
     // Wait a bit for the view to be fully rendered
     setTimeout(() => {
       this.initializeGooglePlaces();
     }, 500);
+  }
+
+  async loadStates() {
+    try {
+      const statesData = await this.projectsService.getStates().toPromise();
+      this.states = statesData || [];
+      console.log('✅ States loaded from Caspio:', this.states);
+      
+      // Set default state to Texas if not already set
+      if (!this.formData.state && this.states.length > 0) {
+        const texas = this.states.find(s => s.State === 'TX');
+        if (texas) {
+          this.formData.state = texas.StateID.toString(); // Store StateID as string
+        }
+      }
+    } catch (error) {
+      console.error('Error loading states:', error);
+      // Fallback to hardcoded states if loading fails
+      this.states = [
+        { StateID: 1, State: 'TX', StateAbbreviation: 'TX' },
+        { StateID: 2, State: 'GA', StateAbbreviation: 'GA' },
+        { StateID: 3, State: 'FL', StateAbbreviation: 'FL' },
+        { StateID: 4, State: 'CO', StateAbbreviation: 'CO' },
+        { StateID: 6, State: 'CA', StateAbbreviation: 'CA' },
+        { StateID: 7, State: 'AZ', StateAbbreviation: 'AZ' },
+        { StateID: 8, State: 'SC', StateAbbreviation: 'SC' },
+        { StateID: 9, State: 'TN', StateAbbreviation: 'TN' }
+      ];
+    }
   }
 
   async loadServices() {
@@ -171,7 +204,18 @@ export class NewProjectPage implements OnInit {
       // Update the form fields
       this.formData.address = streetNumber ? `${streetNumber} ${streetName}` : streetName;
       this.formData.city = city;
-      this.formData.state = state;
+      
+      // Find the StateID for the state abbreviation
+      if (state) {
+        const stateRecord = this.states.find(s => s.State === state);
+        if (stateRecord) {
+          this.formData.state = stateRecord.StateID.toString();
+          console.log('📍 State matched:', state, '->', stateRecord.StateID);
+        } else {
+          console.log('⚠️ State not found in database:', state);
+        }
+      }
+      
       this.formData.zip = zip;
       
       console.log('✅ Form data updated:', {
@@ -300,6 +344,20 @@ export class NewProjectPage implements OnInit {
       });
       await alert.present();
     }
+  }
+
+  getStateName(abbreviation: string): string {
+    const stateNames: any = {
+      'TX': 'Texas',
+      'GA': 'Georgia', 
+      'FL': 'Florida',
+      'CO': 'Colorado',
+      'CA': 'California',
+      'AZ': 'Arizona',
+      'SC': 'South Carolina',
+      'TN': 'Tennessee'
+    };
+    return stateNames[abbreviation] || abbreviation;
   }
 
   goBack() {

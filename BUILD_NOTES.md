@@ -1,5 +1,20 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.6 - 2025-01-20
+### Fixed - CRITICAL FIX
+- **StateID Issue - Root Cause of 400 Error**:
+  - Now loads states from Caspio States table
+  - State dropdown uses StateID (numeric) as value
+  - Google Places autocomplete maps state abbreviation to StateID
+  - Project creation sends StateID (1,2,3...) not abbreviation (TX,GA,FL...)
+  - This was the root cause of the 400 error!
+- **State Dropdown**:
+  - Shows "TX - Texas" format for clarity
+  - Default to Texas (StateID: 1)
+  - Fallback to hardcoded states if API fails
+
+---
+
 ## Version 1.1.5 - 2025-01-20
 ### Fixed
 - **Table Alignment Issues**:

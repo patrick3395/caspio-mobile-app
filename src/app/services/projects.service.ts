@@ -116,9 +116,9 @@ export class ProjectsService {
           inspectionDate: projectData.inspectionDate
         });
         
-        // Get StateID from abbreviation (required field)
-        const stateId = this.getStateIDFromAbbreviation(projectData.state);
-        console.log('🗺️ State mapping:', projectData.state, '->', stateId);
+        // StateID is now directly passed from the form
+        const stateId = projectData.state ? parseInt(projectData.state) : 1;
+        console.log('🗺️ Using StateID:', stateId);
         
         // Format date as MM/DD/YYYY for Caspio
         const formatDateForCaspio = (dateStr: string | undefined) => {
@@ -326,10 +326,13 @@ export class ProjectsService {
     );
   }
 
-  // Get states
+  // Get states from Caspio States table
   getStates(): Observable<any[]> {
     return this.caspioService.get<any>('/tables/States/records').pipe(
-      map(response => response.Result || [])
+      map(response => {
+        console.log('📍 States loaded from Caspio:', response.Result);
+        return response.Result || [];
+      })
     );
   }
 }
