@@ -28,14 +28,6 @@ export class IonicDeployService {
     console.log('Platform ready, checking for updates...');
 
     try {
-      // First try to reset config if there's a corrupted update
-      try {
-        console.log('Attempting to reset any corrupted updates...');
-        await LiveUpdates.resetConfig();
-        console.log('Reset config successful');
-      } catch (resetError) {
-        console.log('No corrupted updates to reset or reset not needed');
-      }
       // Log the configuration being used
       console.log('=== LIVE UPDATE CONFIGURATION ===');
       console.log('Expected App ID: 1e8beef6');
@@ -66,26 +58,11 @@ export class IonicDeployService {
         // Auto reload to show the update
         await LiveUpdates.reload();
       } else {
-        console.log('❌ No update detected');
-        console.log('Possible reasons:');
-        console.log('1. No web build deployed to channel');
-        console.log('2. Channel name mismatch (case sensitive)');
-        console.log('3. App ID mismatch');
-        console.log('4. Already on latest version');
+        console.log('ℹ️ No update available');
+        console.log('App is already on the latest version');
         
-        // Show detailed status
-        let statusMsg = `📊 Build ${BUILD_NUMBER} Status\n\n`;
-        statusMsg += `Result: ${JSON.stringify(result)}\n\n`;
-        statusMsg += `Config:\n`;
-        statusMsg += `- App ID: 1e8beef6\n`;
-        statusMsg += `- Channel: Caspio Mobile App\n`;
-        statusMsg += `- Method: background\n\n`;
-        statusMsg += `If you deployed a web build, check:\n`;
-        statusMsg += `1. Channel name matches exactly\n`;
-        statusMsg += `2. Web build completed successfully\n`;
-        statusMsg += `3. Deploy to channel completed`;
-        
-        alert(statusMsg);
+        // Simple message - no update available
+        alert('✓ App is up to date\n\nNo updates available at this time.');
       }
     } catch (error: any) {
       console.error(`Build ${BUILD_NUMBER} Error:`, error);
@@ -93,14 +70,10 @@ export class IonicDeployService {
       
       // Handle unpack error specifically
       if (error?.message?.includes('unpack') || error?.message?.includes('File Manager')) {
-        console.error('Unpack error detected, attempting to reset config...');
-        try {
-          await LiveUpdates.resetConfig();
-          alert('Live Updates configuration has been reset due to a corrupted update.\n\nThe app will now use the built-in version.\n\nPlease try updating again later.');
-          return;
-        } catch (resetError) {
-          console.error('Failed to reset config:', resetError);
-        }
+        console.error('Unpack error detected - corrupted update');
+        // Don't reset config, just inform user to try again
+        alert('A corrupted update was detected.\n\nThe app will continue using the current version.\n\nPlease try updating again later.');
+        return;
       }
       
       let errorMsg = `❌ BUILD ${BUILD_NUMBER} ERROR\n\n`;

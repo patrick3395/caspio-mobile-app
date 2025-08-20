@@ -1,5 +1,16 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.14 - 2025-01-20
+### Fixed
+- **Live Updates Issue**:
+  - Removed automatic resetConfig() calls that were causing corruption message
+  - No longer resets configuration on startup
+  - Simplified "no update available" message
+  - Better handling of corrupted updates without resetting
+  - Cleaner user messages for update status
+
+---
+
 ## Version 1.1.13 - 2025-01-20
 ### Fixed
 - **Table Alignment Issues**:
