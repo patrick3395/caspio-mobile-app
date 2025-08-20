@@ -158,7 +158,7 @@ export class ProjectDetailPage implements OnInit {
       console.log('🔍 DEBUG: Types received:', types);
       
       // Merge offer data with type names
-      this.availableOffers = (offers || []).map((offer: any) => {
+      const processedOffers = (offers || []).map((offer: any) => {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         const result = {
           ...offer,
@@ -168,7 +168,20 @@ export class ProjectDetailPage implements OnInit {
         return result;
       });
       
-      console.log('✅ Available offers loaded successfully:', this.availableOffers);
+      // Sort alphabetically with "Other" at the bottom
+      this.availableOffers = processedOffers.sort((a: any, b: any) => {
+        const nameA = a.TypeName.toLowerCase();
+        const nameB = b.TypeName.toLowerCase();
+        
+        // Put "Other" at the bottom
+        if (nameA === 'other') return 1;
+        if (nameB === 'other') return -1;
+        
+        // Otherwise sort alphabetically
+        return nameA.localeCompare(nameB);
+      });
+      
+      console.log('✅ Available offers loaded and sorted:', this.availableOffers);
     } catch (error) {
       console.error('❌ Error loading offers - Full details:', error);
       console.error('Error type:', typeof error);
@@ -453,27 +466,58 @@ export class ProjectDetailPage implements OnInit {
     this.serviceDocuments = [];
     
     for (const service of this.selectedServices) {
-      // Get templates for this service type
-      const templates = this.attachTemplates.filter(t => 
+      // Get ALL templates for this service type (both required and optional)
+      const requiredTemplates = this.attachTemplates.filter(t => 
         t.TypeID === parseInt(service.typeId) && 
-        (t.Auto === 'Yes' || t.Auto === true || t.Auto === 1) &&
         (t.Required === 'Yes' || t.Required === true || t.Required === 1)
       );
       
       const documents: DocumentItem[] = [];
       
-      // Add required documents from templates
-      if (templates.length > 0) {
-        for (const template of templates) {
+      // Map service types to their specific documents
+      const serviceDocMap: any = {
+        'home inspection': ['Inspection Report', 'Client Agreement', 'Photos'],
+        'pool/spa inspection': ['Pool/Spa Report', 'Equipment Photos'],
+        'termite inspection': ['WDI Report', 'Treatment Recommendations'],
+        'sewer scope': ['Sewer Scope Report', 'Video Link'],
+        'foundation survey': ['Foundation Report', 'Elevation Certificate'],
+        'mold inspection': ['Mold Report', 'Lab Results'],
+        'radon testing': ['Radon Report', 'Test Results'],
+        'other': ['Service Report', 'Documentation']
+      };
+      
+      // Find matching document set based on service name
+      const serviceName = service.typeName.toLowerCase();
+      let docTitles = serviceDocMap[serviceName];
+      
+      // If no exact match, check for partial matches
+      if (!docTitles) {
+        for (const key in serviceDocMap) {
+          if (serviceName.includes(key) || key.includes(serviceName)) {
+            docTitles = serviceDocMap[key];
+            break;
+          }
+        }
+      }
+      
+      // Default to generic documents if no match found
+      if (!docTitles) {
+        docTitles = ['Service Report', 'Supporting Documentation'];
+      }
+      
+      // Add documents based on templates or defaults
+      if (requiredTemplates.length > 0) {
+        // Use actual templates from database
+        for (const template of requiredTemplates) {
           const attachment = this.existingAttachments.find(a => 
-            a.TypeID === parseInt(service.typeId) && 
+            a.ServiceID === service.serviceId && 
             a.Title === template.Title
           );
           
           documents.push({
             attachId: attachment?.AttachID,
             title: template.Title || template.AttachmentName || 'Document',
-            required: true,
+            required: (template.Required === 'Yes' || template.Required === true || template.Required === 1),
             uploaded: !!attachment,
             templateId: template.PK_ID,
             filename: attachment?.Link,
@@ -481,22 +525,17 @@ export class ProjectDetailPage implements OnInit {
           });
         }
       } else {
-        // Fallback documents if no templates
-        const defaultDocs = [
-          { title: 'Home Inspection Report', required: true },
-          { title: 'Cubicasa', required: false }
-        ];
-        
-        for (const doc of defaultDocs) {
+        // Use service-specific defaults
+        for (let i = 0; i < docTitles.length; i++) {
           const attachment = this.existingAttachments.find(a => 
-            a.TypeID === parseInt(service.typeId) && 
-            a.Title === doc.title
+            a.ServiceID === service.serviceId && 
+            a.Title === docTitles[i]
           );
           
           documents.push({
             attachId: attachment?.AttachID,
-            title: doc.title,
-            required: doc.required,
+            title: docTitles[i],
+            required: i === 0, // First document is required, others optional
             uploaded: !!attachment,
             filename: attachment?.Link,
             attachmentUrl: attachment?.Attachment

@@ -259,12 +259,22 @@ ion-content {
   }
 }
 
-.doc-row {
-  grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+.service-doc-group {
+  display: contents;
   
-  &.add-doc-row {
-    grid-template-columns: 1.5fr 3.5fr;
-    background: #fafbfc;
+  .doc-row {
+    grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+    
+    &:first-child .doc-service {
+      border-left: 3px solid #007bff;
+      background: #f8f9fa;
+      font-weight: 600;
+    }
+    
+    &.add-doc-row {
+      grid-template-columns: 1.5fr 3.5fr;
+      background: #fafbfc;
+    }
   }
 }
 

@@ -160,8 +160,8 @@
         
         <!-- Dynamic documents based on selected services -->
         <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
-          <div *ngFor="let doc of serviceDoc.documents; let isFirst = first" class="doc-row">
-            <div class="doc-col" *ngIf="isFirst" [attr.rowspan]="serviceDoc.documents.length">
+          <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" class="doc-row">
+            <div class="doc-col doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + serviceDoc.documents.length">
               {{ serviceDoc.serviceName }}
               <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
                 #{{ serviceDoc.instanceNumber }}
