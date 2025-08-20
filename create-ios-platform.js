@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('=== Appflow iOS Build Setup (Build 48) ===');
+console.log('=== Appflow iOS Build Setup (Build 49) ===');
 
 // Step 1: Install dependencies (including @capacitor/live-updates)
 console.log('1. Installing dependencies...');
@@ -101,4 +101,4 @@ try {
 }
 
 console.log('\n=== iOS platform ready for Appflow build ===');
-console.log('Build 48 with @capacitor/live-updates plugin');
+console.log('Build 49 with @capacitor/live-updates plugin');

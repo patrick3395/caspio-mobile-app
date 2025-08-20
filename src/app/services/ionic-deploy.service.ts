@@ -10,10 +10,17 @@ export class IonicDeployService {
   constructor(private platform: Platform) {}
 
   async checkForUpdates(): Promise<void> {
-    console.log('=== Live Updates Check (Build 48) ===');
-    console.log('Using: @capacitor/live-updates');
+    // VERY CLEAR BUILD INDICATOR
+    const BUILD_NUMBER = 49;
+    const PLUGIN_NAME = '@capacitor/live-updates';
+    
+    console.log(`=== BUILD ${BUILD_NUMBER} LIVE UPDATES CHECK ===`);
+    console.log(`Plugin: ${PLUGIN_NAME}`);
     console.log('Platform:', Capacitor.getPlatform());
     console.log('Is Native:', Capacitor.isNativePlatform());
+    
+    // First alert to show which build is running
+    alert(`📱 Build ${BUILD_NUMBER} Running\n\nUsing: ${PLUGIN_NAME}\n\nTap OK to check for updates...`);
     
     if (!Capacitor.isNativePlatform()) {
       alert('Live updates only work on native builds.\n\nYou are currently running in a browser.');
@@ -35,7 +42,7 @@ export class IonicDeployService {
         console.log('✅ Update downloaded and applied!');
         
         const shouldReload = confirm(
-          '🎉 Update Available!\n\n' +
+          `🎉 BUILD ${BUILD_NUMBER}: Update Available!\n\n` +
           'A new version has been downloaded.\n' +
           'Would you like to restart the app now to apply it?'
         );
@@ -43,17 +50,18 @@ export class IonicDeployService {
         if (shouldReload) {
           await LiveUpdates.reload();
         } else {
-          alert('The update will be applied the next time you restart the app.');
+          alert(`Build ${BUILD_NUMBER}: The update will be applied on next restart.`);
         }
       } else {
         console.log('✅ App is up to date');
-        alert('✅ App is up to date!\n\nNo new updates available.');
+        alert(`✅ Build ${BUILD_NUMBER}: App is up to date!\n\nNo new updates available.`);
       }
     } catch (error: any) {
-      console.error('Live Updates Error (Build 48):', error);
+      console.error(`Build ${BUILD_NUMBER} Error:`, error);
       
-      // Detailed error message
-      let errorMsg = '❌ Update Check Failed\n\n';
+      // VERY CLEAR ERROR MESSAGE WITH BUILD NUMBER
+      let errorMsg = `❌ BUILD ${BUILD_NUMBER} ERROR\n\n`;
+      errorMsg += `Plugin: ${PLUGIN_NAME}\n\n`;
       
       if (error?.message) {
         errorMsg += `Error: ${error.message}\n\n`;
@@ -63,11 +71,9 @@ export class IonicDeployService {
       if (error?.message?.includes('is not implemented') || 
           error?.message?.includes('not available') ||
           error?.message?.includes('not found')) {
-        errorMsg += 'The @capacitor/live-updates plugin is not available in this build.\n\n';
-        errorMsg += 'This usually means:\n';
-        errorMsg += '1. The plugin wasn\'t included in the native build\n';
-        errorMsg += '2. You need to rebuild the app with the plugin\n\n';
-        errorMsg += 'Build Info: v48 with @capacitor/live-updates';
+        errorMsg += 'The @capacitor/live-updates plugin is not available.\n\n';
+        errorMsg += 'This is BUILD 49 using @capacitor/live-updates.\n';
+        errorMsg += 'NOT using cordova-plugin-ionic!';
       } else {
         errorMsg += 'Details: ' + JSON.stringify(error);
       }
