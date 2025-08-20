@@ -1,5 +1,16 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.4 - 2025-01-20
+### Added
+- **Enhanced Debugging for 400 Error**:
+  - Shows each field name, value, and data type being sent
+  - Displays full JSON payload
+  - Shows failed request data in error handler
+  - Displays Caspio's specific error message if available
+  - Better formatted console output with separators
+
+---
+
 ## Version 1.1.3 - 2025-01-20
 ### Fixed
 - **UI Improvements**:

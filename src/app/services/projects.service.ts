@@ -164,9 +164,17 @@ export class ProjectsService {
           caspioData.Notes = projectData.notes;
         }
         
-        console.log('📤 Data being sent to Caspio:', caspioData);
+        console.log('📤 Data being sent to Caspio:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        Object.keys(caspioData).forEach(key => {
+          const value = caspioData[key];
+          const type = typeof value;
+          console.log(`  ${key}: ${value} (${type})`);
+        });
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📍 Full URL:', `${this.apiBaseUrl}/tables/Projects/records`);
         console.log('🔑 Token:', this.caspioService.getCurrentToken() ? 'Present' : 'Missing');
+        console.log('📋 JSON being sent:', JSON.stringify(caspioData, null, 2));
         
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,
@@ -212,13 +220,27 @@ export class ProjectsService {
             }
           }),
           catchError(error => {
-            console.error('❌ Error creating project - Full details:');
-            console.error('Status:', error.status);
+            console.error('❌ ERROR CREATING PROJECT - FULL DETAILS:');
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.error('Status Code:', error.status);
             console.error('Status Text:', error.statusText);
+            console.error('URL:', error.url);
             console.error('Error Body:', error.error);
             console.error('Error Message:', error.message);
+            
+            // Show what we tried to send
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.error('FAILED REQUEST DATA:');
+            Object.keys(caspioData).forEach(key => {
+              console.error(`  ${key}: ${caspioData[key]} (${typeof caspioData[key]})`);
+            });
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
             if (error.error && typeof error.error === 'object') {
-              console.error('Error Details:', JSON.stringify(error.error, null, 2));
+              console.error('Caspio Error Response:', JSON.stringify(error.error, null, 2));
+            }
+            if (error.error && error.error.Message) {
+              console.error('⚠️ Caspio says:', error.error.Message);
             }
             
             // Check if it's actually a success (201 status)
