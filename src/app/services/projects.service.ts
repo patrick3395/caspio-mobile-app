@@ -164,17 +164,41 @@ export class ProjectsService {
           caspioData.Notes = projectData.notes;
         }
         
-        console.log('📤 Data being sent to Caspio:');
+        console.log('📤 CASPIO PROJECTS TABLE - FIELD MAPPING:');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        Object.keys(caspioData).forEach(key => {
-          const value = caspioData[key];
-          const type = typeof value;
-          console.log(`  ${key}: ${value} (${type})`);
+        console.log('📊 TABLE: Projects');
+        console.log('📍 API ENDPOINT: /tables/Projects/records');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('COLUMN HEADERS AND VALUES:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // List each field with its column name, value, and type
+        const fieldMapping = [
+          { column: 'CompanyID', value: caspioData.CompanyID, required: 'Maybe', description: 'Company identifier' },
+          { column: 'Address', value: caspioData.Address, required: 'YES', description: 'Street address' },
+          { column: 'StateID', value: caspioData.StateID, required: 'YES', description: 'State identifier (numeric)' },
+          { column: 'OffersID', value: caspioData.OffersID, required: 'YES', description: 'Service type identifier' },
+          { column: 'Fee', value: caspioData.Fee, required: 'YES', description: 'Service fee' },
+          { column: 'StatusID', value: caspioData.StatusID, required: 'Maybe', description: 'Project status' },
+          { column: 'UserID', value: caspioData.UserID, required: 'Maybe', description: 'User identifier' },
+          { column: 'City', value: caspioData.City, required: 'NO', description: 'City name' },
+          { column: 'Zip', value: caspioData.Zip, required: 'NO', description: 'Zip code' },
+          { column: 'InspectionDate', value: caspioData.InspectionDate, required: 'NO', description: 'Date of inspection' }
+        ];
+        
+        fieldMapping.forEach(field => {
+          if (field.value !== undefined) {
+            const type = typeof field.value;
+            console.log(`Column: ${field.column.padEnd(15)} | Required: ${field.required.padEnd(5)} | Value: ${field.value} (${type})`);
+          }
         });
+        
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📋 FULL JSON PAYLOAD:');
+        console.log(JSON.stringify(caspioData, null, 2));
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔑 Auth Token:', this.caspioService.getCurrentToken() ? 'Present' : 'Missing');
         console.log('📍 Full URL:', `${this.apiBaseUrl}/tables/Projects/records`);
-        console.log('🔑 Token:', this.caspioService.getCurrentToken() ? 'Present' : 'Missing');
-        console.log('📋 JSON being sent:', JSON.stringify(caspioData, null, 2));
         
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,
@@ -220,28 +244,60 @@ export class ProjectsService {
             }
           }),
           catchError(error => {
-            console.error('❌ ERROR CREATING PROJECT - FULL DETAILS:');
-            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.error('Status Code:', error.status);
-            console.error('Status Text:', error.statusText);
-            console.error('URL:', error.url);
-            console.error('Error Body:', error.error);
-            console.error('Error Message:', error.message);
+            console.error('❌ ERROR CREATING PROJECT - DETAILED ANALYSIS:');
+            console.error('════════════════════════════════════════════════');
+            console.error('HTTP STATUS:', error.status, '(' + error.statusText + ')');
+            console.error('API ENDPOINT:', error.url);
+            console.error('════════════════════════════════════════════════');
             
-            // Show what we tried to send
-            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.error('FAILED REQUEST DATA:');
-            Object.keys(caspioData).forEach(key => {
-              console.error(`  ${key}: ${caspioData[key]} (${typeof caspioData[key]})`);
+            // Show Caspio's error response
+            if (error.error) {
+              console.error('📛 CASPIO ERROR RESPONSE:');
+              if (typeof error.error === 'object') {
+                console.error(JSON.stringify(error.error, null, 2));
+                if (error.error.Message) {
+                  console.error('⚠️ ERROR MESSAGE:', error.error.Message);
+                }
+                if (error.error.Details) {
+                  console.error('📝 ERROR DETAILS:', error.error.Details);
+                }
+              } else {
+                console.error(error.error);
+              }
+            }
+            
+            console.error('════════════════════════════════════════════════');
+            console.error('📤 WHAT WE ATTEMPTED TO SEND:');
+            console.error('────────────────────────────────────────────────');
+            
+            // Show each field we tried to send
+            const sentFields = [
+              { column: 'CompanyID', value: caspioData.CompanyID },
+              { column: 'Address', value: caspioData.Address },
+              { column: 'StateID', value: caspioData.StateID },
+              { column: 'OffersID', value: caspioData.OffersID },
+              { column: 'Fee', value: caspioData.Fee },
+              { column: 'StatusID', value: caspioData.StatusID },
+              { column: 'UserID', value: caspioData.UserID },
+              { column: 'City', value: caspioData.City },
+              { column: 'Zip', value: caspioData.Zip },
+              { column: 'InspectionDate', value: caspioData.InspectionDate }
+            ];
+            
+            sentFields.forEach(field => {
+              if (field.value !== undefined) {
+                console.error(`  ${field.column.padEnd(15)}: ${field.value} (${typeof field.value})`);
+              }
             });
-            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             
-            if (error.error && typeof error.error === 'object') {
-              console.error('Caspio Error Response:', JSON.stringify(error.error, null, 2));
-            }
-            if (error.error && error.error.Message) {
-              console.error('⚠️ Caspio says:', error.error.Message);
-            }
+            console.error('════════════════════════════════════════════════');
+            console.error('💡 POSSIBLE ISSUES:');
+            console.error('1. Missing required field (Address, StateID, OffersID, Fee)');
+            console.error('2. Wrong data type (StateID should be number)');
+            console.error('3. Invalid StateID value (not in States table)');
+            console.error('4. Invalid OffersID value (not in Offers table)');
+            console.error('5. Authentication token expired');
+            console.error('════════════════════════════════════════════════');
             
             // Check if it's actually a success (201 status)
             if (error.status === 201) {

@@ -1,5 +1,18 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.11 - 2025-01-20
+### Added
+- **Enhanced Debug Logging for Project Creation**:
+  - Shows exact Caspio table name and API endpoint
+  - Lists all column headers with their values and data types
+  - Indicates which fields are required vs optional
+  - Shows full JSON payload being sent
+  - Enhanced error analysis with possible issues
+  - Lists what was attempted vs what Caspio expected
+  - Helps identify field mapping issues
+
+---
+
 ## Version 1.1.10 - 2025-01-20
 ### Fixed
 - **Document Table Alignment**:
