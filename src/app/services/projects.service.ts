@@ -116,18 +116,29 @@ export class ProjectsService {
           inspectionDate: projectData.inspectionDate
         });
         
-        // StateID is now directly passed from the form
+        // StateID must be a number
         const stateId = projectData.state ? parseInt(projectData.state) : 1;
-        console.log('🗺️ Using StateID:', stateId);
+        console.log('🗺️ Using StateID:', stateId, 'Type:', typeof stateId);
         
-        // Format date as MM/DD/YYYY for Caspio
-        const formatDateForCaspio = (dateStr: string | undefined) => {
-          if (!dateStr) return '';
+        // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
+        const formatDateTimeForCaspio = (dateStr: string | undefined) => {
+          if (!dateStr) {
+            // Use current datetime if not provided
+            const now = new Date();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const year = now.getFullYear();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+          }
           const date = new Date(dateStr);
           const month = (date.getMonth() + 1).toString().padStart(2, '0');
           const day = date.getDate().toString().padStart(2, '0');
           const year = date.getFullYear();
-          return `${month}/${day}/${year}`;
+          // Add time component (default to noon if not specified)
+          return `${month}/${day}/${year} 12:00:00`;
         };
         
         // Validate required fields
@@ -136,28 +147,28 @@ export class ProjectsService {
           return throwError(() => new Error('Address is required'));
         }
         
-        // Build payload with required fields
-        // Based on Caspio table: Address*, StateID*, OffersID*, Fee*
+        // Build payload matching exact Caspio table structure
         const caspioData: any = {
-          CompanyID: 1, // Noble Property Inspections (might be required)
-          Address: projectData.address.trim(), // Required - trimmed
-          StateID: stateId || 1, // Required - must be numeric ID
-          OffersID: 1, // Required - default service type
-          Fee: 265.00, // Required - as decimal
-          StatusID: 1, // Active status (might be required)
-          UserID: 1 // Default user (might be required)
+          // Required fields (based on your screenshot)
+          CompanyID: 1, // Integer - Noble Property Inspections
+          StateID: stateId, // Integer - must be numeric
+          UserID: 1, // Integer
+          OffersID: 1, // Integer - default service type
+          Address: projectData.address.trim(), // Text(255)
+          
+          // Date field - Date/Time type
+          Date: formatDateTimeForCaspio(new Date().toISOString()), // Current datetime
+          
+          // Optional but commonly used fields
+          City: projectData.city || '', // Text(255)
+          Zip: projectData.zip || '', // Text(255)
+          Fee: 265.00, // Currency type
+          
+          // Inspection date if provided
+          InspectionDate: projectData.inspectionDate ? 
+            formatDateTimeForCaspio(projectData.inspectionDate) : 
+            formatDateTimeForCaspio(new Date().toISOString())
         };
-        
-        // Add optional fields only if they have values
-        if (projectData.city) {
-          caspioData.City = projectData.city;
-        }
-        if (projectData.zip) {
-          caspioData.Zip = projectData.zip;
-        }
-        if (projectData.inspectionDate) {
-          caspioData.InspectionDate = formatDateForCaspio(projectData.inspectionDate);
-        }
         
         // Add notes only if provided
         if (projectData.notes && projectData.notes.trim()) {
@@ -174,22 +185,23 @@ export class ProjectsService {
         
         // List each field with its column name, value, and type
         const fieldMapping = [
-          { column: 'CompanyID', value: caspioData.CompanyID, required: 'Maybe', description: 'Company identifier' },
-          { column: 'Address', value: caspioData.Address, required: 'YES', description: 'Street address' },
-          { column: 'StateID', value: caspioData.StateID, required: 'YES', description: 'State identifier (numeric)' },
-          { column: 'OffersID', value: caspioData.OffersID, required: 'YES', description: 'Service type identifier' },
-          { column: 'Fee', value: caspioData.Fee, required: 'YES', description: 'Service fee' },
-          { column: 'StatusID', value: caspioData.StatusID, required: 'Maybe', description: 'Project status' },
-          { column: 'UserID', value: caspioData.UserID, required: 'Maybe', description: 'User identifier' },
-          { column: 'City', value: caspioData.City, required: 'NO', description: 'City name' },
-          { column: 'Zip', value: caspioData.Zip, required: 'NO', description: 'Zip code' },
-          { column: 'InspectionDate', value: caspioData.InspectionDate, required: 'NO', description: 'Date of inspection' }
+          { column: 'CompanyID', value: caspioData.CompanyID, dataType: 'Integer', required: 'YES' },
+          { column: 'StateID', value: caspioData.StateID, dataType: 'Integer', required: 'YES' },
+          { column: 'UserID', value: caspioData.UserID, dataType: 'Integer', required: 'YES' },
+          { column: 'OffersID', value: caspioData.OffersID, dataType: 'Integer', required: 'YES' },
+          { column: 'Address', value: caspioData.Address, dataType: 'Text(255)', required: 'YES' },
+          { column: 'City', value: caspioData.City, dataType: 'Text(255)', required: 'NO' },
+          { column: 'Zip', value: caspioData.Zip, dataType: 'Text(255)', required: 'NO' },
+          { column: 'Date', value: caspioData.Date, dataType: 'Date/Time', required: 'YES' },
+          { column: 'InspectionDate', value: caspioData.InspectionDate, dataType: 'Date/Time', required: 'NO' },
+          { column: 'Fee', value: caspioData.Fee, dataType: 'Currency', required: 'NO' },
+          { column: 'Notes', value: caspioData.Notes, dataType: 'Text(64000)', required: 'NO' }
         ];
         
         fieldMapping.forEach(field => {
           if (field.value !== undefined) {
-            const type = typeof field.value;
-            console.log(`Column: ${field.column.padEnd(15)} | Required: ${field.required.padEnd(5)} | Value: ${field.value} (${type})`);
+            const jsType = typeof field.value;
+            console.log(`Column: ${field.column.padEnd(15)} | Caspio Type: ${field.dataType.padEnd(12)} | Required: ${field.required.padEnd(3)} | Value: ${field.value} (JS: ${jsType})`);
           }
         });
         
@@ -272,16 +284,16 @@ export class ProjectsService {
             
             // Show each field we tried to send
             const sentFields = [
-              { column: 'CompanyID', value: caspioData.CompanyID },
-              { column: 'Address', value: caspioData.Address },
-              { column: 'StateID', value: caspioData.StateID },
-              { column: 'OffersID', value: caspioData.OffersID },
-              { column: 'Fee', value: caspioData.Fee },
-              { column: 'StatusID', value: caspioData.StatusID },
-              { column: 'UserID', value: caspioData.UserID },
-              { column: 'City', value: caspioData.City },
-              { column: 'Zip', value: caspioData.Zip },
-              { column: 'InspectionDate', value: caspioData.InspectionDate }
+              { column: 'CompanyID', value: caspioData.CompanyID, expected: 'Integer' },
+              { column: 'StateID', value: caspioData.StateID, expected: 'Integer' },
+              { column: 'UserID', value: caspioData.UserID, expected: 'Integer' },
+              { column: 'OffersID', value: caspioData.OffersID, expected: 'Integer' },
+              { column: 'Address', value: caspioData.Address, expected: 'Text(255)' },
+              { column: 'City', value: caspioData.City, expected: 'Text(255)' },
+              { column: 'Zip', value: caspioData.Zip, expected: 'Text(255)' },
+              { column: 'Date', value: caspioData.Date, expected: 'Date/Time' },
+              { column: 'InspectionDate', value: caspioData.InspectionDate, expected: 'Date/Time' },
+              { column: 'Fee', value: caspioData.Fee, expected: 'Currency' }
             ];
             
             sentFields.forEach(field => {

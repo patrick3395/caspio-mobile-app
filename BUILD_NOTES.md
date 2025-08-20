@@ -1,5 +1,19 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.12 - 2025-01-20
+### Fixed - CRITICAL DATA TYPE FIXES
+- **Match Exact Caspio Table Schema**:
+  - Date field now sends DateTime format (MM/DD/YYYY HH:MM:SS)
+  - StateID confirmed as Integer type
+  - CompanyID, UserID, OffersID all sent as Integers
+  - Added required Date field with current datetime
+  - InspectionDate also formatted as DateTime
+  - Fee sent as Currency type (decimal)
+  - All Text fields properly sized (255 chars)
+  - Matches exact column structure from Projects table
+
+---
+
 ## Version 1.1.11 - 2025-01-20
 ### Added
 - **Enhanced Debug Logging for Project Creation**:
