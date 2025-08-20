@@ -28,11 +28,11 @@ export class IonicDeployService {
     console.log('Platform ready, checking for updates...');
 
     try {
-      // First try to reset if there's a corrupted update
+      // First try to reset config if there's a corrupted update
       try {
         console.log('Attempting to reset any corrupted updates...');
-        await LiveUpdates.reset();
-        console.log('Reset successful');
+        await LiveUpdates.resetConfig();
+        console.log('Reset config successful');
       } catch (resetError) {
         console.log('No corrupted updates to reset or reset not needed');
       }
@@ -93,13 +93,13 @@ export class IonicDeployService {
       
       // Handle unpack error specifically
       if (error?.message?.includes('unpack') || error?.message?.includes('File Manager')) {
-        console.error('Unpack error detected, attempting to reset...');
+        console.error('Unpack error detected, attempting to reset config...');
         try {
-          await LiveUpdates.reset();
-          alert('Live Updates have been reset due to a corrupted update.\n\nThe app will now use the built-in version.\n\nPlease try updating again later.');
+          await LiveUpdates.resetConfig();
+          alert('Live Updates configuration has been reset due to a corrupted update.\n\nThe app will now use the built-in version.\n\nPlease try updating again later.');
           return;
         } catch (resetError) {
-          console.error('Failed to reset:', resetError);
+          console.error('Failed to reset config:', resetError);
         }
       }
       
