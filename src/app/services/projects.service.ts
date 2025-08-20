@@ -117,7 +117,7 @@ export class ProjectsService {
         });
         
         // Format date as MM/DD/YYYY for Caspio
-        const formatDateForCaspio = (dateStr: string) => {
+        const formatDateForCaspio = (dateStr: string | undefined) => {
           if (!dateStr) return '';
           const date = new Date(dateStr);
           const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -133,7 +133,7 @@ export class ProjectsService {
           City: projectData.city || '',
           State: projectData.state || 'TX', // Try sending state abbreviation as-is
           Zip: projectData.zip || '',
-          InspectionDate: formatDateForCaspio(projectData.inspectionDate) || formatDateForCaspio(originalDate)
+          InspectionDate: formatDateForCaspio(projectData.inspectionDate || originalDate)
         };
         
         // Add notes only if provided
