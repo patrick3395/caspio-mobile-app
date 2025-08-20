@@ -1,0 +1,13 @@
+{
+  "appId": "com.nes.dcp",
+  "appName": "Caspio Mobile",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "cleartext": false
+  },
+  "ios": {
+    "preferredContentMode": "mobile"
+  }
+}
