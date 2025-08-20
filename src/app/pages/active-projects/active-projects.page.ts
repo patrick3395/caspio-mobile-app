@@ -162,7 +162,29 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   async checkForUpdates() {
-    console.log('Manual update check initiated');
-    await this.deployService.checkForUpdates();
+    console.log('Refresh initiated');
+    
+    // Show loading while refreshing
+    this.loading = true;
+    
+    try {
+      // Just reload the projects list
+      await this.loadActiveProjects();
+      console.log('Projects refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing projects:', error);
+      this.error = 'Failed to refresh projects';
+    } finally {
+      this.loading = false;
+    }
+    
+    // Optionally check for live updates (but don't fail if it errors)
+    try {
+      console.log('Checking for app updates...');
+      await this.deployService.checkForUpdates();
+    } catch (updateError) {
+      console.error('Live update check failed (non-critical):', updateError);
+      // Don't show error to user as refresh still worked
+    }
   }
 }

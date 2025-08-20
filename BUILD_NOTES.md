@@ -1,5 +1,17 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.8 - 2025-01-20
+### Fixed
+- **Live Updates Unpack Error**:
+  - Fixed "failure occurred during the unpack step" error
+  - Added automatic reset for corrupted updates
+  - Refresh button now prioritizes project refresh over live updates
+  - Live update check runs in background without blocking refresh
+  - Added better error handling with non-critical failures
+  - Auto-reset and recovery when File Manager Error occurs
+
+---
+
 ## Version 1.1.7 - 2025-01-20
 ### Fixed
 - **Document Upload Issues**:

@@ -28,6 +28,14 @@ export class IonicDeployService {
     console.log('Platform ready, checking for updates...');
 
     try {
+      // First try to reset if there's a corrupted update
+      try {
+        console.log('Attempting to reset any corrupted updates...');
+        await LiveUpdates.reset();
+        console.log('Reset successful');
+      } catch (resetError) {
+        console.log('No corrupted updates to reset or reset not needed');
+      }
       // Log the configuration being used
       console.log('=== LIVE UPDATE CONFIGURATION ===');
       console.log('Expected App ID: 1e8beef6');
@@ -82,6 +90,18 @@ export class IonicDeployService {
     } catch (error: any) {
       console.error(`Build ${BUILD_NUMBER} Error:`, error);
       console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      // Handle unpack error specifically
+      if (error?.message?.includes('unpack') || error?.message?.includes('File Manager')) {
+        console.error('Unpack error detected, attempting to reset...');
+        try {
+          await LiveUpdates.reset();
+          alert('Live Updates have been reset due to a corrupted update.\n\nThe app will now use the built-in version.\n\nPlease try updating again later.');
+          return;
+        } catch (resetError) {
+          console.error('Failed to reset:', resetError);
+        }
+      }
       
       let errorMsg = `❌ BUILD ${BUILD_NUMBER} ERROR\n\n`;
       errorMsg += `Plugin: ${PLUGIN_NAME}\n\n`;
