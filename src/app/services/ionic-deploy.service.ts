@@ -29,26 +29,50 @@ export class IonicDeployService {
   private findDeployPlugin() {
     const win = window as any;
     
+    console.log('Searching for deploy plugin...');
+    console.log('Window has cordova?', typeof win.cordova !== 'undefined');
+    console.log('Window has IonicCordova?', typeof win.IonicCordova !== 'undefined');
+    
+    // Log all window properties that might be relevant
+    const relevantKeys = Object.keys(win).filter(k => 
+      k.toLowerCase().includes('ionic') || 
+      k.toLowerCase().includes('deploy') || 
+      k.toLowerCase().includes('cordova')
+    );
+    console.log('Relevant window properties:', relevantKeys);
+    
+    // Check cordova plugins if cordova exists
+    if (win.cordova && win.cordova.plugins) {
+      console.log('Cordova plugins:', Object.keys(win.cordova.plugins));
+    }
+    
     // Try various locations where the plugin might be
     const possibleLocations = [
       win.IonicCordova?.deploy,
-      win.cordova?.plugin?.IonicDeploy,
+      win.cordova?.plugins?.IonicDeploy,
+      win.cordova?.plugins?.deploy,
       win.Deploy,
-      win.IonicDeploy
+      win.IonicDeploy,
+      win.IonicCordova
     ];
 
-    for (const location of possibleLocations) {
+    for (let i = 0; i < possibleLocations.length; i++) {
+      const location = possibleLocations[i];
       if (location) {
-        this.deploy = location;
-        console.log('Found Ionic Deploy plugin:', location);
-        break;
+        console.log(`Found something at location ${i}:`, location);
+        // Check if it has deploy methods
+        if (typeof location.checkForUpdate === 'function' || 
+            typeof location.sync === 'function' ||
+            (location.deploy && typeof location.deploy.checkForUpdate === 'function')) {
+          this.deploy = location.deploy || location;
+          console.log('Using deploy plugin:', this.deploy);
+          break;
+        }
       }
     }
 
     if (!this.deploy) {
-      console.log('Ionic Deploy plugin not found. Available window properties:', 
-        Object.keys(win).filter(k => k.toLowerCase().includes('ionic') || k.toLowerCase().includes('deploy') || k.toLowerCase().includes('cordova'))
-      );
+      console.log('Deploy plugin not found after checking all locations');
     }
   }
 

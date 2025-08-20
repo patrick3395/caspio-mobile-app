@@ -13,10 +13,18 @@ if (fs.existsSync('ios')) {
 // Ensure cordova-plugin-ionic is installed
 console.log('Installing cordova-plugin-ionic...');
 try {
-  execSync('npm install cordova-plugin-ionic@5.5.3 --save', { stdio: 'inherit' });
+  execSync('npm install cordova-plugin-ionic@5.5.3 --save --legacy-peer-deps', { stdio: 'inherit' });
   console.log('cordova-plugin-ionic installed');
 } catch (error) {
   console.error('Failed to install cordova-plugin-ionic:', error.message);
+}
+
+// Run the verification script
+console.log('Verifying plugin installation...');
+try {
+  execSync('node scripts/verify-plugin.js', { stdio: 'inherit' });
+} catch (error) {
+  console.error('Plugin verification failed:', error.message);
 }
 
 // Add iOS platform
@@ -29,13 +37,19 @@ try {
   process.exit(1);
 }
 
-// Sync to ensure plugin is included
-console.log('Syncing iOS platform...');
+// Update iOS platform with plugin
+console.log('Updating iOS platform with plugin...');
 try {
-  execSync('npx cap sync ios', { stdio: 'inherit' });
-  console.log('iOS platform synced');
+  execSync('npx cap update ios', { stdio: 'inherit' });
+  console.log('iOS platform updated');
 } catch (error) {
-  console.error('Warning: sync failed, continuing anyway');
+  console.error('Warning: update failed, trying sync...');
+  try {
+    execSync('npx cap sync ios', { stdio: 'inherit' });
+    console.log('iOS platform synced');
+  } catch (syncError) {
+    console.error('Warning: sync also failed, continuing anyway');
+  }
 }
 
 // Verify the xcodeproj file exists
