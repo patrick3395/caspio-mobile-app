@@ -16,8 +16,9 @@ export class AppComponent {
 
   initializeApp() {
     this.platform.ready().then(() => {
-      console.log('=== APP STARTING - BUILD 50.2 (DEBUG) ===');
-      console.log('🔥 VERSION 50.2 - This should be different from 50.0/50.1!');
+      console.log('=== APP STARTING - LIVE UPDATE 51.1 ===');
+      console.log('✅ LIVE UPDATE SUCCESSFUL - Version 51.1 is running!');
+      console.log('Timestamp: Aug 20, 2024 @ 11:20 AM PST');
       
       // Check for live updates using @capacitor/live-updates
       this.checkForUpdate();

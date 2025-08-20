@@ -50,9 +50,9 @@ export class IonicDeployService {
         
         alert(
           `🎉 LIVE UPDATE DETECTED!\n\n` +
-          `Build ${BUILD_NUMBER} → Live Update Applied\n\n` +
-          `The app will use the new version after restart.\n\n` +
-          `Tap OK to reload now.`
+          `Build 51 → Version 51.1\n\n` +
+          `The update has been downloaded!\n\n` +
+          `Tap OK to reload and see the changes.`
         );
         
         // Auto reload to show the update
