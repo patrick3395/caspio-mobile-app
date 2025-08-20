@@ -104,6 +104,31 @@ export class NewProjectPage implements OnInit {
       this.formData.address = event.target.value;
     });
     
+    // Close dropdown on Enter key
+    addressInput.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        // Google Places will handle the selection, we just prevent form submission
+        const pacContainers = document.querySelectorAll('.pac-container');
+        pacContainers.forEach((container: any) => {
+          if (container.style.display !== 'none') {
+            // Let Google handle the selection first
+            return;
+          }
+        });
+      }
+    });
+    
+    // Close dropdown when clicking elsewhere
+    addressInput.addEventListener('focusout', () => {
+      setTimeout(() => {
+        const pacContainers = document.querySelectorAll('.pac-container');
+        pacContainers.forEach((container: any) => {
+          container.style.display = 'none';
+        });
+      }, 200);
+    });
+    
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
       console.log('📍 Place changed event fired');
@@ -159,6 +184,23 @@ export class NewProjectPage implements OnInit {
       // Force Angular change detection
       addressInput.value = this.formData.address;
       addressInput.dispatchEvent(new Event('input'));
+      
+      // Close the autocomplete dropdown by blurring
+      addressInput.blur();
+      
+      // Hide any remaining pac-container elements immediately
+      const pacContainers = document.querySelectorAll('.pac-container');
+      pacContainers.forEach((container: any) => {
+        container.style.display = 'none';
+      });
+      
+      // Move focus to the next field (City) if it's empty
+      setTimeout(() => {
+        const cityInput = document.querySelector('ion-input[name="city"]') as any;
+        if (cityInput && !this.formData.city) {
+          cityInput.setFocus();
+        }
+      }, 100);
     });
     
     console.log('✅ Google Places Autocomplete initialized successfully');
