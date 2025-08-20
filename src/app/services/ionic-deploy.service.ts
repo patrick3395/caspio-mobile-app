@@ -69,17 +69,55 @@ export class IonicDeployService {
     }
 
     try {
-      // Check current version
-      let currentVersion = 'unknown';
+      // First, let's check what methods are available
+      console.log('Deploy plugin methods:', Object.keys(this.deploy).filter(k => typeof this.deploy[k] === 'function'));
+      
+      // Try to get configuration
+      let config: any = {};
       try {
-        const versionInfo = await this.deploy.getCurrentVersion();
-        currentVersion = versionInfo?.versionId || versionInfo?.version || 'base';
-        console.log('Current version:', currentVersion);
+        if (this.deploy.getConfiguration) {
+          config = await this.deploy.getConfiguration();
+          console.log('Current configuration:', config);
+        }
       } catch (e) {
-        console.log('Could not get current version:', e);
+        console.log('Could not get configuration:', e);
       }
 
-      // Check for updates using the correct API
+      // Initialize if needed
+      if (this.deploy.init) {
+        console.log('Initializing deploy plugin...');
+        try {
+          await this.deploy.init({
+            appId: '1e8beef6',
+            channel: 'Caspio Mobile App'
+          });
+          console.log('Deploy plugin initialized');
+        } catch (e) {
+          console.log('Init not required or failed:', e);
+        }
+      }
+
+      // Try using sync method which is simpler
+      if (this.deploy.sync) {
+        console.log('Using sync method...');
+        try {
+          const result = await this.deploy.sync({
+            updateMethod: 'auto'
+          });
+          console.log('Sync result:', result);
+          
+          if (result === 'true' || result === true || result === 'UPDATE_APPLIED') {
+            alert('Update downloaded and will be applied on next restart!');
+          } else {
+            alert(`App is up to date!\nSync result: ${result}`);
+          }
+          return;
+        } catch (syncError: any) {
+          console.log('Sync failed, trying checkForUpdate:', syncError);
+        }
+      }
+
+      // Fallback to checkForUpdate
       console.log('Checking for updates...');
       const update = await this.deploy.checkForUpdate();
       console.log('Update check result:', update);
@@ -87,31 +125,35 @@ export class IonicDeployService {
       if (update && update.available) {
         alert(`Update found!\nVersion: ${update.snapshot || 'unknown'}\nDownloading...`);
         
-        // Download the update with progress callback
         await this.deploy.downloadUpdate((progress: number) => {
           console.log(`Download progress: ${progress}%`);
         });
         
-        // Extract the update with progress callback
         await this.deploy.extractUpdate((progress: number) => {
           console.log(`Extract progress: ${progress}%`);
         });
         
-        // Reload the app to apply the update
         alert('Update installed! Restarting...');
         await this.deploy.reloadApp();
       } else {
-        alert(`App is up to date!\nCurrent version: ${currentVersion}`);
+        alert('App is up to date!');
       }
     } catch (error: any) {
       console.error('Update check error:', error);
       
-      // Log available methods to debug
+      // More detailed error info
+      let errorMsg = 'Update check failed:\n\n';
+      if (error?.message) errorMsg += `Message: ${error.message}\n`;
+      if (error?.code) errorMsg += `Code: ${error.code}\n`;
+      if (error?.url) errorMsg += `URL: ${error.url}\n`;
+      
+      // Log available methods
       if (this.deploy) {
-        console.log('Available deploy methods:', Object.keys(this.deploy).filter(k => typeof this.deploy[k] === 'function'));
+        const methods = Object.keys(this.deploy).filter(k => typeof this.deploy[k] === 'function');
+        errorMsg += `\nAvailable methods: ${methods.join(', ')}`;
       }
       
-      alert(`Update check failed: ${error?.message || JSON.stringify(error)}`);
+      alert(errorMsg);
     }
   }
 }
