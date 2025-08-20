@@ -16,6 +16,9 @@ export class AppComponent {
 
   initializeApp() {
     this.platform.ready().then(() => {
+      console.log('=== APP STARTING - BUILD 50 ===');
+      console.log('If this shows BUILD 50, the new code is running!');
+      
       // Check for live updates using @capacitor/live-updates
       this.checkForUpdate();
       

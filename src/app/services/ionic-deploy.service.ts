@@ -11,7 +11,7 @@ export class IonicDeployService {
 
   async checkForUpdates(): Promise<void> {
     // VERY CLEAR BUILD INDICATOR
-    const BUILD_NUMBER = 49;
+    const BUILD_NUMBER = 50;
     const PLUGIN_NAME = '@capacitor/live-updates';
     
     console.log(`=== BUILD ${BUILD_NUMBER} LIVE UPDATES CHECK ===`);
@@ -20,7 +20,7 @@ export class IonicDeployService {
     console.log('Is Native:', Capacitor.isNativePlatform());
     
     // First alert to show which build is running
-    alert(`📱 Build ${BUILD_NUMBER} Running\n\nUsing: ${PLUGIN_NAME}\n\nTap OK to check for updates...`);
+    alert(`🚀 BUILD ${BUILD_NUMBER} DEPLOYED!\n\nPlugin: ${PLUGIN_NAME}\n\nThis is the NEW build from TestFlight!\n\nTap OK to check for updates...`);
     
     if (!Capacitor.isNativePlatform()) {
       alert('Live updates only work on native builds.\n\nYou are currently running in a browser.');
@@ -72,7 +72,7 @@ export class IonicDeployService {
           error?.message?.includes('not available') ||
           error?.message?.includes('not found')) {
         errorMsg += 'The @capacitor/live-updates plugin is not available.\n\n';
-        errorMsg += 'This is BUILD 49 using @capacitor/live-updates.\n';
+        errorMsg += 'This is BUILD 50 using @capacitor/live-updates.\n';
         errorMsg += 'NOT using cordova-plugin-ionic!';
       } else {
         errorMsg += 'Details: ' + JSON.stringify(error);

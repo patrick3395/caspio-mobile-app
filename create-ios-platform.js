@@ -2,7 +2,8 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('=== Appflow iOS Build Setup (Build 49) ===');
+console.log('=== Appflow iOS Build Setup (Build 50) ===');
+console.log('CRITICAL: This build MUST show BUILD 50 in the app!');
 
 // Step 1: Install dependencies (including @capacitor/live-updates)
 console.log('1. Installing dependencies...');
@@ -101,4 +102,4 @@ try {
 }
 
 console.log('\n=== iOS platform ready for Appflow build ===');
-console.log('Build 49 with @capacitor/live-updates plugin');
+console.log('Build 50 - If you still see BUILD 33, the web assets are not being included!');
