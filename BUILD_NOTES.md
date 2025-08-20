@@ -1,5 +1,18 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.13 - 2025-01-20
+### Fixed
+- **Table Alignment Issues**:
+  - Fixed Date header alignment in services table (now properly centered)
+  - Fixed document rows misalignment in required documents table
+  - Documents now properly grouped under their service
+  - Improved grid layout with proper spacing
+  - Service names only show on first document row
+  - Add Document link properly positioned
+  - Enhanced CSS specificity for better alignment control
+
+---
+
 ## Version 1.1.12 - 2025-01-20
 ### Fixed - CRITICAL DATA TYPE FIXES
 - **Match Exact Caspio Table Schema**:

@@ -131,9 +131,17 @@ ion-content {
     }
     
     .col-date-header {
-      text-align: center !important; // Force center the "Date" header
-      display: flex;
-      justify-content: center;
+      text-align: center !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+    
+    // Ensure second column (Date) is centered
+    > div:nth-child(2) {
+      text-align: center !important;
+      display: flex !important;
+      justify-content: center !important;
     }
   }
   
@@ -248,12 +256,20 @@ ion-content {
   font-size: 14px;
   border-bottom: 2px solid $border;
   
-  > * {
+  > div {
     padding: 12px;
+    display: flex;
+    align-items: center;
   }
 }
 
-.doc-header { grid-template-columns: 1.5fr 2fr 1fr 1.5fr; }
+.doc-header { 
+  grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+  
+  > div:first-child {
+    font-weight: 700;
+  }
+}
 .template-header { grid-template-columns: 2fr 1fr 1fr; }
 
 .doc-row, .template-row {
@@ -267,39 +283,61 @@ ion-content {
 }
 
 .service-doc-group {
-  border-bottom: 1px solid #dee2e6;
-  
-  &:last-child {
-    border-bottom: none;
+  &:not(:last-child) {
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
   }
   
   .doc-row {
     display: grid;
     grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
-    border-bottom: 1px solid #e9ecef;
+    min-height: 48px;
+    align-items: center;
     
-    &:last-of-type:not(.add-doc-row) {
-      border-bottom: none;
+    &:not(.add-doc-row):not(:last-child) {
+      border-bottom: 1px solid #f0f0f0;
     }
     
+    // Service name cell - only show on first row
     .doc-service {
-      grid-column: 1;
-      border-left: 3px solid #007bff;
-      background: #f8f9fa;
+      padding: 12px;
       font-weight: 600;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      color: #333;
+      
+      > div {
+        border-left: 3px solid #007bff;
+        padding-left: 12px;
+      }
     }
     
+    // Hide service name on subsequent rows
     &:not(:first-child) .doc-service {
-      display: none;
+      > div {
+        display: none;
+      }
+    }
+    
+    // Document cell
+    > div:nth-child(2) {
+      padding: 12px;
+    }
+    
+    // Status cell  
+    > div:nth-child(3) {
+      padding: 12px;
+    }
+    
+    // Actions cell
+    > div:nth-child(4) {
+      padding: 12px;
     }
     
     &.add-doc-row {
       grid-template-columns: 1.5fr 3.5fr;
       background: #fafbfc;
-      border-bottom: none;
+      margin-top: 4px;
+      min-height: 40px;
     }
   }
 }
