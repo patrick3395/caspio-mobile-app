@@ -10,7 +10,7 @@ export class IonicDeployService {
   constructor(private platform: Platform) {}
 
   async checkForUpdates(): Promise<void> {
-    console.log('=== Live Updates Check (Build 47) ===');
+    console.log('=== Live Updates Check (Build 48) ===');
     console.log('Using: @capacitor/live-updates');
     console.log('Platform:', Capacitor.getPlatform());
     console.log('Is Native:', Capacitor.isNativePlatform());
@@ -50,7 +50,7 @@ export class IonicDeployService {
         alert('✅ App is up to date!\n\nNo new updates available.');
       }
     } catch (error: any) {
-      console.error('Live Updates Error (Build 47):', error);
+      console.error('Live Updates Error (Build 48):', error);
       
       // Detailed error message
       let errorMsg = '❌ Update Check Failed\n\n';
@@ -67,7 +67,7 @@ export class IonicDeployService {
         errorMsg += 'This usually means:\n';
         errorMsg += '1. The plugin wasn\'t included in the native build\n';
         errorMsg += '2. You need to rebuild the app with the plugin\n\n';
-        errorMsg += 'Build Info: v47 with @capacitor/live-updates';
+        errorMsg += 'Build Info: v48 with @capacitor/live-updates';
       } else {
         errorMsg += 'Details: ' + JSON.stringify(error);
       }
