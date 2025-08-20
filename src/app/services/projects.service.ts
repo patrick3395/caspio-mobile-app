@@ -116,6 +116,10 @@ export class ProjectsService {
           inspectionDate: projectData.inspectionDate
         });
         
+        // Get StateID from abbreviation (required field)
+        const stateId = this.getStateIDFromAbbreviation(projectData.state);
+        console.log('🗺️ State mapping:', projectData.state, '->', stateId);
+        
         // Format date as MM/DD/YYYY for Caspio
         const formatDateForCaspio = (dateStr: string | undefined) => {
           if (!dateStr) return '';
@@ -126,14 +130,19 @@ export class ProjectsService {
           return `${month}/${day}/${year}`;
         };
         
-        // Try the simplest possible payload that browser uses
+        // Required fields based on Caspio table:
+        // Address*, StateID*, OffersID*, Fee*
         const caspioData: any = {
-          CompanyID: 1,
-          Address: projectData.address || '',
+          CompanyID: 1, // Noble Property Inspections
+          Address: projectData.address || '', // Required
           City: projectData.city || '',
-          State: projectData.state || 'TX', // Try sending state abbreviation as-is
+          StateID: stateId || 1, // Required - must be numeric ID
           Zip: projectData.zip || '',
-          InspectionDate: formatDateForCaspio(projectData.inspectionDate || originalDate)
+          InspectionDate: formatDateForCaspio(projectData.inspectionDate || originalDate),
+          OffersID: 1, // Required - default service type
+          Fee: 265.00, // Required - default fee
+          StatusID: 1, // Active status
+          UserID: 1 // Default user
         };
         
         // Add notes only if provided
@@ -142,6 +151,8 @@ export class ProjectsService {
         }
         
         console.log('📤 Data being sent to Caspio:', caspioData);
+        console.log('📍 Full URL:', `${this.apiBaseUrl}/tables/Projects/records`);
+        console.log('🔑 Token:', this.caspioService.getCurrentToken() ? 'Present' : 'Missing');
         
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,

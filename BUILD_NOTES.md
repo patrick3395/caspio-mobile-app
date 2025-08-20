@@ -2,17 +2,21 @@
 
 ## Version 1.1.1 - 2025-01-20
 ### Fixed
-- **Project Creation 400 Error**: Simplified to match browser implementation
-  - Sending minimal required fields only:
+- **Project Creation 404/400 Errors**: Fixed by including ALL required fields per Caspio table
+  - Required fields (marked with * in Caspio):
+    - `Address`: Street address (required)
+    - `StateID`: Numeric state ID (required - TX=1, GA=2, etc.)
+    - `OffersID`: Service type ID (required - default 1)
+    - `Fee`: Service fee (required - default 265.00)
+  - Additional fields:
     - `CompanyID`: 1 (Noble Property Inspections)
-    - `Address`: Street address
-    - `City`: City name
-    - `State`: State abbreviation (e.g., "TX")
-    - `Zip`: Zip code
+    - `StatusID`: 1 (Active)
+    - `UserID`: 1 (Default user)
+    - `City`, `Zip`: Optional location fields
     - `InspectionDate`: MM/DD/YYYY format
-  - Fixed date format to MM/DD/YYYY (Caspio's expected format)
-  - Enhanced error logging with full error details
-  - Updated purple header to show current version
+  - Fixed StateID to use numeric values instead of abbreviations
+  - Enhanced logging shows full URL and token status
+  - Updated purple header to Version 1.1.1
 
 ### Changes Required for Deployment
 - **iOS Build Number**: Increment build number in Xcode before uploading to TestFlight
