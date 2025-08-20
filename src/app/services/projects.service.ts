@@ -120,8 +120,12 @@ export class ProjectsService {
         const stateId = typeof projectData.state === 'number' 
           ? projectData.state 
           : (projectData.state ? parseInt(projectData.state.toString()) : 1);
+        
+        // Extra verification that StateID is truly an integer
         console.log('🗺️ Input state:', projectData.state, 'Type:', typeof projectData.state);
         console.log('🗺️ Using StateID:', stateId, 'Type:', typeof stateId);
+        console.log('🔍 StateID is integer?', Number.isInteger(stateId));
+        console.log('🔍 StateID value check:', stateId, '===', parseInt(stateId.toString()));
         
         // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
         const formatDateTimeForCaspio = (dateStr: string | undefined) => {
@@ -152,20 +156,22 @@ export class ProjectsService {
         
         // Build payload matching exact Caspio table structure
         const caspioData: any = {
-          // Required fields (based on your screenshot)
+          // Required fields
           CompanyID: 1, // Integer - Noble Property Inspections
-          StateID: stateId, // Integer - must be numeric
+          StateID: stateId, // Integer - must be numeric (verified)
           UserID: 1, // Integer
-          OffersID: 1, // Integer - default service type
-          Address: projectData.address.trim(), // Text(255)
+          Address: projectData.address.trim(), // Text(255) - Required
           
           // Date field - Date/Time type
           Date: formatDateTimeForCaspio(new Date().toISOString()), // Current datetime
           
-          // Optional but commonly used fields
+          // Optional fields
           City: projectData.city || '', // Text(255)
           Zip: projectData.zip || '', // Text(255)
-          Fee: 265.00, // Currency type
+          
+          // Set these to null as requested
+          OffersID: null, // Set to null
+          Fee: null, // Set to null
           
           // Inspection date if provided
           InspectionDate: projectData.inspectionDate ? 
@@ -191,13 +197,13 @@ export class ProjectsService {
           { column: 'CompanyID', value: caspioData.CompanyID, dataType: 'Integer', required: 'YES' },
           { column: 'StateID', value: caspioData.StateID, dataType: 'Integer', required: 'YES' },
           { column: 'UserID', value: caspioData.UserID, dataType: 'Integer', required: 'YES' },
-          { column: 'OffersID', value: caspioData.OffersID, dataType: 'Integer', required: 'YES' },
           { column: 'Address', value: caspioData.Address, dataType: 'Text(255)', required: 'YES' },
           { column: 'City', value: caspioData.City, dataType: 'Text(255)', required: 'NO' },
           { column: 'Zip', value: caspioData.Zip, dataType: 'Text(255)', required: 'NO' },
           { column: 'Date', value: caspioData.Date, dataType: 'Date/Time', required: 'YES' },
           { column: 'InspectionDate', value: caspioData.InspectionDate, dataType: 'Date/Time', required: 'NO' },
-          { column: 'Fee', value: caspioData.Fee, dataType: 'Currency', required: 'NO' },
+          { column: 'OffersID', value: caspioData.OffersID, dataType: 'Integer', required: 'NO (NULL)' },
+          { column: 'Fee', value: caspioData.Fee, dataType: 'Currency', required: 'NO (NULL)' },
           { column: 'Notes', value: caspioData.Notes, dataType: 'Text(64000)', required: 'NO' }
         ];
         

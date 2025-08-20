@@ -1,5 +1,16 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.16 - 2025-01-20
+### Fixed
+- **Set OffersID and Fee to NULL**:
+  - OffersID now set to null instead of 1
+  - Fee now set to null instead of 265.00
+  - StateID verified as integer with extra logging
+  - Added integer verification checks for StateID
+  - Updated debug output to show NULL values
+
+---
+
 ## Version 1.1.15 - 2025-01-20
 ### Fixed - CRITICAL FIXES
 - **StateID Now Sent as Number**:
