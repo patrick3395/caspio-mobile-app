@@ -107,26 +107,37 @@ export class ProjectsService {
         const originalCity = projectData.city || '';
         const originalDate = new Date().toISOString().split('T')[0];
         
-        // Get StateID from abbreviation
-        const stateId = this.getStateIDFromAbbreviation(projectData.state);
+        // Log what we received from the form
+        console.log('📋 Form data received:', {
+          address: projectData.address,
+          city: projectData.city,
+          state: projectData.state,
+          zip: projectData.zip,
+          inspectionDate: projectData.inspectionDate
+        });
         
-        // Create project data - include all fields that browser version sends
-        const caspioData: any = {
-          CompanyID: 1, // Noble Property Inspections (always 1)
-          UserID: 1, // Default user ID
-          StatusID: 1, // Active status
-          Address: originalAddress,
-          City: projectData.city || '',
-          StateID: stateId || 1, // Use StateID (numeric), default to TX (1)
-          Zip: projectData.zip || '',
-          InspectionDate: projectData.inspectionDate || originalDate,
-          Date: originalDate, // Date project was created
-          Fee: 265.00, // Default fee
-          OffersID: 1 // Default offer/service
+        // Format date as MM/DD/YYYY for Caspio
+        const formatDateForCaspio = (dateStr: string) => {
+          if (!dateStr) return '';
+          const date = new Date(dateStr);
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const day = date.getDate().toString().padStart(2, '0');
+          const year = date.getFullYear();
+          return `${month}/${day}/${year}`;
         };
         
-        // Only add optional fields if they have values
-        if (projectData.notes) {
+        // Try the simplest possible payload that browser uses
+        const caspioData: any = {
+          CompanyID: 1,
+          Address: projectData.address || '',
+          City: projectData.city || '',
+          State: projectData.state || 'TX', // Try sending state abbreviation as-is
+          Zip: projectData.zip || '',
+          InspectionDate: formatDateForCaspio(projectData.inspectionDate) || formatDateForCaspio(originalDate)
+        };
+        
+        // Add notes only if provided
+        if (projectData.notes && projectData.notes.trim()) {
           caspioData.Notes = projectData.notes;
         }
         
@@ -176,9 +187,14 @@ export class ProjectsService {
             }
           }),
           catchError(error => {
-            console.error('Error creating project:', error);
-            console.error('Error response body:', error.error);
-            console.error('Error status:', error.status);
+            console.error('❌ Error creating project - Full details:');
+            console.error('Status:', error.status);
+            console.error('Status Text:', error.statusText);
+            console.error('Error Body:', error.error);
+            console.error('Error Message:', error.message);
+            if (error.error && typeof error.error === 'object') {
+              console.error('Error Details:', JSON.stringify(error.error, null, 2));
+            }
             
             // Check if it's actually a success (201 status)
             if (error.status === 201) {

@@ -2,16 +2,17 @@
 
 ## Version 1.1.1 - 2025-01-20
 ### Fixed
-- **Project Creation Not Saving to Caspio**: Fixed issue where projects were not being saved to database
-  - Added ALL required fields to match browser version exactly:
+- **Project Creation 400 Error**: Simplified to match browser implementation
+  - Sending minimal required fields only:
     - `CompanyID`: 1 (Noble Property Inspections)
-    - `UserID`: 1 (Default user)
-    - `StatusID`: 1 (Active status)
-    - `StateID`: Numeric ID mapped from state abbreviation
-    - `Fee`: 265.00 (Default fee)
-    - `OffersID`: 1 (Default service)
-  - Enhanced logging to show response headers and body
-  - Improved error tracking for debugging
+    - `Address`: Street address
+    - `City`: City name
+    - `State`: State abbreviation (e.g., "TX")
+    - `Zip`: Zip code
+    - `InspectionDate`: MM/DD/YYYY format
+  - Fixed date format to MM/DD/YYYY (Caspio's expected format)
+  - Enhanced error logging with full error details
+  - Updated purple header to show current version
 
 ### Changes Required for Deployment
 - **iOS Build Number**: Increment build number in Xcode before uploading to TestFlight
