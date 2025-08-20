@@ -1,9 +1,0 @@
-{
-  "appId": "io.ionic.caspioapp",
-  "appName": "Caspio Mobile",
-  "webDir": "www",
-  "server": {
-    "url": "http://172.30.107.220:8100",
-    "cleartext": true
-  }
-}
