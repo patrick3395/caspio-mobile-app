@@ -1,5 +1,21 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.21 - 2025-01-20
+### Fixed
+- **Document Table Responsive Layout**:
+  - Fixed table bleeding off screen with responsive grid columns
+  - Used minmax() for flexible column widths
+  - Improved service column spanning with better CSS
+  - Service name background extends across multiple rows
+- **RxJS Import Fix**:
+  - Added missing 'of' and 'tap' operators
+  - Fixed project search retry logic
+- **Navigation Improvements**:
+  - Enhanced project creation to navigation flow
+  - Better retry mechanism for finding newly created projects
+
+---
+
 ## Version 1.1.20 - 2025-01-20
 ### Fixed
 - **Build Errors**:

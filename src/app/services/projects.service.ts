@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CaspioService } from './caspio.service';
-import { Observable, from, throwError, timer } from 'rxjs';
-import { map, switchMap, catchError, retry } from 'rxjs/operators';
+import { Observable, from, throwError, timer, of } from 'rxjs';
+import { map, switchMap, catchError, retry, tap } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
@@ -360,41 +360,53 @@ export class ProjectsService {
     );
   }
 
-  // Fetch newly created project (simplified to only match on address)
+  // Fetch newly created project with retry logic
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
-    // Wait a moment for Caspio to process the insert
-    return timer(1000).pipe(
-      switchMap(() => this.getAllProjects()),
-      map(projects => {
-        console.log('🔍 Looking for project with address:', address);
-        
-        // Log first few projects for debugging
-        if (projects && projects.length > 0) {
-          console.log('📋 Latest projects:', projects.slice(0, 3).map(p => ({
-            PK_ID: p.PK_ID,
-            ProjectID: p.ProjectID,
-            Address: p.Address,
-            Date: p.Date
-          })));
+    // Try multiple times with increasing delays
+    const attempts = [1000, 2000, 3000]; // Wait times in ms
+    
+    const tryFetch = (delay: number): Observable<Project | null> => {
+      return timer(delay).pipe(
+        switchMap(() => this.getAllProjects()),
+        map(projects => {
+          console.log(`🔍 Attempt to find project with address: ${address} (after ${delay}ms)`);
+          
+          // Log first few projects for debugging
+          if (projects && projects.length > 0) {
+            console.log('📋 Latest projects:', projects.slice(0, 5).map(p => ({
+              PK_ID: p.PK_ID,
+              Address: p.Address,
+              City: p.City
+            })));
+          }
+          
+          // Find projects matching our criteria
+          const matchingProjects = projects.filter(p => 
+            p.Address && p.Address.toLowerCase().trim() === address.toLowerCase().trim()
+          );
+          
+          if (matchingProjects.length > 0) {
+            // Sort by PK_ID descending and get the first (newest)
+            const newProject = matchingProjects.sort((a, b) => 
+              parseInt(b.PK_ID || '0') - parseInt(a.PK_ID || '0')
+            )[0];
+            console.log('✅ Found new project with PK_ID:', newProject.PK_ID);
+            return newProject;
+          }
+          
+          return null;
+        })
+      );
+    };
+    
+    // Try each attempt, return first successful result
+    return tryFetch(attempts[0]).pipe(
+      switchMap(result => result ? of(result) : tryFetch(attempts[1])),
+      switchMap(result => result ? of(result) : tryFetch(attempts[2])),
+      tap(result => {
+        if (!result) {
+          console.log('⚠️ Could not find project after 3 attempts');
         }
-        
-        // Find projects matching our criteria - simplified to only address
-        const matchingProjects = projects.filter(p => 
-          p.Address === address
-        );
-        
-        if (matchingProjects.length > 0) {
-          // Sort by PK_ID descending and get the first (newest)
-          const newProject = matchingProjects.sort((a, b) => 
-            parseInt(b.PK_ID || '0') - parseInt(a.PK_ID || '0')
-          )[0];
-          console.log('📍 Found new project with PK_ID:', newProject.PK_ID);
-          console.log('📍 Project has ProjectID:', newProject.ProjectID);
-          return newProject;
-        }
-        
-        console.log('⚠️ No matching project found');
-        return null;
       })
     );
   }

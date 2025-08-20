@@ -279,47 +279,59 @@ ion-content {
 }
 
 .documents-table {
-  display: table;
-  width: 100%;
-  border-collapse: collapse;
+  margin-top: 10px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-width: 100%;
   
   .doc-row {
-    display: table-row;
-    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(100px, 1.2fr) minmax(120px, 1.5fr) minmax(70px, 0.8fr) minmax(90px, 1fr);
+    min-height: 48px;
+    align-items: center;
+    border-bottom: 1px solid #e9ecef;
     
     > div {
-      display: table-cell;
-      padding: 12px;
-      font-size: 14px;
-      vertical-align: middle;
-      border-bottom: 1px solid #e9ecef;
+      padding: 10px 8px;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    > div:nth-child(1) { width: 25%; }
-    > div:nth-child(2) { width: 35%; }
-    > div:nth-child(3) { width: 15%; text-align: center; }
-    > div:nth-child(4) { width: 25%; text-align: center; }
+    > div:nth-child(1) { padding-left: 12px; }
+    > div:nth-child(2) { }
+    > div:nth-child(3) { text-align: center; }
+    > div:nth-child(4) { 
+      text-align: center;
+      padding-right: 8px;
+      ion-button {
+        --padding-start: 4px;
+        --padding-end: 4px;
+        font-size: 11px;
+      }
+    }
   }
   
   .doc-header {
-    display: table-row;
-    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(100px, 1.2fr) minmax(120px, 1.5fr) minmax(70px, 0.8fr) minmax(90px, 1fr);
+    background: $light;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 2px solid $border;
     
     > div {
-      display: table-cell;
-      padding: 12px;
-      font-weight: 600;
-      vertical-align: middle;
+      padding: 10px 8px;
     }
     
-    > div:nth-child(1) { width: 25%; }
-    > div:nth-child(2) { width: 35%; }
-    > div:nth-child(3) { width: 15%; text-align: center; }
-    > div:nth-child(4) { width: 25%; text-align: center; }
+    > div:nth-child(1) { padding-left: 12px; }
+    > div:nth-child(2) { }
+    > div:nth-child(3) { text-align: center; }
+    > div:nth-child(4) { text-align: center; padding-right: 8px; }
   }
   
   .service-doc-group {
-    display: table-row-group;
-    
+    position: relative;
     &:not(:last-child) {
       border-bottom: 2px solid #dee2e6;
     }
@@ -330,24 +342,29 @@ ion-content {
         padding-left: 12px;
         background: #f8f9fa;
         font-weight: 600;
+        position: relative;
+        z-index: 1;
       }
     }
     
     .doc-row:not(:first-child) {
       > div:first-child {
+        background: #f8f9fa;
+        border-left: 3px solid #007bff;
         > div {
-          display: none;
+          visibility: hidden;
         }
       }
     }
+  }
+  
+  .add-doc-row {
+    background: #fafbfc;
+    grid-template-columns: minmax(100px, 1.2fr) minmax(280px, 3.3fr);
     
-    &.add-doc-row {
-      background: #fafbfc;
-      
-      > div:nth-child(2) {
-        text-align: left;
-        padding-left: 12px;
-      }
+    > div:nth-child(2) {
+      text-align: left;
+      padding-left: 12px;
     }
   }
 }
