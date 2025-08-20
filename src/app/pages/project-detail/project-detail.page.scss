@@ -282,80 +282,78 @@ ion-content {
   }
 }
 
-// Document rows - strict table structure
-.doc-row {
-  display: grid;
-  grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
-  min-height: 48px;
-  align-items: center;
-  border-bottom: 1px solid #e9ecef;
+// Strict document table structure
+.documents-table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
   
-  // All cells get padding
-  > div {
-    padding: 12px;
-    font-size: 14px;
-  }
-  
-  // Service name cell (first column)
-  > div:first-child {
-    font-weight: 600;
-    color: #333;
-  }
-  
-  // Document name cell (second column)
-  > div:nth-child(2) {
-    color: #555;
-  }
-  
-  // Status cell (third column)
-  > div:nth-child(3) {
-    text-align: center;
-  }
-  
-  // Actions cell (fourth column)
-  > div:nth-child(4) {
-    text-align: center;
-  }
-  
-  &.add-doc-row {
-    grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
-    background: #fafbfc;
-    border-bottom: none;
+  .doc-row {
+    display: table-row;
+    width: 100%;
     
-    // Empty first cell
-    > div:first-child {
-      content: '';
+    > div {
+      display: table-cell;
+      padding: 12px;
+      font-size: 14px;
+      vertical-align: middle;
+      border-bottom: 1px solid #e9ecef;
     }
     
-    // Add Document link spans remaining columns
-    > div:nth-child(2) {
-      grid-column: 2 / 5;
-    }
-  }
-}
-
-// Service document groups
-.service-doc-group {
-  &:not(:last-child) {
-    border-bottom: 2px solid #dee2e6;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
+    // Column widths (strict)
+    > div:nth-child(1) { width: 25%; } // Service
+    > div:nth-child(2) { width: 35%; } // Document
+    > div:nth-child(3) { width: 15%; text-align: center; } // Status
+    > div:nth-child(4) { width: 25%; text-align: center; } // Actions
   }
   
-  // First row in group shows service name with blue border
-  .doc-row:first-child {
-    > div:first-child {
-      border-left: 3px solid #007bff;
-      padding-left: 12px;
-      background: #f8f9fa;
+  .doc-header {
+    display: table-row;
+    width: 100%;
+    
+    > div {
+      display: table-cell;
+      padding: 12px;
+      font-weight: 600;
+      vertical-align: middle;
     }
+    
+    > div:nth-child(1) { width: 25%; }
+    > div:nth-child(2) { width: 35%; }
+    > div:nth-child(3) { width: 15%; text-align: center; }
+    > div:nth-child(4) { width: 25%; text-align: center; }
   }
   
-  // Hide service name on subsequent rows but keep the cell
-  .doc-row:not(:first-child) {
-    > div:first-child {
-      > div {
-        visibility: hidden;
+  .service-doc-group {
+    display: table-row-group;
+    
+    &:not(:last-child) {
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .doc-row:first-child {
+      > div:first-child {
+        border-left: 3px solid #007bff;
+        padding-left: 12px;
+        background: #f8f9fa;
+        font-weight: 600;
+      }
+    }
+    
+    .doc-row:not(:first-child) {
+      > div:first-child {
+        > div {
+          display: none;
+        }
+      }
+    }
+    
+    &.add-doc-row {
+      background: #fafbfc;
+      
+      > div:nth-child(2) {
+        text-align: left;
+        padding-left: 12px;
       }
     }
   }

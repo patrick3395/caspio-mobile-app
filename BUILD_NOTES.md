@@ -1,5 +1,22 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.18 - 2025-01-20
+### Fixed
+- **Document Table Strict Alignment**:
+  - Complete rewrite using display: table for strict cell structure
+  - Fixed column widths: Service 25%, Document 35%, Status 15%, Actions 25%
+  - Table-row and table-cell display for proper alignment
+  - Border-collapse for clean borders
+- **Document Upload Fix**:
+  - Ensure all IDs (ProjectID, TypeID, ServiceID) are integers
+  - Added data type verification logging
+  - Default title to 'Document' if empty
+- **State Dropdown**:
+  - Shows only abbreviations (TX, GA, FL) not full names
+  - State data already contains just abbreviations
+
+---
+
 ## Version 1.1.17 - 2025-01-20
 ### Fixed
 - **StatusID and Navigation**:

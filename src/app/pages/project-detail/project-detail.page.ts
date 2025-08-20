@@ -595,15 +595,20 @@ export class ProjectDetailPage implements OnInit {
       if (action === 'upload' || action === 'additional') {
         // Create new Attach record
         const attachData = {
-          ProjectID: this.projectId,
-          TypeID: typeId,
-          ServiceID: serviceId, // Add ServiceID for proper association
-          Title: doc.title,
+          ProjectID: parseInt(this.projectId), // Ensure integer
+          TypeID: parseInt(typeId), // Ensure integer
+          ServiceID: parseInt(serviceId), // Ensure integer
+          Title: doc.title || 'Document',
           Notes: `Uploaded via mobile app on ${new Date().toLocaleDateString()}`,
           Link: file.name
         };
         
         console.log('📝 Creating attachment record:', attachData);
+        console.log('📊 Data types:', {
+          ProjectID: typeof attachData.ProjectID,
+          TypeID: typeof attachData.TypeID,
+          ServiceID: typeof attachData.ServiceID
+        });
         const newAttach = await this.caspioService.createAttachment(attachData).toPromise();
         console.log('📋 New attachment created:', newAttach);
         
