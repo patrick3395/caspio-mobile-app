@@ -1,5 +1,17 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.10 - 2025-01-20
+### Fixed
+- **Document Table Alignment**:
+  - Fixed documents showing on wrong lines under services
+  - Documents now properly grouped under their associated service
+  - Removed `display: contents` CSS that was breaking grid layout
+  - Service name now shows only on first document row
+  - Fixed grid structure for proper column alignment
+  - Add Document link properly positioned
+
+---
+
 ## Version 1.1.9 - 2025-01-20
 ### Fixed
 - **State Dropdown & Autocomplete**:

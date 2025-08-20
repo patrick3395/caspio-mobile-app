@@ -267,20 +267,39 @@ ion-content {
 }
 
 .service-doc-group {
-  display: contents;
+  border-bottom: 1px solid #dee2e6;
+  
+  &:last-child {
+    border-bottom: none;
+  }
   
   .doc-row {
+    display: grid;
     grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+    border-bottom: 1px solid #e9ecef;
     
-    &:first-child .doc-service {
+    &:last-of-type:not(.add-doc-row) {
+      border-bottom: none;
+    }
+    
+    .doc-service {
+      grid-column: 1;
       border-left: 3px solid #007bff;
       background: #f8f9fa;
       font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    &:not(:first-child) .doc-service {
+      display: none;
     }
     
     &.add-doc-row {
       grid-template-columns: 1.5fr 3.5fr;
       background: #fafbfc;
+      border-bottom: none;
     }
   }
 }

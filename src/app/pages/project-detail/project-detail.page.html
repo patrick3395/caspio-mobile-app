@@ -161,11 +161,13 @@
         <!-- Dynamic documents based on selected services -->
         <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
           <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" class="doc-row">
-            <div class="doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + serviceDoc.documents.length">
-              {{ serviceDoc.serviceName }}
-              <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
-                #{{ serviceDoc.instanceNumber }}
-              </span>
+            <div class="doc-service">
+              <div *ngIf="isFirst">
+                {{ serviceDoc.serviceName }}
+                <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
+                  #{{ serviceDoc.instanceNumber }}
+                </span>
+              </div>
             </div>
             <div>
               {{ doc.title }}
@@ -225,7 +227,7 @@
           <!-- Add optional documents link -->
           <div class="doc-row add-doc-row">
             <div></div>
-            <div style="grid-column: 2 / -1;">
+            <div>
               <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
                 + Add Document
               </a>
