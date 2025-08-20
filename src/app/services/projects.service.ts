@@ -110,16 +110,19 @@ export class ProjectsService {
         // Get StateID from abbreviation
         const stateId = this.getStateIDFromAbbreviation(projectData.state);
         
-        // Create project data - minimal required fields only
+        // Create project data - include all fields that browser version sends
         const caspioData: any = {
           CompanyID: 1, // Noble Property Inspections (always 1)
+          UserID: 1, // Default user ID
+          StatusID: 1, // Active status
           Address: originalAddress,
           City: projectData.city || '',
           StateID: stateId || 1, // Use StateID (numeric), default to TX (1)
           Zip: projectData.zip || '',
           InspectionDate: projectData.inspectionDate || originalDate,
           Date: originalDate, // Date project was created
-          StatusID: 1 // Active status
+          Fee: 265.00, // Default fee
+          OffersID: 1 // Default offer/service
         };
         
         // Only add optional fields if they have values
@@ -140,11 +143,13 @@ export class ProjectsService {
         }).pipe(
           switchMap(response => {
             console.log('✅ Project creation response status:', response.status);
+            console.log('📥 Response headers:', response.headers);
             console.log('📥 Response body:', response.body);
             
             // Caspio returns 201 Created with empty body on success
             if (response.status === 201 || response.status === 200) {
-              console.log('✅ Project created successfully');
+              console.log('✅ Project created successfully with status:', response.status);
+              console.log('📍 Will search for project with address:', originalAddress);
               
               // Fetch the newly created project to get its PK_ID
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
