@@ -107,22 +107,27 @@ export class ProjectsService {
         const originalCity = projectData.city || '';
         const originalDate = new Date().toISOString().split('T')[0];
         
-        // Simplified data - only Company (hardcoded to 1), Inspection Date, and Address
-        const caspioData = {
-          CompanyID: parseInt(projectData.company) || 1, // Always 1 for now
-          InspectionDate: projectData.inspectionDate,
+        // Get StateID from abbreviation
+        const stateId = this.getStateIDFromAbbreviation(projectData.state);
+        
+        // Create project data - minimal required fields only
+        const caspioData: any = {
+          CompanyID: 1, // Noble Property Inspections (always 1)
           Address: originalAddress,
-          Date: originalDate, // Current date for when project was created
-          StatusID: 1, // Active status (1 = Active)
-          // Set some default values for required fields that might exist in Caspio
-          City: originalCity, // Use the city from project data
-          StateID: 1, // Default to TX (1) for now
-          UserID: 1, // Default user
-          Fee: 265.00, // Default fee
-          OffersID: 1, // Default service
+          City: projectData.city || '',
+          StateID: stateId || 1, // Use StateID (numeric), default to TX (1)
+          Zip: projectData.zip || '',
+          InspectionDate: projectData.inspectionDate || originalDate,
+          Date: originalDate, // Date project was created
+          StatusID: 1 // Active status
         };
         
-        console.log('📤 Data being sent to Caspio (with converted StateID):', caspioData);
+        // Only add optional fields if they have values
+        if (projectData.notes) {
+          caspioData.Notes = projectData.notes;
+        }
+        
+        console.log('📤 Data being sent to Caspio:', caspioData);
         
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,
@@ -167,6 +172,8 @@ export class ProjectsService {
           }),
           catchError(error => {
             console.error('Error creating project:', error);
+            console.error('Error response body:', error.error);
+            console.error('Error status:', error.status);
             
             // Check if it's actually a success (201 status)
             if (error.status === 201) {
