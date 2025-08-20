@@ -4,14 +4,29 @@ const path = require('path');
 
 console.log('Creating iOS platform for Appflow...');
 
-// Run the new configuration script
-console.log('Running Live Updates configuration...');
+// Remove existing iOS folder if it exists
+if (fs.existsSync('ios')) {
+  console.log('Removing existing iOS folder...');
+  execSync('rm -rf ios', { stdio: 'inherit' });
+}
+
+// Add iOS platform
+console.log('Adding iOS platform...');
 try {
-  execSync('node scripts/configure-live-updates.js', { stdio: 'inherit' });
-  console.log('Live Updates configured successfully');
+  execSync('npx @capacitor/cli add ios', { stdio: 'inherit' });
+  console.log('iOS platform added successfully');
 } catch (error) {
-  console.error('Failed to configure Live Updates:', error.message);
+  console.error('Failed to add iOS platform:', error.message);
   process.exit(1);
+}
+
+// Sync to ensure plugins are included
+console.log('Syncing iOS platform...');
+try {
+  execSync('npx @capacitor/cli sync ios', { stdio: 'inherit' });
+  console.log('iOS platform synced');
+} catch (error) {
+  console.error('Warning: sync failed, continuing anyway');
 }
 
 // Verify the xcodeproj file exists

@@ -1,81 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
-
-declare const window: any;
-declare const cordova: any;
+import * as LiveUpdates from '@capacitor/live-updates';
 
 @Injectable({
   providedIn: 'root'
 })
 export class IonicDeployService {
-  private deploy: any = null;
-  private initialized = false;
-
-  constructor(private platform: Platform) {
-    this.initializeDeploy();
-  }
-
-  private async initializeDeploy() {
-    if (!Capacitor.isNativePlatform()) {
-      console.log('Ionic Deploy only works on native platforms');
-      return;
-    }
-
-    // Wait for platform to be ready - CRITICAL for plugin availability
-    await this.platform.ready();
-    console.log('Platform is ready, checking for plugin...');
-
-    // Add a small delay to ensure all plugins are loaded
-    setTimeout(() => {
-      this.checkForPlugin();
-    }, 500);
-  }
-
-  private checkForPlugin() {
-    console.log('=== Plugin Detection Debug ===');
-    console.log('window.cordova exists?', typeof window.cordova !== 'undefined');
-    console.log('window.IonicCordova exists?', typeof window.IonicCordova !== 'undefined');
-    
-    // Check all possible locations
-    const locations = [
-      { name: 'window.IonicCordova', obj: window.IonicCordova },
-      { name: 'window.cordova.plugin.ionic', obj: window.cordova?.plugin?.ionic },
-      { name: 'window.cordova.plugins.IonicCordova', obj: window.cordova?.plugins?.IonicCordova },
-      { name: 'window.plugins.IonicCordova', obj: window.plugins?.IonicCordova },
-      { name: 'cordova.plugin.ionic', obj: typeof cordova !== 'undefined' ? cordova?.plugin?.ionic : undefined },
-      { name: 'window.IonicDeploy', obj: window.IonicDeploy },
-      { name: 'window.Deploy', obj: window.Deploy }
-    ];
-
-    for (const loc of locations) {
-      if (loc.obj) {
-        console.log(`Found plugin at ${loc.name}:`, loc.obj);
-        this.deploy = loc.obj;
-        this.initialized = true;
-        
-        // Log available methods
-        const methods = Object.keys(this.deploy).filter(k => typeof this.deploy[k] === 'function');
-        console.log('Available methods:', methods);
-        return;
-      }
-    }
-
-    // If still not found, check cordova plugins
-    if (window.cordova && window.cordova.plugins) {
-      console.log('Cordova plugins available:', Object.keys(window.cordova.plugins));
-    }
-
-    // Log all window properties containing 'ionic' or 'deploy'
-    const windowKeys = Object.keys(window).filter(k => 
-      k.toLowerCase().includes('ionic') || 
-      k.toLowerCase().includes('deploy') ||
-      k.toLowerCase().includes('cordova')
-    );
-    console.log('Relevant window properties:', windowKeys);
-
-    console.log('Plugin not found after checking all locations');
-  }
+  constructor(private platform: Platform) {}
 
   async checkForUpdates(): Promise<void> {
     if (!Capacitor.isNativePlatform()) {
@@ -86,102 +18,88 @@ export class IonicDeployService {
     // Ensure platform is ready
     await this.platform.ready();
 
-    // Try to find plugin again if not initialized
-    if (!this.initialized) {
-      this.checkForPlugin();
+    try {
+      console.log('Checking for updates using @capacitor/live-updates...');
       
-      // Wait a bit for plugin to be found
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use the sync method which handles everything automatically
+      const result = await LiveUpdates.sync();
+      console.log('Sync result:', result);
       
-      // Try one more time
-      if (!this.initialized) {
-        this.checkForPlugin();
+      if (result.activeApplicationPathChanged) {
+        // The app has been updated
+        console.log('Update applied, app path changed');
+        
+        // You can choose to reload immediately or prompt the user
+        const shouldReload = confirm('An update has been downloaded and is ready to apply. Would you like to restart the app now?');
+        
+        if (shouldReload) {
+          await LiveUpdates.reload();
+        } else {
+          alert('The update will be applied the next time you restart the app.');
+        }
+      } else {
+        console.log('No update available or already on latest version');
+        alert('App is up to date!');
       }
-    }
-
-    if (!this.deploy) {
-      // Detailed error message
-      let errorMsg = 'Live Updates plugin not available.\\n\\n';
-      errorMsg += 'Debug info:\\n';
-      errorMsg += `Platform: ${Capacitor.getPlatform()}\\n`;
-      errorMsg += `Cordova exists: ${typeof window.cordova !== 'undefined'}\\n`;
+    } catch (error: any) {
+      console.error('Update check error:', error);
       
-      if (window.cordova && window.cordova.plugins) {
-        errorMsg += `Cordova plugins: ${Object.keys(window.cordova.plugins).join(', ')}`;
+      let errorMsg = 'Update check failed:\\n\\n';
+      if (error?.message) {
+        errorMsg += error.message;
+      } else {
+        errorMsg += JSON.stringify(error);
       }
       
       alert(errorMsg);
+    }
+  }
+
+  // Optional: Get current version info
+  async getCurrentVersion(): Promise<any> {
+    try {
+      const versionInfo = await LiveUpdates.getChannel();
+      console.log('Current channel info:', versionInfo);
+      return versionInfo;
+    } catch (error) {
+      console.error('Failed to get version info:', error);
+      return null;
+    }
+  }
+
+  // Optional: Manual update methods if you want more control
+  async manualCheckForUpdate(): Promise<void> {
+    if (!Capacitor.isNativePlatform()) {
+      alert('Live updates only work on native builds');
       return;
     }
 
-    try {
-      console.log('Using deploy plugin:', this.deploy);
-      
-      // Configure the plugin
-      if (this.deploy.configure) {
-        console.log('Configuring plugin...');
-        await this.deploy.configure({
-          appId: '1e8beef6',
-          channel: 'Caspio Mobile App',
-          updateMethod: 'background',
-          maxVersions: 2
-        });
-      }
+    await this.platform.ready();
 
-      // Check for updates using sync
-      if (this.deploy.sync) {
-        console.log('Using sync method...');
-        const syncResult = await this.deploy.sync({
-          updateMethod: 'background'
-        });
+    try {
+      // Check for updates without applying
+      const checkResult = await LiveUpdates.sync();
+      
+      if (checkResult.activeApplicationPathChanged) {
+        // An update was downloaded
+        console.log('Update available and downloaded');
         
-        console.log('Sync result:', syncResult);
+        // Get info about the update
+        const channelInfo = await LiveUpdates.getChannel();
+        console.log('Update info:', channelInfo);
         
-        if (syncResult === 'true' || syncResult === true || syncResult === 'UPDATE_AVAILABLE') {
-          alert('Update downloaded! Restart the app to apply.');
-        } else {
-          alert('App is up to date!');
-        }
-      } else if (this.deploy.checkForUpdate) {
-        // Manual update check
-        console.log('Checking for updates...');
-        const update = await this.deploy.checkForUpdate();
-        console.log('Update check result:', update);
+        // Now you can choose when to reload
+        const userChoice = confirm(`Update available!\\n\\nWould you like to apply it now?`);
         
-        if (update && update.available) {
-          alert(`Update available!\\nVersion: ${update.snapshot || 'unknown'}\\n\\nDownloading...`);
-          
-          // Download
-          await this.deploy.downloadUpdate((progress: number) => {
-            console.log(`Download progress: ${progress}%`);
-          });
-          
-          // Extract
-          await this.deploy.extractUpdate((progress: number) => {
-            console.log(`Extract progress: ${progress}%`);
-          });
-          
-          alert('Update installed! Restarting...');
-          await this.deploy.reloadApp();
-        } else {
-          alert('App is up to date!');
+        if (userChoice) {
+          await LiveUpdates.reload();
         }
       } else {
-        alert('No update methods available on plugin');
+        alert('Your app is already up to date!');
       }
     } catch (error: any) {
-      console.error('Update error:', error);
-      
-      let errorMsg = 'Update check failed:\\n\\n';
-      if (error?.message) errorMsg += `Message: ${error.message}\\n`;
-      if (error?.code) errorMsg += `Code: ${error.code}\\n`;
-      
-      // Error code 12 is JSON parsing
-      if (error?.code === 12) {
-        errorMsg += '\\nThis is a JSON parsing error. The plugin may not be properly configured.';
-      }
-      
-      alert(errorMsg);
+      console.error('Manual update check failed:', error);
+      alert(`Update check failed: ${error.message || 'Unknown error'}`);
     }
   }
 }
