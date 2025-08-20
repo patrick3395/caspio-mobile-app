@@ -627,9 +627,11 @@ export class ProjectDetailPage implements OnInit {
         
         // Fetch the attachment we just created
         const attachments = await this.caspioService.getAttachmentsByProject(this.projectId).toPromise();
-        const latestAttach = attachments
-          .filter((a: any) => a.Link === file.name && a.Title === (doc.title || 'Document'))
-          .sort((a: any, b: any) => parseInt(b.AttachID) - parseInt(a.AttachID))[0];
+        const latestAttach = attachments && attachments.length > 0 
+          ? attachments
+              .filter((a: any) => a.Link === file.name && a.Title === (doc.title || 'Document'))
+              .sort((a: any, b: any) => parseInt(b.AttachID) - parseInt(a.AttachID))[0]
+          : null;
         
         const attachId = latestAttach?.AttachID;
         if (!attachId) {
