@@ -121,11 +121,13 @@ export class ProjectsService {
           ? projectData.state 
           : (projectData.state ? parseInt(projectData.state.toString()) : 1);
         
-        // Extra verification that StateID is truly an integer
+        // Extra verification that all IDs are truly integers
         console.log('🗺️ Input state:', projectData.state, 'Type:', typeof projectData.state);
         console.log('🗺️ Using StateID:', stateId, 'Type:', typeof stateId);
-        console.log('🔍 StateID is integer?', Number.isInteger(stateId));
-        console.log('🔍 StateID value check:', stateId, '===', parseInt(stateId.toString()));
+        console.log('✅ Verification of Integer Fields:');
+        console.log('  - CompanyID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
+        console.log('  - StateID:', stateId, 'is integer?', Number.isInteger(stateId), '(type:', typeof stateId, ')');
+        console.log('  - UserID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
         
         // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
         const formatDateTimeForCaspio = (dateStr: string | undefined) => {
@@ -156,10 +158,10 @@ export class ProjectsService {
         
         // Build payload matching exact Caspio table structure
         const caspioData: any = {
-          // Required fields
-          CompanyID: 1, // Integer - Noble Property Inspections
-          StateID: stateId, // Integer - must be numeric (verified)
-          UserID: 1, // Integer
+          // Required fields - all must be integers
+          CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
+          StateID: stateId, // Integer - must be numeric (VERIFIED)
+          UserID: 1, // Integer - Default user (REQUIRED)
           Address: projectData.address.trim(), // Text(255) - Required
           
           // Date field - Date/Time type
