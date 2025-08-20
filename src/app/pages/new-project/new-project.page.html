@@ -63,9 +63,10 @@
           [(ngModel)]="formData.state" 
           name="state"
           placeholder="Select State"
+          interface="popover"
           required>
           <ion-select-option *ngFor="let state of states" [value]="state.StateID.toString()">
-            {{ state.State }} - {{ getStateName(state.State) }}
+            {{ state.State }}
           </ion-select-option>
         </ion-select>
       </ion-item>

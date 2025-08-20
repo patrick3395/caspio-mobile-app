@@ -23,7 +23,7 @@ export class NewProjectPage implements OnInit {
     address: '',
     // Keep these for potential future use but not required for creation
     city: '',
-    state: 'TX',
+    state: '1',  // Default to Texas (StateID = 1)
     zip: '',
     user: '1',
     dateOfRequest: new Date().toISOString().split('T')[0],
@@ -34,6 +34,16 @@ export class NewProjectPage implements OnInit {
 
   availableServices: any[] = [];
   states: any[] = []; // Will be loaded from Caspio
+  stateAbbreviations: { [key: string]: string } = {
+    'TX': 'Texas',
+    'GA': 'Georgia',
+    'FL': 'Florida',
+    'CO': 'Colorado',
+    'CA': 'California',
+    'AZ': 'Arizona',
+    'SC': 'South Carolina',
+    'TN': 'Tennessee'
+  };
   
   constructor(
     private router: Router,
@@ -64,7 +74,7 @@ export class NewProjectPage implements OnInit {
       
       // Set default state to Texas if not already set
       if (!this.formData.state && this.states.length > 0) {
-        const texas = this.states.find(s => s.State === 'TX');
+        const texas = this.states.find(s => s.State === 'TX' || s.StateAbbreviation === 'TX');
         if (texas) {
           this.formData.state = texas.StateID.toString(); // Store StateID as string
         }
@@ -207,12 +217,22 @@ export class NewProjectPage implements OnInit {
       
       // Find the StateID for the state abbreviation
       if (state) {
-        const stateRecord = this.states.find(s => s.State === state);
+        console.log('🔍 Looking for state:', state);
+        console.log('🔍 Available states in dropdown:', this.states);
+        
+        const stateRecord = this.states.find(s => 
+          s.State === state || 
+          s.StateAbbreviation === state ||
+          s.State === state.toUpperCase()
+        );
+        
         if (stateRecord) {
           this.formData.state = stateRecord.StateID.toString();
-          console.log('📍 State matched:', state, '->', stateRecord.StateID);
+          console.log('✅ State matched:', state, '-> StateID:', stateRecord.StateID);
+          console.log('✅ Form state field updated to:', this.formData.state);
         } else {
           console.log('⚠️ State not found in database:', state);
+          console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));
         }
       }
       
@@ -346,21 +366,16 @@ export class NewProjectPage implements OnInit {
     }
   }
 
-  getStateName(abbreviation: string): string {
-    const stateNames: any = {
-      'TX': 'Texas',
-      'GA': 'Georgia', 
-      'FL': 'Florida',
-      'CO': 'Colorado',
-      'CA': 'California',
-      'AZ': 'Arizona',
-      'SC': 'South Carolina',
-      'TN': 'Tennessee'
-    };
-    return stateNames[abbreviation] || abbreviation;
-  }
-
   goBack() {
     this.router.navigate(['/tabs/active-projects']);
+  }
+
+  getStateAbbreviation(stateId: string): string {
+    const state = this.states.find(s => s.StateID.toString() === stateId);
+    return state ? state.State : '';
+  }
+
+  getStateName(abbreviation: string): string {
+    return this.stateAbbreviations[abbreviation] || abbreviation;
   }
 }

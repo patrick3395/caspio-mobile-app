@@ -1,5 +1,18 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.9 - 2025-01-20
+### Fixed
+- **State Dropdown & Autocomplete**:
+  - State dropdown now shows only abbreviations (TX, GA, FL, etc.)
+  - Dropdown properly submits StateID (1, 2, 3...) to Caspio
+  - Google Places autocomplete correctly fills state field with StateID
+  - Default state set to Texas (StateID: 1)
+  - Added enhanced logging for state matching
+  - Removed duplicate getStateName function
+  - Fixed resetConfig method (was using non-existent reset method)
+
+---
+
 ## Version 1.1.8 - 2025-01-20
 ### Fixed
 - **Live Updates Unpack Error**:
