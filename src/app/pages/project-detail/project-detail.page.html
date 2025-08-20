@@ -85,7 +85,6 @@
         <div class="services-table">
           <div class="table-header">
             <div class="col-service">Service</div>
-            <div class="col-address">Address</div>
             <div class="col-date">Date</div>
             <div class="col-actions">Actions</div>
           </div>
@@ -95,9 +94,6 @@
               <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
-            </div>
-            <div class="col-address">
-              {{ formatAddress() }}
             </div>
             <div class="col-date">
               <input 
