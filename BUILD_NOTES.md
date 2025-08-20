@@ -1,5 +1,17 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.3 - 2025-01-20
+### Fixed
+- **UI Improvements**:
+  - **Date Column Alignment**: Centered date header and date inputs in services table
+  - **Service Removal Fix**: 
+    - Fixed service removal when serviceId is temporary
+    - Still removes from UI even if Caspio delete fails
+    - Better error handling with fallback behavior
+  - Added debug logging for service operations
+
+---
+
 ## Version 1.1.2 - 2025-01-20
 ### Fixed
 - **Project Creation 400 Error - Attempt 2**:

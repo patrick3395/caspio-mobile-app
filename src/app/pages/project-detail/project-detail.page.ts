@@ -353,9 +353,12 @@ export class ProjectDetailPage implements OnInit {
     this.updatingServices = true;
     
     try {
-      // Delete from Caspio if it has a serviceId
-      if (service.serviceId) {
+      // Delete from Caspio if it has a real serviceId (not temporary)
+      if (service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
+        console.log('🗑️ Deleting service from Caspio:', service.serviceId);
         await this.caspioService.deleteService(service.serviceId).toPromise();
+      } else {
+        console.log('⚠️ Service has temporary ID, skipping Caspio delete:', service.serviceId);
       }
       
       // Remove from selected services
@@ -369,8 +372,15 @@ export class ProjectDetailPage implements OnInit {
       
       await this.showToast(`${service.typeName} removed`, 'success');
     } catch (error) {
-      console.error('Error removing service:', error);
-      await this.showToast('Failed to remove service', 'danger');
+      console.error('❌ Error removing service:', error);
+      // Still remove from UI even if Caspio delete fails
+      const index = this.selectedServices.findIndex(s => s.instanceId === service.instanceId);
+      if (index > -1) {
+        this.selectedServices.splice(index, 1);
+        this.saveToLocalStorage();
+        this.updateDocumentsList();
+      }
+      await this.showToast('Service removed locally', 'warning');
     } finally {
       this.updatingServices = false;
     }
