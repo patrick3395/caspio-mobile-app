@@ -73,37 +73,44 @@ export class IonicDeployService {
       let currentVersion = 'unknown';
       try {
         const versionInfo = await this.deploy.getCurrentVersion();
-        currentVersion = versionInfo?.versionId || 'base';
+        currentVersion = versionInfo?.versionId || versionInfo?.version || 'base';
         console.log('Current version:', currentVersion);
       } catch (e) {
-        console.log('Could not get current version');
+        console.log('Could not get current version:', e);
       }
 
-      // Check for updates
+      // Check for updates using the correct API
       console.log('Checking for updates...');
-      const updateAvailable = await this.deploy.check();
+      const update = await this.deploy.checkForUpdate();
+      console.log('Update check result:', update);
       
-      if (updateAvailable) {
-        alert('Update found! Downloading...');
+      if (update && update.available) {
+        alert(`Update found!\nVersion: ${update.snapshot || 'unknown'}\nDownloading...`);
         
-        // Download the update
-        await this.deploy.download((progress: number) => {
+        // Download the update with progress callback
+        await this.deploy.downloadUpdate((progress: number) => {
           console.log(`Download progress: ${progress}%`);
         });
         
-        // Extract the update
-        await this.deploy.extract((progress: number) => {
+        // Extract the update with progress callback
+        await this.deploy.extractUpdate((progress: number) => {
           console.log(`Extract progress: ${progress}%`);
         });
         
-        // Reload the app
+        // Reload the app to apply the update
         alert('Update installed! Restarting...');
-        await this.deploy.load();
+        await this.deploy.reloadApp();
       } else {
         alert(`App is up to date!\nCurrent version: ${currentVersion}`);
       }
     } catch (error: any) {
       console.error('Update check error:', error);
+      
+      // Log available methods to debug
+      if (this.deploy) {
+        console.log('Available deploy methods:', Object.keys(this.deploy).filter(k => typeof this.deploy[k] === 'function'));
+      }
+      
       alert(`Update check failed: ${error?.message || JSON.stringify(error)}`);
     }
   }

@@ -10,6 +10,15 @@ if (fs.existsSync('ios')) {
   execSync('rm -rf ios', { stdio: 'inherit' });
 }
 
+// Ensure cordova-plugin-ionic is installed
+console.log('Installing cordova-plugin-ionic...');
+try {
+  execSync('npm install cordova-plugin-ionic@5.5.3 --save', { stdio: 'inherit' });
+  console.log('cordova-plugin-ionic installed');
+} catch (error) {
+  console.error('Failed to install cordova-plugin-ionic:', error.message);
+}
+
 // Add iOS platform
 console.log('Adding iOS platform...');
 try {
@@ -18,6 +27,15 @@ try {
 } catch (error) {
   console.error('Failed to add iOS platform:', error.message);
   process.exit(1);
+}
+
+// Sync to ensure plugin is included
+console.log('Syncing iOS platform...');
+try {
+  execSync('npx cap sync ios', { stdio: 'inherit' });
+  console.log('iOS platform synced');
+} catch (error) {
+  console.error('Warning: sync failed, continuing anyway');
 }
 
 // Verify the xcodeproj file exists
