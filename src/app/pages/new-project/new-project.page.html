@@ -65,7 +65,7 @@
           placeholder="Select State"
           interface="popover"
           required>
-          <ion-select-option *ngFor="let state of states" [value]="state.StateID.toString()">
+          <ion-select-option *ngFor="let state of states" [value]="state.StateID">
             {{ state.State }}
           </ion-select-option>
         </ion-select>

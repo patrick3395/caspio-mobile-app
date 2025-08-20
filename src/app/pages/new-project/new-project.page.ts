@@ -23,7 +23,7 @@ export class NewProjectPage implements OnInit {
     address: '',
     // Keep these for potential future use but not required for creation
     city: '',
-    state: '1',  // Default to Texas (StateID = 1)
+    state: 1,  // Default to Texas (StateID = 1) - as number
     zip: '',
     user: '1',
     dateOfRequest: new Date().toISOString().split('T')[0],
@@ -76,7 +76,7 @@ export class NewProjectPage implements OnInit {
       if (!this.formData.state && this.states.length > 0) {
         const texas = this.states.find(s => s.State === 'TX' || s.StateAbbreviation === 'TX');
         if (texas) {
-          this.formData.state = texas.StateID.toString(); // Store StateID as string
+          this.formData.state = texas.StateID; // Store StateID as number
         }
       }
     } catch (error) {
@@ -227,9 +227,9 @@ export class NewProjectPage implements OnInit {
         );
         
         if (stateRecord) {
-          this.formData.state = stateRecord.StateID.toString();
+          this.formData.state = stateRecord.StateID; // Store as number
           console.log('✅ State matched:', state, '-> StateID:', stateRecord.StateID);
-          console.log('✅ Form state field updated to:', this.formData.state);
+          console.log('✅ Form state field updated to:', this.formData.state, 'Type:', typeof this.formData.state);
         } else {
           console.log('⚠️ State not found in database:', state);
           console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));

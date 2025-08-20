@@ -35,7 +35,7 @@ export interface ProjectCreationData {
   inspectionDate?: string;
   address: string;
   city: string;
-  state: string;
+  state: number | string;  // Can be number (StateID) or string for compatibility
   zip: string;
   services: string[];
   fee?: string;
@@ -116,8 +116,11 @@ export class ProjectsService {
           inspectionDate: projectData.inspectionDate
         });
         
-        // StateID must be a number
-        const stateId = projectData.state ? parseInt(projectData.state) : 1;
+        // StateID must be a number - handle both string and number input
+        const stateId = typeof projectData.state === 'number' 
+          ? projectData.state 
+          : (projectData.state ? parseInt(projectData.state.toString()) : 1);
+        console.log('🗺️ Input state:', projectData.state, 'Type:', typeof projectData.state);
         console.log('🗺️ Using StateID:', stateId, 'Type:', typeof stateId);
         
         // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field

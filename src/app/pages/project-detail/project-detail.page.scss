@@ -282,6 +282,59 @@ ion-content {
   }
 }
 
+// Document rows - strict table structure
+.doc-row {
+  display: grid;
+  grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+  min-height: 48px;
+  align-items: center;
+  border-bottom: 1px solid #e9ecef;
+  
+  // All cells get padding
+  > div {
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  // Service name cell (first column)
+  > div:first-child {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  // Document name cell (second column)
+  > div:nth-child(2) {
+    color: #555;
+  }
+  
+  // Status cell (third column)
+  > div:nth-child(3) {
+    text-align: center;
+  }
+  
+  // Actions cell (fourth column)
+  > div:nth-child(4) {
+    text-align: center;
+  }
+  
+  &.add-doc-row {
+    grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
+    background: #fafbfc;
+    border-bottom: none;
+    
+    // Empty first cell
+    > div:first-child {
+      content: '';
+    }
+    
+    // Add Document link spans remaining columns
+    > div:nth-child(2) {
+      grid-column: 2 / 5;
+    }
+  }
+}
+
+// Service document groups
 .service-doc-group {
   &:not(:last-child) {
     border-bottom: 2px solid #dee2e6;
@@ -289,55 +342,21 @@ ion-content {
     padding-bottom: 8px;
   }
   
-  .doc-row {
-    display: grid;
-    grid-template-columns: 1.5fr 2fr 1fr 1.5fr;
-    min-height: 48px;
-    align-items: center;
-    
-    &:not(.add-doc-row):not(:last-child) {
-      border-bottom: 1px solid #f0f0f0;
+  // First row in group shows service name with blue border
+  .doc-row:first-child {
+    > div:first-child {
+      border-left: 3px solid #007bff;
+      padding-left: 12px;
+      background: #f8f9fa;
     }
-    
-    // Service name cell - only show on first row
-    .doc-service {
-      padding: 12px;
-      font-weight: 600;
-      color: #333;
-      
+  }
+  
+  // Hide service name on subsequent rows but keep the cell
+  .doc-row:not(:first-child) {
+    > div:first-child {
       > div {
-        border-left: 3px solid #007bff;
-        padding-left: 12px;
+        visibility: hidden;
       }
-    }
-    
-    // Hide service name on subsequent rows
-    &:not(:first-child) .doc-service {
-      > div {
-        display: none;
-      }
-    }
-    
-    // Document cell
-    > div:nth-child(2) {
-      padding: 12px;
-    }
-    
-    // Status cell  
-    > div:nth-child(3) {
-      padding: 12px;
-    }
-    
-    // Actions cell
-    > div:nth-child(4) {
-      padding: 12px;
-    }
-    
-    &.add-doc-row {
-      grid-template-columns: 1.5fr 3.5fr;
-      background: #fafbfc;
-      margin-top: 4px;
-      min-height: 40px;
     }
   }
 }

@@ -1,5 +1,22 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.15 - 2025-01-20
+### Fixed - CRITICAL FIXES
+- **StateID Now Sent as Number**:
+  - State dropdown value is now StateID as number (not string)
+  - Fixed form to handle state as number throughout
+  - Service properly converts to integer if needed
+  - Default state (Texas) set as number 1
+  - Google Places autocomplete sets state as number
+- **Document Table Strict Alignment**:
+  - Complete rewrite of document table CSS
+  - Strict grid structure with 4 columns maintained
+  - All rows have proper cell structure
+  - Service name only visible on first row
+  - Add Document link properly positioned
+
+---
+
 ## Version 1.1.14 - 2025-01-20
 ### Fixed
 - **Live Updates Issue**:
