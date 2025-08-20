@@ -44,7 +44,7 @@ export class IonicDeployService {
     } catch (error: any) {
       console.error('Update check error:', error);
       
-      let errorMsg = 'Update check failed:\\n\\n';
+      let errorMsg = 'Update check failed:\n\n';
       if (error?.message) {
         errorMsg += error.message;
       } else {
@@ -52,18 +52,6 @@ export class IonicDeployService {
       }
       
       alert(errorMsg);
-    }
-  }
-
-  // Optional: Get current version info
-  async getCurrentVersion(): Promise<any> {
-    try {
-      const versionInfo = await LiveUpdates.getChannel();
-      console.log('Current channel info:', versionInfo);
-      return versionInfo;
-    } catch (error) {
-      console.error('Failed to get version info:', error);
-      return null;
     }
   }
 
@@ -84,12 +72,8 @@ export class IonicDeployService {
         // An update was downloaded
         console.log('Update available and downloaded');
         
-        // Get info about the update
-        const channelInfo = await LiveUpdates.getChannel();
-        console.log('Update info:', channelInfo);
-        
         // Now you can choose when to reload
-        const userChoice = confirm(`Update available!\\n\\nWould you like to apply it now?`);
+        const userChoice = confirm('Update available!\n\nWould you like to apply it now?');
         
         if (userChoice) {
           await LiveUpdates.reload();
