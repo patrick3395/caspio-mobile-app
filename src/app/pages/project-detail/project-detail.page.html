@@ -183,7 +183,7 @@
               <ion-button 
                 *ngIf="!doc.uploaded"
                 size="small" 
-                fill="solid" 
+                fill="outline" 
                 color="primary" 
                 (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                 Upload
@@ -196,21 +196,21 @@
                   fill="clear" 
                   color="primary" 
                   (click)="viewDocument(doc)">
-                  View
+                  <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
                   size="small" 
                   fill="clear" 
-                  color="warning" 
+                  color="tertiary" 
                   (click)="replaceDocument(doc)">
-                  Replace
+                  <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
                   size="small" 
                   fill="clear" 
                   color="success" 
                   (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                  + Add
+                  <ion-icon name="add-outline" slot="icon-only"></ion-icon>
                 </ion-button>
               </div>
             </div>

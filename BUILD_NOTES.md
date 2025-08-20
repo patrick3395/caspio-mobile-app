@@ -1,5 +1,24 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.23 - 2025-01-20
+### Fixed
+- **Version Display**:
+  - Added version number to app header (v1.1.23)
+  - Updated purple banner with current version info
+- **Document Table Improvements**:
+  - Fixed text wrapping - no more text cutoff
+  - Service column now extends full height for all documents
+  - Service background spans all document rows
+- **UI Enhancements**:
+  - Sleek minimal buttons with icon-only design for uploaded docs
+  - Smaller, cleaner button styling
+  - Outline style for upload button
+- **Navigation Fix**:
+  - Increased wait time for project creation (1.5s, 3s, 5s)
+  - Better reliability for navigating to project details
+
+---
+
 ## Version 1.1.22 - 2025-01-20
 ### Fixed
 - **Document Table UI Improvements**:

@@ -1,4 +1,4 @@
-# Mobile App Changes - Version 1.1.22
+# Mobile App Changes - Version 1.1.23
 
 ## Latest Updates (2025-01-20)
 

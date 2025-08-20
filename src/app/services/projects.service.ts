@@ -363,7 +363,7 @@ export class ProjectsService {
   // Fetch newly created project with retry logic
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
     // Try multiple times with increasing delays
-    const attempts = [1000, 2000, 3000]; // Wait times in ms
+    const attempts = [1500, 3000, 5000]; // Wait times in ms - increased for better reliability
     
     const tryFetch = (delay: number): Observable<Project | null> => {
       return timer(delay).pipe(
