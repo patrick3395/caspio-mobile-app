@@ -44,26 +44,12 @@ export class NewProjectPage implements OnInit {
   ) {}
 
   async ngOnInit() {
+    console.log('🔍 NewProjectPage: ngOnInit called');
     // Initialize Google Places for address autocomplete
-    this.loadGoogleMapsScript();
-  }
-
-  loadGoogleMapsScript() {
-    // Check if Google Maps is already loaded
-    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+    // Wait a bit for the view to be fully rendered
+    setTimeout(() => {
       this.initializeGooglePlaces();
-      return;
-    }
-
-    // Load Google Maps script
-    const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A&libraries=places';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      this.initializeGooglePlaces();
-    };
-    document.head.appendChild(script);
+    }, 500);
   }
 
   async loadServices() {
@@ -88,60 +74,94 @@ export class NewProjectPage implements OnInit {
   }
 
   initializeGooglePlaces() {
-    // Initialize Google Places Autocomplete - exact same as local server
-    setTimeout(() => {
-      const addressInput = document.getElementById('address-input') as HTMLInputElement;
-      if (addressInput && typeof google !== 'undefined') {
-        const autocomplete = new google.maps.places.Autocomplete(addressInput, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' }
-        });
-        
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          
-          if (!place.geometry) {
-            return;
-          }
-          
-          // Parse the address components - exact same as local server
-          let streetNumber = '';
-          let streetName = '';
-          let city = '';
-          let state = '';
-          let zip = '';
-          
-          for (const component of place.address_components) {
-            const types = component.types;
-            
-            if (types.includes('street_number')) {
-              streetNumber = component.long_name;
-            }
-            if (types.includes('route')) {
-              streetName = component.long_name;
-            }
-            if (types.includes('locality')) {
-              city = component.long_name;
-            }
-            if (types.includes('administrative_area_level_1')) {
-              state = component.short_name;
-            }
-            if (types.includes('postal_code')) {
-              zip = component.long_name;
-            }
-          }
-          
-          // Update the form fields - exact same as local server
-          this.formData.address = streetNumber + ' ' + streetName;
-          this.formData.city = city;
-          this.formData.state = state;
-          this.formData.zip = zip;
-          
-          // Trigger Angular change detection
-          addressInput.value = this.formData.address;
-        });
+    console.log('🔍 Initializing Google Places Autocomplete...');
+    
+    // Check if Google Maps is loaded
+    if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+      console.log('⚠️ Google Maps not loaded yet, retrying in 1 second...');
+      setTimeout(() => this.initializeGooglePlaces(), 1000);
+      return;
+    }
+    
+    const addressInput = document.getElementById('address-input') as HTMLInputElement;
+    
+    if (!addressInput) {
+      console.log('⚠️ Address input not found, retrying in 500ms...');
+      setTimeout(() => this.initializeGooglePlaces(), 500);
+      return;
+    }
+    
+    console.log('✅ Setting up Google Places Autocomplete on input:', addressInput);
+    
+    // Create autocomplete instance
+    const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' }
+    });
+    
+    // Listen for manual changes to the input
+    addressInput.addEventListener('input', (event: any) => {
+      this.formData.address = event.target.value;
+    });
+    
+    // Add listener for place selection
+    autocomplete.addListener('place_changed', () => {
+      console.log('📍 Place changed event fired');
+      const place = autocomplete.getPlace();
+      
+      if (!place.geometry) {
+        console.log('⚠️ No geometry found for selected place');
+        return;
       }
-    }, 1000);
+      
+      console.log('📍 Selected place:', place);
+      
+      // Parse the address components
+      let streetNumber = '';
+      let streetName = '';
+      let city = '';
+      let state = '';
+      let zip = '';
+      
+      for (const component of place.address_components || []) {
+        const types = component.types;
+        
+        if (types.includes('street_number')) {
+          streetNumber = component.long_name;
+        }
+        if (types.includes('route')) {
+          streetName = component.long_name;
+        }
+        if (types.includes('locality')) {
+          city = component.long_name;
+        }
+        if (types.includes('administrative_area_level_1')) {
+          state = component.short_name;
+        }
+        if (types.includes('postal_code')) {
+          zip = component.long_name;
+        }
+      }
+      
+      // Update the form fields
+      this.formData.address = streetNumber ? `${streetNumber} ${streetName}` : streetName;
+      this.formData.city = city;
+      this.formData.state = state;
+      this.formData.zip = zip;
+      
+      console.log('✅ Form data updated:', {
+        address: this.formData.address,
+        city: this.formData.city,
+        state: this.formData.state,
+        zip: this.formData.zip
+      });
+      
+      // Force Angular change detection
+      addressInput.value = this.formData.address;
+      addressInput.dispatchEvent(new Event('input'));
+    });
+    
+    console.log('✅ Google Places Autocomplete initialized successfully');
   }
 
   onServiceChange(serviceId: string, event: any) {

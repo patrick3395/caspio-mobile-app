@@ -35,14 +35,15 @@
       
       <ion-item lines="full">
         <ion-label position="stacked">Street Address</ion-label>
-        <ion-input 
+        <input 
           id="address-input"
           type="text" 
           [(ngModel)]="formData.address" 
           name="address"
           placeholder="Start typing an address..."
+          class="native-input"
+          style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; margin-top: 4px;"
           required>
-        </ion-input>
       </ion-item>
 
       <ion-item lines="full">
