@@ -1,5 +1,20 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.19 - 2025-01-20
+### Fixed
+- **State Dropdown Improvements**:
+  - Added "--Select--" as default option (no pre-selected state)
+  - State field now required - must be selected
+  - No default to Texas - user must explicitly select
+  - Added validation for StateID before creating project
+- **Google Places Autocomplete**:
+  - Properly fills state dropdown when address is selected
+  - Maps state abbreviation to StateID
+  - Forces Angular to update select element
+  - Enhanced logging for state matching
+
+---
+
 ## Version 1.1.18 - 2025-01-20
 ### Fixed
 - **Document Table Strict Alignment**:

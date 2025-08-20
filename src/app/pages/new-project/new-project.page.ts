@@ -23,7 +23,7 @@ export class NewProjectPage implements OnInit {
     address: '',
     // Keep these for potential future use but not required for creation
     city: '',
-    state: 1,  // Default to Texas (StateID = 1) - as number
+    state: null,  // No default state - user must select
     zip: '',
     user: '1',
     dateOfRequest: new Date().toISOString().split('T')[0],
@@ -72,13 +72,7 @@ export class NewProjectPage implements OnInit {
       this.states = statesData || [];
       console.log('✅ States loaded from Caspio:', this.states);
       
-      // Set default state to Texas if not already set
-      if (!this.formData.state && this.states.length > 0) {
-        const texas = this.states.find(s => s.State === 'TX' || s.StateAbbreviation === 'TX');
-        if (texas) {
-          this.formData.state = texas.StateID; // Store StateID as number
-        }
-      }
+      // Don't set a default state - user must select
     } catch (error) {
       console.error('Error loading states:', error);
       // Fallback to hardcoded states if loading fails
@@ -215,11 +209,12 @@ export class NewProjectPage implements OnInit {
       this.formData.address = streetNumber ? `${streetNumber} ${streetName}` : streetName;
       this.formData.city = city;
       
-      // Find the StateID for the state abbreviation
+      // Find the StateID for the state abbreviation from Google Places
       if (state) {
-        console.log('🔍 Looking for state:', state);
+        console.log('🔍 Google Places returned state:', state);
         console.log('🔍 Available states in dropdown:', this.states);
         
+        // Google Places returns abbreviation (e.g., "CA", "TX")
         const stateRecord = this.states.find(s => 
           s.State === state || 
           s.StateAbbreviation === state ||
@@ -229,7 +224,16 @@ export class NewProjectPage implements OnInit {
         if (stateRecord) {
           this.formData.state = stateRecord.StateID; // Store as number
           console.log('✅ State matched:', state, '-> StateID:', stateRecord.StateID);
+          console.log('✅ State dropdown will show:', stateRecord.State);
           console.log('✅ Form state field updated to:', this.formData.state, 'Type:', typeof this.formData.state);
+          
+          // Force Angular to update the select element
+          setTimeout(() => {
+            const stateSelect = document.querySelector('ion-select[name="state"]') as any;
+            if (stateSelect) {
+              stateSelect.value = this.formData.state;
+            }
+          }, 100);
         } else {
           console.log('⚠️ State not found in database:', state);
           console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));

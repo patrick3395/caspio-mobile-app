@@ -62,9 +62,10 @@
         <ion-select 
           [(ngModel)]="formData.state" 
           name="state"
-          placeholder="Select State"
+          placeholder="--Select--"
           interface="popover"
           required>
+          <ion-select-option [value]="null">--Select--</ion-select-option>
           <ion-select-option *ngFor="let state of states" [value]="state.StateID">
             {{ state.State }}
           </ion-select-option>

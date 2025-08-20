@@ -119,7 +119,7 @@ export class ProjectsService {
         // StateID must be a number - handle both string and number input
         const stateId = typeof projectData.state === 'number' 
           ? projectData.state 
-          : (projectData.state ? parseInt(projectData.state.toString()) : 1);
+          : (projectData.state ? parseInt(projectData.state.toString()) : null);
         
         // Extra verification that all IDs are truly integers
         console.log('🗺️ Input state:', projectData.state, 'Type:', typeof projectData.state);
@@ -155,6 +155,11 @@ export class ProjectsService {
         if (!projectData.address) {
           console.error('❌ Address is required but missing!');
           return throwError(() => new Error('Address is required'));
+        }
+        
+        if (!stateId) {
+          console.error('❌ StateID is required but missing!');
+          return throwError(() => new Error('State is required'));
         }
         
         // Build payload matching exact Caspio table structure
