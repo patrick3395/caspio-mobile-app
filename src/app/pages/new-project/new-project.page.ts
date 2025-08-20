@@ -185,14 +185,25 @@ export class NewProjectPage implements OnInit {
       addressInput.value = this.formData.address;
       addressInput.dispatchEvent(new Event('input'));
       
-      // Close the autocomplete dropdown by blurring
+      // Close the autocomplete dropdown immediately
       addressInput.blur();
       
-      // Hide any remaining pac-container elements immediately
+      // Force hide all pac-container elements
       const pacContainers = document.querySelectorAll('.pac-container');
       pacContainers.forEach((container: any) => {
         container.style.display = 'none';
+        container.style.visibility = 'hidden';
       });
+      
+      // Also remove the pac-container from DOM after a short delay
+      setTimeout(() => {
+        const containers = document.querySelectorAll('.pac-container');
+        containers.forEach((container: any) => {
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        });
+      }, 100);
       
       // Move focus to the next field (City) if it's empty
       setTimeout(() => {
@@ -200,7 +211,7 @@ export class NewProjectPage implements OnInit {
         if (cityInput && !this.formData.city) {
           cityInput.setFocus();
         }
-      }, 100);
+      }, 200);
     });
     
     console.log('✅ Google Places Autocomplete initialized successfully');
