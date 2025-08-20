@@ -35,7 +35,7 @@ export interface ProjectCreationData {
   inspectionDate?: string;
   address: string;
   city: string;
-  state: number | string;  // Can be number (StateID) or string for compatibility
+  state: number | string | null;  // Can be number (StateID), string, or null for --Select--
   zip: string;
   services: string[];
   fee?: string;

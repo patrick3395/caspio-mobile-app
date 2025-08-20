@@ -1,5 +1,15 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.20 - 2025-01-20
+### Fixed
+- **Build Errors**:
+  - Fixed TypeScript error by allowing null in state type
+  - State can now be number, string, or null
+  - Optimized SCSS by removing comments
+  - Reduced CSS file size to meet budget requirements
+
+---
+
 ## Version 1.1.19 - 2025-01-20
 ### Fixed
 - **State Dropdown Improvements**:
