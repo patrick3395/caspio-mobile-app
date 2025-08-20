@@ -10,7 +10,7 @@ export class IonicDeployService {
   constructor(private platform: Platform) {}
 
   async checkForUpdates(): Promise<void> {
-    const BUILD_NUMBER = 50;
+    const BUILD_NUMBER = 51;
     const PLUGIN_NAME = '@capacitor/live-updates';
     
     console.log(`=== BUILD ${BUILD_NUMBER} LIVE UPDATES CHECK ===`);
