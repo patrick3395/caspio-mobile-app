@@ -20,7 +20,7 @@ export class IonicDeployService {
     console.log('Is Native:', Capacitor.isNativePlatform());
     
     // First alert to show which build is running
-    alert(`🚀 BUILD ${BUILD_NUMBER} DEPLOYED!\n\nPlugin: ${PLUGIN_NAME}\n\nThis is the NEW build from TestFlight!\n\nTap OK to check for updates...`);
+    alert(`🎉 LIVE UPDATE SUCCESS!\n\nVersion: Build 50.1 (Live Update)\n\nIf you see this, the live update worked!\n\nPlugin: ${PLUGIN_NAME}`);
     
     if (!Capacitor.isNativePlatform()) {
       alert('Live updates only work on native builds.\n\nYou are currently running in a browser.');
