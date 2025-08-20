@@ -128,6 +128,7 @@ export class ProjectsService {
         console.log('  - CompanyID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
         console.log('  - StateID:', stateId, 'is integer?', Number.isInteger(stateId), '(type:', typeof stateId, ')');
         console.log('  - UserID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
+        console.log('  - StatusID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
         
         // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
         const formatDateTimeForCaspio = (dateStr: string | undefined) => {
@@ -162,6 +163,7 @@ export class ProjectsService {
           CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
           StateID: stateId, // Integer - must be numeric (VERIFIED)
           UserID: 1, // Integer - Default user (REQUIRED)
+          StatusID: 1, // Integer - Active status (REQUIRED)
           Address: projectData.address.trim(), // Text(255) - Required
           
           // Date field - Date/Time type
@@ -199,6 +201,7 @@ export class ProjectsService {
           { column: 'CompanyID', value: caspioData.CompanyID, dataType: 'Integer', required: 'YES' },
           { column: 'StateID', value: caspioData.StateID, dataType: 'Integer', required: 'YES' },
           { column: 'UserID', value: caspioData.UserID, dataType: 'Integer', required: 'YES' },
+          { column: 'StatusID', value: caspioData.StatusID, dataType: 'Integer', required: 'YES' },
           { column: 'Address', value: caspioData.Address, dataType: 'Text(255)', required: 'YES' },
           { column: 'City', value: caspioData.City, dataType: 'Text(255)', required: 'NO' },
           { column: 'Zip', value: caspioData.Zip, dataType: 'Text(255)', required: 'NO' },

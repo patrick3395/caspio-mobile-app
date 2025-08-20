@@ -341,15 +341,15 @@ export class NewProjectPage implements OnInit {
         await loading.dismiss();
         
         // Navigate to the new project's detail page
-        // Use PK_ID for navigation (exact same as local server)
         const navigationId = result.projectId !== 'new' ? result.projectId : null;
         if (navigationId) {
-          console.log('🚀 Navigating to project:', navigationId);
-          this.router.navigate(['/project', navigationId]);
+          console.log('🚀 Navigating to project details:', navigationId);
+          // Navigate to project details page
+          await this.router.navigate(['/project', navigationId]);
         } else {
           // Fallback to projects list if no ID
-          console.log('🚀 Navigating to projects list (no ID)');
-          this.router.navigate(['/tabs/active-projects']);  
+          console.log('⚠️ No project ID returned, navigating to projects list');
+          await this.router.navigate(['/tabs/active-projects']);  
         }
       } else {
         throw new Error('Failed to create project');

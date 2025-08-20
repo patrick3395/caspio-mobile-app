@@ -1,5 +1,16 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.17 - 2025-01-20
+### Fixed
+- **StatusID and Navigation**:
+  - StatusID now set to 1 (Active status) as required
+  - Added StatusID to verification logging
+  - Fixed navigation to project details page after creation
+  - Enhanced navigation logging
+  - All integer IDs verified (CompanyID, StateID, UserID, StatusID)
+
+---
+
 ## Version 1.1.16 - 2025-01-20
 ### Fixed
 - **Set OffersID and Fee to NULL**:
