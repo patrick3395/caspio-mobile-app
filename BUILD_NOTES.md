@@ -1,5 +1,21 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.7 - 2025-01-20
+### Fixed
+- **Document Upload Issues**:
+  - Fixed document title showing in wrong column (removed doc-col classes)
+  - Fixed "Add Document" row spanning correct columns
+  - Document upload now uses caspioService.uploadFileToAttachment method
+  - Added ServiceID to attachment records for proper association
+  - Better error handling for AttachID retrieval
+  - Added console logging for debugging upload process
+- **Improved File Upload**:
+  - Uses existing service method with proper authentication
+  - Handles AttachID/PK_ID from response correctly
+  - Better error messages
+
+---
+
 ## Version 1.1.6 - 2025-01-20
 ### Fixed - CRITICAL FIX
 - **StateID Issue - Root Cause of 400 Error**:

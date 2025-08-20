@@ -597,15 +597,24 @@ export class ProjectDetailPage implements OnInit {
         const attachData = {
           ProjectID: this.projectId,
           TypeID: typeId,
+          ServiceID: serviceId, // Add ServiceID for proper association
           Title: doc.title,
           Notes: `Uploaded via mobile app on ${new Date().toLocaleDateString()}`,
           Link: file.name
         };
         
+        console.log('📝 Creating attachment record:', attachData);
         const newAttach = await this.caspioService.createAttachment(attachData).toPromise();
+        console.log('📋 New attachment created:', newAttach);
+        
+        // Get the AttachID from the response
+        const attachId = newAttach?.AttachID || newAttach?.PK_ID || newAttach?.id;
+        if (!attachId) {
+          throw new Error('Failed to get AttachID from created record');
+        }
         
         // Upload file to Caspio Files API
-        await this.uploadFileToCaspio(newAttach.AttachID, file);
+        await this.uploadFileToCaspio(attachId, file);
         
         await this.showToast('File uploaded successfully', 'success');
       } else if (action === 'replace' && doc.attachId) {
@@ -633,18 +642,17 @@ export class ProjectDetailPage implements OnInit {
   }
 
   private async uploadFileToCaspio(attachId: string, file: File): Promise<void> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const token = this.caspioService.getCurrentToken();
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`
-    });
-    
-    // Upload to Caspio Files API endpoint
-    const apiUrl = `https://c2hcf092.caspio.com/rest/v2/files/Attach/${attachId}`;
-    
-    await this.http.post(apiUrl, formData, { headers }).toPromise();
+    try {
+      console.log('📤 Uploading file to Attach folder:', file.name, 'AttachID:', attachId);
+      
+      // Use the service method which handles authentication
+      await this.caspioService.uploadFileToAttachment(attachId, file).toPromise();
+      
+      console.log('✅ File uploaded successfully to Attach folder');
+    } catch (error) {
+      console.error('❌ Error uploading file to Caspio:', error);
+      throw error;
+    }
   }
 
   async viewDocument(doc: DocumentItem) {
