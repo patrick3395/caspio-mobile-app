@@ -135,13 +135,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
-  // TEST METHOD
-  testCameraButton() {
-    alert('TEST BUTTON CLICKED!');
-    console.log('TEST BUTTON CLICKED');
-    this.showToast('Test button clicked', 'success');
-  }
-  
   async loadProjectData() {
     if (!this.projectId) return;
     
@@ -741,9 +734,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     await alert.present();
   }
   
-  // Camera button handler - with action sheet for options
+  // Camera button handler - EXACTLY like Required Documents uploadDocument
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    alert('Camera button was clicked!');  // TEST ALERT
     console.log('📸 Camera button clicked!', { category, itemId });
     
     // Prevent event bubbling
@@ -757,7 +749,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
-      console.log('Available keys:', Object.keys(this.visualRecordIds));
       await this.showToast('Please save the visual first by checking the box', 'warning');
       return;
     }
@@ -775,82 +766,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
     }
     
-    // Set context for file selection
+    // EXACTLY like Required Documents - just set context and click
     this.currentUploadContext = { visualId, key, category, itemId };
-    
-    // Show action sheet with camera options
-    const actionSheet = await this.actionSheetController.create({
-      header: 'Add Photo',
-      buttons: [
-        {
-          text: 'Take Photo',
-          icon: 'camera',
-          handler: () => {
-            this.openCamera();
-          }
-        },
-        {
-          text: 'Choose from Gallery',
-          icon: 'images',
-          handler: () => {
-            this.openGallery();
-          }
-        },
-        {
-          text: 'Cancel',
-          icon: 'close',
-          role: 'cancel'
-        }
-      ]
-    });
-    
-    await actionSheet.present();
-  }
-  
-  // Open camera
-  private openCamera() {
-    console.log('📸 Opening camera...');
-    
-    if (!this.fileInput || !this.fileInput.nativeElement) {
-      console.error('❌ File input not found!');
-      this.showToast('Camera not available', 'danger');
-      return;
-    }
-    
-    try {
-      // Set up for camera capture
-      this.fileInput.nativeElement.accept = 'image/*';
-      this.fileInput.nativeElement.setAttribute('capture', 'camera');
-      
-      console.log('📸 Triggering file input for camera...');
-      this.fileInput.nativeElement.click();
-    } catch (error) {
-      console.error('❌ Error opening camera:', error);
-      this.showToast('Failed to open camera', 'danger');
-    }
-  }
-  
-  // Open gallery
-  private openGallery() {
-    console.log('🖼️ Opening gallery...');
-    
-    if (!this.fileInput || !this.fileInput.nativeElement) {
-      console.error('❌ File input not found!');
-      this.showToast('Gallery not available', 'danger');
-      return;
-    }
-    
-    try {
-      // Remove capture attribute for gallery
-      this.fileInput.nativeElement.removeAttribute('capture');
-      this.fileInput.nativeElement.accept = 'image/*';
-      
-      console.log('🖼️ Triggering file input for gallery...');
-      this.fileInput.nativeElement.click();
-    } catch (error) {
-      console.error('❌ Error opening gallery:', error);
-      this.showToast('Failed to open gallery', 'danger');
-    }
+    this.fileInput.nativeElement.click();
   }
   
   // Handle file selection from the hidden input (same pattern as Required Documents)
