@@ -283,8 +283,10 @@ export class EngineersFoundationPage implements OnInit {
             );
             
             if (matchingTemplate) {
-              const key = `${visual.Category}_${matchingTemplate.id}`;
+              const key = `${visual.Category}_${matchingTemplate.PK_ID}`;
               console.log('✅ Found matching template, marking as selected:', key);
+              console.log('   Template PK_ID:', matchingTemplate.PK_ID);
+              console.log('   Visual Name:', visual.Name);
               this.selectedItems[key] = true;
               
               // Store the visual record ID
@@ -294,6 +296,7 @@ export class EngineersFoundationPage implements OnInit {
               this.visualRecordIds[key] = visualId;
               
               console.log('📌 Stored visual ID:', visualId, 'for key:', key);
+              console.log('📋 Updated selectedItems:', this.selectedItems);
             } else {
               console.log('⚠️ No matching template found for:', visual.Name);
             }
@@ -512,7 +515,14 @@ export class EngineersFoundationPage implements OnInit {
     console.log('   TemplateID:', templateId);
     console.log('   ServiceID:', this.serviceId);
     
-    // Check if this visual already exists in our tracking
+    // Find the template data first
+    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
+    if (!template) {
+      console.error('❌ Template not found:', templateId);
+      return;
+    }
+    
+    // Check if this visual already exists
     const key = `${category}_${templateId}`;
     if (this.visualRecordIds[key]) {
       console.log('⚠️ Visual already exists with ID:', this.visualRecordIds[key]);
@@ -520,11 +530,24 @@ export class EngineersFoundationPage implements OnInit {
       return;
     }
     
-    // Find the template data
-    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
-    if (!template) {
-      console.error('❌ Template not found:', templateId);
-      return;
+    // Also check if it exists in the database but wasn't loaded yet
+    try {
+      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      if (existingVisuals) {
+        const exists = existingVisuals.find((v: any) => 
+          v.Category === category && 
+          v.Name === template.Name
+        );
+        if (exists) {
+          console.log('⚠️ Visual already exists in database:', exists);
+          // Store the ID for future reference
+          this.visualRecordIds[key] = exists.PK_ID || exists.id || exists.VisualID;
+          console.log('   Stored existing ID:', this.visualRecordIds[key]);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for existing visual:', error);
     }
     
     console.log('📄 Template Found:', template);
@@ -702,7 +725,7 @@ export class EngineersFoundationPage implements OnInit {
     await alert.present();
   }
   
-  // Camera button handler - show action sheet with options
+  // Camera button handler - simplified like Required Documents
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
     console.log('📸 Camera button clicked!', { category, itemId });
     
@@ -717,6 +740,7 @@ export class EngineersFoundationPage implements OnInit {
     
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
+      console.log('Available keys:', Object.keys(this.visualRecordIds));
       await this.showToast('Please save the visual first by checking the box', 'warning');
       return;
     }
@@ -734,42 +758,9 @@ export class EngineersFoundationPage implements OnInit {
       }
     }
     
-    // Show action sheet with photo options
-    const actionSheet = await this.actionSheetController.create({
-      header: 'Add Photo',
-      buttons: [
-        {
-          text: 'Take Photo',
-          icon: 'camera',
-          handler: () => {
-            this.currentUploadContext = { visualId, key, category, itemId };
-            if (this.fileInput && this.fileInput.nativeElement) {
-              this.fileInput.nativeElement.accept = 'image/*';
-              this.fileInput.nativeElement.capture = 'camera' as any;
-              this.fileInput.nativeElement.click();
-            }
-          }
-        },
-        {
-          text: 'Choose from Gallery',
-          icon: 'images',
-          handler: () => {
-            this.currentUploadContext = { visualId, key, category, itemId };
-            if (this.fileInput && this.fileInput.nativeElement) {
-              this.fileInput.nativeElement.accept = 'image/*';
-              this.fileInput.nativeElement.removeAttribute('capture');
-              this.fileInput.nativeElement.click();
-            }
-          }
-        },
-        {
-          text: 'Cancel',
-          icon: 'close',
-          role: 'cancel'
-        }
-      ]
-    });
-    await actionSheet.present();
+    // Set context and directly trigger file input (exactly like Required Documents)
+    this.currentUploadContext = { visualId, key, category, itemId };
+    this.fileInput.nativeElement.click();
   }
   
   // Handle file selection from the hidden input (same pattern as Required Documents)
