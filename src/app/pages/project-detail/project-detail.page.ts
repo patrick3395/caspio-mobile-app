@@ -819,23 +819,33 @@ export class ProjectDetailPage implements OnInit {
             text: 'Continue',
             handler: () => {
               // Navigate to specific template based on service type
+              // Convert typeId to string for consistent comparison
+              const typeIdStr = String(service.typeId);
+              
               console.log('🔍 Template Navigation Debug:', {
                 typeName: service.typeName,
                 typeId: service.typeId,
+                typeIdStr: typeIdStr,
                 serviceId: service.serviceId,
                 projectId: this.projectId,
-                isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || service.typeId === '35'
+                isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
               });
               
               // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
-              if (service.typeName === 'Engineers Foundation Evaluation' || 
-                  service.typeName === 'Engineer\'s Foundation Evaluation' ||
-                  service.typeId === '35' || 
-                  service.typeId === 35) {
+              // Also check for various name formats
+              const isEngineersFoundation = 
+                service.typeName === 'Engineers Foundation Evaluation' || 
+                service.typeName === 'Engineer\'s Foundation Evaluation' ||
+                service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
+                typeIdStr === '35';
+                
+              if (isEngineersFoundation) {
                 console.log('✅ Navigating to Engineers Foundation template');
+                console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
                 this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
               } else {
                 console.log('📝 Navigating to standard template form');
+                console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
                 this.router.navigate(['/template-form', this.projectId, service.serviceId]);
               }
             }
