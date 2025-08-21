@@ -178,6 +178,11 @@ export class ActiveProjectsPage implements OnInit {
       this.loading = false;
     }
     
+    // LIVE UPDATES DISABLED - Preventing corruption and flashing
+    console.log('⚠️ Live Updates check skipped - using bundled version only');
+    console.log('This prevents corruption and reload loops');
+    
+    /* DISABLED CODE - KEPT FOR REFERENCE
     // Check for live updates and handle corruption
     try {
       console.log('Checking for app updates...');
@@ -237,5 +242,6 @@ export class ActiveProjectsPage implements OnInit {
       console.error('Live update check failed (non-critical):', updateError);
       // Don't show error to user as refresh still worked
     }
+    */
   }
 }
