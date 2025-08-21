@@ -272,27 +272,37 @@ export class EngineersFoundationPage implements OnInit {
       // Mark items as selected based on existing records
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
-          if (visual.TemplateID && visual.Category) {
-            const key = `${visual.Category}_${visual.TemplateID}`;
-            this.selectedItems[key] = true;
+          console.log('🔍 Processing visual:', visual);
+          
+          // Find matching template by Name and Category
+          if (visual.Category && visual.Name) {
+            // Find the template that matches this visual
+            const matchingTemplate = this.visualTemplates.find(t => 
+              t.Category === visual.Category && 
+              t.Name === visual.Name
+            );
             
-            // Store the visual record ID
-            const visualId = visual.PK_ID || visual.id || visual.VisualID;
-            const recordKey = `visual_${visual.Category}_${visual.TemplateID}`;
-            localStorage.setItem(recordKey, visualId);
-            
-            // Store in tracking object for photo uploads
-            this.visualRecordIds[key] = visualId;
-            
-            // Update categoryData if exists
-            if (this.categoryData[visual.Category] && this.categoryData[visual.Category][visual.TemplateID]) {
-              this.categoryData[visual.Category][visual.TemplateID].selected = true;
+            if (matchingTemplate) {
+              const key = `${visual.Category}_${matchingTemplate.id}`;
+              console.log('✅ Found matching template, marking as selected:', key);
+              this.selectedItems[key] = true;
+              
+              // Store the visual record ID
+              const visualId = visual.PK_ID || visual.id || visual.VisualID;
+              
+              // Store in tracking object for photo uploads
+              this.visualRecordIds[key] = visualId;
+              
+              console.log('📌 Stored visual ID:', visualId, 'for key:', key);
+            } else {
+              console.log('⚠️ No matching template found for:', visual.Name);
             }
           }
         });
       }
       
-      console.log('Visual selections restored:', this.selectedItems);
+      console.log('✅ Visual selections restored:', this.selectedItems);
+      console.log('📌 Visual record IDs:', this.visualRecordIds);
       
       // Load existing photos for these visuals
       await this.loadExistingPhotos();
@@ -502,6 +512,14 @@ export class EngineersFoundationPage implements OnInit {
     console.log('   TemplateID:', templateId);
     console.log('   ServiceID:', this.serviceId);
     
+    // Check if this visual already exists in our tracking
+    const key = `${category}_${templateId}`;
+    if (this.visualRecordIds[key]) {
+      console.log('⚠️ Visual already exists with ID:', this.visualRecordIds[key]);
+      console.log('   Skipping duplicate save');
+      return;
+    }
+    
     // Find the template data
     const template = this.visualTemplates.find(t => t.PK_ID === templateId);
     if (!template) {
@@ -684,7 +702,7 @@ export class EngineersFoundationPage implements OnInit {
     await alert.present();
   }
   
-  // Camera button handler - simplified to use file input directly
+  // Camera button handler - show action sheet with options
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
     console.log('📸 Camera button clicked!', { category, itemId });
     
@@ -716,17 +734,42 @@ export class EngineersFoundationPage implements OnInit {
       }
     }
     
-    // Set context and trigger file input directly for camera (like Required Documents)
-    this.currentUploadContext = { visualId, key, category, itemId };
-    
-    // Directly trigger the file input with camera capture
-    if (this.fileInput && this.fileInput.nativeElement) {
-      this.fileInput.nativeElement.accept = 'image/*';
-      this.fileInput.nativeElement.capture = 'camera' as any;
-      this.fileInput.nativeElement.click();
-    } else {
-      console.error('File input not found');
-    }
+    // Show action sheet with photo options
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Add Photo',
+      buttons: [
+        {
+          text: 'Take Photo',
+          icon: 'camera',
+          handler: () => {
+            this.currentUploadContext = { visualId, key, category, itemId };
+            if (this.fileInput && this.fileInput.nativeElement) {
+              this.fileInput.nativeElement.accept = 'image/*';
+              this.fileInput.nativeElement.capture = 'camera' as any;
+              this.fileInput.nativeElement.click();
+            }
+          }
+        },
+        {
+          text: 'Choose from Gallery',
+          icon: 'images',
+          handler: () => {
+            this.currentUploadContext = { visualId, key, category, itemId };
+            if (this.fileInput && this.fileInput.nativeElement) {
+              this.fileInput.nativeElement.accept = 'image/*';
+              this.fileInput.nativeElement.removeAttribute('capture');
+              this.fileInput.nativeElement.click();
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close',
+          role: 'cancel'
+        }
+      ]
+    });
+    await actionSheet.present();
   }
   
   // Handle file selection from the hidden input (same pattern as Required Documents)
