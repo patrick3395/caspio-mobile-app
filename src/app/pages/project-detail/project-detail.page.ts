@@ -818,7 +818,12 @@ export class ProjectDetailPage implements OnInit {
           {
             text: 'Continue',
             handler: () => {
-              this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+              // Navigate to specific template based on service type
+              if (service.typeName === 'Engineers Foundation Evaluation') {
+                this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
+              } else {
+                this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+              }
             }
           }
         ]
