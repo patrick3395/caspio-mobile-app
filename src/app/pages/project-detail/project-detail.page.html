@@ -158,18 +158,20 @@
         </div>
         
         <!-- Dynamic documents based on selected services -->
-        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
+        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group" [attr.data-row-count]="serviceDoc.documents.length + 1">
           <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" 
                class="doc-row" 
-               [class.uploaded]="doc.uploaded">
-            <div class="doc-service">
-              <div *ngIf="isFirst">
+               [class.uploaded]="doc.uploaded"
+               [class.first-row]="isFirst">
+            <div class="doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + (serviceDoc.documents.length + 1)">
+              <div>
                 {{ serviceDoc.serviceName }}
                 <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
                   #{{ serviceDoc.instanceNumber }}
                 </span>
               </div>
             </div>
+            <div class="doc-service-placeholder" *ngIf="!isFirst"></div>
             <div class="doc-title">
               <div class="doc-title-content">
                 <span [class.uploaded-text]="doc.uploaded">{{ doc.title }}</span>
