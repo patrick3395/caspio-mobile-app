@@ -59,29 +59,45 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.error = '';
     
-    // Skip table definition check and load projects directly for better performance
-    this.projectsService.getActiveProjects().subscribe({
-      next: (projects) => {
-        this.projects = projects;
-        this.loading = false;
-        console.log('Active projects loaded:', projects);
-      },
-      error: (error) => {
-        // If filtered query fails, try getting all projects and filter locally
-        this.projectsService.getAllProjects().subscribe({
-          next: (allProjects) => {
-            this.projects = allProjects.filter(p => 
-              p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
-            );
+    // First, let's get the table definition to understand the structure
+    this.projectsService.getProjectTableDefinition().subscribe({
+      next: (definition) => {
+        console.log('Projects table structure:', definition);
+        
+        // Now load the active projects
+        this.projectsService.getActiveProjects().subscribe({
+          next: (projects) => {
+            this.projects = projects;
             this.loading = false;
-            console.log('Projects filtered locally:', this.projects);
+            console.log('Active projects loaded:', projects);
           },
-          error: (err) => {
-            this.error = 'Failed to load projects';
-            this.loading = false;
-            console.error('Error loading projects:', err);
+          error: (error) => {
+            // If filtered query fails, try getting all projects and filter locally
+            this.projectsService.getAllProjects().subscribe({
+              next: (allProjects) => {
+                this.projects = allProjects.filter(p => 
+                  p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
+                );
+                this.loading = false;
+                console.log('Projects filtered locally:', this.projects);
+              },
+              error: (err) => {
+                this.error = 'Failed to load projects';
+                this.loading = false;
+                console.error('Error loading projects:', err);
+              }
+            });
           }
         });
+      },
+      error: (error) => {
+        const errorMessage = error?.error?.message || error?.message || 'Unknown error';
+        this.error = `Failed to get table structure: ${errorMessage}`;
+        this.loading = false;
+        console.error('Error getting table definition:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        // Try to load projects anyway without table definition
+        this.loadProjectsDirectly();
       }
     });
   }

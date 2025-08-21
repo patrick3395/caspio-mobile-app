@@ -129,13 +129,11 @@ export class ProjectDetailPage implements OnInit {
         this.loading = false;
         console.log('Project loaded:', project);
         
-        // Load related data in parallel for better performance
-        await Promise.all([
-          this.loadAvailableOffers(),
-          this.loadExistingServices(),
-          this.loadAttachTemplates(),
-          this.loadExistingAttachments()
-        ]);
+        // Load related data
+        await this.loadAvailableOffers();
+        await this.loadExistingServices();
+        await this.loadAttachTemplates();
+        await this.loadExistingAttachments();
       },
       error: (error) => {
         this.error = 'Failed to load project';
