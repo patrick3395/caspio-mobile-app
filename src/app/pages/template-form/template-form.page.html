@@ -30,156 +30,310 @@
 
     <form (ngSubmit)="submitForm()">
       <!-- Project Information Section (Shared across all services) -->
-      <div class="section-card">
-        <div class="section-header" (click)="toggleSection('project')">
+      <div class="section-card project-info-card">
+        <div class="section-header project-header" (click)="toggleSection('project')">
           <div class="section-info">
             <div class="section-title">
-              <span class="section-icon">🏗️</span>
+              <span class="section-icon">🏠</span>
               Project Information
             </div>
-            <div class="section-description">Shared project details for all services</div>
+            <div class="section-description">Core property and inspection details</div>
           </div>
-          <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          <div class="section-status">
+            <span class="completion-indicator" [class.complete]="getProjectCompletion() === 100">
+              {{getProjectCompletion()}}% Complete
+            </span>
+            <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          </div>
         </div>
         
         <div class="section-content" *ngIf="expandedSections['project']">
-          <div class="subsection-card">
-            <div class="form-grid">
+          <!-- People & Roles -->
+          <div class="info-group">
+            <h3 class="group-title">
+              <ion-icon name="people-outline"></ion-icon>
+              People & Roles
+            </h3>
+            <div class="form-grid three-col">
               <!-- Client Name -->
-              <div class="form-group">
-                <label>Client Name</label>
+              <div class="form-group" [class.filled]="projectData.ClientName">
+                <label>
+                  <ion-icon name="person-outline"></ion-icon>
+                  Client Name
+                </label>
                 <input type="text" [(ngModel)]="projectData.ClientName" name="ClientName"
                        (ngModelChange)="onProjectFieldChange('ClientName', $event)"
-                       placeholder="Enter client name">
+                       placeholder="Enter client name"
+                       class="styled-input">
               </div>
 
               <!-- Agent Name -->
-              <div class="form-group">
-                <label>Agent Name</label>
+              <div class="form-group" [class.filled]="projectData.AgentName">
+                <label>
+                  <ion-icon name="briefcase-outline"></ion-icon>
+                  Agent Name
+                </label>
                 <input type="text" [(ngModel)]="projectData.AgentName" name="AgentName"
                        (ngModelChange)="onProjectFieldChange('AgentName', $event)"
-                       placeholder="Enter agent name">
+                       placeholder="Enter agent name"
+                       class="styled-input">
               </div>
 
               <!-- Inspector Name -->
-              <div class="form-group">
-                <label>Inspector Name</label>
+              <div class="form-group" [class.filled]="projectData.InspectorName">
+                <label>
+                  <ion-icon name="clipboard-outline"></ion-icon>
+                  Inspector Name
+                </label>
                 <input type="text" [(ngModel)]="projectData.InspectorName" name="InspectorName"
                        (ngModelChange)="onProjectFieldChange('InspectorName', $event)"
-                       placeholder="Enter inspector name">
-              </div>
-
-              <!-- Year Built -->
-              <div class="form-group">
-                <label>Year Built</label>
-                <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
-                       (ngModelChange)="onProjectFieldChange('YearBuilt', $event)"
-                       placeholder="e.g., 1985">
-              </div>
-
-              <!-- Square Feet -->
-              <div class="form-group">
-                <label>Square Feet</label>
-                <input type="text" [(ngModel)]="projectData.SquareFeet" name="SquareFeet"
-                       (ngModelChange)="onProjectFieldChange('SquareFeet', $event)"
-                       placeholder="e.g., 2500">
-              </div>
-
-              <!-- Type of Building -->
-              <div class="form-group">
-                <label>Type of Building</label>
-                <input type="text" [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
-                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
-                       placeholder="e.g., Single Family">
-              </div>
-
-              <!-- Style -->
-              <div class="form-group">
-                <label>Style</label>
-                <input type="text" [(ngModel)]="projectData.Style" name="Style"
-                       (ngModelChange)="onProjectFieldChange('Style', $event)"
-                       placeholder="e.g., Ranch">
+                       placeholder="Enter inspector name"
+                       class="styled-input">
               </div>
 
               <!-- In Attendance -->
-              <div class="form-group">
-                <label>In Attendance</label>
+              <div class="form-group full-width" [class.filled]="projectData.InAttendance">
+                <label>
+                  <ion-icon name="people-circle-outline"></ion-icon>
+                  In Attendance
+                </label>
                 <input type="text" [(ngModel)]="projectData.InAttendance" name="InAttendance"
                        (ngModelChange)="onProjectFieldChange('InAttendance', $event)"
-                       placeholder="Who was present">
+                       placeholder="Who was present during inspection"
+                       class="styled-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Property Details -->
+          <div class="info-group">
+            <h3 class="group-title">
+              <ion-icon name="home-outline"></ion-icon>
+              Property Details
+            </h3>
+            <div class="form-grid three-col">
+
+              <!-- Year Built -->
+              <div class="form-group" [class.filled]="projectData.YearBuilt">
+                <label>
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  Year Built
+                </label>
+                <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
+                       (ngModelChange)="onProjectFieldChange('YearBuilt', $event)"
+                       placeholder="e.g., 1985"
+                       class="styled-input">
               </div>
 
-              <!-- Weather Conditions -->
-              <div class="form-group">
-                <label>Weather Conditions</label>
-                <input type="text" [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
-                       (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
-                       placeholder="e.g., Clear, 75°F">
+              <!-- Square Feet -->
+              <div class="form-group" [class.filled]="projectData.SquareFeet">
+                <label>
+                  <ion-icon name="resize-outline"></ion-icon>
+                  Square Feet
+                </label>
+                <input type="text" [(ngModel)]="projectData.SquareFeet" name="SquareFeet"
+                       (ngModelChange)="onProjectFieldChange('SquareFeet', $event)"
+                       placeholder="e.g., 2500"
+                       class="styled-input">
               </div>
 
-              <!-- Outdoor Temperature -->
-              <div class="form-group">
-                <label>Outdoor Temperature</label>
-                <input type="text" [(ngModel)]="projectData.OutdoorTemperature" name="OutdoorTemperature"
-                       (ngModelChange)="onProjectFieldChange('OutdoorTemperature', $event)"
-                       placeholder="e.g., 75°F">
+              <!-- Type of Building -->
+              <div class="form-group" [class.filled]="projectData.TypeOfBuilding">
+                <label>
+                  <ion-icon name="business-outline"></ion-icon>
+                  Building Type
+                </label>
+                <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
+                        (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
+                        class="styled-input">
+                  <option value="">Select type</option>
+                  <option value="Single Family">Single Family</option>
+                  <option value="Multi Family">Multi Family</option>
+                  <option value="Townhouse">Townhouse</option>
+                  <option value="Condominium">Condominium</option>
+                  <option value="Commercial">Commercial</option>
+                </select>
+              </div>
+
+              <!-- Style -->
+              <div class="form-group" [class.filled]="projectData.Style">
+                <label>
+                  <ion-icon name="color-palette-outline"></ion-icon>
+                  Style
+                </label>
+                <select [(ngModel)]="projectData.Style" name="Style"
+                        (ngModelChange)="onProjectFieldChange('Style', $event)"
+                        class="styled-input">
+                  <option value="">Select style</option>
+                  <option value="Ranch">Ranch</option>
+                  <option value="Two Story">Two Story</option>
+                  <option value="Split Level">Split Level</option>
+                  <option value="Colonial">Colonial</option>
+                  <option value="Contemporary">Contemporary</option>
+                  <option value="Traditional">Traditional</option>
+                </select>
               </div>
 
               <!-- Occupancy Furnishings -->
-              <div class="form-group">
-                <label>Occupancy Furnishings</label>
-                <input type="text" [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
-                       (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
-                       placeholder="Furnished/Unfurnished">
+              <div class="form-group" [class.filled]="projectData.OccupancyFurnishings">
+                <label>
+                  <ion-icon name="bed-outline"></ion-icon>
+                  Occupancy Status
+                </label>
+                <select [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
+                        (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
+                        class="styled-input">
+                  <option value="">Select status</option>
+                  <option value="Occupied - Furnished">Occupied - Furnished</option>
+                  <option value="Occupied - Unfurnished">Occupied - Unfurnished</option>
+                  <option value="Vacant - Furnished">Vacant - Furnished</option>
+                  <option value="Vacant - Unfurnished">Vacant - Unfurnished</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Environmental Conditions -->
+          <div class="info-group">
+            <h3 class="group-title">
+              <ion-icon name="partly-sunny-outline"></ion-icon>
+              Environmental Conditions
+            </h3>
+            <div class="form-grid two-col">
+
+              <!-- Weather Conditions -->
+              <div class="form-group" [class.filled]="projectData.WeatherConditions">
+                <label>
+                  <ion-icon name="cloud-outline"></ion-icon>
+                  Weather Conditions
+                </label>
+                <select [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
+                        (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
+                        class="styled-input">
+                  <option value="">Select weather</option>
+                  <option value="Clear">Clear</option>
+                  <option value="Partly Cloudy">Partly Cloudy</option>
+                  <option value="Cloudy">Cloudy</option>
+                  <option value="Light Rain">Light Rain</option>
+                  <option value="Heavy Rain">Heavy Rain</option>
+                  <option value="Windy">Windy</option>
+                  <option value="Foggy">Foggy</option>
+                </select>
               </div>
 
-              <!-- First Foundation Type -->
-              <div class="form-group">
-                <label>First Foundation Type</label>
-                <input type="text" [(ngModel)]="projectData.FirstFoundationType" name="FirstFoundationType"
-                       (ngModelChange)="onProjectFieldChange('FirstFoundationType', $event)"
-                       placeholder="e.g., Slab on Grade">
+              <!-- Outdoor Temperature -->
+              <div class="form-group" [class.filled]="projectData.OutdoorTemperature">
+                <label>
+                  <ion-icon name="thermometer-outline"></ion-icon>
+                  Outdoor Temperature
+                </label>
+                <input type="text" [(ngModel)]="projectData.OutdoorTemperature" name="OutdoorTemperature"
+                       (ngModelChange)="onProjectFieldChange('OutdoorTemperature', $event)"
+                       placeholder="e.g., 75°F"
+                       class="styled-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Foundation Information -->
+          <div class="info-group">
+            <h3 class="group-title">
+              <ion-icon name="layers-outline"></ion-icon>
+              Foundation Details
+            </h3>
+            <div class="form-grid">
+
+              <!-- Foundation Cards -->
+              <div class="foundation-card primary">
+                <div class="foundation-header">
+                  <span class="foundation-badge">Primary</span>
+                </div>
+                <div class="form-group" [class.filled]="projectData.FirstFoundationType">
+                  <label>Foundation Type</label>
+                  <select [(ngModel)]="projectData.FirstFoundationType" name="FirstFoundationType"
+                          (ngModelChange)="onProjectFieldChange('FirstFoundationType', $event)"
+                          class="styled-input">
+                    <option value="">Select type</option>
+                    <option value="Slab on Grade">Slab on Grade</option>
+                    <option value="Pier and Beam">Pier and Beam</option>
+                    <option value="Basement">Basement</option>
+                    <option value="Crawl Space">Crawl Space</option>
+                  </select>
+                </div>
               </div>
 
-              <!-- Second Foundation Type -->
-              <div class="form-group">
-                <label>Second Foundation Type</label>
-                <input type="text" [(ngModel)]="projectData.SecondFoundationType" name="SecondFoundationType"
-                       (ngModelChange)="onProjectFieldChange('SecondFoundationType', $event)"
-                       placeholder="If applicable">
+              <div class="foundation-card secondary" *ngIf="projectData.FirstFoundationType">
+                <div class="foundation-header">
+                  <span class="foundation-badge secondary">Secondary</span>
+                  <span class="optional-text">(if applicable)</span>
+                </div>
+                <div class="form-group" [class.filled]="projectData.SecondFoundationType">
+                  <label>Foundation Type</label>
+                  <select [(ngModel)]="projectData.SecondFoundationType" name="SecondFoundationType"
+                          (ngModelChange)="onProjectFieldChange('SecondFoundationType', $event)"
+                          class="styled-input">
+                    <option value="">Select type</option>
+                    <option value="Slab on Grade">Slab on Grade</option>
+                    <option value="Pier and Beam">Pier and Beam</option>
+                    <option value="Basement">Basement</option>
+                    <option value="Crawl Space">Crawl Space</option>
+                  </select>
+                </div>
+                <div class="form-group" [class.filled]="projectData.SecondFoundationRooms">
+                  <label>Affected Rooms</label>
+                  <input type="text" [(ngModel)]="projectData.SecondFoundationRooms" name="SecondFoundationRooms"
+                         (ngModelChange)="onProjectFieldChange('SecondFoundationRooms', $event)"
+                         placeholder="e.g., Master bedroom, Kitchen"
+                         class="styled-input">
+                </div>
               </div>
 
-              <!-- Second Foundation Rooms -->
-              <div class="form-group">
-                <label>Second Foundation Rooms</label>
-                <input type="text" [(ngModel)]="projectData.SecondFoundationRooms" name="SecondFoundationRooms"
-                       (ngModelChange)="onProjectFieldChange('SecondFoundationRooms', $event)"
-                       placeholder="Rooms with second foundation">
+              <div class="foundation-card tertiary" *ngIf="projectData.SecondFoundationType">
+                <div class="foundation-header">
+                  <span class="foundation-badge tertiary">Tertiary</span>
+                  <span class="optional-text">(if applicable)</span>
+                </div>
+                <div class="form-group" [class.filled]="projectData.ThirdFoundationType">
+                  <label>Foundation Type</label>
+                  <select [(ngModel)]="projectData.ThirdFoundationType" name="ThirdFoundationType"
+                          (ngModelChange)="onProjectFieldChange('ThirdFoundationType', $event)"
+                          class="styled-input">
+                    <option value="">Select type</option>
+                    <option value="Slab on Grade">Slab on Grade</option>
+                    <option value="Pier and Beam">Pier and Beam</option>
+                    <option value="Basement">Basement</option>
+                    <option value="Crawl Space">Crawl Space</option>
+                  </select>
+                </div>
+                <div class="form-group" [class.filled]="projectData.ThirdFoundationRooms">
+                  <label>Affected Rooms</label>
+                  <input type="text" [(ngModel)]="projectData.ThirdFoundationRooms" name="ThirdFoundationRooms"
+                         (ngModelChange)="onProjectFieldChange('ThirdFoundationRooms', $event)"
+                         placeholder="e.g., Garage, Addition"
+                         class="styled-input">
+                </div>
               </div>
 
-              <!-- Third Foundation Type -->
-              <div class="form-group">
-                <label>Third Foundation Type</label>
-                <input type="text" [(ngModel)]="projectData.ThirdFoundationType" name="ThirdFoundationType"
-                       (ngModelChange)="onProjectFieldChange('ThirdFoundationType', $event)"
-                       placeholder="If applicable">
-              </div>
+            </div>
+          </div>
 
-              <!-- Third Foundation Rooms -->
-              <div class="form-group">
-                <label>Third Foundation Rooms</label>
-                <input type="text" [(ngModel)]="projectData.ThirdFoundationRooms" name="ThirdFoundationRooms"
-                       (ngModelChange)="onProjectFieldChange('ThirdFoundationRooms', $event)"
-                       placeholder="Rooms with third foundation">
-              </div>
-
-              <!-- Owner Occupant Interview -->
-              <div class="form-group full-width">
-                <label>Owner Occupant Interview</label>
+          <!-- Owner Interview -->
+          <div class="info-group">
+            <h3 class="group-title">
+              <ion-icon name="chatbubbles-outline"></ion-icon>
+              Owner/Occupant Interview
+            </h3>
+            <div class="form-grid">
+              <div class="form-group full-width" [class.filled]="projectData.OwnerOccupantInterview">
+                <label>Interview Notes & Observations</label>
                 <textarea [(ngModel)]="projectData.OwnerOccupantInterview" name="OwnerOccupantInterview"
                           (ngModelChange)="onProjectFieldChange('OwnerOccupantInterview', $event)"
-                          rows="4"
-                          placeholder="Interview notes and observations"></textarea>
+                          rows="5"
+                          placeholder="Document owner concerns, observations, history of issues, repairs, etc."
+                          class="styled-input"></textarea>
+                <span class="char-count" *ngIf="projectData.OwnerOccupantInterview">
+                  {{projectData.OwnerOccupantInterview.length}} characters
+                </span>
               </div>
             </div>
           </div>
@@ -535,70 +689,228 @@
         </div>
       </div>
 
-      <!-- Structural Systems Section -->
-      <div class="section-card">
-        <div class="section-header" (click)="toggleSection(2)">
+      <!-- Documents Section -->
+      <div class="section-card documents-section">
+        <div class="section-header documents-header" (click)="toggleSection(2)">
           <div class="section-info">
             <div class="section-title">
-              <span class="section-icon">🏗️</span>
-              Structural Systems
+              <span class="section-icon">📄</span>
+              Documents & Reports
             </div>
-            <div class="section-description">Upload inspection reports and documents</div>
+            <div class="section-description">Service documentation and inspection reports</div>
           </div>
-          <ion-icon [name]="expandedSections[2] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          <div class="section-status">
+            <span class="doc-counter" [class.complete]="getUploadedDocumentsCount() > 0">
+              {{getUploadedDocumentsCount()}} / {{getTotalDocumentsCount()}} Uploaded
+            </span>
+            <ion-icon [name]="expandedSections[2] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          </div>
         </div>
         
         <div class="section-content" *ngIf="expandedSections[2]">
-          <div class="form-row">
-            <ion-item [class.completed]="hasValue('homeInspectionReport')">
-              <ion-label position="stacked" [class.completed]="hasValue('homeInspectionReport')">
-                <span *ngIf="hasValue('homeInspectionReport')">✓ </span>Home Inspection Report
-              </ion-label>
-              <input type="file" (change)="onFileSelected($event, 'homeInspectionReport')" accept=".pdf,.doc,.docx">
-              <p class="file-hint">Upload inspection report or provide link below</p>
-            </ion-item>
-          </div>
+          <!-- Documents Grid -->
+          <div class="documents-grid">
+            
+            <!-- Home Inspection Report -->
+            <div class="document-card" [class.uploaded]="documentStatus['homeInspectionReport']">
+              <div class="doc-header">
+                <ion-icon name="document-text-outline" [class.uploaded]="documentStatus['homeInspectionReport']"></ion-icon>
+                <h4>Home Inspection Report</h4>
+                <span class="doc-status" *ngIf="documentStatus['homeInspectionReport']">
+                  <ion-icon name="checkmark-circle"></ion-icon> Uploaded
+                </span>
+              </div>
+              
+              <div class="doc-content">
+                <!-- Show filename if uploaded -->
+                <div class="uploaded-file-info" *ngIf="documentStatus['homeInspectionReport']">
+                  <div class="file-name">
+                    <ion-icon name="attach-outline"></ion-icon>
+                    <span>{{documentNames['homeInspectionReport'] || 'Document uploaded'}}</span>
+                  </div>
+                  <div class="file-meta">
+                    Uploaded: {{documentDates['homeInspectionReport'] || 'Recently'}}
+                  </div>
+                </div>
+                
+                <!-- Upload area -->
+                <div class="upload-area" *ngIf="!documentStatus['homeInspectionReport']">
+                  <input type="file" 
+                         id="homeInspectionReport" 
+                         (change)="onDocumentSelected($event, 'homeInspectionReport', 'Home Inspection Report')"
+                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                         class="hidden-input">
+                  <label for="homeInspectionReport" class="upload-button">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                    Select File
+                  </label>
+                  <span class="upload-hint">PDF, DOC, or Image files</span>
+                </div>
+                
+                <!-- Link alternative -->
+                <div class="link-alternative">
+                  <label>Or provide a link:</label>
+                  <input type="text" 
+                         [(ngModel)]="formData.homeInspectionLink" 
+                         name="homeInspectionLink"
+                         placeholder="https://..."
+                         class="link-input"
+                         (change)="onLinkProvided('homeInspectionReport', $event)">
+                </div>
+                
+                <!-- Actions for uploaded document -->
+                <div class="doc-actions" *ngIf="documentStatus['homeInspectionReport']">
+                  <button class="action-btn view" (click)="viewDocument('homeInspectionReport')">
+                    <ion-icon name="eye-outline"></ion-icon> View
+                  </button>
+                  <button class="action-btn replace" (click)="replaceDocument('homeInspectionReport')">
+                    <ion-icon name="swap-horizontal-outline"></ion-icon> Replace
+                  </button>
+                  <button class="action-btn remove" (click)="removeDocument('homeInspectionReport')">
+                    <ion-icon name="trash-outline"></ion-icon> Remove
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-row">
-            <ion-item [class.completed]="hasValue('homeInspectionLink')">
-              <ion-label position="stacked" [class.completed]="hasValue('homeInspectionLink')">
-                <span *ngIf="hasValue('homeInspectionLink')">✓ </span>or Home Inspection Link
-              </ion-label>
-              <ion-input [(ngModel)]="formData.homeInspectionLink" name="homeInspectionLink" 
-                         placeholder="Enter link"
-                         (ionChange)="onFieldChange('homeInspectionLink', $event.detail.value)"
-                         [class.has-value]="hasValue('homeInspectionLink')"></ion-input>
-            </ion-item>
-          </div>
+            <!-- Engineer's Evaluation Report -->
+            <div class="document-card" [class.uploaded]="documentStatus['engineersEvaluationReport']">
+              <div class="doc-header">
+                <ion-icon name="document-text-outline" [class.uploaded]="documentStatus['engineersEvaluationReport']"></ion-icon>
+                <h4>Engineer's Evaluation Report</h4>
+                <span class="doc-status" *ngIf="documentStatus['engineersEvaluationReport']">
+                  <ion-icon name="checkmark-circle"></ion-icon> Uploaded
+                </span>
+              </div>
+              
+              <div class="doc-content">
+                <!-- Show filename if uploaded -->
+                <div class="uploaded-file-info" *ngIf="documentStatus['engineersEvaluationReport']">
+                  <div class="file-name">
+                    <ion-icon name="attach-outline"></ion-icon>
+                    <span>{{documentNames['engineersEvaluationReport'] || 'Document uploaded'}}</span>
+                  </div>
+                  <div class="file-meta">
+                    Uploaded: {{documentDates['engineersEvaluationReport'] || 'Recently'}}
+                  </div>
+                </div>
+                
+                <!-- Upload area -->
+                <div class="upload-area" *ngIf="!documentStatus['engineersEvaluationReport']">
+                  <input type="file" 
+                         id="engineersEvaluationReport" 
+                         (change)="onDocumentSelected($event, 'engineersEvaluationReport', 'Engineers Evaluation Report')"
+                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                         class="hidden-input">
+                  <label for="engineersEvaluationReport" class="upload-button">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                    Select File
+                  </label>
+                  <span class="upload-hint">PDF, DOC, or Image files</span>
+                </div>
+                
+                <!-- Link alternative -->
+                <div class="link-alternative">
+                  <label>Or provide a link:</label>
+                  <input type="text" 
+                         [(ngModel)]="formData.engineerLink" 
+                         name="engineerLink"
+                         placeholder="https://..."
+                         class="link-input"
+                         (change)="onLinkProvided('engineersEvaluationReport', $event)">
+                </div>
+                
+                <!-- Actions for uploaded document -->
+                <div class="doc-actions" *ngIf="documentStatus['engineersEvaluationReport']">
+                  <button class="action-btn view" (click)="viewDocument('engineersEvaluationReport')">
+                    <ion-icon name="eye-outline"></ion-icon> View
+                  </button>
+                  <button class="action-btn replace" (click)="replaceDocument('engineersEvaluationReport')">
+                    <ion-icon name="swap-horizontal-outline"></ion-icon> Replace
+                  </button>
+                  <button class="action-btn remove" (click)="removeDocument('engineersEvaluationReport')">
+                    <ion-icon name="trash-outline"></ion-icon> Remove
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-row">
-            <ion-item [class.completed]="hasValue('engineersEvaluationReport')">
-              <ion-label position="stacked" [class.completed]="hasValue('engineersEvaluationReport')">
-                <span *ngIf="hasValue('engineersEvaluationReport')">✓ </span>Engineer's Evaluation Report
-              </ion-label>
-              <input type="file" (change)="onFileSelected($event, 'engineersEvaluationReport')" accept=".pdf,.doc,.docx">
-            </ion-item>
-          </div>
+            <!-- Support Documents -->
+            <div class="document-card" [class.uploaded]="documentStatus['supportDocument']">
+              <div class="doc-header">
+                <ion-icon name="document-text-outline" [class.uploaded]="documentStatus['supportDocument']"></ion-icon>
+                <h4>Support Documents</h4>
+                <span class="doc-status" *ngIf="documentStatus['supportDocument']">
+                  <ion-icon name="checkmark-circle"></ion-icon> Uploaded
+                </span>
+              </div>
+              
+              <div class="doc-content">
+                <!-- Show filename if uploaded -->
+                <div class="uploaded-file-info" *ngIf="documentStatus['supportDocument']">
+                  <div class="file-name">
+                    <ion-icon name="attach-outline"></ion-icon>
+                    <span>{{documentNames['supportDocument'] || 'Document uploaded'}}</span>
+                  </div>
+                  <div class="file-meta">
+                    Uploaded: {{documentDates['supportDocument'] || 'Recently'}}
+                  </div>
+                </div>
+                
+                <!-- Upload area -->
+                <div class="upload-area" *ngIf="!documentStatus['supportDocument']">
+                  <input type="file" 
+                         id="supportDocument" 
+                         (change)="onDocumentSelected($event, 'supportDocument', 'Support Document')"
+                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                         class="hidden-input">
+                  <label for="supportDocument" class="upload-button">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                    Select File
+                  </label>
+                  <span class="upload-hint">PDF, DOC, or Image files</span>
+                </div>
+                
+                <!-- Actions for uploaded document -->
+                <div class="doc-actions" *ngIf="documentStatus['supportDocument']">
+                  <button class="action-btn view" (click)="viewDocument('supportDocument')">
+                    <ion-icon name="eye-outline"></ion-icon> View
+                  </button>
+                  <button class="action-btn replace" (click)="replaceDocument('supportDocument')">
+                    <ion-icon name="swap-horizontal-outline"></ion-icon> Replace
+                  </button>
+                  <button class="action-btn remove" (click)="removeDocument('supportDocument')">
+                    <ion-icon name="trash-outline"></ion-icon> Remove
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-row">
-            <ion-item [class.completed]="hasValue('engineerLink')">
-              <ion-label position="stacked" [class.completed]="hasValue('engineerLink')">
-                <span *ngIf="hasValue('engineerLink')">✓ </span>or Engineer's Evaluation Link
-              </ion-label>
-              <ion-input [(ngModel)]="formData.engineerLink" name="engineerLink" 
-                         placeholder="Enter link"
-                         (ionChange)="onFieldChange('engineerLink', $event.detail.value)"
-                         [class.has-value]="hasValue('engineerLink')"></ion-input>
-            </ion-item>
-          </div>
-
-          <div class="form-row">
-            <ion-item [class.completed]="hasValue('supportDocument')">
-              <ion-label position="stacked" [class.completed]="hasValue('supportDocument')">
-                <span *ngIf="hasValue('supportDocument')">✓ </span>Support Document
-              </ion-label>
-              <input type="file" (change)="onFileSelected($event, 'supportDocument')" accept=".pdf,.doc,.docx">
-            </ion-item>
+            <!-- Additional Documents Section -->
+            <div class="document-card add-more">
+              <div class="add-doc-content">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                <h4>Additional Documents</h4>
+                <p>Add any other relevant documents</p>
+                <button class="add-doc-btn" (click)="addAdditionalDocument()">
+                  <ion-icon name="add"></ion-icon> Add Document
+                </button>
+              </div>
+              
+              <!-- List of additional documents -->
+              <div class="additional-docs-list" *ngIf="additionalDocuments.length > 0">
+                <div class="additional-doc" *ngFor="let doc of additionalDocuments; let i = index">
+                  <div class="file-name">
+                    <ion-icon name="document-attach" class="uploaded"></ion-icon>
+                    <span>{{doc.name}}</span>
+                  </div>
+                  <button class="remove-btn" (click)="removeAdditionalDocument(i)">
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </div>
       </div>

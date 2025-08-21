@@ -38,6 +38,18 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     structural: 0,
     elevation: 0
   };
+
+  // Document tracking
+  documentStatus: { [key: string]: boolean } = {
+    homeInspectionReport: false,
+    engineersEvaluationReport: false,
+    supportDocument: false
+  };
+  
+  documentNames: { [key: string]: string } = {};
+  documentDates: { [key: string]: string } = {};
+  documentAttachIds: { [key: string]: number } = {};
+  additionalDocuments: any[] = [];
   
   expandedSections: { [key: number | string]: boolean } = {
     'project': true,  // Project Information section expanded by default
@@ -264,6 +276,18 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     const fields = ['buildingType', 'style', 'attendance', 'weather', 'temperature', 'occupancy'];
     const completed = fields.filter(field => this.formData[field] && this.formData[field] !== '').length;
     return Math.round((completed / fields.length) * 100);
+  }
+
+  getProjectCompletion(): number {
+    const projectFields = [
+      'ClientName', 'AgentName', 'InspectorName', 'YearBuilt', 'SquareFeet',
+      'TypeOfBuilding', 'Style', 'InAttendance', 'WeatherConditions',
+      'OutdoorTemperature', 'OccupancyFurnishings', 'FirstFoundationType'
+    ];
+    const completed = projectFields.filter(field => 
+      this.projectData[field] && this.projectData[field] !== ''
+    ).length;
+    return Math.round((completed / projectFields.length) * 100);
   }
 
   async onFileSelected(event: any, fieldName: string) {
@@ -550,5 +574,129 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         console.error('Error loading saved data:', error);
       }
     }
+  }
+
+  // Document Management Methods
+  getUploadedDocumentsCount(): number {
+    const mainDocs = Object.values(this.documentStatus).filter(status => status).length;
+    return mainDocs + this.additionalDocuments.length;
+  }
+
+  getTotalDocumentsCount(): number {
+    return 3 + this.additionalDocuments.length; // 3 main documents + additional
+  }
+
+  async onDocumentSelected(event: any, docType: string, linkTitle: string) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    console.log(`📄 Document selected for ${docType}:`, file.name);
+    
+    // Store document info
+    this.documentNames[docType] = file.name;
+    this.documentDates[docType] = new Date().toLocaleDateString();
+    
+    // Upload to Caspio if we have a service ID
+    if (this.currentServiceID && this.projectId) {
+      this.showSaveStatus(`Uploading ${linkTitle}...`, 'info');
+      
+      try {
+        // Create attachment record with the Link field populated
+        const response = await this.caspioService.createAttachmentWithFile(
+          parseInt(this.projectId),
+          1, // TypeID for documents
+          linkTitle,
+          `Document for Service ID: ${this.currentServiceID}`,
+          file
+        ).toPromise();
+        
+        if (response) {
+          console.log('✅ Document uploaded:', response);
+          this.documentStatus[docType] = true;
+          this.documentAttachIds[docType] = response.AttachID || response.id;
+          this.showSaveStatus(`${linkTitle} uploaded successfully`, 'success');
+          
+          // Update field tracking
+          this.fieldStates[docType] = true;
+          this.updateAllSectionProgress();
+        }
+      } catch (error) {
+        console.error('❌ Document upload failed:', error);
+        this.showSaveStatus('Upload failed', 'error');
+      }
+    } else {
+      // Mark as uploaded locally (will upload when service is created)
+      this.documentStatus[docType] = true;
+      this.selectedFiles[docType] = file;
+      this.fieldStates[docType] = true;
+      this.updateAllSectionProgress();
+    }
+  }
+
+  onLinkProvided(docType: string, event: any) {
+    const link = event.target.value;
+    if (link && link.trim()) {
+      this.documentNames[docType] = link;
+      this.documentDates[docType] = new Date().toLocaleDateString();
+      this.documentStatus[docType] = true;
+      this.fieldStates[docType] = true;
+      this.updateAllSectionProgress();
+    }
+  }
+
+  viewDocument(docType: string) {
+    const attachId = this.documentAttachIds[docType];
+    if (attachId) {
+      // TODO: Implement document viewing
+      console.log(`View document ${docType} with AttachID: ${attachId}`);
+    } else if (this.documentNames[docType]?.startsWith('http')) {
+      window.open(this.documentNames[docType], '_blank');
+    }
+  }
+
+  replaceDocument(docType: string) {
+    // Reset the document status to allow re-upload
+    this.documentStatus[docType] = false;
+    
+    // Trigger file input click
+    setTimeout(() => {
+      const fileInput = document.getElementById(docType) as HTMLInputElement;
+      if (fileInput) {
+        fileInput.click();
+      }
+    }, 100);
+  }
+
+  async removeDocument(docType: string) {
+    const attachId = this.documentAttachIds[docType];
+    
+    if (attachId) {
+      try {
+        await this.caspioService.deleteAttachment(attachId.toString()).toPromise();
+        console.log(`✅ Document ${docType} deleted`);
+      } catch (error) {
+        console.error('❌ Failed to delete document:', error);
+      }
+    }
+    
+    // Clear local tracking
+    this.documentStatus[docType] = false;
+    delete this.documentNames[docType];
+    delete this.documentDates[docType];
+    delete this.documentAttachIds[docType];
+    delete this.selectedFiles[docType];
+    
+    // Update field tracking
+    this.fieldStates[docType] = false;
+    this.updateAllSectionProgress();
+  }
+
+  addAdditionalDocument() {
+    // TODO: Implement additional document upload dialog
+    console.log('Add additional document');
+  }
+
+  removeAdditionalDocument(index: number) {
+    this.additionalDocuments.splice(index, 1);
   }
 }

@@ -1,5 +1,587 @@
 ion-toolbar{--background:#007AFF}
 .template-container{padding:16px;background:#f5f5f5;min-height:100%}
+
+// Project Information Section Enhancements
+.project-info-card {
+  border: 2px solid #e3f2fd;
+  background: linear-gradient(to bottom, #ffffff, #fafbfc);
+  
+  .project-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    
+    .section-title {
+      color: white;
+      font-size: 20px;
+      font-weight: 600;
+      
+      .section-icon {
+        font-size: 24px;
+      }
+    }
+    
+    .section-description {
+      color: rgba(255,255,255,0.9);
+      font-size: 14px;
+    }
+    
+    .section-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      .completion-indicator {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        
+        &.complete {
+          background: #4CAF50;
+        }
+      }
+      
+      ion-icon {
+        color: white;
+      }
+    }
+  }
+}
+
+// Info Groups
+.info-group {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  
+  .group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+    
+    ion-icon {
+      font-size: 20px;
+      color: #667eea;
+    }
+  }
+}
+
+// Form Grid Layouts
+.form-grid {
+  display: grid;
+  gap: 16px;
+  
+  &.three-col {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  
+  &.two-col {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  
+  .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+// Form Groups
+.form-group {
+  position: relative;
+  
+  label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5a6c7d;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    ion-icon {
+      font-size: 16px;
+      color: #667eea;
+    }
+  }
+  
+  .styled-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    font-size: 15px;
+    background: white;
+    transition: all 0.3s ease;
+    
+    &:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    &::placeholder {
+      color: #a0aec0;
+    }
+  }
+  
+  select.styled-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  
+  textarea.styled-input {
+    resize: vertical;
+    min-height: 100px;
+  }
+  
+  &.filled {
+    .styled-input {
+      background: #f0f9ff;
+      border-color: #4CAF50;
+    }
+    
+    label {
+      color: #4CAF50;
+      
+      ion-icon {
+        color: #4CAF50;
+      }
+    }
+  }
+  
+  .char-count {
+    position: absolute;
+    bottom: -20px;
+    right: 0;
+    font-size: 11px;
+    color: #a0aec0;
+  }
+}
+
+// Documents Section Styles
+.documents-section {
+  .documents-header {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: white;
+    
+    .section-title, .section-description {
+      color: white;
+    }
+    
+    .section-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      .doc-counter {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        
+        &.complete {
+          background: #4CAF50;
+        }
+      }
+      
+      ion-icon {
+        color: white;
+      }
+    }
+  }
+}
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.document-card {
+  background: white;
+  border: 2px solid #e1e8ed;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  &.uploaded {
+    border-color: #4CAF50;
+    background: linear-gradient(to bottom, #f0fff4, #ffffff);
+    
+    .doc-header {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      
+      h4, ion-icon {
+        color: white !important;
+      }
+    }
+  }
+  
+  .doc-header {
+    padding: 15px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    
+    ion-icon {
+      font-size: 24px;
+      color: #6a11cb;
+      
+      &.uploaded {
+        color: white !important;
+      }
+    }
+    
+    h4 {
+      flex: 1;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    .doc-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: white;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      border-radius: 20px;
+      
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+  }
+  
+  .doc-content {
+    padding: 20px;
+    
+    .uploaded-file-info {
+      background: #f0fff4;
+      border: 1px solid #4CAF50;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      
+      .file-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #2e7d32;
+        font-weight: 500;
+        margin-bottom: 4px;
+        
+        ion-icon {
+          font-size: 18px;
+          color: #4CAF50;
+        }
+      }
+      
+      .file-meta {
+        font-size: 12px;
+        color: #666;
+        margin-left: 26px;
+      }
+    }
+    
+    .upload-area {
+      text-align: center;
+      padding: 20px;
+      border: 2px dashed #cbd5e0;
+      border-radius: 8px;
+      background: #f7fafc;
+      margin-bottom: 15px;
+      
+      .upload-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: #6a11cb;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          background: #5a0fb3;
+          transform: translateY(-2px);
+        }
+        
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+      
+      .upload-hint {
+        display: block;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #718096;
+      }
+    }
+    
+    .link-alternative {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #e2e8f0;
+      
+      label {
+        display: block;
+        font-size: 13px;
+        color: #718096;
+        margin-bottom: 8px;
+      }
+      
+      .link-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        font-size: 14px;
+        
+        &:focus {
+          outline: none;
+          border-color: #6a11cb;
+          box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.1);
+        }
+      }
+    }
+    
+    .doc-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+      
+      .action-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+        
+        &.view {
+          background: #e3f2fd;
+          color: #1976d2;
+          
+          &:hover {
+            background: #bbdefb;
+          }
+        }
+        
+        &.replace {
+          background: #fff3e0;
+          color: #f57c00;
+          
+          &:hover {
+            background: #ffe0b2;
+          }
+        }
+        
+        &.remove {
+          background: #ffebee;
+          color: #d32f2f;
+          
+          &:hover {
+            background: #ffcdd2;
+          }
+        }
+      }
+    }
+  }
+  
+  &.add-more {
+    border: 2px dashed #cbd5e0;
+    background: #f7fafc;
+    
+    .add-doc-content {
+      padding: 30px;
+      text-align: center;
+      
+      ion-icon {
+        font-size: 48px;
+        color: #cbd5e0;
+        margin-bottom: 15px;
+      }
+      
+      h4 {
+        margin: 0 0 8px 0;
+        color: #4a5568;
+        font-size: 18px;
+      }
+      
+      p {
+        margin: 0 0 20px 0;
+        color: #718096;
+        font-size: 14px;
+      }
+      
+      .add-doc-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 24px;
+        background: white;
+        color: #6a11cb;
+        border: 2px solid #6a11cb;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          background: #6a11cb;
+          color: white;
+        }
+        
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+    }
+    
+    .additional-docs-list {
+      padding: 0 20px 20px;
+      
+      .additional-doc {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        margin-top: 10px;
+        
+        .file-name {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          ion-icon {
+            font-size: 18px;
+            color: #4CAF50;
+          }
+        }
+        
+        .remove-btn {
+          background: none;
+          border: none;
+          color: #e53e3e;
+          cursor: pointer;
+          padding: 4px;
+          
+          ion-icon {
+            font-size: 20px;
+          }
+          
+          &:hover {
+            color: #c53030;
+          }
+        }
+      }
+    }
+  }
+}
+
+.hidden-input {
+  display: none;
+}
+
+// Foundation Cards
+.foundation-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid #e1e8ed;
+  position: relative;
+  
+  &.primary {
+    border-color: #667eea;
+  }
+  
+  &.secondary {
+    border-color: #fbbf24;
+  }
+  
+  &.tertiary {
+    border-color: #10b981;
+  }
+  
+  .foundation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    
+    .foundation-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      
+      &.primary {
+        background: #667eea;
+        color: white;
+      }
+      
+      &.secondary {
+        background: #fbbf24;
+        color: #78350f;
+      }
+      
+      &.tertiary {
+        background: #10b981;
+        color: white;
+      }
+    }
+    
+    .optional-text {
+      font-size: 12px;
+      color: #a0aec0;
+      font-style: italic;
+    }
+  }
+}
 .save-status{position:fixed;top:60px;right:20px;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;z-index:1000;&.info{background:#f0f8ff;color:#0066cc;border:1px solid #0066cc}&.success{background:#f0fff4;color:#28a745;border:1px solid #28a745}&.error{background:#fff0f0;color:#dc3545;border:1px solid #dc3545}}
 .progress-dots{display:flex;justify-content:center;gap:8px;margin-bottom:20px;.dot{width:10px;height:10px;border-radius:50%;background:#ccc;cursor:pointer;transition:all .3s;&.active{background:#007AFF;transform:scale(1.2)}&.completed{background:#28a745}}}
 .section-card{background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;.section-header{padding:16px;background:#fff;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;cursor:pointer;&:hover{background:#f8f9fa}.section-info{flex:1;.section-title{font-size:18px;font-weight:600;color:#333;margin-bottom:4px;.section-icon{margin-right:8px;font-size:20px}}.section-description{font-size:13px;color:#666}}ion-icon{font-size:24px;color:#666}}.section-content{padding:16px}}
