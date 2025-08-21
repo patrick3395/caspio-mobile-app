@@ -352,10 +352,12 @@ export class CaspioService {
       console.log(`  ${key}:`, value);
     });
     
-    // Use the Files API endpoint for Attach table with Attachment field
-    // The field name in Caspio is 'Attachment' not the record ID
+    // Correct Files API endpoint format:
+    // Pattern: /files/{tableName}/{fieldName}/{recordId}
+    // For Attach table with Attachment field and specific AttachID
     const endpoint = `/files/Attach/Attachment/${attachId}`;
     console.log('🎯 Files API endpoint:', endpoint);
+    console.log('📌 Full URL will be:', `${environment.caspio.apiBaseUrl}${endpoint}`);
     
     return this.post<any>(endpoint, formData).pipe(
       tap(response => {
@@ -364,6 +366,10 @@ export class CaspioService {
       catchError(error => {
         console.error('❌ [CaspioService.uploadFileToAttachment] Upload failed:', error);
         console.error('Failed endpoint was:', endpoint);
+        console.error('Troubleshooting:');
+        console.error('  1. Verify AttachID exists:', attachId);
+        console.error('  2. Check field name is "Attachment" in Attach table');
+        console.error('  3. Verify Files API is enabled in Caspio');
         return throwError(() => error);
       })
     );

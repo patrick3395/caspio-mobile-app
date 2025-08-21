@@ -603,6 +603,7 @@ export class ProjectDetailPage implements OnInit {
           throw new Error('Invalid ID values');
         }
         
+        // Build the attachment data - NOTE: Attach table doesn't have ServiceID field
         const attachData = {
           ProjectID: projectIdNum,
           TypeID: typeIdNum,
@@ -611,12 +612,7 @@ export class ProjectDetailPage implements OnInit {
           Link: '', // Will be populated after file upload
           Attachment: '' // Will be populated by file upload
         };
-        
-        // Note: ServiceID might not be a field in Attach table
-        // Only add if it exists
-        if (serviceIdNum) {
-          (attachData as any).ServiceID = serviceIdNum;
-        }
+        // DO NOT add ServiceID - it's not a field in the Attach table
         
         console.log('📝 Creating attachment record:', attachData);
         console.log('📊 Field values being sent to Caspio Attach table:');
@@ -626,6 +622,10 @@ export class ProjectDetailPage implements OnInit {
         console.log('  Notes:', attachData.Notes || '(empty)');
         console.log('  Link:', attachData.Link || '(empty - will be set after upload)');
         console.log('  Attachment:', attachData.Attachment || '(empty - will be set by upload)');
+        console.log('  ServiceID (context only):', serviceIdNum, '- NOT sent to table');
+        
+        // Show popup with the data being sent
+        await this.showAttachmentDataPopup(attachData, file, serviceIdNum);
         
         const response = await this.caspioService.createAttachment(attachData).toPromise();
         console.log('📋 Create attachment response:', response);
@@ -637,6 +637,10 @@ export class ProjectDetailPage implements OnInit {
           console.log('✅ Got AttachID from response:', attachId);
         } else {
           console.error('Unexpected response format:', response);
+          await this.showErrorPopup(
+            { status: 'N/A', message: 'No AttachID in response' },
+            attachData
+          );
           throw new Error('Failed to get AttachID from created record');
         }
         console.log('📌 Using AttachID:', attachId);
@@ -889,5 +893,68 @@ export class ProjectDetailPage implements OnInit {
       ] : []
     });
     await toast.present();
+  }
+
+  private async showAttachmentDataPopup(attachData: any, file: File, serviceId: number) {
+    const alert = await this.alertController.create({
+      header: 'Attachment Data Being Sent',
+      message: `
+        <strong>Table: Attach</strong><br><br>
+        <strong>ProjectID:</strong> ${attachData.ProjectID}<br>
+        <strong>TypeID:</strong> ${attachData.TypeID}<br>
+        <strong>Title:</strong> ${attachData.Title}<br>
+        <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
+        <strong>Link:</strong> ${attachData.Link || '(will be set after upload)'}<br>
+        <strong>Attachment:</strong> ${attachData.Attachment || '(will be set by upload)'}<br><br>
+        <strong>File Info:</strong><br>
+        <strong>Name:</strong> ${file.name}<br>
+        <strong>Size:</strong> ${file.size} bytes<br>
+        <strong>Type:</strong> ${file.type}<br><br>
+        <strong>Context:</strong><br>
+        <strong>ServiceID:</strong> ${serviceId} (used for context, not sent)<br>
+        <strong>API Endpoint:</strong> /tables/Attach/records?response=rows
+      `,
+      buttons: [
+        {
+          text: 'Cancel Upload',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Continue',
+          role: 'confirm'
+        }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    
+    if (role === 'cancel') {
+      throw new Error('Upload cancelled by user');
+    }
+  }
+
+  private async showErrorPopup(error: any, attachData: any) {
+    const errorDetails = `
+      <strong>Error Status:</strong> ${error?.status || 'Unknown'}<br>
+      <strong>Error Message:</strong> ${error?.error?.Message || error?.message || 'Unknown error'}<br><br>
+      <strong>Data Attempted:</strong><br>
+      ${JSON.stringify(attachData, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}<br><br>
+      <strong>Possible Issues:</strong><br>
+      1. Check if ProjectID ${attachData.ProjectID} exists<br>
+      2. Check if TypeID ${attachData.TypeID} is valid<br>
+      3. Verify API endpoint is correct<br>
+      4. Check authentication token
+    `;
+
+    const alert = await this.alertController.create({
+      header: 'Attachment Upload Failed',
+      message: errorDetails,
+      buttons: ['OK'],
+      cssClass: 'error-alert'
+    });
+
+    await alert.present();
   }
 }
