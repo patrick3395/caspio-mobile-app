@@ -21,6 +21,10 @@ const routes: Routes = [
   {
     path: 'new-project',
     loadComponent: () => import('./pages/new-project/new-project.page').then( m => m.NewProjectPage)
+  },
+  {
+    path: 'engineers-foundation/:projectId/:serviceId',
+    loadComponent: () => import('./pages/engineers-foundation/engineers-foundation.page').then( m => m.EngineersFoundationPage)
   }
 ];
 

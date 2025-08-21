@@ -1,0 +1,229 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/active-projects"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Engineer's Foundation Evaluation</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="saveTemplate()">
+        <ion-icon name="save-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="template-container">
+    <!-- Save status indicator -->
+    <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
+         [class.success]="saveStatusType === 'success'" [class.error]="saveStatusType === 'error'">
+      {{ saveStatus }}
+    </div>
+
+    <!-- Project Details Section (Always visible at top) -->
+    <div class="project-details-section">
+      <div class="section-header">
+        <div class="section-info">
+          <div class="section-title">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            Project Details
+          </div>
+          <div class="section-subtitle">Project #{{ projectId }}</div>
+        </div>
+      </div>
+      
+      <div class="details-grid">
+        <div class="detail-item">
+          <label>Client</label>
+          <div class="detail-value">{{ projectData?.ClientName || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Address</label>
+          <div class="detail-value">{{ projectData?.Address || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Inspector</label>
+          <div class="detail-value">{{ projectData?.InspectorName || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Date of Inspection</label>
+          <div class="detail-value">{{ formatDate(projectData?.InspectionDate) || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Year Built</label>
+          <div class="detail-value">{{ projectData?.YearBuilt || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Square Feet</label>
+          <div class="detail-value">{{ projectData?.SquareFeet || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Foundation Type</label>
+          <div class="detail-value">{{ projectData?.FirstFoundationType || 'N/A' }}</div>
+        </div>
+        <div class="detail-item">
+          <label>Weather</label>
+          <div class="detail-value">{{ projectData?.WeatherConditions || 'N/A' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Structural Systems Section -->
+    <div class="section-card">
+      <div class="section-header" (click)="toggleSection('structural')">
+        <div class="section-info">
+          <div class="section-title">
+            <ion-icon name="construct-outline"></ion-icon>
+            Structural Systems
+          </div>
+          <div class="section-description">Foundation observations and measurements</div>
+        </div>
+        <div class="section-toggle">
+          <span class="completion-badge" [class.complete]="getSectionCompletion('structural') === 100">
+            {{ getSectionCompletion('structural') }}%
+          </span>
+          <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+      </div>
+
+      <div class="section-content" *ngIf="expandedSections['structural']">
+        <!-- Foundation Type and Condition -->
+        <div class="form-group">
+          <label>Foundation Type</label>
+          <ion-select [(ngModel)]="formData.foundationType" placeholder="Select type">
+            <ion-select-option value="slab">Slab on Grade</ion-select-option>
+            <ion-select-option value="pier-beam">Pier and Beam</ion-select-option>
+            <ion-select-option value="basement">Basement</ion-select-option>
+            <ion-select-option value="crawlspace">Crawl Space</ion-select-option>
+          </ion-select>
+        </div>
+
+        <div class="form-group">
+          <label>Foundation Condition</label>
+          <ion-select [(ngModel)]="formData.foundationCondition" placeholder="Select condition">
+            <ion-select-option value="excellent">Excellent</ion-select-option>
+            <ion-select-option value="good">Good</ion-select-option>
+            <ion-select-option value="fair">Fair</ion-select-option>
+            <ion-select-option value="poor">Poor</ion-select-option>
+          </ion-select>
+        </div>
+
+        <div class="form-group">
+          <label>Observations</label>
+          <ion-textarea [(ngModel)]="formData.structuralObservations" 
+                        rows="6" 
+                        placeholder="Enter detailed observations about the structural systems...">
+          </ion-textarea>
+        </div>
+
+        <!-- Dynamic Categories from Services_Visuals_Templates -->
+        <div class="categories-container" *ngIf="visualCategories.length > 0">
+          <h3 class="categories-title">Visual Categories</h3>
+          
+          <!-- Category Accordion -->
+          <ion-accordion-group>
+            <ion-accordion *ngFor="let category of visualCategories" [value]="category">
+              <ion-item slot="header" color="light">
+                <ion-label>
+                  <h2>{{ category }}</h2>
+                  <p>{{ getTemplatesCountForCategory(category) }} templates</p>
+                </ion-label>
+              </ion-item>
+              
+              <div class="category-content" slot="content">
+                <div class="template-item" *ngFor="let template of getTemplatesForCategory(category)">
+                  <div class="form-group">
+                    <label>{{ template.Name }}</label>
+                    <ion-textarea 
+                      [(ngModel)]="categoryData[category][template.PK_ID].value"
+                      rows="3"
+                      [placeholder]="'Enter ' + template.Name + ' details...'">
+                    </ion-textarea>
+                  </div>
+                  
+                  <div class="form-group" *ngIf="template.Description">
+                    <small class="template-description">{{ template.Description }}</small>
+                  </div>
+                </div>
+              </div>
+            </ion-accordion>
+          </ion-accordion-group>
+        </div>
+
+        <!-- Loading indicator if categories haven't loaded yet -->
+        <div class="placeholder-message" *ngIf="visualCategories.length === 0">
+          <ion-spinner name="crescent"></ion-spinner>
+          Loading visual categories...
+        </div>
+      </div>
+    </div>
+
+    <!-- Elevation Plot Section -->
+    <div class="section-card">
+      <div class="section-header" (click)="toggleSection('elevation')">
+        <div class="section-info">
+          <div class="section-title">
+            <ion-icon name="analytics-outline"></ion-icon>
+            Elevation Plot
+          </div>
+          <div class="section-description">Floor elevation measurements and analysis</div>
+        </div>
+        <div class="section-toggle">
+          <span class="completion-badge" [class.complete]="getSectionCompletion('elevation') === 100">
+            {{ getSectionCompletion('elevation') }}%
+          </span>
+          <ion-icon [name]="expandedSections['elevation'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+      </div>
+
+      <div class="section-content" *ngIf="expandedSections['elevation']">
+        <!-- Elevation measurements grid -->
+        <div class="elevation-controls">
+          <ion-button size="small" (click)="addElevationReading()">
+            <ion-icon name="add" slot="start"></ion-icon>
+            Add Reading
+          </ion-button>
+          <ion-button size="small" (click)="clearElevationReadings()" color="danger">
+            <ion-icon name="trash" slot="start"></ion-icon>
+            Clear All
+          </ion-button>
+        </div>
+
+        <div class="elevation-grid" *ngIf="elevationReadings.length > 0">
+          <div class="elevation-header">
+            <div>Location</div>
+            <div>Reading (inches)</div>
+            <div>Actions</div>
+          </div>
+          <div class="elevation-row" *ngFor="let reading of elevationReadings; let i = index">
+            <input type="text" [(ngModel)]="reading.location" placeholder="Room/Location">
+            <input type="number" [(ngModel)]="reading.value" placeholder="0.0" step="0.1">
+            <ion-button size="small" fill="clear" color="danger" (click)="removeElevationReading(i)">
+              <ion-icon name="close-circle-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Elevation Analysis</label>
+          <ion-textarea [(ngModel)]="formData.elevationAnalysis" 
+                        rows="6" 
+                        placeholder="Enter analysis of elevation data...">
+          </ion-textarea>
+        </div>
+
+        <!-- Placeholder for more fields you'll specify -->
+        <div class="placeholder-message">
+          Additional elevation plot fields will be added here based on your specifications.
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="form-actions">
+      <ion-button expand="block" size="large" (click)="submitTemplate()">
+        Submit Evaluation
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

@@ -299,6 +299,25 @@ export class CaspioService {
     );
   }
 
+  // Services Visuals Templates methods
+  getServicesVisualsTemplates(): Observable<any[]> {
+    return this.get<any>('/tables/Services_Visuals_Templates/records').pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  // Get unique categories from Services_Visuals_Templates
+  getServicesVisualsCategories(): Observable<string[]> {
+    return this.get<any>('/tables/Services_Visuals_Templates/records').pipe(
+      map(response => {
+        const templates = response.Result || [];
+        // Extract unique categories
+        const categories = [...new Set(templates.map((t: any) => t.Category).filter((c: any) => c))];
+        return categories.sort();
+      })
+    );
+  }
+
   // Project methods
   getProject(projectId: string): Observable<any> {
     return this.get<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`).pipe(
