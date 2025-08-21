@@ -683,6 +683,10 @@ export class EngineersFoundationPage implements OnInit {
   
   // Open action sheet for photo/file options (like required documents)
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
+    // Test if method is even being called
+    alert(`Camera button clicked for ${category} - ${itemId}`);
+    console.log('📸 Camera button clicked!', { category, itemId });
+    
     // Prevent event bubbling
     if (event) {
       event.preventDefault();
@@ -692,9 +696,14 @@ export class EngineersFoundationPage implements OnInit {
     const key = `${category}_${itemId}`;
     let visualId = this.visualRecordIds[key];  // Changed from const to let
     
+    console.log('🔑 Looking for Visual ID with key:', key);
+    console.log('📌 Current visualRecordIds:', this.visualRecordIds);
+    console.log('🆔 Found Visual ID:', visualId);
+    
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
-      await this.showToast('Please wait for visual to save', 'warning');
+      console.log('⚠️ Available keys:', Object.keys(this.visualRecordIds));
+      await this.showToast('Please save the visual first by checking the box', 'warning');
       return;
     }
     

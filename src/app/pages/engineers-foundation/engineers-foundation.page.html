@@ -152,7 +152,9 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
+                        (click)="takePhotoForVisual(category, item.id, $event)"
+                        (tap)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -183,7 +185,9 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
+                        (click)="takePhotoForVisual(category, item.id, $event)"
+                        (tap)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -214,7 +218,9 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
+                        (click)="takePhotoForVisual(category, item.id, $event)"
+                        (tap)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
