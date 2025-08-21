@@ -1,5 +1,19 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.27 - 2025-01-20
+### Fixed
+- **Project Navigation After Creation**:
+  - Check if Caspio returns project ID in response body or Location header
+  - Use the ID directly if available for instant navigation
+  - Fallback to address matching only checks recent projects (top 10)
+  - Won't return random project if address doesn't match
+- **Improved Project ID Detection**:
+  - Check response body for PK_ID or ProjectID
+  - Parse Location header for /records/{id} pattern
+  - Better logging to identify how Caspio returns the ID
+
+---
+
 ## Version 1.1.26 - 2025-01-20
 ### Fixed
 - **Document Table Layout**:

@@ -236,22 +236,59 @@ export class ProjectsService {
           'Content-Type': 'application/json'
         });
         
-        return this.http.post<any>(`${this.apiBaseUrl}/tables/Projects/records`, caspioData, { 
+        // Add response=rows to get the created record back
+        return this.http.post<any>(`${this.apiBaseUrl}/tables/Projects/records?response=rows`, caspioData, { 
           headers,
           observe: 'response' // Get full response to check status
         }).pipe(
           switchMap(response => {
             console.log('✅ Project creation response status:', response.status);
-            console.log('📥 Response headers:', response.headers);
+            console.log('📥 Response headers:', response.headers.keys());
             console.log('📥 Response body:', response.body);
             
-            // Caspio returns 201 Created with empty body on success
+            // Check if Caspio returns the ID in Location header or response body
+            const locationHeader = response.headers.get('Location');
+            console.log('🔍 Location header:', locationHeader);
+            
+            let createdProjectId = null;
+            let createdProject = null;
+            
+            // With response=rows, Caspio returns {"Result": [{created record}]}
+            if (response.body && typeof response.body === 'object') {
+              const result = (response.body as any).Result;
+              if (Array.isArray(result) && result.length > 0) {
+                createdProject = result[0];
+                createdProjectId = createdProject.PK_ID;
+                console.log('🎯 Found created project in response:', createdProject);
+                console.log('🎯 PK_ID:', createdProjectId);
+              }
+            }
+            
+            if (!createdProjectId && locationHeader) {
+              const idMatch = locationHeader.match(/\/records\/(\d+)/i);
+              if (idMatch) {
+                createdProjectId = idMatch[1];
+                console.log('🎯 Extracted ID from Location header:', createdProjectId);
+              }
+            }
+            
+            // Caspio returns 201 Created
             if (response.status === 201 || response.status === 200) {
               console.log('✅ Project created successfully with status:', response.status);
-              console.log('📍 Will search for project with address:', originalAddress);
               
-              // Fetch the newly created project to get its PK_ID
-              // Caspio is instantaneous, so the project should be there immediately
+              // If we got the project directly from the response, use it
+              if (createdProjectId && createdProject) {
+                console.log('🎯 Using project from response with ID:', createdProjectId);
+                return of({
+                  success: true,
+                  message: 'Project created',
+                  projectId: createdProjectId,
+                  projectData: createdProject
+                });
+              }
+              
+              // Fallback: search for the project we just created
+              console.log('📍 No ID in response, searching by address:', originalAddress);
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject && newProject.PK_ID) {
@@ -335,8 +372,22 @@ export class ProjectsService {
             // Check if it's actually a success (201 status)
             if (error.status === 201) {
               console.log('✅ Project created (201 in error handler)');
-              // Still success, Caspio returns 201 with empty body
-              // Fetch immediately - no delay needed
+              
+              // Check if we have the created record in error body (with response=rows)
+              if (error.error && error.error.Result && Array.isArray(error.error.Result)) {
+                const createdProject = error.error.Result[0];
+                if (createdProject && createdProject.PK_ID) {
+                  console.log('🎯 Found project in error response:', createdProject);
+                  return of({
+                    success: true,
+                    message: 'Project created',
+                    projectId: createdProject.PK_ID,
+                    projectData: createdProject
+                  });
+                }
+              }
+              
+              // Fallback to search
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject && newProject.PK_ID) {
@@ -379,7 +430,7 @@ export class ProjectsService {
         
         // Log the most recent projects
         if (sortedProjects.length > 0) {
-          console.log('📋 Most recent projects:', sortedProjects.slice(0, 3).map(p => ({
+          console.log('📋 Most recent 5 projects:', sortedProjects.slice(0, 5).map(p => ({
             PK_ID: p.PK_ID,
             Address: p.Address,
             City: p.City,
@@ -387,9 +438,9 @@ export class ProjectsService {
           })));
         }
         
-        // The most recent project should be the one we just created
-        // First try to find by exact address match
-        const matchingProject = sortedProjects.find(p => 
+        // Look for exact address match in recent projects (check top 10)
+        const recentProjects = sortedProjects.slice(0, 10);
+        const matchingProject = recentProjects.find(p => 
           p.Address && p.Address.toLowerCase().trim() === address.toLowerCase().trim()
         );
         
@@ -398,14 +449,9 @@ export class ProjectsService {
           return matchingProject;
         }
         
-        // If no exact match, return the most recent project (it should be ours)
-        const mostRecent = sortedProjects[0];
-        if (mostRecent) {
-          console.log('✅ Using most recent project with PK_ID:', mostRecent.PK_ID);
-          return mostRecent;
-        }
-        
-        console.log('⚠️ No projects found in database');
+        // Don't just return any project - this was causing the wrong project issue
+        console.log('⚠️ Could not find project with address:', address);
+        console.log('⚠️ Not returning a random project - will show error to user');
         return null;
       })
     );
