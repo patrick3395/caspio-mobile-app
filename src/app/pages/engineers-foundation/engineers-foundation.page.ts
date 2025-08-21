@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -27,9 +27,12 @@ interface ServicesVisualRecord {
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class EngineersFoundationPage implements OnInit {
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  
   projectId: string = '';
   serviceId: string = '';
   projectData: any = null;
+  currentUploadContext: any = null;
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -681,10 +684,8 @@ export class EngineersFoundationPage implements OnInit {
     await alert.present();
   }
   
-  // Open action sheet for photo/file options (like required documents)
+  // Camera button handler - simplified to use file input directly
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    // Test if method is even being called
-    alert(`Camera button clicked for ${category} - ${itemId}`);
     console.log('📸 Camera button clicked!', { category, itemId });
     
     // Prevent event bubbling
@@ -694,15 +695,10 @@ export class EngineersFoundationPage implements OnInit {
     }
     
     const key = `${category}_${itemId}`;
-    let visualId = this.visualRecordIds[key];  // Changed from const to let
-    
-    console.log('🔑 Looking for Visual ID with key:', key);
-    console.log('📌 Current visualRecordIds:', this.visualRecordIds);
-    console.log('🆔 Found Visual ID:', visualId);
+    let visualId = this.visualRecordIds[key];
     
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
-      console.log('⚠️ Available keys:', Object.keys(this.visualRecordIds));
       await this.showToast('Please save the visual first by checking the box', 'warning');
       return;
     }
@@ -713,49 +709,50 @@ export class EngineersFoundationPage implements OnInit {
       await this.refreshVisualId(category, itemId);
       const updatedId = this.visualRecordIds[key];
       if (updatedId && !updatedId.startsWith('temp_')) {
-        visualId = updatedId;  // Now we can reassign since it's let
+        visualId = updatedId;
       } else {
         await this.showToast('Please wait for visual to finish saving', 'warning');
         return;
       }
     }
     
-    // Show action sheet with options
-    const actionSheet = await this.actionSheetController.create({
-      header: 'Add Attachment',
-      buttons: [
-        {
-          text: 'Take Photo',
-          icon: 'camera',
-          handler: () => {
-            this.capturePhoto(visualId, key);
-          }
-        },
-        {
-          text: 'Choose from Gallery',
-          icon: 'images',
-          handler: () => {
-            this.selectFromGallery(visualId, key);
-          }
-        },
-        {
-          text: 'Upload Document',
-          icon: 'document',
-          handler: () => {
-            this.selectDocument(visualId, key);
-          }
-        },
-        {
-          text: 'Cancel',
-          icon: 'close',
-          role: 'cancel'
-        }
-      ]
-    });
-    await actionSheet.present();
+    // Set context and trigger file input directly for camera (like Required Documents)
+    this.currentUploadContext = { visualId, key, category, itemId };
+    
+    // Directly trigger the file input with camera capture
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.accept = 'image/*';
+      this.fileInput.nativeElement.capture = 'camera' as any;
+      this.fileInput.nativeElement.click();
+    } else {
+      console.error('File input not found');
+    }
   }
   
-  // Capture photo using camera
+  // Handle file selection from the hidden input (same pattern as Required Documents)
+  async handleFileSelect(event: any) {
+    const file = event.target.files[0];
+    if (!file || !this.currentUploadContext) return;
+    
+    const { visualId, key } = this.currentUploadContext;
+    
+    try {
+      console.log('📸 File selected:', file.name);
+      await this.uploadPhotoForVisual(visualId, file, key);
+    } catch (error) {
+      console.error('❌ Error handling file:', error);
+      await this.showToast('Failed to upload file', 'danger');
+    } finally {
+      // Reset file input
+      if (this.fileInput && this.fileInput.nativeElement) {
+        this.fileInput.nativeElement.value = '';
+        this.fileInput.nativeElement.capture = null as any;
+      }
+      this.currentUploadContext = null;
+    }
+  }
+  
+  // DEPRECATED - Keeping for reference
   private async capturePhoto(visualId: string, key: string) {
     try {
       console.log('📸 Opening camera for visual:', visualId);
