@@ -11,6 +11,16 @@ interface ElevationReading {
   value: number | null;
 }
 
+interface ServicesVisualRecord {
+  ServiceID: string;
+  Category: string;
+  Type: string;
+  Name: string;
+  Notes?: string;
+  Text?: string;
+  TemplateID?: string;
+}
+
 @Component({
   selector: 'app-engineers-foundation',
   templateUrl: './engineers-foundation.page.html',
@@ -38,6 +48,9 @@ export class EngineersFoundationPage implements OnInit {
   
   // Track selected items
   selectedItems: { [key: string]: boolean } = {};
+  
+  // Track saving state for items
+  savingItems: { [key: string]: boolean } = {};
   
   // Form data for the template
   formData: any = {
@@ -91,10 +104,10 @@ export class EngineersFoundationPage implements OnInit {
     // Load project data
     await this.loadProjectData();
     
-    // Load visual categories from Services_Visuals_Templates
+    // Load visual categories from Services_Visuals_Templates FIRST
     await this.loadVisualCategories();
     
-    // Load any existing template data
+    // Then load any existing template data (including visual selections)
     await this.loadExistingData();
     
     // Initialize with some default elevation readings
@@ -202,6 +215,9 @@ export class EngineersFoundationPage implements OnInit {
   }
   
   async loadExistingData() {
+    // Load existing visual selections from Services_Visuals table
+    await this.loadExistingVisualSelections();
+    
     // TODO: Load existing template data from Service_EFE table
     // This will be implemented based on your Caspio table structure
     
@@ -218,6 +234,36 @@ export class EngineersFoundationPage implements OnInit {
       } catch (error) {
         console.error('Error loading draft data:', error);
       }
+    }
+  }
+  
+  async loadExistingVisualSelections() {
+    if (!this.serviceId) return;
+    
+    try {
+      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      console.log('Existing visuals loaded:', existingVisuals);
+      
+      // Mark items as selected based on existing records
+      existingVisuals.forEach(visual => {
+        if (visual.TemplateID && visual.Category) {
+          const key = `${visual.Category}_${visual.TemplateID}`;
+          this.selectedItems[key] = true;
+          
+          // Store the record ID for potential deletion
+          const recordKey = `visual_${visual.Category}_${visual.TemplateID}`;
+          localStorage.setItem(recordKey, visual.PK_ID || visual.id);
+          
+          // Update categoryData if exists
+          if (this.categoryData[visual.Category] && this.categoryData[visual.Category][visual.TemplateID]) {
+            this.categoryData[visual.Category][visual.TemplateID].selected = true;
+          }
+        }
+      });
+      
+      console.log('Visual selections restored:', this.selectedItems);
+    } catch (error) {
+      console.error('Error loading existing visual selections:', error);
     }
   }
   
@@ -364,9 +410,14 @@ export class EngineersFoundationPage implements OnInit {
   }
   
   // Toggle item selection
-  toggleItemSelection(category: string, itemId: string) {
+  async toggleItemSelection(category: string, itemId: string) {
     const key = `${category}_${itemId}`;
-    this.selectedItems[key] = !this.selectedItems[key];
+    const wasSelected = this.selectedItems[key];
+    
+    // Set saving state
+    this.savingItems[key] = true;
+    
+    this.selectedItems[key] = !wasSelected;
     
     // Update the categoryData as well
     if (this.categoryData[category] && this.categoryData[category][itemId]) {
@@ -374,10 +425,93 @@ export class EngineersFoundationPage implements OnInit {
     }
     
     console.log('Item toggled:', key, this.selectedItems[key]);
+    
+    try {
+      // Save or remove from Services_Visuals table
+      if (this.selectedItems[key]) {
+        // Item was selected - save to Services_Visuals
+        await this.saveVisualSelection(category, itemId);
+        await this.showToast('Selection saved', 'success');
+      } else {
+        // Item was deselected - remove from Services_Visuals if exists
+        await this.removeVisualSelection(category, itemId);
+      }
+    } finally {
+      // Clear saving state
+      this.savingItems[key] = false;
+    }
+  }
+  
+  // Save visual selection to Services_Visuals table
+  async saveVisualSelection(category: string, templateId: string) {
+    if (!this.serviceId) {
+      console.error('No ServiceID available for saving visual');
+      return;
+    }
+    
+    // Find the template data
+    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
+    if (!template) {
+      console.error('Template not found:', templateId);
+      return;
+    }
+    
+    const visualData: ServicesVisualRecord = {
+      ServiceID: this.serviceId,
+      Category: category,
+      Type: template.Type || '',
+      Name: template.Name || '',
+      Notes: '', // Can be updated later if needed
+      Text: template.Text || '',
+      TemplateID: templateId
+    };
+    
+    try {
+      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+      console.log('✅ Visual saved to Services_Visuals:', response);
+      
+      // Store the record ID for potential deletion later
+      const recordKey = `visual_${category}_${templateId}`;
+      localStorage.setItem(recordKey, response.PK_ID || response.id);
+      
+    } catch (error) {
+      console.error('❌ Failed to save visual:', error);
+      await this.showToast('Failed to save selection', 'danger');
+      
+      // Revert the selection on error
+      const key = `${category}_${templateId}`;
+      this.selectedItems[key] = false;
+      if (this.categoryData[category] && this.categoryData[category][templateId]) {
+        this.categoryData[category][templateId].selected = false;
+      }
+    }
+  }
+  
+  // Remove visual selection from Services_Visuals table
+  async removeVisualSelection(category: string, templateId: string) {
+    // Check if we have a stored record ID
+    const recordKey = `visual_${category}_${templateId}`;
+    const recordId = localStorage.getItem(recordKey);
+    
+    if (recordId) {
+      try {
+        await this.caspioService.deleteServicesVisual(recordId).toPromise();
+        console.log('✅ Visual removed from Services_Visuals');
+        localStorage.removeItem(recordKey);
+      } catch (error) {
+        console.error('❌ Failed to remove visual:', error);
+        // Don't show error toast for deletion failures
+      }
+    }
   }
   
   // Check if item is selected
   isItemSelected(category: string, itemId: string): boolean {
     return this.selectedItems[`${category}_${itemId}`] || false;
+  }
+  
+  // Check if item is being saved
+  isItemSaving(category: string, itemId: string): boolean {
+    return this.savingItems[`${category}_${itemId}`] || false;
   }
 }

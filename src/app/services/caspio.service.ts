@@ -305,6 +305,30 @@ export class CaspioService {
       map(response => response.Result || [])
     );
   }
+  
+  // Services Visuals methods (for saving selected items)
+  createServicesVisual(visualData: any): Observable<any> {
+    console.log('🔍 Creating Services_Visual record:', visualData);
+    return this.post<any>('/tables/Services_Visuals/records', visualData).pipe(
+      tap(response => {
+        console.log('✅ Services_Visual created:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Services_Visual:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
+  getServicesVisualsByServiceId(serviceId: string): Observable<any[]> {
+    return this.get<any>(`/tables/Services_Visuals/records?q.where=ServiceID=${serviceId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+  
+  deleteServicesVisual(visualId: string): Observable<any> {
+    return this.delete<any>(`/tables/Services_Visuals/records?q.where=PK_ID=${visualId}`);
+  }
 
   // Get unique categories from Services_Visuals_Templates
   getServicesVisualsCategories(): Observable<string[]> {

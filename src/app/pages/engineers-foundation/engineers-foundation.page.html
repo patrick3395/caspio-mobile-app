@@ -132,55 +132,61 @@
               
               <div class="category-content" slot="content">
                 <!-- Comments Section -->
-                <div class="type-section" *ngIf="organizedData[category]?.comments?.length > 0">
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].comments && organizedData[category].comments.length > 0">
                   <h4 class="type-header">Comments</h4>
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <ion-item lines="none" class="checkbox-item">
                       <ion-checkbox 
                         slot="start" 
                         [checked]="isItemSelected(category, item.id)"
+                        [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
                       <ion-label class="item-label">
                         <h3>{{ item.name }}</h3>
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
+                      <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                     </ion-item>
                   </div>
                 </div>
                 
                 <!-- Limitations Section -->
-                <div class="type-section" *ngIf="organizedData[category]?.limitations?.length > 0">
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].limitations && organizedData[category].limitations.length > 0">
                   <h4 class="type-header">Limitations</h4>
                   <div class="template-item" *ngFor="let item of organizedData[category].limitations">
                     <ion-item lines="none" class="checkbox-item">
                       <ion-checkbox 
                         slot="start" 
                         [checked]="isItemSelected(category, item.id)"
+                        [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
                       <ion-label class="item-label">
                         <h3>{{ item.name }}</h3>
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
+                      <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                     </ion-item>
                   </div>
                 </div>
                 
                 <!-- Deficiencies Section -->
-                <div class="type-section" *ngIf="organizedData[category]?.deficiencies?.length > 0">
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].deficiencies && organizedData[category].deficiencies.length > 0">
                   <h4 class="type-header">Deficiencies</h4>
                   <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
                     <ion-item lines="none" class="checkbox-item">
                       <ion-checkbox 
                         slot="start" 
                         [checked]="isItemSelected(category, item.id)"
+                        [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
                       <ion-label class="item-label">
                         <h3>{{ item.name }}</h3>
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
+                      <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                     </ion-item>
                   </div>
                 </div>
