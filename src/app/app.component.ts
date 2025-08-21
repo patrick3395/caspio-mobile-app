@@ -64,9 +64,25 @@ export class AppComponent {
         } else {
           console.log('✅ App is up to date');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.log('Live update check failed:', err);
-        // Don't show error to user on app startup - handle silently
+        
+        // If the error indicates corruption, reset the update
+        if (err.message && (err.message.includes('corrupt') || err.message.includes('unpack'))) {
+          console.log('⚠️ Detected corrupted update, attempting to reset...');
+          try {
+            // Reset to the bundled version
+            await LiveUpdates.reset();
+            console.log('✅ Reset to bundled version completed');
+            
+            // Try to sync again after reset
+            console.log('🔄 Attempting to sync again after reset...');
+            const retryResult = await LiveUpdates.sync();
+            console.log('Retry sync result:', retryResult);
+          } catch (resetErr) {
+            console.error('Failed to reset corrupted update:', resetErr);
+          }
+        }
       }
     } else {
       console.log('ℹ️ Live updates only work on native platforms');

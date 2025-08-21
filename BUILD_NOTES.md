@@ -1,5 +1,20 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.29 - 2025-01-20
+### Fixed
+- **Live Updates Corruption Handling**:
+  - Added automatic reset when corrupted update detected
+  - Reset clears corrupted files and reverts to bundled version
+  - Automatically retries sync after reset
+  - Refresh button now handles corruption recovery
+- **Improved Update Recovery**:
+  - Detects "corrupt" or "unpack" errors
+  - Uses LiveUpdates.reset() to clear bad updates
+  - Retries update sync after successful reset
+  - Better error logging for debugging
+
+---
+
 ## Version 1.1.28 - 2025-01-20
 ### Fixed
 - **Normalized Table Layout**:

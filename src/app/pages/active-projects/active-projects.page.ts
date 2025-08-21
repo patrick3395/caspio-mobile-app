@@ -178,10 +178,43 @@ export class ActiveProjectsPage implements OnInit {
       this.loading = false;
     }
     
-    // Optionally check for live updates (but don't fail if it errors)
+    // Check for live updates and handle corruption
     try {
       console.log('Checking for app updates...');
-      await this.deployService.checkForUpdates();
+      
+      // If on native platform, try to reset if corrupted
+      if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
+        try {
+          const { LiveUpdates } = await import('@capacitor/live-updates');
+          
+          // Try to sync first
+          try {
+            const result = await LiveUpdates.sync();
+            console.log('Live update sync result:', result);
+            
+            if (result.activeApplicationPathChanged) {
+              console.log('✅ New update applied, reloading...');
+              window.location.reload();
+              return;
+            }
+          } catch (syncErr: any) {
+            // If corruption detected, reset
+            if (syncErr.message && (syncErr.message.includes('corrupt') || syncErr.message.includes('unpack'))) {
+              console.log('⚠️ Corrupted update detected, resetting to bundled version...');
+              await LiveUpdates.reset();
+              console.log('✅ Reset completed');
+              
+              // Try to sync again
+              const retryResult = await LiveUpdates.sync();
+              if (retryResult.activeApplicationPathChanged) {
+                window.location.reload();
+              }
+            }
+          }
+        } catch (err) {
+          console.log('Live Updates error:', err);
+        }
+      }
     } catch (updateError) {
       console.error('Live update check failed (non-critical):', updateError);
       // Don't show error to user as refresh still worked
