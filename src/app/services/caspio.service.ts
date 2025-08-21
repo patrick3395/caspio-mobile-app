@@ -337,7 +337,7 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file using JSON - WORKING APPROACH
+  // Create attachment with file - Two-step process: create record, then upload file
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
     console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
       projectId,
@@ -348,54 +348,66 @@ export class CaspioService {
       fileType: file.type
     });
 
-    // Convert file to base64
     return new Observable(observer => {
-      const reader = new FileReader();
+      // Step 1: Create the attachment record WITHOUT the file content
+      const attachData = {
+        ProjectID: projectId,
+        TypeID: typeId,
+        Title: title,
+        Notes: notes || '',
+        Link: file.name  // Store filename in Link field
+        // Do NOT include Attachment field here - will upload file separately
+      };
+
+      console.log('📝 Step 1: Creating attachment record:', attachData);
       
-      reader.onload = () => {
-        try {
-          // Get base64 string (remove data:image/jpeg;base64, prefix)
-          const base64Result = reader.result as string;
-          const base64 = base64Result.split(',')[1];
+      this.post<any>('/tables/Attach/records', attachData).subscribe({
+        next: (createResponse) => {
+          console.log('✅ Step 1 Success: Record created:', createResponse);
           
-          console.log('📦 Preparing JSON payload with base64 file');
-          console.log('  Base64 length:', base64.length, 'characters');
+          // Extract the AttachID from the response
+          const attachId = createResponse.AttachID || createResponse.id || createResponse.PK_ID;
           
-          // Create JSON payload with base64 file
-          const data = {
-            ProjectID: projectId,
-            TypeID: typeId,
-            Title: title,
-            Notes: notes || '',
-            Link: file.name,  // Populate Link field with filename
-            Attachment: base64  // Just the base64 string
-          };
+          if (!attachId) {
+            console.error('❌ No AttachID in response:', createResponse);
+            observer.error(new Error('Failed to get AttachID from create response'));
+            return;
+          }
           
-          // Use the existing post method with JSON
-          this.post<any>('/tables/Attach/records', data).subscribe({
-            next: (response) => {
-              console.log('✅ [CaspioService.createAttachmentWithFile] Success:', response);
-              observer.next(response);
+          console.log('📎 Step 2: Uploading file to AttachID:', attachId);
+          
+          // Step 2: Upload the actual file using multipart/form-data
+          const formData = new FormData();
+          formData.append('Attachment', file, file.name);
+          
+          // Use PUT to update the record with the file
+          const updateUrl = `/tables/Attach/records?q.where=AttachID=${attachId}`;
+          
+          this.put<any>(updateUrl, formData).subscribe({
+            next: (uploadResponse) => {
+              console.log('✅ Step 2 Success: File uploaded:', uploadResponse);
+              // Return the original create response with AttachID
+              observer.next({ ...createResponse, fileUploaded: true });
               observer.complete();
             },
-            error: (error) => {
-              console.error('❌ [CaspioService.createAttachmentWithFile] Failed:', error);
-              observer.error(error);
+            error: (uploadError) => {
+              console.error('❌ Step 2 Failed: File upload error:', uploadError);
+              // Record was created but file upload failed
+              // Still return the record info so user knows it was partially successful
+              observer.next({ 
+                ...createResponse, 
+                fileUploaded: false, 
+                uploadError: uploadError.message 
+              });
+              observer.complete();
             }
           });
-        } catch (error) {
-          console.error('❌ [CaspioService.createAttachmentWithFile] Processing failed:', error);
-          observer.error(error);
+        },
+        error: (createError) => {
+          console.error('❌ Step 1 Failed: Record creation error:', createError);
+          observer.error(createError);
         }
-      };
-      
-      reader.onerror = (error) => {
-        console.error('❌ [CaspioService.createAttachmentWithFile] File read failed:', error);
-        observer.error(error);
-      };
-      
-      // Read file as base64
-      reader.readAsDataURL(file);
+      });
     });
   }
 
