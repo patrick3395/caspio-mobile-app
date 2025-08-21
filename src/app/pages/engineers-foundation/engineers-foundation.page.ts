@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -26,7 +26,7 @@ interface ServicesVisualRecord {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class EngineersFoundationPage implements OnInit {
+export class EngineersFoundationPage implements OnInit, AfterViewInit {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   
   projectId: string = '';
@@ -124,6 +124,22 @@ export class EngineersFoundationPage implements OnInit {
     if (this.elevationReadings.length === 0) {
       this.addElevationReading();
     }
+  }
+  
+  ngAfterViewInit() {
+    console.log('🔍 AfterViewInit - Checking file input:', this.fileInput);
+    if (!this.fileInput) {
+      console.error('❌ FileInput ViewChild not initialized!');
+    } else {
+      console.log('✅ FileInput ViewChild ready:', this.fileInput.nativeElement);
+    }
+  }
+  
+  // TEST METHOD
+  testCameraButton() {
+    alert('TEST BUTTON CLICKED!');
+    console.log('TEST BUTTON CLICKED');
+    this.showToast('Test button clicked', 'success');
   }
   
   async loadProjectData() {
@@ -727,6 +743,7 @@ export class EngineersFoundationPage implements OnInit {
   
   // Camera button handler - with action sheet for options
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
+    alert('Camera button was clicked!');  // TEST ALERT
     console.log('📸 Camera button clicked!', { category, itemId });
     
     // Prevent event bubbling

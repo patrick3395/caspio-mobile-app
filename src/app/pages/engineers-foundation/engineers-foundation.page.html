@@ -134,6 +134,10 @@
                 <!-- Comments Section -->
                 <div class="type-section" *ngIf="organizedData[category] && organizedData[category].comments && organizedData[category].comments.length > 0">
                   <h4 class="type-header">Comments</h4>
+                  <!-- TEST BUTTON -->
+                  <ion-button (click)="testCameraButton()" color="danger">
+                    TEST CAMERA BUTTON
+                  </ion-button>
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <ion-item lines="none" class="checkbox-item">
                       <ion-checkbox 
@@ -152,9 +156,8 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
-                        (click)="takePhotoForVisual(category, item.id, $event)"
-                        (tap)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 100; position: relative;"
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -185,9 +188,8 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
-                        (click)="takePhotoForVisual(category, item.id, $event)"
-                        (tap)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 100; position: relative;"
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -218,9 +220,8 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        style="--padding-start: 8px; --padding-end: 8px; z-index: 10;"
-                        (click)="takePhotoForVisual(category, item.id, $event)"
-                        (tap)="takePhotoForVisual(category, item.id, $event)">
+                        style="--padding-start: 8px; --padding-end: 8px; z-index: 100; position: relative;"
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
