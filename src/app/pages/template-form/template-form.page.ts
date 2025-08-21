@@ -39,8 +39,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     elevation: 0
   };
   
-  expandedSections: { [key: number]: boolean } = {
-    1: true,
+  expandedSections: { [key: number | string]: boolean } = {
+    'project': true,  // Project Information section expanded by default
+    1: false,
     2: false,
     3: false
   };
@@ -49,6 +50,27 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     'general': true,
     'information': false,
     'foundation': false
+  };
+  
+  // Project-level data (shared across all services)
+  projectData: any = {
+    ClientName: '',
+    AgentName: '',
+    InspectorName: '',
+    YearBuilt: '',
+    SquareFeet: '',
+    TypeOfBuilding: '',
+    Style: '',
+    InAttendance: '',
+    WeatherConditions: '',
+    OutdoorTemperature: '',
+    OccupancyFurnishings: '',
+    FirstFoundationType: '',
+    SecondFoundationType: '',
+    SecondFoundationRooms: '',
+    ThirdFoundationType: '',
+    ThirdFoundationRooms: '',
+    OwnerOccupantInterview: ''
   };
   
   formData: any = {
@@ -114,6 +136,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (this.offersId && this.offersId !== 'new') {
       await this.loadServiceName();
     }
+    
+    // Load project data (shared across all services)
+    await this.loadProjectData();
     
     // Check for existing Service_EFE record and load data
     await this.initializeServiceRecord();
@@ -214,9 +239,11 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     }
   }
 
-  toggleSection(sectionNum: number) {
+  toggleSection(sectionNum: number | string) {
     this.expandedSections[sectionNum] = !this.expandedSections[sectionNum];
-    this.currentSection = sectionNum;
+    if (typeof sectionNum === 'number') {
+      this.currentSection = sectionNum;
+    }
   }
 
   toggleSubsection(subsectionName: string) {
@@ -292,6 +319,72 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     return fieldMapping[formFieldName] || formFieldName;
   }
 
+  // Called when project-level field changes
+  onProjectFieldChange(fieldName: string, value: any) {
+    console.log(`Project field changed: ${fieldName} = ${value}`);
+    
+    // Save to localStorage for persistence across all services
+    const projectDataKey = `projectData_${this.projectId}`;
+    localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
+    
+    // Trigger auto-save to Projects table
+    this.autoSaveProjectField(fieldName, value);
+  }
+  
+  // Auto-save project field to Caspio Projects table
+  private autoSaveProjectField(fieldName: string, value: any) {
+    if (!this.projectId || this.projectId === 'new') return;
+    
+    this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    
+    // Update the Projects table directly
+    this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
+      next: () => {
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      },
+      error: (error) => {
+        console.error(`Error saving project field ${fieldName}:`, error);
+        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+      }
+    });
+  }
+  
+  // Load project data from localStorage or Caspio
+  private async loadProjectData() {
+    if (!this.projectId || this.projectId === 'new') return;
+    
+    // First try localStorage
+    const projectDataKey = `projectData_${this.projectId}`;
+    const savedData = localStorage.getItem(projectDataKey);
+    if (savedData) {
+      try {
+        this.projectData = { ...this.projectData, ...JSON.parse(savedData) };
+        console.log('Loaded project data from localStorage:', this.projectData);
+      } catch (error) {
+        console.error('Error parsing saved project data:', error);
+      }
+    }
+    
+    // Then load from Caspio to get latest data
+    try {
+      const project = await this.caspioService.getProject(this.projectId).toPromise();
+      if (project) {
+        // Merge with existing projectData
+        Object.keys(this.projectData).forEach(key => {
+          if (project[key] !== undefined && project[key] !== null) {
+            this.projectData[key] = project[key];
+          }
+        });
+        console.log('Loaded project data from Caspio:', this.projectData);
+        
+        // Update localStorage
+        localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
+      }
+    } catch (error) {
+      console.error('Error loading project data from Caspio:', error);
+    }
+  }
+  
   // Called when any field changes
   onFieldChange(fieldName: string, value: any) {
     // Update field state

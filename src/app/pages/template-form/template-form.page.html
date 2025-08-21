@@ -29,6 +29,163 @@
     </div>
 
     <form (ngSubmit)="submitForm()">
+      <!-- Project Information Section (Shared across all services) -->
+      <div class="section-card">
+        <div class="section-header" (click)="toggleSection('project')">
+          <div class="section-info">
+            <div class="section-title">
+              <span class="section-icon">🏗️</span>
+              Project Information
+            </div>
+            <div class="section-description">Shared project details for all services</div>
+          </div>
+          <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+        
+        <div class="section-content" *ngIf="expandedSections['project']">
+          <div class="subsection-card">
+            <div class="form-grid">
+              <!-- Client Name -->
+              <div class="form-group">
+                <label>Client Name</label>
+                <input type="text" [(ngModel)]="projectData.ClientName" name="ClientName"
+                       (ngModelChange)="onProjectFieldChange('ClientName', $event)"
+                       placeholder="Enter client name">
+              </div>
+
+              <!-- Agent Name -->
+              <div class="form-group">
+                <label>Agent Name</label>
+                <input type="text" [(ngModel)]="projectData.AgentName" name="AgentName"
+                       (ngModelChange)="onProjectFieldChange('AgentName', $event)"
+                       placeholder="Enter agent name">
+              </div>
+
+              <!-- Inspector Name -->
+              <div class="form-group">
+                <label>Inspector Name</label>
+                <input type="text" [(ngModel)]="projectData.InspectorName" name="InspectorName"
+                       (ngModelChange)="onProjectFieldChange('InspectorName', $event)"
+                       placeholder="Enter inspector name">
+              </div>
+
+              <!-- Year Built -->
+              <div class="form-group">
+                <label>Year Built</label>
+                <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
+                       (ngModelChange)="onProjectFieldChange('YearBuilt', $event)"
+                       placeholder="e.g., 1985">
+              </div>
+
+              <!-- Square Feet -->
+              <div class="form-group">
+                <label>Square Feet</label>
+                <input type="text" [(ngModel)]="projectData.SquareFeet" name="SquareFeet"
+                       (ngModelChange)="onProjectFieldChange('SquareFeet', $event)"
+                       placeholder="e.g., 2500">
+              </div>
+
+              <!-- Type of Building -->
+              <div class="form-group">
+                <label>Type of Building</label>
+                <input type="text" [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
+                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
+                       placeholder="e.g., Single Family">
+              </div>
+
+              <!-- Style -->
+              <div class="form-group">
+                <label>Style</label>
+                <input type="text" [(ngModel)]="projectData.Style" name="Style"
+                       (ngModelChange)="onProjectFieldChange('Style', $event)"
+                       placeholder="e.g., Ranch">
+              </div>
+
+              <!-- In Attendance -->
+              <div class="form-group">
+                <label>In Attendance</label>
+                <input type="text" [(ngModel)]="projectData.InAttendance" name="InAttendance"
+                       (ngModelChange)="onProjectFieldChange('InAttendance', $event)"
+                       placeholder="Who was present">
+              </div>
+
+              <!-- Weather Conditions -->
+              <div class="form-group">
+                <label>Weather Conditions</label>
+                <input type="text" [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
+                       (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
+                       placeholder="e.g., Clear, 75°F">
+              </div>
+
+              <!-- Outdoor Temperature -->
+              <div class="form-group">
+                <label>Outdoor Temperature</label>
+                <input type="text" [(ngModel)]="projectData.OutdoorTemperature" name="OutdoorTemperature"
+                       (ngModelChange)="onProjectFieldChange('OutdoorTemperature', $event)"
+                       placeholder="e.g., 75°F">
+              </div>
+
+              <!-- Occupancy Furnishings -->
+              <div class="form-group">
+                <label>Occupancy Furnishings</label>
+                <input type="text" [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
+                       (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
+                       placeholder="Furnished/Unfurnished">
+              </div>
+
+              <!-- First Foundation Type -->
+              <div class="form-group">
+                <label>First Foundation Type</label>
+                <input type="text" [(ngModel)]="projectData.FirstFoundationType" name="FirstFoundationType"
+                       (ngModelChange)="onProjectFieldChange('FirstFoundationType', $event)"
+                       placeholder="e.g., Slab on Grade">
+              </div>
+
+              <!-- Second Foundation Type -->
+              <div class="form-group">
+                <label>Second Foundation Type</label>
+                <input type="text" [(ngModel)]="projectData.SecondFoundationType" name="SecondFoundationType"
+                       (ngModelChange)="onProjectFieldChange('SecondFoundationType', $event)"
+                       placeholder="If applicable">
+              </div>
+
+              <!-- Second Foundation Rooms -->
+              <div class="form-group">
+                <label>Second Foundation Rooms</label>
+                <input type="text" [(ngModel)]="projectData.SecondFoundationRooms" name="SecondFoundationRooms"
+                       (ngModelChange)="onProjectFieldChange('SecondFoundationRooms', $event)"
+                       placeholder="Rooms with second foundation">
+              </div>
+
+              <!-- Third Foundation Type -->
+              <div class="form-group">
+                <label>Third Foundation Type</label>
+                <input type="text" [(ngModel)]="projectData.ThirdFoundationType" name="ThirdFoundationType"
+                       (ngModelChange)="onProjectFieldChange('ThirdFoundationType', $event)"
+                       placeholder="If applicable">
+              </div>
+
+              <!-- Third Foundation Rooms -->
+              <div class="form-group">
+                <label>Third Foundation Rooms</label>
+                <input type="text" [(ngModel)]="projectData.ThirdFoundationRooms" name="ThirdFoundationRooms"
+                       (ngModelChange)="onProjectFieldChange('ThirdFoundationRooms', $event)"
+                       placeholder="Rooms with third foundation">
+              </div>
+
+              <!-- Owner Occupant Interview -->
+              <div class="form-group full-width">
+                <label>Owner Occupant Interview</label>
+                <textarea [(ngModel)]="projectData.OwnerOccupantInterview" name="OwnerOccupantInterview"
+                          (ngModelChange)="onProjectFieldChange('OwnerOccupantInterview', $event)"
+                          rows="4"
+                          placeholder="Interview notes and observations"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Information Section -->
       <div class="section-card">
         <div class="section-header" (click)="toggleSection(1)">

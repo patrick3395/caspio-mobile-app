@@ -299,6 +299,17 @@ export class CaspioService {
     );
   }
 
+  // Project methods
+  getProject(projectId: string): Observable<any> {
+    return this.get<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`).pipe(
+      map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
+    );
+  }
+
+  updateProject(projectId: string, updateData: any): Observable<any> {
+    return this.put<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`, updateData);
+  }
+
   // Attach (Attachments) table methods
   getAttachmentsByProject(projectId: string): Observable<any[]> {
     return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`).pipe(
