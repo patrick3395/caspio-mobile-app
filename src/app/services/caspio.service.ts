@@ -312,7 +312,8 @@ export class CaspioService {
       map(response => {
         const templates = response.Result || [];
         // Extract unique categories
-        const categories: string[] = [...new Set(templates.map((t: any) => t.Category).filter((c: any) => c))];
+        const categorySet = new Set<string>(templates.map((t: any) => t.Category).filter((c: any) => c));
+        const categories: string[] = Array.from(categorySet);
         return categories.sort();
       })
     );
