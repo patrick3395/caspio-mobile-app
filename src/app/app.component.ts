@@ -67,21 +67,12 @@ export class AppComponent {
       } catch (err: any) {
         console.log('Live update check failed:', err);
         
-        // If the error indicates corruption, reset the update
+        // If the error indicates corruption, log it
         if (err.message && (err.message.includes('corrupt') || err.message.includes('unpack'))) {
-          console.log('⚠️ Detected corrupted update, attempting to reset...');
-          try {
-            // Reset to the bundled version
-            await LiveUpdates.reset();
-            console.log('✅ Reset to bundled version completed');
-            
-            // Try to sync again after reset
-            console.log('🔄 Attempting to sync again after reset...');
-            const retryResult = await LiveUpdates.sync();
-            console.log('Retry sync result:', retryResult);
-          } catch (resetErr) {
-            console.error('Failed to reset corrupted update:', resetErr);
-          }
+          console.log('⚠️ Detected corrupted update');
+          console.log('🔄 Please uninstall and reinstall the app to clear corruption');
+          // The LiveUpdates plugin doesn't have a reset method
+          // User needs to reinstall the app or clear app data
         }
       }
     } else {

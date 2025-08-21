@@ -182,12 +182,12 @@ export class ActiveProjectsPage implements OnInit {
     try {
       console.log('Checking for app updates...');
       
-      // If on native platform, try to reset if corrupted
+      // If on native platform, try to sync
       if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
         try {
-          const { LiveUpdates } = await import('@capacitor/live-updates');
+          const LiveUpdates = await import('@capacitor/live-updates');
           
-          // Try to sync first
+          // Try to sync
           try {
             const result = await LiveUpdates.sync();
             console.log('Live update sync result:', result);
@@ -198,17 +198,12 @@ export class ActiveProjectsPage implements OnInit {
               return;
             }
           } catch (syncErr: any) {
-            // If corruption detected, reset
+            // If corruption detected, log it
             if (syncErr.message && (syncErr.message.includes('corrupt') || syncErr.message.includes('unpack'))) {
-              console.log('⚠️ Corrupted update detected, resetting to bundled version...');
-              await LiveUpdates.reset();
-              console.log('✅ Reset completed');
-              
-              // Try to sync again
-              const retryResult = await LiveUpdates.sync();
-              if (retryResult.activeApplicationPathChanged) {
-                window.location.reload();
-              }
+              console.log('⚠️ Corrupted update detected');
+              console.log('🔄 Clear app data or reinstall to fix corruption');
+              // The LiveUpdates plugin doesn't have a reset method
+              // Continue with normal refresh
             }
           }
         } catch (err) {
