@@ -352,10 +352,9 @@ export class CaspioService {
       console.log(`  ${key}:`, value);
     });
     
-    // For updating an attachment field in an existing record, use PUT to:
-    // /tables/{tableName}/records/{recordId}
-    // The AttachID is the primary key for the Attach table
-    const endpoint = `/tables/Attach/records?q.where=AttachID=${attachId}`;
+    // Try the direct record update endpoint
+    // Pattern: /tables/{tableName}/records/{recordId}
+    const endpoint = `/tables/Attach/records/${attachId}`;
     console.log('🎯 REST API endpoint for file upload:', endpoint);
     console.log('📌 Full URL will be:', `${environment.caspio.apiBaseUrl}${endpoint}`);
     console.log('🔧 Using PUT method with multipart/form-data');
