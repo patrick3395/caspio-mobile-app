@@ -385,6 +385,8 @@ ion-toolbar {
             }
             
             .item-label {
+              cursor: pointer;
+              
               h3 {
                 font-size: 14px;
                 font-weight: 600;
@@ -404,6 +406,16 @@ ion-toolbar {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 max-height: 2.8em; // 2 lines * 1.4 line-height
+                
+                &.clickable {
+                  text-decoration: underline;
+                  text-decoration-style: dotted;
+                  text-decoration-color: #999;
+                  
+                  &:hover {
+                    color: #007AFF;
+                  }
+                }
               }
             }
             
@@ -429,5 +441,14 @@ ion-toolbar {
         }
       }
     }
+  }
+}
+
+// Full text modal styles
+.full-text-modal {
+  .alert-message {
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
   }
 }

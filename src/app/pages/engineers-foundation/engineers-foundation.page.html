@@ -142,9 +142,9 @@
                         [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
-                      <ion-label class="item-label">
+                      <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <ion-button 
@@ -173,9 +173,9 @@
                         [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
-                      <ion-label class="item-label">
+                      <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <ion-button 
@@ -204,9 +204,9 @@
                         [disabled]="isItemSaving(category, item.id)"
                         (ionChange)="toggleItemSelection(category, item.id)">
                       </ion-checkbox>
-                      <ion-label class="item-label">
+                      <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <ion-button 

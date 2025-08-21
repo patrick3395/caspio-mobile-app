@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
-import { ToastController, LoadingController } from '@ionic/angular';
+import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController } from '@ionic/angular';
 
 interface ElevationReading {
   location: string;
@@ -92,7 +92,10 @@ export class EngineersFoundationPage implements OnInit {
     private router: Router,
     private caspioService: CaspioService,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private alertController: AlertController,
+    private actionSheetController: ActionSheetController,
+    private modalController: ModalController
   ) {}
 
   async ngOnInit() {
@@ -667,9 +670,20 @@ export class EngineersFoundationPage implements OnInit {
     return this.savingItems[`${category}_${itemId}`] || false;
   }
   
-  // Open camera to take photo for a visual
+  // Show full text in modal
+  async showFullText(item: any) {
+    const alert = await this.alertController.create({
+      header: item.name,
+      message: item.text || 'No description available',
+      buttons: ['OK'],
+      cssClass: 'full-text-modal'
+    });
+    await alert.present();
+  }
+  
+  // Open action sheet for photo/file options (like required documents)
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    // Prevent event bubbling that might cause issues
+    // Prevent event bubbling
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -690,39 +704,62 @@ export class EngineersFoundationPage implements OnInit {
       await this.refreshVisualId(category, itemId);
       const updatedId = this.visualRecordIds[key];
       if (updatedId && !updatedId.startsWith('temp_')) {
-        // Continue with the updated ID
-        await this.openCameraInput(updatedId, key);
+        visualId = updatedId;
       } else {
         await this.showToast('Please wait for visual to finish saving', 'warning');
         return;
       }
-    } else {
-      await this.openCameraInput(visualId, key);
     }
+    
+    // Show action sheet with options
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Add Attachment',
+      buttons: [
+        {
+          text: 'Take Photo',
+          icon: 'camera',
+          handler: () => {
+            this.capturePhoto(visualId, key);
+          }
+        },
+        {
+          text: 'Choose from Gallery',
+          icon: 'images',
+          handler: () => {
+            this.selectFromGallery(visualId, key);
+          }
+        },
+        {
+          text: 'Upload Document',
+          icon: 'document',
+          handler: () => {
+            this.selectDocument(visualId, key);
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close',
+          role: 'cancel'
+        }
+      ]
+    });
+    await actionSheet.present();
   }
   
-  // Separate method for camera input to avoid crashes
-  private async openCameraInput(visualId: string, key: string) {
+  // Capture photo using camera
+  private async capturePhoto(visualId: string, key: string) {
     try {
       console.log('📸 Opening camera for visual:', visualId);
       
-      // Create file input for photo capture
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      // Remove capture attribute as it can cause issues on some devices
-      // input.capture = 'environment';
+      input.capture = 'camera' as any; // Force camera
       
-      // Use promise to handle file selection
       const fileSelected = new Promise<File | null>((resolve) => {
         input.onchange = (event: any) => {
           const file = event.target?.files?.[0];
           resolve(file || null);
-        };
-        
-        // Handle cancel
-        input.oncancel = () => {
-          resolve(null);
         };
       });
       
@@ -730,15 +767,71 @@ export class EngineersFoundationPage implements OnInit {
       
       const file = await fileSelected;
       if (file) {
-        console.log('📸 Photo selected:', file.name);
+        console.log('📸 Photo captured:', file.name);
         await this.uploadPhotoForVisual(visualId, file, key);
-      } else {
-        console.log('📸 Photo selection cancelled');
       }
-      
     } catch (error) {
-      console.error('❌ Error opening camera:', error);
-      await this.showToast('Failed to open camera', 'danger');
+      console.error('❌ Error capturing photo:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
+  // Select from gallery
+  private async selectFromGallery(visualId: string, key: string) {
+    try {
+      console.log('🖼️ Opening gallery for visual:', visualId);
+      
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      // No capture attribute for gallery
+      
+      const fileSelected = new Promise<File | null>((resolve) => {
+        input.onchange = (event: any) => {
+          const file = event.target?.files?.[0];
+          resolve(file || null);
+        };
+      });
+      
+      input.click();
+      
+      const file = await fileSelected;
+      if (file) {
+        console.log('🖼️ Image selected:', file.name);
+        await this.uploadPhotoForVisual(visualId, file, key);
+      }
+    } catch (error) {
+      console.error('❌ Error selecting from gallery:', error);
+      await this.showToast('Failed to select image', 'danger');
+    }
+  }
+  
+  // Select document
+  private async selectDocument(visualId: string, key: string) {
+    try {
+      console.log('📄 Opening document picker for visual:', visualId);
+      
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg';
+      
+      const fileSelected = new Promise<File | null>((resolve) => {
+        input.onchange = (event: any) => {
+          const file = event.target?.files?.[0];
+          resolve(file || null);
+        };
+      });
+      
+      input.click();
+      
+      const file = await fileSelected;
+      if (file) {
+        console.log('📄 Document selected:', file.name);
+        await this.uploadPhotoForVisual(visualId, file, key);
+      }
+    } catch (error) {
+      console.error('❌ Error selecting document:', error);
+      await this.showToast('Failed to select document', 'danger');
     }
   }
   
