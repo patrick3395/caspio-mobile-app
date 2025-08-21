@@ -187,20 +187,13 @@ export class ActiveProjectsPage implements OnInit {
         try {
           const LiveUpdates = await import('@capacitor/live-updates');
           
-          // Try to get snapshot info first
-          try {
-            const snapshot = await LiveUpdates.getSnapshot();
-            console.log('Current snapshot:', snapshot);
-          } catch (snapshotErr) {
-            console.log('Could not get snapshot:', snapshotErr);
-          }
+          // Skip snapshot info as method doesn't exist in this version
           
-          // Try to sync with background method to avoid corruption
+          // Try to sync with callback to avoid corruption
           try {
-            const syncOptions = {
-              updateMethod: 'background' as const
-            };
-            const result = await LiveUpdates.sync(syncOptions);
+            const result = await LiveUpdates.sync((percentage: number) => {
+              console.log(`Update progress: ${percentage}%`);
+            });
             console.log('Live update sync result:', result);
             
             if (result.activeApplicationPathChanged) {

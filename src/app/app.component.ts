@@ -52,16 +52,12 @@ export class AppComponent {
       try {
         console.log('🔄 Syncing with Appflow...');
         
-        // Get current snapshot info first
-        const currentSnapshot = await LiveUpdates.getSnapshot();
-        console.log('Current snapshot:', currentSnapshot);
+        // Skip snapshot info as method doesn't exist in this version
         
-        // Use the @capacitor/live-updates sync method with force option
-        const syncOptions = {
-          updateMethod: 'background' as const
-        };
-        
-        const result = await LiveUpdates.sync(syncOptions);
+        // Use the @capacitor/live-updates sync method with callback
+        const result = await LiveUpdates.sync((percentage: number) => {
+          console.log(`Update progress: ${percentage}%`);
+        });
         console.log('Sync result:', result);
         
         if (result.activeApplicationPathChanged) {
