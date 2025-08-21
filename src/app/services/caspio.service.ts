@@ -434,11 +434,11 @@ export class CaspioService {
     const formData = new FormData();
     formData.append('Attachment', file, file.name);
     
-    // Log the FormData contents
-    console.log('📦 FormData contents:');
-    formData.forEach((value, key) => {
-      console.log(`  ${key}:`, value);
-    });
+    // Log the FormData contents (commented for performance)
+    // console.log('📦 FormData contents:');
+    // formData.forEach((value, key) => {
+    //   console.log(`  ${key}:`, value);
+    // });
     
     // Try the direct record update endpoint
     // Pattern: /tables/{tableName}/records/{recordId}
