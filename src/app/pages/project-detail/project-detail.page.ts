@@ -680,8 +680,25 @@ export class ProjectDetailPage implements OnInit {
       
       // Reload attachments and update display
       await this.loadExistingAttachments();
-    } catch (error) {
-      console.error('Error handling file upload:', error);
+    } catch (error: any) {
+      console.error('❌ Error handling file upload:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        status: error?.status,
+        statusText: error?.statusText,
+        error: error?.error
+      });
+      
+      // Show detailed error popup
+      if (error?.message !== 'Upload cancelled by user') {
+        await this.showErrorPopup(error, {
+          attempted_action: 'file_upload',
+          file_name: file?.name,
+          file_size: file?.size,
+          context: this.currentUploadContext
+        });
+      }
+      
       await this.showToast('Failed to upload file', 'danger');
     } finally {
       if (loading) {

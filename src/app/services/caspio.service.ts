@@ -352,14 +352,15 @@ export class CaspioService {
       console.log(`  ${key}:`, value);
     });
     
-    // Correct Files API endpoint format:
-    // Pattern: /files/{tableName}/{fieldName}/{recordId}
-    // For Attach table with Attachment field and specific AttachID
-    const endpoint = `/files/Attach/Attachment/${attachId}`;
-    console.log('🎯 Files API endpoint:', endpoint);
+    // For updating an attachment field in an existing record, use PUT to:
+    // /tables/{tableName}/records/{recordId}
+    // The AttachID is the primary key for the Attach table
+    const endpoint = `/tables/Attach/records?q.where=AttachID=${attachId}`;
+    console.log('🎯 REST API endpoint for file upload:', endpoint);
     console.log('📌 Full URL will be:', `${environment.caspio.apiBaseUrl}${endpoint}`);
+    console.log('🔧 Using PUT method with multipart/form-data');
     
-    return this.post<any>(endpoint, formData).pipe(
+    return this.put<any>(endpoint, formData).pipe(
       tap(response => {
         console.log('✅ [CaspioService.uploadFileToAttachment] Upload success:', response);
       }),
