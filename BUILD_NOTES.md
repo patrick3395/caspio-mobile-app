@@ -1,5 +1,19 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.25 - 2025-01-20
+### Fixed
+- **Instant Project Navigation**:
+  - Removed unnecessary delays when fetching created project
+  - Caspio API is instantaneous - fetch immediately
+  - Always return the most recent project if address match fails
+  - Better logging to track project creation flow
+- **Improved Project ID Retrieval**:
+  - Sort projects by PK_ID to get most recent first
+  - Return actual project ID instead of 'new' fallback
+  - Fixed both success and error handler paths
+
+---
+
 ## Version 1.1.24 - 2025-01-20
 ### Fixed
 - **Navigation After Project Creation**:

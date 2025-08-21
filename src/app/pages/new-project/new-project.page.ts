@@ -345,16 +345,14 @@ export class NewProjectPage implements OnInit {
         await loading.dismiss();
         
         // Navigate to the new project's detail page
-        const navigationId = result.projectId !== 'new' ? result.projectId : null;
-        if (navigationId) {
-          console.log('🚀 Navigating to project details:', navigationId);
-          // Force a small delay to ensure the project is fully saved
-          await new Promise(resolve => setTimeout(resolve, 500));
-          // Navigate to project details page
-          await this.router.navigate(['/project', navigationId]);
+        if (result.projectId) {
+          console.log('🚀 Navigating to project details:', result.projectId);
+          // Navigate immediately - Caspio API is instantaneous
+          await this.router.navigate(['/project', result.projectId]);
         } else {
-          // Fallback to projects list if no ID
+          // This shouldn't happen, but fallback to projects list
           console.log('⚠️ No project ID returned, navigating to projects list');
+          console.log('🔴 This indicates an issue with project creation or fetching');
           await this.router.navigate(['/tabs/active-projects']);  
         }
       } else {

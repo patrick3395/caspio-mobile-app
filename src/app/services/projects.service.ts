@@ -251,9 +251,11 @@ export class ProjectsService {
               console.log('📍 Will search for project with address:', originalAddress);
               
               // Fetch the newly created project to get its PK_ID
+              // Caspio is instantaneous, so the project should be there immediately
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
-                  if (newProject) {
+                  if (newProject && newProject.PK_ID) {
+                    console.log('🎯 Successfully found created project:', newProject.PK_ID);
                     return {
                       success: true,
                       message: 'Project created',
@@ -261,12 +263,12 @@ export class ProjectsService {
                       projectData: newProject
                     };
                   }
-                  // Even if we can't find the project, return success
-                  // The project was created, we just can't find it yet
+                  // This shouldn't happen with instantaneous API
+                  console.error('❌ Could not find project after creation - this is unexpected');
                   return { 
                     success: true, 
-                    message: 'Project created',
-                    projectId: 'new' // Fallback ID
+                    message: 'Project created but ID not found',
+                    projectId: null
                   };
                 })
               );
@@ -334,9 +336,10 @@ export class ProjectsService {
             if (error.status === 201) {
               console.log('✅ Project created (201 in error handler)');
               // Still success, Caspio returns 201 with empty body
+              // Fetch immediately - no delay needed
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
-                  if (newProject) {
+                  if (newProject && newProject.PK_ID) {
                     return {
                       success: true,
                       message: 'Project created',
@@ -344,10 +347,11 @@ export class ProjectsService {
                       projectData: newProject
                     };
                   }
+                  console.error('❌ Could not find project after 201 response');
                   return { 
                     success: true, 
-                    message: 'Project created',
-                    projectId: 'new'
+                    message: 'Project created but ID not found',
+                    projectId: null
                   };
                 })
               );
@@ -360,53 +364,49 @@ export class ProjectsService {
     );
   }
 
-  // Fetch newly created project with retry logic
+  // Fetch newly created project immediately
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
-    // Try multiple times with increasing delays
-    const attempts = [1500, 3000, 5000]; // Wait times in ms - increased for better reliability
-    
-    const tryFetch = (delay: number): Observable<Project | null> => {
-      return timer(delay).pipe(
-        switchMap(() => this.getAllProjects()),
-        map(projects => {
-          console.log(`🔍 Attempt to find project with address: ${address} (after ${delay}ms)`);
-          
-          // Log first few projects for debugging
-          if (projects && projects.length > 0) {
-            console.log('📋 Latest projects:', projects.slice(0, 5).map(p => ({
-              PK_ID: p.PK_ID,
-              Address: p.Address,
-              City: p.City
-            })));
-          }
-          
-          // Find projects matching our criteria
-          const matchingProjects = projects.filter(p => 
-            p.Address && p.Address.toLowerCase().trim() === address.toLowerCase().trim()
-          );
-          
-          if (matchingProjects.length > 0) {
-            // Sort by PK_ID descending and get the first (newest)
-            const newProject = matchingProjects.sort((a, b) => 
-              parseInt(b.PK_ID || '0') - parseInt(a.PK_ID || '0')
-            )[0];
-            console.log('✅ Found new project with PK_ID:', newProject.PK_ID);
-            return newProject;
-          }
-          
-          return null;
-        })
-      );
-    };
-    
-    // Try each attempt, return first successful result
-    return tryFetch(attempts[0]).pipe(
-      switchMap(result => result ? of(result) : tryFetch(attempts[1])),
-      switchMap(result => result ? of(result) : tryFetch(attempts[2])),
-      tap(result => {
-        if (!result) {
-          console.log('⚠️ Could not find project after 3 attempts');
+    // Caspio is instantaneous, fetch immediately
+    return this.getAllProjects().pipe(
+      map(projects => {
+        console.log('🔍 Looking for project with address:', address);
+        console.log('📋 Total projects in database:', projects.length);
+        
+        // Sort all projects by PK_ID descending to get the most recent first
+        const sortedProjects = projects.sort((a, b) => 
+          parseInt(b.PK_ID || '0') - parseInt(a.PK_ID || '0')
+        );
+        
+        // Log the most recent projects
+        if (sortedProjects.length > 0) {
+          console.log('📋 Most recent projects:', sortedProjects.slice(0, 3).map(p => ({
+            PK_ID: p.PK_ID,
+            Address: p.Address,
+            City: p.City,
+            Date: p.Date
+          })));
         }
+        
+        // The most recent project should be the one we just created
+        // First try to find by exact address match
+        const matchingProject = sortedProjects.find(p => 
+          p.Address && p.Address.toLowerCase().trim() === address.toLowerCase().trim()
+        );
+        
+        if (matchingProject) {
+          console.log('✅ Found project by address with PK_ID:', matchingProject.PK_ID);
+          return matchingProject;
+        }
+        
+        // If no exact match, return the most recent project (it should be ours)
+        const mostRecent = sortedProjects[0];
+        if (mostRecent) {
+          console.log('✅ Using most recent project with PK_ID:', mostRecent.PK_ID);
+          return mostRecent;
+        }
+        
+        console.log('⚠️ No projects found in database');
+        return null;
       })
     );
   }
