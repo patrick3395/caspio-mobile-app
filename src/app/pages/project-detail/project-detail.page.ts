@@ -804,7 +804,7 @@ export class ProjectDetailPage implements OnInit {
         message: `
           <strong>ServiceID:</strong> ${service.serviceId}<br>
           <strong>ProjectID:</strong> ${this.projectId}<br><br>
-          <strong>Service Type:</strong> ${service.title}<br>
+          <strong>Service Type:</strong> ${service.typeName}<br>
           <strong>Instance:</strong> ${this.getServiceInstanceNumber(service)}
         `,
         buttons: [
