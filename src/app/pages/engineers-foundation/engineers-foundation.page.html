@@ -126,23 +126,62 @@
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2>{{ category }}</h2>
-                  <p>{{ getTemplatesCountForCategory(category) }} templates</p>
+                  <p>{{ getTemplatesCountForCategory(category) }} items</p>
                 </ion-label>
               </ion-item>
               
               <div class="category-content" slot="content">
-                <div class="template-item" *ngFor="let template of getTemplatesForCategory(category)">
-                  <div class="form-group">
-                    <label>{{ template.Name }}</label>
-                    <ion-textarea 
-                      [(ngModel)]="categoryData[category][template.PK_ID].value"
-                      rows="3"
-                      [placeholder]="'Enter ' + template.Name + ' details...'">
-                    </ion-textarea>
+                <!-- Comments Section -->
+                <div class="type-section" *ngIf="organizedData[category]?.comments?.length > 0">
+                  <h4 class="type-header">Comments</h4>
+                  <div class="template-item" *ngFor="let item of organizedData[category].comments">
+                    <ion-item lines="none" class="checkbox-item">
+                      <ion-checkbox 
+                        slot="start" 
+                        [checked]="isItemSelected(category, item.id)"
+                        (ionChange)="toggleItemSelection(category, item.id)">
+                      </ion-checkbox>
+                      <ion-label class="item-label">
+                        <h3>{{ item.name }}</h3>
+                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                      </ion-label>
+                    </ion-item>
                   </div>
-                  
-                  <div class="form-group" *ngIf="template.Description">
-                    <small class="template-description">{{ template.Description }}</small>
+                </div>
+                
+                <!-- Limitations Section -->
+                <div class="type-section" *ngIf="organizedData[category]?.limitations?.length > 0">
+                  <h4 class="type-header">Limitations</h4>
+                  <div class="template-item" *ngFor="let item of organizedData[category].limitations">
+                    <ion-item lines="none" class="checkbox-item">
+                      <ion-checkbox 
+                        slot="start" 
+                        [checked]="isItemSelected(category, item.id)"
+                        (ionChange)="toggleItemSelection(category, item.id)">
+                      </ion-checkbox>
+                      <ion-label class="item-label">
+                        <h3>{{ item.name }}</h3>
+                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                      </ion-label>
+                    </ion-item>
+                  </div>
+                </div>
+                
+                <!-- Deficiencies Section -->
+                <div class="type-section" *ngIf="organizedData[category]?.deficiencies?.length > 0">
+                  <h4 class="type-header">Deficiencies</h4>
+                  <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
+                    <ion-item lines="none" class="checkbox-item">
+                      <ion-checkbox 
+                        slot="start" 
+                        [checked]="isItemSelected(category, item.id)"
+                        (ionChange)="toggleItemSelection(category, item.id)">
+                      </ion-checkbox>
+                      <ion-label class="item-label">
+                        <h3>{{ item.name }}</h3>
+                        <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                      </ion-label>
+                    </ion-item>
                   </div>
                 </div>
               </div>

@@ -29,6 +29,16 @@ export class EngineersFoundationPage implements OnInit {
   expandedCategories: { [key: string]: boolean } = {};
   categoryData: { [key: string]: any } = {};
   
+  // Organized by Type within each Category
+  organizedData: { [category: string]: { 
+    comments: any[], 
+    limitations: any[], 
+    deficiencies: any[] 
+  }} = {};
+  
+  // Track selected items
+  selectedItems: { [key: string]: boolean } = {};
+  
   // Form data for the template
   formData: any = {
     // Structural Systems fields
@@ -128,19 +138,54 @@ export class EngineersFoundationPage implements OnInit {
       
       this.visualCategories = Array.from(categoriesSet).sort();
       
-      // Initialize category data storage and expansion state
+      // Initialize organized data structure for each category
       this.visualCategories.forEach(category => {
         this.expandedCategories[category] = false;
         this.categoryData[category] = {};
         
+        // Initialize organized structure
+        this.organizedData[category] = {
+          comments: [],
+          limitations: [],
+          deficiencies: []
+        };
+        
         // Get all templates for this category
         const categoryTemplates = this.visualTemplates.filter(t => t.Category === category);
         
-        // Initialize form data for each template in the category
+        // Organize templates by Type
         categoryTemplates.forEach(template => {
+          const templateData = {
+            id: template.PK_ID,
+            name: template.Name,
+            text: template.Text || '',
+            type: template.Type,
+            category: template.Category
+          };
+          
+          // Initialize selection state
+          this.selectedItems[`${category}_${template.PK_ID}`] = false;
+          
+          // Sort into appropriate Type section
+          const typeStr = String(template.Type).toLowerCase();
+          if (typeStr.includes('comment')) {
+            this.organizedData[category].comments.push(templateData);
+          } else if (typeStr.includes('limitation')) {
+            this.organizedData[category].limitations.push(templateData);
+          } else if (typeStr.includes('deficienc')) {
+            this.organizedData[category].deficiencies.push(templateData);
+          } else {
+            // Default to comments if type is unclear
+            this.organizedData[category].comments.push(templateData);
+          }
+          
+          // Keep old structure for compatibility
           this.categoryData[category][template.PK_ID] = {
             templateId: template.PK_ID,
             name: template.Name,
+            text: template.Text,
+            type: template.Type,
+            selected: false,
             value: '',
             notes: ''
           };
@@ -148,6 +193,7 @@ export class EngineersFoundationPage implements OnInit {
       });
       
       console.log('Visual categories loaded:', this.visualCategories);
+      console.log('Organized data:', this.organizedData);
       console.log('Category templates:', this.categoryData);
     } catch (error) {
       console.error('Error loading visual categories:', error);
@@ -315,5 +361,23 @@ export class EngineersFoundationPage implements OnInit {
   
   getTemplatesCountForCategory(category: string): number {
     return this.visualTemplates.filter(t => t.Category === category).length;
+  }
+  
+  // Toggle item selection
+  toggleItemSelection(category: string, itemId: string) {
+    const key = `${category}_${itemId}`;
+    this.selectedItems[key] = !this.selectedItems[key];
+    
+    // Update the categoryData as well
+    if (this.categoryData[category] && this.categoryData[category][itemId]) {
+      this.categoryData[category][itemId].selected = this.selectedItems[key];
+    }
+    
+    console.log('Item toggled:', key, this.selectedItems[key]);
+  }
+  
+  // Check if item is selected
+  isItemSelected(category: string, itemId: string): boolean {
+    return this.selectedItems[`${category}_${itemId}`] || false;
   }
 }

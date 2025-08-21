@@ -349,20 +349,56 @@ ion-toolbar {
         padding: 16px;
         background: white;
         
-        .template-item {
-          padding: 12px 0;
-          border-bottom: 1px solid #f0f0f0;
+        .type-section {
+          margin-bottom: 24px;
           
           &:last-child {
-            border-bottom: none;
+            margin-bottom: 0;
           }
           
-          .template-description {
-            color: #666;
-            font-size: 12px;
-            font-style: italic;
-            display: block;
-            margin-top: 4px;
+          .type-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #007AFF;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #007AFF;
+          }
+        }
+        
+        .template-item {
+          margin-bottom: 8px;
+          
+          .checkbox-item {
+            --background: #f9f9f9;
+            --border-radius: 8px;
+            --padding-start: 8px;
+            margin-bottom: 8px;
+            
+            &:hover {
+              --background: #f5f5f5;
+            }
+            
+            ion-checkbox {
+              --size: 20px;
+              margin-right: 12px;
+            }
+            
+            .item-label {
+              h3 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 4px;
+              }
+              
+              .item-text {
+                font-size: 13px;
+                color: #666;
+                line-height: 1.4;
+                white-space: normal;
+              }
+            }
           }
         }
       }
