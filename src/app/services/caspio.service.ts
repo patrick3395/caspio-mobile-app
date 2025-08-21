@@ -327,14 +327,18 @@ export class CaspioService {
   }
 
   // Create attachment with file in ONE request
-  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
+  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File | Blob): Observable<any> {
     console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
       projectId,
       typeId,
       title,
-      fileName: file.name,
-      fileSize: file.size
+      fileName: file instanceof File ? file.name : 'file',
+      fileSize: file.size,
+      fileType: file.type
     });
+
+    // Ensure we have proper filename
+    const fileName = file instanceof File ? file.name : 'attachment';
 
     // Create FormData with all fields INCLUDING the file
     const formData = new FormData();
@@ -344,13 +348,15 @@ export class CaspioService {
     formData.append('Notes', notes || '');
     // Don't set Link field - let it be empty or remove if not required
     // formData.append('Link', ''); // Omit this field
-    formData.append('Attachment', file, file.name);
+    
+    // Append file as Blob with filename
+    formData.append('Attachment', file, fileName);
 
     // Log FormData contents
     console.log('📦 FormData being sent:');
     formData.forEach((value, key) => {
       if (key === 'Attachment') {
-        console.log(`  ${key}: [File: ${file.name}, ${file.size} bytes]`);
+        console.log(`  ${key}: [File: ${fileName}, ${file.size} bytes]`);
       } else {
         console.log(`  ${key}: ${value}`);
       }
