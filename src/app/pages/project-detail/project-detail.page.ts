@@ -607,9 +607,9 @@ export class ProjectDetailPage implements OnInit {
           ProjectID: projectIdNum,
           TypeID: typeIdNum,
           Title: doc.title || 'Document',
-          Notes: '', // Empty notes as required
-          Link: file.name,
-          Attachment: file.name // Add Attachment field
+          Notes: '', // Empty notes field
+          Link: '', // Will be populated after file upload
+          Attachment: '' // Will be populated by file upload
         };
         
         // Note: ServiceID might not be a field in Attach table
@@ -624,42 +624,43 @@ export class ProjectDetailPage implements OnInit {
         console.log('  TypeID:', attachData.TypeID, '(type:', typeof attachData.TypeID, ')');
         console.log('  Title:', attachData.Title);
         console.log('  Notes:', attachData.Notes || '(empty)');
-        console.log('  Link:', attachData.Link);
-        console.log('  Attachment:', attachData.Attachment);
-        const newAttach = await this.caspioService.createAttachment(attachData).toPromise();
-        console.log('📋 New attachment created:', newAttach);
+        console.log('  Link:', attachData.Link || '(empty - will be set after upload)');
+        console.log('  Attachment:', attachData.Attachment || '(empty - will be set by upload)');
         
-        // Caspio returns empty response on success, need to fetch the created record
-        // Wait a moment for the record to be created
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await this.caspioService.createAttachment(attachData).toPromise();
+        console.log('📋 Create attachment response:', response);
         
-        // Fetch the attachment we just created
-        const attachments = await this.caspioService.getAttachmentsByProject(this.projectId).toPromise();
-        const latestAttach = attachments && attachments.length > 0 
-          ? attachments
-              .filter((a: any) => a.Link === file.name && a.Title === (doc.title || 'Document'))
-              .sort((a: any, b: any) => parseInt(b.AttachID) - parseInt(a.AttachID))[0]
-          : null;
-        
-        const attachId = latestAttach?.AttachID;
-        if (!attachId) {
-          console.error('Could not find created attachment record');
+        // With response=rows, we get the created record immediately
+        let attachId: string;
+        if (response?.Result && response.Result.length > 0) {
+          attachId = response.Result[0].AttachID;
+          console.log('✅ Got AttachID from response:', attachId);
+        } else {
+          console.error('Unexpected response format:', response);
           throw new Error('Failed to get AttachID from created record');
         }
-        console.log('📌 Found AttachID:', attachId);
+        console.log('📌 Using AttachID:', attachId);
         
         // Upload file to Caspio Files API
         await this.uploadFileToCaspio(attachId, file);
         
+        // Update the Link field with the filename after successful upload
+        await this.caspioService.updateAttachment(attachId, {
+          Link: file.name
+        }).toPromise();
+        console.log('✅ Updated Link field with filename:', file.name);
+        
         await this.showToast('File uploaded successfully', 'success');
       } else if (action === 'replace' && doc.attachId) {
         // Replace existing file
+        console.log('🔄 Replacing file for AttachID:', doc.attachId);
         await this.uploadFileToCaspio(doc.attachId, file);
         
         // Update Link field with new filename
         await this.caspioService.updateAttachment(doc.attachId, {
           Link: file.name
         }).toPromise();
+        console.log('✅ Updated Link field with new filename:', file.name);
         
         await this.showToast('File replaced successfully', 'success');
       }

@@ -307,7 +307,8 @@ export class CaspioService {
   }
 
   createAttachment(attachData: any): Observable<any> {
-    return this.post<any>('/tables/Attach/records', attachData);
+    // Use response=rows to get the created record with AttachID immediately
+    return this.post<any>('/tables/Attach/records?response=rows', attachData);
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
@@ -321,9 +322,10 @@ export class CaspioService {
   // File upload method
   uploadFileToAttachment(attachId: string, file: File): Observable<any> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', file, file.name);
     
-    // Use the Files API endpoint for Attach table
-    return this.post<any>(`/files/Attach/${attachId}`, formData);
+    // Use the Files API endpoint for Attach table with Attachment field
+    // The field name in Caspio is 'Attachment' not the record ID
+    return this.post<any>(`/files/Attach/Attachment/${attachId}`, formData);
   }
 }
