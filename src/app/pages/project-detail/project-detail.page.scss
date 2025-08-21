@@ -58,12 +58,14 @@ ion-icon{font-size:18px}}}}}
 
 .documents-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden;max-width:100%;
 .doc-row{display:grid;grid-template-columns:30% 40% 30%;min-height:48px;align-items:stretch;border-bottom:1px solid #e9ecef;
->div{padding:10px 12px;font-size:14px;word-wrap:break-word;white-space:normal}
-.doc-service{font-weight:600;padding-left:12px;display:flex;align-items:center}
-.doc-title{display:flex;align-items:center;gap:8px;
+>div{font-size:14px;word-wrap:break-word;white-space:normal;overflow:hidden}
+.doc-service{font-weight:600;padding:10px 12px;display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis}
+.doc-title{padding:10px 12px;
+.doc-title-content{display:flex;flex-direction:column;gap:2px}
 .uploaded-text{color:#28a745;font-weight:500}
-.remove-doc-link{margin-left:auto;color:#dc3545;font-size:11px;cursor:pointer;text-decoration:none;white-space:nowrap}}
-.doc-actions{text-align:center;display:flex;gap:2px;justify-content:center;align-items:center;flex-wrap:wrap;
+.doc-subtitle{margin-top:2px}
+.remove-doc-link{color:#dc3545;font-size:10px;cursor:pointer;text-decoration:none}}
+.doc-actions{padding:10px 12px;text-align:center;display:flex;gap:2px;justify-content:center;align-items:center;flex-wrap:wrap;
 ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;height:28px;--border-radius:4px}
 .uploaded-actions{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}}
 &.uploaded .doc-title span:first-child{color:#28a745;font-weight:500}}

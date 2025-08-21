@@ -1,5 +1,23 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.26 - 2025-01-20
+### Fixed
+- **Document Table Layout**:
+  - Fixed HUD service text bleeding/overflow
+  - Added text-overflow ellipsis for service names
+  - Consistent padding for all table cells
+- **Remove Button Placement**:
+  - Moved Remove link below document name
+  - Smaller font size and better positioning
+  - Cleaner vertical layout in doc-title column
+- **Attachment Upload Fields**:
+  - Added Attachment field to upload data
+  - Set Notes to empty string as required
+  - Better logging of all fields sent to Caspio
+  - ServiceID now optional (added only if exists)
+
+---
+
 ## Version 1.1.25 - 2025-01-20
 ### Fixed
 - **Instant Project Navigation**:

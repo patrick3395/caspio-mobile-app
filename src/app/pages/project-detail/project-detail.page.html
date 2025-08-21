@@ -171,12 +171,15 @@
               </div>
             </div>
             <div class="doc-title">
-              <span [class.uploaded-text]="doc.uploaded">{{ doc.title }}</span>
-              <a *ngIf="!doc.required && !doc.uploaded" 
-                 (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
-                 class="remove-doc-link">
-                Remove
-              </a>
+              <div class="doc-title-content">
+                <span [class.uploaded-text]="doc.uploaded">{{ doc.title }}</span>
+                <div *ngIf="!doc.required && !doc.uploaded" class="doc-subtitle">
+                  <a (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
+                     class="remove-doc-link">
+                    Remove
+                  </a>
+                </div>
+              </div>
             </div>
             <div class="doc-actions">
               <!-- Upload button for documents without files -->

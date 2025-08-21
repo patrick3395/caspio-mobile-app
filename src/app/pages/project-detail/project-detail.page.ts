@@ -606,18 +606,26 @@ export class ProjectDetailPage implements OnInit {
         const attachData = {
           ProjectID: projectIdNum,
           TypeID: typeIdNum,
-          ServiceID: serviceIdNum,
           Title: doc.title || 'Document',
-          Notes: `Uploaded via mobile app on ${new Date().toLocaleDateString()}`,
-          Link: file.name
+          Notes: '', // Empty notes as required
+          Link: file.name,
+          Attachment: file.name // Add Attachment field
         };
         
+        // Note: ServiceID might not be a field in Attach table
+        // Only add if it exists
+        if (serviceIdNum) {
+          (attachData as any).ServiceID = serviceIdNum;
+        }
+        
         console.log('📝 Creating attachment record:', attachData);
-        console.log('📊 Data types:', {
-          ProjectID: typeof attachData.ProjectID,
-          TypeID: typeof attachData.TypeID,
-          ServiceID: typeof attachData.ServiceID
-        });
+        console.log('📊 Field values being sent to Caspio Attach table:');
+        console.log('  ProjectID:', attachData.ProjectID, '(type:', typeof attachData.ProjectID, ')');
+        console.log('  TypeID:', attachData.TypeID, '(type:', typeof attachData.TypeID, ')');
+        console.log('  Title:', attachData.Title);
+        console.log('  Notes:', attachData.Notes || '(empty)');
+        console.log('  Link:', attachData.Link);
+        console.log('  Attachment:', attachData.Attachment);
         const newAttach = await this.caspioService.createAttachment(attachData).toPromise();
         console.log('📋 New attachment created:', newAttach);
         
