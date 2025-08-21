@@ -238,11 +238,21 @@ export class EngineersFoundationPage implements OnInit {
   }
   
   async loadExistingVisualSelections() {
-    if (!this.serviceId) return;
+    console.log('=====================================');
+    console.log('📥 LOADING EXISTING VISUAL SELECTIONS');
+    console.log('=====================================');
+    console.log('   ServiceID:', this.serviceId);
+    
+    if (!this.serviceId) {
+      console.log('❌ No ServiceID - skipping load');
+      return;
+    }
     
     try {
+      console.log('⏳ Fetching from Services_Visuals table...');
       const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      console.log('Existing visuals loaded:', existingVisuals);
+      console.log('📋 Existing visuals loaded:', existingVisuals);
+      console.log('   Count:', existingVisuals?.length || 0);
       
       // Mark items as selected based on existing records
       if (existingVisuals && Array.isArray(existingVisuals)) {
@@ -413,8 +423,18 @@ export class EngineersFoundationPage implements OnInit {
   
   // Toggle item selection
   async toggleItemSelection(category: string, itemId: string) {
+    console.log('=====================================');
+    console.log('🔄 TOGGLE ITEM SELECTION CALLED');
+    console.log('=====================================');
+    console.log('   Category:', category);
+    console.log('   ItemID:', itemId);
+    
     const key = `${category}_${itemId}`;
     const wasSelected = this.selectedItems[key];
+    
+    console.log('   Key:', key);
+    console.log('   Was Selected:', wasSelected);
+    console.log('   Will be Selected:', !wasSelected);
     
     // Set saving state
     this.savingItems[key] = true;
@@ -426,7 +446,7 @@ export class EngineersFoundationPage implements OnInit {
       this.categoryData[category][itemId].selected = this.selectedItems[key];
     }
     
-    console.log('Item toggled:', key, this.selectedItems[key]);
+    console.log('✅ Item toggled:', key, 'New state:', this.selectedItems[key]);
     
     try {
       // Save or remove from Services_Visuals table
@@ -446,17 +466,28 @@ export class EngineersFoundationPage implements OnInit {
   
   // Save visual selection to Services_Visuals table
   async saveVisualSelection(category: string, templateId: string) {
+    console.log('=====================================');
+    console.log('🔍 SAVING VISUAL TO SERVICES_VISUALS');
+    console.log('=====================================');
+    
     if (!this.serviceId) {
-      console.error('No ServiceID available for saving visual');
+      console.error('❌ No ServiceID available for saving visual');
       return;
     }
+    
+    console.log('📋 Input Parameters:');
+    console.log('   Category:', category);
+    console.log('   TemplateID:', templateId);
+    console.log('   ServiceID:', this.serviceId);
     
     // Find the template data
     const template = this.visualTemplates.find(t => t.PK_ID === templateId);
     if (!template) {
-      console.error('Template not found:', templateId);
+      console.error('❌ Template not found:', templateId);
       return;
     }
+    
+    console.log('📄 Template Found:', template);
     
     const visualData: ServicesVisualRecord = {
       ServiceID: this.serviceId,
@@ -468,9 +499,23 @@ export class EngineersFoundationPage implements OnInit {
       TemplateID: templateId
     };
     
+    console.log('📤 DATA BEING SENT TO SERVICES_VISUALS TABLE:');
+    console.log('=====================================');
+    console.log('   ServiceID:', visualData.ServiceID);
+    console.log('   Category:', visualData.Category);
+    console.log('   Type:', visualData.Type);
+    console.log('   Name:', visualData.Name);
+    console.log('   Notes:', visualData.Notes);
+    console.log('   Text:', visualData.Text);
+    console.log('   TemplateID:', visualData.TemplateID);
+    console.log('=====================================');
+    console.log('📦 Full visualData object:', JSON.stringify(visualData, null, 2));
+    
     try {
+      console.log('⏳ Calling caspioService.createServicesVisual...');
       const response = await this.caspioService.createServicesVisual(visualData).toPromise();
       console.log('✅ Visual saved to Services_Visuals:', response);
+      console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
       // Store the record ID for potential deletion later
       const recordKey = `visual_${category}_${templateId}`;
