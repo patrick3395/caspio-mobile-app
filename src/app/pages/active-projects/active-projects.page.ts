@@ -187,9 +187,7 @@ export class ActiveProjectsPage implements OnInit {
         try {
           const LiveUpdates = await import('@capacitor/live-updates');
           
-          // Skip snapshot info as method doesn't exist in this version
-          
-          // Try to sync with callback to avoid corruption
+          // Try to sync updates
           try {
             const result = await LiveUpdates.sync((percentage: number) => {
               console.log(`Update progress: ${percentage}%`);
@@ -203,15 +201,31 @@ export class ActiveProjectsPage implements OnInit {
               return;
             }
           } catch (syncErr: any) {
-            // If corruption detected, try to reload
-            if (syncErr.message && (syncErr.message.includes('corrupt') || syncErr.message.includes('unpack'))) {
-              console.log('⚠️ Corrupted update detected, reloading app...');
+            console.log('Sync error:', syncErr);
+            
+            // Check for corruption errors
+            const isCorrupted = syncErr.message && (
+              syncErr.message.includes('corrupt') || 
+              syncErr.message.includes('unpack') ||
+              syncErr.message.includes('FilerOperationsError') ||
+              syncErr.message.includes('File Manager Error') ||
+              syncErr.message.includes('IonicLiveUpdate')
+            );
+            
+            if (isCorrupted) {
+              console.log('⚠️ CORRUPTION DETECTED during refresh');
+              console.log('Error was:', syncErr.message);
+              
+              // Show error to user
+              this.error = 'Live Update corrupted. Please close and reopen the app.';
+              
               try {
-                // Force reload to use bundled version
+                // Try to force reload
+                console.log('Attempting to reload to bundled version...');
                 await LiveUpdates.reload();
               } catch (reloadErr) {
                 console.log('Reload failed:', reloadErr);
-                // Continue with normal refresh
+                // Continue with normal refresh even if reload fails
               }
             }
           }

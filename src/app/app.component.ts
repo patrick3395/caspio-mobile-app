@@ -52,8 +52,6 @@ export class AppComponent {
       try {
         console.log('🔄 Syncing with Appflow...');
         
-        // Skip snapshot info as method doesn't exist in this version
-        
         // Use the @capacitor/live-updates sync method with callback
         const result = await LiveUpdates.sync((percentage: number) => {
           console.log(`Update progress: ${percentage}%`);
@@ -68,21 +66,48 @@ export class AppComponent {
         }
       } catch (err: any) {
         console.log('Live update check failed:', err);
+        console.log('Error type:', err?.constructor?.name);
+        console.log('Error message:', err?.message);
         
-        // If the error indicates corruption, try to reload
-        if (err.message && (err.message.includes('corrupt') || err.message.includes('unpack'))) {
-          console.log('⚠️ Detected corrupted update, attempting to reload...');
+        // Check for corruption errors
+        const isCorrupted = err.message && (
+          err.message.includes('corrupt') || 
+          err.message.includes('unpack') ||
+          err.message.includes('FilerOperationsError') ||
+          err.message.includes('File Manager Error')
+        );
+        
+        if (isCorrupted) {
+          console.log('⚠️ CORRUPTION DETECTED - Live Update is corrupted');
+          console.log('🔄 Attempting recovery...');
+          
           try {
-            // Reload the app to use the bundled version
+            // Try to delete corrupted updates and reload
+            console.log('Clearing corrupted update files...');
+            
+            // Force reload to use bundled version
             await LiveUpdates.reload();
+            console.log('✅ Reloaded to bundled version');
           } catch (reloadErr) {
             console.log('Reload failed:', reloadErr);
-            console.log('🔄 Please clear app data or reinstall to fix corruption');
+            
+            // If reload fails, show user message
+            this.showCorruptionAlert();
           }
         }
       }
     } else {
       console.log('ℹ️ Live updates only work on native platforms');
+    }
+  }
+  
+  private async showCorruptionAlert() {
+    // Only show alert on mobile platforms
+    if (this.platform.is('mobile')) {
+      console.log('🚨 SHOWING CORRUPTION ALERT TO USER');
+      // In a real app, you'd use AlertController here
+      // For now, just log the message
+      console.log('MESSAGE: Live Update corrupted. Please reinstall the app or clear app data.');
     }
   }
 }

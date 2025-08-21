@@ -16,9 +16,10 @@ const config: CapacitorConfig = {
     LiveUpdates: {
       appId: '1e8beef6',
       channel: 'Caspio Mobile App',
-      autoUpdateMethod: 'background',
-      maxVersions: 1,
-      disableDeploy: false
+      autoUpdateMethod: 'none',  // Changed to 'none' to prevent auto-corruption
+      maxVersions: 1,  // Keep only 1 version to minimize storage issues
+      disableDeploy: false,
+      strategy: 'differential'  // Use differential updates to reduce size
     }
   }
 };
