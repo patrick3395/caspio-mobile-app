@@ -187,23 +187,39 @@ export class ActiveProjectsPage implements OnInit {
         try {
           const LiveUpdates = await import('@capacitor/live-updates');
           
-          // Try to sync
+          // Try to get snapshot info first
           try {
-            const result = await LiveUpdates.sync();
+            const snapshot = await LiveUpdates.getSnapshot();
+            console.log('Current snapshot:', snapshot);
+          } catch (snapshotErr) {
+            console.log('Could not get snapshot:', snapshotErr);
+          }
+          
+          // Try to sync with background method to avoid corruption
+          try {
+            const syncOptions = {
+              updateMethod: 'background' as const
+            };
+            const result = await LiveUpdates.sync(syncOptions);
             console.log('Live update sync result:', result);
             
             if (result.activeApplicationPathChanged) {
-              console.log('✅ New update applied, reloading...');
-              window.location.reload();
+              console.log('✅ New update applied');
+              // Reload to apply the update
+              await LiveUpdates.reload();
               return;
             }
           } catch (syncErr: any) {
-            // If corruption detected, log it
+            // If corruption detected, try to reload
             if (syncErr.message && (syncErr.message.includes('corrupt') || syncErr.message.includes('unpack'))) {
-              console.log('⚠️ Corrupted update detected');
-              console.log('🔄 Clear app data or reinstall to fix corruption');
-              // The LiveUpdates plugin doesn't have a reset method
-              // Continue with normal refresh
+              console.log('⚠️ Corrupted update detected, reloading app...');
+              try {
+                // Force reload to use bundled version
+                await LiveUpdates.reload();
+              } catch (reloadErr) {
+                console.log('Reload failed:', reloadErr);
+                // Continue with normal refresh
+              }
             }
           }
         } catch (err) {

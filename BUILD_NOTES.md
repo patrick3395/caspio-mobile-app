@@ -1,5 +1,19 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.30 - 2025-01-20
+### Fixed
+- **Corruption Handling Improvements**:
+  - Added getSnapshot() to check current update state
+  - Use background update method to avoid corruption
+  - Force reload when corruption detected
+  - Reduced maxVersions to 1 to minimize cache issues
+- **Live Updates Configuration**:
+  - Set maxVersions to 1 (only keep latest)
+  - Use background sync to avoid conflicts
+  - Better error logging for debugging
+
+---
+
 ## Version 1.1.29 - 2025-01-20
 ### Fixed
 - **Live Updates Corruption Handling**:

@@ -52,14 +52,20 @@ export class AppComponent {
       try {
         console.log('🔄 Syncing with Appflow...');
         
-        // Use the @capacitor/live-updates sync method
-        const result = await LiveUpdates.sync();
+        // Get current snapshot info first
+        const currentSnapshot = await LiveUpdates.getSnapshot();
+        console.log('Current snapshot:', currentSnapshot);
+        
+        // Use the @capacitor/live-updates sync method with force option
+        const syncOptions = {
+          updateMethod: 'background' as const
+        };
+        
+        const result = await LiveUpdates.sync(syncOptions);
         console.log('Sync result:', result);
         
         if (result.activeApplicationPathChanged) {
           console.log('📦 Update downloaded and applied!');
-          // The update has been applied, optionally reload
-          // Note: with background update method, the app will use the new version on next launch
           console.log('✅ Update will be active on next app launch');
         } else {
           console.log('✅ App is up to date');
@@ -67,12 +73,16 @@ export class AppComponent {
       } catch (err: any) {
         console.log('Live update check failed:', err);
         
-        // If the error indicates corruption, log it
+        // If the error indicates corruption, try to reload
         if (err.message && (err.message.includes('corrupt') || err.message.includes('unpack'))) {
-          console.log('⚠️ Detected corrupted update');
-          console.log('🔄 Please uninstall and reinstall the app to clear corruption');
-          // The LiveUpdates plugin doesn't have a reset method
-          // User needs to reinstall the app or clear app data
+          console.log('⚠️ Detected corrupted update, attempting to reload...');
+          try {
+            // Reload the app to use the bundled version
+            await LiveUpdates.reload();
+          } catch (reloadErr) {
+            console.log('Reload failed:', reloadErr);
+            console.log('🔄 Please clear app data or reinstall to fix corruption');
+          }
         }
       }
     } else {

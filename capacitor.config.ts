@@ -17,7 +17,8 @@ const config: CapacitorConfig = {
       appId: '1e8beef6',
       channel: 'Caspio Mobile App',
       autoUpdateMethod: 'background',
-      maxVersions: 2
+      maxVersions: 1,
+      disableDeploy: false
     }
   }
 };
