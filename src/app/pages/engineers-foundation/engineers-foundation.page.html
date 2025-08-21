@@ -152,7 +152,7 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -183,7 +183,7 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}
@@ -214,7 +214,7 @@
                         slot="end" 
                         fill="clear" 
                         size="small"
-                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        (click)="takePhotoForVisual(category, item.id, $event)">
                         <ion-icon name="camera-outline"></ion-icon>
                         <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
                           {{ getPhotoCount(category, item.id) }}

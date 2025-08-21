@@ -145,15 +145,20 @@ export class EngineersFoundationPage implements OnInit {
       const templates = await this.caspioService.getServicesVisualsTemplates().toPromise();
       this.visualTemplates = templates || [];
       
-      // Extract unique categories
+      // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
+      const categoriesOrder: string[] = [];
+      
       this.visualTemplates.forEach(template => {
-        if (template.Category) {
+        if (template.Category && !categoriesSet.has(template.Category)) {
           categoriesSet.add(template.Category);
+          categoriesOrder.push(template.Category);
         }
       });
       
-      this.visualCategories = Array.from(categoriesSet).sort();
+      // Use the order they appear in the table, not alphabetical
+      this.visualCategories = categoriesOrder;
+      console.log('Categories in original order:', this.visualCategories);
       
       // Initialize organized data structure for each category
       this.visualCategories.forEach(category => {
@@ -663,32 +668,78 @@ export class EngineersFoundationPage implements OnInit {
   }
   
   // Open camera to take photo for a visual
-  async takePhotoForVisual(category: string, itemId: string) {
+  async takePhotoForVisual(category: string, itemId: string, event?: Event) {
+    // Prevent event bubbling that might cause issues
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     const key = `${category}_${itemId}`;
     const visualId = this.visualRecordIds[key];
     
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
-      await this.showToast('Please save the visual first', 'warning');
+      await this.showToast('Please wait for visual to save', 'warning');
       return;
     }
     
-    console.log('📸 Opening camera for visual:', visualId);
-    
-    // Create file input for photo capture
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment'; // Use 'camera' for front camera
-    
-    input.onchange = async (event: any) => {
-      const file = event.target.files[0];
-      if (file) {
-        await this.uploadPhotoForVisual(visualId, file, key);
+    // Check if it's a temp ID
+    if (visualId.startsWith('temp_')) {
+      console.log('⏳ Visual has temp ID, refreshing...');
+      await this.refreshVisualId(category, itemId);
+      const updatedId = this.visualRecordIds[key];
+      if (updatedId && !updatedId.startsWith('temp_')) {
+        // Continue with the updated ID
+        await this.openCameraInput(updatedId, key);
+      } else {
+        await this.showToast('Please wait for visual to finish saving', 'warning');
+        return;
       }
-    };
-    
-    input.click();
+    } else {
+      await this.openCameraInput(visualId, key);
+    }
+  }
+  
+  // Separate method for camera input to avoid crashes
+  private async openCameraInput(visualId: string, key: string) {
+    try {
+      console.log('📸 Opening camera for visual:', visualId);
+      
+      // Create file input for photo capture
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      // Remove capture attribute as it can cause issues on some devices
+      // input.capture = 'environment';
+      
+      // Use promise to handle file selection
+      const fileSelected = new Promise<File | null>((resolve) => {
+        input.onchange = (event: any) => {
+          const file = event.target?.files?.[0];
+          resolve(file || null);
+        };
+        
+        // Handle cancel
+        input.oncancel = () => {
+          resolve(null);
+        };
+      });
+      
+      input.click();
+      
+      const file = await fileSelected;
+      if (file) {
+        console.log('📸 Photo selected:', file.name);
+        await this.uploadPhotoForVisual(visualId, file, key);
+      } else {
+        console.log('📸 Photo selection cancelled');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error opening camera:', error);
+      await this.showToast('Failed to open camera', 'danger');
+    }
   }
   
   // Upload photo to Service_Visuals_Attach

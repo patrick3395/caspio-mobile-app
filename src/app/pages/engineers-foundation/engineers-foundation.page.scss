@@ -397,6 +397,13 @@ ion-toolbar {
                 color: #666;
                 line-height: 1.4;
                 white-space: normal;
+                // Limit to 2 lines with ellipsis
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-height: 2.8em; // 2 lines * 1.4 line-height
               }
             }
             
