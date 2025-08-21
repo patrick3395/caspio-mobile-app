@@ -821,9 +821,31 @@ export class ProjectDetailPage implements OnInit {
   }
 
   // Template navigation
-  openTemplate(service: ServiceSelection) {
+  async openTemplate(service: ServiceSelection) {
     if (service.serviceId) {
-      this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+      // Show alert with ServiceID and ProjectID for verification
+      const alert = await this.alertController.create({
+        header: 'Opening Template',
+        message: `
+          <strong>ServiceID:</strong> ${service.serviceId}<br>
+          <strong>ProjectID:</strong> ${this.projectId}<br><br>
+          <strong>Service Type:</strong> ${service.title}<br>
+          <strong>Instance:</strong> ${this.getServiceInstanceNumber(service)}
+        `,
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Continue',
+            handler: () => {
+              this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+            }
+          }
+        ]
+      });
+      await alert.present();
     }
   }
 
