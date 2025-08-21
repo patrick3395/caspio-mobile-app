@@ -344,7 +344,7 @@ export class CaspioService {
     });
     
     const formData = new FormData();
-    formData.append('file', file, file.name);
+    formData.append('Attachment', file, file.name);
     
     // Log the FormData contents
     console.log('📦 FormData contents:');
