@@ -245,21 +245,23 @@ export class EngineersFoundationPage implements OnInit {
       console.log('Existing visuals loaded:', existingVisuals);
       
       // Mark items as selected based on existing records
-      existingVisuals.forEach(visual => {
-        if (visual.TemplateID && visual.Category) {
-          const key = `${visual.Category}_${visual.TemplateID}`;
-          this.selectedItems[key] = true;
-          
-          // Store the record ID for potential deletion
-          const recordKey = `visual_${visual.Category}_${visual.TemplateID}`;
-          localStorage.setItem(recordKey, visual.PK_ID || visual.id);
-          
-          // Update categoryData if exists
-          if (this.categoryData[visual.Category] && this.categoryData[visual.Category][visual.TemplateID]) {
-            this.categoryData[visual.Category][visual.TemplateID].selected = true;
+      if (existingVisuals && Array.isArray(existingVisuals)) {
+        existingVisuals.forEach(visual => {
+          if (visual.TemplateID && visual.Category) {
+            const key = `${visual.Category}_${visual.TemplateID}`;
+            this.selectedItems[key] = true;
+            
+            // Store the record ID for potential deletion
+            const recordKey = `visual_${visual.Category}_${visual.TemplateID}`;
+            localStorage.setItem(recordKey, visual.PK_ID || visual.id);
+            
+            // Update categoryData if exists
+            if (this.categoryData[visual.Category] && this.categoryData[visual.Category][visual.TemplateID]) {
+              this.categoryData[visual.Category][visual.TemplateID].selected = true;
+            }
           }
-        }
-      });
+        });
+      }
       
       console.log('Visual selections restored:', this.selectedItems);
     } catch (error) {
