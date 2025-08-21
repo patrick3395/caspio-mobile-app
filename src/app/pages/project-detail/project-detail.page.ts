@@ -911,18 +911,15 @@ export class ProjectDetailPage implements OnInit {
       header: 'Attachment Data Being Sent',
       message: `
         <strong>Table: Attach</strong><br><br>
+        <strong>Fields to be populated:</strong><br>
         <strong>ProjectID:</strong> ${attachData.ProjectID}<br>
         <strong>TypeID:</strong> ${attachData.TypeID}<br>
         <strong>Title:</strong> ${attachData.Title}<br>
         <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
-        <strong>Link:</strong> ${file.name} (will be set after upload)<br>
-        <strong>Attachment:</strong> ${attachData.Attachment || '(will be set by upload)'}<br><br>
-        <strong>File Info:</strong><br>
-        <strong>File:</strong> ${file.name}<br>
-        <strong>Size:</strong> ${file.size} bytes<br>
-        <strong>Type:</strong> ${file.type}<br><br>
-        <strong>Context:</strong><br>
-        <strong>ServiceID:</strong> ${serviceId} (used for context, not sent)<br>
+        <strong>Link:</strong> ${file.name}<br>
+        <strong>Attachment:</strong> [File: ${file.name}, ${file.size} bytes, ${file.type}]<br><br>
+        <strong>Context (not sent to table):</strong><br>
+        <strong>ServiceID:</strong> ${serviceId}<br>
         <strong>API Endpoint:</strong> /tables/Attach/records?response=rows
       `,
       buttons: [
