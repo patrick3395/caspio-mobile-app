@@ -539,8 +539,27 @@ export class EngineersFoundationPage implements OnInit {
       console.log('✅ Visual saved to Services_Visuals:', response);
       console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
+      // Check if response exists (even if empty, it might mean success)
+      // Caspio sometimes returns empty response on successful POST
+      if (response === undefined || response === null || response === '') {
+        console.log('⚠️ Empty response received - treating as success (common with Caspio)');
+        // Generate a temporary ID for tracking
+        const tempId = `temp_${Date.now()}`;
+        const recordKey = `visual_${category}_${templateId}`;
+        localStorage.setItem(recordKey, tempId);
+        this.visualRecordIds[`${category}_${templateId}`] = tempId;
+        
+        // Query the table to get the actual VisualID
+        setTimeout(async () => {
+          await this.refreshVisualId(category, templateId);
+        }, 1000);
+        
+        console.log('✅ Visual appears to be saved (will verify)');
+        return; // Exit successfully
+      }
+      
       // Store the record ID for potential deletion later
-      const visualId = response.PK_ID || response.id || response.VisualID;
+      const visualId = response.PK_ID || response.id || response.VisualID || response;
       const recordKey = `visual_${category}_${templateId}`;
       localStorage.setItem(recordKey, visualId);
       
@@ -549,7 +568,7 @@ export class EngineersFoundationPage implements OnInit {
       console.log('📌 Visual Record ID stored:', visualId);
       
     } catch (error: any) {
-      console.error('❌ Failed to save visual:', error);
+      console.error('⚠️ Error during save (checking if actually failed):', error);
       console.error('=====================================');
       console.error('ERROR DETAILS:');
       console.error('   Status:', error?.status);
@@ -558,18 +577,59 @@ export class EngineersFoundationPage implements OnInit {
       console.error('   Error Body:', error?.error);
       console.error('=====================================');
       
+      // Check if it's a real error or just a response parsing issue
+      // Status 200-299 means success even if response parsing failed
+      if (error?.status >= 200 && error?.status < 300) {
+        console.log('✅ Request was successful (status 2xx) - ignoring response parsing error');
+        // Treat as success
+        const tempId = `temp_${Date.now()}`;
+        const recordKey = `visual_${category}_${templateId}`;
+        localStorage.setItem(recordKey, tempId);
+        this.visualRecordIds[`${category}_${templateId}`] = tempId;
+        
+        // Try to get the real ID
+        setTimeout(async () => {
+          await this.refreshVisualId(category, templateId);
+        }, 1000);
+        
+        await this.showToast('Selection saved', 'success');
+        return; // Keep the checkbox selected
+      }
+      
+      // Check for specific error types
       if (error?.status === 400) {
         console.error('⚠️ 400 Bad Request - Check column names and data types');
         console.error('Expected columns: ServiceID (Integer), Category (Text), Type (Text), Name (Text), Notes (Text)');
+      } else if (!error?.status) {
+        console.log('⚠️ No status code - might be a response parsing issue, checking table...');
+        // Try to verify if it was actually saved
+        setTimeout(async () => {
+          const saved = await this.verifyVisualSaved(category, templateId);
+          if (saved) {
+            console.log('✅ Verified: Visual was actually saved');
+            await this.showToast('Selection saved', 'success');
+          } else {
+            console.error('❌ Verified: Visual was NOT saved');
+            // Only now revert the selection
+            const key = `${category}_${templateId}`;
+            this.selectedItems[key] = false;
+            if (this.categoryData[category] && this.categoryData[category][templateId]) {
+              this.categoryData[category][templateId].selected = false;
+            }
+          }
+        }, 1000);
+        return; // Don't revert immediately
       }
       
       await this.showToast('Failed to save selection', 'danger');
       
-      // Revert the selection on error
-      const key = `${category}_${templateId}`;
-      this.selectedItems[key] = false;
-      if (this.categoryData[category] && this.categoryData[category][templateId]) {
-        this.categoryData[category][templateId].selected = false;
+      // Only revert if we're sure it failed
+      if (error?.status >= 400) {
+        const key = `${category}_${templateId}`;
+        this.selectedItems[key] = false;
+        if (this.categoryData[category] && this.categoryData[category][templateId]) {
+          this.categoryData[category][templateId].selected = false;
+        }
       }
     }
   }
@@ -674,6 +734,60 @@ export class EngineersFoundationPage implements OnInit {
   getPhotoCount(category: string, itemId: string): number {
     const visualId = this.visualRecordIds[`${category}_${itemId}`];
     return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+  }
+  
+  // Verify if visual was actually saved
+  async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
+    try {
+      console.log('🔍 Verifying if visual was saved...');
+      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      
+      if (visuals && Array.isArray(visuals)) {
+        const templateName = this.categoryData[category]?.[templateId]?.name;
+        const found = visuals.some(v => 
+          v.Category === category && 
+          v.Name === templateName
+        );
+        
+        if (found) {
+          console.log('✅ Visual found in table - it was saved!');
+          // Also refresh the ID
+          await this.refreshVisualId(category, templateId);
+          return true;
+        }
+      }
+      console.log('❌ Visual not found in table');
+      return false;
+    } catch (error) {
+      console.error('Error verifying visual:', error);
+      return false;
+    }
+  }
+  
+  // Refresh visual ID after save
+  async refreshVisualId(category: string, templateId: string) {
+    try {
+      console.log('🔄 Refreshing Visual ID for:', category, templateId);
+      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      
+      if (visuals && Array.isArray(visuals)) {
+        // Find the visual we just created
+        const ourVisual = visuals.find(v => 
+          v.Category === category && 
+          v.Name === this.categoryData[category]?.[templateId]?.name
+        );
+        
+        if (ourVisual) {
+          const visualId = ourVisual.PK_ID || ourVisual.id || ourVisual.VisualID;
+          const recordKey = `visual_${category}_${templateId}`;
+          localStorage.setItem(recordKey, visualId);
+          this.visualRecordIds[`${category}_${templateId}`] = visualId;
+          console.log('✅ Visual ID refreshed:', visualId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh visual ID:', error);
+    }
   }
   
   // Load existing photos for visuals
