@@ -679,24 +679,43 @@ export class ProjectDetailPage implements OnInit {
 
   private async uploadFileToCaspio(attachId: string, file: File): Promise<void> {
     try {
-      console.log('📤 Uploading file to Attach folder:', file.name, 'AttachID:', attachId);
+      console.log('📤 ATTEMPTING FILE UPLOAD TO CASPIO');
+      console.log('  AttachID:', attachId);
+      console.log('  File name:', file.name);
+      console.log('  File size:', file.size, 'bytes');
+      console.log('  File type:', file.type);
+      console.log('  File last modified:', new Date(file.lastModified).toISOString());
       
       // Use the service method which handles authentication
       const response = await this.caspioService.uploadFileToAttachment(attachId, file).toPromise();
       console.log('📥 Upload response:', response);
       
-      console.log('✅ File uploaded successfully to Attach folder');
+      console.log('✅ FILE UPLOADED SUCCESSFULLY to Attach folder');
     } catch (error: any) {
-      console.error('❌ Error uploading file to Caspio:', error);
+      console.error('❌ FILE UPLOAD FAILED');
+      console.error('Full error:', error);
       console.error('Error details:', {
-        status: error.status,
-        message: error.message,
-        error: error.error
+        status: error?.status,
+        statusText: error?.statusText,
+        message: error?.message,
+        error: error?.error,
+        url: error?.url
       });
+      
+      // Log the exact endpoint we tried
+      console.error('🔴 Attempted Files API endpoint: /files/Attach/Attachment/' + attachId);
       
       // If it's a 404, the Files API might not be available or the AttachID is wrong
       if (error.status === 404) {
-        console.error('Files API endpoint not found or AttachID is invalid');
+        console.error('⚠️ 404 ERROR: Files API endpoint not found or AttachID is invalid');
+        console.error('Possible issues:');
+        console.error('  1. AttachID does not exist:', attachId);
+        console.error('  2. Files API endpoint format is incorrect');
+        console.error('  3. Attachment field name is not "Attachment"');
+      } else if (error.status === 400) {
+        console.error('⚠️ 400 ERROR: Bad request - check field names and data format');
+      } else if (error.status === 401) {
+        console.error('⚠️ 401 ERROR: Authentication issue');
       }
       throw error;
     }

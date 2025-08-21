@@ -307,8 +307,23 @@ export class CaspioService {
   }
 
   createAttachment(attachData: any): Observable<any> {
+    console.log('🔍 [CaspioService.createAttachment] Creating attachment with data:', attachData);
     // Use response=rows to get the created record with AttachID immediately
-    return this.post<any>('/tables/Attach/records?response=rows', attachData);
+    return this.post<any>('/tables/Attach/records?response=rows', attachData).pipe(
+      tap(response => {
+        console.log('✅ [CaspioService.createAttachment] Success response:', response);
+      }),
+      catchError(error => {
+        console.error('❌ [CaspioService.createAttachment] Failed:', error);
+        console.error('Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          error: error?.error
+        });
+        return throwError(() => error);
+      })
+    );
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
@@ -321,11 +336,36 @@ export class CaspioService {
 
   // File upload method
   uploadFileToAttachment(attachId: string, file: File): Observable<any> {
+    console.log('🔍 [CaspioService.uploadFileToAttachment] Uploading file:', {
+      attachId: attachId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+    
     const formData = new FormData();
     formData.append('file', file, file.name);
     
+    // Log the FormData contents
+    console.log('📦 FormData contents:');
+    formData.forEach((value, key) => {
+      console.log(`  ${key}:`, value);
+    });
+    
     // Use the Files API endpoint for Attach table with Attachment field
     // The field name in Caspio is 'Attachment' not the record ID
-    return this.post<any>(`/files/Attach/Attachment/${attachId}`, formData);
+    const endpoint = `/files/Attach/Attachment/${attachId}`;
+    console.log('🎯 Files API endpoint:', endpoint);
+    
+    return this.post<any>(endpoint, formData).pipe(
+      tap(response => {
+        console.log('✅ [CaspioService.uploadFileToAttachment] Upload success:', response);
+      }),
+      catchError(error => {
+        console.error('❌ [CaspioService.uploadFileToAttachment] Upload failed:', error);
+        console.error('Failed endpoint was:', endpoint);
+        return throwError(() => error);
+      })
+    );
   }
 }
