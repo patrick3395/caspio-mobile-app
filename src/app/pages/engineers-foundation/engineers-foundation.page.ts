@@ -690,7 +690,7 @@ export class EngineersFoundationPage implements OnInit {
     }
     
     const key = `${category}_${itemId}`;
-    const visualId = this.visualRecordIds[key];
+    let visualId = this.visualRecordIds[key];  // Changed from const to let
     
     if (!visualId) {
       console.error('❌ No Visual ID found for:', key);
@@ -704,7 +704,7 @@ export class EngineersFoundationPage implements OnInit {
       await this.refreshVisualId(category, itemId);
       const updatedId = this.visualRecordIds[key];
       if (updatedId && !updatedId.startsWith('temp_')) {
-        visualId = updatedId;
+        visualId = updatedId;  // Now we can reassign since it's let
       } else {
         await this.showToast('Please wait for visual to finish saving', 'warning');
         return;
