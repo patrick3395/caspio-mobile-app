@@ -239,29 +239,29 @@
     <div class="info-section" *ngIf="selectedServices.length > 0">
       <h2 class="section-title">Templates</h2>
       
-      <div class="templates-table">
-        <div class="template-header">
-          <div class="template-col">Service</div>
-          <div class="template-col">Instance</div>
-          <div class="template-col">Action</div>
-        </div>
-        
-        <div *ngFor="let service of selectedServices" class="template-row">
-          <div class="template-col">{{ service.typeName }}</div>
-          <div class="template-col">
-            <span *ngIf="getServiceCount(service.offersId) > 1">
-              Instance {{ getServiceInstanceNumber(service) }}
-            </span>
-            <span *ngIf="getServiceCount(service.offersId) === 1">-</span>
+      <div class="templates-container">
+        <div *ngFor="let service of selectedServices" 
+             class="template-bar" 
+             (click)="openTemplate(service)">
+          
+          <!-- Progress fill background -->
+          <div class="template-progress" 
+               [style.width.%]="getTemplateProgress(service)">
           </div>
-          <div class="template-col">
-            <ion-button 
-              size="small" 
-              fill="solid" 
-              color="success" 
-              (click)="openTemplate(service)">
-              Open Template
-            </ion-button>
+          
+          <!-- Service name and info overlay -->
+          <div class="template-content">
+            <div class="template-name">
+              {{ service.typeName }}
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
+                (Instance {{ getServiceInstanceNumber(service) }})
+              </span>
+            </div>
+            
+            <div class="template-status">
+              <span class="template-percentage">{{ getTemplateProgress(service) }}%</span>
+              <span class="template-action">Tap to Open</span>
+            </div>
           </div>
         </div>
       </div>

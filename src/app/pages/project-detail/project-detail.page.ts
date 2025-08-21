@@ -841,6 +841,30 @@ export class ProjectDetailPage implements OnInit {
     this.router.navigate(['/tabs/active-projects']);
   }
 
+  getTemplateProgress(service: any): number {
+    // This is a placeholder for template completion tracking
+    // In the future, this will query multiple tables to calculate completion percentage
+    // For now, return a demo value based on service type
+    
+    // You can implement logic here to:
+    // 1. Query template-specific tables for this service
+    // 2. Count completed fields vs total fields
+    // 3. Calculate percentage
+    
+    // Demo: Return different progress for different services
+    const serviceProgress: { [key: string]: number } = {
+      'Engineers Foundation Evaluation': 35,
+      'Home Inspection Report': 75,
+      'Roof Inspection': 20,
+      'HVAC Assessment': 90,
+      'Electrical Inspection': 45,
+      'Plumbing Inspection': 60
+    };
+    
+    // Return the progress for this service, or 0 if not found
+    return serviceProgress[service.typeName] || 0;
+  }
+
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
