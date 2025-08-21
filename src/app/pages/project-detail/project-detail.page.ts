@@ -584,10 +584,7 @@ export class ProjectDetailPage implements OnInit {
     const file = event.target.files[0];
     if (!file || !this.currentUploadContext) return;
     
-    const loading = await this.loadingController.create({
-      message: 'Uploading file...'
-    });
-    await loading.present();
+    let loading: any = null;
     
     try {
       const { serviceId, typeId, doc, action } = this.currentUploadContext;
@@ -624,8 +621,14 @@ export class ProjectDetailPage implements OnInit {
         console.log('  Attachment:', attachData.Attachment || '(empty - will be set by upload)');
         console.log('  ServiceID (context only):', serviceIdNum, '- NOT sent to table');
         
-        // Show popup with the data being sent
+        // Show popup with the data being sent - user must confirm before upload proceeds
         await this.showAttachmentDataPopup(attachData, file, serviceIdNum);
+        
+        // Only show loading AFTER user confirms in the popup
+        loading = await this.loadingController.create({
+          message: 'Uploading file...'
+        });
+        await loading.present();
         
         const response = await this.caspioService.createAttachment(attachData).toPromise();
         console.log('📋 Create attachment response:', response);
@@ -656,6 +659,12 @@ export class ProjectDetailPage implements OnInit {
         
         await this.showToast('File uploaded successfully', 'success');
       } else if (action === 'replace' && doc.attachId) {
+        // Show loading for replace action
+        loading = await this.loadingController.create({
+          message: 'Replacing file...'
+        });
+        await loading.present();
+        
         // Replace existing file
         console.log('🔄 Replacing file for AttachID:', doc.attachId);
         await this.uploadFileToCaspio(doc.attachId, file);
@@ -675,7 +684,9 @@ export class ProjectDetailPage implements OnInit {
       console.error('Error handling file upload:', error);
       await this.showToast('Failed to upload file', 'danger');
     } finally {
-      await loading.dismiss();
+      if (loading) {
+        await loading.dismiss();
+      }
       this.fileInput.nativeElement.value = '';
       this.currentUploadContext = null;
     }
@@ -904,10 +915,10 @@ export class ProjectDetailPage implements OnInit {
         <strong>TypeID:</strong> ${attachData.TypeID}<br>
         <strong>Title:</strong> ${attachData.Title}<br>
         <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
-        <strong>Link:</strong> ${attachData.Link || '(will be set after upload)'}<br>
+        <strong>Link:</strong> ${file.name} (will be set after upload)<br>
         <strong>Attachment:</strong> ${attachData.Attachment || '(will be set by upload)'}<br><br>
         <strong>File Info:</strong><br>
-        <strong>Name:</strong> ${file.name}<br>
+        <strong>File:</strong> ${file.name}<br>
         <strong>Size:</strong> ${file.size} bytes<br>
         <strong>Type:</strong> ${file.type}<br><br>
         <strong>Context:</strong><br>
