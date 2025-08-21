@@ -1,7 +1,15 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+  <ion-toolbar color="primary" style="--background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
     <ion-title>
-      Caspio App
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span>Caspio App</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <ion-badge color="success" style="font-size: 11px;">v1.1.56</ion-badge>
+          <ion-badge color="warning" style="font-size: 10px; max-width: 300px; white-space: normal; text-align: right;">
+            Fixed: File uploads use proper API
+          </ion-badge>
+        </div>
+      </div>
     </ion-title>
   </ion-toolbar>
 </ion-header>
