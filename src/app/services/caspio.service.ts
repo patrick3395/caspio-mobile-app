@@ -308,8 +308,8 @@ export class CaspioService {
 
   createAttachment(attachData: any): Observable<any> {
     console.log('🔍 [CaspioService.createAttachment] Creating attachment with data:', attachData);
-    // Use response=rows to get the created record with AttachID immediately
-    return this.post<any>('/tables/Attach/records?response=rows', attachData).pipe(
+    // Remove ?response=rows as per Caspio best practices
+    return this.post<any>('/tables/Attach/records', attachData).pipe(
       tap(response => {
         console.log('✅ [CaspioService.createAttachment] Success response:', response);
       }),
@@ -320,6 +320,55 @@ export class CaspioService {
           statusText: error?.statusText,
           message: error?.message,
           error: error?.error
+        });
+        return throwError(() => error);
+      })
+    );
+  }
+
+  // Create attachment with file in ONE request
+  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
+    console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
+      projectId,
+      typeId,
+      title,
+      fileName: file.name,
+      fileSize: file.size
+    });
+
+    // Create FormData with all fields INCLUDING the file
+    const formData = new FormData();
+    formData.append('ProjectID', projectId.toString());
+    formData.append('TypeID', typeId.toString());
+    formData.append('Title', title);
+    formData.append('Notes', notes || '');
+    // Don't set Link field - let it be empty or remove if not required
+    // formData.append('Link', ''); // Omit this field
+    formData.append('Attachment', file, file.name);
+
+    // Log FormData contents
+    console.log('📦 FormData being sent:');
+    formData.forEach((value, key) => {
+      if (key === 'Attachment') {
+        console.log(`  ${key}: [File: ${file.name}, ${file.size} bytes]`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    });
+
+    // POST to create record WITH file in one request
+    return this.post<any>('/tables/Attach/records', formData).pipe(
+      tap(response => {
+        console.log('✅ [CaspioService.createAttachmentWithFile] Success:', response);
+      }),
+      catchError(error => {
+        console.error('❌ [CaspioService.createAttachmentWithFile] Failed:', error);
+        console.error('Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          error: error?.error,
+          responseText: error?.error?.Message || error?.error?.message
         });
         return throwError(() => error);
       })

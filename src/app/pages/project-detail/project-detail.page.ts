@@ -590,7 +590,7 @@ export class ProjectDetailPage implements OnInit {
       const { serviceId, typeId, doc, action } = this.currentUploadContext;
       
       if (action === 'upload' || action === 'additional') {
-        // Create new Attach record - ensure all IDs are valid integers
+        // Create new Attach record WITH FILE - ensure all IDs are valid integers
         const projectIdNum = parseInt(this.projectId);
         const typeIdNum = parseInt(typeId);
         const serviceIdNum = parseInt(serviceId);
@@ -600,25 +600,17 @@ export class ProjectDetailPage implements OnInit {
           throw new Error('Invalid ID values');
         }
         
-        // Build the attachment data - NOTE: Attach table doesn't have ServiceID field
+        // Build the attachment data for preview
         const attachData = {
           ProjectID: projectIdNum,
           TypeID: typeIdNum,
           Title: doc.title || 'Document',
-          Notes: '', // Empty notes field
-          Link: '', // Will be populated after file upload
-          Attachment: '' // Will be populated by file upload
+          Notes: '',
+          // Link field omitted - not sending it at all
+          Attachment: `[File: ${file.name}]`
         };
-        // DO NOT add ServiceID - it's not a field in the Attach table
         
-        console.log('📝 Creating attachment record:', attachData);
-        console.log('📊 Field values being sent to Caspio Attach table:');
-        console.log('  ProjectID:', attachData.ProjectID, '(type:', typeof attachData.ProjectID, ')');
-        console.log('  TypeID:', attachData.TypeID, '(type:', typeof attachData.TypeID, ')');
-        console.log('  Title:', attachData.Title);
-        console.log('  Notes:', attachData.Notes || '(empty)');
-        console.log('  Link:', attachData.Link || '(empty - will be set after upload)');
-        console.log('  Attachment:', attachData.Attachment || '(empty - will be set by upload)');
+        console.log('📝 Creating attachment record with file:', attachData);
         console.log('  ServiceID (context only):', serviceIdNum, '- NOT sent to table');
         
         // Show popup with the data being sent - user must confirm before upload proceeds
@@ -630,33 +622,16 @@ export class ProjectDetailPage implements OnInit {
         });
         await loading.present();
         
-        const response = await this.caspioService.createAttachment(attachData).toPromise();
-        console.log('📋 Create attachment response:', response);
+        // Create attachment WITH file in ONE request
+        const response = await this.caspioService.createAttachmentWithFile(
+          projectIdNum,
+          typeIdNum,
+          doc.title || 'Document',
+          '', // notes
+          file
+        ).toPromise();
         
-        // With response=rows, we get the created record immediately
-        let attachId: string;
-        if (response?.Result && response.Result.length > 0) {
-          attachId = response.Result[0].AttachID;
-          console.log('✅ Got AttachID from response:', attachId);
-        } else {
-          console.error('Unexpected response format:', response);
-          await this.showErrorPopup(
-            { status: 'N/A', message: 'No AttachID in response' },
-            attachData
-          );
-          throw new Error('Failed to get AttachID from created record');
-        }
-        console.log('📌 Using AttachID:', attachId);
-        
-        // Upload file to Caspio Files API
-        await this.uploadFileToCaspio(attachId, file);
-        
-        // Update the Link field with the filename after successful upload
-        await this.caspioService.updateAttachment(attachId, {
-          Link: file.name
-        }).toPromise();
-        console.log('✅ Updated Link field with filename:', file.name);
-        
+        console.log('📋 Create attachment with file response:', response);
         await this.showToast('File uploaded successfully', 'success');
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -955,11 +930,11 @@ export class ProjectDetailPage implements OnInit {
         <strong>TypeID:</strong> ${attachData.TypeID}<br>
         <strong>Title:</strong> ${attachData.Title}<br>
         <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
-        <strong>Link:</strong> ${file.name}<br>
         <strong>Attachment:</strong> [File: ${file.name}, ${file.size} bytes, ${file.type}]<br><br>
         <strong>Context (not sent to table):</strong><br>
         <strong>ServiceID:</strong> ${serviceId}<br>
-        <strong>API Endpoint:</strong> /tables/Attach/records?response=rows
+        <strong>API Endpoint:</strong> /tables/Attach/records<br>
+        <strong>Method:</strong> POST with multipart/form-data
       `,
       buttons: [
         {
