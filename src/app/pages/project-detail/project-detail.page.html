@@ -90,7 +90,7 @@
           </div>
           <div *ngFor="let service of selectedServices" class="table-row">
             <div class="col-service">
-              {{ service.typeName }}
+              <span>{{ service.typeName }}</span>
               <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
                 #{{ getServiceInstanceNumber(service) }}
               </span>

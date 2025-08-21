@@ -1,5 +1,21 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.28 - 2025-01-20
+### Fixed
+- **Normalized Table Layout**:
+  - Fixed column widths for services table (45% / 35% / 20%)
+  - Fixed column widths for documents table (35% / 40% / 25%)
+  - Long service names truncated with ellipsis
+  - Consistent alignment regardless of content length
+- **Table Improvements**:
+  - Added table-layout: fixed for strict column control
+  - Service names won't push date column over
+  - Centered date inputs and action buttons
+  - Minimum row height for better visual consistency
+  - HUD service name no longer breaks layout
+
+---
+
 ## Version 1.1.27 - 2025-01-20
 ### Fixed
 - **Project Navigation After Creation**:
