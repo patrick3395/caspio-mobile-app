@@ -17,12 +17,11 @@ export class AppComponent {
   initializeApp() {
     this.platform.ready().then(() => {
       console.log('=== APP STARTING - VERSION 1.1.39 ===');
-      console.log('⚠️ LIVE UPDATES DISABLED - Using bundled version only');
+      console.log('Live Updates ENABLED');
       console.log('Timestamp:', new Date().toISOString());
       
-      // SKIP live updates check - causing corruption and flashing
-      // this.checkForUpdate();  // DISABLED
-      console.log('🚫 Live Updates check skipped - preventing corruption');
+      // Check for live updates
+      this.checkForUpdate();
       
       // Enable mobile test mode if query param is present
       if (!Capacitor.isNativePlatform() && window.location.search.includes('mobile-test=true')) {
@@ -45,13 +44,6 @@ export class AppComponent {
   }
 
   async checkForUpdate() {
-    // DISABLED - Live Updates causing corruption and app flashing
-    console.log('⚠️ Live Updates are DISABLED');
-    console.log('Reason: Preventing corruption and reload loops');
-    console.log('Solution: Using bundled version only');
-    return;
-    
-    /* ORIGINAL CODE - KEPT FOR REFERENCE
     console.log('🔍 Checking for updates with @capacitor/live-updates...');
     console.log('Platform:', Capacitor.getPlatform());
     console.log('Is Native:', Capacitor.isNativePlatform());
@@ -107,7 +99,6 @@ export class AppComponent {
     } else {
       console.log('ℹ️ Live updates only work on native platforms');
     }
-    */
   }
   
   private async showCorruptionAlert() {
