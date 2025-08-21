@@ -58,13 +58,11 @@ ion-icon{font-size:18px}}}}}
 
 .documents-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden;max-width:100%;
 .doc-row{display:grid;grid-template-columns:30% 40% 30%;min-height:48px;align-items:stretch;border-bottom:1px solid #e9ecef;
->div{padding:10px 12px;font-size:14px;overflow:hidden;word-wrap:break-word;white-space:normal}
+>div{padding:10px 12px;font-size:14px;word-wrap:break-word;white-space:normal}
 .doc-service{font-weight:600;padding-left:12px;display:flex;align-items:center}
 .doc-title{display:flex;align-items:center;gap:8px;
 .uploaded-text{color:#28a745;font-weight:500}
-.doc-status{font-size:10px;padding:1px 6px;border-radius:10px;background:#d1ecf1;color:#0c5460;margin-left:4px;white-space:nowrap;
-&.required{background:#f8d7da;color:#721c24}}
-.remove-doc-link{margin-left:8px;color:#dc3545;font-size:11px;cursor:pointer;text-decoration:none;white-space:nowrap}}
+.remove-doc-link{margin-left:auto;color:#dc3545;font-size:11px;cursor:pointer;text-decoration:none;white-space:nowrap}}
 .doc-actions{text-align:center;display:flex;gap:2px;justify-content:center;align-items:center;flex-wrap:wrap;
 ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;height:28px;--border-radius:4px}
 .uploaded-actions{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}}
@@ -75,8 +73,9 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 >div:nth-child(3){text-align:center}}
 .service-doc-group{position:relative;
 &:not(:last-child){border-bottom:2px solid #dee2e6}
-.doc-row>div:first-child{border-left:3px solid #007bff;padding-left:12px;background:#f8f9fa;font-weight:600}
-.doc-row:not(:first-child)>div:first-child>div{visibility:hidden}}
+.doc-row{position:relative}
+.doc-row>div:first-child{border-left:3px solid #007bff;padding-left:12px;background:#f8f9fa;font-weight:600;min-height:100%}
+.doc-row:not(:first-child)>div:first-child>div{display:none}}
 .add-doc-row{background:#fafbfc;grid-template-columns:30% 40% 30%;
 >div:nth-child(2){text-align:left;padding-left:12px}}}
 

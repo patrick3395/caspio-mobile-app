@@ -1,5 +1,22 @@
 # Build Notes for Caspio Mobile App
 
+## Version 1.1.24 - 2025-01-20
+### Fixed
+- **Navigation After Project Creation**:
+  - Added delay before navigation to ensure project is saved
+  - Active projects page already refreshes on ionViewWillEnter
+  - Better reliability for direct navigation to project details
+- **Document Table Service Column**:
+  - Service column now properly spans all document rows
+  - Uses display:none instead of visibility:hidden for cleaner layout
+  - Service background extends full height
+- **Removed Leftover Status Text**:
+  - Cleaned up doc-status CSS that was causing "re" text
+  - Removed unused status badge styles
+  - Cleaner document title display
+
+---
+
 ## Version 1.1.23 - 2025-01-20
 ### Fixed
 - **Version Display**:

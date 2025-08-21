@@ -348,6 +348,8 @@ export class NewProjectPage implements OnInit {
         const navigationId = result.projectId !== 'new' ? result.projectId : null;
         if (navigationId) {
           console.log('🚀 Navigating to project details:', navigationId);
+          // Force a small delay to ensure the project is fully saved
+          await new Promise(resolve => setTimeout(resolve, 500));
           // Navigate to project details page
           await this.router.navigate(['/project', navigationId]);
         } else {
