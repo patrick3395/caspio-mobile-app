@@ -302,6 +302,11 @@
 
     <!-- Submit Button -->
     <div class="form-actions">
+      <!-- DEBUG: Manual file input trigger -->
+      <ion-button expand="block" color="warning" (click)="manualFileInputTest()">
+        DEBUG: Test File Input Directly
+      </ion-button>
+      
       <ion-button expand="block" size="large" (click)="submitTemplate()">
         Submit Evaluation
       </ion-button>

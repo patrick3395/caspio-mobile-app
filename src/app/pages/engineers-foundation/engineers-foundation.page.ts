@@ -135,6 +135,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
+  // DEBUG: Manual test of file input
+  manualFileInputTest() {
+    console.log('🧪 MANUAL FILE INPUT TEST');
+    
+    // Method 1: ViewChild
+    if (this.fileInput && this.fileInput.nativeElement) {
+      console.log('Method 1: Clicking via ViewChild');
+      this.fileInput.nativeElement.click();
+    } else {
+      console.log('Method 1 failed: ViewChild not available');
+    }
+    
+    // Method 2: Direct DOM query
+    setTimeout(() => {
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      if (input) {
+        console.log('Method 2: Found input via querySelector:', input);
+        input.click();
+      } else {
+        console.log('Method 2 failed: No file input found in DOM');
+      }
+    }, 100);
+  }
+  
   async loadProjectData() {
     if (!this.projectId) return;
     
@@ -766,9 +790,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
     }
     
-    // EXACTLY like Required Documents - just set context and click
-    this.currentUploadContext = { visualId, key, category, itemId };
-    this.fileInput.nativeElement.click();
+    // DETAILED DEBUGGING
+    console.log('🔍 DEBUGGING FILE INPUT:');
+    console.log('1. this.fileInput exists?', !!this.fileInput);
+    console.log('2. this.fileInput object:', this.fileInput);
+    
+    if (this.fileInput) {
+      console.log('3. nativeElement exists?', !!this.fileInput.nativeElement);
+      console.log('4. nativeElement:', this.fileInput.nativeElement);
+      
+      if (this.fileInput.nativeElement) {
+        console.log('5. Element type:', this.fileInput.nativeElement.tagName);
+        console.log('6. Element id:', this.fileInput.nativeElement.id);
+        console.log('7. Element display:', window.getComputedStyle(this.fileInput.nativeElement).display);
+        
+        // Try to find the element directly in DOM
+        const directElement = document.querySelector('input[type="file"]');
+        console.log('8. Direct DOM query found:', !!directElement);
+        
+        if (directElement) {
+          console.log('9. Using direct element instead');
+          this.currentUploadContext = { visualId, key, category, itemId };
+          (directElement as HTMLInputElement).click();
+          console.log('10. Clicked direct element');
+        } else {
+          // Try original way
+          this.currentUploadContext = { visualId, key, category, itemId };
+          this.fileInput.nativeElement.click();
+          console.log('11. Clicked via ViewChild');
+        }
+      } else {
+        console.error('❌ nativeElement is null/undefined');
+        await this.showToast('File input not available', 'danger');
+      }
+    } else {
+      console.error('❌ fileInput ViewChild is null/undefined');
+      await this.showToast('Camera not initialized', 'danger');
+    }
   }
   
   // Handle file selection from the hidden input (same pattern as Required Documents)
