@@ -329,6 +329,84 @@ export class CaspioService {
   deleteServicesVisual(visualId: string): Observable<any> {
     return this.delete<any>(`/tables/Services_Visuals/records?q.where=PK_ID=${visualId}`);
   }
+  
+  // Service_Visuals_Attach methods (for photos)
+  createServiceVisualsAttach(attachData: any): Observable<any> {
+    console.log('🔍 Creating Service_Visuals_Attach record:', attachData);
+    return this.post<any>('/tables/Service_Visuals_Attach/records', attachData).pipe(
+      tap(response => {
+        console.log('✅ Service_Visuals_Attach created:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Service_Visuals_Attach:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
+  // Upload photo to Service_Visuals_Attach with two-step process
+  uploadPhotoToServiceVisualsAttach(visualId: string, photo: File): Observable<any> {
+    console.log('📸 Uploading photo for VisualID:', visualId);
+    
+    return new Observable(observer => {
+      // Step 1: Create the attachment record
+      const attachData = {
+        VisualID: visualId,
+        // Photo field will be uploaded in step 2
+      };
+      
+      console.log('📝 Step 1: Creating Service_Visuals_Attach record');
+      
+      this.post<any>('/tables/Service_Visuals_Attach/records', attachData).subscribe({
+        next: (createResponse) => {
+          console.log('✅ Step 1 Success: Record created:', createResponse);
+          
+          const attachId = createResponse.PK_ID || createResponse.id;
+          
+          if (!attachId) {
+            console.error('❌ No ID in response:', createResponse);
+            observer.error(new Error('Failed to get attachment ID'));
+            return;
+          }
+          
+          console.log('📎 Step 2: Uploading photo to ID:', attachId);
+          
+          // Step 2: Upload the photo using multipart/form-data
+          const formData = new FormData();
+          formData.append('Photo', photo, photo.name);
+          
+          const updateUrl = `/tables/Service_Visuals_Attach/records?q.where=PK_ID=${attachId}`;
+          
+          this.put<any>(updateUrl, formData).subscribe({
+            next: (uploadResponse) => {
+              console.log('✅ Step 2 Success: Photo uploaded');
+              observer.next({ ...createResponse, photoUploaded: true });
+              observer.complete();
+            },
+            error: (uploadError) => {
+              console.error('❌ Step 2 Failed: Photo upload error:', uploadError);
+              observer.next({ 
+                ...createResponse, 
+                photoUploaded: false, 
+                uploadError: uploadError.message 
+              });
+              observer.complete();
+            }
+          });
+        },
+        error: (createError) => {
+          console.error('❌ Step 1 Failed:', createError);
+          observer.error(createError);
+        }
+      });
+    });
+  }
+  
+  getServiceVisualsAttachByVisualId(visualId: string): Observable<any[]> {
+    return this.get<any>(`/tables/Service_Visuals_Attach/records?q.where=VisualID=${visualId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
 
   // Get unique categories from Services_Visuals_Templates
   getServicesVisualsCategories(): Observable<string[]> {

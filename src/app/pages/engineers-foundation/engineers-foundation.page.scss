@@ -399,6 +399,25 @@ ion-toolbar {
                 white-space: normal;
               }
             }
+            
+            ion-button[slot="end"] {
+              margin-left: 8px;
+              
+              ion-icon {
+                font-size: 20px;
+              }
+              
+              ion-badge {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                font-size: 10px;
+                padding: 2px 4px;
+                min-width: 16px;
+                height: 16px;
+                border-radius: 8px;
+              }
+            }
           }
         }
       }

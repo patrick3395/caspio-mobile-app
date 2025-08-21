@@ -12,13 +12,11 @@ interface ElevationReading {
 }
 
 interface ServicesVisualRecord {
-  ServiceID: string;
+  ServiceID: number;  // Changed to number to match Integer type in Caspio
   Category: string;
   Type: string;
   Name: string;
-  Notes?: string;
-  Text?: string;
-  TemplateID?: string;
+  Notes: string;  // Made required, will send empty string if not provided
 }
 
 @Component({
@@ -51,6 +49,12 @@ export class EngineersFoundationPage implements OnInit {
   
   // Track saving state for items
   savingItems: { [key: string]: boolean } = {};
+  
+  // Track visual record IDs from Services_Visuals table
+  visualRecordIds: { [key: string]: string } = {};
+  
+  // Track photos for each visual
+  visualPhotos: { [visualId: string]: any[] } = {};
   
   // Form data for the template
   formData: any = {
@@ -261,9 +265,13 @@ export class EngineersFoundationPage implements OnInit {
             const key = `${visual.Category}_${visual.TemplateID}`;
             this.selectedItems[key] = true;
             
-            // Store the record ID for potential deletion
+            // Store the visual record ID
+            const visualId = visual.PK_ID || visual.id || visual.VisualID;
             const recordKey = `visual_${visual.Category}_${visual.TemplateID}`;
-            localStorage.setItem(recordKey, visual.PK_ID || visual.id);
+            localStorage.setItem(recordKey, visualId);
+            
+            // Store in tracking object for photo uploads
+            this.visualRecordIds[key] = visualId;
             
             // Update categoryData if exists
             if (this.categoryData[visual.Category] && this.categoryData[visual.Category][visual.TemplateID]) {
@@ -274,6 +282,9 @@ export class EngineersFoundationPage implements OnInit {
       }
       
       console.log('Visual selections restored:', this.selectedItems);
+      
+      // Load existing photos for these visuals
+      await this.loadExistingPhotos();
     } catch (error) {
       console.error('Error loading existing visual selections:', error);
     }
@@ -489,27 +500,38 @@ export class EngineersFoundationPage implements OnInit {
     
     console.log('📄 Template Found:', template);
     
+    // Convert ServiceID to number (Caspio expects Integer type)
+    const serviceIdNum = parseInt(this.serviceId, 10);
+    if (isNaN(serviceIdNum)) {
+      console.error('❌ Invalid ServiceID - not a number:', this.serviceId);
+      await this.showToast('Invalid Service ID', 'danger');
+      return;
+    }
+    
+    // ONLY include the columns that exist in Services_Visuals table
     const visualData: ServicesVisualRecord = {
-      ServiceID: this.serviceId,
-      Category: category,
-      Type: template.Type || '',
-      Name: template.Name || '',
-      Notes: '', // Can be updated later if needed
-      Text: template.Text || '',
-      TemplateID: templateId
+      ServiceID: serviceIdNum,  // Integer type in Caspio
+      Category: category || '',   // Text(255) in Caspio
+      Type: template.Type || '',  // Text(255) in Caspio
+      Name: template.Name || '',  // Text(255) in Caspio
+      Notes: ''                    // Text(255) in Caspio - empty for now
     };
     
     console.log('📤 DATA BEING SENT TO SERVICES_VISUALS TABLE:');
     console.log('=====================================');
-    console.log('   ServiceID:', visualData.ServiceID);
-    console.log('   Category:', visualData.Category);
-    console.log('   Type:', visualData.Type);
-    console.log('   Name:', visualData.Name);
-    console.log('   Notes:', visualData.Notes);
-    console.log('   Text:', visualData.Text);
-    console.log('   TemplateID:', visualData.TemplateID);
+    console.log('COLUMN MAPPING TO SERVICES_VISUALS TABLE:');
+    console.log('   ServiceID (Integer):', visualData.ServiceID, typeof visualData.ServiceID);
+    console.log('   Category (Text 255):', visualData.Category);
+    console.log('   Type (Text 255):', visualData.Type);
+    console.log('   Name (Text 255):', visualData.Name);
+    console.log('   Notes (Text 255):', visualData.Notes);
     console.log('=====================================');
-    console.log('📦 Full visualData object:', JSON.stringify(visualData, null, 2));
+    console.log('⚠️ NOT SENDING: Text, TemplateID (these columns do not exist in Services_Visuals)');
+    console.log('📦 Full visualData object being sent:', JSON.stringify(visualData, null, 2));
+    console.log('📌 Template info for reference (not sent):', {
+      TemplateID: templateId,
+      Text: template.Text
+    });
     
     try {
       console.log('⏳ Calling caspioService.createServicesVisual...');
@@ -518,11 +540,29 @@ export class EngineersFoundationPage implements OnInit {
       console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
       // Store the record ID for potential deletion later
+      const visualId = response.PK_ID || response.id || response.VisualID;
       const recordKey = `visual_${category}_${templateId}`;
-      localStorage.setItem(recordKey, response.PK_ID || response.id);
+      localStorage.setItem(recordKey, visualId);
       
-    } catch (error) {
+      // Store in our tracking object for photo uploads
+      this.visualRecordIds[`${category}_${templateId}`] = visualId;
+      console.log('📌 Visual Record ID stored:', visualId);
+      
+    } catch (error: any) {
       console.error('❌ Failed to save visual:', error);
+      console.error('=====================================');
+      console.error('ERROR DETAILS:');
+      console.error('   Status:', error?.status);
+      console.error('   Status Text:', error?.statusText);
+      console.error('   Message:', error?.message);
+      console.error('   Error Body:', error?.error);
+      console.error('=====================================');
+      
+      if (error?.status === 400) {
+        console.error('⚠️ 400 Bad Request - Check column names and data types');
+        console.error('Expected columns: ServiceID (Integer), Category (Text), Type (Text), Name (Text), Notes (Text)');
+      }
+      
       await this.showToast('Failed to save selection', 'danger');
       
       // Revert the selection on error
@@ -560,5 +600,97 @@ export class EngineersFoundationPage implements OnInit {
   // Check if item is being saved
   isItemSaving(category: string, itemId: string): boolean {
     return this.savingItems[`${category}_${itemId}`] || false;
+  }
+  
+  // Open camera to take photo for a visual
+  async takePhotoForVisual(category: string, itemId: string) {
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+    
+    if (!visualId) {
+      console.error('❌ No Visual ID found for:', key);
+      await this.showToast('Please save the visual first', 'warning');
+      return;
+    }
+    
+    console.log('📸 Opening camera for visual:', visualId);
+    
+    // Create file input for photo capture
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Use 'camera' for front camera
+    
+    input.onchange = async (event: any) => {
+      const file = event.target.files[0];
+      if (file) {
+        await this.uploadPhotoForVisual(visualId, file, key);
+      }
+    };
+    
+    input.click();
+  }
+  
+  // Upload photo to Service_Visuals_Attach
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string) {
+    console.log('=====================================');
+    console.log('📤 UPLOADING PHOTO TO SERVICE_VISUALS_ATTACH');
+    console.log('=====================================');
+    console.log('   VisualID:', visualId);
+    console.log('   Photo Name:', photo.name);
+    console.log('   Photo Size:', photo.size);
+    console.log('   Photo Type:', photo.type);
+    
+    const loading = await this.loadingController.create({
+      message: 'Uploading photo...'
+    });
+    await loading.present();
+    
+    try {
+      const response = await this.caspioService.uploadPhotoToServiceVisualsAttach(visualId, photo).toPromise();
+      console.log('✅ Photo uploaded successfully:', response);
+      
+      // Store photo reference
+      if (!this.visualPhotos[visualId]) {
+        this.visualPhotos[visualId] = [];
+      }
+      this.visualPhotos[visualId].push({
+        id: response.PK_ID || response.id,
+        name: photo.name,
+        uploadedAt: new Date().toISOString()
+      });
+      
+      await loading.dismiss();
+      await this.showToast('Photo uploaded successfully', 'success');
+      
+    } catch (error) {
+      console.error('❌ Failed to upload photo:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to upload photo', 'danger');
+    }
+  }
+  
+  // Get photo count for a visual
+  getPhotoCount(category: string, itemId: string): number {
+    const visualId = this.visualRecordIds[`${category}_${itemId}`];
+    return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+  }
+  
+  // Load existing photos for visuals
+  async loadExistingPhotos() {
+    for (const key in this.visualRecordIds) {
+      const visualId = this.visualRecordIds[key];
+      if (visualId) {
+        try {
+          const photos = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
+          if (photos && photos.length > 0) {
+            this.visualPhotos[visualId] = photos;
+            console.log(`📸 Loaded ${photos.length} photos for visual ${visualId}`);
+          }
+        } catch (error) {
+          console.error(`Failed to load photos for visual ${visualId}:`, error);
+        }
+      }
+    }
   }
 }

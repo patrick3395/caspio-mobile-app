@@ -147,6 +147,17 @@
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                      <ion-button 
+                        *ngIf="isItemSelected(category, item.id) && !isItemSaving(category, item.id)" 
+                        slot="end" 
+                        fill="clear" 
+                        size="small"
+                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        <ion-icon name="camera-outline"></ion-icon>
+                        <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
+                          {{ getPhotoCount(category, item.id) }}
+                        </ion-badge>
+                      </ion-button>
                     </ion-item>
                   </div>
                 </div>
@@ -167,6 +178,17 @@
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                      <ion-button 
+                        *ngIf="isItemSelected(category, item.id) && !isItemSaving(category, item.id)" 
+                        slot="end" 
+                        fill="clear" 
+                        size="small"
+                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        <ion-icon name="camera-outline"></ion-icon>
+                        <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
+                          {{ getPhotoCount(category, item.id) }}
+                        </ion-badge>
+                      </ion-button>
                     </ion-item>
                   </div>
                 </div>
@@ -187,6 +209,17 @@
                         <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                      <ion-button 
+                        *ngIf="isItemSelected(category, item.id) && !isItemSaving(category, item.id)" 
+                        slot="end" 
+                        fill="clear" 
+                        size="small"
+                        (click)="takePhotoForVisual(category, item.id); $event.stopPropagation()">
+                        <ion-icon name="camera-outline"></ion-icon>
+                        <ion-badge *ngIf="getPhotoCount(category, item.id) > 0" color="primary">
+                          {{ getPhotoCount(category, item.id) }}
+                        </ion-badge>
+                      </ion-button>
                     </ion-item>
                   </div>
                 </div>
