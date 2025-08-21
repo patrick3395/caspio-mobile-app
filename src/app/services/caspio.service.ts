@@ -337,8 +337,8 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file in ONE request - Following working example
-  async createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Promise<any> {
+  // Create attachment with file using JSON - WORKING APPROACH
+  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
     console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
       projectId,
       typeId,
@@ -348,70 +348,55 @@ export class CaspioService {
       fileType: file.type
     });
 
-    try {
-      // Convert File to Blob using the working example pattern
+    // Convert file to base64
+    return new Observable(observer => {
       const reader = new FileReader();
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        reader.onload = () => {
-          const arrayBuffer = reader.result as ArrayBuffer;
-          const blob = new Blob([arrayBuffer], { type: file.type || 'application/octet-stream' });
-          resolve(blob);
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-      });
-
-      // Create FormData following the working example exactly
-      const formData = new FormData();
-      formData.append('ProjectID', projectId.toString());
-      formData.append('TypeID', typeId.toString());
-      formData.append('Title', title);
-      formData.append('Notes', notes || '');
-      // Omit Link field as suggested in the working example
-      formData.append('Attachment', blob, file.name);
-
-      // Log FormData contents
-      console.log('📦 FormData being sent:');
-      console.log('  ProjectID:', projectId.toString());
-      console.log('  TypeID:', typeId.toString());
-      console.log('  Title:', title);
-      console.log('  Notes:', notes || '(empty)');
-      console.log('  Attachment: [Blob:', blob.size, 'bytes, filename:', file.name, ']');
-
-      // Get token
-      const token = this.getCurrentToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
-      // Use v3 specifically for attachments (as shown in working example)
-      const url = 'https://c2hcf092.caspio.com/rest/v3/tables/Attach/records';
-      console.log('🎯 Using v3 endpoint for attachment:', url);
-
-      // Make the request using fetch API (as in working example)
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`
-          // NO Content-Type header - let browser set it
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Attachment upload failed:', response.status, errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ [CaspioService.createAttachmentWithFile] Success:', result);
-      return result;
-
-    } catch (error) {
-      console.error('❌ [CaspioService.createAttachmentWithFile] Failed:', error);
-      throw error;
-    }
+      
+      reader.onload = () => {
+        try {
+          // Get base64 string (remove data:image/jpeg;base64, prefix)
+          const base64Result = reader.result as string;
+          const base64 = base64Result.split(',')[1];
+          
+          console.log('📦 Preparing JSON payload with base64 file');
+          console.log('  Base64 length:', base64.length, 'characters');
+          
+          // Create JSON payload with base64 file
+          const data = {
+            ProjectID: projectId,
+            TypeID: typeId,
+            Title: title,
+            Notes: notes || '',
+            Link: '',  // Empty link field
+            Attachment: base64  // Just the base64 string
+          };
+          
+          // Use the existing post method with JSON
+          this.post<any>('/tables/Attach/records', data).subscribe({
+            next: (response) => {
+              console.log('✅ [CaspioService.createAttachmentWithFile] Success:', response);
+              observer.next(response);
+              observer.complete();
+            },
+            error: (error) => {
+              console.error('❌ [CaspioService.createAttachmentWithFile] Failed:', error);
+              observer.error(error);
+            }
+          });
+        } catch (error) {
+          console.error('❌ [CaspioService.createAttachmentWithFile] Processing failed:', error);
+          observer.error(error);
+        }
+      };
+      
+      reader.onerror = (error) => {
+        console.error('❌ [CaspioService.createAttachmentWithFile] File read failed:', error);
+        observer.error(error);
+      };
+      
+      // Read file as base64
+      reader.readAsDataURL(file);
+    });
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {

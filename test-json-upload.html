@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Caspio JSON Upload with Base64</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 30px;
+        }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .loading {
+            display: inline-block;
+            margin-left: 10px;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Caspio JSON Upload with Base64</h1>
+        
+        <div class="test-section">
+            <h2>Test 1: JSON with Base64 File (v2)</h2>
+            <p>Upload file as base64 encoded string in JSON body</p>
+            <input type="file" id="file1" accept="image/*">
+            <br>
+            <button onclick="testJSONBase64('v2', 'file1', 'result1')">Test v2 JSON + Base64</button>
+            <span class="loading" id="loading1" style="display: none;">⏳ Processing...</span>
+            <div id="result1"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: JSON with Base64 File (v3)</h2>
+            <p>Same test with v3 API</p>
+            <input type="file" id="file2" accept="image/*">
+            <br>
+            <button onclick="testJSONBase64('v3', 'file2', 'result2')">Test v3 JSON + Base64</button>
+            <span class="loading" id="loading2" style="display: none;">⏳ Processing...</span>
+            <div id="result2"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: JSON with File Path/Name Only</h2>
+            <p>Try sending just the filename in JSON to see what happens</p>
+            <input type="file" id="file3" accept="image/*">
+            <br>
+            <button onclick="testJSONFileName('file3', 'result3')">Test JSON with Filename</button>
+            <div id="result3"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 4: Two-Step Process</h2>
+            <p>Step 1: Create record with JSON, Step 2: Update with file</p>
+            <input type="file" id="file4" accept="image/*">
+            <br>
+            <button onclick="testTwoStep('file4', 'result4')">Test Two-Step Upload</button>
+            <span class="loading" id="loading4" style="display: none;">⏳ Processing...</span>
+            <div id="result4"></div>
+        </div>
+    </div>
+
+    <script>
+        // Caspio credentials
+        const CLIENT_ID = '01ddeb9d873748255f3edeccb5fbfa806695e43ffa5fff4f67';
+        const CLIENT_SECRET = '1d4e3ea85a2247f0929a0a995df66e6be183c463391375ae80';
+        const TOKEN_URL = 'https://c2hcf092.caspio.com/oauth/token';
+        
+        let accessToken = null;
+
+        // Get authentication token
+        async function authenticate() {
+            if (accessToken) return accessToken;
+            
+            console.log('🔐 Authenticating...');
+            const params = new URLSearchParams();
+            params.append('grant_type', 'client_credentials');
+            params.append('client_id', CLIENT_ID);
+            params.append('client_secret', CLIENT_SECRET);
+            
+            try {
+                const response = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Accept': 'application/json'
+                    },
+                    body: params.toString()
+                });
+                
+                if (!response.ok) throw new Error(`Auth failed: ${response.status}`);
+                
+                const data = await response.json();
+                accessToken = data.access_token;
+                console.log('✅ Authentication successful');
+                return accessToken;
+            } catch (error) {
+                console.error('❌ Authentication failed:', error);
+                throw error;
+            }
+        }
+
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove the data:image/jpeg;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Test JSON with Base64
+        async function testJSONBase64(version, fileInputId, resultDivId) {
+            const fileInput = document.getElementById(fileInputId);
+            const file = fileInput.files[0];
+            const resultDiv = document.getElementById(resultDivId);
+            const loadingId = version === 'v2' ? 'loading1' : 'loading2';
+            const loading = document.getElementById(loadingId);
+            
+            if (!file) {
+                showResult(resultDiv, 'Please select a file first', 'error');
+                return;
+            }
+            
+            loading.style.display = 'inline-block';
+            
+            try {
+                await authenticate();
+                
+                console.log(`Testing ${version} JSON with Base64...`);
+                console.log('Converting file to base64...');
+                
+                const base64 = await fileToBase64(file);
+                console.log('Base64 length:', base64.length, 'characters');
+                
+                const apiBase = `https://c2hcf092.caspio.com/rest/${version}`;
+                const url = `${apiBase}/tables/Attach/records`;
+                
+                // Try different field name variations for the file
+                const variations = [
+                    { Attachment: base64 },
+                    { Attachment: `data:${file.type};base64,${base64}` },
+                    { Attachment: { data: base64, filename: file.name, type: file.type } }
+                ];
+                
+                for (let i = 0; i < variations.length; i++) {
+                    console.log(`Attempt ${i + 1}: Testing variation...`);
+                    
+                    const data = {
+                        ProjectID: 1891,
+                        TypeID: 1,
+                        Title: `TEST_JSON_BASE64_${i + 1}`,
+                        Notes: 'Testing JSON with base64 file',
+                        Link: '',
+                        ...variations[i]
+                    };
+                    
+                    console.log('Sending JSON:', { ...data, Attachment: typeof data.Attachment === 'string' ? '[BASE64_DATA]' : data.Attachment });
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const text = await response.text();
+                    console.log(`${version} Response:`, response.status, text);
+                    
+                    if (response.ok) {
+                        showResult(resultDiv, `SUCCESS! Record created with base64 file (variation ${i + 1}).\nResponse: ${text}`, 'success');
+                        loading.style.display = 'none';
+                        return;
+                    }
+                }
+                
+                showResult(resultDiv, `All variations failed for ${version}`, 'error');
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Test JSON with just filename
+        async function testJSONFileName(fileInputId, resultDivId) {
+            const fileInput = document.getElementById(fileInputId);
+            const file = fileInput.files[0];
+            const resultDiv = document.getElementById(resultDivId);
+            
+            if (!file) {
+                showResult(resultDiv, 'Please select a file first', 'error');
+                return;
+            }
+            
+            try {
+                await authenticate();
+                
+                console.log('Testing JSON with filename only...');
+                
+                const url = 'https://c2hcf092.caspio.com/rest/v2/tables/Attach/records';
+                
+                const data = {
+                    ProjectID: 1891,
+                    TypeID: 1,
+                    Title: 'TEST_FILENAME_ONLY',
+                    Notes: 'Testing with filename only',
+                    Link: '',
+                    Attachment: file.name  // Just the filename
+                };
+                
+                console.log('Sending JSON:', data);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const text = await response.text();
+                console.log('Response:', response.status, text);
+                
+                if (response.ok) {
+                    showResult(resultDiv, `Record created with filename.\nResponse: ${text}`, 'success');
+                } else {
+                    showResult(resultDiv, `Failed: ${response.status}\nResponse: ${text}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test two-step process
+        async function testTwoStep(fileInputId, resultDivId) {
+            const fileInput = document.getElementById(fileInputId);
+            const file = fileInput.files[0];
+            const resultDiv = document.getElementById(resultDivId);
+            const loading = document.getElementById('loading4');
+            
+            if (!file) {
+                showResult(resultDiv, 'Please select a file first', 'error');
+                return;
+            }
+            
+            loading.style.display = 'inline-block';
+            
+            try {
+                await authenticate();
+                
+                console.log('Step 1: Creating record with JSON...');
+                
+                // Step 1: Create record
+                const createUrl = 'https://c2hcf092.caspio.com/rest/v2/tables/Attach/records';
+                const createData = {
+                    ProjectID: 1891,
+                    TypeID: 1,
+                    Title: 'TEST_TWO_STEP',
+                    Notes: 'Testing two-step upload',
+                    Link: ''
+                };
+                
+                const createResponse = await fetch(createUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(createData)
+                });
+                
+                const createText = await createResponse.text();
+                console.log('Create Response:', createResponse.status, createText);
+                
+                if (!createResponse.ok) {
+                    showResult(resultDiv, `Step 1 Failed: ${createResponse.status}\nResponse: ${createText}`, 'error');
+                    loading.style.display = 'none';
+                    return;
+                }
+                
+                // Parse the response to get the AttachID
+                const createResult = JSON.parse(createText);
+                const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
+                
+                if (!attachId) {
+                    showResult(resultDiv, `No AttachID in response: ${createText}`, 'error');
+                    loading.style.display = 'none';
+                    return;
+                }
+                
+                console.log(`Step 2: Uploading file to AttachID: ${attachId}...`);
+                
+                // Step 2: Upload file
+                const formData = new FormData();
+                formData.append('Attachment', file, file.name);
+                
+                const updateUrl = `https://c2hcf092.caspio.com/rest/v2/tables/Attach/records/${attachId}`;
+                
+                const updateResponse = await fetch(updateUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: formData
+                });
+                
+                const updateText = await updateResponse.text();
+                console.log('Update Response:', updateResponse.status, updateText);
+                
+                if (updateResponse.ok) {
+                    showResult(resultDiv, `SUCCESS! Two-step upload completed.\nAttachID: ${attachId}\nUpdate Response: ${updateText}`, 'success');
+                } else {
+                    showResult(resultDiv, `Step 2 Failed: ${updateResponse.status}\nResponse: ${updateText}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function showResult(div, message, type) {
+            div.className = `result ${type}`;
+            div.innerHTML = `<pre>${message}</pre>`;
+        }
+    </script>
+</body>
+</html>

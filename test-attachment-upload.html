@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Caspio Attachment Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .loading {
+            display: inline-block;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Caspio Attachment Upload</h1>
+        
+        <div class="form-group">
+            <label for="file">Select Image File:</label>
+            <input type="file" id="file" accept="image/*">
+        </div>
+        
+        <div class="form-group">
+            <p><strong>Test Parameters:</strong></p>
+            <ul>
+                <li>ProjectID: 1891</li>
+                <li>TypeID: 1</li>
+                <li>Title: TEST</li>
+                <li>Notes: NONE</li>
+            </ul>
+        </div>
+        
+        <button id="uploadBtn" onclick="testUpload()">Test Upload</button>
+        <span class="loading" id="loading" style="display: none;">⏳ Uploading...</span>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Caspio credentials
+        const CLIENT_ID = '01ddeb9d873748255f3edeccb5fbfa806695e43ffa5fff4f67';
+        const CLIENT_SECRET = '1d4e3ea85a2247f0929a0a995df66e6be183c463391375ae80';
+        const TOKEN_URL = 'https://c2hcf092.caspio.com/oauth/token';
+        const API_BASE = 'https://c2hcf092.caspio.com/rest/v2';
+        
+        let accessToken = null;
+
+        // Get authentication token
+        async function authenticate() {
+            console.log('🔐 Authenticating...');
+            
+            const params = new URLSearchParams();
+            params.append('grant_type', 'client_credentials');
+            params.append('client_id', CLIENT_ID);
+            params.append('client_secret', CLIENT_SECRET);
+            
+            try {
+                const response = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Accept': 'application/json'
+                    },
+                    body: params.toString()
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Auth failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                accessToken = data.access_token;
+                console.log('✅ Authentication successful');
+                showResult('Authentication successful', 'info');
+                return accessToken;
+            } catch (error) {
+                console.error('❌ Authentication failed:', error);
+                showResult(`Authentication failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Test upload function
+        async function testUpload() {
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('Please select a file first', 'error');
+                return;
+            }
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const loading = document.getElementById('loading');
+            uploadBtn.disabled = true;
+            loading.style.display = 'inline-block';
+            
+            try {
+                // Step 1: Authenticate if needed
+                if (!accessToken) {
+                    await authenticate();
+                }
+                
+                // Step 2: Create FormData
+                console.log('📦 Preparing upload...');
+                console.log('================================');
+                console.log('FILE DETAILS:');
+                console.log('  Name:', file.name);
+                console.log('  Size:', file.size, 'bytes');
+                console.log('  Type:', file.type || 'not specified');
+                console.log('  Last Modified:', new Date(file.lastModified).toISOString());
+                console.log('================================');
+                
+                const formData = new FormData();
+                formData.append('ProjectID', '1891');
+                formData.append('TypeID', '1');
+                formData.append('Title', 'TEST');
+                formData.append('Notes', 'NONE');
+                formData.append('Link', '');  // Empty link field
+                formData.append('Attachment', file, file.name);
+                
+                // Log FormData contents
+                console.log('FORMDATA CONTENTS:');
+                for (let [key, value] of formData.entries()) {
+                    if (value instanceof File) {
+                        console.log(`  ${key}: [File] ${value.name} (${value.size} bytes, type: ${value.type})`);
+                    } else {
+                        console.log(`  ${key}: ${value}`);
+                    }
+                }
+                console.log('================================');
+                
+                // Step 3: Upload
+                const uploadUrl = `${API_BASE}/tables/Attach/records`;
+                console.log('REQUEST DETAILS:');
+                console.log('  URL:', uploadUrl);
+                console.log('  Method: POST');
+                console.log('  Token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'MISSING');
+                console.log('================================');
+                
+                // Try to inspect what headers the browser will send
+                console.log('MAKING REQUEST...');
+                
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                        // Don't set Content-Type - let browser set it with boundary
+                    },
+                    body: formData
+                });
+                
+                console.log('RESPONSE DETAILS:');
+                console.log('  Status:', response.status, response.statusText);
+                console.log('  Headers:');
+                for (let [key, value] of response.headers.entries()) {
+                    console.log(`    ${key}: ${value}`);
+                }
+                console.log('================================');
+                
+                const responseText = await response.text();
+                console.log('RESPONSE BODY:');
+                console.log(responseText || '(empty)');
+                console.log('================================');
+                
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = responseText;
+                }
+                
+                if (response.ok) {
+                    console.log('✅ Upload successful:', responseData);
+                    showResult(`SUCCESS! Upload completed.\n\nResponse:\n${JSON.stringify(responseData, null, 2)}`, 'success');
+                } else {
+                    console.error('❌ Upload failed:', response.status, responseData);
+                    
+                    // Additional debugging for 415 error
+                    if (response.status === 415) {
+                        console.log('🔍 415 ERROR - Unsupported Media Type');
+                        console.log('Common causes:');
+                        console.log('  1. File field name might be wrong (using "Attachment")');
+                        console.log('  2. File type might not be accepted');
+                        console.log('  3. FormData structure might be incorrect');
+                        console.log('  4. API version mismatch (using v2)');
+                    }
+                    
+                    showResult(`FAILED! Status: ${response.status}\n\nResponse:\n${JSON.stringify(responseData, null, 2)}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showResult(`ERROR: ${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<pre>${message}</pre>`;
+        }
+        
+        // Auto-load the test file if it exists
+        window.addEventListener('DOMContentLoaded', () => {
+            // Try to set the default file path
+            const fileInput = document.getElementById('file');
+            console.log('Ready to test. Please select the image file: C:\\Users\\Owner\\Downloads\\image (15).jpeg');
+        });
+    </script>
+</body>
+</html>

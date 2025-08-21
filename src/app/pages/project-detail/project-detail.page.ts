@@ -622,14 +622,14 @@ export class ProjectDetailPage implements OnInit {
         });
         await loading.present();
         
-        // Create attachment WITH file in ONE request (using async method)
+        // Create attachment WITH file in ONE request (using Observable converted to Promise)
         const response = await this.caspioService.createAttachmentWithFile(
           projectIdNum,
           typeIdNum,
           doc.title || 'Document',
           '', // notes
           file
-        );
+        ).toPromise();
         
         console.log('📋 Create attachment with file response:', response);
         await this.showToast('File uploaded successfully', 'success');
