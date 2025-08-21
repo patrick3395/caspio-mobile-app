@@ -115,7 +115,8 @@ export class EngineersFoundationPage implements OnInit {
   async loadVisualCategories() {
     try {
       // Get all templates
-      this.visualTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      const templates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      this.visualTemplates = templates || [];
       
       // Extract unique categories
       const categoriesSet = new Set<string>();
