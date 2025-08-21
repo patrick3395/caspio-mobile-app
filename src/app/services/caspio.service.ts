@@ -367,7 +367,7 @@ export class CaspioService {
             TypeID: typeId,
             Title: title,
             Notes: notes || '',
-            Link: '',  // Empty link field
+            Link: file.name,  // Populate Link field with filename
             Attachment: base64  // Just the base64 string
           };
           
