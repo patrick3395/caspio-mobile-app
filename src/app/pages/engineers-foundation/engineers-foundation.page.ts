@@ -127,36 +127,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   ngAfterViewInit() {
-    console.log('🔍 AfterViewInit - Checking file input:', this.fileInput);
-    if (!this.fileInput) {
-      console.error('❌ FileInput ViewChild not initialized!');
-    } else {
-      console.log('✅ FileInput ViewChild ready:', this.fileInput.nativeElement);
-    }
-  }
-  
-  // DEBUG: Manual test of file input
-  manualFileInputTest() {
-    console.log('🧪 MANUAL FILE INPUT TEST');
-    
-    // Method 1: ViewChild
-    if (this.fileInput && this.fileInput.nativeElement) {
-      console.log('Method 1: Clicking via ViewChild');
-      this.fileInput.nativeElement.click();
-    } else {
-      console.log('Method 1 failed: ViewChild not available');
-    }
-    
-    // Method 2: Direct DOM query
-    setTimeout(() => {
-      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (input) {
-        console.log('Method 2: Found input via querySelector:', input);
-        input.click();
-      } else {
-        console.log('Method 2 failed: No file input found in DOM');
-      }
-    }, 100);
+    // ViewChild ready
   }
   
   async loadProjectData() {
@@ -758,6 +729,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     await alert.present();
   }
   
+  // EXACT COPY OF uploadDocument from project-detail
+  async uploadDocument(category: string, itemId: string, item: any) {
+    this.currentUploadContext = { category, itemId, item, action: 'upload' };
+    this.fileInput.nativeElement.click();
+  }
+  
   // Camera button handler - EXACTLY like Required Documents uploadDocument
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
     console.log('📸 Camera button clicked!', { category, itemId });
@@ -834,11 +811,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     const file = event.target.files[0];
     if (!file || !this.currentUploadContext) return;
     
-    const { visualId, key } = this.currentUploadContext;
+    const { category, itemId, item } = this.currentUploadContext;
     
     try {
       console.log('📸 File selected:', file.name);
-      await this.uploadPhotoForVisual(visualId, file, key);
+      
+      // Get or create visual ID
+      const key = `${category}_${itemId}`;
+      let visualId = this.visualRecordIds[key];
+      
+      if (!visualId) {
+        // Need to save the visual first
+        await this.saveVisualSelection(category, itemId);
+        visualId = this.visualRecordIds[key];
+      }
+      
+      if (visualId) {
+        await this.uploadPhotoForVisual(visualId, file, key);
+      }
     } catch (error) {
       console.error('❌ Error handling file:', error);
       await this.showToast('Failed to upload file', 'danger');
@@ -846,7 +836,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Reset file input
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
-        this.fileInput.nativeElement.capture = null as any;
       }
       this.currentUploadContext = null;
     }
