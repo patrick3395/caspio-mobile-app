@@ -23,6 +23,7 @@ interface DocumentItem {
   uploaded: boolean;
   templateId?: string;
   filename?: string;
+  linkName?: string;  // The Link field from Caspio (filename)
   attachmentUrl?: string;
 }
 
@@ -532,6 +533,7 @@ export class ProjectDetailPage implements OnInit {
             uploaded: !!attachment,
             templateId: template.PK_ID,
             filename: attachment?.Link,
+            linkName: attachment?.Link,  // Add linkName for display
             attachmentUrl: attachment?.Attachment
           });
         }
@@ -549,6 +551,7 @@ export class ProjectDetailPage implements OnInit {
             required: i === 0, // First document is required, others optional
             uploaded: !!attachment,
             filename: attachment?.Link,
+            linkName: attachment?.Link,  // Add linkName for display
             attachmentUrl: attachment?.Attachment
           });
         }
@@ -569,9 +572,9 @@ export class ProjectDetailPage implements OnInit {
     this.fileInput.nativeElement.click();
   }
 
-  async replaceDocument(doc: DocumentItem) {
+  async replaceDocument(serviceId: string, typeId: string, doc: DocumentItem) {
     if (!doc.attachId) return;
-    this.currentUploadContext = { doc, action: 'replace' };
+    this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
     this.fileInput.nativeElement.click();
   }
 

@@ -174,7 +174,15 @@
             <div class="doc-service-placeholder" *ngIf="!isFirst"></div>
             <div class="doc-title">
               <div class="doc-title-content">
-                <span [class.uploaded-text]="doc.uploaded">{{ doc.title }}</span>
+                <span [class.uploaded-text]="doc.uploaded">
+                  <ion-icon *ngIf="doc.uploaded" name="checkmark-circle" class="upload-check"></ion-icon>
+                  {{ doc.title }}
+                </span>
+                <!-- Show Link field (filename) if document is uploaded -->
+                <div *ngIf="doc.uploaded && doc.linkName" class="doc-link-name">
+                  <ion-icon name="attach-outline"></ion-icon>
+                  {{ doc.linkName }}
+                </div>
                 <div *ngIf="!doc.required && !doc.uploaded" class="doc-subtitle">
                   <a (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
                      class="remove-doc-link">
@@ -200,22 +208,25 @@
                   size="small" 
                   fill="clear" 
                   color="primary" 
-                  (click)="viewDocument(doc)">
+                  (click)="viewDocument(doc)"
+                  title="View document">
                   <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
                   size="small" 
                   fill="clear" 
-                  color="tertiary" 
-                  (click)="replaceDocument(doc)">
+                  color="warning" 
+                  (click)="replaceDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)"
+                  title="Replace document">
                   <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
                   size="small" 
                   fill="clear" 
                   color="success" 
-                  (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                  <ion-icon name="add-outline" slot="icon-only"></ion-icon>
+                  (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)"
+                  title="Add another file">
+                  <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
                 </ion-button>
               </div>
             </div>

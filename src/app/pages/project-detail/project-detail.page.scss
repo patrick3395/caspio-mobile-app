@@ -62,8 +62,32 @@ ion-icon{font-size:18px}}}}}
 >div{overflow:hidden;word-wrap:break-word;white-space:normal;max-width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
 .instance-badge{flex-shrink:0}}}
 .doc-title{
-.doc-title-content{display:flex;flex-direction:column;gap:2px}
-.uploaded-text{color:#28a745;font-weight:500}
+.doc-title-content{display:flex;flex-direction:column;gap:4px}
+.uploaded-text{
+  color:#28a745;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  
+  .upload-check{
+    color:#28a745;
+    font-size:18px;
+  }
+}
+.doc-link-name{
+  font-size:12px;
+  color:#666;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding-left:24px;
+  
+  ion-icon{
+    font-size:14px;
+    color:#999;
+  }
+}
 .doc-subtitle{margin-top:2px}
 .remove-doc-link{color:#dc3545;font-size:10px;cursor:pointer;text-decoration:none}}
 .doc-actions{text-align:center;display:flex;gap:2px;justify-content:center;align-items:center;flex-wrap:wrap;
