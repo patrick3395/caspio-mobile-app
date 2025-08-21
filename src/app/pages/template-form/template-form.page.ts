@@ -145,6 +145,11 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     this.offersId = this.route.snapshot.paramMap.get('offersId') || '';
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     
+    console.log('📋 Template Form initialized with:', {
+      offersId: this.offersId,
+      projectId: this.projectId
+    });
+    
     if (this.offersId && this.offersId !== 'new') {
       await this.loadServiceName();
     }
@@ -152,8 +157,28 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     // Load project data (shared across all services)
     await this.loadProjectData();
     
+    // Initialize document status tracking for UI
+    this.initializeDocumentTracking();
+    
     // Check for existing Service_EFE record and load data
     await this.initializeServiceRecord();
+  }
+  
+  initializeDocumentTracking() {
+    // Ensure document tracking objects are initialized
+    if (!this.documentStatus) {
+      this.documentStatus = {
+        homeInspectionReport: false,
+        engineersEvaluationReport: false,
+        supportDocument: false
+      };
+    }
+    if (!this.documentNames) this.documentNames = {};
+    if (!this.documentDates) this.documentDates = {};
+    if (!this.documentAttachIds) this.documentAttachIds = {};
+    if (!this.additionalDocuments) this.additionalDocuments = [];
+    
+    console.log('📄 Document tracking initialized:', this.documentStatus);
   }
   
   ngOnDestroy() {
@@ -592,45 +617,52 @@ export class TemplateFormPage implements OnInit, OnDestroy {
 
     console.log(`📄 Document selected for ${docType}:`, file.name);
     
-    // Store document info
+    // Immediately update UI to show file is selected
     this.documentNames[docType] = file.name;
     this.documentDates[docType] = new Date().toLocaleDateString();
+    this.documentStatus[docType] = true; // Mark as uploaded immediately for UI feedback
+    this.fieldStates[docType] = true;
+    this.updateAllSectionProgress();
     
-    // Upload to Caspio if we have a service ID
-    if (this.currentServiceID && this.projectId) {
+    // Store the file for later upload if needed
+    this.selectedFiles[docType] = file;
+    
+    // If we have a project ID, try to upload to Caspio
+    if (this.projectId) {
       this.showSaveStatus(`Uploading ${linkTitle}...`, 'info');
       
       try {
-        // Create attachment record with the Link field populated
+        // Create attachment record with the Link field populated with the document title
         const response = await this.caspioService.createAttachmentWithFile(
           parseInt(this.projectId),
           1, // TypeID for documents
-          linkTitle,
-          `Document for Service ID: ${this.currentServiceID}`,
+          linkTitle, // This goes in the Title field
+          `Document type: ${linkTitle} | File: ${file.name}`, // Notes field
           file
         ).toPromise();
         
         if (response) {
-          console.log('✅ Document uploaded:', response);
-          this.documentStatus[docType] = true;
+          console.log('✅ Document uploaded to Caspio:', response);
           this.documentAttachIds[docType] = response.AttachID || response.id;
+          // Update the link name to show what was uploaded
+          this.documentNames[docType] = `${linkTitle} - ${file.name}`;
           this.showSaveStatus(`${linkTitle} uploaded successfully`, 'success');
-          
-          // Update field tracking
-          this.fieldStates[docType] = true;
-          this.updateAllSectionProgress();
+        } else {
+          console.log('⚠️ Upload response empty, keeping local status');
+          this.showSaveStatus('Document saved locally', 'info');
         }
       } catch (error) {
-        console.error('❌ Document upload failed:', error);
-        this.showSaveStatus('Upload failed', 'error');
+        console.error('⚠️ Could not upload to Caspio, keeping local:', error);
+        // Keep the document marked as uploaded locally even if Caspio upload fails
+        this.showSaveStatus('Document saved locally', 'info');
       }
     } else {
-      // Mark as uploaded locally (will upload when service is created)
-      this.documentStatus[docType] = true;
-      this.selectedFiles[docType] = file;
-      this.fieldStates[docType] = true;
-      this.updateAllSectionProgress();
+      console.log('📦 No project ID yet, document will be uploaded when project is saved');
+      this.showSaveStatus('Document saved locally', 'info');
     }
+    
+    // Force change detection
+    this.updateAllSectionProgress();
   }
 
   onLinkProvided(docType: string, event: any) {
@@ -655,16 +687,17 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
 
   replaceDocument(docType: string) {
-    // Reset the document status to allow re-upload
-    this.documentStatus[docType] = false;
+    console.log(`🔄 Replacing document: ${docType}`);
     
-    // Trigger file input click
-    setTimeout(() => {
-      const fileInput = document.getElementById(docType) as HTMLInputElement;
-      if (fileInput) {
+    // Clear the file input first to allow selecting the same file
+    const fileInput = document.getElementById(docType) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+      // Trigger file input click
+      setTimeout(() => {
         fileInput.click();
-      }
-    }, 100);
+      }, 100);
+    }
   }
 
   async removeDocument(docType: string) {
