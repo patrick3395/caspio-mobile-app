@@ -20,50 +20,210 @@
       {{ saveStatus }}
     </div>
 
-    <!-- Project Details Section (Always visible at top) -->
-    <div class="project-details-section">
-      <div class="section-header">
+    <!-- Project Information Section (Shared across all services) -->
+    <div class="section-card project-info-card">
+      <div class="section-header project-header" (click)="toggleSection('project')">
         <div class="section-info">
           <div class="section-title">
-            <ion-icon name="information-circle-outline"></ion-icon>
-            Project Details
+            <span class="section-icon">🏠</span>
+            Project Information
           </div>
-          <div class="section-subtitle">Project #{{ projectId }}</div>
+          <div class="section-description">Core property and inspection details - Project #{{ projectId }}</div>
+        </div>
+        <div class="section-status">
+          <span class="completion-indicator" [class.complete]="getProjectCompletion() === 100">
+            {{getProjectCompletion()}}% Complete
+          </span>
+          <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
       </div>
       
-      <div class="details-grid">
-        <div class="detail-item">
-          <label>Client</label>
-          <div class="detail-value">{{ projectData?.ClientName || 'N/A' }}</div>
+      <div class="section-content" *ngIf="expandedSections['project']">
+        <!-- People & Roles -->
+        <div class="info-group">
+          <h3 class="group-title">
+            <ion-icon name="people-outline"></ion-icon>
+            People & Roles
+          </h3>
+          <div class="form-grid three-col">
+            <!-- Client Name -->
+            <div class="form-group" [class.filled]="projectData.ClientName">
+              <label>
+                <ion-icon name="person-outline"></ion-icon>
+                Client Name
+              </label>
+              <input type="text" [(ngModel)]="projectData.ClientName" name="ClientName"
+                     (ngModelChange)="onProjectFieldChange('ClientName', $event)"
+                     placeholder="Enter client name"
+                     class="styled-input">
+            </div>
+
+            <!-- Agent Name -->
+            <div class="form-group" [class.filled]="projectData.AgentName">
+              <label>
+                <ion-icon name="briefcase-outline"></ion-icon>
+                Agent Name
+              </label>
+              <input type="text" [(ngModel)]="projectData.AgentName" name="AgentName"
+                     (ngModelChange)="onProjectFieldChange('AgentName', $event)"
+                     placeholder="Enter agent name"
+                     class="styled-input">
+            </div>
+
+            <!-- Inspector Name -->
+            <div class="form-group" [class.filled]="projectData.InspectorName">
+              <label>
+                <ion-icon name="clipboard-outline"></ion-icon>
+                Inspector Name
+              </label>
+              <input type="text" [(ngModel)]="projectData.InspectorName" name="InspectorName"
+                     (ngModelChange)="onProjectFieldChange('InspectorName', $event)"
+                     placeholder="Enter inspector name"
+                     class="styled-input">
+            </div>
+
+            <!-- In Attendance -->
+            <div class="form-group full-width" [class.filled]="projectData.InAttendance">
+              <label>
+                <ion-icon name="people-circle-outline"></ion-icon>
+                In Attendance
+              </label>
+              <input type="text" [(ngModel)]="projectData.InAttendance" name="InAttendance"
+                     (ngModelChange)="onProjectFieldChange('InAttendance', $event)"
+                     placeholder="Who was present during inspection"
+                     class="styled-input">
+            </div>
+          </div>
         </div>
-        <div class="detail-item">
-          <label>Address</label>
-          <div class="detail-value">{{ projectData?.Address || 'N/A' }}</div>
+
+        <!-- Property Details -->
+        <div class="info-group">
+          <h3 class="group-title">
+            <ion-icon name="home-outline"></ion-icon>
+            Property Details
+          </h3>
+          <div class="form-grid three-col">
+
+            <!-- Year Built -->
+            <div class="form-group" [class.filled]="projectData.YearBuilt">
+              <label>
+                <ion-icon name="calendar-outline"></ion-icon>
+                Year Built
+              </label>
+              <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
+                     (ngModelChange)="onProjectFieldChange('YearBuilt', $event)"
+                     placeholder="e.g., 1985"
+                     class="styled-input">
+            </div>
+
+            <!-- Square Feet -->
+            <div class="form-group" [class.filled]="projectData.SquareFeet">
+              <label>
+                <ion-icon name="resize-outline"></ion-icon>
+                Square Feet
+              </label>
+              <input type="text" [(ngModel)]="projectData.SquareFeet" name="SquareFeet"
+                     (ngModelChange)="onProjectFieldChange('SquareFeet', $event)"
+                     placeholder="e.g., 2500"
+                     class="styled-input">
+            </div>
+
+            <!-- Type of Building -->
+            <div class="form-group" [class.filled]="projectData.TypeOfBuilding">
+              <label>
+                <ion-icon name="business-outline"></ion-icon>
+                Building Type
+              </label>
+              <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
+                      (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
+                      class="styled-input">
+                <option value="">Select type</option>
+                <option value="Single Family">Single Family</option>
+                <option value="Multi Family">Multi Family</option>
+                <option value="Townhouse">Townhouse</option>
+                <option value="Condominium">Condominium</option>
+                <option value="Commercial">Commercial</option>
+              </select>
+            </div>
+
+            <!-- Style -->
+            <div class="form-group" [class.filled]="projectData.Style">
+              <label>
+                <ion-icon name="color-palette-outline"></ion-icon>
+                Style
+              </label>
+              <select [(ngModel)]="projectData.Style" name="Style"
+                      (ngModelChange)="onProjectFieldChange('Style', $event)"
+                      class="styled-input">
+                <option value="">Select style</option>
+                <option value="Ranch">Ranch</option>
+                <option value="Two Story">Two Story</option>
+                <option value="Split Level">Split Level</option>
+                <option value="Colonial">Colonial</option>
+                <option value="Contemporary">Contemporary</option>
+                <option value="Traditional">Traditional</option>
+              </select>
+            </div>
+
+            <!-- Occupancy Furnishings -->
+            <div class="form-group" [class.filled]="projectData.OccupancyFurnishings">
+              <label>
+                <ion-icon name="bed-outline"></ion-icon>
+                Occupancy Status
+              </label>
+              <select [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
+                      (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
+                      class="styled-input">
+                <option value="">Select status</option>
+                <option value="Occupied - Furnished">Occupied - Furnished</option>
+                <option value="Occupied - Unfurnished">Occupied - Unfurnished</option>
+                <option value="Vacant - Furnished">Vacant - Furnished</option>
+                <option value="Vacant - Unfurnished">Vacant - Unfurnished</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="detail-item">
-          <label>Inspector</label>
-          <div class="detail-value">{{ projectData?.InspectorName || 'N/A' }}</div>
-        </div>
-        <div class="detail-item">
-          <label>Date of Inspection</label>
-          <div class="detail-value">{{ formatDate(projectData?.InspectionDate) || 'N/A' }}</div>
-        </div>
-        <div class="detail-item">
-          <label>Year Built</label>
-          <div class="detail-value">{{ projectData?.YearBuilt || 'N/A' }}</div>
-        </div>
-        <div class="detail-item">
-          <label>Square Feet</label>
-          <div class="detail-value">{{ projectData?.SquareFeet || 'N/A' }}</div>
-        </div>
-        <div class="detail-item">
-          <label>Foundation Type</label>
-          <div class="detail-value">{{ projectData?.FirstFoundationType || 'N/A' }}</div>
-        </div>
-        <div class="detail-item">
-          <label>Weather</label>
-          <div class="detail-value">{{ projectData?.WeatherConditions || 'N/A' }}</div>
+
+        <!-- Environmental Conditions -->
+        <div class="info-group">
+          <h3 class="group-title">
+            <ion-icon name="partly-sunny-outline"></ion-icon>
+            Environmental Conditions
+          </h3>
+          <div class="form-grid two-col">
+
+            <!-- Weather Conditions -->
+            <div class="form-group" [class.filled]="projectData.WeatherConditions">
+              <label>
+                <ion-icon name="cloud-outline"></ion-icon>
+                Weather Conditions
+              </label>
+              <select [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
+                      (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
+                      class="styled-input">
+                <option value="">Select weather</option>
+                <option value="Clear">Clear</option>
+                <option value="Partly Cloudy">Partly Cloudy</option>
+                <option value="Cloudy">Cloudy</option>
+                <option value="Light Rain">Light Rain</option>
+                <option value="Heavy Rain">Heavy Rain</option>
+                <option value="Windy">Windy</option>
+                <option value="Foggy">Foggy</option>
+              </select>
+            </div>
+
+            <!-- Outdoor Temperature -->
+            <div class="form-group" [class.filled]="projectData.OutdoorTemperature">
+              <label>
+                <ion-icon name="thermometer-outline"></ion-icon>
+                Outdoor Temperature
+              </label>
+              <input type="text" [(ngModel)]="projectData.OutdoorTemperature" name="OutdoorTemperature"
+                     (ngModelChange)="onProjectFieldChange('OutdoorTemperature', $event)"
+                     placeholder="e.g., 75°F"
+                     class="styled-input">
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -87,36 +247,7 @@
       </div>
 
       <div class="section-content" *ngIf="expandedSections['structural']">
-        <!-- Foundation Type and Condition -->
-        <div class="form-group">
-          <label>Foundation Type</label>
-          <ion-select [(ngModel)]="formData.foundationType" placeholder="Select type">
-            <ion-select-option value="slab">Slab on Grade</ion-select-option>
-            <ion-select-option value="pier-beam">Pier and Beam</ion-select-option>
-            <ion-select-option value="basement">Basement</ion-select-option>
-            <ion-select-option value="crawlspace">Crawl Space</ion-select-option>
-          </ion-select>
-        </div>
-
-        <div class="form-group">
-          <label>Foundation Condition</label>
-          <ion-select [(ngModel)]="formData.foundationCondition" placeholder="Select condition">
-            <ion-select-option value="excellent">Excellent</ion-select-option>
-            <ion-select-option value="good">Good</ion-select-option>
-            <ion-select-option value="fair">Fair</ion-select-option>
-            <ion-select-option value="poor">Poor</ion-select-option>
-          </ion-select>
-        </div>
-
-        <div class="form-group">
-          <label>Observations</label>
-          <ion-textarea [(ngModel)]="formData.structuralObservations" 
-                        rows="6" 
-                        placeholder="Enter detailed observations about the structural systems...">
-          </ion-textarea>
-        </div>
-
-        <!-- Dynamic Categories from Services_Visuals_Templates -->
+        <!-- Visual Categories from Services_Visuals_Templates -->
         <div class="categories-container" *ngIf="visualCategories.length > 0">
           <h3 class="categories-title">Visual Categories</h3>
           

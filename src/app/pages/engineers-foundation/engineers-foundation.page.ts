@@ -61,11 +61,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Form data for the template
   formData: any = {
-    // Structural Systems fields
-    foundationType: '',
-    foundationCondition: '',
-    structuralObservations: '',
-    
     // Elevation Plot fields
     elevationAnalysis: '',
     
@@ -77,7 +72,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // UI state
   expandedSections: { [key: string]: boolean } = {
-    structural: true,
+    project: true,  // Project Details open by default
+    structural: false,  // Structural Systems collapsed by default
     elevation: false
   };
   
@@ -1104,5 +1100,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         }
       }
     }
+  }
+
+  // Handle project field changes
+  onProjectFieldChange(fieldName: string, value: any) {
+    // Update the project data
+    if (this.projectData) {
+      this.projectData[fieldName] = value;
+    }
+    
+    // Save to local storage or trigger autosave
+    this.saveTemplate();
+  }
+
+  // Calculate project information completion percentage
+  getProjectCompletion(): number {
+    if (!this.projectData) return 0;
+    
+    const requiredFields = [
+      'ClientName', 'AgentName', 'InspectorName', 'InAttendance',
+      'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style',
+      'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'
+    ];
+    
+    let completed = 0;
+    for (const field of requiredFields) {
+      if (this.projectData[field] && this.projectData[field].toString().trim() !== '') {
+        completed++;
+      }
+    }
+    
+    return Math.round((completed / requiredFields.length) * 100);
   }
 }
