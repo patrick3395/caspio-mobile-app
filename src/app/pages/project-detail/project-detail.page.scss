@@ -26,7 +26,7 @@ label{flex:1;cursor:pointer;font-size:14px}}
 .selected-services-table{margin-top:20px;padding-top:20px;border-top:2px solid $gray;
 h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
-// Services table with price under service
+// Services table with price under service - NO GREEN COLORS HERE
 .services-table{
   border:1px solid $border;
   border-radius:8px;
@@ -45,7 +45,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       padding:12px;
       color:$med;
     }
-    .col-service{text-align:left;}
+    .col-service{text-align:left;color:$med !important;}
     .col-date{text-align:center;}
     .col-actions{text-align:center;}
   }
@@ -68,7 +68,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     
     .col-service{
       font-weight:500;
-      color:$dark;
+      color:$dark !important; // Never green
       display:flex;
       align-items:center;
       gap:8px;
@@ -78,6 +78,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
         word-wrap:break-word;
         white-space:normal;
         flex:1;
+        color:$dark !important; // Service name never green
       }
       
       .instance-badge{
@@ -213,9 +214,9 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 >div{font-size:14px;padding:10px 12px;overflow:hidden;word-wrap:break-word}
 .doc-service{font-weight:600;display:flex;align-items:center;padding-top:20px!important;
 >div{overflow:hidden;word-wrap:break-word;white-space:normal;max-width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
-.instance-badge{flex-shrink:0}
-// Service name turns green when ALL required docs are uploaded
-&.all-docs-uploaded{color:#28a745;font-weight:700}}}
+.instance-badge{flex-shrink:0}}}
+// Service name IN REQUIRED DOCS TABLE turns green when ALL required docs are uploaded
+.doc-service > div.all-docs-uploaded{color:#28a745 !important;font-weight:700 !important;}
 .doc-title{
 .doc-title-content{display:flex;flex-direction:column;gap:4px}
 .uploaded-text{
