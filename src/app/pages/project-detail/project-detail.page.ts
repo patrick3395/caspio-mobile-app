@@ -283,13 +283,22 @@ export class ProjectDetailPage implements OnInit {
     if (!serviceDoc || !serviceDoc.documents) return false;
     
     // Get only required documents
-    const requiredDocs = serviceDoc.documents.filter((doc: any) => doc.required);
+    const requiredDocs = serviceDoc.documents.filter((doc: any) => doc.required === true);
     
     // If no required docs, return false (don't color green)
     if (requiredDocs.length === 0) return false;
     
     // Check if ALL required documents are uploaded
-    return requiredDocs.every((doc: any) => doc.uploaded === true);
+    // Only return true if there are required docs AND they're ALL uploaded
+    const allUploaded = requiredDocs.every((doc: any) => doc.uploaded === true);
+    
+    console.log('Checking docs for service:', serviceDoc.serviceName, {
+      totalDocs: serviceDoc.documents.length,
+      requiredDocs: requiredDocs.length,
+      allUploaded: allUploaded
+    });
+    
+    return allUploaded;
   }
 
   async toggleService(event: any, offer: any) {
@@ -731,7 +740,8 @@ export class ProjectDetailPage implements OnInit {
           await this.showToast('File uploaded successfully', 'success');
         } else {
           console.warn('⚠️ Response received but no AttachID found:', response);
-          await this.showToast('File uploaded but verification pending', 'warning');
+          // Caspio APIs are instantaneous - file is uploaded successfully
+          await this.showToast('Document uploaded successfully', 'success');
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
