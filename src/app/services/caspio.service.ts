@@ -470,10 +470,10 @@ export class CaspioService {
       fileType: file.type
     });
 
-    // Step 1: Create record with ONLY these fields (no Attachment)
+    // Step 1: Create record with ONLY these fields (no Attachment) - EXACTLY like HTML test
     const recordData = {
-      ProjectID: projectId,
-      TypeID: typeId,
+      ProjectID: parseInt(projectId.toString()),
+      TypeID: parseInt(typeId.toString()),
       Title: title,
       Notes: notes || '',
       Link: file.name
@@ -481,6 +481,13 @@ export class CaspioService {
     
     console.log('📤 Step 1: Creating record with ProjectID, TypeID, Title, Notes, Link...');
     console.log('Sending JSON:', JSON.stringify(recordData));
+    console.log('Token being used:', this.tokenSubject.value ? `Token exists (${this.tokenSubject.value.substring(0, 10)}...)` : 'NO TOKEN!');
+    console.log('API URL:', `${environment.caspio.apiBaseUrl}/tables/Attach/records`);
+    
+    // Make absolutely sure we have a token
+    if (!this.tokenSubject.value) {
+      throw new Error('No authentication token available! Please authenticate first.');
+    }
     
     // First create the record
     return from(
@@ -497,10 +504,18 @@ export class CaspioService {
         const createResponseText = await createResponse.text();
         console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
         
+        // Check if the create request actually failed
+        if (!createResponse.ok && createResponse.status !== 201) {
+          console.error('❌ CREATE FAILED! Status:', createResponse.status);
+          console.error('Response body:', createResponseText);
+          throw new Error(`Failed to create record: ${createResponse.status} - ${createResponseText}`);
+        }
+        
         let createResult: any;
         if (createResponseText.length > 0) {
           try {
             createResult = JSON.parse(createResponseText);
+            console.log('✅ Parsed create result:', createResult);
           } catch (e) {
             throw new Error('Failed to parse create response: ' + createResponseText);
           }
