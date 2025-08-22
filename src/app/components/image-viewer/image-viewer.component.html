@@ -1,190 +1,204 @@
-<ion-header class="sleek-header">
-  <ion-toolbar class="viewer-toolbar">
-    <ion-buttons slot="start">
-      <ion-button (click)="previousImage()" [disabled]="!hasPrevious()" class="nav-button">
-        <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-    
-    <ion-title class="viewer-title">
-      <div class="title-container">
-        <span class="document-name">{{ getCurrentTitle() }}</span>
-        <span class="image-counter" *ngIf="hasMultipleImages()">
-          {{ currentIndex + 1 }} / {{ getAllImages().length }}
-        </span>
+<div class="image-viewer-wrapper">
+  <!-- Fixed Header with proper positioning -->
+  <div class="viewer-header">
+    <div class="header-content">
+      <!-- Left side navigation -->
+      <div class="header-left">
+        <ion-button 
+          fill="clear" 
+          (click)="previousImage()" 
+          [disabled]="!hasPrevious()" 
+          class="nav-btn">
+          <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
+        </ion-button>
       </div>
-    </ion-title>
-    
-    <ion-buttons slot="end">
-      <ion-button (click)="nextImage()" [disabled]="!hasNext()" class="nav-button">
-        <ion-icon name="chevron-forward-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-      <ion-button (click)="dismiss()" class="close-button">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content class="sleek-content">
-  <div class="image-viewer-container">
-    <!-- Annotation Toolbar -->
-    <div class="annotation-toolbar" *ngIf="isAnnotating">
-      <div class="annotation-tools">
+      
+      <!-- Center title -->
+      <div class="header-center">
+        <div class="document-title">{{ getCurrentTitle() }}</div>
+        <div class="image-counter" *ngIf="hasMultipleImages()">
+          {{ currentIndex + 1 }} / {{ getAllImages().length }}
+        </div>
+      </div>
+      
+      <!-- Right side actions -->
+      <div class="header-right">
         <ion-button 
-          size="small" 
-          [fill]="annotationTool === 'pen' ? 'solid' : 'outline'"
-          (click)="selectTool('pen')"
-          class="tool-button">
-          <ion-icon name="pencil" slot="icon-only"></ion-icon>
+          fill="clear" 
+          (click)="nextImage()" 
+          [disabled]="!hasNext()" 
+          class="nav-btn">
+          <ion-icon name="chevron-forward" slot="icon-only"></ion-icon>
         </ion-button>
         <ion-button 
-          size="small" 
-          [fill]="annotationTool === 'arrow' ? 'solid' : 'outline'"
-          (click)="selectTool('arrow')"
-          class="tool-button">
-          <ion-icon name="arrow-forward" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          [fill]="annotationTool === 'rectangle' ? 'solid' : 'outline'"
-          (click)="selectTool('rectangle')"
-          class="tool-button">
-          <ion-icon name="square-outline" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          [fill]="annotationTool === 'circle' ? 'solid' : 'outline'"
-          (click)="selectTool('circle')"
-          class="tool-button">
-          <ion-icon name="ellipse-outline" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          [fill]="annotationTool === 'text' ? 'solid' : 'outline'"
-          (click)="selectTool('text')"
-          class="tool-button">
-          <ion-icon name="text" slot="icon-only"></ion-icon>
-        </ion-button>
-        
-        <div class="tool-separator"></div>
-        
-        <!-- Color Picker -->
-        <input 
-          type="color" 
-          [(ngModel)]="annotationColor" 
-          class="color-picker"
-          title="Select color">
-        
-        <!-- Line Width -->
-        <ion-range 
-          min="1" 
-          max="10" 
-          [(ngModel)]="lineWidth" 
-          class="line-width-slider">
-          <ion-icon name="remove" slot="start"></ion-icon>
-          <ion-icon name="add" slot="end"></ion-icon>
-        </ion-range>
-        
-        <div class="tool-separator"></div>
-        
-        <ion-button 
-          size="small" 
-          fill="outline"
-          (click)="undoAnnotation()"
-          [disabled]="!canUndo()"
-          class="tool-button">
-          <ion-icon name="arrow-undo" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          fill="outline"
-          (click)="clearAnnotations()"
-          class="tool-button">
-          <ion-icon name="trash" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          fill="solid"
-          color="success"
-          (click)="saveAnnotatedImage()"
-          class="tool-button">
-          <ion-icon name="checkmark" slot="icon-only"></ion-icon>
-          Save
+          fill="clear" 
+          (click)="dismiss()" 
+          class="close-btn">
+          <ion-icon name="close" slot="icon-only"></ion-icon>
         </ion-button>
       </div>
     </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="viewer-content">
+    <!-- Annotation Toolbar (only when editing) -->
+    <div class="annotation-bar" *ngIf="isAnnotating">
+      <div class="annotation-tools-wrapper">
+        <div class="tool-group">
+          <button 
+            [class.active]="annotationTool === 'pen'"
+            (click)="selectTool('pen')"
+            class="tool-btn">
+            <ion-icon name="pencil"></ion-icon>
+          </button>
+          <button 
+            [class.active]="annotationTool === 'arrow'"
+            (click)="selectTool('arrow')"
+            class="tool-btn">
+            <ion-icon name="arrow-forward"></ion-icon>
+          </button>
+          <button 
+            [class.active]="annotationTool === 'rectangle'"
+            (click)="selectTool('rectangle')"
+            class="tool-btn">
+            <ion-icon name="square-outline"></ion-icon>
+          </button>
+          <button 
+            [class.active]="annotationTool === 'circle'"
+            (click)="selectTool('circle')"
+            class="tool-btn">
+            <ion-icon name="ellipse-outline"></ion-icon>
+          </button>
+          <button 
+            [class.active]="annotationTool === 'text'"
+            (click)="selectTool('text')"
+            class="tool-btn">
+            <ion-icon name="text"></ion-icon>
+          </button>
+        </div>
+        
+        <div class="tool-divider"></div>
+        
+        <div class="tool-group">
+          <input 
+            type="color" 
+            [(ngModel)]="annotationColor" 
+            class="color-input">
+          <input 
+            type="range" 
+            min="1" 
+            max="10" 
+            [(ngModel)]="lineWidth" 
+            class="width-slider">
+        </div>
+        
+        <div class="tool-divider"></div>
+        
+        <div class="tool-group">
+          <button 
+            (click)="undoAnnotation()"
+            [disabled]="!canUndo()"
+            class="tool-btn">
+            <ion-icon name="arrow-undo"></ion-icon>
+          </button>
+          <button 
+            (click)="clearAnnotations()"
+            class="tool-btn">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+          <button 
+            (click)="saveAnnotatedImage()"
+            class="tool-btn save-btn">
+            <ion-icon name="checkmark"></ion-icon>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
     
-    <!-- Main Image Display -->
-    <div class="image-display" [class.annotating]="isAnnotating">
-      <div class="canvas-container" #canvasContainer>
+    <!-- Image Display Area -->
+    <div class="image-container" [class.editing]="isAnnotating">
+      <div class="image-wrapper" #imageWrapper>
         <img 
           [src]="getCurrentImageUrl()" 
           [alt]="getCurrentTitle()" 
-          class="main-image"
+          class="displayed-image"
           #mainImage
-          (load)="onImageLoad()">
+          (load)="onImageLoad()"
+          (error)="onImageError()">
+        
+        <!-- Canvas overlay for annotations -->
         <canvas 
           #annotationCanvas
-          class="annotation-canvas"
-          [style.display]="isAnnotating ? 'block' : 'none'"
+          class="annotation-layer"
+          *ngIf="isAnnotating"
           (mousedown)="startDrawing($event)"
           (mousemove)="draw($event)"
           (mouseup)="stopDrawing($event)"
+          (mouseleave)="stopDrawing($event)"
           (touchstart)="handleTouchStart($event)"
           (touchmove)="handleTouchMove($event)"
           (touchend)="handleTouchEnd($event)">
         </canvas>
       </div>
+      
+      <!-- Loading indicator -->
+      <div class="loading-indicator" *ngIf="imageLoading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading image...</p>
+      </div>
+      
+      <!-- Error state -->
+      <div class="error-state" *ngIf="imageError">
+        <ion-icon name="image-outline" class="error-icon"></ion-icon>
+        <p>Unable to load image</p>
+        <button (click)="retryImageLoad()" class="retry-btn">
+          <ion-icon name="refresh"></ion-icon>
+          Retry
+        </button>
+      </div>
     </div>
     
-    <!-- Thumbnail Strip (if multiple images) -->
-    <div class="thumbnail-strip" *ngIf="hasMultipleImages()">
-      <div class="thumbnail-container">
+    <!-- Thumbnail Strip -->
+    <div class="thumbnail-strip" *ngIf="hasMultipleImages() && !isAnnotating">
+      <div class="thumbnails-wrapper">
         <div 
           *ngFor="let img of getAllImages(); let i = index" 
-          class="thumbnail-item"
+          class="thumbnail"
           [class.active]="i === currentIndex"
           (click)="selectImage(i)">
           <img [src]="img.url" [alt]="img.title">
-          <div class="thumbnail-overlay">
-            <span>{{ i + 1 }}</span>
-          </div>
+          <span class="thumb-number">{{ i + 1 }}</span>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Bottom Action Bar -->
+  <div class="action-bar">
+    <div class="file-info">
+      <ion-icon name="document-outline"></ion-icon>
+      <span>{{ getCurrentFilename() }}</span>
+    </div>
     
-    <!-- File Info Bar -->
-    <div class="info-bar">
-      <div class="info-section">
-        <ion-icon name="document-outline" class="info-icon"></ion-icon>
-        <span class="info-text">{{ getCurrentFilename() }}</span>
-      </div>
-      
-      <div class="action-buttons">
-        <ion-button 
-          size="small" 
-          fill="clear" 
-          (click)="toggleAnnotation()" 
-          class="action-button"
-          [color]="isAnnotating ? 'warning' : 'medium'">
-          <ion-icon name="create-outline" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          fill="clear" 
-          (click)="downloadImage()" 
-          class="action-button">
-          <ion-icon name="download-outline" slot="icon-only"></ion-icon>
-        </ion-button>
-        <ion-button 
-          size="small" 
-          fill="clear" 
-          (click)="toggleFullscreen()" 
-          class="action-button">
-          <ion-icon [name]="isFullscreen ? 'contract-outline' : 'expand-outline'" slot="icon-only"></ion-icon>
-        </ion-button>
-      </div>
+    <div class="action-buttons">
+      <button 
+        (click)="toggleAnnotation()" 
+        class="action-btn"
+        [class.active]="isAnnotating">
+        <ion-icon name="create-outline"></ion-icon>
+      </button>
+      <button 
+        (click)="downloadImage()" 
+        class="action-btn">
+        <ion-icon name="download-outline"></ion-icon>
+      </button>
+      <button 
+        (click)="toggleFullscreen()" 
+        class="action-btn">
+        <ion-icon [name]="isFullscreen ? 'contract-outline' : 'expand-outline'"></ion-icon>
+      </button>
     </div>
   </div>
-</ion-content>
+</div>

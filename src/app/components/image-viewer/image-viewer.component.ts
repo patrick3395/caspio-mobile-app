@@ -28,7 +28,7 @@ interface Annotation {
 export class ImageViewerComponent implements OnInit {
   @ViewChild('annotationCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('mainImage', { static: false }) imageRef!: ElementRef<HTMLImageElement>;
-  @ViewChild('canvasContainer', { static: false }) containerRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('imageWrapper', { static: false }) wrapperRef!: ElementRef<HTMLDivElement>;
   
   // Legacy single image inputs (for backward compatibility)
   @Input() base64Data: string = '';
@@ -41,6 +41,8 @@ export class ImageViewerComponent implements OnInit {
   
   currentIndex: number = 0;
   isFullscreen: boolean = false;
+  imageLoading: boolean = true;
+  imageError: boolean = false;
   private allImages: ImageData[] = [];
   
   // Annotation properties
@@ -88,24 +90,52 @@ export class ImageViewerComponent implements OnInit {
   }
 
   onImageLoad() {
+    this.imageLoading = false;
+    this.imageError = false;
+    
     if (this.isAnnotating && this.canvasRef) {
-      this.setupCanvas();
+      setTimeout(() => this.setupCanvas(), 100);
     }
+  }
+  
+  onImageError() {
+    this.imageLoading = false;
+    this.imageError = true;
+    console.error('Failed to load image:', this.getCurrentImageUrl());
+  }
+  
+  retryImageLoad() {
+    this.imageLoading = true;
+    this.imageError = false;
+    // Force reload by resetting the current index
+    const temp = this.currentIndex;
+    this.currentIndex = -1;
+    setTimeout(() => {
+      this.currentIndex = temp;
+    }, 10);
   }
 
   private setupCanvas() {
-    if (!this.canvasRef || !this.imageRef) return;
+    if (!this.canvasRef || !this.imageRef || !this.wrapperRef) return;
     
     this.canvas = this.canvasRef.nativeElement;
     const image = this.imageRef.nativeElement;
+    const wrapper = this.wrapperRef.nativeElement;
     
-    // Set canvas size to match image
-    this.canvas.width = image.naturalWidth;
-    this.canvas.height = image.naturalHeight;
+    // Wait for image to be fully rendered
+    if (image.naturalWidth === 0 || image.naturalHeight === 0) {
+      setTimeout(() => this.setupCanvas(), 100);
+      return;
+    }
     
-    // Match display size
-    this.canvas.style.width = image.offsetWidth + 'px';
-    this.canvas.style.height = image.offsetHeight + 'px';
+    // Set canvas size to match displayed image size
+    const rect = image.getBoundingClientRect();
+    this.canvas.width = rect.width;
+    this.canvas.height = rect.height;
+    
+    // Position canvas exactly over the image
+    this.canvas.style.width = rect.width + 'px';
+    this.canvas.style.height = rect.height + 'px';
     
     this.ctx = this.canvas.getContext('2d')!;
     this.ctx.lineCap = 'round';
@@ -403,6 +433,7 @@ export class ImageViewerComponent implements OnInit {
   // Navigation methods
   previousImage() {
     if (this.hasPrevious()) {
+      this.imageLoading = true;
       this.currentIndex--;
       this.clearAnnotations();
     }
@@ -410,6 +441,7 @@ export class ImageViewerComponent implements OnInit {
 
   nextImage() {
     if (this.hasNext()) {
+      this.imageLoading = true;
       this.currentIndex++;
       this.clearAnnotations();
     }
@@ -417,6 +449,7 @@ export class ImageViewerComponent implements OnInit {
 
   selectImage(index: number) {
     if (index >= 0 && index < this.allImages.length) {
+      this.imageLoading = true;
       this.currentIndex = index;
       this.clearAnnotations();
     }
@@ -469,13 +502,13 @@ export class ImageViewerComponent implements OnInit {
   toggleFullscreen() {
     this.isFullscreen = !this.isFullscreen;
     
-    // Add or remove fullscreen class to ion-content
-    const content = document.querySelector('app-image-viewer ion-content');
-    if (content) {
+    // Add or remove fullscreen class to wrapper
+    const wrapper = document.querySelector('.image-viewer-wrapper');
+    if (wrapper) {
       if (this.isFullscreen) {
-        content.classList.add('fullscreen-mode');
+        wrapper.classList.add('fullscreen');
       } else {
-        content.classList.remove('fullscreen-mode');
+        wrapper.classList.remove('fullscreen');
       }
     }
   }
