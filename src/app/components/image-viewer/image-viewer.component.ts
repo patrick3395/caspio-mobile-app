@@ -17,6 +17,13 @@ export class ImageViewerComponent implements OnInit {
   constructor(private modalController: ModalController) {}
 
   ngOnInit() {
+    console.log('🖼️ ImageViewer initialized with:', {
+      title: this.title,
+      filename: this.filename,
+      base64DataLength: this.base64Data ? this.base64Data.length : 0,
+      base64DataStart: this.base64Data ? this.base64Data.substring(0, 50) : null
+    });
+    
     // Convert base64 to data URL for display
     if (this.base64Data) {
       const mimeType = this.getMimeTypeFromFilename(this.filename);
@@ -25,6 +32,9 @@ export class ImageViewerComponent implements OnInit {
       } else {
         this.imageDataUrl = `data:${mimeType};base64,${this.base64Data}`;
       }
+      console.log('🖼️ Image data URL created, length:', this.imageDataUrl.length);
+    } else {
+      console.error('❌ No base64 data provided to ImageViewer');
     }
   }
 

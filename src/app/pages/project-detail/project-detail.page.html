@@ -354,6 +354,23 @@
     </ion-header>
     <ion-content>
       <ion-list>
+        <!-- Custom document option -->
+        <ion-item>
+          <ion-label position="stacked">Custom Document</ion-label>
+          <ion-input 
+            #customDocInput
+            placeholder="Enter document name (e.g., Cubicasa)"
+            (keyup.enter)="addCustomDocument(customDocInput.value); customDocInput.value=''">
+          </ion-input>
+          <ion-button slot="end" fill="clear" (click)="addCustomDocument(customDocInput.value); customDocInput.value=''">
+            <ion-icon name="add-circle-outline"></ion-icon>
+          </ion-button>
+        </ion-item>
+        
+        <ion-item-divider>
+          <ion-label>Suggested Documents</ion-label>
+        </ion-item-divider>
+        
         <ion-item *ngFor="let doc of optionalDocumentsList" (click)="addOptionalDocument(doc)">
           <ion-label>
             <h2>{{ doc.title }}</h2>

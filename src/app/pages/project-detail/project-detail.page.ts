@@ -692,15 +692,15 @@ export class ProjectDetailPage implements OnInit {
         documents: documents
       };
       
-      // Add back any manually added documents
+      // Add back any manually added documents AND check for their attachments
       const manualDocs = existingManualDocs.get(serviceDocGroup.serviceId);
       if (manualDocs) {
         // Check if any of these manual docs now have attachments
         for (const manualDoc of manualDocs) {
-          // Find ALL attachments for this type and title
+          // Find ALL attachments for this type and title - EXACT match on title
           const attachments = this.existingAttachments.filter(a => 
             a.TypeID === parseInt(service.typeId) && 
-            a.Title === manualDoc.title
+            a.Title === manualDoc.title  // Exact match on the document title
           );
           
           if (attachments.length > 0) {
@@ -718,6 +718,42 @@ export class ProjectDetailPage implements OnInit {
           }
         }
         serviceDocGroup.documents.push(...manualDocs);
+      }
+      
+      // Also check for any attachments that don't match template or default documents
+      // These could be manually added docs that were uploaded
+      const accountedTitles = new Set(serviceDocGroup.documents.map(d => d.title));
+      const orphanAttachments = this.existingAttachments.filter(a => 
+        a.TypeID === parseInt(service.typeId) && 
+        !accountedTitles.has(a.Title)
+      );
+      
+      // Group orphan attachments by title
+      const orphansByTitle = new Map<string, any[]>();
+      for (const orphan of orphanAttachments) {
+        if (!orphansByTitle.has(orphan.Title)) {
+          orphansByTitle.set(orphan.Title, []);
+        }
+        orphansByTitle.get(orphan.Title)?.push(orphan);
+      }
+      
+      // Add orphan documents
+      for (const [title, attachments] of orphansByTitle.entries()) {
+        const docItem: DocumentItem = {
+          attachId: attachments[0].AttachID,
+          title: title,  // Use the actual title from the attachment
+          required: false,
+          uploaded: true,
+          filename: attachments[0].Link,
+          linkName: attachments[0].Link,
+          attachmentUrl: attachments[0].Attachment,
+          additionalFiles: attachments.slice(1).map(a => ({
+            attachId: a.AttachID,
+            linkName: a.Link,
+            attachmentUrl: a.Attachment
+          }))
+        } as any;
+        serviceDocGroup.documents.push(docItem);
       }
       
       this.serviceDocuments.push(serviceDocGroup);
@@ -1052,6 +1088,21 @@ export class ProjectDetailPage implements OnInit {
       required: doc.required,
       uploaded: false,
       templateId: doc.templateId
+    });
+    
+    await this.optionalDocsModal.dismiss();
+    this.selectedServiceDoc = null;
+  }
+
+  async addCustomDocument(documentName: string) {
+    if (!this.selectedServiceDoc || !documentName || !documentName.trim()) return;
+    
+    // Add custom document to the service's document list
+    this.selectedServiceDoc.documents.push({
+      title: documentName.trim(),
+      required: false,
+      uploaded: false,
+      templateId: null  // No template for custom documents
     });
     
     await this.optionalDocsModal.dismiss();
