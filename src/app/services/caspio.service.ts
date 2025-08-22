@@ -591,12 +591,14 @@ export class CaspioService {
       const body = await approach.buildBody();
       
       // Try PUT to update the record
+      const headers: any = {
+        'Authorization': `Bearer ${accessToken}`,
+        ...approach.headers
+      };
+      
       const putResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          ...approach.headers
-        },
+        headers: headers,
         body: body as any
       });
 
