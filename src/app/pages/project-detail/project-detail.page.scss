@@ -283,11 +283,11 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 .template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
 
 .template-name{font-size:16px;font-weight:600;color:$dark;
-.template-instance{font-weight:400;color:$med;font-size:14px;margin-left:8px}}
+.template-instance{font-weight:400;color:$gray;font-size:14px;margin-left:8px}}
 
 .template-status{display:flex;align-items:center;gap:20px;
 .template-percentage{font-size:18px;font-weight:700;color:#22c55e}
-.template-action{font-size:13px;color:$med;padding:6px 12px;background:$light;border-radius:20px;font-weight:500}}
+.template-action{font-size:13px;color:$gray;padding:6px 12px;background:$light-gray;border-radius:20px;font-weight:500}}
 
 
 .remove-doc-link,.add-doc-link{color:#007bff;text-decoration:none;font-size:12px;cursor:pointer}
