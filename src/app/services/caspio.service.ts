@@ -428,16 +428,22 @@ export class CaspioService {
   // EXACT COPY of the working testTwoStepUpload but for Services_Visuals_Attach
   private async testTwoStepUploadVisuals(visualId: number, annotation: string, file: File) {
     console.log('📦 Method 2: Two-step upload for Services_Visuals_Attach');
+    console.log('=====================================');
+    console.log('TABLE: Services_Visuals_Attach');
+    console.log('COLUMNS:');
+    console.log('   VisualID (Integer) - Foreign key to Services_Visuals');
+    console.log('   Photo (File) - The image file field');
+    console.log('   Annotation (Text) - Description/notes');
+    console.log('=====================================');
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    // Step 1: Create record with ONLY these fields
-    console.log('Step 1: Creating record with ONLY VisualID, Annotation...');
+    // Step 1: Create record with ONLY these fields (Photo is FILE type, added in step 2)
+    console.log('Step 1: Creating record with VisualID and Annotation...');
     const recordData = {
       VisualID: parseInt(visualId.toString()),
-      Annotation: annotation || ''
-      // Photo will be added in step 2
+      Annotation: annotation || file.name  // Store filename in Annotation if blank
     };
     
     console.log(`Sending JSON: ${JSON.stringify(recordData)}`);
@@ -463,8 +469,8 @@ export class CaspioService {
       }
     } else {
       // Empty response might mean success, let's query for the record
-      console.log('Empty response from create. Querying for last record...');
-      const queryResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.orderBy=PK_ID%20DESC&q.limit=1`, {
+      console.log('Empty response from create. Querying for last record with VisualID...');
+      const queryResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=VisualID=${visualId}&q.orderBy=AttachID%20DESC&q.limit=1`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -472,7 +478,8 @@ export class CaspioService {
       const queryResult = await queryResponse.json();
       if (queryResult.Result && queryResult.Result.length > 0) {
         createResult = queryResult.Result[0];
-        console.log(`Found last record: PK_ID=${createResult.PK_ID}`);
+        const recordId = createResult.AttachID || createResult.PK_ID || createResult.id;
+        console.log(`Found last record: ID=${recordId}`);
       } else {
         throw new Error('Failed to create record and could not find it');
       }
@@ -482,8 +489,9 @@ export class CaspioService {
       throw new Error('Failed to create record: ' + createResponseText);
     }
     
-    const attachId = createResult.PK_ID;
-    console.log(`✅ Step 1 complete. PK_ID: ${attachId}`);
+    // Get the ID - could be PK_ID, AttachID, or id depending on table
+    const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
+    console.log(`✅ Step 1 complete. Record ID: ${attachId}`);
     
     // Step 2: Upload file to Photo field
     console.log('Step 2: Uploading file to Photo field...');
@@ -540,7 +548,9 @@ export class CaspioService {
         ...approach.headers
       };
       
-      const putResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=PK_ID=${attachId}`, {
+      // Use AttachID if available, otherwise fall back to PK_ID
+      const idField = createResult.AttachID ? 'AttachID' : 'PK_ID';
+      const putResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=${idField}=${attachId}`, {
         method: 'PUT',
         headers: headers,
         body: body as any
@@ -573,8 +583,17 @@ export class CaspioService {
       }
     }
     
+    // Return complete record with Photo field populated
+    const finalRecord = {
+      ...createResult,
+      Photo: uploadResult?.Photo || file.name,
+      AttachID: attachId,
+      VisualID: visualId,
+      Annotation: annotation || file.name
+    };
+    
     return { 
-      create: createResult, 
+      create: finalRecord, 
       upload: uploadResult,
       successMethod: successMethod 
     };
