@@ -360,9 +360,9 @@
           <ion-input 
             #customDocInput
             placeholder="Enter document name (e.g., Cubicasa)"
-            (keyup.enter)="addCustomDocument(customDocInput.value); customDocInput.value=''">
+            (keyup.enter)="addCustomDocument(customDocInput.value || ''); customDocInput.value=''">
           </ion-input>
-          <ion-button slot="end" fill="clear" (click)="addCustomDocument(customDocInput.value); customDocInput.value=''">
+          <ion-button slot="end" fill="clear" (click)="addCustomDocument(customDocInput.value || ''); customDocInput.value=''">
             <ion-icon name="add-circle-outline"></ion-icon>
           </ion-button>
         </ion-item>

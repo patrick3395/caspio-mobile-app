@@ -1102,7 +1102,7 @@ export class ProjectDetailPage implements OnInit {
       title: documentName.trim(),
       required: false,
       uploaded: false,
-      templateId: null  // No template for custom documents
+      templateId: undefined  // No template for custom documents
     });
     
     await this.optionalDocsModal.dismiss();
