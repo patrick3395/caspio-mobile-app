@@ -201,7 +201,9 @@ export class ProjectDetailPage implements OnInit {
 
   async loadExistingServices() {
     try {
-      const services = await this.caspioService.getServicesByProject(this.projectId).toPromise();
+      // Use actual ProjectID from project data for querying services
+      const projectId = this.project?.ProjectID || this.projectId;
+      const services = await this.caspioService.getServicesByProject(projectId).toPromise();
       
       console.log('🔍 Loading existing services:', services);
       console.log('🔍 Available offers for matching:', this.availableOffers);
@@ -263,7 +265,9 @@ export class ProjectDetailPage implements OnInit {
   async loadExistingAttachments() {
     this.loadingDocuments = true;
     try {
-      const attachments = await this.caspioService.getAttachmentsByProject(this.projectId).toPromise();
+      // Use actual ProjectID from project data for querying attachments
+      const projectId = this.project?.ProjectID || this.projectId;
+      const attachments = await this.caspioService.getAttachmentsByProject(projectId).toPromise();
       this.existingAttachments = attachments || [];
       console.log('Existing attachments loaded:', this.existingAttachments);
       this.updateDocumentsList();
@@ -356,8 +360,9 @@ export class ProjectDetailPage implements OnInit {
       }
       
       // Create service record in Caspio - Services table only has ProjectID, TypeID, DateOfInspection
+      // IMPORTANT: Use project.ProjectID (not PK_ID) for the Services table relationship
       const serviceData = {
-        ProjectID: this.projectId,
+        ProjectID: this.project?.ProjectID || this.projectId, // Use actual ProjectID from project, not PK_ID
         TypeID: offer.TypeID,
         DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
@@ -691,11 +696,13 @@ export class ProjectDetailPage implements OnInit {
       
       if (action === 'upload' || action === 'additional') {
         // Create new Attach record WITH FILE - only ProjectID and TypeID are needed
-        const projectIdNum = parseInt(this.projectId);
+        // IMPORTANT: Use project.ProjectID (not PK_ID) for the Attach table relationship
+        const projectIdNum = parseInt(this.project?.ProjectID || this.projectId);
         const typeIdNum = parseInt(typeId);
         
         console.log('🔍 DEBUG: Parsing IDs for upload:', {
-          projectId: this.projectId,
+          routeProjectId: this.projectId,
+          actualProjectID: this.project?.ProjectID,
           projectIdNum,
           typeId,
           typeIdNum,
@@ -703,7 +710,7 @@ export class ProjectDetailPage implements OnInit {
         });
         
         if (isNaN(projectIdNum) || isNaN(typeIdNum)) {
-          console.error('Invalid IDs:', { projectId: this.projectId, typeId });
+          console.error('Invalid IDs:', { routeProjectId: this.projectId, actualProjectID: this.project?.ProjectID, typeId });
           await this.showToast('Invalid project or type ID. Please refresh and try again.', 'danger');
           throw new Error('Invalid ID values');
         }
@@ -955,7 +962,7 @@ export class ProjectDetailPage implements OnInit {
         header: 'Opening Template',
         message: `
           <strong>ServiceID:</strong> ${service.serviceId}<br>
-          <strong>ProjectID:</strong> ${this.projectId}<br><br>
+          <strong>ProjectID:</strong> ${this.project?.ProjectID || this.projectId}<br><br>
           <strong>Service Type:</strong> ${service.typeName}<br>
           <strong>Instance:</strong> ${this.getServiceInstanceNumber(service)}
         `,
