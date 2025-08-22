@@ -1,5 +1,5 @@
 <ion-header class="sleek-header">
-  <ion-toolbar color="dark">
+  <ion-toolbar class="viewer-toolbar">
     <ion-buttons slot="start">
       <ion-button (click)="previousImage()" [disabled]="!hasPrevious()" class="nav-button">
         <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
@@ -20,7 +20,7 @@
         <ion-icon name="chevron-forward-outline" slot="icon-only"></ion-icon>
       </ion-button>
       <ion-button (click)="dismiss()" class="close-button">
-        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+        <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
@@ -28,9 +28,114 @@
 
 <ion-content class="sleek-content">
   <div class="image-viewer-container">
+    <!-- Annotation Toolbar -->
+    <div class="annotation-toolbar" *ngIf="isAnnotating">
+      <div class="annotation-tools">
+        <ion-button 
+          size="small" 
+          [fill]="annotationTool === 'pen' ? 'solid' : 'outline'"
+          (click)="selectTool('pen')"
+          class="tool-button">
+          <ion-icon name="pencil" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          [fill]="annotationTool === 'arrow' ? 'solid' : 'outline'"
+          (click)="selectTool('arrow')"
+          class="tool-button">
+          <ion-icon name="arrow-forward" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          [fill]="annotationTool === 'rectangle' ? 'solid' : 'outline'"
+          (click)="selectTool('rectangle')"
+          class="tool-button">
+          <ion-icon name="square-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          [fill]="annotationTool === 'circle' ? 'solid' : 'outline'"
+          (click)="selectTool('circle')"
+          class="tool-button">
+          <ion-icon name="ellipse-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          [fill]="annotationTool === 'text' ? 'solid' : 'outline'"
+          (click)="selectTool('text')"
+          class="tool-button">
+          <ion-icon name="text" slot="icon-only"></ion-icon>
+        </ion-button>
+        
+        <div class="tool-separator"></div>
+        
+        <!-- Color Picker -->
+        <input 
+          type="color" 
+          [(ngModel)]="annotationColor" 
+          class="color-picker"
+          title="Select color">
+        
+        <!-- Line Width -->
+        <ion-range 
+          min="1" 
+          max="10" 
+          [(ngModel)]="lineWidth" 
+          class="line-width-slider">
+          <ion-icon name="remove" slot="start"></ion-icon>
+          <ion-icon name="add" slot="end"></ion-icon>
+        </ion-range>
+        
+        <div class="tool-separator"></div>
+        
+        <ion-button 
+          size="small" 
+          fill="outline"
+          (click)="undoAnnotation()"
+          [disabled]="!canUndo()"
+          class="tool-button">
+          <ion-icon name="arrow-undo" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          fill="outline"
+          (click)="clearAnnotations()"
+          class="tool-button">
+          <ion-icon name="trash" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          fill="solid"
+          color="success"
+          (click)="saveAnnotatedImage()"
+          class="tool-button">
+          <ion-icon name="checkmark" slot="icon-only"></ion-icon>
+          Save
+        </ion-button>
+      </div>
+    </div>
+    
     <!-- Main Image Display -->
-    <div class="image-display">
-      <img [src]="getCurrentImageUrl()" [alt]="getCurrentTitle()" class="main-image">
+    <div class="image-display" [class.annotating]="isAnnotating">
+      <div class="canvas-container" #canvasContainer>
+        <img 
+          [src]="getCurrentImageUrl()" 
+          [alt]="getCurrentTitle()" 
+          class="main-image"
+          #mainImage
+          (load)="onImageLoad()">
+        <canvas 
+          #annotationCanvas
+          class="annotation-canvas"
+          [style.display]="isAnnotating ? 'block' : 'none'"
+          (mousedown)="startDrawing($event)"
+          (mousemove)="draw($event)"
+          (mouseup)="stopDrawing($event)"
+          (touchstart)="handleTouchStart($event)"
+          (touchmove)="handleTouchMove($event)"
+          (touchend)="handleTouchEnd($event)">
+        </canvas>
+      </div>
     </div>
     
     <!-- Thumbnail Strip (if multiple images) -->
@@ -57,6 +162,14 @@
       </div>
       
       <div class="action-buttons">
+        <ion-button 
+          size="small" 
+          fill="clear" 
+          (click)="toggleAnnotation()" 
+          class="action-button"
+          [color]="isAnnotating ? 'warning' : 'medium'">
+          <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+        </ion-button>
         <ion-button 
           size="small" 
           fill="clear" 
