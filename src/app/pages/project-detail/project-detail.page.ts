@@ -132,11 +132,13 @@ export class ProjectDetailPage implements OnInit {
         this.loading = false;
         console.log('Project loaded:', project);
         
-        // Load related data
-        await this.loadAvailableOffers();
-        await this.loadExistingServices();
-        await this.loadAttachTemplates();
-        await this.loadExistingAttachments();
+        // Load related data in parallel for speed
+        await Promise.all([
+          this.loadAvailableOffers(),
+          this.loadExistingServices(),
+          this.loadAttachTemplates(),
+          this.loadExistingAttachments()
+        ]);
       },
       error: (error) => {
         this.error = 'Failed to load project';
@@ -247,19 +249,6 @@ export class ProjectDetailPage implements OnInit {
     return this.selectedServices.some(s => s.offersId === offersId);
   }
 
-  serviceHasDocuments(offersId: string): boolean {
-    // Check if any service instance of this offer has uploaded documents
-    const services = this.selectedServices.filter(s => s.offersId === offersId);
-    for (const service of services) {
-      // Check if this service has any uploaded attachments
-      const hasAttachment = this.existingAttachments.some(a => 
-        a.ServiceID === service.serviceId || 
-        (a.TypeID === parseInt(service.typeId) && a.ProjectID === parseInt(this.projectId))
-      );
-      if (hasAttachment) return true;
-    }
-    return false;
-  }
 
   getServicePrice(service: ServiceSelection): number {
     // Find the matching offer to get the price
@@ -490,10 +479,12 @@ export class ProjectDetailPage implements OnInit {
           DateOfInspection: service.dateOfInspection
         }).toPromise();
         
+        // Show saved indicator briefly
         service.saved = true;
-        setTimeout(() => {
-          service.saved = false;
-        }, 2000);
+        // Remove indicator immediately on next tick
+        requestAnimationFrame(() => {
+          setTimeout(() => service.saved = false, 300);
+        });
       }
     } catch (error) {
       console.error('Error updating service date:', error);
@@ -515,10 +506,12 @@ export class ProjectDetailPage implements OnInit {
           DateOfInspection: newDate
         }).toPromise();
         
+        // Show saved indicator briefly
         service.saved = true;
-        setTimeout(() => {
-          service.saved = false;
-        }, 2000);
+        // Remove indicator immediately on next tick
+        requestAnimationFrame(() => {
+          setTimeout(() => service.saved = false, 300);
+        });
       }
     } catch (error) {
       console.error('Error updating service date:', error);
@@ -577,8 +570,9 @@ export class ProjectDetailPage implements OnInit {
       if (requiredTemplates.length > 0) {
         // Use actual templates from database
         for (const template of requiredTemplates) {
+          // Attachments only have ProjectID and TypeID, no ServiceID
           const attachment = this.existingAttachments.find(a => 
-            a.ServiceID === service.serviceId && 
+            a.TypeID === parseInt(service.typeId) && 
             a.Title === template.Title
           );
           
@@ -596,8 +590,9 @@ export class ProjectDetailPage implements OnInit {
       } else {
         // Use service-specific defaults
         for (let i = 0; i < docTitles.length; i++) {
+          // Attachments only have ProjectID and TypeID, no ServiceID
           const attachment = this.existingAttachments.find(a => 
-            a.ServiceID === service.serviceId && 
+            a.TypeID === parseInt(service.typeId) && 
             a.Title === docTitles[i]
           );
           
@@ -724,10 +719,8 @@ export class ProjectDetailPage implements OnInit {
         console.log('📝 Creating attachment record with file:', attachData);
         console.log('  ServiceID:', serviceId, '- NOT sent to Attach table (not a field in that table)');
         
-        // Show popup with the data being sent - user must confirm before upload proceeds
-        await this.showAttachmentDataPopup(attachData, file, serviceId);
-        
-        // Only show loading AFTER user confirms in the popup
+        // Skip confirmation popup - upload immediately
+        // Only show loading while uploading
         loading = await this.loadingController.create({
           message: 'Uploading file...'
         });
@@ -744,14 +737,24 @@ export class ProjectDetailPage implements OnInit {
         
         console.log('📋 Create attachment with file response:', response);
         
-        // Verify the response has an AttachID
-        if (response && response.AttachID) {
-          console.log('✅ Attachment created successfully with AttachID:', response.AttachID);
-          await this.showToast('File uploaded successfully', 'success');
-        } else {
-          console.warn('⚠️ Response received but no AttachID found:', response);
-          // Caspio APIs are instantaneous - file is uploaded successfully
-          await this.showToast('Document uploaded successfully', 'success');
+        // Attachment created - update UI immediately without waiting
+        if (response) {
+          console.log('✅ Attachment created successfully:', response);
+          // Add full attachment record immediately for instant UI update
+          // Response should have all fields including AttachID, Link, and Attachment URL
+          const newAttachment = {
+            AttachID: response.AttachID || response.PK_ID,
+            ProjectID: response.ProjectID || projectIdNum,
+            TypeID: response.TypeID || typeIdNum,
+            Title: response.Title || doc.title || 'Document',
+            Notes: response.Notes || '',
+            Link: response.Link || file.name,
+            Attachment: response.Attachment || ''
+          };
+          this.existingAttachments.push(newAttachment);
+          console.log('📎 Added attachment to list:', newAttachment);
+          // Update documents list immediately - this will show the link and green color
+          this.updateDocumentsList();
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -770,11 +773,16 @@ export class ProjectDetailPage implements OnInit {
         }).toPromise();
         console.log('✅ Updated Link field with new filename:', file.name);
         
-        await this.showToast('File replaced successfully', 'success');
+        // Update the attachment in our local list immediately
+        const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
+        if (existingAttach) {
+          existingAttach.Link = file.name;
+        }
+        // Update documents list immediately
+        this.updateDocumentsList();
       }
       
-      // Reload attachments and update display
-      await this.loadExistingAttachments();
+      // Don't reload - UI is already updated
     } catch (error: any) {
       console.error('❌ Error handling file upload:', error);
       console.error('Error details:', {
@@ -784,17 +792,11 @@ export class ProjectDetailPage implements OnInit {
         error: error?.error
       });
       
-      // Show detailed error popup
+      // Only show error toast, no popup delay
       if (error?.message !== 'Upload cancelled by user') {
-        await this.showErrorPopup(error, {
-          attempted_action: 'file_upload',
-          file_name: file?.name,
-          file_size: file?.size,
-          context: this.currentUploadContext
-        });
+        const errorMsg = error?.error?.Message || error?.message || 'Upload failed';
+        await this.showToast(errorMsg, 'danger');
       }
-      
-      await this.showToast('Failed to upload file', 'danger');
     } finally {
       if (loading) {
         await loading.dismiss();

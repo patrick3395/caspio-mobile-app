@@ -70,8 +70,7 @@
       <!-- Service checkboxes -->
       <div *ngIf="!loadingServices" class="services-grid">
         <div *ngFor="let offer of availableOffers" 
-             class="service-item"
-             [class.has-documents]="serviceHasDocuments(offer.OffersID)">
+             class="service-item">
           <ion-checkbox 
             [checked]="isServiceSelected(offer.OffersID)"
             (ionChange)="toggleService($event, offer)"
@@ -79,9 +78,6 @@
           </ion-checkbox>
           <label (click)="toggleServiceByLabel(offer)">
             {{ offer.TypeName || offer.Service_Name || offer.Description }}
-            <ion-icon *ngIf="serviceHasDocuments(offer.OffersID)" 
-                      name="checkmark-circle" 
-                      class="service-doc-indicator"></ion-icon>
           </label>
         </div>
       </div>

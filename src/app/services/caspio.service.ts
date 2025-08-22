@@ -686,7 +686,8 @@ export class CaspioService {
     
     console.log(`Sending JSON: ${JSON.stringify(recordData)}`);
     
-    const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records`, {
+    // Add response=rows to get the created record immediately
+    const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -699,34 +700,31 @@ export class CaspioService {
     console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
     
     let createResult: any;
+    let attachId: string;
+    
     if (createResponseText.length > 0) {
       try {
-        createResult = JSON.parse(createResponseText);
+        const parsedResponse = JSON.parse(createResponseText);
+        // With response=rows, Caspio returns {"Result": [{created record}]}
+        if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
+          createResult = parsedResponse.Result[0];
+          attachId = createResult.AttachID;
+          console.log('✅ Record created with response=rows, AttachID:', attachId);
+        } else {
+          // Fallback if response format is different
+          createResult = parsedResponse;
+          attachId = createResult.AttachID;
+        }
       } catch (e) {
         throw new Error('Failed to parse create response: ' + createResponseText);
       }
     } else {
-      // Empty response might mean success, let's query for the record
-      console.log('Empty response from create. Querying for last record...');
-      const queryResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      const queryResult = await queryResponse.json();
-      if (queryResult.Result && queryResult.Result.length > 0) {
-        createResult = queryResult.Result[0];
-        console.log(`Found last record: AttachID=${createResult.AttachID}`);
-      } else {
-        throw new Error('Failed to create record and could not find it');
-      }
+      throw new Error('Empty response from create endpoint');
     }
     
     if (!createResponse.ok && !createResult) {
       throw new Error('Failed to create record: ' + createResponseText);
     }
-    
-    const attachId = createResult.AttachID;
     console.log(`✅ Step 1 complete. AttachID: ${attachId}`);
     
     // Step 2: Upload file to Attachment field
