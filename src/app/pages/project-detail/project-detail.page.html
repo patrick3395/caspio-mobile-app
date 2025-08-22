@@ -198,6 +198,7 @@
                 </span>
                 <!-- Show uploaded document details -->
                 <div *ngIf="doc.uploaded" class="uploaded-doc-info">
+                  <!-- First file -->
                   <div class="doc-info-row">
                     <div class="doc-link-name">
                       <ion-icon name="document-attach-outline"></ion-icon>
@@ -218,6 +219,20 @@
                                   (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)"
                                   title="Add Another">
                         <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
+                      </ion-button>
+                    </div>
+                  </div>
+                  <!-- Additional files if any -->
+                  <div *ngFor="let additionalFile of doc.additionalFiles" class="doc-info-row">
+                    <div class="doc-link-name">
+                      <ion-icon name="document-attach-outline"></ion-icon>
+                      {{ additionalFile.linkName }}
+                    </div>
+                    <div class="doc-icon-actions">
+                      <ion-button size="small" fill="clear" color="primary" 
+                                  (click)="viewAdditionalDocument(additionalFile)" 
+                                  title="View Image">
+                        <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
                       </ion-button>
                     </div>
                   </div>

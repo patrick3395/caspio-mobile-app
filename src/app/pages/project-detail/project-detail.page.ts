@@ -605,41 +605,59 @@ export class ProjectDetailPage implements OnInit {
       if (requiredTemplates.length > 0) {
         // Use actual templates from database
         for (const template of requiredTemplates) {
-          // Attachments only have ProjectID and TypeID, no ServiceID
-          const attachment = this.existingAttachments.find(a => 
+          // Find ALL attachments for this type and title (for multiple uploads)
+          const attachments = this.existingAttachments.filter(a => 
             a.TypeID === parseInt(service.typeId) && 
             a.Title === template.Title
           );
           
-          documents.push({
-            attachId: attachment?.AttachID,
+          // Create the main document entry
+          const docItem: DocumentItem = {
+            attachId: attachments[0]?.AttachID,  // First attachment ID for main actions
             title: template.Title || template.AttachmentName || 'Document',
             required: (template.Required === 'Yes' || template.Required === true || template.Required === 1),
-            uploaded: !!attachment,
+            uploaded: attachments.length > 0,
             templateId: template.PK_ID,
-            filename: attachment?.Link,
-            linkName: attachment?.Link,  // Add linkName for display
-            attachmentUrl: attachment?.Attachment
-          });
+            filename: attachments[0]?.Link,
+            linkName: attachments[0]?.Link,
+            attachmentUrl: attachments[0]?.Attachment,
+            // Store all attachments for display
+            additionalFiles: attachments.slice(1).map(a => ({
+              attachId: a.AttachID,
+              linkName: a.Link,
+              attachmentUrl: a.Attachment
+            }))
+          } as any;
+          
+          documents.push(docItem);
         }
       } else {
         // Use service-specific defaults
         for (let i = 0; i < docTitles.length; i++) {
-          // Attachments only have ProjectID and TypeID, no ServiceID
-          const attachment = this.existingAttachments.find(a => 
+          // Find ALL attachments for this type and title (for multiple uploads)
+          const attachments = this.existingAttachments.filter(a => 
             a.TypeID === parseInt(service.typeId) && 
             a.Title === docTitles[i]
           );
           
-          documents.push({
-            attachId: attachment?.AttachID,
+          // Create the main document entry
+          const docItem: DocumentItem = {
+            attachId: attachments[0]?.AttachID,  // First attachment ID for main actions
             title: docTitles[i],
             required: i === 0, // First document is required, others optional
-            uploaded: !!attachment,
-            filename: attachment?.Link,
-            linkName: attachment?.Link,  // Add linkName for display
-            attachmentUrl: attachment?.Attachment
-          });
+            uploaded: attachments.length > 0,
+            filename: attachments[0]?.Link,
+            linkName: attachments[0]?.Link,
+            attachmentUrl: attachments[0]?.Attachment,
+            // Store all attachments for display
+            additionalFiles: attachments.slice(1).map(a => ({
+              attachId: a.AttachID,
+              linkName: a.Link,
+              attachmentUrl: a.Attachment
+            }))
+          } as any;
+          
+          documents.push(docItem);
         }
       }
       
@@ -870,28 +888,76 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async viewDocument(doc: DocumentItem) {
-    if (!doc.attachmentUrl) {
-      await this.showToast('Document not available', 'warning');
-      return;
-    }
-
-    // Check if it's a base64 string (not a URL)
-    if (doc.attachmentUrl.length > 1000 && !doc.attachmentUrl.startsWith('http')) {
-      // It's base64 - create a modal to display the image
-      const modal = await this.modalController.create({
-        component: ImageViewerComponent,
-        componentProps: {
-          base64Data: doc.attachmentUrl,
-          title: doc.title,
-          filename: doc.linkName || doc.filename
+    // If doc has an attachId, fetch the actual file from Caspio
+    if (doc.attachId) {
+      try {
+        const loading = await this.loadingController.create({
+          message: 'Loading document...'
+        });
+        await loading.present();
+        
+        // Get the attachment with the actual file data
+        const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
+        
+        if (attachment && attachment.Attachment) {
+          // The Attachment field should contain base64 data
+          const modal = await this.modalController.create({
+            component: ImageViewerComponent,
+            componentProps: {
+              base64Data: attachment.Attachment,
+              title: doc.title,
+              filename: doc.linkName || doc.filename
+            }
+          });
+          await loading.dismiss();
+          await modal.present();
+        } else {
+          await loading.dismiss();
+          await this.showToast('Document data not available', 'warning');
         }
-      });
-      await modal.present();
-    } else if (doc.attachmentUrl.startsWith('http')) {
-      // It's a URL - open in new window
-      window.open(doc.attachmentUrl, '_blank');
+      } catch (error) {
+        console.error('Error loading document:', error);
+        await this.showToast('Failed to load document', 'danger');
+      }
     } else {
-      await this.showToast('Unknown attachment format', 'warning');
+      await this.showToast('Document not available', 'warning');
+    }
+  }
+
+  async viewAdditionalDocument(additionalFile: any) {
+    // View additional file using its attachId
+    if (additionalFile.attachId) {
+      try {
+        const loading = await this.loadingController.create({
+          message: 'Loading document...'
+        });
+        await loading.present();
+        
+        // Get the attachment with the actual file data
+        const attachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+        
+        if (attachment && attachment.Attachment) {
+          // The Attachment field should contain base64 data
+          const modal = await this.modalController.create({
+            component: ImageViewerComponent,
+            componentProps: {
+              base64Data: attachment.Attachment,
+              title: 'Additional File',
+              filename: additionalFile.linkName
+            }
+          });
+          await loading.dismiss();
+          await modal.present();
+        } else {
+          await loading.dismiss();
+          await this.showToast('Document data not available', 'warning');
+        }
+      } catch (error) {
+        console.error('Error loading document:', error);
+        await this.showToast('Failed to load document', 'danger');
+      }
+    } else {
+      await this.showToast('Document not available', 'warning');
     }
   }
 

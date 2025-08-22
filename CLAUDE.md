@@ -16,11 +16,20 @@
 - **Use response=rows** parameter to get created records back immediately
 - APIs are instantaneous - no need for temp IDs or waiting
 
-### 3. FILE UPLOAD METHOD
-- Use two-step upload: Create record first, then update with file
-- Method that works: testTwoStepUpload in caspio.service.ts
+### 3. FILE UPLOAD METHOD (WORKING - DO NOT CHANGE)
+- **Two-step process that WORKS**:
+  1. Create Attach record with ProjectID (actual ProjectID from project data, not PK_ID)
+  2. Upload file using uploadFileToAttachment method
+- **Important field mappings**:
+  - ProjectID: Use `project.ProjectID` NOT `project.PK_ID` or route ID
+  - TypeID: From the service type
+  - Title: Document title
+  - Link: Filename (stored automatically)
+  - Attachment: File path (NOT base64, handled by Caspio)
+- **Viewing files**: Use getAttachmentWithImage to fetch base64 data
+- **Multiple uploads**: Filter attachments by TypeID and Title to find all files
 - Always show popup with data before uploading
-- Link field contains the filename
+- NO ServiceID field in Attach table
 
 ### 4. UI/UX RULES
 - **Green color ONLY in Required Documents table** - never in service selector
