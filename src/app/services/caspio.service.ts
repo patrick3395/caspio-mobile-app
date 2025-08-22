@@ -747,11 +747,34 @@ export class CaspioService {
     
     if (uploadResponse.status === 204 || uploadResponse.ok) {
       console.log('✅ File uploaded successfully');
-      // Return the complete record
+      
+      // Step 3: Fetch the record again to get the actual file path
+      console.log('Step 3: Fetching updated record with file path...');
+      const fetchResponse = await fetch(
+        `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (fetchResponse.ok) {
+        const fetchData = await fetchResponse.json();
+        if (fetchData.Result && fetchData.Result.length > 0) {
+          const updatedRecord = fetchData.Result[0];
+          console.log('✅ Retrieved updated record with file path:', updatedRecord.Attachment);
+          return updatedRecord;
+        }
+      }
+      
+      // If fetch failed, return what we have
       return {
         ...createResult,
         AttachID: attachId,
-        Attachment: file.name // File has been uploaded
+        Attachment: file.name // Fallback to filename
       };
     } else {
       console.error('Failed to upload file:', uploadResponseText);
