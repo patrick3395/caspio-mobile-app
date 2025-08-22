@@ -26,6 +26,11 @@ interface DocumentItem {
   filename?: string;
   linkName?: string;  // The Link field from Caspio (filename)
   attachmentUrl?: string;
+  additionalFiles?: Array<{  // For multiple uploads of the same document
+    attachId: string;
+    linkName: string;
+    attachmentUrl: string;
+  }>;
 }
 
 interface ServiceDocumentGroup {
