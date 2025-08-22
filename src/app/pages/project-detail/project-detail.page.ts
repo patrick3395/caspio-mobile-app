@@ -132,10 +132,12 @@ export class ProjectDetailPage implements OnInit {
         this.loading = false;
         console.log('Project loaded:', project);
         
-        // Load related data in parallel for speed
+        // Load offers first, then services (services need offers to match properly)
+        await this.loadAvailableOffers();
+        
+        // Now load these in parallel
         await Promise.all([
-          this.loadAvailableOffers(),
-          this.loadExistingServices(),
+          this.loadExistingServices(),  // This needs offers to be loaded first
           this.loadAttachTemplates(),
           this.loadExistingAttachments()
         ]);
@@ -201,18 +203,35 @@ export class ProjectDetailPage implements OnInit {
     try {
       const services = await this.caspioService.getServicesByProject(this.projectId).toPromise();
       
+      console.log('🔍 Loading existing services:', services);
+      console.log('🔍 Available offers for matching:', this.availableOffers);
+      
       // Convert existing services to our selection format
       this.selectedServices = (services || []).map((service: any) => {
         // Find offer by TypeID (Services table doesn't have OffersID)
-        const offer = this.availableOffers.find(o => 
-          o.TypeID === service.TypeID || 
-          o.TypeID === service.TypeID.toString() ||
-          o.TypeID.toString() === service.TypeID.toString()
-        );
+        const offer = this.availableOffers.find(o => {
+          // Try multiple matching strategies for TypeID
+          return o.TypeID == service.TypeID;  // Use == for type coercion
+        });
         
         if (!offer) {
-          console.warn('⚠️ Could not find offer for service TypeID:', service.TypeID);
-          console.log('Available offers TypeIDs:', this.availableOffers.map(o => o.TypeID));
+          console.error('❌ CRITICAL: Could not find offer for service:', {
+            serviceTypeID: service.TypeID,
+            serviceTypeIDType: typeof service.TypeID,
+            availableOfferTypeIDs: this.availableOffers.map(o => ({
+              TypeID: o.TypeID,
+              type: typeof o.TypeID,
+              OffersID: o.OffersID,
+              TypeName: o.TypeName
+            }))
+          });
+        } else {
+          console.log('✅ Matched service to offer:', {
+            serviceTypeID: service.TypeID,
+            offerTypeID: offer.TypeID,
+            offerOffersID: offer.OffersID,
+            offerTypeName: offer.TypeName
+          });
         }
         
         return {
@@ -220,7 +239,7 @@ export class ProjectDetailPage implements OnInit {
           serviceId: service.PK_ID || service.ServiceID,
           offersId: offer?.OffersID || '', // Get OffersID from the matched offer
           typeId: service.TypeID.toString(),
-          typeName: offer?.TypeName || offer?.Service_Name || `Service Type ${service.TypeID}`,
+          typeName: offer?.TypeName || offer?.Service_Name || 'Service',
           dateOfInspection: service.DateOfInspection || new Date().toISOString()
         };
       });
