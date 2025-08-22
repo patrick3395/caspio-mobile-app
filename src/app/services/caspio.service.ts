@@ -461,192 +461,177 @@ export class CaspioService {
 
   // Create attachment with file - Method 2: Two-step upload (EXACTLY as in test HTML)
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
-    console.log('🔍 [CaspioService.createAttachmentWithFile] Method 2: Two-step upload:', {
-      projectId,
-      typeId,
-      title,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type
+    console.log('📦 Method 2: Two-step upload');
+    
+    // Wrap the entire async function in Observable to return to Angular
+    return new Observable(observer => {
+      this.testTwoStepUpload(projectId, typeId, title, notes, file)
+        .then(result => {
+          observer.next(result.create); // Return the created record
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
     });
+  }
 
-    // Step 1: Create record with ONLY these fields (no Attachment) - EXACTLY like HTML test
+  // EXACT COPY of the HTML test function that works
+  private async testTwoStepUpload(projectId: number, typeId: number, title: string, notes: string, file: File) {
+    console.log('📦 Method 2: Two-step upload');
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    // Step 1: Create record with ONLY these fields
+    console.log('Step 1: Creating record with ONLY ProjectID, TypeID, Title, Notes, Link...');
     const recordData = {
       ProjectID: parseInt(projectId.toString()),
       TypeID: parseInt(typeId.toString()),
       Title: title,
-      Notes: notes || '',
+      Notes: notes,
       Link: file.name
     };
     
-    console.log('📤 Step 1: Creating record with ProjectID, TypeID, Title, Notes, Link...');
-    console.log('Sending JSON:', JSON.stringify(recordData));
-    console.log('Token being used:', this.tokenSubject.value ? `Token exists (${this.tokenSubject.value.substring(0, 10)}...)` : 'NO TOKEN!');
-    console.log('API URL:', `${environment.caspio.apiBaseUrl}/tables/Attach/records`);
+    console.log(`Sending JSON: ${JSON.stringify(recordData)}`);
     
-    // Make absolutely sure we have a token
-    if (!this.tokenSubject.value) {
-      throw new Error('No authentication token available! Please authenticate first.');
+    const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(recordData)
+    });
+
+    const createResponseText = await createResponse.text();
+    console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
+    
+    let createResult: any;
+    if (createResponseText.length > 0) {
+      try {
+        createResult = JSON.parse(createResponseText);
+      } catch (e) {
+        throw new Error('Failed to parse create response: ' + createResponseText);
+      }
+    } else {
+      // Empty response might mean success, let's query for the record
+      console.log('Empty response from create. Querying for last record...');
+      const queryResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      const queryResult = await queryResponse.json();
+      if (queryResult.Result && queryResult.Result.length > 0) {
+        createResult = queryResult.Result[0];
+        console.log(`Found last record: AttachID=${createResult.AttachID}`);
+      } else {
+        throw new Error('Failed to create record and could not find it');
+      }
     }
     
-    // First create the record
-    return from(
-      fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.tokenSubject.value}`,
-          'Content-Type': 'application/json'
+    if (!createResponse.ok && !createResult) {
+      throw new Error('Failed to create record: ' + createResponseText);
+    }
+    
+    const attachId = createResult.AttachID;
+    console.log(`✅ Step 1 complete. AttachID: ${attachId}`);
+    
+    // Step 2: Upload file to Attachment field
+    console.log('Step 2: Uploading file to Attachment field...');
+    
+    // Try different approaches for file upload
+    const approaches = [
+      {
+        name: 'FormData with file only',
+        buildBody: () => {
+          const fd = new FormData();
+          fd.append('Attachment', file, file.name);
+          return fd;
         },
-        body: JSON.stringify(recordData)
-      })
-    ).pipe(
-      switchMap(async createResponse => {
-        const createResponseText = await createResponse.text();
-        console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
-        
-        // Check if the create request actually failed
-        if (!createResponse.ok && createResponse.status !== 201) {
-          console.error('❌ CREATE FAILED! Status:', createResponse.status);
-          console.error('Response body:', createResponseText);
-          throw new Error(`Failed to create record: ${createResponse.status} - ${createResponseText}`);
-        }
-        
-        let createResult: any;
-        if (createResponseText.length > 0) {
-          try {
-            createResult = JSON.parse(createResponseText);
-            console.log('✅ Parsed create result:', createResult);
-          } catch (e) {
-            throw new Error('Failed to parse create response: ' + createResponseText);
-          }
-        } else {
-          // Empty response might mean success, query for the last record
-          console.log('Empty response from create. Querying for last record...');
-          const queryResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
-            headers: {
-              'Authorization': `Bearer ${this.tokenSubject.value}`
-            }
+        headers: {}
+      },
+      {
+        name: 'FormData with all fields',
+        buildBody: () => {
+          const fd = new FormData();
+          fd.append('ProjectID', projectId.toString());
+          fd.append('TypeID', typeId.toString());
+          fd.append('Title', title);
+          fd.append('Notes', notes);
+          fd.append('Link', file.name);
+          fd.append('Attachment', file, file.name);
+          return fd;
+        },
+        headers: {}
+      },
+      {
+        name: 'JSON with base64',
+        buildBody: async () => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const base64 = (e.target?.result as string).split(',')[1];
+              resolve(JSON.stringify({ Attachment: base64 }));
+            };
+            reader.readAsDataURL(file);
           });
-          const queryResult = await queryResponse.json();
-          if (queryResult.Result && queryResult.Result.length > 0) {
-            createResult = queryResult.Result[0];
-            console.log(`Found last record: AttachID=${createResult.AttachID}`);
-          } else {
-            throw new Error('Failed to create record and could not find it');
-          }
-        }
-        
-        if (!createResponse.ok && !createResult) {
-          throw new Error('Failed to create record: ' + createResponseText);
-        }
-        
-        const attachId = createResult.AttachID;
-        console.log(`✅ Step 1 complete. AttachID: ${attachId}`);
-        
-        // Step 2: Upload file to Attachment field
-        console.log('Step 2: Uploading file to Attachment field...');
-        
-        // Try different approaches for file upload (EXACTLY like HTML test)
-        const approaches = [
-          {
-            name: 'FormData with file only',
-            buildBody: () => {
-              const fd = new FormData();
-              fd.append('Attachment', file, file.name);
-              return Promise.resolve(fd);
-            },
-            headers: {}
-          },
-          {
-            name: 'FormData with all fields',
-            buildBody: () => {
-              const fd = new FormData();
-              fd.append('ProjectID', projectId.toString());
-              fd.append('TypeID', typeId.toString());
-              fd.append('Title', title);
-              fd.append('Notes', notes || '');
-              fd.append('Link', file.name);
-              fd.append('Attachment', file, file.name);
-              return Promise.resolve(fd);
-            },
-            headers: {}
-          },
-          {
-            name: 'JSON with base64',
-            buildBody: () => {
-              return new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                  const base64 = (e.target?.result as string).split(',')[1];
-                  resolve(JSON.stringify({ Attachment: base64 }));
-                };
-                reader.readAsDataURL(file);
-              });
-            },
-            headers: { 'Content-Type': 'application/json' }
-          }
-        ];
-        
-        let uploadResult = null;
-        let successMethod = null;
-        
-        // Try each approach until one succeeds
-        for (const approach of approaches) {
-          console.log(`Trying approach: ${approach.name}`);
-          
-          const body = await approach.buildBody();
-          
-          // Try PUT to update the record
-          const headers: any = {
-            'Authorization': `Bearer ${this.tokenSubject.value}`,
-            ...approach.headers
-          };
-          
-          const putResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
-            method: 'PUT',
-            headers: headers,
-            body: body as any
-          });
-          
-          const responseText = await putResponse.text();
-          console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
-          
-          // Handle empty response (204 No Content is success)
-          if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
-            uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
+        },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    ];
+    
+    let uploadResult = null;
+    let successMethod = null;
+    
+    for (const approach of approaches) {
+      console.log(`Trying approach: ${approach.name}`);
+      
+      const body = await approach.buildBody();
+      
+      // Try PUT to update the record
+      const putResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          ...approach.headers
+        },
+        body: body as any
+      });
+
+      const responseText = await putResponse.text();
+      console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
+      
+      // Handle empty response (204 No Content is success)
+      if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
+        uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
+        successMethod = approach.name;
+        console.log(`✅ File upload successful with: ${approach.name}`);
+        break;
+      } else if (responseText.length > 0) {
+        try {
+          uploadResult = JSON.parse(responseText);
+          if (putResponse.ok) {
             successMethod = approach.name;
             console.log(`✅ File upload successful with: ${approach.name}`);
             break;
-          } else if (responseText.length > 0) {
-            try {
-              uploadResult = JSON.parse(responseText);
-              if (putResponse.ok) {
-                successMethod = approach.name;
-                console.log(`✅ File upload successful with: ${approach.name}`);
-                break;
-              }
-            } catch (e) {
-              uploadResult = { response: responseText };
-            }
-            
-            if (!putResponse.ok) {
-              console.log(`❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`);
-            }
           }
+        } catch (e) {
+          uploadResult = { response: responseText };
         }
         
-        if (successMethod) {
-          console.log(`✅ Upload completed successfully using: ${successMethod}`);
-          return createResult;
-        } else {
-          throw new Error('All upload approaches failed');
+        if (!putResponse.ok) {
+          console.log(`❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`);
         }
-      }),
-      catchError(error => {
-        console.error('❌ Failed in createAttachmentWithFile:', error);
-        return throwError(() => error);
-      })
-    );
+      }
+    }
+    
+    return { 
+      create: createResult, 
+      upload: uploadResult,
+      successMethod: successMethod 
+    };
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
