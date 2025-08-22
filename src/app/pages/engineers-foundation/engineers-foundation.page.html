@@ -147,14 +147,35 @@
                         <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      <ion-button 
-                        *ngIf="isItemSelected(category, item.id)"
-                        size="small" 
-                        fill="outline" 
-                        color="primary" 
-                        (click)="uploadDocument(category, item.id, item)">
-                        Upload
-                      </ion-button>
+                      <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">
+                        <!-- Upload button if no photos -->
+                        <ion-button 
+                          *ngIf="getPhotoCount(category, item.id) === 0"
+                          size="small" 
+                          fill="outline" 
+                          color="primary" 
+                          (click)="uploadDocument(category, item.id, item)">
+                          <ion-icon name="camera-outline" slot="icon-only"></ion-icon>
+                        </ion-button>
+                        
+                        <!-- Photo display with icons if photos exist -->
+                        <div class="photo-display" *ngIf="getPhotoCount(category, item.id) > 0">
+                          <div class="photo-item" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                            <span class="photo-name">{{ photo.name || 'Photo' }}</span>
+                            <div class="photo-icons">
+                              <ion-button size="small" fill="clear" (click)="viewPhoto(photo, category, item.id)" title="View">
+                                <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="replacePhoto(photo, category, item.id)" title="Replace">
+                                <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="addAnotherPhoto(category, item.id)" title="Add Another">
+                                <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </ion-item>
                   </div>
                 </div>
@@ -175,14 +196,35 @@
                         <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      <ion-button 
-                        *ngIf="isItemSelected(category, item.id)"
-                        size="small" 
-                        fill="outline" 
-                        color="primary" 
-                        (click)="uploadDocument(category, item.id, item)">
-                        Upload
-                      </ion-button>
+                      <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">
+                        <!-- Upload button if no photos -->
+                        <ion-button 
+                          *ngIf="getPhotoCount(category, item.id) === 0"
+                          size="small" 
+                          fill="outline" 
+                          color="primary" 
+                          (click)="uploadDocument(category, item.id, item)">
+                          <ion-icon name="camera-outline" slot="icon-only"></ion-icon>
+                        </ion-button>
+                        
+                        <!-- Photo display with icons if photos exist -->
+                        <div class="photo-display" *ngIf="getPhotoCount(category, item.id) > 0">
+                          <div class="photo-item" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                            <span class="photo-name">{{ photo.name || 'Photo' }}</span>
+                            <div class="photo-icons">
+                              <ion-button size="small" fill="clear" (click)="viewPhoto(photo, category, item.id)" title="View">
+                                <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="replacePhoto(photo, category, item.id)" title="Replace">
+                                <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="addAnotherPhoto(category, item.id)" title="Add Another">
+                                <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </ion-item>
                   </div>
                 </div>
@@ -203,14 +245,35 @@
                         <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      <ion-button 
-                        *ngIf="isItemSelected(category, item.id)"
-                        size="small" 
-                        fill="outline" 
-                        color="primary" 
-                        (click)="uploadDocument(category, item.id, item)">
-                        Upload
-                      </ion-button>
+                      <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">
+                        <!-- Upload button if no photos -->
+                        <ion-button 
+                          *ngIf="getPhotoCount(category, item.id) === 0"
+                          size="small" 
+                          fill="outline" 
+                          color="primary" 
+                          (click)="uploadDocument(category, item.id, item)">
+                          <ion-icon name="camera-outline" slot="icon-only"></ion-icon>
+                        </ion-button>
+                        
+                        <!-- Photo display with icons if photos exist -->
+                        <div class="photo-display" *ngIf="getPhotoCount(category, item.id) > 0">
+                          <div class="photo-item" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                            <span class="photo-name">{{ photo.name || 'Photo' }}</span>
+                            <div class="photo-icons">
+                              <ion-button size="small" fill="clear" (click)="viewPhoto(photo, category, item.id)" title="View">
+                                <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="replacePhoto(photo, category, item.id)" title="Replace">
+                                <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                              <ion-button size="small" fill="clear" (click)="addAnotherPhoto(category, item.id)" title="Add Another">
+                                <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
+                              </ion-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </ion-item>
                   </div>
                 </div>

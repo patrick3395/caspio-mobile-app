@@ -452,3 +452,54 @@ ion-toolbar {
     overflow-y: auto;
   }
 }
+
+// Photo display styling for visual items
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 10px;
+  
+  .photo-display {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    
+    .photo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8f9fa;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+      
+      .photo-name {
+        font-size: 12px;
+        color: #495057;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 150px;
+      }
+      
+      .photo-icons {
+        display: flex;
+        gap: 2px;
+        
+        ion-button {
+          --padding-start: 4px;
+          --padding-end: 4px;
+          --padding-top: 4px;
+          --padding-bottom: 4px;
+          height: 28px;
+          
+          ion-icon {
+            font-size: 16px;
+          }
+        }
+      }
+    }
+  }
+}

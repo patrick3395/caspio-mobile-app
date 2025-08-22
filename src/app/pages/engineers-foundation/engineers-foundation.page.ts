@@ -930,7 +930,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
-  // Upload photo to Service_Visuals_Attach
+  // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
   async uploadPhotoForVisual(visualId: string, photo: File, key: string) {
     console.log('=====================================');
     console.log('📤 UPLOADING PHOTO TO SERVICE_VISUALS_ATTACH');
@@ -946,7 +946,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     await loading.present();
     
     try {
-      const response = await this.caspioService.uploadPhotoToServiceVisualsAttach(visualId, photo).toPromise();
+      // Parse visualId to number as required by the service
+      const visualIdNum = parseInt(visualId, 10);
+      
+      // Using EXACT same approach as working Required Documents upload
+      const response = await this.caspioService.createServicesVisualsAttachWithFile(
+        visualIdNum, 
+        '', // Annotation blank for now as requested
+        photo
+      ).toPromise();
+      
       console.log('✅ Photo uploaded successfully:', response);
       
       // Store photo reference
@@ -954,13 +963,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         this.visualPhotos[visualId] = [];
       }
       this.visualPhotos[visualId].push({
-        id: response.PK_ID || response.id,
+        id: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
         name: photo.name,
+        link: response?.Photo || '',
         uploadedAt: new Date().toISOString()
       });
       
       await loading.dismiss();
       await this.showToast('Photo uploaded successfully', 'success');
+      
+      // Reload photos to show the new upload
+      await this.loadExistingPhotos();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
@@ -973,6 +986,52 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   getPhotoCount(category: string, itemId: string): number {
     const visualId = this.visualRecordIds[`${category}_${itemId}`];
     return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+  }
+  
+  // Get photos for a visual
+  getPhotosForVisual(category: string, itemId: string): any[] {
+    const visualId = this.visualRecordIds[`${category}_${itemId}`];
+    return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
+  }
+  
+  // View photo - open in modal or new window
+  async viewPhoto(photo: any, category: string, itemId: string) {
+    try {
+      console.log('👁️ Viewing photo:', photo);
+      
+      // If we have a Caspio URL in the link field
+      if (photo.link && photo.link.startsWith('https://')) {
+        window.open(photo.link, '_blank');
+      } else if (photo.Photo && photo.Photo.startsWith('https://')) {
+        window.open(photo.Photo, '_blank');
+      } else {
+        await this.showToast('Unable to view photo', 'warning');
+      }
+    } catch (error) {
+      console.error('Error viewing photo:', error);
+      await this.showToast('Failed to view photo', 'danger');
+    }
+  }
+  
+  // Replace existing photo
+  async replacePhoto(photo: any, category: string, itemId: string) {
+    this.currentUploadContext = { 
+      category, 
+      itemId, 
+      action: 'replace',
+      existingPhotoId: photo.id || photo.AttachID
+    };
+    this.fileInput.nativeElement.click();
+  }
+  
+  // Add another photo
+  async addAnotherPhoto(category: string, itemId: string) {
+    this.currentUploadContext = { 
+      category, 
+      itemId,
+      action: 'add'
+    };
+    this.fileInput.nativeElement.click();
   }
   
   // Verify if visual was actually saved

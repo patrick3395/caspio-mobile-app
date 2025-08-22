@@ -403,9 +403,181 @@ export class CaspioService {
   }
   
   getServiceVisualsAttachByVisualId(visualId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Service_Visuals_Attach/records?q.where=VisualID=${visualId}`).pipe(
+    return this.get<any>(`/tables/Services_Visuals_Attach/records?q.where=VisualID=${visualId}`).pipe(
       map(response => response.Result || [])
     );
+  }
+
+  // Create Services_Visuals_Attach with file - EXACT COPY of working Attach method
+  createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File): Observable<any> {
+    console.log('📦 Method 2: Two-step upload for Services_Visuals_Attach');
+    
+    // Wrap the entire async function in Observable to return to Angular
+    return new Observable(observer => {
+      this.testTwoStepUploadVisuals(visualId, annotation, file)
+        .then(result => {
+          observer.next(result.create); // Return the created record
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  // EXACT COPY of the working testTwoStepUpload but for Services_Visuals_Attach
+  private async testTwoStepUploadVisuals(visualId: number, annotation: string, file: File) {
+    console.log('📦 Method 2: Two-step upload for Services_Visuals_Attach');
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    // Step 1: Create record with ONLY these fields
+    console.log('Step 1: Creating record with ONLY VisualID, Annotation...');
+    const recordData = {
+      VisualID: parseInt(visualId.toString()),
+      Annotation: annotation || ''
+      // Photo will be added in step 2
+    };
+    
+    console.log(`Sending JSON: ${JSON.stringify(recordData)}`);
+    
+    const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(recordData)
+    });
+
+    const createResponseText = await createResponse.text();
+    console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
+    
+    let createResult: any;
+    if (createResponseText.length > 0) {
+      try {
+        createResult = JSON.parse(createResponseText);
+      } catch (e) {
+        throw new Error('Failed to parse create response: ' + createResponseText);
+      }
+    } else {
+      // Empty response might mean success, let's query for the record
+      console.log('Empty response from create. Querying for last record...');
+      const queryResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.orderBy=PK_ID%20DESC&q.limit=1`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      const queryResult = await queryResponse.json();
+      if (queryResult.Result && queryResult.Result.length > 0) {
+        createResult = queryResult.Result[0];
+        console.log(`Found last record: PK_ID=${createResult.PK_ID}`);
+      } else {
+        throw new Error('Failed to create record and could not find it');
+      }
+    }
+    
+    if (!createResponse.ok && !createResult) {
+      throw new Error('Failed to create record: ' + createResponseText);
+    }
+    
+    const attachId = createResult.PK_ID;
+    console.log(`✅ Step 1 complete. PK_ID: ${attachId}`);
+    
+    // Step 2: Upload file to Photo field
+    console.log('Step 2: Uploading file to Photo field...');
+    
+    // Try different approaches for file upload
+    const approaches = [
+      {
+        name: 'FormData with file only',
+        buildBody: () => {
+          const fd = new FormData();
+          fd.append('Photo', file, file.name);
+          return fd;
+        },
+        headers: {}
+      },
+      {
+        name: 'FormData with all fields',
+        buildBody: () => {
+          const fd = new FormData();
+          fd.append('VisualID', visualId.toString());
+          fd.append('Annotation', annotation || '');
+          fd.append('Photo', file, file.name);
+          return fd;
+        },
+        headers: {}
+      },
+      {
+        name: 'JSON with base64',
+        buildBody: async () => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const base64 = (e.target?.result as string).split(',')[1];
+              resolve(JSON.stringify({ Photo: base64 }));
+            };
+            reader.readAsDataURL(file);
+          });
+        },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    ];
+    
+    let uploadResult = null;
+    let successMethod = null;
+    
+    for (const approach of approaches) {
+      console.log(`Trying approach: ${approach.name}`);
+      
+      const body = await approach.buildBody();
+      
+      // Try PUT to update the record
+      const headers: any = {
+        'Authorization': `Bearer ${accessToken}`,
+        ...approach.headers
+      };
+      
+      const putResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=PK_ID=${attachId}`, {
+        method: 'PUT',
+        headers: headers,
+        body: body as any
+      });
+
+      const responseText = await putResponse.text();
+      console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
+      
+      // Handle empty response (204 No Content is success)
+      if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
+        uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
+        successMethod = approach.name;
+        console.log(`✅ File upload successful with: ${approach.name}`);
+        break;
+      } else if (responseText.length > 0) {
+        try {
+          uploadResult = JSON.parse(responseText);
+          if (putResponse.ok) {
+            successMethod = approach.name;
+            console.log(`✅ File upload successful with: ${approach.name}`);
+            break;
+          }
+        } catch (e) {
+          uploadResult = { response: responseText };
+        }
+        
+        if (!putResponse.ok) {
+          console.log(`❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`);
+        }
+      }
+    }
+    
+    return { 
+      create: createResult, 
+      upload: uploadResult,
+      successMethod: successMethod 
+    };
   }
 
   // Get unique categories from Services_Visuals_Templates
