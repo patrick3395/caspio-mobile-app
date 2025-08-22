@@ -203,18 +203,44 @@ export class ProjectDetailPage implements OnInit {
       
       // Convert existing services to our selection format
       this.selectedServices = (services || []).map((service: any) => {
-        const offer = this.availableOffers.find(o => o.TypeID === service.TypeID);
+        // First try to find offer by OffersID if it exists in the service record
+        let offer = service.OffersID ? 
+          this.availableOffers.find(o => 
+            o.OffersID === service.OffersID || 
+            o.OffersID.toString() === service.OffersID.toString()
+          ) : null;
+        
+        // If not found by OffersID, try by TypeID
+        if (!offer) {
+          offer = this.availableOffers.find(o => 
+            o.TypeID === service.TypeID || 
+            o.TypeID === service.TypeID.toString() ||
+            o.TypeID.toString() === service.TypeID.toString()
+          );
+        }
+        
+        if (!offer) {
+          console.warn('⚠️ Could not find offer for service:', { 
+            TypeID: service.TypeID, 
+            OffersID: service.OffersID 
+          });
+          console.log('Available offers:', this.availableOffers.map(o => ({ 
+            OffersID: o.OffersID, 
+            TypeID: o.TypeID 
+          })));
+        }
+        
         return {
           instanceId: this.generateInstanceId(),
-          serviceId: service.PK_ID,
-          offersId: offer?.OffersID || service.TypeID,
-          typeId: service.TypeID,
-          typeName: offer?.TypeName || 'Service',
+          serviceId: service.PK_ID || service.ServiceID,
+          offersId: service.OffersID || offer?.OffersID || '', // Prefer stored OffersID
+          typeId: service.TypeID.toString(),
+          typeName: offer?.TypeName || offer?.Service_Name || `Service Type ${service.TypeID}`,
           dateOfInspection: service.DateOfInspection || new Date().toISOString()
         };
       });
       
-      console.log('Existing services loaded:', this.selectedServices);
+      console.log('✅ Existing services loaded and matched with offers:', this.selectedServices);
       this.updateDocumentsList();
     } catch (error) {
       console.error('Error loading existing services:', error);
@@ -329,6 +355,7 @@ export class ProjectDetailPage implements OnInit {
       const serviceData = {
         ProjectID: this.projectId,
         TypeID: offer.TypeID,
+        OffersID: offer.OffersID, // Store OffersID to properly match on reload
         DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
       
@@ -339,10 +366,15 @@ export class ProjectDetailPage implements OnInit {
       
       console.log('🔍 DEBUG: Service created successfully:', newService);
       
-      // Add to selected services
+      // Caspio returns the service instantly - get the ID
+      if (!newService || (!newService.PK_ID && !newService.ServiceID)) {
+        throw new Error('Service created but no ID returned from Caspio');
+      }
+      
+      // Add to selected services with the real service ID
       const selection: ServiceSelection = {
         instanceId: this.generateInstanceId(),
-        serviceId: newService?.PK_ID || newService?.id || 'temp_' + Date.now(),
+        serviceId: newService.PK_ID || newService.ServiceID,  // Use real ID from Caspio
         offersId: offer.OffersID || offer.PK_ID,
         typeId: offer.TypeID,
         typeName: offer.TypeName || offer.Service_Name || 'Service',
@@ -352,7 +384,6 @@ export class ProjectDetailPage implements OnInit {
       console.log('🔍 DEBUG: Adding selection to selectedServices:', selection);
       
       this.selectedServices.push(selection);
-      this.saveToLocalStorage();
       this.updateDocumentsList();
       
       console.log('✅ Service added successfully');
@@ -399,12 +430,10 @@ export class ProjectDetailPage implements OnInit {
     this.updatingServices = true;
     
     try {
-      // Delete from Caspio if it has a real serviceId (not temporary)
-      if (service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
+      // Delete from Caspio - service always has real ID
+      if (service.serviceId) {
         console.log('🗑️ Deleting service from Caspio:', service.serviceId);
         await this.caspioService.deleteService(service.serviceId).toPromise();
-      } else {
-        console.log('⚠️ Service has temporary ID, skipping Caspio delete:', service.serviceId);
       }
       
       // Remove from selected services
@@ -413,7 +442,6 @@ export class ProjectDetailPage implements OnInit {
         this.selectedServices.splice(index, 1);
       }
       
-      this.saveToLocalStorage();
       this.updateDocumentsList();
       
       await this.showToast(`${service.typeName} removed`, 'success');
@@ -423,7 +451,6 @@ export class ProjectDetailPage implements OnInit {
       const index = this.selectedServices.findIndex(s => s.instanceId === service.instanceId);
       if (index > -1) {
         this.selectedServices.splice(index, 1);
-        this.saveToLocalStorage();
         this.updateDocumentsList();
       }
       await this.showToast('Service removed locally', 'warning');
@@ -474,7 +501,7 @@ export class ProjectDetailPage implements OnInit {
     service.saved = false;
     
     try {
-      if (service.serviceId && service.serviceId !== 'temp_' + service.serviceId) {
+      if (service.serviceId) {
         await this.caspioService.updateService(service.serviceId, {
           DateOfInspection: service.dateOfInspection
         }).toPromise();
@@ -625,16 +652,6 @@ export class ProjectDetailPage implements OnInit {
       return;
     }
     
-    // If it's a temp ID, try to get the real ID from the service
-    if (serviceId.toString().startsWith('temp_')) {
-      const service = this.selectedServices.find(s => s.serviceId === serviceId);
-      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
-        serviceId = service.serviceId;
-      } else {
-        console.warn('Service has temporary ID, upload may fail:', serviceId);
-      }
-    }
-    
     this.currentUploadContext = { serviceId, typeId, doc, action: 'upload' };
     this.fileInput.nativeElement.click();
   }
@@ -643,14 +660,6 @@ export class ProjectDetailPage implements OnInit {
     if (!serviceId) {
       console.error('No serviceId provided for document replace');
       return;
-    }
-    
-    // Handle temp IDs
-    if (serviceId.toString().startsWith('temp_')) {
-      const service = this.selectedServices.find(s => s.serviceId === serviceId);
-      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
-        serviceId = service.serviceId;
-      }
     }
     
     if (!doc.attachId) return;
@@ -662,14 +671,6 @@ export class ProjectDetailPage implements OnInit {
     if (!serviceId) {
       console.error('No serviceId provided for additional file upload');
       return;
-    }
-    
-    // Handle temp IDs
-    if (serviceId.toString().startsWith('temp_')) {
-      const service = this.selectedServices.find(s => s.serviceId === serviceId);
-      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
-        serviceId = service.serviceId;
-      }
     }
     
     this.currentUploadContext = { serviceId, typeId, doc, action: 'additional' };
@@ -1069,11 +1070,6 @@ export class ProjectDetailPage implements OnInit {
 
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private saveToLocalStorage() {
-    const key = `project_${this.projectId}_services`;
-    localStorage.setItem(key, JSON.stringify(this.selectedServices));
   }
 
   private async showToast(message: string, color: string = 'primary') {

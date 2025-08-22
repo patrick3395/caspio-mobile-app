@@ -271,9 +271,15 @@ export class CaspioService {
 
   createService(serviceData: any): Observable<any> {
     console.log('🔍 DEBUG [CaspioService]: createService called with:', serviceData);
-    return this.post<any>('/tables/Services/records', serviceData).pipe(
-      tap(response => {
+    // Add response=rows to get the created record back immediately
+    return this.post<any>('/tables/Services/records?response=rows', serviceData).pipe(
+      map(response => {
         console.log('✅ DEBUG [CaspioService]: Service created successfully:', response);
+        // With response=rows, Caspio returns {"Result": [{created record}]}
+        if (response && response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          return response.Result[0]; // Return the created service record
+        }
+        return response; // Fallback to original response
       }),
       catchError(error => {
         console.error('❌ DEBUG [CaspioService]: Service creation failed:', error);
