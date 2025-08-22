@@ -697,15 +697,17 @@ export class ProjectDetailPage implements OnInit {
           TypeID: typeIdNum,
           Title: doc.title || 'Document',
           Notes: '',
-          // Link field omitted - not sending it at all
+          Link: file.name,  // We ARE sending Link field with filename
           Attachment: `[File: ${file.name}]`
         };
         
         console.log('📝 Creating attachment record with file:', attachData);
         console.log('  ServiceID:', serviceId, '- NOT sent to Attach table (not a field in that table)');
         
-        // Skip confirmation popup - upload immediately
-        // Only show loading while uploading
+        // Show popup with the data being sent - user must confirm before upload proceeds
+        await this.showAttachmentDataPopup(attachData, file, serviceId);
+        
+        // Only show loading AFTER user confirms in the popup
         loading = await this.loadingController.create({
           message: 'Uploading file...'
         });
@@ -777,11 +779,17 @@ export class ProjectDetailPage implements OnInit {
         error: error?.error
       });
       
-      // Only show error toast, no popup delay
+      // Show detailed error popup for debugging
       if (error?.message !== 'Upload cancelled by user') {
-        const errorMsg = error?.error?.Message || error?.message || 'Upload failed';
-        await this.showToast(errorMsg, 'danger');
+        await this.showErrorPopup(error, {
+          attempted_action: 'file_upload',
+          file_name: file?.name,
+          file_size: file?.size,
+          context: this.currentUploadContext
+        });
       }
+      
+      await this.showToast('Failed to upload file', 'danger');
     } finally {
       if (loading) {
         await loading.dismiss();
@@ -1073,7 +1081,7 @@ export class ProjectDetailPage implements OnInit {
     await toast.present();
   }
 
-  private async showAttachmentDataPopup(attachData: any, file: File, serviceId: number) {
+  private async showAttachmentDataPopup(attachData: any, file: File, serviceId: any) {
     const alert = await this.alertController.create({
       header: 'Attachment Data Being Sent',
       message: `
@@ -1083,11 +1091,12 @@ export class ProjectDetailPage implements OnInit {
         <strong>TypeID:</strong> ${attachData.TypeID}<br>
         <strong>Title:</strong> ${attachData.Title}<br>
         <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
+        <strong>Link:</strong> ${attachData.Link}<br>
         <strong>Attachment:</strong> [File: ${file.name}, ${file.size} bytes, ${file.type}]<br><br>
         <strong>Context (not sent to table):</strong><br>
         <strong>ServiceID:</strong> ${serviceId}<br>
-        <strong>API Endpoint:</strong> /tables/Attach/records<br>
-        <strong>Method:</strong> POST with multipart/form-data
+        <strong>API Endpoint:</strong> /tables/Attach/records?response=rows<br>
+        <strong>Method:</strong> Two-step upload (JSON then File)
       `,
       buttons: [
         {
