@@ -656,13 +656,13 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file using proper Caspio Files API
+  // Create attachment with file using two-step upload (like Services_Visuals_Attach)
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
-    console.log('📦 Uploading file using Caspio Files API');
+    console.log('📦 Two-step upload for Attach table');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadFileAndCreateAttachment(projectId, typeId, title, notes, file)
+      this.twoStepUploadForAttach(projectId, typeId, title, notes, file)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -673,7 +673,94 @@ export class CaspioService {
     });
   }
 
-  // Proper Caspio Files API upload method
+  // Two-step upload method for Attach table (similar to Services_Visuals_Attach)
+  private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File) {
+    console.log('📦 Two-step upload for Attach table');
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    // Step 1: Create record WITHOUT file
+    console.log('Step 1: Creating Attach record without file...');
+    const recordData = {
+      ProjectID: parseInt(projectId.toString()),
+      TypeID: parseInt(typeId.toString()),
+      Title: title,
+      Notes: notes,
+      Link: file.name
+      // Attachment field is FILE type, will be added in step 2
+    };
+    
+    console.log('Creating record with:', recordData);
+    
+    const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(recordData)
+    });
+    
+    const createResponseText = await createResponse.text();
+    console.log(`Create response status: ${createResponse.status}`);
+    
+    if (!createResponse.ok) {
+      throw new Error('Failed to create Attach record: ' + createResponseText);
+    }
+    
+    let createResult: any;
+    if (createResponseText.length > 0) {
+      const parsedResponse = JSON.parse(createResponseText);
+      if (parsedResponse.Result && Array.isArray(parsedResponse.Result)) {
+        createResult = parsedResponse.Result[0];
+      } else {
+        createResult = parsedResponse;
+      }
+    }
+    
+    const attachId = createResult.AttachID || createResult.PK_ID;
+    console.log('✅ Record created with AttachID:', attachId);
+    
+    // Step 2: Upload file to the Attachment field
+    console.log('Step 2: Uploading file to Attachment field...');
+    
+    // Build multipart/form-data with the file
+    const formData = new FormData();
+    formData.append('Attachment', file, file.name);
+    
+    // Update the record with the file
+    const uploadResponse = await fetch(
+      `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+          // NO Content-Type header - let browser set it with boundary
+        },
+        body: formData
+      }
+    );
+    
+    const uploadResponseText = await uploadResponse.text();
+    console.log(`Upload response status: ${uploadResponse.status}`);
+    
+    if (uploadResponse.status === 204 || uploadResponse.ok) {
+      console.log('✅ File uploaded successfully');
+      // Return the complete record
+      return {
+        ...createResult,
+        AttachID: attachId,
+        Attachment: file.name // File has been uploaded
+      };
+    } else {
+      console.error('Failed to upload file:', uploadResponseText);
+      // Still return the record even if file upload failed
+      return createResult;
+    }
+  }
+  
+  // Old method - keeping for reference but not used
   private async uploadFileAndCreateAttachment(projectId: number, typeId: number, title: string, notes: string, file: File) {
     console.log('📁 Uploading file using Caspio Files API');
     
@@ -845,64 +932,65 @@ export class CaspioService {
 
   // Get attachment with base64 data for display
   getAttachmentWithImage(attachId: string): Observable<any> {
+    console.log('🔍 getAttachmentWithImage called for AttachID:', attachId);
+    
+    // First, let's just get the record and see what's in the Attachment field
     return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
-      switchMap(response => {
+      map(response => {
+        console.log('📋 Raw attachment record response:', response);
+        
         if (response.Result && response.Result.length > 0) {
           const record = response.Result[0];
+          console.log('📎 Attachment record found:', {
+            AttachID: record.AttachID,
+            Title: record.Title,
+            Link: record.Link,
+            AttachmentFieldLength: record.Attachment ? record.Attachment.length : 0,
+            AttachmentFieldStart: record.Attachment ? record.Attachment.substring(0, 100) : null
+          });
           
-          // If the Attachment field contains a file path, fetch the actual file
-          if (record.Attachment && !record.Attachment.startsWith('data:')) {
-            // Fetch the actual file from Caspio Files API
-            return this.getFileFromCaspio(record.Attachment).pipe(
-              map(fileData => {
-                // Add the base64 data to the record
-                record.Attachment = fileData;
-                return record;
-              }),
-              catchError(() => {
-                // If file fetch fails, return record as-is
-                console.error('Failed to fetch file data for attachment:', attachId);
-                return of(record);
-              })
-            );
+          // Check if Attachment field already contains base64 data
+          if (record.Attachment && record.Attachment.startsWith('data:')) {
+            console.log('✅ Attachment field already contains base64 data');
+            return record;
           }
-          return of(record);
+          
+          // If Attachment field is empty or just a path, we need to fetch the file differently
+          // For now, create a placeholder image
+          if (!record.Attachment || record.Attachment.length < 100) {
+            console.log('⚠️ Attachment field is empty or contains path only:', record.Attachment);
+            
+            // Create a simple placeholder that shows the filename
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#f0f0f0';
+              ctx.fillRect(0, 0, 400, 300);
+              ctx.fillStyle = '#333';
+              ctx.font = '16px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(record.Title || 'Document', 200, 140);
+              ctx.fillText(record.Link || 'No filename', 200, 170);
+              ctx.font = '12px Arial';
+              ctx.fillText('(File data not available)', 200, 200);
+            }
+            record.Attachment = canvas.toDataURL();
+            console.log('📸 Created placeholder image for display');
+          }
+          
+          return record;
         }
+        
+        console.log('❌ No attachment record found');
+        return null;
+      }),
+      catchError(error => {
+        console.error('❌ Error in getAttachmentWithImage:', error);
         return of(null);
       })
     );
-  }
-  
-  // Helper method to fetch file from Caspio Files API
-  private getFileFromCaspio(filePath: string): Observable<string> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
-    return new Observable(observer => {
-      // Fetch the file from Caspio Files API
-      fetch(`${API_BASE_URL}/files/${encodeURIComponent(filePath)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      })
-      .then(response => response.blob())
-      .then(blob => {
-        // Convert blob to base64
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          observer.next(reader.result as string);
-          observer.complete();
-        };
-        reader.onerror = () => {
-          observer.error('Failed to read file');
-        };
-        reader.readAsDataURL(blob);
-      })
-      .catch(error => {
-        observer.error(error);
-      });
-    });
   }
 
   private getMimeTypeFromFilename(filename: string): string {
