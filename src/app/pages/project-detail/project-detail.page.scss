@@ -165,33 +165,33 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 }
 
-// Services total row
+// Services total row - aligned with price boxes above
 .services-total-row{
   display:flex;
   justify-content:flex-end;
   align-items:center;
-  padding:16px;
+  padding:12px;
   background:white;
   border:1px solid $border;
   border-top:2px solid #007bff;
   border-radius:0 0 8px 8px;
   margin-top:-1px;
-  gap:20px;
   
   .total-label{
-    font-size:16px;
-    font-weight:700;
-    color:#495057;
+    font-size:14px;  // Same as Service label
+    font-weight:500;  // Same as Service label
+    color:$dark;      // Same as Service label
+    margin-right:12px;
   }
   
   .total-amount{
-    font-size:18px;
-    font-weight:700;
-    color:#007bff;
+    font-weight:600;
+    font-size:15px;  // Same as price above
+    color:#212529;
     font-family:'Courier New', monospace;
     padding:4px 12px;
     background:white;
-    border:2px solid #007bff;
+    border:1px solid #dee2e6;  // Same as price boxes
     border-radius:4px;
   }
 }

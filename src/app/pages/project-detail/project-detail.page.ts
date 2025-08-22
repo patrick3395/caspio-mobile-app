@@ -342,9 +342,17 @@ export class ProjectDetailPage implements OnInit {
       console.log('🔍 DEBUG: Service created successfully:', newService);
       
       // Add to selected services
+      // Service is created instantly, so we should have a valid ID
+      const serviceId = newService?.PK_ID || newService?.id || newService?.ServiceID;
+      
+      if (!serviceId) {
+        console.error('Service created but no ID returned:', newService);
+        throw new Error('Failed to get service ID from Caspio');
+      }
+      
       const selection: ServiceSelection = {
         instanceId: this.generateInstanceId(),
-        serviceId: newService?.PK_ID || newService?.id || 'temp_' + Date.now(),
+        serviceId: serviceId,
         offersId: offer.OffersID || offer.PK_ID,
         typeId: offer.TypeID,
         typeName: offer.TypeName || offer.Service_Name || 'Service',
@@ -615,14 +623,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async uploadDocument(serviceId: string, typeId: string, doc: DocumentItem) {
-    // Check if serviceId is valid (not temp or undefined)
-    if (!serviceId || serviceId.toString().startsWith('temp_')) {
-      const toast = await this.toastController.create({
-        message: 'Please wait for the service to be saved before uploading documents',
-        duration: 3000,
-        color: 'warning'
-      });
-      await toast.present();
+    // Services are added instantly, so serviceId should always be valid
+    if (!serviceId) {
+      console.error('No serviceId provided for document upload');
       return;
     }
     
@@ -631,14 +634,8 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async replaceDocument(serviceId: string, typeId: string, doc: DocumentItem) {
-    // Check if serviceId is valid
-    if (!serviceId || serviceId.toString().startsWith('temp_')) {
-      const toast = await this.toastController.create({
-        message: 'Please wait for the service to be saved before uploading documents',
-        duration: 3000,
-        color: 'warning'
-      });
-      await toast.present();
+    if (!serviceId) {
+      console.error('No serviceId provided for document replace');
       return;
     }
     
@@ -648,14 +645,8 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async uploadAdditionalFile(serviceId: string, typeId: string, doc: DocumentItem) {
-    // Check if serviceId is valid
-    if (!serviceId || serviceId.toString().startsWith('temp_')) {
-      const toast = await this.toastController.create({
-        message: 'Please wait for the service to be saved before uploading documents',
-        duration: 3000,
-        color: 'warning'
-      });
-      await toast.present();
+    if (!serviceId) {
+      console.error('No serviceId provided for additional file upload');
       return;
     }
     
