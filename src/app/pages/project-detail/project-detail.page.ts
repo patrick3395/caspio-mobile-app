@@ -865,10 +865,10 @@ export class ProjectDetailPage implements OnInit {
         console.log('📝 Creating attachment record with file:', attachData);
         console.log('  ServiceID:', serviceId, '- NOT sent to Attach table (not a field in that table)');
         
-        // Show popup with the data being sent - user must confirm before upload proceeds
-        await this.showAttachmentDataPopup(attachData, file, serviceId);
+        // Remove popup - proceed directly with upload
+        // await this.showAttachmentDataPopup(attachData, file, serviceId);
         
-        // Only show loading AFTER user confirms in the popup
+        // Show loading immediately
         loading = await this.loadingController.create({
           message: 'Uploading file...'
         });
@@ -1297,58 +1297,36 @@ export class ProjectDetailPage implements OnInit {
   // Template navigation
   async openTemplate(service: ServiceSelection) {
     if (service.serviceId) {
-      // Show alert with ServiceID and ProjectID for verification
-      const alert = await this.alertController.create({
-        header: 'Opening Template',
-        message: `
-          <strong>ServiceID:</strong> ${service.serviceId}<br>
-          <strong>ProjectID:</strong> ${this.project?.ProjectID || this.projectId}<br><br>
-          <strong>Service Type:</strong> ${service.typeName}<br>
-          <strong>Instance:</strong> ${this.getServiceInstanceNumber(service)}
-        `,
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Continue',
-            handler: () => {
-              // Navigate to specific template based on service type
-              // Convert typeId to string for consistent comparison
-              const typeIdStr = String(service.typeId);
-              
-              console.log('🔍 Template Navigation Debug:', {
-                typeName: service.typeName,
-                typeId: service.typeId,
-                typeIdStr: typeIdStr,
-                serviceId: service.serviceId,
-                projectId: this.projectId,
-                isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
-              });
-              
-              // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
-              // Also check for various name formats
-              const isEngineersFoundation = 
-                service.typeName === 'Engineers Foundation Evaluation' || 
-                service.typeName === 'Engineer\'s Foundation Evaluation' ||
-                service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
-                typeIdStr === '35';
-                
-              if (isEngineersFoundation) {
-                console.log('✅ Navigating to Engineers Foundation template');
-                console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
-                this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
-              } else {
-                console.log('📝 Navigating to standard template form');
-                console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
-                this.router.navigate(['/template-form', this.projectId, service.serviceId]);
-              }
-            }
-          }
-        ]
+      // Navigate directly to template without alert
+      // Convert typeId to string for consistent comparison
+      const typeIdStr = String(service.typeId);
+      
+      console.log('🔍 Template Navigation Debug:', {
+        typeName: service.typeName,
+        typeId: service.typeId,
+        typeIdStr: typeIdStr,
+        serviceId: service.serviceId,
+        projectId: this.projectId,
+        isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
       });
-      await alert.present();
+      
+      // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
+      // Also check for various name formats
+      const isEngineersFoundation = 
+        service.typeName === 'Engineers Foundation Evaluation' || 
+        service.typeName === 'Engineer\'s Foundation Evaluation' ||
+        service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
+        typeIdStr === '35';
+        
+      if (isEngineersFoundation) {
+        console.log('✅ Navigating to Engineers Foundation template');
+        console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
+        this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
+      } else {
+        console.log('📝 Navigating to standard template form');
+        console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
+        this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+      }
     }
   }
 
