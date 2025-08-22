@@ -203,37 +203,22 @@ export class ProjectDetailPage implements OnInit {
       
       // Convert existing services to our selection format
       this.selectedServices = (services || []).map((service: any) => {
-        // First try to find offer by OffersID if it exists in the service record
-        let offer = service.OffersID ? 
-          this.availableOffers.find(o => 
-            o.OffersID === service.OffersID || 
-            o.OffersID.toString() === service.OffersID.toString()
-          ) : null;
-        
-        // If not found by OffersID, try by TypeID
-        if (!offer) {
-          offer = this.availableOffers.find(o => 
-            o.TypeID === service.TypeID || 
-            o.TypeID === service.TypeID.toString() ||
-            o.TypeID.toString() === service.TypeID.toString()
-          );
-        }
+        // Find offer by TypeID (Services table doesn't have OffersID)
+        const offer = this.availableOffers.find(o => 
+          o.TypeID === service.TypeID || 
+          o.TypeID === service.TypeID.toString() ||
+          o.TypeID.toString() === service.TypeID.toString()
+        );
         
         if (!offer) {
-          console.warn('⚠️ Could not find offer for service:', { 
-            TypeID: service.TypeID, 
-            OffersID: service.OffersID 
-          });
-          console.log('Available offers:', this.availableOffers.map(o => ({ 
-            OffersID: o.OffersID, 
-            TypeID: o.TypeID 
-          })));
+          console.warn('⚠️ Could not find offer for service TypeID:', service.TypeID);
+          console.log('Available offers TypeIDs:', this.availableOffers.map(o => o.TypeID));
         }
         
         return {
           instanceId: this.generateInstanceId(),
           serviceId: service.PK_ID || service.ServiceID,
-          offersId: service.OffersID || offer?.OffersID || '', // Prefer stored OffersID
+          offersId: offer?.OffersID || '', // Get OffersID from the matched offer
           typeId: service.TypeID.toString(),
           typeName: offer?.TypeName || offer?.Service_Name || `Service Type ${service.TypeID}`,
           dateOfInspection: service.DateOfInspection || new Date().toISOString()
@@ -351,11 +336,10 @@ export class ProjectDetailPage implements OnInit {
         throw new Error('Offer missing TypeID');
       }
       
-      // Create service record in Caspio
+      // Create service record in Caspio - Services table only has ProjectID, TypeID, DateOfInspection
       const serviceData = {
         ProjectID: this.projectId,
         TypeID: offer.TypeID,
-        OffersID: offer.OffersID, // Store OffersID to properly match on reload
         DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
       
