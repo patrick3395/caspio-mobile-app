@@ -933,144 +933,119 @@ export class CaspioService {
   // Get attachment with file data for display
   getAttachmentWithImage(attachId: string): Observable<any> {
     console.log('🔍 getAttachmentWithImage called for AttachID:', attachId);
-    
-    // First get the record details
-    return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
-      switchMap(response => {
-        console.log('📋 Raw attachment record response:', response);
-        
-        if (response.Result && response.Result.length > 0) {
-          const record = response.Result[0];
-          console.log('📎 Attachment record found:', {
-            AttachID: record.AttachID,
-            Title: record.Title,
-            Link: record.Link,
-            AttachmentField: record.Attachment
-          });
-          
-          // For FILE type fields in Caspio, when the file exists, the field contains a path or identifier
-          // We need to fetch the actual file using the proper REST API endpoint
-          if (record.Attachment) {
-            const accessToken = this.tokenSubject.value;
-            const API_BASE_URL = environment.caspio.apiBaseUrl;
-            
-            // Option 1: Try to fetch by path if Attachment contains a path
-            if (record.Attachment.startsWith('/') || record.Attachment.includes('.')) {
-              console.log('🔄 Fetching file by path:', record.Attachment);
-              
-              return new Observable(observer => {
-                // Use the REST API endpoint for getting files by path
-                fetch(`${API_BASE_URL}/files/path?path=${encodeURIComponent(record.Attachment)}`, {
-                  method: 'GET',
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                  }
-                })
-                .then(response => {
-                  if (response.ok) {
-                    return response.blob();
-                  } else {
-                    console.log('❌ Path fetch failed, trying direct file field access');
-                    // Option 2: Try to get the file directly from the FILE field
-                    return fetch(`${API_BASE_URL}/tables/Attach/files/${attachId}/Attachment`, {
-                      method: 'GET',
-                      headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                      }
-                    }).then(r => r.blob());
-                  }
-                })
-                .then(blob => {
-                  // Convert blob to base64
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    record.Attachment = reader.result as string;
-                    console.log('✅ File converted to base64');
-                    observer.next(record);
-                    observer.complete();
-                  };
-                  reader.onerror = () => {
-                    console.error('Failed to read blob');
-                    record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-                    observer.next(record);
-                    observer.complete();
-                  };
-                  reader.readAsDataURL(blob);
-                })
-                .catch(error => {
-                  console.error('❌ Failed to fetch file:', error);
-                  // Create placeholder if all else fails
-                  record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-                  observer.next(record);
-                  observer.complete();
-                });
-              });
-            } else {
-              // Try direct FILE field access
-              console.log('🔄 Attempting direct FILE field access');
-              return this.fetchFileFieldDirectly(attachId, record);
-            }
-          } else {
-            // No attachment - return placeholder
-            console.log('⚠️ No attachment data');
-            record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-            return of(record);
-          }
-        }
-        
-        console.log('❌ No attachment record found');
-        return of(null);
-      }),
-      catchError(error => {
-        console.error('❌ Error in getAttachmentWithImage:', error);
-        return of(null);
-      })
-    );
-  }
-  
-  // Helper to fetch FILE field directly
-  private fetchFileFieldDirectly(attachId: string, record: any): Observable<any> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
+    // For Caspio FILE fields, the correct REST API endpoint is:
+    // GET /v2/tables/{tableName}/records/{recordId}/files/{fieldName}
+    // This returns the actual file content
+    
     return new Observable(observer => {
-      // Direct FILE field access: /tables/{table}/files/{recordId}/{fieldName}
-      fetch(`${API_BASE_URL}/tables/Attach/files/${attachId}/Attachment`, {
+      // First, try to get the file directly from the FILE field
+      // This is the most reliable method for FILE type fields
+      const fileUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
+      console.log('📎 Fetching file from:', fileUrl);
+      
+      fetch(fileUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       })
       .then(response => {
+        console.log('📥 File fetch response status:', response.status);
+        
         if (response.ok) {
+          // Get the content type from headers
+          const contentType = response.headers.get('content-type');
+          console.log('📄 Content-Type:', contentType);
+          
           return response.blob();
+        } else if (response.status === 404) {
+          // No file attached - fetch record to get metadata
+          console.log('⚠️ No file found (404), fetching record metadata');
+          throw new Error('No file attached');
         } else {
-          throw new Error('FILE field fetch failed');
+          console.error('❌ File fetch failed with status:', response.status);
+          throw new Error(`File fetch failed: ${response.status}`);
         }
       })
       .then(blob => {
+        console.log('📦 Blob received, size:', blob.size, 'type:', blob.type);
+        
         // Convert blob to base64
         const reader = new FileReader();
         reader.onloadend = () => {
-          record.Attachment = reader.result as string;
-          console.log('✅ FILE field converted to base64');
-          observer.next(record);
-          observer.complete();
+          console.log('✅ File converted to base64');
+          
+          // We need to also get the record metadata for the title
+          fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/json'
+            }
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.Result && data.Result.length > 0) {
+              const record = data.Result[0];
+              record.Attachment = reader.result as string;
+              observer.next(record);
+            } else {
+              // Just return with the attachment data
+              observer.next({ Attachment: reader.result as string });
+            }
+            observer.complete();
+          })
+          .catch(() => {
+            // Even if metadata fetch fails, return the image
+            observer.next({ Attachment: reader.result as string });
+            observer.complete();
+          });
         };
+        
         reader.onerror = () => {
-          console.error('Failed to read blob');
-          record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-          observer.next(record);
-          observer.complete();
+          console.error('❌ Failed to read blob');
+          this.getRecordAndCreatePlaceholder(attachId, observer);
         };
+        
         reader.readAsDataURL(blob);
       })
       .catch(error => {
-        console.error('❌ Direct FILE field fetch failed:', error);
+        console.error('❌ Error fetching file:', error);
+        // Get record metadata and create placeholder
+        this.getRecordAndCreatePlaceholder(attachId, observer);
+      });
+    });
+  }
+  
+  // Helper to get record and create placeholder
+  private getRecordAndCreatePlaceholder(attachId: string, observer: any): void {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json'
+      }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.Result && data.Result.length > 0) {
+        const record = data.Result[0];
         record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
         observer.next(record);
-        observer.complete();
-      });
+      } else {
+        observer.next(null);
+      }
+      observer.complete();
+    })
+    .catch(() => {
+      observer.next(null);
+      observer.complete();
     });
   }
   
