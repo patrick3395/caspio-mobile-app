@@ -487,7 +487,7 @@ export class CaspioService {
       fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.getAuthHeader().Authorization}`,
+          'Authorization': `Bearer ${this.tokenSubject.value}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(recordData)
@@ -509,7 +509,7 @@ export class CaspioService {
           console.log('Empty response from create. Querying for last record...');
           const queryResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
             headers: {
-              'Authorization': `Bearer ${this.getAuthHeader().Authorization}`
+              'Authorization': `Bearer ${this.tokenSubject.value}`
             }
           });
           const queryResult = await queryResponse.json();
@@ -544,7 +544,7 @@ export class CaspioService {
             const putResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
               method: 'PUT',
               headers: {
-                'Authorization': `Bearer ${this.getAuthHeader().Authorization}`,
+                'Authorization': `Bearer ${this.tokenSubject.value}`,
                 'Content-Type': 'application/json'
               },
               body: updateBody
