@@ -986,7 +986,12 @@ export class ProjectDetailPage implements OnInit {
         await loading.present();
         
         // Collect all images for this document (main + additional files)
-        const allImages = [];
+        const allImages: Array<{
+          url: string;
+          title: string;
+          filename: string;
+          attachId?: string;
+        }> = [];
         
         // Get the main attachment
         const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
@@ -995,7 +1000,8 @@ export class ProjectDetailPage implements OnInit {
           allImages.push({
             url: attachment.Attachment,
             title: doc.title,
-            filename: doc.linkName || doc.filename || 'document'
+            filename: doc.linkName || doc.filename || 'document',
+            attachId: undefined
           });
         }
         
@@ -1009,7 +1015,8 @@ export class ProjectDetailPage implements OnInit {
                   allImages.push({
                     url: addAttachment.Attachment,
                     title: `${doc.title} - Additional`,
-                    filename: additionalFile.linkName || 'additional'
+                    filename: additionalFile.linkName || 'additional',
+                    attachId: undefined
                   });
                 }
               } catch (err) {
@@ -1089,7 +1096,12 @@ export class ProjectDetailPage implements OnInit {
         await loading.present();
         
         // Collect all images for this document (main + additional files)
-        const allImages = [];
+        const allImages: Array<{
+          url: string;
+          title: string;
+          filename: string;
+          attachId?: string;
+        }> = [];
         
         // Get the main attachment
         const attachment = await this.caspioService.getAttachmentWithImage(parentDoc.attachId).toPromise();
@@ -1098,7 +1110,8 @@ export class ProjectDetailPage implements OnInit {
           allImages.push({
             url: attachment.Attachment,
             title: parentDoc.title,
-            filename: parentDoc.linkName || parentDoc.filename || 'document'
+            filename: parentDoc.linkName || parentDoc.filename || 'document',
+            attachId: undefined
           });
         }
         
@@ -1112,7 +1125,8 @@ export class ProjectDetailPage implements OnInit {
                   allImages.push({
                     url: addAttachment.Attachment,
                     title: `${parentDoc.title} - Additional`,
-                    filename: addFile.linkName || 'additional'
+                    filename: addFile.linkName || 'additional',
+                    attachId: undefined
                   });
                 }
               } catch (err) {
