@@ -2,8 +2,9 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { IonModal, ToastController, AlertController, LoadingController } from '@ionic/angular';
+import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 
 interface ServiceSelection {
   instanceId: string;
@@ -75,7 +76,8 @@ export class ProjectDetailPage implements OnInit {
     private http: HttpClient,
     private toastController: ToastController,
     private alertController: AlertController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
@@ -732,10 +734,28 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async viewDocument(doc: DocumentItem) {
-    if (doc.attachmentUrl) {
+    if (!doc.attachmentUrl) {
+      await this.showToast('Document not available', 'warning');
+      return;
+    }
+
+    // Check if it's a base64 string (not a URL)
+    if (doc.attachmentUrl.length > 1000 && !doc.attachmentUrl.startsWith('http')) {
+      // It's base64 - create a modal to display the image
+      const modal = await this.modalController.create({
+        component: ImageViewerComponent,
+        componentProps: {
+          base64Data: doc.attachmentUrl,
+          title: doc.title,
+          filename: doc.linkName || doc.filename
+        }
+      });
+      await modal.present();
+    } else if (doc.attachmentUrl.startsWith('http')) {
+      // It's a URL - open in new window
       window.open(doc.attachmentUrl, '_blank');
     } else {
-      await this.showToast('Document not available', 'warning');
+      await this.showToast('Unknown attachment format', 'warning');
     }
   }
 

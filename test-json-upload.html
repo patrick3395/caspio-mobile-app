@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caspio File Upload Test - Attach Table</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #555;
+        }
+        .field-info {
+            background: #ffe6e6;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            border: 2px solid #ff0000;
+        }
+        .field-info h3 {
+            color: #cc0000;
+            margin-top: 0;
+        }
+        input, select {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background: #e9ecef;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .preview-img {
+            max-width: 300px;
+            max-height: 300px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .method-selector {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .method-option {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .method-option:hover {
+            background: #e7f3ff;
+            border-color: #007bff;
+        }
+        .method-option.selected {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+        .credentials-display {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #b8daff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Caspio File Upload Testing - Attach Table ONLY</h1>
+        
+        <!-- Configuration Section -->
+        <div class="test-section">
+            <h2>⚙️ Configuration (Auto-filled from App)</h2>
+            <div class="credentials-display">
+                <strong>Using credentials from environment.ts:</strong><br>
+                Account: c2hcf092.caspio.com<br>
+                Client ID: 01ddeb9d873748....<br>
+                Status: <span id="authStatusQuick">Not authenticated</span>
+            </div>
+            
+            <button onclick="authenticate()" style="background: #28a745; width: 100%;">
+                🔐 Click to Authenticate with App Credentials
+            </button>
+            
+            <div id="authStatus" class="status"></div>
+        </div>
+
+        <!-- Attach Table Structure Reference -->
+        <div class="test-section">
+            <h2>⚠️ EXACT Attach Table Structure - NO OTHER FIELDS!</h2>
+            <div class="field-info">
+                <h3>ONLY THESE FIELDS EXIST:</h3>
+                <strong>AttachID</strong> - Autonumber (Auto-generated, we don't send this)<br>
+                <strong>ProjectID</strong> - Integer<br>
+                <strong>TypeID</strong> - Integer<br>
+                <strong>Title</strong> - Text (255)<br>
+                <strong>Notes</strong> - Text (255)<br>
+                <strong>Link</strong> - Text (255)<br>
+                <strong>Attachment</strong> - File<br><br>
+                <strong style="color: red;">NO ServiceID! NO other fields!</strong>
+            </div>
+        </div>
+
+        <!-- Test Data Setup -->
+        <div class="test-section">
+            <h2>📝 Test Data (ONLY Attach Table Fields)</h2>
+            
+            <label><strong>ProjectID</strong> (Integer):</label>
+            <input type="number" id="projectId" value="1891" placeholder="Project ID">
+            
+            <label><strong>TypeID</strong> (Integer):</label>
+            <input type="number" id="typeId" value="1" placeholder="Type ID">
+            
+            <label><strong>Title</strong> (Text 255):</label>
+            <input type="text" id="docTitle" value="Test Upload" placeholder="Document Title">
+            
+            <label><strong>Notes</strong> (Text 255):</label>
+            <input type="text" id="notes" value="Test from HTML page" placeholder="Notes">
+            
+            <label><strong>Link</strong> (Text 255 - will be filename):</label>
+            <input type="text" id="link" placeholder="Leave empty - will use filename" readonly style="background: #f0f0f0;">
+            
+            <label><strong>Attachment</strong> (File):</label>
+            <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx" onchange="previewFile()">
+            
+            <div id="filePreview"></div>
+        </div>
+
+        <!-- Upload Method Selection -->
+        <div class="test-section">
+            <h2>🚀 Upload Methods</h2>
+            
+            <div class="method-selector">
+                <div class="method-option selected" onclick="selectMethod('single')" id="method-single">
+                    <h3>Method 1: Single Step</h3>
+                    <p>All fields + file in one FormData request</p>
+                </div>
+                <div class="method-option" onclick="selectMethod('two-step')" id="method-two-step">
+                    <h3>Method 2: Two Step</h3>
+                    <p>Create record, then upload file</p>
+                </div>
+                <div class="method-option" onclick="selectMethod('base64')" id="method-base64">
+                    <h3>Method 3: Base64</h3>
+                    <p>File as base64 string (old way)</p>
+                </div>
+            </div>
+            
+            <button onclick="testUpload()" style="width: 100%; background: #28a745; font-size: 18px; padding: 15px;">
+                📤 Test Selected Upload Method
+            </button>
+            
+            <div id="uploadStatus" class="status"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="test-section">
+            <h2>📊 Results</h2>
+            <button onclick="checkRecord()" style="background: #6c757d;">🔍 Check Last Created Record</button>
+            <button onclick="showPreview()" style="background: #17a2b8;">🖼️ Show Image Preview from DB</button>
+            <button onclick="clearResults()" style="background: #dc3545;">🗑️ Clear Results</button>
+            <div id="results" class="status"></div>
+            <div id="imagePreviewSection" style="margin-top: 20px; display: none;">
+                <h3>📸 Image Preview from Database:</h3>
+                <div id="dbImagePreview"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Credentials from environment.ts
+        const CLIENT_ID = '01ddeb9d873748255f3edeccb5fbfa806695e43ffa5fff4f67';
+        const CLIENT_SECRET = '1d4e3ea85a2247f0929a0a995df66e6be183c463391375ae80';
+        const ACCOUNT_ID = 'c2hcf092';
+        const API_BASE_URL = `https://${ACCOUNT_ID}.caspio.com/rest/v2`;
+        const TOKEN_URL = `https://${ACCOUNT_ID}.caspio.com/oauth/token`;
+        
+        let accessToken = '';
+        let selectedMethod = 'single';
+        let lastAttachId = null;
+
+        // Select upload method
+        function selectMethod(method) {
+            selectedMethod = method;
+            document.querySelectorAll('.method-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.getElementById('method-' + method).classList.add('selected');
+            log('uploadStatus', `Selected method: ${method}`, 'info');
+        }
+
+        // Log messages to status divs
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.innerHTML = `<div class="${type}">[${timestamp}] ${message}</div>` + element.innerHTML;
+            console.log(`[${type}] ${message}`);
+        }
+
+        // Clear results
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('uploadStatus').innerHTML = '';
+        }
+
+        // Authenticate with Caspio using app credentials
+        async function authenticate() {
+            log('authStatus', 'Authenticating with app credentials...', 'info');
+            document.getElementById('authStatusQuick').textContent = 'Authenticating...';
+
+            try {
+                const response = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `grant_type=client_credentials&client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}`
+                });
+
+                const data = await response.json();
+                
+                if (data.access_token) {
+                    accessToken = data.access_token;
+                    log('authStatus', '✅ Authentication successful! Token received.', 'success');
+                    document.getElementById('authStatusQuick').textContent = '✅ Authenticated';
+                    document.getElementById('authStatusQuick').style.color = 'green';
+                    
+                    // Test connection
+                    testConnection();
+                } else {
+                    log('authStatus', '❌ Authentication failed: ' + JSON.stringify(data), 'error');
+                    document.getElementById('authStatusQuick').textContent = '❌ Failed';
+                    document.getElementById('authStatusQuick').style.color = 'red';
+                }
+            } catch (error) {
+                log('authStatus', '❌ Authentication error: ' + error.message, 'error');
+                document.getElementById('authStatusQuick').textContent = '❌ Error';
+                document.getElementById('authStatusQuick').style.color = 'red';
+            }
+        }
+
+        // Test connection
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tables/Attach/fields`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const fields = await response.json();
+                    log('authStatus', `✅ Connected to Attach table. Fields: ${fields.Result.map(f => f.Name).join(', ')}`, 'success');
+                } else {
+                    log('authStatus', `❌ Connection failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log('authStatus', '❌ Connection error: ' + error.message, 'error');
+            }
+        }
+
+        // Preview selected file
+        function previewFile() {
+            const file = document.getElementById('fileInput').files[0];
+            const preview = document.getElementById('filePreview');
+            
+            if (file) {
+                // Update Link field with filename
+                document.getElementById('link').value = file.name;
+                
+                preview.innerHTML = `
+                    <p><strong>File:</strong> ${file.name}</p>
+                    <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
+                    <p><strong>Type:</strong> ${file.type || 'Unknown'}</p>
+                `;
+                
+                if (file.type && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.innerHTML += `<img src="${e.target.result}" class="preview-img">`;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+
+        // Test upload with selected method
+        async function testUpload() {
+            if (!accessToken) {
+                log('uploadStatus', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) {
+                log('uploadStatus', '❌ Please select a file', 'error');
+                return;
+            }
+
+            const projectId = document.getElementById('projectId').value;
+            const typeId = document.getElementById('typeId').value;
+            const docTitle = document.getElementById('docTitle').value;
+            const notes = document.getElementById('notes').value;
+
+            log('uploadStatus', `🚀 Starting ${selectedMethod} upload...`, 'info');
+            log('uploadStatus', `File: ${file.name} (${(file.size/1024).toFixed(2)} KB)`, 'info');
+            log('uploadStatus', `Fields being sent: ProjectID=${projectId}, TypeID=${typeId}, Title="${docTitle}", Notes="${notes}", Link="${file.name}"`, 'info');
+
+            try {
+                let result;
+                switch(selectedMethod) {
+                    case 'single':
+                        result = await testSingleStepUpload(projectId, typeId, docTitle, notes, file);
+                        break;
+                    case 'two-step':
+                        result = await testTwoStepUpload(projectId, typeId, docTitle, notes, file);
+                        break;
+                    case 'base64':
+                        result = await testBase64Upload(projectId, typeId, docTitle, notes, file);
+                        break;
+                }
+                
+                log('results', '✅ Upload Result:\n' + JSON.stringify(result, null, 2), 'success');
+                
+                // Store the AttachID for checking
+                if (result.AttachID) {
+                    lastAttachId = result.AttachID;
+                } else if (result.create && result.create.AttachID) {
+                    lastAttachId = result.create.AttachID;
+                }
+            } catch (error) {
+                log('results', '❌ Upload Error:\n' + error.message + '\n' + error.stack, 'error');
+            }
+        }
+
+        // Method 1: Single-step FormData upload
+        async function testSingleStepUpload(projectId, typeId, title, notes, file) {
+            log('uploadStatus', '📦 Method 1: Single-step FormData upload', 'info');
+            log('uploadStatus', 'ONLY sending: ProjectID, TypeID, Title, Notes, Link, Attachment', 'info');
+            
+            const formData = new FormData();
+            formData.append('ProjectID', projectId);
+            formData.append('TypeID', typeId);
+            formData.append('Title', title);
+            formData.append('Notes', notes);
+            formData.append('Link', file.name);
+            formData.append('Attachment', file, file.name);
+            
+            log('uploadStatus', 'Sending FormData with EXACTLY 6 fields...', 'info');
+            
+            const response = await fetch(`${API_BASE_URL}/tables/Attach/records`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                    // NO Content-Type header - let browser set it for FormData
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                log('uploadStatus', '✅ Single-step upload successful!', 'success');
+            } else {
+                log('uploadStatus', `❌ Single-step upload failed: ${response.status}\n${JSON.stringify(result)}`, 'error');
+            }
+            
+            return result;
+        }
+
+        // Method 2: Two-step upload
+        async function testTwoStepUpload(projectId, typeId, title, notes, file) {
+            log('uploadStatus', '📦 Method 2: Two-step upload', 'info');
+            
+            // Step 1: Create record with ONLY these fields
+            log('uploadStatus', 'Step 1: Creating record with ONLY ProjectID, TypeID, Title, Notes, Link...', 'info');
+            const recordData = {
+                ProjectID: parseInt(projectId),
+                TypeID: parseInt(typeId),
+                Title: title,
+                Notes: notes,
+                Link: file.name
+            };
+            
+            log('uploadStatus', `Sending JSON: ${JSON.stringify(recordData)}`, 'info');
+            
+            const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(recordData)
+            });
+
+            const createResponseText = await createResponse.text();
+            log('uploadStatus', `Create response status: ${createResponse.status}, body: ${createResponseText}`, 'info');
+            
+            let createResult;
+            if (createResponseText.length > 0) {
+                try {
+                    createResult = JSON.parse(createResponseText);
+                } catch (e) {
+                    throw new Error('Failed to parse create response: ' + createResponseText);
+                }
+            } else {
+                // Empty response might mean success, let's query for the record
+                log('uploadStatus', 'Empty response from create. Querying for last record...', 'info');
+                const queryResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                const queryResult = await queryResponse.json();
+                if (queryResult.Result && queryResult.Result.length > 0) {
+                    createResult = queryResult.Result[0];
+                    log('uploadStatus', `Found last record: AttachID=${createResult.AttachID}`, 'info');
+                } else {
+                    throw new Error('Failed to create record and could not find it');
+                }
+            }
+            
+            if (!createResponse.ok && !createResult) {
+                throw new Error('Failed to create record: ' + createResponseText);
+            }
+            
+            const attachId = createResult.AttachID;
+            log('uploadStatus', `✅ Step 1 complete. AttachID: ${attachId}`, 'success');
+            
+            // Step 2: Upload file to Attachment field
+            log('uploadStatus', 'Step 2: Uploading file to Attachment field...', 'info');
+            
+            // Try different approaches for file upload
+            const approaches = [
+                {
+                    name: 'FormData with file only',
+                    buildBody: () => {
+                        const fd = new FormData();
+                        fd.append('Attachment', file, file.name);
+                        return fd;
+                    },
+                    headers: {}
+                },
+                {
+                    name: 'FormData with all fields',
+                    buildBody: () => {
+                        const fd = new FormData();
+                        fd.append('ProjectID', projectId);
+                        fd.append('TypeID', typeId);
+                        fd.append('Title', title);
+                        fd.append('Notes', notes);
+                        fd.append('Link', file.name);
+                        fd.append('Attachment', file, file.name);
+                        return fd;
+                    },
+                    headers: {}
+                },
+                {
+                    name: 'JSON with base64',
+                    buildBody: async () => {
+                        return new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const base64 = e.target.result.split(',')[1];
+                                resolve(JSON.stringify({ Attachment: base64 }));
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    },
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            ];
+            
+            let uploadResult = null;
+            let successMethod = null;
+            
+            for (const approach of approaches) {
+                log('uploadStatus', `Trying approach: ${approach.name}`, 'info');
+                
+                const body = await approach.buildBody();
+                
+                // Try PUT to update the record
+                const putResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        ...approach.headers
+                    },
+                    body: body
+                });
+
+                const responseText = await putResponse.text();
+                log('uploadStatus', `Response status: ${putResponse.status}, body length: ${responseText.length}`, 'info');
+                
+                // Handle empty response (204 No Content is success)
+                if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
+                    uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
+                    successMethod = approach.name;
+                    log('uploadStatus', `✅ File upload successful with: ${approach.name}`, 'success');
+                    break;
+                } else if (responseText.length > 0) {
+                    try {
+                        uploadResult = JSON.parse(responseText);
+                        if (putResponse.ok) {
+                            successMethod = approach.name;
+                            log('uploadStatus', `✅ File upload successful with: ${approach.name}`, 'success');
+                            break;
+                        }
+                    } catch (e) {
+                        uploadResult = { response: responseText };
+                    }
+                    
+                    if (!putResponse.ok) {
+                        log('uploadStatus', `❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`, 'error');
+                    }
+                }
+            }
+            
+            return { 
+                create: createResult, 
+                upload: uploadResult,
+                successMethod: successMethod 
+            };
+        }
+
+        // Method 3: Base64 upload
+        async function testBase64Upload(projectId, typeId, title, notes, file) {
+            log('uploadStatus', '📦 Method 3: Base64 upload (old way that stores base64)', 'info');
+            
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const base64 = e.target.result.split(',')[1]; // Remove data:type;base64, prefix
+                    
+                    const recordData = {
+                        ProjectID: parseInt(projectId),
+                        TypeID: parseInt(typeId),
+                        Title: title,
+                        Notes: notes,
+                        Link: file.name,
+                        Attachment: base64  // This stores as base64 string, not file URL
+                    };
+                    
+                    log('uploadStatus', `Sending JSON with base64 (${base64.length} chars) - ONLY 6 fields`, 'info');
+                    
+                    const response = await fetch(`${API_BASE_URL}/tables/Attach/records`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(recordData)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        log('uploadStatus', '✅ Base64 upload successful (but stores as base64, not URL)!', 'success');
+                    } else {
+                        log('uploadStatus', `❌ Base64 upload failed: ${response.status}`, 'error');
+                    }
+                    
+                    resolve(result);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Check the last created record
+        async function checkRecord() {
+            if (!lastAttachId) {
+                log('results', '❌ No record created yet', 'error');
+                return;
+            }
+            
+            log('results', `🔍 Checking record ${lastAttachId}...`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${lastAttachId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.Result && result.Result.length > 0) {
+                    const record = result.Result[0];
+                    log('results', `✅ Record found:\n${JSON.stringify(record, null, 2)}`, 'success');
+                    
+                    // Check what's in the Attachment field
+                    if (record.Attachment) {
+                        const attachmentPreview = record.Attachment.substring(0, 100);
+                        log('results', `Attachment field preview: ${attachmentPreview}...`, 'info');
+                        
+                        if (record.Attachment.startsWith('http')) {
+                            log('results', '✅✅✅ SUCCESS! File stored as URL (correct way)', 'success');
+                        } else if (record.Attachment.length > 1000) {
+                            log('results', '⚠️ File stored as base64 string - showing preview anyway', 'info');
+                        }
+                        
+                        // Auto-show preview after checking
+                        showPreviewFromRecord(record);
+                    } else {
+                        log('results', '⚠️ No attachment found in record', 'error');
+                    }
+                } else {
+                    log('results', '❌ Record not found', 'error');
+                }
+            } catch (error) {
+                log('results', '❌ Error checking record: ' + error.message, 'error');
+            }
+        }
+        
+        // Show preview of image from database
+        async function showPreview() {
+            if (!lastAttachId) {
+                log('results', '❌ No record created yet. Upload an image first.', 'error');
+                return;
+            }
+            
+            log('results', `📸 Loading preview for AttachID ${lastAttachId}...`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${lastAttachId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.Result && result.Result.length > 0) {
+                    const record = result.Result[0];
+                    showPreviewFromRecord(record);
+                } else {
+                    log('results', '❌ Record not found', 'error');
+                }
+            } catch (error) {
+                log('results', '❌ Error loading preview: ' + error.message, 'error');
+            }
+        }
+        
+        // Display preview from record data
+        function showPreviewFromRecord(record) {
+            const previewSection = document.getElementById('imagePreviewSection');
+            const previewDiv = document.getElementById('dbImagePreview');
+            
+            if (!record.Attachment) {
+                previewDiv.innerHTML = '<p style="color: red;">No attachment found in this record</p>';
+                previewSection.style.display = 'block';
+                return;
+            }
+            
+            // Build preview HTML
+            let previewHTML = `
+                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <p><strong>AttachID:</strong> ${record.AttachID}</p>
+                    <p><strong>ProjectID:</strong> ${record.ProjectID}</p>
+                    <p><strong>TypeID:</strong> ${record.TypeID}</p>
+                    <p><strong>Title:</strong> ${record.Title}</p>
+                    <p><strong>Notes:</strong> ${record.Notes}</p>
+                    <p><strong>Link:</strong> ${record.Link}</p>
+                </div>
+            `;
+            
+            // Check if attachment is URL or base64
+            if (record.Attachment.startsWith('http')) {
+                // It's a URL - display as iframe or link
+                previewHTML += `
+                    <div style="margin: 10px 0;">
+                        <p style="color: green;"><strong>✅ Attachment stored as URL:</strong></p>
+                        <a href="${record.Attachment}" target="_blank" style="color: blue; text-decoration: underline;">
+                            ${record.Attachment.substring(0, 100)}...
+                        </a>
+                        <p style="margin-top: 10px;"><strong>Preview (if image):</strong></p>
+                        <img src="${record.Attachment}" style="max-width: 500px; max-height: 500px; border: 2px solid #ddd; border-radius: 8px;" 
+                             onerror="this.style.display='none'; document.getElementById('imgError').style.display='block';">
+                        <p id="imgError" style="display:none; color: orange;">Cannot display image preview - might be a document or restricted URL</p>
+                    </div>
+                `;
+            } else if (record.Attachment.length > 1000) {
+                // It's base64 - display as image
+                const mimeType = detectMimeType(record.Link || 'image.jpg');
+                const base64Data = record.Attachment.includes('base64,') 
+                    ? record.Attachment 
+                    : `data:${mimeType};base64,${record.Attachment}`;
+                
+                previewHTML += `
+                    <div style="margin: 10px 0;">
+                        <p style="color: orange;"><strong>⚠️ Attachment stored as base64 (${record.Attachment.length} characters)</strong></p>
+                        <p><strong>Image Preview:</strong></p>
+                        <img src="${base64Data}" style="max-width: 500px; max-height: 500px; border: 2px solid #ddd; border-radius: 8px;" 
+                             onerror="this.style.display='none'; document.getElementById('base64Error').style.display='block';">
+                        <p id="base64Error" style="display:none; color: red;">Cannot display base64 image - might be corrupted or wrong format</p>
+                    </div>
+                `;
+            } else {
+                previewHTML += `<p style="color: red;">Unknown attachment format</p>`;
+            }
+            
+            previewDiv.innerHTML = previewHTML;
+            previewSection.style.display = 'block';
+            
+            // Scroll to preview
+            previewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Detect MIME type from filename
+        function detectMimeType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const mimeTypes = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                'pdf': 'application/pdf',
+                'doc': 'application/msword',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            };
+            return mimeTypes[ext] || 'application/octet-stream';
+        }
+
+        // Auto-authenticate on load
+        window.onload = function() {
+            selectMethod('single');
+            // Auto-authenticate after a short delay
+            setTimeout(authenticate, 500);
+        };
+    </script>
+</body>
+</html>

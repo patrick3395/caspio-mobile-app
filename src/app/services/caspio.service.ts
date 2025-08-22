@@ -459,9 +459,9 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file - Single step with FormData
+  // Create attachment with file - Method 2: Two-step with base64
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
-    console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
+    console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file (Method 2):', {
       projectId,
       typeId,
       title,
@@ -470,32 +470,60 @@ export class CaspioService {
       fileType: file.type
     });
 
-    // Try single-step upload with FormData containing all fields
-    const formData = new FormData();
-    formData.append('ProjectID', projectId.toString());
-    formData.append('TypeID', typeId.toString());
-    formData.append('Title', title);
-    formData.append('Notes', notes || '');
-    formData.append('Link', file.name);
-    formData.append('Attachment', file, file.name);
-    
-    console.log('📦 Sending FormData with file to Caspio (single request)...');
-    
-    // Send everything in one request
-    return this.post<any>('/tables/Attach/records', formData).pipe(
-      tap(response => {
-        console.log('✅ Attachment created with file:', response);
-      }),
-      catchError(error => {
-        console.error('❌ Failed to create attachment with file:', error);
-        console.error('Error details:', {
-          status: error.status,
-          message: error.message,
-          error: error.error
+    // Convert file to base64
+    return new Observable(observer => {
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        const base64String = reader.result as string;
+        const base64Data = base64String.split(',')[1]; // Remove data:type;base64, prefix
+        
+        console.log('📦 File converted to base64, length:', base64Data.length);
+        
+        // Create record with base64 attachment in a single step
+        const recordData = {
+          ProjectID: projectId,
+          TypeID: typeId,
+          Title: title,
+          Notes: notes || '',
+          Link: file.name,
+          Attachment: base64Data
+        };
+        
+        console.log('📤 Sending record with base64 attachment to Caspio...');
+        
+        this.post<any>('/tables/Attach/records', recordData).pipe(
+          tap(response => {
+            console.log('✅ Attachment created with base64 file:', response);
+          }),
+          catchError(error => {
+            console.error('❌ Failed to create attachment with base64:', error);
+            console.error('Error details:', {
+              status: error.status,
+              message: error.message,
+              error: error.error
+            });
+            return throwError(() => error);
+          })
+        ).subscribe({
+          next: (response) => {
+            observer.next(response);
+            observer.complete();
+          },
+          error: (error) => {
+            observer.error(error);
+          }
         });
-        return throwError(() => error);
-      })
-    );
+      };
+      
+      reader.onerror = (error) => {
+        console.error('❌ Failed to read file:', error);
+        observer.error(error);
+      };
+      
+      // Read the file as base64
+      reader.readAsDataURL(file);
+    });
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
@@ -504,6 +532,37 @@ export class CaspioService {
 
   deleteAttachment(attachId: string): Observable<any> {
     return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
+  }
+
+  // Get attachment with base64 data for display
+  getAttachmentWithImage(attachId: string): Observable<any> {
+    return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
+      map(response => {
+        if (response.Result && response.Result.length > 0) {
+          const record = response.Result[0];
+          // If attachment is base64, add data URL prefix for display
+          if (record.Attachment && record.Attachment.length > 1000 && !record.Attachment.startsWith('http')) {
+            const mimeType = this.getMimeTypeFromFilename(record.Link || 'image.jpg');
+            record.AttachmentDataUrl = `data:${mimeType};base64,${record.Attachment}`;
+          }
+          return record;
+        }
+        return null;
+      })
+    );
+  }
+
+  private getMimeTypeFromFilename(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const mimeTypes: {[key: string]: string} = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'pdf': 'application/pdf'
+    };
+    return mimeTypes[ext || ''] || 'application/octet-stream';
   }
 
   // File upload method

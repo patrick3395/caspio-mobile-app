@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Routes } from '@angular/router';
 
 import { ProjectDetailPage } from './project-detail.page';
+import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 
 const routes: Routes = [
   {
@@ -20,6 +21,6 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes)
   ],
-  declarations: [ProjectDetailPage]
+  declarations: [ProjectDetailPage, ImageViewerComponent]
 })
 export class ProjectDetailPageModule {}
