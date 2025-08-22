@@ -1,10 +1,10 @@
 ion-toolbar {
-  --background: #007AFF;
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .template-container {
-  padding: 16px;
-  background: #f5f5f5;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100%;
 }
 
@@ -13,493 +13,613 @@ ion-toolbar {
   position: fixed;
   top: 60px;
   right: 20px;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 10px 20px;
+  border-radius: 24px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   z-index: 1000;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   
   &.info {
-    background: #f0f8ff;
-    color: #0066cc;
-    border: 1px solid #0066cc;
+    background: rgba(102, 126, 234, 0.9);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
   }
   
   &.success {
-    background: #f0fff4;
-    color: #28a745;
-    border: 1px solid #28a745;
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
   }
   
   &.error {
-    background: #fff0f0;
-    color: #dc3545;
-    border: 1px solid #dc3545;
+    background: rgba(244, 67, 54, 0.9);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
   }
 }
 
-// Project Details Section (Fixed at top)
-.project-details-section {
+// Modern Project Information Card
+.project-info-card {
   background: white;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 20px;
+  margin-bottom: 28px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
   overflow: hidden;
-  border: 2px solid #007AFF;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  .section-header {
-    background: linear-gradient(135deg, #007AFF 0%, #0056b3 100%);
-    padding: 16px;
-    color: white;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+  }
+  
+  .project-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
     
     .section-info {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 16px;
+      flex: 1;
+      
+      .section-icon {
+        font-size: 32px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+      }
       
       .section-title {
-        font-size: 18px;
+        color: white;
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+      }
+      
+      .section-description {
+        color: rgba(255,255,255,0.85);
+        font-size: 14px;
+        font-weight: 400;
+      }
+    }
+    
+    .section-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      
+      .completion-indicator {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 24px;
+        font-size: 14px;
         font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
         
-        ion-icon {
-          font-size: 24px;
+        &.complete {
+          background: rgba(76, 175, 80, 0.9);
+          box-shadow: 0 4px 12px rgba(76,175,80,0.4);
         }
       }
       
-      .section-subtitle {
-        font-size: 14px;
-        opacity: 0.9;
+      ion-icon {
+        color: white;
+        font-size: 28px;
+        transition: transform 0.3s ease;
       }
     }
   }
   
-  .details-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    padding: 20px;
+  .section-content {
+    padding: 0;
+    animation: slideDown 0.4s ease;
+    background: #fafbfc;
     
-    .detail-item {
-      label {
-        display: block;
-        font-size: 12px;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
+    .info-group {
+      padding: 28px;
+      background: white;
+      border-bottom: 1px solid #e8ecf0;
+      
+      &:last-child {
+        border-bottom: none;
       }
       
-      .detail-value {
-        font-size: 15px;
-        color: #333;
-        font-weight: 500;
+      .group-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #1a202c;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #667eea;
+        
+        ion-icon {
+          color: #667eea;
+          font-size: 24px;
+        }
+      }
+      
+      .form-grid {
+        display: grid;
+        gap: 24px;
+        
+        &.three-col {
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        
+        &.two-col {
+          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+        
+        .full-width {
+          grid-column: 1 / -1;
+        }
       }
     }
   }
 }
 
-// Section Cards
+// Modern Form Controls
+.form-group {
+  position: relative;
+  
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a5568;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    
+    ion-icon {
+      font-size: 18px;
+      color: #667eea;
+    }
+  }
+  
+  .styled-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    background: white;
+    color: #2d3748;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:hover {
+      border-color: #cbd5e0;
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+      transform: translateY(-1px);
+    }
+    
+    &::placeholder {
+      color: #a0aec0;
+      font-weight: 400;
+    }
+  }
+  
+  select.styled-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+    cursor: pointer;
+  }
+  
+  &.filled {
+    .styled-input {
+      background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+      border-color: #48bb78;
+      color: #22543d;
+    }
+    
+    label {
+      color: #48bb78;
+      
+      ion-icon {
+        color: #48bb78;
+      }
+    }
+  }
+}
+
+// Enhanced Section Cards
 .section-card {
   background: white;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 50px rgba(0,0,0,0.12);
+  }
   
   .section-header {
-    padding: 16px;
-    background: #fff;
-    border-bottom: 1px solid #f0f0f0;
+    padding: 24px;
+    background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+    border-bottom: 2px solid #e8ecf0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
     
     &:hover {
-      background: #f8f9fa;
+      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
     }
     
     .section-info {
       flex: 1;
       
       .section-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 4px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a202c;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
         
         ion-icon {
-          font-size: 24px;
-          color: #007AFF;
+          font-size: 28px;
+          color: #667eea;
         }
       }
       
       .section-description {
-        font-size: 13px;
-        color: #666;
+        font-size: 14px;
+        color: #718096;
+        font-weight: 400;
       }
     }
     
     .section-toggle {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
       
       .completion-badge {
-        background: #e0e0e0;
-        color: #666;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
+        background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+        color: #4a5568;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 700;
+        transition: all 0.3s ease;
         
         &.complete {
-          background: #28a745;
+          background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
           color: white;
+          box-shadow: 0 4px 12px rgba(72,187,120,0.3);
         }
       }
       
       ion-icon {
-        font-size: 24px;
-        color: #666;
+        font-size: 28px;
+        color: #a0aec0;
+        transition: transform 0.3s ease;
       }
     }
   }
   
   .section-content {
-    padding: 20px;
+    padding: 28px;
+    background: #fafbfc;
   }
 }
 
-// Form Groups
-.form-group {
-  margin-bottom: 20px;
+// Categories and Visual Items
+.categories-container {
+  margin-top: 24px;
   
-  label {
-    display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 8px;
+  .categories-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #667eea;
   }
   
-  ion-select, ion-input, ion-textarea {
-    --background: #f8f9fa;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --padding-top: 10px;
-    --padding-bottom: 10px;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    
-    &:focus {
-      --background: white;
-      border-color: #007AFF;
+  ion-accordion-group {
+    ion-accordion {
+      margin-bottom: 12px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      
+      ion-item[slot="header"] {
+        --background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        --color: #2d3748;
+        font-weight: 600;
+        
+        &:hover {
+          --background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+        }
+      }
+      
+      .category-content {
+        background: white;
+        padding: 20px;
+        
+        .type-section {
+          margin-bottom: 24px;
+          
+          .type-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 8px;
+          }
+          
+          .template-item {
+            margin-bottom: 12px;
+            
+            .checkbox-item {
+              --background: #ffffff;
+              --background-hover: #f7fafc;
+              padding: 12px;
+              border-radius: 8px;
+              transition: all 0.3s ease;
+              
+              &:hover {
+                background: #f7fafc;
+                transform: translateX(4px);
+              }
+              
+              ion-checkbox {
+                --size: 22px;
+                --checkbox-background-checked: #667eea;
+                --border-color-checked: #667eea;
+                margin-right: 12px;
+              }
+              
+              .item-label {
+                h3 {
+                  font-size: 15px;
+                  font-weight: 600;
+                  color: #2d3748;
+                  margin-bottom: 4px;
+                }
+                
+                .item-text {
+                  font-size: 13px;
+                  color: #718096;
+                  line-height: 1.5;
+                  
+                  &.clickable {
+                    cursor: pointer;
+                    
+                    &:hover {
+                      color: #667eea;
+                      text-decoration: underline;
+                    }
+                  }
+                }
+              }
+              
+              .photo-actions {
+                display: flex;
+                gap: 8px;
+                margin-left: 12px;
+                
+                ion-button {
+                  --border-radius: 8px;
+                  --box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                  
+                  &:hover {
+                    transform: translateY(-2px);
+                    --box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                  }
+                }
+                
+                .photo-display {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  
+                  .photo-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 12px;
+                    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+                    border: 1px solid #48bb78;
+                    border-radius: 8px;
+                    
+                    .photo-name {
+                      flex: 1;
+                      font-size: 13px;
+                      color: #22543d;
+                      font-weight: 500;
+                    }
+                    
+                    .photo-icons {
+                      display: flex;
+                      gap: 4px;
+                      
+                      ion-button {
+                        --padding-start: 4px;
+                        --padding-end: 4px;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
-  
-  ion-textarea {
-    min-height: 120px;
-  }
 }
 
-// Elevation Plot specific styles
+// Elevation Plot
 .elevation-controls {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 20px;
   
   ion-button {
-    --border-radius: 8px;
+    --border-radius: 12px;
+    --box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    font-weight: 600;
+    
+    &:hover {
+      transform: translateY(-2px);
+      --box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
   }
 }
 
 .elevation-grid {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  overflow: hidden;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
   margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   
   .elevation-header {
     display: grid;
     grid-template-columns: 2fr 1fr auto;
-    background: #f8f9fa;
+    gap: 16px;
+    padding: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
     font-weight: 600;
-    font-size: 14px;
-    
-    > div {
-      padding: 12px;
-      border-right: 1px solid #dee2e6;
-      
-      &:last-child {
-        border-right: none;
-        text-align: center;
-      }
-    }
+    border-radius: 8px;
+    margin-bottom: 12px;
   }
   
   .elevation-row {
     display: grid;
     grid-template-columns: 2fr 1fr auto;
-    border-top: 1px solid #dee2e6;
+    gap: 16px;
+    padding: 12px;
     align-items: center;
+    border-bottom: 1px solid #e8ecf0;
+    
+    &:last-child {
+      border-bottom: none;
+    }
     
     input {
       padding: 10px 12px;
-      border: none;
-      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
       font-size: 14px;
+      transition: all 0.3s ease;
       
       &:focus {
         outline: none;
-        background: #f0f8ff;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
       }
-      
-      &[type="number"] {
-        text-align: center;
-      }
-    }
-    
-    > *:not(:last-child) {
-      border-right: 1px solid #dee2e6;
     }
     
     ion-button {
-      margin: 0 auto;
+      --padding-start: 8px;
+      --padding-end: 8px;
     }
+  }
+}
+
+// Submit Button
+.form-actions {
+  margin-top: 32px;
+  padding: 24px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  
+  ion-button {
+    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --border-radius: 16px;
+    --box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    height: 56px;
+    
+    &:hover {
+      transform: translateY(-2px);
+      --box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+    }
+  }
+}
+
+// Animations
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 // Placeholder message
 .placeholder-message {
-  background: #f0f8ff;
-  border: 2px dashed #007AFF;
-  border-radius: 8px;
-  padding: 20px;
   text-align: center;
-  color: #0066cc;
+  padding: 40px;
+  color: #718096;
   font-size: 14px;
-  margin-top: 20px;
-}
-
-// Form Actions
-.form-actions {
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  margin-top: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   
-  ion-button {
-    --border-radius: 8px;
-    --padding-top: 16px;
-    --padding-bottom: 16px;
-    font-size: 16px;
-    font-weight: 600;
+  ion-spinner {
+    margin-bottom: 12px;
   }
 }
 
-// Categories Container
-.categories-container {
-  margin-top: 30px;
+// Responsive adjustments
+@media (max-width: 768px) {
+  .template-container {
+    padding: 12px;
+  }
   
-  .categories-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
+  .project-info-card,
+  .section-card {
+    border-radius: 16px;
     margin-bottom: 16px;
-    padding-left: 4px;
   }
   
-  ion-accordion-group {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-    
-    ion-accordion {
-      margin-bottom: 0;
-      
-      ion-item[slot="header"] {
-        --background: #f8f9fa;
-        --padding-start: 16px;
-        
-        ion-label {
-          h2 {
-            font-size: 15px;
-            font-weight: 600;
-            color: #333;
-          }
-          
-          p {
-            font-size: 12px;
-            color: #666;
-            margin-top: 4px;
-          }
-        }
-      }
-      
-      .category-content {
-        padding: 16px;
-        background: white;
-        
-        .type-section {
-          margin-bottom: 24px;
-          
-          &:last-child {
-            margin-bottom: 0;
-          }
-          
-          .type-header {
-            font-size: 16px;
-            font-weight: 600;
-            color: #007AFF;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #007AFF;
-          }
-        }
-        
-        .template-item {
-          margin-bottom: 8px;
-          
-          .checkbox-item {
-            --background: #f9f9f9;
-            --border-radius: 8px;
-            --padding-start: 8px;
-            margin-bottom: 8px;
-            
-            &:hover {
-              --background: #f5f5f5;
-            }
-            
-            ion-checkbox {
-              --size: 20px;
-              margin-right: 12px;
-            }
-            
-            .item-label {
-              cursor: pointer;
-              
-              h3 {
-                font-size: 14px;
-                font-weight: 600;
-                color: #333;
-                margin-bottom: 4px;
-              }
-              
-              .item-text {
-                font-size: 13px;
-                color: #666;
-                line-height: 1.4;
-                white-space: normal;
-                // Limit to 2 lines with ellipsis
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-height: 2.8em; // 2 lines * 1.4 line-height
-                
-                &.clickable {
-                  text-decoration: underline;
-                  text-decoration-style: dotted;
-                  text-decoration-color: #999;
-                  
-                  &:hover {
-                    color: #007AFF;
-                  }
-                }
-              }
-            }
-            
-            ion-button[slot="end"] {
-              margin-left: 8px;
-              
-              ion-icon {
-                font-size: 20px;
-              }
-              
-              ion-badge {
-                position: absolute;
-                top: -5px;
-                right: -5px;
-                font-size: 10px;
-                padding: 2px 4px;
-                min-width: 16px;
-                height: 16px;
-                border-radius: 8px;
-              }
-            }
-          }
-        }
-      }
-    }
+  .info-group {
+    padding: 20px !important;
   }
-}
-
-// Full text modal styles
-.full-text-modal {
-  .alert-message {
-    white-space: pre-wrap;
-    max-height: 400px;
-    overflow-y: auto;
-  }
-}
-
-// Photo display styling for visual items
-.photo-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-left: 10px;
   
-  .photo-display {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    
-    .photo-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #f8f9fa;
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid #dee2e6;
-      
-      .photo-name {
-        font-size: 12px;
-        color: #495057;
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 150px;
-      }
-      
-      .photo-icons {
-        display: flex;
-        gap: 2px;
-        
-        ion-button {
-          --padding-start: 4px;
-          --padding-end: 4px;
-          --padding-top: 4px;
-          --padding-bottom: 4px;
-          height: 28px;
-          
-          ion-icon {
-            font-size: 16px;
-          }
-        }
-      }
+  .form-grid {
+    &.three-col,
+    &.two-col {
+      grid-template-columns: 1fr !important;
     }
   }
 }
