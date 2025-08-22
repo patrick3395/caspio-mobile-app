@@ -946,7 +946,7 @@ export class CaspioService {
         }
       })
       .then(response => response.json())
-      .then(async data => {
+      .then(data => {
         if (data.Result && data.Result.length > 0) {
           const record = data.Result[0];
           console.log('📎 Attachment record found:', {
@@ -958,19 +958,18 @@ export class CaspioService {
           
           // Check if there's a file path in the Attachment field
           if (record.Attachment && typeof record.Attachment === 'string' && record.Attachment.length > 0) {
-            try {
-              // Use the /files/path endpoint with filePath parameter (matches the working example)
-              const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(record.Attachment)}`;
-              console.log('📥 Fetching file from path:', fileUrl);
-              
-              let fileResponse = await fetch(fileUrl, {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Accept': 'application/octet-stream'
-                }
-              });
-              
+            // Use the /files/path endpoint with filePath parameter (matches the working example)
+            const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(record.Attachment)}`;
+            console.log('📥 Fetching file from path:', fileUrl);
+            
+            fetch(fileUrl, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/octet-stream'
+              }
+            })
+            .then(fileResponse => {
               console.log('📥 File fetch response status:', fileResponse.status);
               
               // If first method fails, try alternate method
@@ -979,19 +978,22 @@ export class CaspioService {
                 const altUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
                 console.log('🔄 Trying alternate method:', altUrl);
                 
-                fileResponse = await fetch(altUrl, {
+                return fetch(altUrl, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${accessToken}`
                   }
                 });
-                
-                if (!fileResponse.ok) {
-                  throw new Error('Both file fetch methods failed');
-                }
               }
-              
-              const blob = await fileResponse.blob();
+              return fileResponse;
+            })
+            .then(fileResponse => {
+              if (!fileResponse.ok) {
+                throw new Error('Both file fetch methods failed');
+              }
+              return fileResponse.blob();
+            })
+            .then(blob => {
               console.log('📦 Blob received, size:', blob.size, 'type:', blob.type);
               
               // Convert blob to base64
@@ -1019,12 +1021,13 @@ export class CaspioService {
               };
               
               reader.readAsDataURL(blob);
-            } catch (error) {
+            })
+            .catch(error => {
               console.error('❌ All file fetch methods failed:', error);
               record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
               observer.next(record);
               observer.complete();
-            }
+            });
           } else {
             console.log('⚠️ No file path in Attachment field');
             record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
@@ -1036,6 +1039,7 @@ export class CaspioService {
           observer.next(null);
           observer.complete();
         }
+        return; // Ensure we return undefined to satisfy TypeScript
       })
       .catch(error => {
         console.error('❌ Error fetching attachment record:', error);
