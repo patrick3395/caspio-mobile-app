@@ -1142,13 +1142,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
 
   // Handle project field changes
   onProjectFieldChange(fieldName: string, value: any) {
+    console.log(`Project field changed: ${fieldName} = ${value}`);
+    
     // Update the project data
     if (this.projectData) {
       this.projectData[fieldName] = value;
     }
     
-    // Save to local storage or trigger autosave
-    this.saveTemplate();
+    // Save to localStorage for persistence across all services
+    const projectDataKey = `projectData_${this.projectId}`;
+    localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
+    
+    // Trigger auto-save to Projects table
+    this.autoSaveProjectField(fieldName, value);
+  }
+  
+  // Auto-save project field to Caspio Projects table
+  private autoSaveProjectField(fieldName: string, value: any) {
+    if (!this.projectId || this.projectId === 'new') return;
+    
+    this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    
+    // Update the Projects table directly
+    this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
+      next: () => {
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      },
+      error: (error) => {
+        console.error(`Error saving project field ${fieldName}:`, error);
+        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+      }
+    });
   }
 
   // Calculate project information completion percentage

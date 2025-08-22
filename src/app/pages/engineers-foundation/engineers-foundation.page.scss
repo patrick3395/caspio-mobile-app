@@ -1,211 +1,198 @@
+// Noble Property Inspections Brand Colors
 ion-toolbar {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --background: var(--noble-orange);
 }
 
 .template-container {
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 12px;
+  background: #f9f9f9;
   min-height: 100%;
 }
 
-// Save status indicator
+// Compact Save Status
 .save-status {
   position: fixed;
-  top: 60px;
-  right: 20px;
-  padding: 10px 20px;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 600;
+  top: 56px;
+  right: 12px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 500;
   z-index: 1000;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   
   &.info {
-    background: rgba(102, 126, 234, 0.9);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    background: #fff8f5;
+    color: var(--noble-orange);
+    border: 1px solid var(--noble-orange);
   }
   
   &.success {
-    background: rgba(76, 175, 80, 0.9);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    background: #f0fff4;
+    color: #28a745;
+    border: 1px solid #28a745;
   }
   
   &.error {
-    background: rgba(244, 67, 54, 0.9);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    background: #fff0f0;
+    color: #dc3545;
+    border: 1px solid #dc3545;
   }
 }
 
-// Modern Form Controls
+// Compact Form Controls
 .form-group {
   position: relative;
   
   label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #4a5568;
-    margin-bottom: 10px;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--noble-gray);
+    margin-bottom: 4px;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.3px;
     
     ion-icon {
-      font-size: 18px;
-      color: #667eea;
+      font-size: 14px;
+      color: var(--noble-orange);
     }
   }
   
   .styled-input {
     width: 100%;
-    padding: 14px 16px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 500;
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 13px;
     background: white;
-    color: #2d3748;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #333;
+    transition: all 0.2s ease;
     
     &:hover {
-      border-color: #cbd5e0;
+      border-color: #d0d0d0;
     }
     
     &:focus {
       outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
-      transform: translateY(-1px);
+      border-color: var(--noble-orange);
+      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
     }
     
     &::placeholder {
-      color: #a0aec0;
-      font-weight: 400;
+      color: #b0b0b0;
+      font-size: 12px;
     }
   }
   
   select.styled-input {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 16px center;
-    padding-right: 40px;
+    background-position: right 8px center;
+    padding-right: 24px;
     cursor: pointer;
   }
   
   &.filled {
     .styled-input {
-      background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
-      border-color: #48bb78;
-      color: #22543d;
+      background: #fafafa;
+      border-color: var(--noble-orange);
     }
     
     label {
-      color: #48bb78;
+      color: var(--noble-orange);
       
       ion-icon {
-        color: #48bb78;
+        color: var(--noble-orange);
       }
     }
   }
 }
 
-// Enhanced Section Cards
+// Compact Section Cards
 .section-card {
   background: white;
-  border-radius: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e0e0e0;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 15px 50px rgba(0,0,0,0.12);
-  }
   
   .section-header {
-    padding: 24px;
-    background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
-    border-bottom: 2px solid #e8ecf0;
+    padding: 10px 12px;
+    background: white;
+    border-bottom: 1px solid #f0f0f0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     
     &:hover {
-      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      background: #fafafa;
     }
     
     .section-info {
       flex: 1;
       
       .section-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #1a202c;
-        margin-bottom: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 6px;
         
         ion-icon {
-          font-size: 28px;
-          color: #667eea;
+          font-size: 18px;
+          color: var(--noble-orange);
         }
       }
       
       .section-description {
-        font-size: 14px;
-        color: #718096;
-        font-weight: 400;
+        font-size: 11px;
+        color: var(--noble-gray);
+        margin-top: 2px;
       }
     }
     
     .section-toggle {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 8px;
       
       .completion-badge {
-        background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
-        color: #4a5568;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: 700;
-        transition: all 0.3s ease;
+        background: #f0f0f0;
+        color: var(--noble-gray);
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
         
         &.complete {
-          background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+          background: var(--noble-orange);
           color: white;
-          box-shadow: 0 4px 12px rgba(72,187,120,0.3);
         }
       }
       
       ion-icon {
-        font-size: 28px;
-        color: #a0aec0;
-        transition: transform 0.3s ease;
+        font-size: 20px;
+        color: #999;
       }
     }
   }
   
   .section-content {
     padding: 0;
-    background: #fafbfc;
-    animation: slideDown 0.4s ease;
+    background: white;
     
     .info-group {
-      padding: 28px;
+      padding: 12px;
       background: white;
-      border-bottom: 1px solid #e8ecf0;
+      border-bottom: 1px solid #f0f0f0;
       
       &:last-child {
         border-bottom: none;
@@ -214,30 +201,30 @@ ion-toolbar {
       .group-title {
         display: flex;
         align-items: center;
-        gap: 10px;
-        color: #1a202c;
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 24px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
+        gap: 6px;
+        color: var(--noble-gray);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--noble-orange);
         
         ion-icon {
-          color: #667eea;
-          font-size: 24px;
+          color: var(--noble-orange);
+          font-size: 16px;
         }
       }
       
       .form-grid {
         display: grid;
-        gap: 24px;
+        gap: 10px;
         
         &.three-col {
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         }
         
         &.two-col {
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         }
         
         .full-width {
@@ -248,88 +235,90 @@ ion-toolbar {
   }
 }
 
-// Categories and Visual Items
+// Compact Categories
 .categories-container {
-  margin-top: 24px;
+  margin-top: 12px;
   
   .categories-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #2d3748;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--noble-orange);
   }
   
   ion-accordion-group {
     ion-accordion {
-      margin-bottom: 12px;
-      border-radius: 12px;
+      margin-bottom: 8px;
+      border-radius: 6px;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       
       ion-item[slot="header"] {
-        --background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-        --color: #2d3748;
-        font-weight: 600;
+        --background: #fafafa;
+        --color: #333;
+        font-size: 14px;
+        font-weight: 500;
+        --padding-top: 10px;
+        --padding-bottom: 10px;
         
         &:hover {
-          --background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+          --background: #f0f0f0;
         }
       }
       
       .category-content {
         background: white;
-        padding: 20px;
+        padding: 12px;
         
         .type-section {
-          margin-bottom: 24px;
+          margin-bottom: 12px;
           
           .type-header {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: 600;
-            color: #4a5568;
-            margin-bottom: 16px;
-            padding: 8px 12px;
-            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-            border-radius: 8px;
+            color: var(--noble-gray);
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            background: #fafafa;
+            border-radius: 4px;
           }
           
           .template-item {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             
             .checkbox-item {
-              --background: #ffffff;
-              --background-hover: #f7fafc;
-              padding: 12px;
-              border-radius: 8px;
-              transition: all 0.3s ease;
+              --background: white;
+              --background-hover: #fafafa;
+              padding: 8px;
+              border-radius: 4px;
+              transition: all 0.2s ease;
               
               &:hover {
-                background: #f7fafc;
-                transform: translateX(4px);
+                background: #fafafa;
               }
               
               ion-checkbox {
-                --size: 22px;
-                --checkbox-background-checked: #667eea;
-                --border-color-checked: #667eea;
-                margin-right: 12px;
+                --size: 18px;
+                --checkbox-background-checked: var(--noble-orange);
+                --border-color-checked: var(--noble-orange);
+                margin-right: 8px;
               }
               
               .item-label {
                 h3 {
-                  font-size: 15px;
-                  font-weight: 600;
-                  color: #2d3748;
-                  margin-bottom: 4px;
+                  font-size: 13px;
+                  font-weight: 500;
+                  color: #333;
+                  margin-bottom: 2px;
                 }
                 
                 .item-text {
-                  font-size: 13px;
-                  color: #718096;
-                  line-height: 1.4;
-                  max-height: 2.8em; // Exactly 2 lines (1.4 * 2)
+                  font-size: 11px;
+                  color: var(--noble-gray);
+                  line-height: 1.3;
+                  max-height: 2.6em;
                   overflow: hidden;
                   text-overflow: ellipsis;
                   display: -webkit-box;
@@ -338,14 +327,9 @@ ion-toolbar {
                   
                   &.clickable {
                     cursor: pointer;
-                    transition: all 0.2s ease;
                     
                     &:hover {
-                      color: #667eea;
-                      background: rgba(102, 126, 234, 0.05);
-                      padding: 2px 4px;
-                      margin: -2px -4px;
-                      border-radius: 4px;
+                      color: var(--noble-orange);
                     }
                   }
                 }
@@ -353,47 +337,43 @@ ion-toolbar {
               
               .photo-actions {
                 display: flex;
-                gap: 8px;
-                margin-left: 12px;
+                gap: 4px;
+                margin-left: 8px;
                 
                 ion-button {
-                  --border-radius: 8px;
-                  --box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-                  
-                  &:hover {
-                    transform: translateY(-2px);
-                    --box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                  }
+                  --border-radius: 4px;
+                  --padding-start: 6px;
+                  --padding-end: 6px;
+                  font-size: 11px;
                 }
                 
                 .photo-display {
                   display: flex;
                   flex-direction: column;
-                  gap: 8px;
+                  gap: 4px;
                   
                   .photo-item {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
-                    padding: 8px 12px;
-                    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
-                    border: 1px solid #48bb78;
-                    border-radius: 8px;
+                    gap: 6px;
+                    padding: 4px 8px;
+                    background: #fff8f5;
+                    border: 1px solid var(--noble-orange);
+                    border-radius: 4px;
                     
                     .photo-name {
                       flex: 1;
-                      font-size: 13px;
-                      color: #22543d;
-                      font-weight: 500;
+                      font-size: 11px;
+                      color: #333;
                     }
                     
                     .photo-icons {
                       display: flex;
-                      gap: 4px;
+                      gap: 2px;
                       
                       ion-button {
-                        --padding-start: 4px;
-                        --padding-end: 4px;
+                        --padding-start: 2px;
+                        --padding-end: 2px;
                       }
                     }
                   }
@@ -407,138 +387,124 @@ ion-toolbar {
   }
 }
 
-// Elevation Plot
+// Compact Elevation Plot
 .elevation-controls {
   display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 12px;
   
   ion-button {
-    --border-radius: 12px;
-    --box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    font-weight: 600;
-    
-    &:hover {
-      transform: translateY(-2px);
-      --box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    }
+    --border-radius: 4px;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    font-size: 12px;
+    font-weight: 500;
   }
 }
 
 .elevation-grid {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e0e0e0;
   
   .elevation-header {
     display: grid;
     grid-template-columns: 2fr 1fr auto;
-    gap: 16px;
-    padding: 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    gap: 10px;
+    padding: 8px;
+    background: var(--noble-orange);
     color: white;
+    font-size: 12px;
     font-weight: 600;
-    border-radius: 8px;
-    margin-bottom: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
   }
   
   .elevation-row {
     display: grid;
     grid-template-columns: 2fr 1fr auto;
-    gap: 16px;
-    padding: 12px;
+    gap: 10px;
+    padding: 8px;
     align-items: center;
-    border-bottom: 1px solid #e8ecf0;
+    border-bottom: 1px solid #f0f0f0;
     
     &:last-child {
       border-bottom: none;
     }
     
     input {
-      padding: 10px 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.3s ease;
+      padding: 6px 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: all 0.2s ease;
       
       &:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: var(--noble-orange);
+        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
       }
     }
     
     ion-button {
-      --padding-start: 8px;
-      --padding-end: 8px;
+      --padding-start: 6px;
+      --padding-end: 6px;
+      font-size: 11px;
     }
   }
 }
 
-// Submit Button
+// Compact Submit Button
 .form-actions {
-  margin-top: 32px;
-  padding: 24px;
+  margin-top: 16px;
+  padding: 12px;
   background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e0e0e0;
   
   ion-button {
-    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --border-radius: 16px;
-    --box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    height: 56px;
+    --background: var(--noble-orange);
+    --border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    height: 40px;
     
     &:hover {
-      transform: translateY(-2px);
-      --box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+      opacity: 0.9;
     }
-  }
-}
-
-// Animations
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
 // Placeholder message
 .placeholder-message {
   text-align: center;
-  padding: 40px;
-  color: #718096;
-  font-size: 14px;
+  padding: 20px;
+  color: var(--noble-gray);
+  font-size: 12px;
   
   ion-spinner {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+    --color: var(--noble-orange);
   }
 }
 
 // Responsive adjustments
 @media (max-width: 768px) {
   .template-container {
-    padding: 12px;
+    padding: 8px;
   }
   
-  .project-info-card,
   .section-card {
-    border-radius: 16px;
-    margin-bottom: 16px;
+    border-radius: 4px;
+    margin-bottom: 8px;
   }
   
   .info-group {
-    padding: 20px !important;
+    padding: 10px !important;
   }
   
   .form-grid {
@@ -549,39 +515,39 @@ ion-toolbar {
   }
 }
 
-// Text Editor Modal Styles
+// Compact Text Editor Modal
 ::ng-deep .text-editor-modal {
-  --background: rgba(0, 0, 0, 0.8);
-  --max-width: 600px;
-  --border-radius: 20px;
+  --background: rgba(0, 0, 0, 0.6);
+  --max-width: 500px;
+  --border-radius: 8px;
   
   .alert-wrapper {
     background: white;
-    border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     overflow: hidden;
-    max-width: 600px;
+    max-width: 500px;
     width: 90%;
   }
   
   .alert-head {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 24px;
+    background: var(--noble-orange);
+    padding: 12px;
     
     h2 {
       color: white;
-      font-size: 20px;
+      font-size: 16px;
       font-weight: 600;
       margin: 0;
     }
   }
   
   .alert-input-group {
-    padding: 24px;
-    background: #fafbfc;
+    padding: 12px;
+    background: #fafafa;
     
     .alert-input-wrapper {
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       
       &:last-child {
         margin-bottom: 0;
@@ -590,35 +556,34 @@ ion-toolbar {
       input.alert-input,
       textarea.alert-input {
         background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 14px 16px;
-        font-size: 15px;
-        color: #2d3748;
-        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: #333;
+        transition: all 0.2s ease;
         width: 100%;
         
         &:focus {
           outline: none;
-          border-color: #667eea;
-          box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+          border-color: var(--noble-orange);
+          box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
         }
         
         &::placeholder {
-          color: #a0aec0;
+          color: #b0b0b0;
         }
       }
       
       &.editor-title-input input {
-        font-size: 17px;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 500;
       }
       
       &.editor-text-input textarea {
         resize: vertical;
-        min-height: 150px;
-        line-height: 1.6;
-        font-family: system-ui, -apple-system, sans-serif;
+        min-height: 100px;
+        line-height: 1.4;
       }
     }
   }
@@ -626,34 +591,33 @@ ion-toolbar {
   .alert-button-group {
     padding: 0;
     display: flex;
-    border-top: 1px solid #e8ecf0;
+    border-top: 1px solid #e0e0e0;
     
     .alert-button {
       flex: 1;
       margin: 0;
       border-radius: 0;
-      height: 56px;
-      font-size: 16px;
-      font-weight: 600;
-      transition: all 0.3s ease;
+      height: 40px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
       
       &.editor-cancel-btn {
         background: white;
-        color: #718096;
-        border-right: 1px solid #e8ecf0;
+        color: var(--noble-gray);
+        border-right: 1px solid #e0e0e0;
         
         &:hover {
-          background: #f7fafc;
+          background: #fafafa;
         }
       }
       
       &.editor-save-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--noble-orange);
         color: white;
         
         &:hover {
-          background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-          transform: scale(1.02);
+          opacity: 0.9;
         }
       }
     }
