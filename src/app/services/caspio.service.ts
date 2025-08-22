@@ -930,13 +930,13 @@ export class CaspioService {
     return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
   }
 
-  // Get attachment with base64 data for display
+  // Get attachment with file data for display
   getAttachmentWithImage(attachId: string): Observable<any> {
     console.log('🔍 getAttachmentWithImage called for AttachID:', attachId);
     
-    // First, let's just get the record and see what's in the Attachment field
+    // First get the record details
     return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
-      map(response => {
+      switchMap(response => {
         console.log('📋 Raw attachment record response:', response);
         
         if (response.Result && response.Result.length > 0) {
@@ -945,52 +945,153 @@ export class CaspioService {
             AttachID: record.AttachID,
             Title: record.Title,
             Link: record.Link,
-            AttachmentFieldLength: record.Attachment ? record.Attachment.length : 0,
-            AttachmentFieldStart: record.Attachment ? record.Attachment.substring(0, 100) : null
+            AttachmentField: record.Attachment
           });
           
-          // Check if Attachment field already contains base64 data
-          if (record.Attachment && record.Attachment.startsWith('data:')) {
-            console.log('✅ Attachment field already contains base64 data');
-            return record;
-          }
-          
-          // If Attachment field is empty or just a path, we need to fetch the file differently
-          // For now, create a placeholder image
-          if (!record.Attachment || record.Attachment.length < 100) {
-            console.log('⚠️ Attachment field is empty or contains path only:', record.Attachment);
+          // For FILE type fields in Caspio, when the file exists, the field contains a path or identifier
+          // We need to fetch the actual file using the proper REST API endpoint
+          if (record.Attachment) {
+            const accessToken = this.tokenSubject.value;
+            const API_BASE_URL = environment.caspio.apiBaseUrl;
             
-            // Create a simple placeholder that shows the filename
-            const canvas = document.createElement('canvas');
-            canvas.width = 400;
-            canvas.height = 300;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.fillStyle = '#f0f0f0';
-              ctx.fillRect(0, 0, 400, 300);
-              ctx.fillStyle = '#333';
-              ctx.font = '16px Arial';
-              ctx.textAlign = 'center';
-              ctx.fillText(record.Title || 'Document', 200, 140);
-              ctx.fillText(record.Link || 'No filename', 200, 170);
-              ctx.font = '12px Arial';
-              ctx.fillText('(File data not available)', 200, 200);
+            // Option 1: Try to fetch by path if Attachment contains a path
+            if (record.Attachment.startsWith('/') || record.Attachment.includes('.')) {
+              console.log('🔄 Fetching file by path:', record.Attachment);
+              
+              return new Observable(observer => {
+                // Use the REST API endpoint for getting files by path
+                fetch(`${API_BASE_URL}/files/path?path=${encodeURIComponent(record.Attachment)}`, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                })
+                .then(response => {
+                  if (response.ok) {
+                    return response.blob();
+                  } else {
+                    console.log('❌ Path fetch failed, trying direct file field access');
+                    // Option 2: Try to get the file directly from the FILE field
+                    return fetch(`${API_BASE_URL}/tables/Attach/files/${attachId}/Attachment`, {
+                      method: 'GET',
+                      headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                      }
+                    }).then(r => r.blob());
+                  }
+                })
+                .then(blob => {
+                  // Convert blob to base64
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    record.Attachment = reader.result as string;
+                    console.log('✅ File converted to base64');
+                    observer.next(record);
+                    observer.complete();
+                  };
+                  reader.onerror = () => {
+                    console.error('Failed to read blob');
+                    record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+                    observer.next(record);
+                    observer.complete();
+                  };
+                  reader.readAsDataURL(blob);
+                })
+                .catch(error => {
+                  console.error('❌ Failed to fetch file:', error);
+                  // Create placeholder if all else fails
+                  record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+                  observer.next(record);
+                  observer.complete();
+                });
+              });
+            } else {
+              // Try direct FILE field access
+              console.log('🔄 Attempting direct FILE field access');
+              return this.fetchFileFieldDirectly(attachId, record);
             }
-            record.Attachment = canvas.toDataURL();
-            console.log('📸 Created placeholder image for display');
+          } else {
+            // No attachment - return placeholder
+            console.log('⚠️ No attachment data');
+            record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+            return of(record);
           }
-          
-          return record;
         }
         
         console.log('❌ No attachment record found');
-        return null;
+        return of(null);
       }),
       catchError(error => {
         console.error('❌ Error in getAttachmentWithImage:', error);
         return of(null);
       })
     );
+  }
+  
+  // Helper to fetch FILE field directly
+  private fetchFileFieldDirectly(attachId: string, record: any): Observable<any> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    return new Observable(observer => {
+      // Direct FILE field access: /tables/{table}/files/{recordId}/{fieldName}
+      fetch(`${API_BASE_URL}/tables/Attach/files/${attachId}/Attachment`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          return response.blob();
+        } else {
+          throw new Error('FILE field fetch failed');
+        }
+      })
+      .then(blob => {
+        // Convert blob to base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          record.Attachment = reader.result as string;
+          console.log('✅ FILE field converted to base64');
+          observer.next(record);
+          observer.complete();
+        };
+        reader.onerror = () => {
+          console.error('Failed to read blob');
+          record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+          observer.next(record);
+          observer.complete();
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(error => {
+        console.error('❌ Direct FILE field fetch failed:', error);
+        record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+        observer.next(record);
+        observer.complete();
+      });
+    });
+  }
+  
+  // Helper to create placeholder image
+  private createPlaceholderImage(title: string, filename: string): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 300;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0, 0, 400, 300);
+      ctx.fillStyle = '#333';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(title || 'Document', 200, 140);
+      ctx.fillText(filename || 'No filename', 200, 170);
+      ctx.font = '12px Arial';
+      ctx.fillText('(Preview not available)', 200, 200);
+    }
+    return canvas.toDataURL();
   }
 
   private getMimeTypeFromFilename(filename: string): string {
