@@ -247,6 +247,20 @@ export class ProjectDetailPage implements OnInit {
     return this.selectedServices.some(s => s.offersId === offersId);
   }
 
+  serviceHasDocuments(offersId: string): boolean {
+    // Check if any service instance of this offer has uploaded documents
+    const services = this.selectedServices.filter(s => s.offersId === offersId);
+    for (const service of services) {
+      // Check if this service has any uploaded attachments
+      const hasAttachment = this.existingAttachments.some(a => 
+        a.ServiceID === service.serviceId || 
+        (a.TypeID === parseInt(service.typeId) && a.ProjectID === parseInt(this.projectId))
+      );
+      if (hasAttachment) return true;
+    }
+    return false;
+  }
+
   async toggleService(event: any, offer: any) {
     console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });
     const isChecked = event.detail.checked;

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
-import { map, tap, catchError } from 'rxjs/operators';
+import { Observable, BehaviorSubject, throwError, from } from 'rxjs';
+import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface CaspioToken {
@@ -459,9 +459,9 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file - Method 2: Two-step with base64
+  // Create attachment with file - Method 2: Two-step upload (EXACTLY as in test HTML)
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
-    console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file (Method 2):', {
+    console.log('🔍 [CaspioService.createAttachmentWithFile] Method 2: Two-step upload:', {
       projectId,
       typeId,
       title,
@@ -470,60 +470,128 @@ export class CaspioService {
       fileType: file.type
     });
 
-    // Convert file to base64
-    return new Observable(observer => {
-      const reader = new FileReader();
-      
-      reader.onload = () => {
-        const base64String = reader.result as string;
-        const base64Data = base64String.split(',')[1]; // Remove data:type;base64, prefix
+    // Step 1: Create record with ONLY these fields (no Attachment)
+    const recordData = {
+      ProjectID: projectId,
+      TypeID: typeId,
+      Title: title,
+      Notes: notes || '',
+      Link: file.name
+    };
+    
+    console.log('📤 Step 1: Creating record with ProjectID, TypeID, Title, Notes, Link...');
+    console.log('Sending JSON:', JSON.stringify(recordData));
+    
+    // First create the record
+    return from(
+      fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthHeader().Authorization}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      })
+    ).pipe(
+      switchMap(async createResponse => {
+        const createResponseText = await createResponse.text();
+        console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
         
-        console.log('📦 File converted to base64, length:', base64Data.length);
-        
-        // Create record with base64 attachment in a single step
-        const recordData = {
-          ProjectID: projectId,
-          TypeID: typeId,
-          Title: title,
-          Notes: notes || '',
-          Link: file.name,
-          Attachment: base64Data
-        };
-        
-        console.log('📤 Sending record with base64 attachment to Caspio...');
-        
-        this.post<any>('/tables/Attach/records', recordData).pipe(
-          tap(response => {
-            console.log('✅ Attachment created with base64 file:', response);
-          }),
-          catchError(error => {
-            console.error('❌ Failed to create attachment with base64:', error);
-            console.error('Error details:', {
-              status: error.status,
-              message: error.message,
-              error: error.error
-            });
-            return throwError(() => error);
-          })
-        ).subscribe({
-          next: (response) => {
-            observer.next(response);
-            observer.complete();
-          },
-          error: (error) => {
-            observer.error(error);
+        let createResult: any;
+        if (createResponseText.length > 0) {
+          try {
+            createResult = JSON.parse(createResponseText);
+          } catch (e) {
+            throw new Error('Failed to parse create response: ' + createResponseText);
           }
+        } else {
+          // Empty response might mean success, query for the last record
+          console.log('Empty response from create. Querying for last record...');
+          const queryResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.orderBy=AttachID%20DESC&q.limit=1`, {
+            headers: {
+              'Authorization': `Bearer ${this.getAuthHeader().Authorization}`
+            }
+          });
+          const queryResult = await queryResponse.json();
+          if (queryResult.Result && queryResult.Result.length > 0) {
+            createResult = queryResult.Result[0];
+            console.log(`Found last record: AttachID=${createResult.AttachID}`);
+          } else {
+            throw new Error('Failed to create record and could not find it');
+          }
+        }
+        
+        if (!createResponse.ok && !createResult) {
+          throw new Error('Failed to create record: ' + createResponseText);
+        }
+        
+        const attachId = createResult.AttachID;
+        console.log(`✅ Step 1 complete. AttachID: ${attachId}`);
+        
+        // Step 2: Try different approaches to upload the file
+        console.log('Step 2: Uploading file to Attachment field...');
+        
+        // Try approach 3: JSON with base64 (this is what worked in your test)
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64 = (reader.result as string).split(',')[1];
+            console.log(`File converted to base64, length: ${base64.length}`);
+            
+            const updateBody = JSON.stringify({ Attachment: base64 });
+            
+            console.log('Trying approach: JSON with base64');
+            const putResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${this.getAuthHeader().Authorization}`,
+                'Content-Type': 'application/json'
+              },
+              body: updateBody
+            });
+            
+            const responseText = await putResponse.text();
+            console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
+            
+            // Handle empty response (204 No Content is success)
+            if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
+              console.log('✅ File upload successful with: JSON with base64');
+              resolve(createResult);
+            } else if (responseText.length > 0) {
+              try {
+                const uploadResult = JSON.parse(responseText);
+                if (putResponse.ok) {
+                  console.log('✅ File upload successful with: JSON with base64');
+                  resolve(createResult);
+                } else {
+                  console.error(`Failed with JSON with base64: ${putResponse.status} - ${responseText}`);
+                  reject(new Error(`Upload failed: ${responseText}`));
+                }
+              } catch (e) {
+                if (putResponse.ok) {
+                  resolve(createResult);
+                } else {
+                  reject(new Error(`Upload failed: ${responseText}`));
+                }
+              }
+            } else {
+              reject(new Error('Upload failed with empty response'));
+            }
+          };
+          
+          reader.onerror = (error) => {
+            console.error('Failed to read file:', error);
+            reject(error);
+          };
+          
+          reader.readAsDataURL(file);
         });
-      };
-      
-      reader.onerror = (error) => {
-        console.error('❌ Failed to read file:', error);
-        observer.error(error);
-      };
-      
-      // Read the file as base64
-      reader.readAsDataURL(file);
-    });
+      }),
+      catchError(error => {
+        console.error('❌ Failed in createAttachmentWithFile:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {

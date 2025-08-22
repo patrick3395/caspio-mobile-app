@@ -69,13 +69,21 @@
       
       <!-- Service checkboxes -->
       <div *ngIf="!loadingServices" class="services-grid">
-        <div *ngFor="let offer of availableOffers" class="service-item">
+        <div *ngFor="let offer of availableOffers" 
+             class="service-item"
+             [class.has-documents]="serviceHasDocuments(offer.OffersID)">
           <ion-checkbox 
             [checked]="isServiceSelected(offer.OffersID)"
             (ionChange)="toggleService($event, offer)"
             [disabled]="updatingServices">
           </ion-checkbox>
-          <label (click)="toggleServiceByLabel(offer)">{{ offer.TypeName || offer.Service_Name || offer.Description }}</label>
+          <label (click)="toggleServiceByLabel(offer)">
+            {{ offer.TypeName || offer.Service_Name || offer.Description }}
+            <ion-icon *ngIf="serviceHasDocuments(offer.OffersID)" 
+                      name="checkmark-circle" 
+                      class="service-doc-indicator"
+                      color="success"></ion-icon>
+          </label>
         </div>
       </div>
       
@@ -178,10 +186,23 @@
                   <ion-icon *ngIf="doc.uploaded" name="checkmark-circle" class="upload-check"></ion-icon>
                   {{ doc.title }}
                 </span>
-                <!-- Show Link field (filename) if document is uploaded -->
-                <div *ngIf="doc.uploaded && doc.linkName" class="doc-link-name">
-                  <ion-icon name="attach-outline"></ion-icon>
-                  {{ doc.linkName }}
+                <!-- Show uploaded document details -->
+                <div *ngIf="doc.uploaded" class="uploaded-doc-info">
+                  <div class="doc-link-name">
+                    <ion-icon name="document-attach-outline"></ion-icon>
+                    {{ doc.linkName || doc.filename }}
+                  </div>
+                  <div class="doc-quick-actions">
+                    <ion-button size="small" fill="clear" color="primary" (click)="viewDocument(doc)">
+                      <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                    </ion-button>
+                    <ion-button size="small" fill="clear" color="warning" (click)="replaceDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                      Replace
+                    </ion-button>
+                    <ion-button size="small" fill="clear" color="success" (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                      Add Another
+                    </ion-button>
+                  </div>
                 </div>
                 <div *ngIf="!doc.required && !doc.uploaded" class="doc-subtitle">
                   <a (click)="removeOptionalDocument(serviceDoc.serviceId, doc)"
