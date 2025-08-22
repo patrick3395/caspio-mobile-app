@@ -96,29 +96,30 @@
             <div class="col-date col-date-header">Date</div>
             <div class="col-actions">Actions</div>
           </div>
-          <div *ngFor="let service of selectedServices" class="table-row">
-            <div class="col-service">
-              <span>{{ service.typeName }}</span>
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
-                #{{ getServiceInstanceNumber(service) }}
-              </span>
-            </div>
-            <div class="col-date">
-              <input 
-                type="date" 
-                class="date-input"
-                [value]="formatDateForInput(service.dateOfInspection)"
-                (change)="updateServiceDateFromInput(service, $event)"
-                [disabled]="updatingServices">
-              <span *ngIf="service.saving" class="saving-indicator">
-                <ion-spinner name="dots"></ion-spinner>
-              </span>
-              <span *ngIf="service.saved" class="saved-indicator">
-                <ion-icon name="checkmark-circle" color="success"></ion-icon>
-              </span>
-            </div>
-            <div class="col-actions">
-              <ion-button 
+          <div *ngFor="let service of selectedServices" class="service-row-container">
+            <div class="table-row">
+              <div class="col-service">
+                <span>{{ service.typeName }}</span>
+                <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+                  #{{ getServiceInstanceNumber(service) }}
+                </span>
+              </div>
+              <div class="col-date">
+                <input 
+                  type="date" 
+                  class="date-input"
+                  [value]="formatDateForInput(service.dateOfInspection)"
+                  (change)="updateServiceDateFromInput(service, $event)"
+                  [disabled]="updatingServices">
+                <span *ngIf="service.saving" class="saving-indicator">
+                  <ion-spinner name="dots"></ion-spinner>
+                </span>
+                <span *ngIf="service.saved" class="saved-indicator">
+                  <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                </span>
+              </div>
+              <div class="col-actions">
+                <ion-button 
                 size="small" 
                 fill="clear" 
                 color="danger"
@@ -136,6 +137,19 @@
               </ion-button>
             </div>
           </div>
+          <!-- Price line under service -->
+          <div class="service-price-row">
+            <div class="price-divider"></div>
+            <div class="service-price">
+              ${{ getServicePrice(service) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Total Sum Row -->
+        <div class="services-total-row">
+          <div class="total-label">Total:</div>
+          <div class="total-amount">${{ calculateServicesTotal() | number:'1.2-2' }}</div>
         </div>
       </div>
     </div>

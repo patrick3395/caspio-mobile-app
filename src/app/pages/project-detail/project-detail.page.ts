@@ -261,6 +261,23 @@ export class ProjectDetailPage implements OnInit {
     return false;
   }
 
+  getServicePrice(service: ServiceSelection): number {
+    // Find the matching offer to get the price
+    const offer = this.availableOffers.find(o => o.OffersID === service.offersId);
+    if (offer && offer.ServiceFee) {
+      return parseFloat(offer.ServiceFee) || 0;
+    }
+    return 0;
+  }
+
+  calculateServicesTotal(): number {
+    let total = 0;
+    for (const service of this.selectedServices) {
+      total += this.getServicePrice(service);
+    }
+    return total;
+  }
+
   async toggleService(event: any, offer: any) {
     console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });
     const isChecked = event.detail.checked;
