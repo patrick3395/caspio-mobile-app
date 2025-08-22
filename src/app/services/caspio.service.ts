@@ -528,64 +528,102 @@ export class CaspioService {
         const attachId = createResult.AttachID;
         console.log(`✅ Step 1 complete. AttachID: ${attachId}`);
         
-        // Step 2: Try different approaches to upload the file
+        // Step 2: Upload file to Attachment field
         console.log('Step 2: Uploading file to Attachment field...');
         
-        // Try approach 3: JSON with base64 (this is what worked in your test)
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const base64 = (reader.result as string).split(',')[1];
-            console.log(`File converted to base64, length: ${base64.length}`);
-            
-            const updateBody = JSON.stringify({ Attachment: base64 });
-            
-            console.log('Trying approach: JSON with base64');
-            const putResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${this.tokenSubject.value}`,
-                'Content-Type': 'application/json'
-              },
-              body: updateBody
-            });
-            
-            const responseText = await putResponse.text();
-            console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
-            
-            // Handle empty response (204 No Content is success)
-            if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
-              console.log('✅ File upload successful with: JSON with base64');
-              resolve(createResult);
-            } else if (responseText.length > 0) {
-              try {
-                const uploadResult = JSON.parse(responseText);
-                if (putResponse.ok) {
-                  console.log('✅ File upload successful with: JSON with base64');
-                  resolve(createResult);
-                } else {
-                  console.error(`Failed with JSON with base64: ${putResponse.status} - ${responseText}`);
-                  reject(new Error(`Upload failed: ${responseText}`));
-                }
-              } catch (e) {
-                if (putResponse.ok) {
-                  resolve(createResult);
-                } else {
-                  reject(new Error(`Upload failed: ${responseText}`));
-                }
+        // Try different approaches for file upload (EXACTLY like HTML test)
+        const approaches = [
+          {
+            name: 'FormData with file only',
+            buildBody: () => {
+              const fd = new FormData();
+              fd.append('Attachment', file, file.name);
+              return Promise.resolve(fd);
+            },
+            headers: {}
+          },
+          {
+            name: 'FormData with all fields',
+            buildBody: () => {
+              const fd = new FormData();
+              fd.append('ProjectID', projectId.toString());
+              fd.append('TypeID', typeId.toString());
+              fd.append('Title', title);
+              fd.append('Notes', notes || '');
+              fd.append('Link', file.name);
+              fd.append('Attachment', file, file.name);
+              return Promise.resolve(fd);
+            },
+            headers: {}
+          },
+          {
+            name: 'JSON with base64',
+            buildBody: () => {
+              return new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                  const base64 = (e.target?.result as string).split(',')[1];
+                  resolve(JSON.stringify({ Attachment: base64 }));
+                };
+                reader.readAsDataURL(file);
+              });
+            },
+            headers: { 'Content-Type': 'application/json' }
+          }
+        ];
+        
+        let uploadResult = null;
+        let successMethod = null;
+        
+        // Try each approach until one succeeds
+        for (const approach of approaches) {
+          console.log(`Trying approach: ${approach.name}`);
+          
+          const body = await approach.buildBody();
+          
+          // Try PUT to update the record
+          const putResponse = await fetch(`${environment.caspio.apiBaseUrl}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${this.tokenSubject.value}`,
+              ...approach.headers
+            },
+            body: body as any
+          });
+          
+          const responseText = await putResponse.text();
+          console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
+          
+          // Handle empty response (204 No Content is success)
+          if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
+            uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
+            successMethod = approach.name;
+            console.log(`✅ File upload successful with: ${approach.name}`);
+            break;
+          } else if (responseText.length > 0) {
+            try {
+              uploadResult = JSON.parse(responseText);
+              if (putResponse.ok) {
+                successMethod = approach.name;
+                console.log(`✅ File upload successful with: ${approach.name}`);
+                break;
               }
-            } else {
-              reject(new Error('Upload failed with empty response'));
+            } catch (e) {
+              uploadResult = { response: responseText };
             }
-          };
-          
-          reader.onerror = (error) => {
-            console.error('Failed to read file:', error);
-            reject(error);
-          };
-          
-          reader.readAsDataURL(file);
-        });
+            
+            if (!putResponse.ok) {
+              console.log(`❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`);
+            }
+          }
+        }
+        
+        if (successMethod) {
+          console.log(`✅ Upload completed successfully using: ${successMethod}`);
+          return createResult;
+        } else {
+          throw new Error('All upload approaches failed');
+        }
       }),
       catchError(error => {
         console.error('❌ Failed in createAttachmentWithFile:', error);

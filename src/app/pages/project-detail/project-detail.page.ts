@@ -668,7 +668,15 @@ export class ProjectDetailPage implements OnInit {
         ).toPromise();
         
         console.log('📋 Create attachment with file response:', response);
-        await this.showToast('File uploaded successfully', 'success');
+        
+        // Verify the response has an AttachID
+        if (response && response.AttachID) {
+          console.log('✅ Attachment created successfully with AttachID:', response.AttachID);
+          await this.showToast('File uploaded successfully', 'success');
+        } else {
+          console.warn('⚠️ Response received but no AttachID found:', response);
+          await this.showToast('File uploaded but verification pending', 'warning');
+        }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
         loading = await this.loadingController.create({
