@@ -254,7 +254,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;height:28px;--border-radius:4px}
 .uploaded-actions{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}}
 &.uploaded .doc-title span:first-child{color:#28a745;font-weight:500}}
-.doc-header{display:grid;grid-template-columns:30% 40% 30%;background:$light;font-weight:600;font-size:14px;border-bottom:2px solid $border;
+.doc-header{display:grid;grid-template-columns:30% 40% 30%;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
 >div{padding:12px}
 >div:nth-child(1){padding-left:12px}
 >div:nth-child(3){text-align:center}}
