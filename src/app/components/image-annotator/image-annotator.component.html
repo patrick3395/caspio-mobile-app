@@ -1,0 +1,189 @@
+<div class="annotator-container">
+  <!-- Header Toolbar -->
+  <div class="annotator-header">
+    <div class="header-title">Annotate Image</div>
+    <div class="header-actions">
+      <button class="icon-btn" (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tools Panel -->
+  <div class="tools-panel">
+    <!-- Selection Tools -->
+    <div class="tool-group">
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'select'"
+        (click)="selectTool('select')"
+        title="Select">
+        <ion-icon name="hand-left-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'arrow'"
+        (click)="selectTool('arrow')"
+        title="Arrow">
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'rectangle'"
+        (click)="selectTool('rectangle')"
+        title="Rectangle">
+        <ion-icon name="square-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'circle'"
+        (click)="selectTool('circle')"
+        title="Circle">
+        <ion-icon name="ellipse-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'text'"
+        (click)="selectTool('text')"
+        title="Text">
+        <ion-icon name="text-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        [class.active]="currentTool === 'freehand'"
+        (click)="selectTool('freehand')"
+        title="Freehand">
+        <ion-icon name="pencil-outline"></ion-icon>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Style Controls -->
+    <div class="tool-group">
+      <div class="color-picker-wrapper">
+        <input 
+          type="color" 
+          [(ngModel)]="currentColor"
+          class="color-picker"
+          title="Color">
+        <span class="color-label">Color</span>
+      </div>
+      
+      <div class="slider-wrapper">
+        <ion-icon name="remove"></ion-icon>
+        <input 
+          type="range" 
+          min="1" 
+          max="10" 
+          [(ngModel)]="strokeWidth"
+          class="width-slider"
+          title="Line Width">
+        <ion-icon name="add"></ion-icon>
+        <span class="slider-value">{{ strokeWidth }}</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Actions -->
+    <div class="tool-group">
+      <button 
+        class="tool-btn"
+        (click)="deleteSelected()"
+        [disabled]="!selectedAnnotation"
+        title="Delete Selected">
+        <ion-icon name="trash-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        (click)="undo()"
+        [disabled]="annotations.length === 0"
+        title="Undo">
+        <ion-icon name="arrow-undo-outline"></ion-icon>
+      </button>
+      
+      <button 
+        class="tool-btn"
+        (click)="clearAll()"
+        [disabled]="annotations.length === 0"
+        title="Clear All">
+        <ion-icon name="close-circle-outline"></ion-icon>
+      </button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <!-- Save Actions -->
+    <div class="tool-group">
+      <button 
+        class="save-btn"
+        (click)="save()">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        Save Annotations
+      </button>
+    </div>
+  </div>
+
+  <!-- Canvas Area -->
+  <div class="canvas-area">
+    <div class="image-container">
+      <img 
+        #imageElement
+        [src]="imageUrl" 
+        (load)="onImageLoad()"
+        class="base-image">
+      
+      <!-- SVG Overlay for Annotations -->
+      <svg 
+        #annotationSvg
+        class="annotation-layer"
+        [attr.viewBox]="'0 0 ' + imageWidth + ' ' + imageHeight"
+        [style.width.px]="imageWidth * scale"
+        [style.height.px]="imageHeight * scale"
+        (mousedown)="onPointerDown($event)"
+        (mousemove)="onPointerMove($event)"
+        (mouseup)="onPointerUp($event)"
+        (mouseleave)="onPointerUp($event)"
+        (touchstart)="onPointerDown($event)"
+        (touchmove)="onPointerMove($event)"
+        (touchend)="onPointerUp($event)">
+      </svg>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-info">
+      <span class="status-item">
+        <ion-icon name="layers-outline"></ion-icon>
+        {{ annotations.length }} annotations
+      </span>
+      <span class="status-item" *ngIf="selectedAnnotation">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        1 selected
+      </span>
+      <span class="status-item">
+        Tool: {{ currentTool }}
+      </span>
+    </div>
+    
+    <div class="status-tips">
+      <span *ngIf="currentTool === 'select'">
+        Click on annotations to select them
+      </span>
+      <span *ngIf="currentTool === 'text'">
+        Click to add text
+      </span>
+      <span *ngIf="currentTool !== 'select' && currentTool !== 'text'">
+        Click and drag to draw
+      </span>
+    </div>
+  </div>
+</div>

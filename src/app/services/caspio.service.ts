@@ -1153,6 +1153,82 @@ export class CaspioService {
     }
   }
   
+  // Save annotation data as JSON in Notes field or separate table
+  async saveAnnotationData(attachId: string, annotationData: any): Promise<boolean> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      console.log('💾 Saving annotation data for AttachID:', attachId);
+      
+      // Store annotations as JSON in the Notes field of Attach table
+      const updateData = {
+        Notes: JSON.stringify(annotationData)
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to save annotation data:', response.status);
+        return false;
+      }
+      
+      console.log('✅ Annotation data saved successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error saving annotation data:', error);
+      return false;
+    }
+  }
+  
+  // Retrieve annotation data from Notes field
+  async getAnnotationData(attachId: string): Promise<any | null> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to get annotation data:', response.status);
+        return null;
+      }
+      
+      const data = await response.json();
+      if (data.Result && data.Result.length > 0) {
+        const notes = data.Result[0].Notes;
+        if (notes) {
+          try {
+            return JSON.parse(notes);
+          } catch (e) {
+            console.log('Notes field does not contain valid JSON');
+            return null;
+          }
+        }
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('❌ Error getting annotation data:', error);
+      return null;
+    }
+  }
+  
   // Helper to get record and create placeholder
   private getRecordAndCreatePlaceholder(attachId: string, observer: any): void {
     const accessToken = this.tokenSubject.value;
