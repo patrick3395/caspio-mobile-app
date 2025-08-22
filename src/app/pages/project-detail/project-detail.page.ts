@@ -573,29 +573,8 @@ export class ProjectDetailPage implements OnInit {
           t.TypeID === parseInt(serviceDoc.typeId) && 
           t.Title === doc.title
         );
-        // Also check if it's not a default document
-        const serviceDocMap: any = {
-          'home inspection': ['Inspection Report', 'Client Agreement', 'Photos'],
-          'pool/spa inspection': ['Pool/Spa Report', 'Equipment Photos'],
-          'termite inspection': ['WDI Report', 'Treatment Recommendations'],
-          'sewer scope': ['Sewer Scope Report', 'Video Link'],
-          'foundation survey': ['Foundation Report', 'Elevation Certificate'],
-          'mold inspection': ['Mold Report', 'Lab Results'],
-          'radon testing': ['Radon Report', 'Test Results'],
-          'cubicasa': ['Floor Plan', '3D Model', 'Measurements'],
-          'other': ['Service Report', 'Documentation']
-        };
-        const defaultDocs = ['Service Report', 'Supporting Documentation'];
-        let isDefault = defaultDocs.includes(doc.title);
-        if (!isDefault) {
-          for (const docs of Object.values(serviceDocMap)) {
-            if ((docs as string[]).includes(doc.title)) {
-              isDefault = true;
-              break;
-            }
-          }
-        }
-        return !isFromTemplate && !isDefault;  // Keep only truly manual documents
+        // Only documents not from templates are considered manual
+        return !isFromTemplate;
       });
       if (manualDocs.length > 0) {
         console.log(`📝 Preserving manual docs for ${serviceDoc.serviceName}:`, manualDocs.map(d => d.title));
@@ -621,44 +600,11 @@ export class ProjectDetailPage implements OnInit {
       
       const documents: DocumentItem[] = [];
       
-      // Map service types to their specific documents
-      const serviceDocMap: any = {
-        'home inspection': ['Inspection Report', 'Client Agreement', 'Photos'],
-        'pool/spa inspection': ['Pool/Spa Report', 'Equipment Photos'],
-        'termite inspection': ['WDI Report', 'Treatment Recommendations'],
-        'sewer scope': ['Sewer Scope Report', 'Video Link'],
-        'foundation survey': ['Foundation Report', 'Elevation Certificate'],
-        'mold inspection': ['Mold Report', 'Lab Results'],
-        'radon testing': ['Radon Report', 'Test Results'],
-        'cubicasa': ['Floor Plan', '3D Model', 'Measurements'],
-        'other': ['Service Report', 'Documentation']
-      };
+      // Documents come ONLY from the Templates table lookup
+      console.log(`🔍 Loading documents from Templates table for service: "${service.typeName}"`);
+      console.log(`  - Templates found: ${requiredTemplates.length}`);
       
-      // Find matching document set based on service name
-      const serviceName = service.typeName.toLowerCase().trim();
-      console.log(`🔍 Looking up documents for service: "${serviceName}"`);
-      let docTitles = serviceDocMap[serviceName];
-      
-      // If no exact match, check for partial matches
-      if (!docTitles) {
-        for (const key in serviceDocMap) {
-          if (serviceName.includes(key) || key.includes(serviceName)) {
-            console.log(`  ✓ Partial match found with key: "${key}"`);
-            docTitles = serviceDocMap[key];
-            break;
-          }
-        }
-      }
-      
-      // Default to generic documents if no match found
-      if (!docTitles) {
-        console.log(`  ⚠️ No match found, using default documents`);
-        docTitles = ['Service Report', 'Supporting Documentation'];
-      } else {
-        console.log(`  ✓ Using documents:`, docTitles);
-      }
-      
-      // Add documents based on templates or defaults
+      // Add documents ONLY from templates in the database
       if (requiredTemplates.length > 0) {
         // Use actual templates from database
         for (const template of requiredTemplates) {
@@ -688,35 +634,8 @@ export class ProjectDetailPage implements OnInit {
           
           documents.push(docItem);
         }
-      } else {
-        // Use service-specific defaults
-        for (let i = 0; i < docTitles.length; i++) {
-          // Find ALL attachments for this type and title (for multiple uploads)
-          const attachments = this.existingAttachments.filter(a => 
-            a.TypeID === parseInt(service.typeId) && 
-            a.Title === docTitles[i]
-          );
-          
-          // Create the main document entry
-          const docItem: DocumentItem = {
-            attachId: attachments[0]?.AttachID,  // First attachment ID for main actions
-            title: docTitles[i],
-            required: i === 0, // First document is required, others optional
-            uploaded: attachments.length > 0,
-            filename: attachments[0]?.Link,
-            linkName: attachments[0]?.Link,
-            attachmentUrl: attachments[0]?.Attachment,
-            // Store all attachments for display
-            additionalFiles: attachments.slice(1).map(a => ({
-              attachId: a.AttachID,
-              linkName: a.Link,
-              attachmentUrl: a.Attachment
-            }))
-          } as any;
-          
-          documents.push(docItem);
-        }
       }
+      // NO FALLBACK - only use templates from database
       
       // Create the service document group
       const serviceDocGroup = {
@@ -731,7 +650,7 @@ export class ProjectDetailPage implements OnInit {
         serviceId: serviceDocGroup.serviceId,
         documentCount: documents.length,
         documentTitles: documents.map(d => d.title),
-        docTitlesUsed: docTitles
+        fromTemplates: requiredTemplates.length > 0
       });
       
       // Add back any manually added documents AND check for their attachments
@@ -784,7 +703,7 @@ export class ProjectDetailPage implements OnInit {
         if (a.TypeID !== parseInt(service.typeId)) return false;
         
         // Check if this title is already accounted for in the documents
-        // This prevents duplicates when a document like "Supporting Documentation" is uploaded
+        // This prevents duplicates when a document is uploaded
         if (accountedTitles.has(a.Title)) {
           // Already have a document with this title, don't add as orphan
           return false;
@@ -1322,7 +1241,6 @@ export class ProjectDetailPage implements OnInit {
       // Default optional documents
       this.optionalDocumentsList = [
         { title: 'Additional Photos', required: false },
-        { title: 'Supporting Documentation', required: false },
         { title: 'Client Notes', required: false },
         { title: 'Supplemental Report', required: false }
       ];

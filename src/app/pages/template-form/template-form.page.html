@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/active-projects"></ion-back-button>
     </ion-buttons>
-    <ion-title>Template Form</ion-title>
+    <ion-title>Engineer's Foundation Evaluation</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -34,10 +34,10 @@
         <div class="section-header project-header" (click)="toggleSection('project')">
           <div class="section-info">
             <div class="section-title">
-              <span class="section-icon">🏠</span>
+              <ion-icon name="home-outline"></ion-icon>
               Project Information
             </div>
-            <div class="section-description">Core property and inspection details</div>
+            <div class="section-description">Property details</div>
           </div>
           <div class="section-status">
             <span class="completion-indicator" [class.complete]="getProjectCompletion() === 100">
