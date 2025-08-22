@@ -765,7 +765,13 @@ export class CaspioService {
         const fetchData = await fetchResponse.json();
         if (fetchData.Result && fetchData.Result.length > 0) {
           const updatedRecord = fetchData.Result[0];
-          console.log('✅ Retrieved updated record with file path:', updatedRecord.Attachment);
+          console.log('✅ Retrieved updated record:');
+          console.log('  - AttachID:', updatedRecord.AttachID);
+          console.log('  - Title:', updatedRecord.Title);
+          console.log('  - Link:', updatedRecord.Link);
+          console.log('  - Attachment field value:', updatedRecord.Attachment);
+          console.log('  - Attachment field type:', typeof updatedRecord.Attachment);
+          console.log('  - Full record:', JSON.stringify(updatedRecord));
           return updatedRecord;
         }
       }
@@ -985,10 +991,29 @@ export class CaspioService {
           });
           
           // Check if there's a file path in the Attachment field
+          console.log('🔍 Checking Attachment field:');
+          console.log('  - Value:', record.Attachment);
+          console.log('  - Type:', typeof record.Attachment);
+          console.log('  - Length:', record.Attachment?.length);
+          
           if (record.Attachment && typeof record.Attachment === 'string' && record.Attachment.length > 0) {
+            // The Attachment field might contain:
+            // 1. Just a filename: "IMG_7755.png"
+            // 2. A full path: "/IMG_7755.png" or "/Inspections/IMG_7755.png"
+            // 3. Or something else
+            let filePath = record.Attachment;
+            
+            // If it's just a filename, try adding a leading slash
+            if (!filePath.startsWith('/')) {
+              // Try with just a leading slash first
+              filePath = '/' + filePath;
+            }
+            
             // Use the /files/path endpoint EXACTLY like the working example
-            const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(record.Attachment)}`;
-            console.log('📥 Fetching file from path:', fileUrl);
+            const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
+            console.log('📥 Fetching file from path:');
+            console.log('  - File path:', filePath);
+            console.log('  - Full URL:', fileUrl);
             
             try {
               const fileResponse = await fetch(fileUrl, {
@@ -1002,6 +1027,8 @@ export class CaspioService {
               console.log('📥 File fetch response status:', fileResponse.status);
               
               if (!fileResponse.ok) {
+                const errorBody = await fileResponse.text();
+                console.error('  - Error response body:', errorBody);
                 throw new Error(`File fetch failed: ${fileResponse.status} ${fileResponse.statusText}`);
               }
               
@@ -1020,11 +1047,41 @@ export class CaspioService {
               
             } catch (error) {
               console.error('❌ File fetch failed:', error);
+              console.error('  - Error details:', error);
               
-              // Try alternate method if first fails
+              // Try with /Inspections/ prefix if the simple path failed
+              if (!filePath.includes('/Inspections/')) {
+                try {
+                  const inspectionsPath = '/Inspections' + (filePath.startsWith('/') ? filePath : '/' + filePath);
+                  const inspectionsUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(inspectionsPath)}`;
+                  console.log('🔄 Trying with /Inspections prefix:', inspectionsPath);
+                  
+                  const inspResponse = await fetch(inspectionsUrl, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                      'Accept': 'application/octet-stream'
+                    }
+                  });
+                  
+                  if (inspResponse.ok) {
+                    const blob = await inspResponse.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    console.log('✅ Success with /Inspections prefix');
+                    record.Attachment = objectUrl;
+                    observer.next(record);
+                    observer.complete();
+                    return;
+                  }
+                } catch (inspError) {
+                  console.error('❌ /Inspections prefix also failed:', inspError);
+                }
+              }
+              
+              // Try alternate method if path-based methods fail
               try {
                 const altUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
-                console.log('🔄 Trying alternate method:', altUrl);
+                console.log('🔄 Trying table-based file endpoint:', altUrl);
                 
                 const altResponse = await fetch(altUrl, {
                   method: 'GET',
