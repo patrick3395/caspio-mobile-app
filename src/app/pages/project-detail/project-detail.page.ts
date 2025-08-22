@@ -277,6 +277,20 @@ export class ProjectDetailPage implements OnInit {
     }
     return total;
   }
+  
+  // Check if all required documents are uploaded for a service
+  areAllRequiredDocsUploaded(serviceDoc: any): boolean {
+    if (!serviceDoc || !serviceDoc.documents) return false;
+    
+    // Get only required documents
+    const requiredDocs = serviceDoc.documents.filter((doc: any) => doc.required);
+    
+    // If no required docs, return false (don't color green)
+    if (requiredDocs.length === 0) return false;
+    
+    // Check if ALL required documents are uploaded
+    return requiredDocs.every((doc: any) => doc.uploaded === true);
+  }
 
   async toggleService(event: any, offer: any) {
     console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });

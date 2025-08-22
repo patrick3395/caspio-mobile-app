@@ -191,7 +191,7 @@
                [class.uploaded]="doc.uploaded"
                [class.first-row]="isFirst">
             <div class="doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + (serviceDoc.documents.length + 1)">
-              <div>
+              <div [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
                 {{ serviceDoc.serviceName }}
                 <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
                   #{{ serviceDoc.instanceNumber }}
