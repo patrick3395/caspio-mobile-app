@@ -459,7 +459,7 @@ export class CaspioService {
     );
   }
 
-  // Create attachment with file - Two-step process: create record, then upload file
+  // Create attachment with file - Single step with FormData
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
     console.log('🔍 [CaspioService.createAttachmentWithFile] Creating attachment with file:', {
       projectId,
@@ -470,67 +470,32 @@ export class CaspioService {
       fileType: file.type
     });
 
-    return new Observable(observer => {
-      // Step 1: Create the attachment record WITHOUT the file content
-      const attachData = {
-        ProjectID: projectId,
-        TypeID: typeId,
-        Title: title,
-        Notes: notes || '',
-        Link: file.name  // Store filename in Link field
-        // Do NOT include Attachment field here - will upload file separately
-      };
-
-      console.log('📝 Step 1: Creating attachment record:', attachData);
-      
-      this.post<any>('/tables/Attach/records', attachData).subscribe({
-        next: (createResponse) => {
-          console.log('✅ Step 1 Success: Record created:', createResponse);
-          
-          // Extract the AttachID from the response
-          const attachId = createResponse.AttachID || createResponse.id || createResponse.PK_ID;
-          
-          if (!attachId) {
-            console.error('❌ No AttachID in response:', createResponse);
-            observer.error(new Error('Failed to get AttachID from create response'));
-            return;
-          }
-          
-          console.log('📎 Step 2: Uploading file to AttachID:', attachId);
-          
-          // Step 2: Upload the actual file using multipart/form-data
-          const formData = new FormData();
-          formData.append('Attachment', file, file.name);
-          
-          // Use PUT to update the record with the file
-          const updateUrl = `/tables/Attach/records?q.where=AttachID=${attachId}`;
-          
-          this.put<any>(updateUrl, formData).subscribe({
-            next: (uploadResponse) => {
-              console.log('✅ Step 2 Success: File uploaded:', uploadResponse);
-              // Return the original create response with AttachID
-              observer.next({ ...createResponse, fileUploaded: true });
-              observer.complete();
-            },
-            error: (uploadError) => {
-              console.error('❌ Step 2 Failed: File upload error:', uploadError);
-              // Record was created but file upload failed
-              // Still return the record info so user knows it was partially successful
-              observer.next({ 
-                ...createResponse, 
-                fileUploaded: false, 
-                uploadError: uploadError.message 
-              });
-              observer.complete();
-            }
-          });
-        },
-        error: (createError) => {
-          console.error('❌ Step 1 Failed: Record creation error:', createError);
-          observer.error(createError);
-        }
-      });
-    });
+    // Try single-step upload with FormData containing all fields
+    const formData = new FormData();
+    formData.append('ProjectID', projectId.toString());
+    formData.append('TypeID', typeId.toString());
+    formData.append('Title', title);
+    formData.append('Notes', notes || '');
+    formData.append('Link', file.name);
+    formData.append('Attachment', file, file.name);
+    
+    console.log('📦 Sending FormData with file to Caspio (single request)...');
+    
+    // Send everything in one request
+    return this.post<any>('/tables/Attach/records', formData).pipe(
+      tap(response => {
+        console.log('✅ Attachment created with file:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create attachment with file:', error);
+        console.error('Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        return throwError(() => error);
+      })
+    );
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
