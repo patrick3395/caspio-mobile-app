@@ -1,10 +1,11 @@
-import { Component, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { ModalController } from '@ionic/angular';
+import { Component, Input, OnInit, ViewChild, ElementRef, EventEmitter, Output } from '@angular/core';
+import { ModalController, LoadingController, ToastController } from '@ionic/angular';
 
 interface ImageData {
   url: string;
   title: string;
   filename: string;
+  attachId?: string;  // Add attachment ID for updating
 }
 
 interface Annotation {
@@ -39,6 +40,9 @@ export class ImageViewerComponent implements OnInit {
   @Input() images: ImageData[] = [];
   @Input() initialIndex: number = 0;
   
+  // Callback for saving annotated image
+  @Input() onSaveAnnotation?: (attachId: string, blob: Blob, filename: string) => Promise<boolean>;
+  
   currentIndex: number = 0;
   isFullscreen: boolean = false;
   imageLoading: boolean = true;
@@ -59,7 +63,11 @@ export class ImageViewerComponent implements OnInit {
   private startX: number = 0;
   private startY: number = 0;
 
-  constructor(private modalController: ModalController) {}
+  constructor(
+    private modalController: ModalController,
+    private loadingController: LoadingController,
+    private toastController: ToastController
+  ) {}
 
   ngOnInit() {
     // If images array is provided, use it
@@ -386,23 +394,70 @@ export class ImageViewerComponent implements OnInit {
   async saveAnnotatedImage() {
     if (!this.canvas || !this.imageRef) return;
     
-    // Create a temporary canvas to merge image and annotations
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d')!;
-    const img = this.imageRef.nativeElement;
+    const loading = await this.loadingController.create({
+      message: 'Saving annotated image...'
+    });
+    await loading.present();
     
-    tempCanvas.width = this.canvas.width;
-    tempCanvas.height = this.canvas.height;
-    
-    // Draw the original image
-    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-    
-    // Draw the annotations on top
-    tempCtx.drawImage(this.canvas, 0, 0);
-    
-    // Convert to blob and download
-    tempCanvas.toBlob((blob) => {
-      if (blob) {
+    try {
+      // Create a temporary canvas to merge image and annotations
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d')!;
+      const img = this.imageRef.nativeElement;
+      
+      // Use original image dimensions for quality
+      tempCanvas.width = img.naturalWidth;
+      tempCanvas.height = img.naturalHeight;
+      
+      // Draw the original image at full size
+      tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Scale and draw the annotations
+      const scaleX = img.naturalWidth / this.canvas.width;
+      const scaleY = img.naturalHeight / this.canvas.height;
+      
+      tempCtx.save();
+      tempCtx.scale(scaleX, scaleY);
+      tempCtx.drawImage(this.canvas, 0, 0);
+      tempCtx.restore();
+      
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        tempCanvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to create image blob'));
+          }
+        }, 'image/jpeg', 0.95); // Use JPEG with high quality
+      });
+      
+      // Get current image attachment ID
+      const currentImage = this.allImages[this.currentIndex];
+      
+      if (currentImage.attachId && this.onSaveAnnotation) {
+        // Upload to Caspio to replace the original
+        const success = await this.onSaveAnnotation(
+          currentImage.attachId,
+          blob,
+          currentImage.filename || 'annotated.jpg'
+        );
+        
+        if (success) {
+          // Update the current image URL with the annotated version
+          const newUrl = URL.createObjectURL(blob);
+          currentImage.url = newUrl;
+          
+          // Clear annotations and exit annotation mode
+          this.clearAnnotations();
+          this.isAnnotating = false;
+          
+          await this.showToast('Annotated image saved successfully!', 'success');
+        } else {
+          await this.showToast('Failed to save annotated image', 'danger');
+        }
+      } else {
+        // Fallback: Download locally if no Caspio integration
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -410,11 +465,27 @@ export class ImageViewerComponent implements OnInit {
         link.click();
         URL.revokeObjectURL(url);
         
-        // Clear annotations after saving
         this.clearAnnotations();
         this.isAnnotating = false;
+        
+        await this.showToast('Image downloaded locally', 'success');
       }
-    }, 'image/png');
+    } catch (error) {
+      console.error('Error saving annotated image:', error);
+      await this.showToast('Error saving image', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+  
+  private async showToast(message: string, color: string) {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'bottom',
+      color
+    });
+    await toast.present();
   }
 
   private getMimeTypeFromFilename(filename: string): string {

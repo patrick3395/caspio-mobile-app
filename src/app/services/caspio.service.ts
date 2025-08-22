@@ -1049,6 +1049,69 @@ export class CaspioService {
     });
   }
   
+  // Update an existing attachment with new image data
+  async updateAttachmentImage(attachId: string, imageBlob: Blob, filename: string): Promise<boolean> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      console.log('📝 Updating attachment image for AttachID:', attachId);
+      
+      // Step 1: Upload new file to Files API
+      const timestamp = Date.now();
+      const uniqueFilename = `annotated_${timestamp}_${filename}`;
+      const filePath = `/Inspections/${uniqueFilename}`;
+      
+      console.log('Step 1: Uploading new file to Files API...');
+      const formData = new FormData();
+      formData.append('File', imageBlob, uniqueFilename);
+      
+      const uploadResponse = await fetch(`${API_BASE_URL}/files/Inspections`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        console.error('Failed to upload file:', uploadResponse.status);
+        return false;
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ File uploaded successfully:', uploadResult);
+      
+      // Step 2: Update the Attach record with new file path
+      console.log('Step 2: Updating Attach record with new file path...');
+      const updateData = {
+        Attachment: filePath,
+        Link: uniqueFilename
+      };
+      
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!updateResponse.ok) {
+        console.error('Failed to update Attach record:', updateResponse.status);
+        return false;
+      }
+      
+      console.log('✅ Attachment updated successfully with annotated image');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error updating attachment:', error);
+      return false;
+    }
+  }
+  
   // Helper to get record and create placeholder
   private getRecordAndCreatePlaceholder(attachId: string, observer: any): void {
     const accessToken = this.tokenSubject.value;

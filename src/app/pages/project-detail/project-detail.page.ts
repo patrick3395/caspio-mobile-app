@@ -1022,12 +1022,29 @@ export class ProjectDetailPage implements OnInit {
         await loading.dismiss();
         
         if (allImages.length > 0) {
-          // Use the new multiple images mode
+          // Add attachId to each image
+          if (attachment && attachment.AttachID) {
+            allImages[0].attachId = attachment.AttachID;
+          }
+          
+          // Add attachIds for additional files
+          if (doc.additionalFiles && doc.additionalFiles.length > 0) {
+            doc.additionalFiles.forEach((addFile: any, index: number) => {
+              if (allImages[index + 1]) {
+                allImages[index + 1].attachId = addFile.attachId;
+              }
+            });
+          }
+          
+          // Use the new multiple images mode with save callback
           const modal = await this.modalController.create({
             component: ImageViewerComponent,
             componentProps: {
               images: allImages,
-              initialIndex: 0
+              initialIndex: 0,
+              onSaveAnnotation: async (attachId: string, blob: Blob, filename: string) => {
+                return await this.caspioService.updateAttachmentImage(attachId, blob, filename);
+              }
             }
           });
           await modal.present();
@@ -1108,12 +1125,29 @@ export class ProjectDetailPage implements OnInit {
         await loading.dismiss();
         
         if (allImages.length > 0) {
-          // Open viewer starting at the selected additional file
+          // Add attachId to each image
+          if (attachment && attachment.AttachID) {
+            allImages[0].attachId = attachment.AttachID;
+          }
+          
+          // Add attachIds for additional files
+          if (parentDoc.additionalFiles && parentDoc.additionalFiles.length > 0) {
+            parentDoc.additionalFiles.forEach((addFile: any, index: number) => {
+              if (allImages[index + 1]) {
+                allImages[index + 1].attachId = addFile.attachId;
+              }
+            });
+          }
+          
+          // Open viewer starting at the selected additional file with save callback
           const modal = await this.modalController.create({
             component: ImageViewerComponent,
             componentProps: {
               images: allImages,
-              initialIndex: additionalFileIndex
+              initialIndex: additionalFileIndex,
+              onSaveAnnotation: async (attachId: string, blob: Blob, filename: string) => {
+                return await this.caspioService.updateAttachmentImage(attachId, blob, filename);
+              }
             }
           });
           await modal.present();
@@ -1139,9 +1173,16 @@ export class ProjectDetailPage implements OnInit {
             const modal = await this.modalController.create({
               component: ImageViewerComponent,
               componentProps: {
-                base64Data: attachment.Attachment,
-                title: 'Additional File',
-                filename: additionalFile.linkName
+                images: [{
+                  url: attachment.Attachment,
+                  title: 'Additional File',
+                  filename: additionalFile.linkName,
+                  attachId: additionalFile.attachId
+                }],
+                initialIndex: 0,
+                onSaveAnnotation: async (attachId: string, blob: Blob, filename: string) => {
+                  return await this.caspioService.updateAttachmentImage(attachId, blob, filename);
+                }
               }
             });
             await loading.dismiss();
