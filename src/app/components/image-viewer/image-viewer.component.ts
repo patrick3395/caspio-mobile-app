@@ -1,6 +1,12 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 
+interface ImageData {
+  url: string;
+  title: string;
+  filename: string;
+}
+
 @Component({
   selector: 'app-image-viewer',
   templateUrl: './image-viewer.component.html',
@@ -8,33 +14,46 @@ import { ModalController } from '@ionic/angular';
   standalone: false
 })
 export class ImageViewerComponent implements OnInit {
+  // Legacy single image inputs (for backward compatibility)
   @Input() base64Data: string = '';
   @Input() title: string = '';
   @Input() filename: string = '';
   
-  imageDataUrl: string = '';
+  // New multiple images input
+  @Input() images: ImageData[] = [];
+  @Input() initialIndex: number = 0;
+  
+  currentIndex: number = 0;
+  isFullscreen: boolean = false;
+  private allImages: ImageData[] = [];
 
   constructor(private modalController: ModalController) {}
 
   ngOnInit() {
-    console.log('🖼️ ImageViewer initialized with:', {
-      title: this.title,
-      filename: this.filename,
-      base64DataLength: this.base64Data ? this.base64Data.length : 0,
-      base64DataStart: this.base64Data ? this.base64Data.substring(0, 50) : null
-    });
-    
-    // Convert base64 to data URL for display
-    if (this.base64Data) {
+    // If images array is provided, use it
+    if (this.images && this.images.length > 0) {
+      this.allImages = this.images;
+      this.currentIndex = this.initialIndex || 0;
+      console.log('🖼️ ImageViewer initialized with multiple images:', this.allImages.length);
+    } 
+    // Otherwise, fall back to single image mode (backward compatibility)
+    else if (this.base64Data) {
       const mimeType = this.getMimeTypeFromFilename(this.filename);
-      if (this.base64Data.includes('base64,')) {
-        this.imageDataUrl = this.base64Data;
-      } else {
-        this.imageDataUrl = `data:${mimeType};base64,${this.base64Data}`;
+      let imageUrl = this.base64Data;
+      
+      if (!this.base64Data.includes('base64,')) {
+        imageUrl = `data:${mimeType};base64,${this.base64Data}`;
       }
-      console.log('🖼️ Image data URL created, length:', this.imageDataUrl.length);
+      
+      this.allImages = [{
+        url: imageUrl,
+        title: this.title || 'Document',
+        filename: this.filename || 'document.jpg'
+      }];
+      this.currentIndex = 0;
+      console.log('🖼️ ImageViewer initialized in single image mode');
     } else {
-      console.error('❌ No base64 data provided to ImageViewer');
+      console.error('❌ No image data provided to ImageViewer');
     }
   }
 
@@ -51,14 +70,80 @@ export class ImageViewerComponent implements OnInit {
     return mimeTypes[ext || ''] || 'image/jpeg';
   }
 
+  // Navigation methods
+  previousImage() {
+    if (this.hasPrevious()) {
+      this.currentIndex--;
+    }
+  }
+
+  nextImage() {
+    if (this.hasNext()) {
+      this.currentIndex++;
+    }
+  }
+
+  selectImage(index: number) {
+    if (index >= 0 && index < this.allImages.length) {
+      this.currentIndex = index;
+    }
+  }
+
+  hasPrevious(): boolean {
+    return this.currentIndex > 0;
+  }
+
+  hasNext(): boolean {
+    return this.currentIndex < this.allImages.length - 1;
+  }
+
+  hasMultipleImages(): boolean {
+    return this.allImages.length > 1;
+  }
+
+  // Get current image data
+  getCurrentImageUrl(): string {
+    return this.allImages[this.currentIndex]?.url || '';
+  }
+
+  getCurrentTitle(): string {
+    return this.allImages[this.currentIndex]?.title || 'Document';
+  }
+
+  getCurrentFilename(): string {
+    return this.allImages[this.currentIndex]?.filename || 'document';
+  }
+
+  getAllImages(): ImageData[] {
+    return this.allImages;
+  }
+
+  // Actions
   dismiss() {
     this.modalController.dismiss();
   }
 
   downloadImage() {
-    const link = document.createElement('a');
-    link.href = this.imageDataUrl;
-    link.download = this.filename || 'document.jpg';
-    link.click();
+    const current = this.allImages[this.currentIndex];
+    if (current) {
+      const link = document.createElement('a');
+      link.href = current.url;
+      link.download = current.filename;
+      link.click();
+    }
+  }
+
+  toggleFullscreen() {
+    this.isFullscreen = !this.isFullscreen;
+    
+    // Add or remove fullscreen class to ion-content
+    const content = document.querySelector('app-image-viewer ion-content');
+    if (content) {
+      if (this.isFullscreen) {
+        content.classList.add('fullscreen-mode');
+      } else {
+        content.classList.remove('fullscreen-mode');
+      }
+    }
   }
 }

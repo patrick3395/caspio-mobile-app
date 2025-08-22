@@ -981,27 +981,57 @@ export class ProjectDetailPage implements OnInit {
     if (doc.attachId) {
       try {
         const loading = await this.loadingController.create({
-          message: 'Loading document...'
+          message: 'Loading documents...'
         });
         await loading.present();
         
-        // Get the attachment with the actual file data
+        // Collect all images for this document (main + additional files)
+        const allImages = [];
+        
+        // Get the main attachment
         const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
         
         if (attachment && attachment.Attachment) {
-          // The Attachment field should contain base64 data
+          allImages.push({
+            url: attachment.Attachment,
+            title: doc.title,
+            filename: doc.linkName || doc.filename || 'document'
+          });
+        }
+        
+        // Get additional files if any
+        if (doc.additionalFiles && doc.additionalFiles.length > 0) {
+          for (const additionalFile of doc.additionalFiles) {
+            if (additionalFile.attachId) {
+              try {
+                const addAttachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+                if (addAttachment && addAttachment.Attachment) {
+                  allImages.push({
+                    url: addAttachment.Attachment,
+                    title: `${doc.title} - Additional`,
+                    filename: additionalFile.linkName || 'additional'
+                  });
+                }
+              } catch (err) {
+                console.error('Error loading additional file:', err);
+              }
+            }
+          }
+        }
+        
+        await loading.dismiss();
+        
+        if (allImages.length > 0) {
+          // Use the new multiple images mode
           const modal = await this.modalController.create({
             component: ImageViewerComponent,
             componentProps: {
-              base64Data: attachment.Attachment,
-              title: doc.title,
-              filename: doc.linkName || doc.filename
+              images: allImages,
+              initialIndex: 0
             }
           });
-          await loading.dismiss();
           await modal.present();
         } else {
-          await loading.dismiss();
           await this.showToast('Document data not available', 'warning');
         }
       } catch (error) {
@@ -1014,31 +1044,80 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async viewAdditionalDocument(additionalFile: any) {
-    // View additional file using its attachId
-    if (additionalFile.attachId) {
+    // Find the parent document that contains this additional file
+    let parentDoc: DocumentItem | null = null;
+    let additionalFileIndex = 0;
+    
+    // Search through all service documents to find the parent
+    for (const serviceDoc of this.serviceDocuments) {
+      for (const doc of serviceDoc.documents) {
+        if (doc.additionalFiles) {
+          const index = doc.additionalFiles.findIndex(af => af.attachId === additionalFile.attachId);
+          if (index !== -1) {
+            parentDoc = doc;
+            additionalFileIndex = index + 1; // +1 because main doc is at index 0
+            break;
+          }
+        }
+      }
+      if (parentDoc) break;
+    }
+    
+    if (parentDoc && parentDoc.attachId) {
+      // Use the main viewDocument method but with initial index set to the additional file
       try {
         const loading = await this.loadingController.create({
-          message: 'Loading document...'
+          message: 'Loading documents...'
         });
         await loading.present();
         
-        // Get the attachment with the actual file data
-        const attachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+        // Collect all images for this document (main + additional files)
+        const allImages = [];
+        
+        // Get the main attachment
+        const attachment = await this.caspioService.getAttachmentWithImage(parentDoc.attachId).toPromise();
         
         if (attachment && attachment.Attachment) {
-          // The Attachment field should contain base64 data
+          allImages.push({
+            url: attachment.Attachment,
+            title: parentDoc.title,
+            filename: parentDoc.linkName || parentDoc.filename || 'document'
+          });
+        }
+        
+        // Get additional files if any
+        if (parentDoc.additionalFiles && parentDoc.additionalFiles.length > 0) {
+          for (const addFile of parentDoc.additionalFiles) {
+            if (addFile.attachId) {
+              try {
+                const addAttachment = await this.caspioService.getAttachmentWithImage(addFile.attachId).toPromise();
+                if (addAttachment && addAttachment.Attachment) {
+                  allImages.push({
+                    url: addAttachment.Attachment,
+                    title: `${parentDoc.title} - Additional`,
+                    filename: addFile.linkName || 'additional'
+                  });
+                }
+              } catch (err) {
+                console.error('Error loading additional file:', err);
+              }
+            }
+          }
+        }
+        
+        await loading.dismiss();
+        
+        if (allImages.length > 0) {
+          // Open viewer starting at the selected additional file
           const modal = await this.modalController.create({
             component: ImageViewerComponent,
             componentProps: {
-              base64Data: attachment.Attachment,
-              title: 'Additional File',
-              filename: additionalFile.linkName
+              images: allImages,
+              initialIndex: additionalFileIndex
             }
           });
-          await loading.dismiss();
           await modal.present();
         } else {
-          await loading.dismiss();
           await this.showToast('Document data not available', 'warning');
         }
       } catch (error) {
@@ -1046,7 +1125,38 @@ export class ProjectDetailPage implements OnInit {
         await this.showToast('Failed to load document', 'danger');
       }
     } else {
-      await this.showToast('Document not available', 'warning');
+      // Fallback to single image mode if parent not found
+      if (additionalFile.attachId) {
+        try {
+          const loading = await this.loadingController.create({
+            message: 'Loading document...'
+          });
+          await loading.present();
+          
+          const attachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+          
+          if (attachment && attachment.Attachment) {
+            const modal = await this.modalController.create({
+              component: ImageViewerComponent,
+              componentProps: {
+                base64Data: attachment.Attachment,
+                title: 'Additional File',
+                filename: additionalFile.linkName
+              }
+            });
+            await loading.dismiss();
+            await modal.present();
+          } else {
+            await loading.dismiss();
+            await this.showToast('Document data not available', 'warning');
+          }
+        } catch (error) {
+          console.error('Error loading document:', error);
+          await this.showToast('Failed to load document', 'danger');
+        }
+      } else {
+        await this.showToast('Document not available', 'warning');
+      }
     }
   }
 

@@ -1,25 +1,77 @@
-<ion-header>
-  <ion-toolbar color="primary">
-    <ion-title>{{ title || 'Document Viewer' }}</ion-title>
+<ion-header class="sleek-header">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-button (click)="previousImage()" [disabled]="!hasPrevious()" class="nav-button">
+        <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    
+    <ion-title class="viewer-title">
+      <div class="title-container">
+        <span class="document-name">{{ getCurrentTitle() }}</span>
+        <span class="image-counter" *ngIf="hasMultipleImages()">
+          {{ currentIndex + 1 }} / {{ getAllImages().length }}
+        </span>
+      </div>
+    </ion-title>
+    
     <ion-buttons slot="end">
-      <ion-button (click)="dismiss()">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
+      <ion-button (click)="nextImage()" [disabled]="!hasNext()" class="nav-button">
+        <ion-icon name="chevron-forward-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+      <ion-button (click)="dismiss()" class="close-button">
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <div class="image-container">
-    <img [src]="imageDataUrl" [alt]="title" class="document-image">
+<ion-content class="sleek-content">
+  <div class="image-viewer-container">
+    <!-- Main Image Display -->
+    <div class="image-display">
+      <img [src]="getCurrentImageUrl()" [alt]="getCurrentTitle()" class="main-image">
+    </div>
+    
+    <!-- Thumbnail Strip (if multiple images) -->
+    <div class="thumbnail-strip" *ngIf="hasMultipleImages()">
+      <div class="thumbnail-container">
+        <div 
+          *ngFor="let img of getAllImages(); let i = index" 
+          class="thumbnail-item"
+          [class.active]="i === currentIndex"
+          (click)="selectImage(i)">
+          <img [src]="img.url" [alt]="img.title">
+          <div class="thumbnail-overlay">
+            <span>{{ i + 1 }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- File Info Bar -->
+    <div class="info-bar">
+      <div class="info-section">
+        <ion-icon name="document-outline" class="info-icon"></ion-icon>
+        <span class="info-text">{{ getCurrentFilename() }}</span>
+      </div>
+      
+      <div class="action-buttons">
+        <ion-button 
+          size="small" 
+          fill="clear" 
+          (click)="downloadImage()" 
+          class="action-button">
+          <ion-icon name="download-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button 
+          size="small" 
+          fill="clear" 
+          (click)="toggleFullscreen()" 
+          class="action-button">
+          <ion-icon [name]="isFullscreen ? 'contract-outline' : 'expand-outline'" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
   </div>
-  
-  <div class="file-info">
-    <p><strong>Filename:</strong> {{ filename }}</p>
-  </div>
-  
-  <ion-button expand="block" (click)="downloadImage()" color="primary">
-    <ion-icon name="download-outline" slot="start"></ion-icon>
-    Download
-  </ion-button>
 </ion-content>
