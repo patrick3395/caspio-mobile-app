@@ -698,6 +698,12 @@ export class ProjectDetailPage implements OnInit {
         documents: documents
       };
       
+      console.log(`📋 Service document group for ${service.typeName}:`, {
+        serviceId: serviceDocGroup.serviceId,
+        documentCount: documents.length,
+        documentTitles: documents.map(d => d.title)
+      });
+      
       // Add back any manually added documents AND check for their attachments
       const manualDocs = existingManualDocs.get(serviceDocGroup.serviceId);
       if (manualDocs) {
@@ -728,11 +734,40 @@ export class ProjectDetailPage implements OnInit {
       
       // Also check for any attachments that don't match template or default documents
       // These could be manually added docs that were uploaded
+      // Build a Set of titles that are already accounted for
       const accountedTitles = new Set(serviceDocGroup.documents.map(d => d.title));
-      const orphanAttachments = this.existingAttachments.filter(a => 
-        a.TypeID === parseInt(service.typeId) && 
-        !accountedTitles.has(a.Title)
+      
+      // Also add any titles that have attachments (to avoid duplicates)
+      const attachedTitles = new Set(
+        serviceDocGroup.documents
+          .filter(d => d.uploaded)
+          .map(d => d.title)
       );
+      
+      // Find orphan attachments - those that aren't already in our documents list
+      const orphanAttachments = this.existingAttachments.filter(a => {
+        // Must match the TypeID
+        if (a.TypeID !== parseInt(service.typeId)) return false;
+        
+        // Check if this title is already accounted for in the documents
+        // This prevents duplicates when a document like "Supporting Documentation" is uploaded
+        if (accountedTitles.has(a.Title)) {
+          // Already have a document with this title, check if it's the same attachment
+          const existingDoc = serviceDocGroup.documents.find(d => d.title === a.Title);
+          if (existingDoc && existingDoc.attachId === a.AttachID) {
+            // Same attachment, already accounted for
+            return false;
+          }
+          if (existingDoc && existingDoc.uploaded) {
+            // Already has an attachment, this might be an additional file
+            // Don't add as orphan, it's already handled
+            return false;
+          }
+        }
+        
+        // Not accounted for, this is an orphan
+        return !accountedTitles.has(a.Title);
+      });
       
       // Group orphan attachments by title
       const orphansByTitle = new Map<string, any[]>();
@@ -743,23 +778,29 @@ export class ProjectDetailPage implements OnInit {
         orphansByTitle.get(orphan.Title)?.push(orphan);
       }
       
-      // Add orphan documents
+      // Add orphan documents (only truly orphaned ones)
       for (const [title, attachments] of orphansByTitle.entries()) {
-        const docItem: DocumentItem = {
-          attachId: attachments[0].AttachID,
-          title: title,  // Use the actual title from the attachment
-          required: false,
-          uploaded: true,
-          filename: attachments[0].Link,
-          linkName: attachments[0].Link,
-          attachmentUrl: attachments[0].Attachment,
-          additionalFiles: attachments.slice(1).map(a => ({
-            attachId: a.AttachID,
-            linkName: a.Link,
-            attachmentUrl: a.Attachment
-          }))
-        } as any;
-        serviceDocGroup.documents.push(docItem);
+        // Double-check this title isn't already in the documents
+        if (!accountedTitles.has(title)) {
+          console.log(`📎 Adding orphan document: "${title}" with ${attachments.length} file(s)`);
+          const docItem: DocumentItem = {
+            attachId: attachments[0].AttachID,
+            title: title,  // Use the actual title from the attachment
+            required: false,
+            uploaded: true,
+            filename: attachments[0].Link,
+            linkName: attachments[0].Link,
+            attachmentUrl: attachments[0].Attachment,
+            additionalFiles: attachments.slice(1).map(a => ({
+              attachId: a.AttachID,
+              linkName: a.Link,
+              attachmentUrl: a.Attachment
+            }))
+          } as any;
+          serviceDocGroup.documents.push(docItem);
+        } else {
+          console.log(`⚠️ Skipping duplicate: "${title}" - already in documents list`);
+        }
       }
       
       // Check for duplicate service documents before adding
