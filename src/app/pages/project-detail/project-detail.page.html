@@ -90,71 +90,65 @@
       <!-- Selected Services Table -->
       <div *ngIf="selectedServices.length > 0" class="selected-services-table">
         <h3>Selected Services & Inspection Dates</h3>
-        <div class="services-receipt">
-          <!-- Receipt Header -->
-          <div class="receipt-header">
-            <div class="header-service">Service</div>
-            <div class="header-date">Date</div>
-            <div class="header-price">Price</div>
+        <div class="services-table">
+          <div class="table-header">
+            <div class="col-service">Service</div>
+            <div class="col-date">Date</div>
+            <div class="col-price">Price</div>
+            <div class="col-actions">Actions</div>
           </div>
-          
-          <!-- Service Items -->
-          <div class="receipt-body">
-            <div *ngFor="let service of selectedServices" class="receipt-item">
-              <div class="item-details">
-                <div class="item-service">
-                  <span class="service-name">{{ service.typeName }}</span>
-                  <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
-                    #{{ getServiceInstanceNumber(service) }}
-                  </span>
-                </div>
-                <div class="item-date">
-                  <input 
-                    type="date" 
-                    class="date-input"
-                    [value]="formatDateForInput(service.dateOfInspection)"
-                    (change)="updateServiceDateFromInput(service, $event)"
-                    [disabled]="updatingServices">
-                  <span *ngIf="service.saving" class="saving-indicator">
-                    <ion-spinner name="dots"></ion-spinner>
-                  </span>
-                  <span *ngIf="service.saved" class="saved-indicator">
-                    <ion-icon name="checkmark-circle" color="success"></ion-icon>
-                  </span>
-                </div>
-                <div class="item-price">
-                  ${{ getServicePrice(service) | number:'1.2-2' }}
-                </div>
-                <div class="item-actions">
-                  <ion-button 
-                    size="small" 
-                    fill="clear" 
-                    color="medium"
-                    (click)="removeServiceInstance(service)"
-                    [disabled]="updatingServices">
-                    <ion-icon name="close-circle-outline"></ion-icon>
-                  </ion-button>
-                  <ion-button 
-                    size="small" 
-                    fill="clear" 
-                    color="medium"
-                    (click)="duplicateService(service.offersId, service.typeName)"
-                    [disabled]="updatingServices">
-                    <ion-icon name="copy-outline"></ion-icon>
-                  </ion-button>
-                </div>
+          <div *ngFor="let service of selectedServices" class="service-row-container">
+            <div class="table-row">
+              <div class="col-service">
+                <span>{{ service.typeName }}</span>
+                <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+                  #{{ getServiceInstanceNumber(service) }}
+                </span>
+              </div>
+              <div class="col-date">
+                <input 
+                  type="date" 
+                  class="date-input"
+                  [value]="formatDateForInput(service.dateOfInspection)"
+                  (change)="updateServiceDateFromInput(service, $event)"
+                  [disabled]="updatingServices">
+                <span *ngIf="service.saving" class="saving-indicator">
+                  <ion-spinner name="dots"></ion-spinner>
+                </span>
+                <span *ngIf="service.saved" class="saved-indicator">
+                  <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                </span>
+              </div>
+              <div class="col-price">
+                ${{ getServicePrice(service) | number:'1.2-2' }}
+              </div>
+              <div class="col-actions">
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="danger"
+                  (click)="removeServiceInstance(service)"
+                  [disabled]="updatingServices">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </ion-button>
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="primary"
+                  (click)="duplicateService(service.offersId, service.typeName)"
+                  [disabled]="updatingServices">
+                  <ion-icon name="copy-outline"></ion-icon>
+                </ion-button>
               </div>
             </div>
           </div>
-          
-          <!-- Receipt Footer with Total -->
-          <div class="receipt-footer">
-            <div class="total-line"></div>
-            <div class="total-row">
-              <div class="total-label">Total</div>
-              <div class="total-amount">${{ calculateServicesTotal() | number:'1.2-2' }}</div>
-            </div>
-          </div>
+        </div>
+        
+        <!-- Services Total -->
+        <div class="services-total-row">
+          <div class="total-spacer"></div>
+          <div class="total-label">Total:</div>
+          <div class="total-amount">${{ calculateServicesTotal() | number:'1.2-2' }}</div>
         </div>
       </div>
     </div>
