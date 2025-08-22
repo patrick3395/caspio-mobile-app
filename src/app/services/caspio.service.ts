@@ -930,7 +930,7 @@ export class CaspioService {
     return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
   }
 
-  // Get attachment with file data for display
+  // Get attachment with file data for display (following the working example pattern)
   getAttachmentWithImage(attachId: string): Observable<any> {
     console.log('🔍 getAttachmentWithImage called for AttachID:', attachId);
     const accessToken = this.tokenSubject.value;
@@ -945,8 +945,13 @@ export class CaspioService {
           'Accept': 'application/json'
         }
       })
-      .then(response => response.json())
-      .then(data => {
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to get attachment record: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(async data => {
         if (data.Result && data.Result.length > 0) {
           const record = data.Result[0];
           console.log('📎 Attachment record found:', {
@@ -958,76 +963,73 @@ export class CaspioService {
           
           // Check if there's a file path in the Attachment field
           if (record.Attachment && typeof record.Attachment === 'string' && record.Attachment.length > 0) {
-            // Use the /files/path endpoint with filePath parameter (matches the working example)
+            // Use the /files/path endpoint EXACTLY like the working example
             const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(record.Attachment)}`;
             console.log('📥 Fetching file from path:', fileUrl);
             
-            fetch(fileUrl, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/octet-stream'
-              }
-            })
-            .then(fileResponse => {
+            try {
+              const fileResponse = await fetch(fileUrl, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Accept': 'application/octet-stream'
+                }
+              });
+              
               console.log('📥 File fetch response status:', fileResponse.status);
               
-              // If first method fails, try alternate method
               if (!fileResponse.ok) {
-                console.error('❌ File fetch failed:', fileResponse.status, fileResponse.statusText);
+                throw new Error(`File fetch failed: ${fileResponse.status} ${fileResponse.statusText}`);
+              }
+              
+              // Get the blob
+              const blob = await fileResponse.blob();
+              console.log('📦 Blob received, size:', blob.size, 'type:', blob.type);
+              
+              // Use URL.createObjectURL EXACTLY like the example - this is the key!
+              const objectUrl = URL.createObjectURL(blob);
+              console.log('✅ Created object URL for image display');
+              
+              // Return the record with the object URL as the Attachment
+              record.Attachment = objectUrl;
+              observer.next(record);
+              observer.complete();
+              
+            } catch (error) {
+              console.error('❌ File fetch failed:', error);
+              
+              // Try alternate method if first fails
+              try {
                 const altUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
                 console.log('🔄 Trying alternate method:', altUrl);
                 
-                return fetch(altUrl, {
+                const altResponse = await fetch(altUrl, {
                   method: 'GET',
                   headers: {
-                    'Authorization': `Bearer ${accessToken}`
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/octet-stream'
                   }
                 });
-              }
-              return fileResponse;
-            })
-            .then(fileResponse => {
-              if (!fileResponse.ok) {
-                throw new Error('Both file fetch methods failed');
-              }
-              return fileResponse.blob();
-            })
-            .then(blob => {
-              console.log('📦 Blob received, size:', blob.size, 'type:', blob.type);
-              
-              // Convert blob to base64
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                console.log('✅ File converted to base64');
-                record.Attachment = reader.result as string;
+                
+                if (!altResponse.ok) {
+                  throw new Error(`Alternate method failed: ${altResponse.status}`);
+                }
+                
+                const blob = await altResponse.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                console.log('✅ Alternate method succeeded, created object URL');
+                
+                record.Attachment = objectUrl;
                 observer.next(record);
                 observer.complete();
-              };
-              
-              reader.onerror = () => {
-                console.error('❌ Failed to read blob');
-                // Try using object URL instead
-                try {
-                  const objectUrl = URL.createObjectURL(blob);
-                  record.Attachment = objectUrl;
-                  observer.next(record);
-                  observer.complete();
-                } catch (e) {
-                  record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-                  observer.next(record);
-                  observer.complete();
-                }
-              };
-              
-              reader.readAsDataURL(blob);
-            })
-            .catch(error => {
-              console.error('❌ All file fetch methods failed:', error);
-              record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
-              observer.next(record);
-              observer.complete();
-            });
+                
+              } catch (altError) {
+                console.error('❌ Both methods failed:', altError);
+                record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
+                observer.next(record);
+                observer.complete();
+              }
+            }
           } else {
             console.log('⚠️ No file path in Attachment field');
             record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
@@ -1039,7 +1041,6 @@ export class CaspioService {
           observer.next(null);
           observer.complete();
         }
-        return; // Ensure we return undefined to satisfy TypeScript
       })
       .catch(error => {
         console.error('❌ Error fetching attachment record:', error);

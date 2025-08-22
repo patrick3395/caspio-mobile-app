@@ -1,9 +1,10 @@
 .custom-header {
   ion-toolbar {
-    --background: #f8f8f8;
+    --background: var(--noble-orange);
     --border-width: 0;
     --padding-top: 20px;
     --padding-bottom: 10px;
+    --color: var(--noble-white);
   }
 }
 
@@ -11,11 +12,11 @@
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  color: #333;
+  color: var(--noble-white);
 }
 
 .projects-content {
-  --background: #ffffff;
+  --background: var(--noble-light-gray);
 }
 
 .projects-container {
@@ -34,9 +35,10 @@
   display: flex;
   align-items: center;
   padding: 12px;
-  background: #ffffff;
+  background: var(--noble-white);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(105, 99, 93, 0.1);
   transition: all 0.3s ease;
 
   &:active {
@@ -51,7 +53,7 @@
   margin-right: 16px;
   border-radius: 8px;
   overflow: hidden;
-  background: #f0f0f0;
+  background: var(--noble-light-gray);
   flex-shrink: 0;
 
   img {
@@ -71,13 +73,13 @@
 .project-address {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--noble-dark-gray);
   line-height: 1.4;
 }
 
 .project-status {
   font-size: 12px;
-  color: #666;
+  color: var(--noble-gray);
   font-weight: 400;
 }
 
@@ -95,7 +97,7 @@
   }
 
   p {
-    color: #666;
+    color: var(--noble-gray);
     font-size: 14px;
   }
 }
@@ -109,7 +111,7 @@
   text-align: center;
 
   p {
-    color: #666;
+    color: var(--noble-gray);
     font-size: 14px;
     margin-bottom: 16px;
   }
@@ -127,7 +129,7 @@
   padding: 60px 20px;
   
   p {
-    color: #999;
+    color: var(--noble-gray);
     font-size: 14px;
   }
 }

@@ -1,2 +1,99 @@
 // For information on how to create your own theme, please see:
 // http://ionicframework.com/docs/theming/
+
+// Noble Property Inspections Brand Colors
+:root {
+  // Brand colors
+  --noble-orange: #F15A27;
+  --noble-gray: #69635D;
+  --noble-white: #FFFFFF;
+  --noble-light-gray: #F5F5F5;
+  --noble-dark-gray: #333333;
+  
+  // Primary color - Orange
+  --ion-color-primary: #F15A27;
+  --ion-color-primary-rgb: 241, 90, 39;
+  --ion-color-primary-contrast: #FFFFFF;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #D44E22;
+  --ion-color-primary-tint: #F36B3D;
+  
+  // Secondary color - Gray
+  --ion-color-secondary: #69635D;
+  --ion-color-secondary-rgb: 105, 99, 93;
+  --ion-color-secondary-contrast: #FFFFFF;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #5C5752;
+  --ion-color-secondary-tint: #78726D;
+  
+  // Tertiary color - Light Gray
+  --ion-color-tertiary: #F5F5F5;
+  --ion-color-tertiary-rgb: 245, 245, 245;
+  --ion-color-tertiary-contrast: #333333;
+  --ion-color-tertiary-contrast-rgb: 51, 51, 51;
+  --ion-color-tertiary-shade: #D8D8D8;
+  --ion-color-tertiary-tint: #F6F6F6;
+  
+  // Success color - Keep green for checkmarks/success states
+  --ion-color-success: #2DD36F;
+  --ion-color-success-rgb: 45, 211, 111;
+  --ion-color-success-contrast: #000000;
+  --ion-color-success-contrast-rgb: 0, 0, 0;
+  --ion-color-success-shade: #28BA62;
+  --ion-color-success-tint: #42D77D;
+  
+  // Warning color - Use orange tone
+  --ion-color-warning: #FFA726;
+  --ion-color-warning-rgb: 255, 167, 38;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0, 0, 0;
+  --ion-color-warning-shade: #E69422;
+  --ion-color-warning-tint: #FFB03C;
+  
+  // Danger color - Keep red for errors
+  --ion-color-danger: #EB445A;
+  --ion-color-danger-rgb: 235, 68, 90;
+  --ion-color-danger-contrast: #FFFFFF;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #CF3C4F;
+  --ion-color-danger-tint: #ED576B;
+  
+  // Dark
+  --ion-color-dark: #333333;
+  --ion-color-dark-rgb: 51, 51, 51;
+  --ion-color-dark-contrast: #FFFFFF;
+  --ion-color-dark-contrast-rgb: 255, 255, 255;
+  --ion-color-dark-shade: #2D2D2D;
+  --ion-color-dark-tint: #474747;
+  
+  // Medium
+  --ion-color-medium: #92949C;
+  --ion-color-medium-rgb: 146, 148, 156;
+  --ion-color-medium-contrast: #000000;
+  --ion-color-medium-contrast-rgb: 0, 0, 0;
+  --ion-color-medium-shade: #808289;
+  --ion-color-medium-tint: #9D9FA6;
+  
+  // Light
+  --ion-color-light: #F4F5F8;
+  --ion-color-light-rgb: 244, 245, 248;
+  --ion-color-light-contrast: #000000;
+  --ion-color-light-contrast-rgb: 0, 0, 0;
+  --ion-color-light-shade: #D7D8DA;
+  --ion-color-light-tint: #F5F6F9;
+  
+  // App background colors
+  --ion-background-color: #FFFFFF;
+  --ion-background-color-rgb: 255, 255, 255;
+  --ion-text-color: #333333;
+  --ion-text-color-rgb: 51, 51, 51;
+  
+  // Toolbar colors
+  --ion-toolbar-background: #F15A27;
+  --ion-toolbar-color: #FFFFFF;
+  
+  // Tab bar colors
+  --ion-tab-bar-background: #FFFFFF;
+  --ion-tab-bar-color: #69635D;
+  --ion-tab-bar-color-selected: #F15A27;
+}

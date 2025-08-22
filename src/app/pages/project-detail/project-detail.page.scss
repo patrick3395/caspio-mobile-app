@@ -1,31 +1,33 @@
-$gray:#e0e0e0;
-$dark:#333;
-$med:#666;
-$light:#f8f9fa;
-$border:#dee2e6;
+// Noble Property Inspections Brand Colors
+$orange: #F15A27;
+$gray: #69635D;
+$light-gray: #F5F5F5;
+$border: #E0E0E0;
+$dark: #333333;
+$white: #FFFFFF;
 
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
 .loading-container,.error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
 
-.street-view-header{width:100%;height:200px;overflow:hidden;background:$gray;
+.street-view-header{width:100%;height:200px;overflow:hidden;background:$light-gray;
 img{width:100%;height:100%;object-fit:cover}}
 
-.info-section{padding:20px;background:white;margin-bottom:10px;border-bottom:1px solid $gray;
-.section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $dark}
+.info-section{padding:20px;background:white;margin-bottom:10px;border-bottom:1px solid $border;
+.section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;
-.info-label{font-weight:500;color:$med;width:140px}
+.info-label{font-weight:500;color:$gray;width:140px}
 .info-value{color:$dark;flex:1}}}
 
 .services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:20px}
 
-.service-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid $gray;border-radius:8px;background:#f9f9f9;
+.service-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid $border;border-radius:8px;background:$light-gray;
 label{flex:1;cursor:pointer;font-size:14px;color:$dark !important;} // Never green
-ion-checkbox{--checkmark-color:white;--checkbox-background-checked:#3880ff;} // Blue, not green
+ion-checkbox{--checkmark-color:white;--checkbox-background-checked:#{$orange};} // Orange brand color
 }
 
-.selected-services-table{margin-top:20px;padding-top:20px;border-top:2px solid $gray;
+.selected-services-table{margin-top:20px;padding-top:20px;border-top:2px solid $border;
 h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 // Services table with price under service - NO GREEN COLORS HERE
@@ -38,23 +40,23 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   .table-header{
     display:grid;
     grid-template-columns:2fr 1.2fr 1fr;
-    background:$light;
+    background:$light-gray;
     font-weight:600;
     font-size:13px;
     border-bottom:2px solid $border;
     
     >div{
       padding:12px;
-      color:$med;
+      color:$gray;
     }
-    .col-service{text-align:left;color:$med !important;}
+    .col-service{text-align:left;color:$gray !important;}
     .col-date{text-align:center;}
     .col-actions{text-align:center;}
   }
   
   .service-row-container{
     &:not(:last-child){
-      border-bottom:2px solid #dee2e6;
+      border-bottom:2px solid $border;
     }
   }
   
@@ -64,7 +66,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     align-items:center;
     min-height:50px;
     
-    &:hover{background:#fafbfc;}
+    &:hover{background:$light-gray;}
     
     >div{padding:10px 12px;font-size:14px;}
     
@@ -84,8 +86,8 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       }
       
       .instance-badge{
-        background:#e3f2fd;
-        color:#1976d2;
+        background:rgba($orange, 0.1);
+        color:$orange;
         padding:2px 6px;
         border-radius:12px;
         font-size:11px;
@@ -105,18 +107,18 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
         width:100%;
         max-width:150px;
         padding:6px 10px;
-        border:1px solid #ddd;
+        border:1px solid $border;
         border-radius:4px;
         font-size:13px;
         background:white;
         
         &:focus{
           outline:none;
-          border-color:#3880ff;
+          border-color:$orange;
         }
         &:disabled{
-          background:#f5f5f5;
-          color:#999;
+          background:$light-gray;
+          color:$gray;
         }
       }
       
@@ -146,12 +148,12 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     justify-content:flex-end;
     align-items:center;
     padding:8px 12px;
-    background:#f8f9fa;
+    background:$light-gray;
     
     .price-line{
       flex:1;
       height:1px;
-      background:linear-gradient(to right, transparent, #dee2e6);
+      background:linear-gradient(to right, transparent, $border);
       margin-right:12px;
     }
     
@@ -162,7 +164,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       font-family:'Courier New', monospace;
       padding:4px 12px;
       background:white;
-      border:1px solid #dee2e6;
+      border:1px solid $border;
       border-radius:4px;
     }
   }
@@ -176,7 +178,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   padding:12px;
   background:white;
   border:1px solid $border;
-  border-top:2px solid #007bff;
+  border-top:2px solid $orange;
   border-radius:0 0 8px 8px;
   margin-top:-1px;
   
@@ -194,21 +196,21 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     font-family:'Courier New', monospace;
     padding:4px 12px;
     background:white;
-    border:1px solid #dee2e6;  // Same as price boxes
+    border:1px solid $border;  // Same as price boxes
     border-radius:4px;
   }
 }
 
 .documents-table,.templates-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden}
 
-.doc-header,.template-header{display:grid;background:$light;font-weight:600;font-size:14px;border-bottom:2px solid $border;
+.doc-header,.template-header{display:grid;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
 >div{padding:12px;display:flex;align-items:center}}
 
 .doc-header{grid-template-columns:1.5fr 2fr 1fr 1.5fr;
 >div:first-child{font-weight:700}}
 .template-header{grid-template-columns:2fr 1fr 1fr}
 
-.doc-row,.template-row{display:grid;border-bottom:1px solid #e9ecef;
+.doc-row,.template-row{display:grid;border-bottom:1px solid $border;
 >*{padding:12px;font-size:14px}}
 
 .documents-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden;max-width:100%;
@@ -235,7 +237,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 }
 .doc-link-name{
   font-size:12px;
-  color:#666;
+  color:$gray;
   display:flex;
   align-items:center;
   gap:4px;
@@ -243,7 +245,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   
   ion-icon{
     font-size:14px;
-    color:#999;
+    color:$gray;
   }
 }
 .doc-subtitle{margin-top:2px}

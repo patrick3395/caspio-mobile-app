@@ -1,12 +1,12 @@
 .custom-tab-bar {
-  --background: #ffffff;
-  border-top: 1px solid #e0e0e0;
+  --background: var(--noble-white);
+  border-top: 1px solid var(--ion-color-tertiary-shade);
   height: 60px;
   padding-bottom: env(safe-area-inset-bottom);
 
   .tab-button {
-    --color: #666666;
-    --color-selected: #ff6b35;
+    --color: var(--noble-gray);
+    --color-selected: var(--noble-orange);
     --padding-end: 0;
     --padding-start: 0;
     --padding-bottom: 0;
@@ -22,8 +22,8 @@
 
     &.tab-selected {
       .tab-icon {
-        color: #ff6b35;
-        background-color: rgba(255, 107, 53, 0.1);
+        color: var(--noble-orange);
+        background-color: rgba(241, 90, 39, 0.1);
       }
     }
   }

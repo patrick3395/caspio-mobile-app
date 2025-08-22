@@ -52,7 +52,7 @@ export class ImageViewerComponent implements OnInit {
   // Annotation properties
   isAnnotating: boolean = false;
   annotationTool: 'pen' | 'arrow' | 'rectangle' | 'circle' | 'text' = 'pen';
-  annotationColor: string = '#FF0000';
+  annotationColor: string = '#F15A27'; // Noble orange for annotations
   lineWidth: number = 3;
   
   private canvas!: HTMLCanvasElement;
