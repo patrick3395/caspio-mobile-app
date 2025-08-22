@@ -615,17 +615,50 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async uploadDocument(serviceId: string, typeId: string, doc: DocumentItem) {
+    // Check if serviceId is valid (not temp or undefined)
+    if (!serviceId || serviceId.toString().startsWith('temp_')) {
+      const toast = await this.toastController.create({
+        message: 'Please wait for the service to be saved before uploading documents',
+        duration: 3000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
     this.currentUploadContext = { serviceId, typeId, doc, action: 'upload' };
     this.fileInput.nativeElement.click();
   }
 
   async replaceDocument(serviceId: string, typeId: string, doc: DocumentItem) {
+    // Check if serviceId is valid
+    if (!serviceId || serviceId.toString().startsWith('temp_')) {
+      const toast = await this.toastController.create({
+        message: 'Please wait for the service to be saved before uploading documents',
+        duration: 3000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
     if (!doc.attachId) return;
     this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
     this.fileInput.nativeElement.click();
   }
 
   async uploadAdditionalFile(serviceId: string, typeId: string, doc: DocumentItem) {
+    // Check if serviceId is valid
+    if (!serviceId || serviceId.toString().startsWith('temp_')) {
+      const toast = await this.toastController.create({
+        message: 'Please wait for the service to be saved before uploading documents',
+        duration: 3000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
     this.currentUploadContext = { serviceId, typeId, doc, action: 'additional' };
     this.fileInput.nativeElement.click();
   }

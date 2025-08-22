@@ -94,7 +94,6 @@
           <div class="table-header">
             <div class="col-service">Service</div>
             <div class="col-date">Date</div>
-            <div class="col-price">Price</div>
             <div class="col-actions">Actions</div>
           </div>
           <div *ngFor="let service of selectedServices" class="service-row-container">
@@ -119,9 +118,6 @@
                   <ion-icon name="checkmark-circle" color="success"></ion-icon>
                 </span>
               </div>
-              <div class="col-price">
-                ${{ getServicePrice(service) | number:'1.2-2' }}
-              </div>
               <div class="col-actions">
                 <ion-button 
                   size="small" 
@@ -141,12 +137,18 @@
                 </ion-button>
               </div>
             </div>
+            <!-- Price row directly under service -->
+            <div class="service-price-row">
+              <div class="price-line"></div>
+              <div class="service-price">
+                ${{ getServicePrice(service) | number:'1.2-2' }}
+              </div>
+            </div>
           </div>
         </div>
         
         <!-- Services Total -->
         <div class="services-total-row">
-          <div class="total-spacer"></div>
           <div class="total-label">Total:</div>
           <div class="total-amount">${{ calculateServicesTotal() | number:'1.2-2' }}</div>
         </div>
