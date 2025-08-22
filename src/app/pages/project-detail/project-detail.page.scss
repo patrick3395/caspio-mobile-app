@@ -21,7 +21,9 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:20px}
 
 .service-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid $gray;border-radius:8px;background:#f9f9f9;
-label{flex:1;cursor:pointer;font-size:14px}}
+label{flex:1;cursor:pointer;font-size:14px;color:$dark !important;} // Never green
+ion-checkbox{--checkmark-color:white;--checkbox-background-checked:#3880ff;} // Blue, not green
+}
 
 .selected-services-table{margin-top:20px;padding-top:20px;border-top:2px solid $gray;
 h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
@@ -306,6 +308,7 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
   margin-left: 8px;
   font-size: 16px;
   vertical-align: middle;
+  color: #3880ff !important; // Blue, not green
 }
 
 // Uploaded document info
