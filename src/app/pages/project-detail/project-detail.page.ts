@@ -342,17 +342,9 @@ export class ProjectDetailPage implements OnInit {
       console.log('🔍 DEBUG: Service created successfully:', newService);
       
       // Add to selected services
-      // Service is created instantly, so we should have a valid ID
-      const serviceId = newService?.PK_ID || newService?.id || newService?.ServiceID;
-      
-      if (!serviceId) {
-        console.error('Service created but no ID returned:', newService);
-        throw new Error('Failed to get service ID from Caspio');
-      }
-      
       const selection: ServiceSelection = {
         instanceId: this.generateInstanceId(),
-        serviceId: serviceId,
+        serviceId: newService?.PK_ID || newService?.id || 'temp_' + Date.now(),
         offersId: offer.OffersID || offer.PK_ID,
         typeId: offer.TypeID,
         typeName: offer.TypeName || offer.Service_Name || 'Service',
@@ -623,10 +615,20 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async uploadDocument(serviceId: string, typeId: string, doc: DocumentItem) {
-    // Services are added instantly, so serviceId should always be valid
+    // Check if serviceId exists
     if (!serviceId) {
       console.error('No serviceId provided for document upload');
       return;
+    }
+    
+    // If it's a temp ID, try to get the real ID from the service
+    if (serviceId.toString().startsWith('temp_')) {
+      const service = this.selectedServices.find(s => s.serviceId === serviceId);
+      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
+        serviceId = service.serviceId;
+      } else {
+        console.warn('Service has temporary ID, upload may fail:', serviceId);
+      }
     }
     
     this.currentUploadContext = { serviceId, typeId, doc, action: 'upload' };
@@ -639,6 +641,14 @@ export class ProjectDetailPage implements OnInit {
       return;
     }
     
+    // Handle temp IDs
+    if (serviceId.toString().startsWith('temp_')) {
+      const service = this.selectedServices.find(s => s.serviceId === serviceId);
+      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
+        serviceId = service.serviceId;
+      }
+    }
+    
     if (!doc.attachId) return;
     this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
     this.fileInput.nativeElement.click();
@@ -648,6 +658,14 @@ export class ProjectDetailPage implements OnInit {
     if (!serviceId) {
       console.error('No serviceId provided for additional file upload');
       return;
+    }
+    
+    // Handle temp IDs
+    if (serviceId.toString().startsWith('temp_')) {
+      const service = this.selectedServices.find(s => s.serviceId === serviceId);
+      if (service && service.serviceId && !service.serviceId.toString().startsWith('temp_')) {
+        serviceId = service.serviceId;
+      }
     }
     
     this.currentUploadContext = { serviceId, typeId, doc, action: 'additional' };

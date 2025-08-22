@@ -213,9 +213,9 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 >div{font-size:14px;padding:10px 12px;overflow:hidden;word-wrap:break-word}
 .doc-service{font-weight:600;display:flex;align-items:center;padding-top:20px!important;
 >div{overflow:hidden;word-wrap:break-word;white-space:normal;max-width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
-.instance-badge{flex-shrink:0}}
+.instance-badge{flex-shrink:0}
 // Service name turns green when ALL required docs are uploaded
-.all-docs-uploaded{color:#28a745;font-weight:700}}
+&.all-docs-uploaded{color:#28a745;font-weight:700}}}
 .doc-title{
 .doc-title-content{display:flex;flex-direction:column;gap:4px}
 .uploaded-text{
@@ -309,11 +309,11 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 
 // Uploaded document info
 .uploaded-doc-info {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #f0f9ff;
-  border-radius: 6px;
-  border: 1px solid #bfdbfe;
+  margin-top: 4px;
+  padding: 6px 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
   
   .doc-info-row {
     display: flex;
@@ -324,9 +324,11 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
   .doc-link-name {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #1e40af;
+    gap: 4px;
+    font-size: 12px;
+    color: #6c757d;
+    font-style: italic;
+    padding-left: 24px; // Indent to show it's under the document title
     flex: 1;
     
     ion-icon {
