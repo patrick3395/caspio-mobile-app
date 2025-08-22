@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, from } from 'rxjs';
+import { Observable, BehaviorSubject, throwError, from, of } from 'rxjs';
 import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -846,15 +846,63 @@ export class CaspioService {
   // Get attachment with base64 data for display
   getAttachmentWithImage(attachId: string): Observable<any> {
     return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
-      map(response => {
+      switchMap(response => {
         if (response.Result && response.Result.length > 0) {
           const record = response.Result[0];
-          // Attachment field now contains file path
-          return record;
+          
+          // If the Attachment field contains a file path, fetch the actual file
+          if (record.Attachment && !record.Attachment.startsWith('data:')) {
+            // Fetch the actual file from Caspio Files API
+            return this.getFileFromCaspio(record.Attachment).pipe(
+              map(fileData => {
+                // Add the base64 data to the record
+                record.Attachment = fileData;
+                return record;
+              }),
+              catchError(() => {
+                // If file fetch fails, return record as-is
+                console.error('Failed to fetch file data for attachment:', attachId);
+                return of(record);
+              })
+            );
+          }
+          return of(record);
         }
-        return null;
+        return of(null);
       })
     );
+  }
+  
+  // Helper method to fetch file from Caspio Files API
+  private getFileFromCaspio(filePath: string): Observable<string> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    return new Observable(observer => {
+      // Fetch the file from Caspio Files API
+      fetch(`${API_BASE_URL}/files/${encodeURIComponent(filePath)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        // Convert blob to base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          observer.next(reader.result as string);
+          observer.complete();
+        };
+        reader.onerror = () => {
+          observer.error('Failed to read file');
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(error => {
+        observer.error(error);
+      });
+    });
   }
 
   private getMimeTypeFromFilename(filename: string): string {

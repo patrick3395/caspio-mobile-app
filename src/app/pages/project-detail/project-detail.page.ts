@@ -563,6 +563,23 @@ export class ProjectDetailPage implements OnInit {
 
   // Document management methods
   updateDocumentsList() {
+    // Store existing manually added documents before rebuilding
+    const existingManualDocs: Map<string, DocumentItem[]> = new Map();
+    for (const serviceDoc of this.serviceDocuments) {
+      const manualDocs = serviceDoc.documents.filter(doc => {
+        // Check if this is a manually added document
+        // It won't have a templateId, or it's not in the templates
+        const isFromTemplate = this.attachTemplates.some(t => 
+          t.TypeID === parseInt(serviceDoc.typeId) && 
+          t.Title === doc.title
+        );
+        return !isFromTemplate;  // Keep documents not from templates
+      });
+      if (manualDocs.length > 0) {
+        existingManualDocs.set(serviceDoc.serviceId, manualDocs);
+      }
+    }
+    
     this.serviceDocuments = [];
     
     for (const service of this.selectedServices) {
@@ -666,13 +683,44 @@ export class ProjectDetailPage implements OnInit {
         }
       }
       
-      this.serviceDocuments.push({
+      // Create the service document group
+      const serviceDocGroup = {
         serviceId: service.serviceId || service.instanceId,
         serviceName: service.typeName,
         typeId: service.typeId,
         instanceNumber: this.getServiceInstanceNumber(service),
         documents: documents
-      });
+      };
+      
+      // Add back any manually added documents
+      const manualDocs = existingManualDocs.get(serviceDocGroup.serviceId);
+      if (manualDocs) {
+        // Check if any of these manual docs now have attachments
+        for (const manualDoc of manualDocs) {
+          // Find ALL attachments for this type and title
+          const attachments = this.existingAttachments.filter(a => 
+            a.TypeID === parseInt(service.typeId) && 
+            a.Title === manualDoc.title
+          );
+          
+          if (attachments.length > 0) {
+            // Update the manual doc with attachment info
+            manualDoc.attachId = attachments[0].AttachID;
+            manualDoc.uploaded = true;
+            manualDoc.filename = attachments[0].Link;
+            manualDoc.linkName = attachments[0].Link;
+            manualDoc.attachmentUrl = attachments[0].Attachment;
+            manualDoc.additionalFiles = attachments.slice(1).map(a => ({
+              attachId: a.AttachID,
+              linkName: a.Link,
+              attachmentUrl: a.Attachment
+            }));
+          }
+        }
+        serviceDocGroup.documents.push(...manualDocs);
+      }
+      
+      this.serviceDocuments.push(serviceDocGroup);
     }
   }
 
