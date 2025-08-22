@@ -580,9 +580,15 @@ export class ProjectDetailPage implements OnInit {
       }
     }
     
+    console.log('🔄 DEBUG: Starting loadRequiredDocumentsFromAttach');
+    console.log('  - Selected services count:', this.selectedServices.length);
+    console.log('  - Previous serviceDocuments count:', this.serviceDocuments.length);
+    
     this.serviceDocuments = [];
     
     for (const service of this.selectedServices) {
+      console.log(`  📋 Processing service: ${service.typeName} (ID: ${service.serviceId})`);
+      
       // Get ALL templates for this service type (both required and optional)
       const requiredTemplates = this.attachTemplates.filter(t => 
         t.TypeID === parseInt(service.typeId) && 
@@ -756,8 +762,29 @@ export class ProjectDetailPage implements OnInit {
         serviceDocGroup.documents.push(docItem);
       }
       
-      this.serviceDocuments.push(serviceDocGroup);
+      // Check for duplicate service documents before adding
+      const existingServiceDocIndex = this.serviceDocuments.findIndex(
+        sd => sd.serviceId === serviceDocGroup.serviceId && 
+             sd.serviceName === serviceDocGroup.serviceName
+      );
+      
+      if (existingServiceDocIndex >= 0) {
+        console.log(`⚠️ DEBUG: Duplicate service doc found for ${serviceDocGroup.serviceName} (ID: ${serviceDocGroup.serviceId})`);
+        console.log('  - Existing docs:', this.serviceDocuments[existingServiceDocIndex].documents.length);
+        console.log('  - New docs:', serviceDocGroup.documents.length);
+        // Replace the existing one instead of adding duplicate
+        this.serviceDocuments[existingServiceDocIndex] = serviceDocGroup;
+      } else {
+        this.serviceDocuments.push(serviceDocGroup);
+      }
     }
+    
+    console.log('📄 DEBUG: Final serviceDocuments count:', this.serviceDocuments.length);
+    console.log('  - Service documents:', this.serviceDocuments.map(sd => ({
+      name: sd.serviceName,
+      id: sd.serviceId,
+      docs: sd.documents.length
+    })));
   }
 
   async uploadDocument(serviceId: string, typeId: string, doc: DocumentItem) {

@@ -435,13 +435,24 @@ export class ImageViewerComponent implements OnInit {
       // Get current image attachment ID
       const currentImage = this.allImages[this.currentIndex];
       
+      console.log('🎨 DEBUG: Saving annotated image');
+      console.log('  - Current index:', this.currentIndex);
+      console.log('  - Current image:', currentImage);
+      console.log('  - Has attachId:', !!currentImage.attachId);
+      console.log('  - AttachId value:', currentImage.attachId);
+      console.log('  - Has callback:', !!this.onSaveAnnotation);
+      console.log('  - Blob size:', blob.size);
+      
       if (currentImage.attachId && this.onSaveAnnotation) {
+        console.log('📤 Calling onSaveAnnotation callback...');
         // Upload to Caspio to replace the original
         const success = await this.onSaveAnnotation(
           currentImage.attachId,
           blob,
           currentImage.filename || 'annotated.jpg'
         );
+        
+        console.log('  - Save result:', success);
         
         if (success) {
           // Update the current image URL with the annotated version

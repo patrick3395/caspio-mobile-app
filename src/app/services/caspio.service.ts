@@ -1055,14 +1055,29 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      console.log('📝 Updating attachment image for AttachID:', attachId);
+      console.log('🔍 DEBUG: Starting updateAttachmentImage');
+      console.log('  - AttachID:', attachId);
+      console.log('  - Blob size:', imageBlob.size, 'bytes');
+      console.log('  - Blob type:', imageBlob.type);
+      console.log('  - Filename:', filename);
+      console.log('  - Access token present:', !!accessToken);
+      console.log('  - API URL:', API_BASE_URL);
+      
+      if (!attachId) {
+        console.error('❌ ERROR: No attachId provided!');
+        return false;
+      }
       
       // Step 1: Upload new file to Files API
       const timestamp = Date.now();
-      const uniqueFilename = `annotated_${timestamp}_${filename}`;
+      const uniqueFilename = `annotated_${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const filePath = `/Inspections/${uniqueFilename}`;
       
-      console.log('Step 1: Uploading new file to Files API...');
+      console.log('📤 Step 1: Uploading new file to Files API...');
+      console.log('  - Upload URL:', `${API_BASE_URL}/files/Inspections`);
+      console.log('  - Unique filename:', uniqueFilename);
+      console.log('  - File path:', filePath);
+      
       const formData = new FormData();
       formData.append('File', imageBlob, uniqueFilename);
       
@@ -1074,20 +1089,36 @@ export class CaspioService {
         body: formData
       });
       
+      const uploadResponseText = await uploadResponse.text();
+      console.log('  - Upload response status:', uploadResponse.status);
+      console.log('  - Upload response headers:', uploadResponse.headers);
+      
       if (!uploadResponse.ok) {
-        console.error('Failed to upload file:', uploadResponse.status);
+        console.error('❌ Failed to upload file!');
+        console.error('  - Status:', uploadResponse.status);
+        console.error('  - Status text:', uploadResponse.statusText);
+        console.error('  - Response body:', uploadResponseText);
         return false;
       }
       
-      const uploadResult = await uploadResponse.json();
-      console.log('✅ File uploaded successfully:', uploadResult);
+      let uploadResult: any;
+      try {
+        uploadResult = JSON.parse(uploadResponseText);
+        console.log('✅ File uploaded successfully:', uploadResult);
+      } catch (e) {
+        console.log('⚠️ Could not parse upload response as JSON:', uploadResponseText);
+        // Continue anyway as file might have been uploaded
+      }
       
       // Step 2: Update the Attach record with new file path
-      console.log('Step 2: Updating Attach record with new file path...');
+      console.log('📝 Step 2: Updating Attach record with new file path...');
+      console.log('  - Update URL:', `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`);
+      
       const updateData = {
         Attachment: filePath,
         Link: uniqueFilename
       };
+      console.log('  - Update data:', JSON.stringify(updateData));
       
       const updateResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
@@ -1098,16 +1129,26 @@ export class CaspioService {
         body: JSON.stringify(updateData)
       });
       
+      const updateResponseText = await updateResponse.text();
+      console.log('  - Update response status:', updateResponse.status);
+      
       if (!updateResponse.ok) {
-        console.error('Failed to update Attach record:', updateResponse.status);
+        console.error('❌ Failed to update Attach record!');
+        console.error('  - Status:', updateResponse.status);
+        console.error('  - Status text:', updateResponse.statusText);
+        console.error('  - Response body:', updateResponseText);
         return false;
       }
       
       console.log('✅ Attachment updated successfully with annotated image');
+      console.log('  - Response:', updateResponseText);
       return true;
       
     } catch (error) {
-      console.error('❌ Error updating attachment:', error);
+      console.error('❌ EXCEPTION in updateAttachmentImage:');
+      console.error('  - Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('  - Error message:', error instanceof Error ? error.message : String(error));
+      console.error('  - Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
       return false;
     }
   }
