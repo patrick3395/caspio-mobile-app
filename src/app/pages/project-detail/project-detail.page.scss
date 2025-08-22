@@ -217,10 +217,16 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 // Uploaded document info
 .uploaded-doc-info {
   margin-top: 8px;
-  padding: 8px;
+  padding: 8px 12px;
   background: #f0f9ff;
   border-radius: 6px;
   border: 1px solid #bfdbfe;
+  
+  .doc-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
   
   .doc-link-name {
     display: flex;
@@ -228,23 +234,29 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
     gap: 6px;
     font-size: 13px;
     color: #1e40af;
-    margin-bottom: 6px;
+    flex: 1;
     
     ion-icon {
       font-size: 16px;
+      color: #3b82f6;
     }
   }
   
-  .doc-quick-actions {
+  .doc-icon-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 6px;
+    gap: 4px;
+    align-items: center;
     
     ion-button {
-      --padding-start: 6px;
-      --padding-end: 6px;
-      font-size: 11px;
-      height: 24px;
+      --padding-start: 4px;
+      --padding-end: 4px;
+      margin: 0;
+      height: 28px;
+      width: 28px;
+      
+      ion-icon {
+        font-size: 18px;
+      }
     }
   }
 }

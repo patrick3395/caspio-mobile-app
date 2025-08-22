@@ -203,20 +203,28 @@
                 </span>
                 <!-- Show uploaded document details -->
                 <div *ngIf="doc.uploaded" class="uploaded-doc-info">
-                  <div class="doc-link-name">
-                    <ion-icon name="document-attach-outline"></ion-icon>
-                    {{ doc.linkName || doc.filename }}
-                  </div>
-                  <div class="doc-quick-actions">
-                    <ion-button size="small" fill="clear" color="primary" (click)="viewDocument(doc)">
-                      <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
-                    </ion-button>
-                    <ion-button size="small" fill="clear" color="warning" (click)="replaceDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                      Replace
-                    </ion-button>
-                    <ion-button size="small" fill="clear" color="success" (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                      Add Another
-                    </ion-button>
+                  <div class="doc-info-row">
+                    <div class="doc-link-name">
+                      <ion-icon name="document-attach-outline"></ion-icon>
+                      {{ doc.linkName || doc.filename }}
+                    </div>
+                    <div class="doc-icon-actions">
+                      <ion-button size="small" fill="clear" color="primary" 
+                                  (click)="viewDocument(doc)" 
+                                  title="View Image">
+                        <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                      </ion-button>
+                      <ion-button size="small" fill="clear" color="warning" 
+                                  (click)="replaceDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)"
+                                  title="Replace">
+                        <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
+                      </ion-button>
+                      <ion-button size="small" fill="clear" color="success" 
+                                  (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)"
+                                  title="Add Another">
+                        <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
+                      </ion-button>
+                    </div>
                   </div>
                 </div>
                 <div *ngIf="!doc.required && !doc.uploaded" class="doc-subtitle">
