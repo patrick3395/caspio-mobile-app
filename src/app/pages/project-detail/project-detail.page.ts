@@ -573,9 +573,32 @@ export class ProjectDetailPage implements OnInit {
           t.TypeID === parseInt(serviceDoc.typeId) && 
           t.Title === doc.title
         );
-        return !isFromTemplate;  // Keep documents not from templates
+        // Also check if it's not a default document
+        const serviceDocMap: any = {
+          'home inspection': ['Inspection Report', 'Client Agreement', 'Photos'],
+          'pool/spa inspection': ['Pool/Spa Report', 'Equipment Photos'],
+          'termite inspection': ['WDI Report', 'Treatment Recommendations'],
+          'sewer scope': ['Sewer Scope Report', 'Video Link'],
+          'foundation survey': ['Foundation Report', 'Elevation Certificate'],
+          'mold inspection': ['Mold Report', 'Lab Results'],
+          'radon testing': ['Radon Report', 'Test Results'],
+          'cubicasa': ['Floor Plan', '3D Model', 'Measurements'],
+          'other': ['Service Report', 'Documentation']
+        };
+        const defaultDocs = ['Service Report', 'Supporting Documentation'];
+        let isDefault = defaultDocs.includes(doc.title);
+        if (!isDefault) {
+          for (const docs of Object.values(serviceDocMap)) {
+            if ((docs as string[]).includes(doc.title)) {
+              isDefault = true;
+              break;
+            }
+          }
+        }
+        return !isFromTemplate && !isDefault;  // Keep only truly manual documents
       });
       if (manualDocs.length > 0) {
+        console.log(`📝 Preserving manual docs for ${serviceDoc.serviceName}:`, manualDocs.map(d => d.title));
         existingManualDocs.set(serviceDoc.serviceId, manualDocs);
       }
     }
@@ -583,6 +606,7 @@ export class ProjectDetailPage implements OnInit {
     console.log('🔄 DEBUG: Starting loadRequiredDocumentsFromAttach');
     console.log('  - Selected services count:', this.selectedServices.length);
     console.log('  - Previous serviceDocuments count:', this.serviceDocuments.length);
+    console.log('  - Manual docs preserved:', Array.from(existingManualDocs.entries()).map(([id, docs]) => ({ serviceId: id, count: docs.length })));
     
     this.serviceDocuments = [];
     
@@ -611,13 +635,15 @@ export class ProjectDetailPage implements OnInit {
       };
       
       // Find matching document set based on service name
-      const serviceName = service.typeName.toLowerCase();
+      const serviceName = service.typeName.toLowerCase().trim();
+      console.log(`🔍 Looking up documents for service: "${serviceName}"`);
       let docTitles = serviceDocMap[serviceName];
       
       // If no exact match, check for partial matches
       if (!docTitles) {
         for (const key in serviceDocMap) {
           if (serviceName.includes(key) || key.includes(serviceName)) {
+            console.log(`  ✓ Partial match found with key: "${key}"`);
             docTitles = serviceDocMap[key];
             break;
           }
@@ -626,7 +652,10 @@ export class ProjectDetailPage implements OnInit {
       
       // Default to generic documents if no match found
       if (!docTitles) {
+        console.log(`  ⚠️ No match found, using default documents`);
         docTitles = ['Service Report', 'Supporting Documentation'];
+      } else {
+        console.log(`  ✓ Using documents:`, docTitles);
       }
       
       // Add documents based on templates or defaults
@@ -701,12 +730,14 @@ export class ProjectDetailPage implements OnInit {
       console.log(`📋 Service document group for ${service.typeName}:`, {
         serviceId: serviceDocGroup.serviceId,
         documentCount: documents.length,
-        documentTitles: documents.map(d => d.title)
+        documentTitles: documents.map(d => d.title),
+        docTitlesUsed: docTitles
       });
       
       // Add back any manually added documents AND check for their attachments
       const manualDocs = existingManualDocs.get(serviceDocGroup.serviceId);
       if (manualDocs) {
+        console.log(`📋 Adding back ${manualDocs.length} manual docs to ${service.typeName}`);
         // Check if any of these manual docs now have attachments
         for (const manualDoc of manualDocs) {
           // Find ALL attachments for this type and title - EXACT match on title
@@ -716,6 +747,7 @@ export class ProjectDetailPage implements OnInit {
           );
           
           if (attachments.length > 0) {
+            console.log(`  ✓ Manual doc "${manualDoc.title}" has ${attachments.length} attachment(s)`);
             // Update the manual doc with attachment info
             manualDoc.attachId = attachments[0].AttachID;
             manualDoc.uploaded = true;
@@ -727,6 +759,8 @@ export class ProjectDetailPage implements OnInit {
               linkName: a.Link,
               attachmentUrl: a.Attachment
             }));
+          } else {
+            console.log(`  - Manual doc "${manualDoc.title}" has no attachments yet`);
           }
         }
         serviceDocGroup.documents.push(...manualDocs);
@@ -737,11 +771,11 @@ export class ProjectDetailPage implements OnInit {
       // Build a Set of titles that are already accounted for
       const accountedTitles = new Set(serviceDocGroup.documents.map(d => d.title));
       
-      // Also add any titles that have attachments (to avoid duplicates)
-      const attachedTitles = new Set(
-        serviceDocGroup.documents
-          .filter(d => d.uploaded)
-          .map(d => d.title)
+      console.log(`📊 Documents already accounted for in ${service.typeName}:`, Array.from(accountedTitles));
+      console.log(`📎 Existing attachments for TypeID ${service.typeId}:`, 
+        this.existingAttachments
+          .filter(a => a.TypeID === parseInt(service.typeId))
+          .map(a => ({ Title: a.Title, AttachID: a.AttachID }))
       );
       
       // Find orphan attachments - those that aren't already in our documents list
@@ -752,21 +786,12 @@ export class ProjectDetailPage implements OnInit {
         // Check if this title is already accounted for in the documents
         // This prevents duplicates when a document like "Supporting Documentation" is uploaded
         if (accountedTitles.has(a.Title)) {
-          // Already have a document with this title, check if it's the same attachment
-          const existingDoc = serviceDocGroup.documents.find(d => d.title === a.Title);
-          if (existingDoc && existingDoc.attachId === a.AttachID) {
-            // Same attachment, already accounted for
-            return false;
-          }
-          if (existingDoc && existingDoc.uploaded) {
-            // Already has an attachment, this might be an additional file
-            // Don't add as orphan, it's already handled
-            return false;
-          }
+          // Already have a document with this title, don't add as orphan
+          return false;
         }
         
-        // Not accounted for, this is an orphan
-        return !accountedTitles.has(a.Title);
+        // This attachment's title is not in our documents list, it's an orphan
+        return true;
       });
       
       // Group orphan attachments by title
@@ -778,9 +803,12 @@ export class ProjectDetailPage implements OnInit {
         orphansByTitle.get(orphan.Title)?.push(orphan);
       }
       
+      console.log(`🔍 Orphan attachments found:`, Array.from(orphansByTitle.keys()));
+      
       // Add orphan documents (only truly orphaned ones)
       for (const [title, attachments] of orphansByTitle.entries()) {
-        // Double-check this title isn't already in the documents
+        // This should never happen since we already filtered by accountedTitles above
+        // but double-check to be safe
         if (!accountedTitles.has(title)) {
           console.log(`📎 Adding orphan document: "${title}" with ${attachments.length} file(s)`);
           const docItem: DocumentItem = {
@@ -798,8 +826,11 @@ export class ProjectDetailPage implements OnInit {
             }))
           } as any;
           serviceDocGroup.documents.push(docItem);
+          
+          // Add to accountedTitles to prevent duplicates in next iteration
+          accountedTitles.add(title);
         } else {
-          console.log(`⚠️ Skipping duplicate: "${title}" - already in documents list`);
+          console.log(`⚠️ ERROR: Should not happen - "${title}" was supposed to be filtered out as not orphan!`);
         }
       }
       
@@ -824,8 +855,18 @@ export class ProjectDetailPage implements OnInit {
     console.log('  - Service documents:', this.serviceDocuments.map(sd => ({
       name: sd.serviceName,
       id: sd.serviceId,
-      docs: sd.documents.length
+      docs: sd.documents.length,
+      docTitles: sd.documents.map(d => d.title)
     })));
+    
+    // Check for duplicate documents within each service
+    for (const sd of this.serviceDocuments) {
+      const titles = sd.documents.map(d => d.title);
+      const duplicates = titles.filter((title, index) => titles.indexOf(title) !== index);
+      if (duplicates.length > 0) {
+        console.error(`❌ DUPLICATE DOCUMENTS in ${sd.serviceName}:`, duplicates);
+      }
+    }
   }
 
   async uploadDocument(serviceId: string, typeId: string, doc: DocumentItem) {
@@ -1062,15 +1103,19 @@ export class ProjectDetailPage implements OnInit {
         }> = [];
         
         // Get the main attachment
+        console.log('📸 Loading attachment with ID:', doc.attachId);
         const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
         
         if (attachment && attachment.Attachment) {
+          console.log('✅ Got attachment URL, length:', attachment.Attachment?.length);
           allImages.push({
             url: attachment.Attachment,
             title: doc.title,
             filename: doc.linkName || doc.filename || 'document',
-            attachId: undefined
+            attachId: doc.attachId  // Keep the original attachId
           });
+        } else {
+          console.error('❌ No attachment URL received for ID:', doc.attachId);
         }
         
         // Get additional files if any
@@ -1084,7 +1129,7 @@ export class ProjectDetailPage implements OnInit {
                     url: addAttachment.Attachment,
                     title: `${doc.title} - Additional`,
                     filename: additionalFile.linkName || 'additional',
-                    attachId: undefined
+                    attachId: additionalFile.attachId  // Keep the additional file's attachId
                   });
                 }
               } catch (err) {
@@ -1097,19 +1142,6 @@ export class ProjectDetailPage implements OnInit {
         await loading.dismiss();
         
         if (allImages.length > 0) {
-          // Add attachId to each image
-          if (attachment && attachment.AttachID) {
-            allImages[0].attachId = attachment.AttachID;
-          }
-          
-          // Add attachIds for additional files
-          if (doc.additionalFiles && doc.additionalFiles.length > 0) {
-            doc.additionalFiles.forEach((addFile: any, index: number) => {
-              if (allImages[index + 1]) {
-                allImages[index + 1].attachId = addFile.attachId;
-              }
-            });
-          }
           
           // Use the new multiple images mode with save callback
           const modal = await this.modalController.create({
@@ -1179,7 +1211,7 @@ export class ProjectDetailPage implements OnInit {
             url: attachment.Attachment,
             title: parentDoc.title,
             filename: parentDoc.linkName || parentDoc.filename || 'document',
-            attachId: undefined
+            attachId: parentDoc.attachId  // Keep the original attachId
           });
         }
         
@@ -1194,7 +1226,7 @@ export class ProjectDetailPage implements OnInit {
                     url: addAttachment.Attachment,
                     title: `${parentDoc.title} - Additional`,
                     filename: addFile.linkName || 'additional',
-                    attachId: undefined
+                    attachId: addFile.attachId  // Keep the additional file's attachId
                   });
                 }
               } catch (err) {
@@ -1207,19 +1239,6 @@ export class ProjectDetailPage implements OnInit {
         await loading.dismiss();
         
         if (allImages.length > 0) {
-          // Add attachId to each image
-          if (attachment && attachment.AttachID) {
-            allImages[0].attachId = attachment.AttachID;
-          }
-          
-          // Add attachIds for additional files
-          if (parentDoc.additionalFiles && parentDoc.additionalFiles.length > 0) {
-            parentDoc.additionalFiles.forEach((addFile: any, index: number) => {
-              if (allImages[index + 1]) {
-                allImages[index + 1].attachId = addFile.attachId;
-              }
-            });
-          }
           
           // Open viewer starting at the selected additional file with save callback
           const modal = await this.modalController.create({

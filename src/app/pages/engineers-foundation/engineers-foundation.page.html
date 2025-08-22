@@ -21,18 +21,18 @@
     </div>
 
     <!-- Project Information Section (Shared across all services) -->
-    <div class="section-card project-info-card">
-      <div class="section-header project-header" (click)="toggleSection('project')">
+    <div class="section-card">
+      <div class="section-header" (click)="toggleSection('project')">
         <div class="section-info">
           <div class="section-title">
-            <span class="section-icon">🏠</span>
+            <ion-icon name="information-circle-outline"></ion-icon>
             Project Information
           </div>
-          <div class="section-description">Core property and inspection details - Project #{{ projectId }}</div>
+          <div class="section-description">Project #{{ projectId }}</div>
         </div>
-        <div class="section-status">
-          <span class="completion-indicator" [class.complete]="getProjectCompletion() === 100">
-            {{getProjectCompletion()}}% Complete
+        <div class="section-toggle">
+          <span class="completion-badge" [class.complete]="getProjectCompletion() === 100">
+            {{ getProjectCompletion() }}%
           </span>
           <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
@@ -275,7 +275,7 @@
                       </ion-checkbox>
                       <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">
@@ -324,7 +324,7 @@
                       </ion-checkbox>
                       <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">
@@ -373,7 +373,7 @@
                       </ion-checkbox>
                       <ion-label class="item-label" (click)="showFullText(item)">
                         <h3>{{ item.name }}</h3>
-                        <p class="item-text clickable" *ngIf="item.text">{{ item.text }}</p>
+                        <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                       </ion-label>
                       <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       <div class="photo-actions" *ngIf="isItemSelected(category, item.id)">

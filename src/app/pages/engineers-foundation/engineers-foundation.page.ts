@@ -72,7 +72,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // UI state
   expandedSections: { [key: string]: boolean } = {
-    project: true,  // Project Details open by default
+    project: false,  // Project Details collapsed by default
     structural: false,  // Structural Systems collapsed by default
     elevation: false
   };
@@ -714,13 +714,51 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     return this.savingItems[`${category}_${itemId}`] || false;
   }
   
-  // Show full text in modal
+  // Show full text in sleek editor modal
   async showFullText(item: any) {
     const alert = await this.alertController.create({
-      header: item.name,
-      message: item.text || 'No description available',
-      buttons: ['OK'],
-      cssClass: 'full-text-modal'
+      header: 'View Details',
+      cssClass: 'text-editor-modal',
+      inputs: [
+        {
+          name: 'title',
+          type: 'text',
+          placeholder: 'Title',
+          value: item.name || '',
+          cssClass: 'editor-title-input'
+        },
+        {
+          name: 'description',
+          type: 'textarea',
+          placeholder: 'Description',
+          value: item.text || '',
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 8
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'editor-cancel-btn'
+        },
+        {
+          text: 'Save',
+          cssClass: 'editor-save-btn',
+          handler: (data) => {
+            // Update the item with new values
+            if (data.title !== item.name || data.description !== item.text) {
+              item.name = data.title;
+              item.text = data.description;
+              this.saveTemplate(); // Auto-save the changes
+              this.showToast('Changes saved', 'success');
+            }
+            return true;
+          }
+        }
+      ]
     });
     await alert.present();
   }
