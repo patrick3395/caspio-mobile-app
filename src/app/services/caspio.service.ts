@@ -767,28 +767,6 @@ export class CaspioService {
     }
   }
 
-  updateAttachment(attachId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`, updateData);
-  }
-
-  deleteAttachment(attachId: string): Observable<any> {
-    return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
-  }
-
-  // Get attachment with base64 data for display
-  getAttachmentWithImage(attachId: string): Observable<any> {
-    return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
-      map(response => {
-        if (response.Result && response.Result.length > 0) {
-          const record = response.Result[0];
-          // If attachment is a file path, it should be accessible
-          return record;
-        }
-        return null;
-      })
-    );
-  }
-
   // File upload method - for replacing existing attachment
   uploadFileToAttachment(attachId: string, file: File): Observable<any> {
     return new Observable(observer => {
