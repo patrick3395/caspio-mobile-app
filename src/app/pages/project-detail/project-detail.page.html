@@ -120,31 +120,31 @@
               </div>
               <div class="col-actions">
                 <ion-button 
-                size="small" 
-                fill="clear" 
-                color="danger"
-                (click)="removeServiceInstance(service)"
-                [disabled]="updatingServices">
-                <ion-icon name="trash-outline"></ion-icon>
-              </ion-button>
-              <ion-button 
-                size="small" 
-                fill="clear" 
-                color="primary"
-                (click)="duplicateService(service.offersId, service.typeName)"
-                [disabled]="updatingServices">
-                <ion-icon name="copy-outline"></ion-icon>
-              </ion-button>
+                  size="small" 
+                  fill="clear" 
+                  color="danger"
+                  (click)="removeServiceInstance(service)"
+                  [disabled]="updatingServices">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </ion-button>
+                <ion-button 
+                  size="small" 
+                  fill="clear" 
+                  color="primary"
+                  (click)="duplicateService(service.offersId, service.typeName)"
+                  [disabled]="updatingServices">
+                  <ion-icon name="copy-outline"></ion-icon>
+                </ion-button>
+              </div>
+            </div>
+            <!-- Price line under service -->
+            <div class="service-price-row">
+              <div class="price-divider"></div>
+              <div class="service-price">
+                ${{ getServicePrice(service) | number:'1.2-2' }}
+              </div>
             </div>
           </div>
-          <!-- Price line under service -->
-          <div class="service-price-row">
-            <div class="price-divider"></div>
-            <div class="service-price">
-              ${{ getServicePrice(service) | number:'1.2-2' }}
-            </div>
-          </div>
-        </div>
         
         <!-- Total Sum Row -->
         <div class="services-total-row">
