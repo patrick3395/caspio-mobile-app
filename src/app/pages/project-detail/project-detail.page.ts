@@ -691,15 +691,25 @@ export class ProjectDetailPage implements OnInit {
       const { serviceId, typeId, doc, action } = this.currentUploadContext;
       
       if (action === 'upload' || action === 'additional') {
-        // Create new Attach record WITH FILE - ensure all IDs are valid integers
+        // Create new Attach record WITH FILE - only ProjectID and TypeID are needed
         const projectIdNum = parseInt(this.projectId);
         const typeIdNum = parseInt(typeId);
-        const serviceIdNum = parseInt(serviceId);
         
-        if (isNaN(projectIdNum) || isNaN(typeIdNum) || isNaN(serviceIdNum)) {
-          console.error('Invalid IDs:', { projectId: this.projectId, typeId, serviceId });
+        console.log('🔍 DEBUG: Parsing IDs for upload:', {
+          projectId: this.projectId,
+          projectIdNum,
+          typeId,
+          typeIdNum,
+          serviceId: serviceId + ' (not needed for Attach table)'
+        });
+        
+        if (isNaN(projectIdNum) || isNaN(typeIdNum)) {
+          console.error('Invalid IDs:', { projectId: this.projectId, typeId });
+          await this.showToast('Invalid project or type ID. Please refresh and try again.', 'danger');
           throw new Error('Invalid ID values');
         }
+        
+        // ServiceID is NOT needed for Attach table - only ProjectID, TypeID, Title, Notes, Link, Attachment
         
         // Build the attachment data for preview
         const attachData = {
@@ -712,10 +722,10 @@ export class ProjectDetailPage implements OnInit {
         };
         
         console.log('📝 Creating attachment record with file:', attachData);
-        console.log('  ServiceID (context only):', serviceIdNum, '- NOT sent to table');
+        console.log('  ServiceID:', serviceId, '- NOT sent to Attach table (not a field in that table)');
         
         // Show popup with the data being sent - user must confirm before upload proceeds
-        await this.showAttachmentDataPopup(attachData, file, serviceIdNum);
+        await this.showAttachmentDataPopup(attachData, file, serviceId);
         
         // Only show loading AFTER user confirms in the popup
         loading = await this.loadingController.create({
@@ -1024,7 +1034,11 @@ export class ProjectDetailPage implements OnInit {
   }
 
   goBack() {
-    this.router.navigate(['/tabs/active-projects']);
+    // Force refresh of active projects by using query params to trigger reload
+    this.router.navigate(['/tabs/active-projects'], { 
+      queryParams: { refresh: new Date().getTime() },
+      queryParamsHandling: 'merge'
+    });
   }
 
   getTemplateProgress(service: any): number {

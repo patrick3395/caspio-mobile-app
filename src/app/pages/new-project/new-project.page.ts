@@ -348,7 +348,8 @@ export class NewProjectPage implements OnInit {
         if (result.projectId) {
           console.log('🚀 Navigating to project details:', result.projectId);
           // Navigate immediately - Caspio API is instantaneous
-          await this.router.navigate(['/project', result.projectId]);
+          // Use replaceUrl to ensure proper navigation history
+          await this.router.navigate(['/project', result.projectId], { replaceUrl: true });
         } else {
           // This shouldn't happen, but fallback to projects list
           console.log('⚠️ No project ID returned, navigating to projects list');

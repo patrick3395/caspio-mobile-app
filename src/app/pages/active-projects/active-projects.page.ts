@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
@@ -19,14 +19,24 @@ export class ActiveProjectsPage implements OnInit {
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
     private deployService: IonicDeployService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
+    // Subscribe to query params to handle refresh
+    this.route.queryParams.subscribe(params => {
+      if (params['refresh']) {
+        console.log('Refresh parameter detected, reloading projects...');
+        this.checkAuthAndLoadProjects();
+      }
+    });
     this.checkAuthAndLoadProjects();
   }
 
   ionViewWillEnter() {
+    // Always reload when entering the page
+    console.log('ionViewWillEnter - reloading active projects');
     this.checkAuthAndLoadProjects();
   }
 
