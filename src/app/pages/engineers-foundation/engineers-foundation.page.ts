@@ -1005,9 +1005,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('🔍 Visual ID for this key:', this.visualRecordIds[key]);
     
     try {
+      // Validate the visualId before proceeding
+      console.log('🔍 Validating VisualID before upload:');
+      console.log('   - Raw visualId parameter:', visualId);
+      console.log('   - Type of visualId:', typeof visualId);
+      console.log('   - visualRecordIds[key]:', this.visualRecordIds[key]);
+      
+      // Use the ID from visualRecordIds to ensure consistency
+      const actualVisualId = this.visualRecordIds[key] || visualId;
+      console.log('   - Using actualVisualId:', actualVisualId);
+      
       // Parse visualId to number as required by the service
-      const visualIdNum = parseInt(visualId, 10);
-      console.log('   VisualID (parsed number):', visualIdNum);
+      const visualIdNum = parseInt(actualVisualId, 10);
+      console.log('   - Parsed to number:', visualIdNum);
+      
+      if (isNaN(visualIdNum)) {
+        throw new Error(`Invalid VisualID: ${actualVisualId}`);
+      }
+      
+      // Prepare debug information
+      const allVisualIds = Object.entries(this.visualRecordIds)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('<br>');
       
       // Prepare the data that will be sent
       const dataToSend = {
@@ -1026,18 +1045,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           '1. Upload file to Files API',
           '2. Create record with VisualID and Annotation (without Photo)',
           '3. Update record with Photo field containing file path'
-        ]
+        ],
+        debug: {
+          key: key,
+          rawVisualId: visualId,
+          actualVisualId: actualVisualId,
+          parsedNumber: visualIdNum,
+          storedForKey: this.visualRecordIds[key],
+          allStoredIds: allVisualIds
+        }
       };
       
       // Show popup with data to be sent
       const alert = await this.alertController.create({
-        header: 'Services_Visuals_Attach Upload Data',
+        header: 'Services_Visuals_Attach Upload Debug',
         message: `
-          <div style="text-align: left; font-family: monospace;">
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: red;">🔍 DEBUG INFO:</strong><br>
+            • Key: ${dataToSend.debug.key}<br>
+            • Raw VisualID param: ${dataToSend.debug.rawVisualId}<br>
+            • Stored for this key: ${dataToSend.debug.storedForKey}<br>
+            • Using VisualID: <strong style="color: blue;">${dataToSend.debug.actualVisualId}</strong><br>
+            • Parsed Number: <strong style="color: blue;">${dataToSend.debug.parsedNumber}</strong><br><br>
+            
+            <strong>All Stored Visual IDs:</strong><br>
+            <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px;">
+              ${dataToSend.debug.allStoredIds || 'None'}
+            </div><br>
+            
             <strong>Table:</strong> ${dataToSend.table}<br><br>
             
             <strong>Fields to Send:</strong><br>
-            • VisualID: ${dataToSend.fields.VisualID} (Integer)<br>
+            • VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
             • Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
             • Photo: Will store file path after upload<br><br>
             
