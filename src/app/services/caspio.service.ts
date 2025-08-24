@@ -722,31 +722,32 @@ export class CaspioService {
     const attachId = createResult.AttachID || createResult.PK_ID;
     console.log('✅ Record created with AttachID:', attachId);
     
-    // Step 2: Upload file to the Attachment field
+    // Step 2: Upload file to the Attachment field using the specific file field endpoint
     console.log('Step 2: Uploading file to Attachment field...');
+    
+    // Try the specific file field endpoint first (this works for Services_Visuals_Attach)
+    const fileFieldUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
+    console.log('Using file field endpoint:', fileFieldUrl);
     
     // Build multipart/form-data with the file
     const formData = new FormData();
-    formData.append('Attachment', file, file.name);
+    formData.append('file', file, file.name);
     
-    // Update the record with the file
-    const uploadResponse = await fetch(
-      `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-          // NO Content-Type header - let browser set it with boundary
-        },
-        body: formData
-      }
-    );
+    // Upload directly to the file field
+    const uploadResponse = await fetch(fileFieldUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+        // NO Content-Type header - let browser set it with boundary
+      },
+      body: formData
+    });
     
     const uploadResponseText = await uploadResponse.text();
-    console.log(`Upload response status: ${uploadResponse.status}`);
+    console.log(`Upload response status: ${uploadResponse.status}, body: ${uploadResponseText || '(empty)'}`);
     
     if (uploadResponse.status === 204 || uploadResponse.ok) {
-      console.log('✅ File uploaded successfully');
+      console.log('✅ File uploaded successfully to Attachment field');
       
       // Step 3: Fetch the record again to get the actual file path
       console.log('Step 3: Fetching updated record with file path...');
@@ -811,24 +812,25 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      // Use the correct two-step process per CLAUDE.md
-      // Step 1: Build FormData with the file
-      console.log('Replacing attachment file using correct two-step process...');
-      const formData = new FormData();
-      formData.append('Attachment', file, file.name);
+      // Use the specific file field endpoint that works
+      console.log('Replacing attachment file using file field endpoint...');
       
-      // Step 2: Update the record with the file using multipart/form-data
-      const updateResponse = await fetch(
-        `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-            // NO Content-Type header - let browser set it with boundary
-          },
-          body: formData
-        }
-      );
+      // Use the direct file field endpoint
+      const fileFieldUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
+      console.log('Using file field endpoint:', fileFieldUrl);
+      
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      
+      // Upload directly to the file field
+      const updateResponse = await fetch(fileFieldUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+          // NO Content-Type header - let browser set it with boundary
+        },
+        body: formData
+      });
       
       const updateResponseText = await updateResponse.text();
       console.log(`Update response status: ${updateResponse.status}`);
