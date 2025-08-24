@@ -1,5 +1,8 @@
 # IMPORTANT REMINDERS FOR CLAUDE
 
+## 🚨 CRITICAL - NEVER CHANGE THE FILE UPLOAD METHOD 🚨
+**THE FILE UPLOAD METHOD BELOW IS TESTED AND WORKING. DO NOT MODIFY IT UNDER ANY CIRCUMSTANCES.**
+
 ## CRITICAL - DO THIS EVERY SESSION
 
 ### 1. UPDATE VERSION HEADER
@@ -16,20 +19,57 @@
 - **Use response=rows** parameter to get created records back immediately
 - APIs are instantaneous - no need for temp IDs or waiting
 
-### 3. FILE UPLOAD METHOD (WORKING - DO NOT CHANGE)
-- **Two-step process that WORKS**:
-  1. Upload file to Caspio Files API: PUT to `/files` with FormData
-  2. Create Attach record with file path: POST to `/tables/Attach/records` with path in Attachment field
-- **Important field mappings**:
-  - ProjectID: Use `project.ProjectID` NOT `project.PK_ID` or route ID
-  - TypeID: From the service type
-  - Title: Document title
-  - Link: Filename (stored automatically)
-  - Attachment: File path from Files API (e.g., `/filename.jpg`)
-- **Files API returns**: `{ Name: "filename.jpg" }` - use this for the path
-- **Viewing files**: Use getAttachmentWithImage to fetch from `/files/path` endpoint
-- **Multiple uploads**: Filter attachments by TypeID and Title to find all files
-- NO ServiceID field in Attach table - never send it
+### 3. 🔒 FILE UPLOAD METHOD (PROVEN WORKING - NEVER CHANGE THIS!)
+**⚠️ WARNING: This method is confirmed working as of v1.3.20. DO NOT MODIFY! ⚠️**
+
+**The ONLY correct way to upload files to Caspio:**
+
+```javascript
+// STEP 1: Upload file to Caspio Files API
+const formData = new FormData();
+formData.append('file', fileBlob, fileName);
+
+const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+  method: 'PUT',
+  headers: { 'Authorization': `Bearer ${token}` },
+  body: formData
+});
+
+const uploadResult = await uploadResponse.json();
+// Returns: { Name: "filename.jpg" }
+
+// STEP 2: Create Attach record with the file PATH (not the file itself!)
+const filePath = `/${uploadResult.Name}`;  // e.g., "/IMG_1234.jpg"
+
+const recordResponse = await fetch(`https://${account}.caspio.com/rest/v2/tables/Attach/records`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    ProjectID: projectId,      // Integer
+    TypeID: typeId,            // Integer
+    Title: title,              // String
+    Notes: notes,              // String
+    Link: fileName,            // String (original filename)
+    Attachment: filePath       // String (PATH from Files API, e.g., "/filename.jpg")
+    // NO ServiceID - this field DOES NOT EXIST
+  })
+});
+```
+
+**Key Points - NEVER FORGET:**
+- **Attachment field stores a PATH STRING**, not the actual file
+- **Files go to Files API first**, then the path goes in the database
+- **Never try to PUT file directly to Attachment field** - this does not work
+- **Never use base64** for the Attachment field
+- **Never send ServiceID** - this field does not exist in Attach table
+- **The working implementation is in `twoStepUploadForAttach` method**
+
+**Viewing files:**
+- Use `/files/path?filePath=${encodedPath}` endpoint to retrieve files
+- The getAttachmentWithImage method handles this correctly
 
 ### 4. UI/UX RULES
 - **Green color ONLY in Required Documents table** - never in service selector
