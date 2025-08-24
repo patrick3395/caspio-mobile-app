@@ -611,13 +611,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
       
       // Store the record ID for potential deletion later
-      const visualId = response.PK_ID || response.id || response.VisualID || response;
+      // Response should have the created record
+      let visualId: any;
+      
+      // If response is an array, get the first item
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = response[0].PK_ID || response[0].VisualID || response[0].id;
+        console.log('📋 Response was array, extracted ID from first item:', visualId);
+      } else if (response && typeof response === 'object') {
+        // If response has Result array (Caspio pattern)
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = response.Result[0].PK_ID || response.Result[0].VisualID || response.Result[0].id;
+          console.log('📋 Response had Result array, extracted ID:', visualId);
+        } else {
+          // Direct object response
+          visualId = response.PK_ID || response.VisualID || response.id;
+          console.log('📋 Response was object, extracted ID:', visualId);
+        }
+      } else {
+        // Response might be the ID itself
+        visualId = response;
+        console.log('📋 Response was ID directly:', visualId);
+      }
+      
+      console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+      console.log('🔍 Extracted VisualID:', visualId);
+      
       const recordKey = `visual_${category}_${templateId}`;
-      localStorage.setItem(recordKey, visualId);
+      localStorage.setItem(recordKey, String(visualId));
       
       // Store in our tracking object for photo uploads
-      this.visualRecordIds[`${category}_${templateId}`] = visualId;
-      console.log('📌 Visual Record ID stored:', visualId);
+      this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
+      console.log('📌 Visual Record ID stored:', visualId, 'for key:', `${category}_${templateId}`);
       
     } catch (error: any) {
       console.error('⚠️ Error during save (checking if actually failed):', error);
@@ -969,14 +994,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('=====================================');
     console.log('📤 UPLOADING PHOTO TO SERVICE_VISUALS_ATTACH');
     console.log('=====================================');
-    console.log('   VisualID:', visualId);
+    console.log('   VisualID (string):', visualId);
+    console.log('   Key:', key);
     console.log('   Photo Name:', photo.name);
     console.log('   Photo Size:', photo.size);
     console.log('   Photo Type:', photo.type);
     
+    // Debug: Check all stored visual IDs
+    console.log('🔍 All stored visual IDs:', this.visualRecordIds);
+    console.log('🔍 Visual ID for this key:', this.visualRecordIds[key]);
+    
     try {
       // Parse visualId to number as required by the service
       const visualIdNum = parseInt(visualId, 10);
+      console.log('   VisualID (parsed number):', visualIdNum);
       
       // Prepare the data that will be sent
       const dataToSend = {
@@ -1172,19 +1203,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.log('🔄 Refreshing Visual ID for:', category, templateId);
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
+      console.log('📋 Retrieved visuals from database:', visuals);
+      
       if (visuals && Array.isArray(visuals)) {
         // Find the visual we just created
+        const templateName = this.categoryData[category]?.[templateId]?.name;
+        console.log('🔍 Looking for visual with Category:', category, 'and Name:', templateName);
+        
         const ourVisual = visuals.find(v => 
           v.Category === category && 
-          v.Name === this.categoryData[category]?.[templateId]?.name
+          v.Name === templateName
         );
         
         if (ourVisual) {
-          const visualId = ourVisual.PK_ID || ourVisual.id || ourVisual.VisualID;
+          console.log('✅ Found our visual:', ourVisual);
+          const visualId = ourVisual.PK_ID || ourVisual.VisualID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
-          localStorage.setItem(recordKey, visualId);
-          this.visualRecordIds[`${category}_${templateId}`] = visualId;
-          console.log('✅ Visual ID refreshed:', visualId);
+          localStorage.setItem(recordKey, String(visualId));
+          this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
+          console.log('✅ Visual ID refreshed:', visualId, 'for key:', `${category}_${templateId}`);
+        } else {
+          console.log('⚠️ Could not find visual with Category:', category, 'and Name:', templateName);
+          console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.PK_ID || v.VisualID })));
         }
       }
     } catch (error) {
