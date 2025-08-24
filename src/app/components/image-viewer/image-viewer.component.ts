@@ -100,6 +100,7 @@ export class ImageViewerComponent implements OnInit {
   onImageLoad() {
     this.imageLoading = false;
     this.imageError = false;
+    console.log('✅ Image loaded successfully');
     
     if (this.isAnnotating && this.canvasRef) {
       setTimeout(() => this.setupCanvas(), 100);
@@ -109,7 +110,13 @@ export class ImageViewerComponent implements OnInit {
   onImageError() {
     this.imageLoading = false;
     this.imageError = true;
-    console.error('Failed to load image:', this.getCurrentImageUrl());
+    const url = this.getCurrentImageUrl();
+    console.error('❌ Failed to load image');
+    console.error('  URL:', url);
+    console.error('  URL type:', typeof url);
+    console.error('  URL starts with blob:', url?.startsWith('blob:'));
+    console.error('  URL starts with data:', url?.startsWith('data:'));
+    console.error('  URL length:', url?.length);
   }
   
   retryImageLoad() {

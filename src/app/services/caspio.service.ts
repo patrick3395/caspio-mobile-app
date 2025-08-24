@@ -1033,12 +1033,35 @@ export class CaspioService {
               }
               
               // Get the blob
-              const blob = await fileResponse.blob();
+              let blob = await fileResponse.blob();
               console.log('📦 Blob received, size:', blob.size, 'type:', blob.type);
+              
+              // Detect MIME type if not set
+              let mimeType = blob.type;
+              if (!mimeType || mimeType === 'application/octet-stream') {
+                // Try to detect from filename
+                const filename = record.Link || record.Attachment || '';
+                if (filename.toLowerCase().endsWith('.png')) {
+                  mimeType = 'image/png';
+                } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
+                  mimeType = 'image/jpeg';
+                } else if (filename.toLowerCase().endsWith('.gif')) {
+                  mimeType = 'image/gif';
+                } else if (filename.toLowerCase().endsWith('.pdf')) {
+                  mimeType = 'application/pdf';
+                }
+                
+                // Create new blob with correct MIME type
+                if (mimeType !== blob.type) {
+                  console.log('🔄 Converting blob MIME type from', blob.type, 'to', mimeType);
+                  blob = new Blob([blob], { type: mimeType });
+                }
+              }
               
               // Use URL.createObjectURL EXACTLY like the example - this is the key!
               const objectUrl = URL.createObjectURL(blob);
-              console.log('✅ Created object URL for image display');
+              console.log('✅ Created object URL for image display:', objectUrl);
+              console.log('  - Object URL starts with:', objectUrl.substring(0, 50));
               
               // Return the record with the object URL as the Attachment
               record.Attachment = objectUrl;
