@@ -993,8 +993,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         },
         process: [
           '1. Upload file to Files API',
-          '2. Get file path from response',
-          '3. Create record with VisualID, Annotation, and Photo path'
+          '2. Create record with VisualID and Annotation (without Photo)',
+          '3. Update record with Photo field containing file path'
         ]
       };
       

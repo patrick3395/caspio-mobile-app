@@ -480,15 +480,16 @@ export class CaspioService {
       const filePath = `/${uploadResult.Name || file.name}`;
       console.log('File path for Photo field:', filePath);
       
-      // STEP 2: Create Services_Visuals_Attach record with the file path
-      console.log('Step 2: Creating Services_Visuals_Attach record with file path...');
+      // STEP 2: Create Services_Visuals_Attach record WITHOUT the Photo field first
+      console.log('Step 2: Creating Services_Visuals_Attach record (without Photo field)...');
       const recordData = {
         VisualID: parseInt(visualId.toString()),
-        Annotation: annotation || file.name,
-        Photo: filePath  // Store the file path from Files API
+        Annotation: annotation || file.name
+        // DO NOT include Photo field in initial creation - it's a FILE field
       };
       
       console.log('Creating Services_Visuals_Attach record with data:', recordData);
+      console.log('Note: Photo field will be updated separately after record creation');
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
@@ -518,8 +519,41 @@ export class CaspioService {
         }
       }
       
+      // Get the AttachID from the created record
+      const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
+      console.log('Record created with AttachID:', attachId);
+      
+      // STEP 3: Update the Photo field with the file path
+      console.log('Step 3: Updating Photo field with file path...');
+      const updateData = {
+        Photo: filePath
+      };
+      
+      const updateResponse = await fetch(
+        `${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        }
+      );
+      
+      const updateResponseText = await updateResponse.text();
+      console.log(`Update response status: ${updateResponse.status}`);
+      
+      if (!updateResponse.ok) {
+        console.error('Failed to update Photo field:', updateResponseText);
+        // Still return the record even if Photo update failed
+      } else {
+        console.log('✅ Photo field updated successfully');
+      }
+      
       return {
         ...createResult,
+        AttachID: attachId,
         Photo: filePath,  // Include the file path
         success: true
       };
