@@ -434,9 +434,20 @@ export class CaspioService {
   // New method using PROVEN Files API approach for Services_Visuals_Attach
   private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File) {
     console.log('📦 Services_Visuals_Attach upload using PROVEN Files API method');
+    console.log('====== TABLE STRUCTURE ======');
+    console.log('AttachID: Autonumber (Primary Key)');
+    console.log('VisualID: Integer (Foreign Key)');
+    console.log('Photo: File (stores path)');
+    console.log('Annotation: Text(255)');
+    console.log('=============================');
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    console.log('Input parameters:');
+    console.log('  VisualID:', visualId, '(type:', typeof visualId, ')');
+    console.log('  Annotation:', annotation || '(empty)');
+    console.log('  File:', file.name, 'Size:', file.size);
     
     try {
       // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)

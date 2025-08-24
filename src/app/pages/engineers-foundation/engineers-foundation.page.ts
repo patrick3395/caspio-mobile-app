@@ -974,15 +974,82 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('   Photo Size:', photo.size);
     console.log('   Photo Type:', photo.type);
     
+    try {
+      // Parse visualId to number as required by the service
+      const visualIdNum = parseInt(visualId, 10);
+      
+      // Prepare the data that will be sent
+      const dataToSend = {
+        table: 'Services_Visuals_Attach',
+        fields: {
+          VisualID: visualIdNum,
+          Annotation: '', // Annotation is blank as requested
+          Photo: `[File: ${photo.name}]`
+        },
+        fileInfo: {
+          name: photo.name,
+          size: `${(photo.size / 1024).toFixed(2)} KB`,
+          type: photo.type || 'unknown'
+        },
+        process: [
+          '1. Upload file to Files API',
+          '2. Get file path from response',
+          '3. Create record with VisualID, Annotation, and Photo path'
+        ]
+      };
+      
+      // Show popup with data to be sent
+      const alert = await this.alertController.create({
+        header: 'Services_Visuals_Attach Upload Data',
+        message: `
+          <div style="text-align: left; font-family: monospace;">
+            <strong>Table:</strong> ${dataToSend.table}<br><br>
+            
+            <strong>Fields to Send:</strong><br>
+            • VisualID: ${dataToSend.fields.VisualID} (Integer)<br>
+            • Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
+            • Photo: Will store file path after upload<br><br>
+            
+            <strong>File Info:</strong><br>
+            • Name: ${dataToSend.fileInfo.name}<br>
+            • Size: ${dataToSend.fileInfo.size}<br>
+            • Type: ${dataToSend.fileInfo.type}<br><br>
+            
+            <strong>Upload Process:</strong><br>
+            ${dataToSend.process.map(step => `• ${step}`).join('<br>')}
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Upload',
+            handler: async () => {
+              // Proceed with upload
+              await this.performVisualPhotoUpload(visualIdNum, photo, key);
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+      
+    } catch (error) {
+      console.error('❌ Failed to prepare upload:', error);
+      await this.showToast('Failed to prepare photo upload', 'danger');
+    }
+  }
+  
+  // Separate method to perform the actual upload
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string) {
     const loading = await this.loadingController.create({
       message: 'Uploading photo...'
     });
     await loading.present();
     
     try {
-      // Parse visualId to number as required by the service
-      const visualIdNum = parseInt(visualId, 10);
-      
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         visualIdNum, 
@@ -992,7 +1059,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       
       console.log('✅ Photo uploaded successfully:', response);
       
-      // Store photo reference
+      // Store photo reference - need to use the visualId from the key parameter
+      const visualId = key.split('_').pop(); // Extract visualId from key
       if (!this.visualPhotos[visualId]) {
         this.visualPhotos[visualId] = [];
       }
