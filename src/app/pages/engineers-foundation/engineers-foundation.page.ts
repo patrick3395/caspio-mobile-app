@@ -1384,14 +1384,64 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         try {
           const photos = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
           if (photos && photos.length > 0) {
-            this.visualPhotos[visualId] = photos;
-            console.log(`📸 Loaded ${photos.length} photos for visual ${visualId}`);
+            // Process photos to add preview URLs
+            const processedPhotos = await Promise.all(photos.map(async (photo: any) => {
+              const photoData = {
+                ...photo,
+                url: '',
+                thumbnailUrl: ''
+              };
+              
+              // If we have a Photo field with a file path, try to fetch it
+              if (photo.Photo && typeof photo.Photo === 'string') {
+                try {
+                  // Get the image as base64 from Caspio
+                  const imageData = await this.caspioService.getAttachmentImage(photo.Photo).toPromise();
+                  if (imageData) {
+                    photoData.url = imageData;
+                    photoData.thumbnailUrl = imageData;
+                  }
+                } catch (err) {
+                  console.log('Could not fetch image preview for:', photo.Photo);
+                  // Use placeholder
+                  photoData.url = this.createPlaceholderImage();
+                  photoData.thumbnailUrl = photoData.url;
+                }
+              } else {
+                // Use placeholder if no photo path
+                photoData.url = this.createPlaceholderImage();
+                photoData.thumbnailUrl = photoData.url;
+              }
+              
+              return photoData;
+            }));
+            
+            this.visualPhotos[visualId] = processedPhotos;
+            console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}`);
           }
         } catch (error) {
           console.error(`Failed to load photos for visual ${visualId}:`, error);
         }
       }
     }
+  }
+  
+  // Create a placeholder image
+  private createPlaceholderImage(): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 90;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0, 0, 120, 90);
+      ctx.fillStyle = '#999';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Photo', 60, 45);
+      ctx.fillText('Loading...', 60, 60);
+    }
+    return canvas.toDataURL();
   }
 
   // Handle project field changes

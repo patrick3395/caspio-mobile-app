@@ -346,6 +346,22 @@ ion-toolbar {
           .template-item {
             margin-bottom: 12px;
             
+            .visual-item-container {
+              position: relative;
+              border-radius: 12px;
+              transition: all 0.3s ease;
+              
+              &.selected {
+                border: 2px solid var(--noble-orange);
+                box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.1);
+                background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+                
+                .checkbox-item {
+                  border-color: transparent;
+                }
+              }
+            }
+            
             .checkbox-item {
               --background: white;
               --background-hover: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
@@ -399,50 +415,162 @@ ion-toolbar {
                 }
               }
               
-              .photo-actions {
+              // Camera icon button in bottom right corner
+              .camera-icon-btn {
+                position: absolute;
+                bottom: 8px;
+                right: 8px;
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: var(--noble-orange);
+                color: white;
+                border: none;
                 display: flex;
-                gap: 8px;
-                margin-left: 12px;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+                transition: all 0.3s ease;
+                z-index: 10;
                 
-                ion-button {
-                  --border-radius: 8px;
-                  --padding-start: 10px;
-                  --padding-end: 10px;
-                  font-size: 13px;
-                  height: 36px;
+                ion-icon {
+                  font-size: 20px;
                 }
                 
-                .photo-display {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 8px;
+                &:hover {
+                  transform: scale(1.1);
+                  box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
+                }
+                
+                &:active {
+                  transform: scale(0.95);
+                }
+              }
+            }
+            
+            // Image preview section
+            .image-preview-section {
+              padding: 16px;
+              background: #f8f8f8;
+              border-top: 1px solid #e0e0e0;
+              border-radius: 0 0 12px 12px;
+              
+              .image-preview-container {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                align-items: center;
+                
+                .image-preview {
+                  position: relative;
+                  width: 120px;
                   
-                  .photo-item {
+                  img {
+                    width: 120px;
+                    height: 90px;
+                    object-fit: cover;
+                    border-radius: 8px;
+                    border: 2px solid #ddd;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    
+                    &:hover {
+                      border-color: var(--noble-orange);
+                      transform: scale(1.05);
+                    }
+                  }
+                  
+                  .image-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 20px;
+                    background: rgba(0, 0, 0, 0.7);
+                    border-radius: 8px;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
-                    padding: 8px 12px;
-                    background: linear-gradient(135deg, #fff8f5 0%, #fff5f0 100%);
-                    border: 2px solid var(--noble-orange);
-                    border-radius: 8px;
+                    justify-content: center;
+                    gap: 8px;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
                     
-                    .photo-name {
-                      flex: 1;
-                      font-size: 13px;
-                      color: #333;
-                      font-weight: 500;
-                    }
-                    
-                    .photo-icons {
+                    .overlay-btn {
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      background: white;
+                      border: none;
                       display: flex;
-                      gap: 4px;
+                      align-items: center;
+                      justify-content: center;
+                      cursor: pointer;
+                      transition: all 0.3s ease;
                       
-                      ion-button {
-                        --padding-start: 4px;
-                        --padding-end: 4px;
-                        height: 28px;
+                      ion-icon {
+                        font-size: 18px;
+                        color: #333;
+                      }
+                      
+                      &:hover {
+                        background: var(--noble-orange);
+                        
+                        ion-icon {
+                          color: white;
+                        }
                       }
                     }
+                  }
+                  
+                  &:hover .image-overlay {
+                    opacity: 1;
+                  }
+                  
+                  .image-name {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: rgba(255, 255, 255, 0.95);
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    text-align: center;
+                    border-radius: 0 0 6px 6px;
+                    color: #333;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  }
+                }
+                
+                .add-more-btn {
+                  width: 120px;
+                  height: 90px;
+                  border: 2px dashed #ccc;
+                  border-radius: 8px;
+                  background: white;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  
+                  ion-icon {
+                    font-size: 24px;
+                    color: var(--noble-orange);
+                  }
+                  
+                  span {
+                    font-size: 12px;
+                    color: #666;
+                  }
+                  
+                  &:hover {
+                    border-color: var(--noble-orange);
+                    background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
                   }
                 }
               }
