@@ -1267,7 +1267,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
     
     // Get all existing visuals for comparison
-    let existingVisuals = [];
+    let existingVisuals: Array<{id: any, name: string, category: string}> = [];
     try {
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       if (visuals && Array.isArray(visuals)) {
