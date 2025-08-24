@@ -290,7 +290,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               this.selectedItems[key] = true;
               
               // Store the visual record ID
-              const visualId = visual.PK_ID || visual.id || visual.VisualID;
+              const visualId = visual.VisualID || visual.PK_ID || visual.id;
               
               // Store in tracking object for photo uploads
               this.visualRecordIds[key] = visualId;
@@ -541,7 +541,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         if (exists) {
           console.log('⚠️ Visual already exists in database:', exists);
           // Store the ID for future reference
-          this.visualRecordIds[key] = exists.PK_ID || exists.id || exists.VisualID;
+          this.visualRecordIds[key] = exists.VisualID || exists.PK_ID || exists.id;
           console.log('   Stored existing ID:', this.visualRecordIds[key]);
           return;
         }
@@ -618,18 +618,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       let visualId: any;
       
       // If response is an array, get the first item
+      // IMPORTANT: Use VisualID, not PK_ID for Services_Visuals table
       if (Array.isArray(response) && response.length > 0) {
-        visualId = response[0].PK_ID || response[0].VisualID || response[0].id;
+        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
         console.log('📋 Response was array, extracted ID from first item:', visualId);
+        console.log('   - VisualID:', response[0].VisualID, '(preferred)');
+        console.log('   - PK_ID:', response[0].PK_ID, '(not used if VisualID exists)');
       } else if (response && typeof response === 'object') {
         // If response has Result array (Caspio pattern)
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = response.Result[0].PK_ID || response.Result[0].VisualID || response.Result[0].id;
+          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
           console.log('📋 Response had Result array, extracted ID:', visualId);
+          console.log('   - VisualID:', response.Result[0].VisualID, '(preferred)');
+          console.log('   - PK_ID:', response.Result[0].PK_ID, '(not used if VisualID exists)');
         } else {
           // Direct object response
-          visualId = response.PK_ID || response.VisualID || response.id;
+          visualId = response.VisualID || response.PK_ID || response.id;
           console.log('📋 Response was object, extracted ID:', visualId);
+          console.log('   - VisualID:', response.VisualID, '(preferred)');
+          console.log('   - PK_ID:', response.PK_ID, '(not used if VisualID exists)');
         }
       } else {
         // Response might be the ID itself
@@ -1247,19 +1254,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     let extractedId = 'Unknown';
     let responseType = 'Unknown';
     
+    let pkId = 'N/A';
+    let visualIdFromResponse = 'N/A';
+    
     if (response === undefined || response === null || response === '') {
       responseType = 'Empty/Null Response';
       extractedId = 'Will generate temp ID';
     } else if (Array.isArray(response) && response.length > 0) {
       responseType = 'Array Response';
-      extractedId = response[0].PK_ID || response[0].VisualID || response[0].id || 'Not found in array';
+      visualIdFromResponse = response[0].VisualID || 'Not found';
+      pkId = response[0].PK_ID || 'Not found';
+      extractedId = response[0].VisualID || response[0].PK_ID || response[0].id || 'Not found in array';
     } else if (response && typeof response === 'object') {
       if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
         responseType = 'Object with Result array';
-        extractedId = response.Result[0].PK_ID || response.Result[0].VisualID || response.Result[0].id || 'Not found in Result';
+        visualIdFromResponse = response.Result[0].VisualID || 'Not found';
+        pkId = response.Result[0].PK_ID || 'Not found';
+        extractedId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
       } else {
         responseType = 'Direct Object';
-        extractedId = response.PK_ID || response.VisualID || response.id || 'Not found in object';
+        visualIdFromResponse = response.VisualID || 'Not found';
+        pkId = response.PK_ID || 'Not found';
+        extractedId = response.VisualID || response.PK_ID || response.id || 'Not found in object';
       }
     } else {
       responseType = 'Direct ID';
@@ -1272,7 +1288,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       if (visuals && Array.isArray(visuals)) {
         existingVisuals = visuals.map(v => ({
-          id: v.PK_ID || v.VisualID || v.id,
+          id: v.VisualID || v.PK_ID || v.id,
           name: v.Name,
           category: v.Category
         }));
@@ -1301,7 +1317,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             ${JSON.stringify(response, null, 2)}
           </div><br>
           
-          <strong style="color: blue;">Extracted ID:</strong> ${extractedId}<br>
+          <strong style="color: red;">⚠️ ID FIELDS FROM RESPONSE:</strong><br>
+          • <strong>VisualID:</strong> ${visualIdFromResponse} <span style="color: green;">(✓ CORRECT - USE THIS)</span><br>
+          • <strong>PK_ID:</strong> ${pkId} <span style="color: red;">(✗ WRONG - DO NOT USE)</span><br><br>
+          
+          <strong style="color: blue;">Using ID:</strong> ${extractedId}<br>
           <strong>Will Store As:</strong> ${this.visualRecordIds[key] || 'Not yet stored'}<br><br>
           
           <strong>Existing Visuals in Database:</strong><br>
@@ -1341,14 +1361,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         if (ourVisual) {
           console.log('✅ Found our visual:', ourVisual);
-          const visualId = ourVisual.PK_ID || ourVisual.VisualID || ourVisual.id;
+          const visualId = ourVisual.VisualID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
           console.log('✅ Visual ID refreshed:', visualId, 'for key:', `${category}_${templateId}`);
         } else {
           console.log('⚠️ Could not find visual with Category:', category, 'and Name:', templateName);
-          console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.PK_ID || v.VisualID })));
+          console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.VisualID || v.PK_ID })));
         }
       }
     } catch (error) {

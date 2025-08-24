@@ -322,7 +322,8 @@ export class CaspioService {
         // With response=rows, the actual record is in Result array
         if (response && response.Result && response.Result.length > 0) {
           console.log('✅ Created record:', response.Result[0]);
-          console.log('✅ VisualID:', response.Result[0].PK_ID || response.Result[0].VisualID);
+          console.log('✅ VisualID (correct):', response.Result[0].VisualID);
+          console.log('⚠️ PK_ID (do not use):', response.Result[0].PK_ID);
         }
       }),
       map(response => {
