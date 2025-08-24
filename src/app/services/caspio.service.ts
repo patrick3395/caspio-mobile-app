@@ -789,99 +789,8 @@ export class CaspioService {
     }
   }
   
-  // Old method - keeping for reference but not used
-  private async uploadFileAndCreateAttachment(projectId: number, typeId: number, title: string, notes: string, file: File) {
-    console.log('📁 Uploading file using Caspio Files API');
-    
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const folderPath = 'Attach'; // Folder name in Caspio Files
-    
-    try {
-      // Step 1: Upload file to Caspio Files
-      console.log('Step 1: Uploading file to Caspio Files...');
-      const formData = new FormData();
-      formData.append('file', file, file.name);
-      
-      // Upload to Attach folder (you may need to get the folder's externalKey)
-      const filesUrl = `${API_BASE_URL}/files`; // Root folder for now
-      
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
-      
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('File upload failed:', errorText);
-        throw new Error('Failed to upload file to Caspio Files: ' + errorText);
-      }
-      
-      const uploadResult = await uploadResponse.json();
-      console.log('✅ File uploaded to Caspio Files:', uploadResult);
-      
-      // The file path for the Attachment field
-      const filePath = `/${uploadResult.Name || file.name}`; // Root folder path
-      
-      // Step 2: Create Attach record with file path
-      console.log('Step 2: Creating Attach record with file path...');
-      const recordData = {
-        ProjectID: parseInt(projectId.toString()),
-        TypeID: parseInt(typeId.toString()),
-        Title: title,
-        Notes: notes,
-        Link: file.name,
-        Attachment: filePath // File path instead of base64
-      };
-      
-      console.log('Creating Attach record with data:', recordData);
-      
-      // Create the Attach record with response=rows to get it back
-      const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(recordData)
-      });
-      
-      const createResponseText = await createResponse.text();
-      console.log(`Create response status: ${createResponse.status}`);
-      
-      if (!createResponse.ok) {
-        console.error('Failed to create Attach record:', createResponseText);
-        throw new Error('Failed to create Attach record: ' + createResponseText);
-      }
-      
-      let createResult: any;
-      if (createResponseText.length > 0) {
-        try {
-          const parsedResponse = JSON.parse(createResponseText);
-          // With response=rows, Caspio returns {"Result": [{created record}]}
-          if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
-            createResult = parsedResponse.Result[0];
-            console.log('✅ Attach record created successfully:', createResult);
-          } else {
-            createResult = parsedResponse;
-          }
-        } catch (e) {
-          console.error('Failed to parse response:', e);
-          // Record was likely created even if parsing failed
-          createResult = { success: true };
-        }
-      }
-      
-      return createResult;
-      
-    } catch (error) {
-      console.error('❌ Upload failed:', error);
-      throw error;
-    }
-  }
+  // Removed old uploadFileAndCreateAttachment method that used wrong Files API approach
+  // All file uploads now use the correct two-step process per CLAUDE.md
 
   // File upload method - for replacing existing attachment
   uploadFileToAttachment(attachId: string, file: File): Observable<any> {
@@ -902,48 +811,50 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      // Step 1: Upload new file to Caspio Files
-      console.log('Uploading replacement file to Caspio Files...');
+      // Use the correct two-step process per CLAUDE.md
+      // Step 1: Build FormData with the file
+      console.log('Replacing attachment file using correct two-step process...');
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      formData.append('Attachment', file, file.name);
       
-      const filesUrl = `${API_BASE_URL}/files`;
+      // Step 2: Update the record with the file using multipart/form-data
+      const updateResponse = await fetch(
+        `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+            // NO Content-Type header - let browser set it with boundary
+          },
+          body: formData
+        }
+      );
       
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
+      const updateResponseText = await updateResponse.text();
+      console.log(`Update response status: ${updateResponse.status}`);
       
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error('Failed to upload replacement file: ' + errorText);
+      if (updateResponse.status === 204 || updateResponse.ok) {
+        console.log('✅ File replaced successfully');
+        
+        // Also update the Link field with the new filename
+        const updateLinkResponse = await fetch(
+          `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              Link: file.name
+            })
+          }
+        );
+        
+        return { success: true, attachId, fileName: file.name };
+      } else {
+        throw new Error('Failed to replace attachment file: ' + updateResponseText);
       }
-      
-      const uploadResult = await uploadResponse.json();
-      const filePath = `/${uploadResult.Name || file.name}`;
-      
-      // Step 2: Update Attach record with new file path
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          Attachment: filePath,
-          Link: file.name
-        })
-      });
-      
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        throw new Error('Failed to update attachment record: ' + errorText);
-      }
-      
-      return { success: true, filePath };
       
     } catch (error) {
       console.error('Failed to replace attachment:', error);
