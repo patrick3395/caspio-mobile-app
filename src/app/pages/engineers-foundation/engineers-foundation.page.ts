@@ -1061,15 +1061,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       
       // Store photo reference - need to use the visualId from the key parameter
       const visualId = key.split('_').pop(); // Extract visualId from key
-      if (!this.visualPhotos[visualId]) {
-        this.visualPhotos[visualId] = [];
+      if (visualId) {
+        if (!this.visualPhotos[visualId]) {
+          this.visualPhotos[visualId] = [];
+        }
+        this.visualPhotos[visualId].push({
+          id: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
+          name: photo.name,
+          link: response?.Photo || '',
+          uploadedAt: new Date().toISOString()
+        });
       }
-      this.visualPhotos[visualId].push({
-        id: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
-        name: photo.name,
-        link: response?.Photo || '',
-        uploadedAt: new Date().toISOString()
-      });
       
       await loading.dismiss();
       await this.showToast('Photo uploaded successfully', 'success');
