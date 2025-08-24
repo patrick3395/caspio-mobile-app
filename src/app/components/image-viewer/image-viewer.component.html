@@ -121,7 +121,7 @@
     <div class="image-container" [class.editing]="isAnnotating">
       <div class="image-wrapper" #imageWrapper>
         <img 
-          [src]="getCurrentImageUrl()" 
+          [src]="getCurrentImageUrl() | safeUrl" 
           [alt]="getCurrentTitle()" 
           class="displayed-image"
           #mainImage
@@ -168,7 +168,7 @@
           class="thumbnail"
           [class.active]="i === currentIndex"
           (click)="selectImage(i)">
-          <img [src]="img.url" [alt]="img.title">
+          <img [src]="img.url | safeUrl" [alt]="img.title">
           <span class="thumb-number">{{ i + 1 }}</span>
         </div>
       </div>

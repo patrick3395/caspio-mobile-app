@@ -6,6 +6,7 @@ import { RouterModule, Routes } from '@angular/router';
 
 import { ProjectDetailPage } from './project-detail.page';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
+import { SafeUrlPipe } from '../../pipes/safe-url.pipe';
 
 const routes: Routes = [
   {
@@ -21,6 +22,6 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes)
   ],
-  declarations: [ProjectDetailPage, ImageViewerComponent]
+  declarations: [ProjectDetailPage, ImageViewerComponent, SafeUrlPipe]
 })
 export class ProjectDetailPageModule {}

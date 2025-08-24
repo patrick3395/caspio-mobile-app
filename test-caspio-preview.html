@@ -1,0 +1,480 @@
+<!doctype html>
+<html>
+<head>
+    <title>Caspio Image Preview Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #F15A27;
+        }
+        .config-section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .config-section input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .preview-section {
+            margin-top: 20px;
+        }
+        #preview {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background: #ffeeee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            padding: 10px;
+            background: #eeffee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #F15A27;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #d14920;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px;
+        }
+        .log-error {
+            color: red;
+        }
+        .log-success {
+            color: green;
+        }
+        .log-info {
+            color: blue;
+        }
+        .test-urls {
+            margin: 20px 0;
+        }
+        .test-urls button {
+            margin: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Caspio Image Preview Test</h1>
+        
+        <div class="config-section">
+            <h2>Configuration</h2>
+            <label>Account ID (e.g., xyz123):</label>
+            <input type="text" id="accountId" placeholder="Enter your Caspio Account ID">
+            
+            <label>Client ID:</label>
+            <input type="text" id="clientId" placeholder="Enter your Client ID">
+            
+            <label>Client Secret:</label>
+            <input type="password" id="clientSecret" placeholder="Enter your Client Secret">
+            
+            <label>File Path (e.g., /IMG_7755.png or /Inspections/photo.jpg):</label>
+            <input type="text" id="filePath" placeholder="/IMG_7755.png">
+        </div>
+
+        <div class="test-urls">
+            <h3>Quick Test Paths:</h3>
+            <button onclick="setPath('/IMG_7755.png')">Test: /IMG_7755.png</button>
+            <button onclick="setPath('/Inspections/IMG_7755.png')">Test: /Inspections/IMG_7755.png</button>
+            <button onclick="setPath('IMG_7755.png')">Test: IMG_7755.png (no slash)</button>
+            <button onclick="setPath('/test.jpg')">Test: /test.jpg</button>
+        </div>
+
+        <div>
+            <button onclick="testAuthentication()">1. Test Authentication</button>
+            <button onclick="testFileEndpoint()">2. Test File Endpoint</button>
+            <button onclick="showCaspioImage()">3. Load Full Preview</button>
+            <button onclick="testAlternativeMethods()">4. Test All Methods</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div id="status"></div>
+        
+        <div class="preview-section">
+            <h2>Preview</h2>
+            <img id="preview" alt="Attachment preview" style="display:none;" />
+            <canvas id="canvas" style="display:none; max-width:100%; border: 2px solid #ddd;"></canvas>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let accessToken = null;
+        const logEntries = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            logEntries.push({message: entry, type});
+            updateLogDisplay();
+            console.log(entry);
+        }
+
+        function updateLogDisplay() {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = logEntries.map(entry => 
+                `<div class="log-entry log-${entry.type}">${entry.message}</div>`
+            ).join('');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            logEntries.length = 0;
+            updateLogDisplay();
+        }
+
+        function setPath(path) {
+            document.getElementById('filePath').value = path;
+            log(`Set file path to: ${path}`, 'info');
+        }
+
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = isError ? 'error' : 'success';
+            statusDiv.textContent = message;
+        }
+
+        async function testAuthentication() {
+            try {
+                const account = document.getElementById('accountId').value;
+                const clientId = document.getElementById('clientId').value;
+                const clientSecret = document.getElementById('clientSecret').value;
+
+                if (!account || !clientId || !clientSecret) {
+                    throw new Error('Please fill in all configuration fields');
+                }
+
+                log('Testing authentication...', 'info');
+                
+                const form = new URLSearchParams();
+                form.append("grant_type", "client_credentials");
+                form.append("client_id", clientId);
+                form.append("client_secret", clientSecret);
+
+                const tokenUrl = `https://${account}.caspio.com/oauth/token`;
+                log(`POST ${tokenUrl}`, 'info');
+
+                const response = await fetch(tokenUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: form
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Auth failed: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                accessToken = data.access_token;
+                
+                log(`✅ Authentication successful! Token: ${accessToken.substring(0, 20)}...`, 'success');
+                showStatus('Authentication successful!');
+                return accessToken;
+            } catch (error) {
+                log(`❌ Authentication error: ${error.message}`, 'error');
+                showStatus(`Authentication failed: ${error.message}`, true);
+                throw error;
+            }
+        }
+
+        async function testFileEndpoint() {
+            try {
+                if (!accessToken) {
+                    await testAuthentication();
+                }
+
+                const account = document.getElementById('accountId').value;
+                const filePath = document.getElementById('filePath').value;
+
+                log(`Testing file endpoint with path: ${filePath}`, 'info');
+
+                // Test different endpoint variations
+                const endpoints = [
+                    {
+                        name: 'files/path endpoint',
+                        url: `https://${account}.caspio.com/rest/v2/files/path?filePath=${encodeURIComponent(filePath)}`
+                    },
+                    {
+                        name: 'files endpoint with path',
+                        url: `https://${account}.caspio.com/rest/v2/files${filePath}`
+                    }
+                ];
+
+                for (const endpoint of endpoints) {
+                    log(`Testing ${endpoint.name}...`, 'info');
+                    log(`GET ${endpoint.url}`, 'info');
+
+                    try {
+                        const response = await fetch(endpoint.url, {
+                            headers: {
+                                "Authorization": `Bearer ${accessToken}`,
+                                "Accept": "application/octet-stream"
+                            }
+                        });
+
+                        log(`Response status: ${response.status} ${response.statusText}`, 
+                            response.ok ? 'success' : 'error');
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            log(`✅ ${endpoint.name} worked! Blob size: ${blob.size} bytes, type: ${blob.type}`, 'success');
+                            return blob;
+                        }
+                    } catch (err) {
+                        log(`❌ ${endpoint.name} failed: ${err.message}`, 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ File endpoint test error: ${error.message}`, 'error');
+                showStatus(`File endpoint test failed: ${error.message}`, true);
+            }
+        }
+
+        async function showCaspioImage() {
+            try {
+                const account = document.getElementById('accountId').value;
+                const clientId = document.getElementById('clientId').value;
+                const clientSecret = document.getElementById('clientSecret').value;
+                const filePath = document.getElementById('filePath').value;
+
+                if (!account || !clientId || !clientSecret || !filePath) {
+                    throw new Error('Please fill in all fields');
+                }
+
+                log('Starting full preview test...', 'info');
+                showStatus('Loading image...');
+
+                // 1) Get OAuth token if needed
+                if (!accessToken) {
+                    log('Getting OAuth token...', 'info');
+                    const form = new URLSearchParams();
+                    form.append("grant_type", "client_credentials");
+                    form.append("client_id", clientId);
+                    form.append("client_secret", clientSecret);
+
+                    const tok = await fetch(`https://${account}.caspio.com/oauth/token`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: form
+                    });
+                    
+                    if (!tok.ok) {
+                        throw new Error(`Auth failed: ${tok.status}`);
+                    }
+                    
+                    const tokenData = await tok.json();
+                    accessToken = tokenData.access_token;
+                    log(`✅ Got token: ${accessToken.substring(0, 20)}...`, 'success');
+                }
+
+                // 2) Download file BY PATH
+                const url = `https://${account}.caspio.com/rest/v2/files/path?filePath=${encodeURIComponent(filePath)}`;
+                log(`Fetching file from: ${url}`, 'info');
+                
+                const fileRes = await fetch(url, {
+                    headers: {
+                        "Authorization": `Bearer ${accessToken}`,
+                        "Accept": "application/octet-stream"
+                    }
+                });
+                
+                log(`Response status: ${fileRes.status}`, fileRes.ok ? 'success' : 'error');
+                
+                if (!fileRes.ok) {
+                    const errorText = await fileRes.text();
+                    throw new Error(`File fetch failed: ${fileRes.status} ${fileRes.statusText}\n${errorText}`);
+                }
+
+                // 3) Create blob and render
+                const blob = await fileRes.blob();
+                log(`✅ Got blob: ${blob.size} bytes, type: ${blob.type}`, 'success');
+                
+                // Create object URL
+                const objectUrl = URL.createObjectURL(blob);
+                log(`✅ Created object URL: ${objectUrl}`, 'success');
+                
+                // Display the image
+                const img = document.getElementById('preview');
+                img.src = objectUrl;
+                img.style.display = 'block';
+                img.onload = () => {
+                    log(`✅ Image loaded successfully! Dimensions: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                    showStatus('Image loaded successfully!');
+                };
+                img.onerror = () => {
+                    log('❌ Image failed to load from blob URL', 'error');
+                    showStatus('Image failed to display', true);
+                };
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                showStatus(`Failed: ${error.message}`, true);
+            }
+        }
+
+        async function testAlternativeMethods() {
+            try {
+                if (!accessToken) {
+                    await testAuthentication();
+                }
+
+                const account = document.getElementById('accountId').value;
+                const filePath = document.getElementById('filePath').value;
+
+                log('Testing all alternative methods...', 'info');
+
+                // Method 1: Direct blob URL
+                log('Method 1: Direct blob URL', 'info');
+                try {
+                    const url = `https://${account}.caspio.com/rest/v2/files/path?filePath=${encodeURIComponent(filePath)}`;
+                    const response = await fetch(url, {
+                        headers: {
+                            "Authorization": `Bearer ${accessToken}`,
+                            "Accept": "application/octet-stream"
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        document.getElementById('preview').src = objectUrl;
+                        document.getElementById('preview').style.display = 'block';
+                        log('✅ Method 1 successful', 'success');
+                    }
+                } catch (err) {
+                    log(`❌ Method 1 failed: ${err.message}`, 'error');
+                }
+
+                // Method 2: Base64 encoding
+                log('Method 2: Base64 encoding', 'info');
+                try {
+                    const url = `https://${account}.caspio.com/rest/v2/files/path?filePath=${encodeURIComponent(filePath)}`;
+                    const response = await fetch(url, {
+                        headers: {
+                            "Authorization": `Bearer ${accessToken}`,
+                            "Accept": "application/octet-stream"
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            document.getElementById('preview').src = reader.result;
+                            document.getElementById('preview').style.display = 'block';
+                            log('✅ Method 2 (Base64) successful', 'success');
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                } catch (err) {
+                    log(`❌ Method 2 failed: ${err.message}`, 'error');
+                }
+
+                // Method 3: Canvas rendering
+                log('Method 3: Canvas rendering', 'info');
+                try {
+                    const url = `https://${account}.caspio.com/rest/v2/files/path?filePath=${encodeURIComponent(filePath)}`;
+                    const response = await fetch(url, {
+                        headers: {
+                            "Authorization": `Bearer ${accessToken}`,
+                            "Accept": "application/octet-stream"
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.getElementById('canvas');
+                            canvas.width = img.naturalWidth;
+                            canvas.height = img.naturalHeight;
+                            canvas.style.display = 'block';
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            log('✅ Method 3 (Canvas) successful', 'success');
+                        };
+                        img.src = URL.createObjectURL(blob);
+                    }
+                } catch (err) {
+                    log(`❌ Method 3 failed: ${err.message}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Test alternative methods error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-load config from localStorage if available
+        window.onload = () => {
+            const savedAccount = localStorage.getItem('caspioTestAccount');
+            const savedClientId = localStorage.getItem('caspioTestClientId');
+            const savedPath = localStorage.getItem('caspioTestPath');
+            
+            if (savedAccount) document.getElementById('accountId').value = savedAccount;
+            if (savedClientId) document.getElementById('clientId').value = savedClientId;
+            if (savedPath) document.getElementById('filePath').value = savedPath;
+            
+            log('Test page loaded. Enter your Caspio credentials to begin.', 'info');
+        };
+
+        // Save config to localStorage
+        document.getElementById('accountId').addEventListener('change', (e) => {
+            localStorage.setItem('caspioTestAccount', e.target.value);
+        });
+        document.getElementById('clientId').addEventListener('change', (e) => {
+            localStorage.setItem('caspioTestClientId', e.target.value);
+        });
+        document.getElementById('filePath').addEventListener('change', (e) => {
+            localStorage.setItem('caspioTestPath', e.target.value);
+        });
+    </script>
+</body>
+</html>
