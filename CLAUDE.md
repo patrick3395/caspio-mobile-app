@@ -18,18 +18,18 @@
 
 ### 3. FILE UPLOAD METHOD (WORKING - DO NOT CHANGE)
 - **Two-step process that WORKS**:
-  1. Create Attach record with ProjectID (actual ProjectID from project data, not PK_ID)
-  2. Upload file using uploadFileToAttachment method
+  1. Upload file to Caspio Files API: PUT to `/files` with FormData
+  2. Create Attach record with file path: POST to `/tables/Attach/records` with path in Attachment field
 - **Important field mappings**:
   - ProjectID: Use `project.ProjectID` NOT `project.PK_ID` or route ID
   - TypeID: From the service type
   - Title: Document title
   - Link: Filename (stored automatically)
-  - Attachment: File path (NOT base64, handled by Caspio)
-- **Viewing files**: Use getAttachmentWithImage to fetch base64 data
+  - Attachment: File path from Files API (e.g., `/filename.jpg`)
+- **Files API returns**: `{ Name: "filename.jpg" }` - use this for the path
+- **Viewing files**: Use getAttachmentWithImage to fetch from `/files/path` endpoint
 - **Multiple uploads**: Filter attachments by TypeID and Title to find all files
-- Always show popup with data before uploading
-- NO ServiceID field in Attach table
+- NO ServiceID field in Attach table - never send it
 
 ### 4. UI/UX RULES
 - **Green color ONLY in Required Documents table** - never in service selector
