@@ -315,9 +315,22 @@ export class CaspioService {
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
     console.log('🔍 Creating Services_Visual record:', visualData);
-    return this.post<any>('/tables/Services_Visuals/records', visualData).pipe(
+    // Use response=rows to get the created record back immediately
+    return this.post<any>('/tables/Services_Visuals/records?response=rows', visualData).pipe(
       tap(response => {
-        console.log('✅ Services_Visual created:', response);
+        console.log('✅ Services_Visual created, full response:', response);
+        // With response=rows, the actual record is in Result array
+        if (response && response.Result && response.Result.length > 0) {
+          console.log('✅ Created record:', response.Result[0]);
+          console.log('✅ VisualID:', response.Result[0].PK_ID || response.Result[0].VisualID);
+        }
+      }),
+      map(response => {
+        // Return the first record from Result array if it exists
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return response;
       }),
       catchError(error => {
         console.error('❌ Failed to create Services_Visual:', error);

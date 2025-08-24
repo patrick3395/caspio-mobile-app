@@ -591,6 +591,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.log('✅ Visual saved to Services_Visuals:', response);
       console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
+      // Show debug popup for visual creation
+      await this.showVisualCreationDebug(category, templateId, response);
+      
       // Check if response exists (even if empty, it might mean success)
       // Caspio sometimes returns empty response on successful POST
       if (response === undefined || response === null || response === '') {
@@ -1234,6 +1237,88 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.error('Error verifying visual:', error);
       return false;
     }
+  }
+  
+  // Show debug popup for visual creation
+  async showVisualCreationDebug(category: string, templateId: string, response: any) {
+    const key = `${category}_${templateId}`;
+    
+    // Extract ID from response
+    let extractedId = 'Unknown';
+    let responseType = 'Unknown';
+    
+    if (response === undefined || response === null || response === '') {
+      responseType = 'Empty/Null Response';
+      extractedId = 'Will generate temp ID';
+    } else if (Array.isArray(response) && response.length > 0) {
+      responseType = 'Array Response';
+      extractedId = response[0].PK_ID || response[0].VisualID || response[0].id || 'Not found in array';
+    } else if (response && typeof response === 'object') {
+      if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+        responseType = 'Object with Result array';
+        extractedId = response.Result[0].PK_ID || response.Result[0].VisualID || response.Result[0].id || 'Not found in Result';
+      } else {
+        responseType = 'Direct Object';
+        extractedId = response.PK_ID || response.VisualID || response.id || 'Not found in object';
+      }
+    } else {
+      responseType = 'Direct ID';
+      extractedId = response;
+    }
+    
+    // Get all existing visuals for comparison
+    let existingVisuals = [];
+    try {
+      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      if (visuals && Array.isArray(visuals)) {
+        existingVisuals = visuals.map(v => ({
+          id: v.PK_ID || v.VisualID || v.id,
+          name: v.Name,
+          category: v.Category
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to get existing visuals:', e);
+    }
+    
+    const existingVisualsHtml = existingVisuals
+      .map(v => `ID: ${v.id} - ${v.category}/${v.name}`)
+      .join('<br>') || 'None found';
+    
+    const alert = await this.alertController.create({
+      header: 'Visual Creation Debug',
+      message: `
+        <div style="font-family: monospace; font-size: 12px;">
+          <strong style="color: red;">🔍 VISUAL CREATION RESPONSE:</strong><br><br>
+          
+          <strong>Key:</strong> ${key}<br>
+          <strong>Category:</strong> ${category}<br>
+          <strong>Template ID:</strong> ${templateId}<br><br>
+          
+          <strong>Response Type:</strong> ${responseType}<br>
+          <strong>Raw Response:</strong><br>
+          <div style="background: #f0f0f0; padding: 5px; max-height: 150px; overflow-y: auto;">
+            ${JSON.stringify(response, null, 2)}
+          </div><br>
+          
+          <strong style="color: blue;">Extracted ID:</strong> ${extractedId}<br>
+          <strong>Will Store As:</strong> ${this.visualRecordIds[key] || 'Not yet stored'}<br><br>
+          
+          <strong>Existing Visuals in Database:</strong><br>
+          <div style="background: #f0f0f0; padding: 5px; max-height: 100px; overflow-y: auto;">
+            ${existingVisualsHtml}
+          </div><br>
+          
+          <strong>Current visualRecordIds:</strong><br>
+          <div style="background: #f0f0f0; padding: 5px; max-height: 100px; overflow-y: auto;">
+            ${Object.entries(this.visualRecordIds).map(([k, v]) => `${k}: ${v}`).join('<br>') || 'None'}
+          </div>
+        </div>
+      `,
+      buttons: ['OK']
+    });
+    
+    await alert.present();
   }
   
   // Refresh visual ID after save
