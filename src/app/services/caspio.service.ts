@@ -494,16 +494,21 @@ export class CaspioService {
       const filePath = `/${uploadResult.Name || file.name}`;
       console.log('File path for Photo field:', filePath);
       
-      // STEP 2: Create Services_Visuals_Attach record WITHOUT the Photo field first
-      console.log('Step 2: Creating Services_Visuals_Attach record (without Photo field)...');
+      // STEP 2: Create Services_Visuals_Attach record WITH the Photo field path
+      console.log('Step 2: Creating Services_Visuals_Attach record with file path...');
+      console.log('Table: Services_Visuals_Attach');
+      console.log('Fields being sent:');
+      console.log('  - VisualID (Integer):', parseInt(visualId.toString()));
+      console.log('  - Annotation (Text):', annotation || file.name);
+      console.log('  - Photo (File path):', filePath);
+      
       const recordData = {
         VisualID: parseInt(visualId.toString()),
-        Annotation: annotation || file.name
-        // DO NOT include Photo field in initial creation - it's a FILE field
+        Annotation: annotation || file.name,
+        Photo: filePath  // Include the file path in initial creation
       };
       
-      console.log('Creating Services_Visuals_Attach record with data:', recordData);
-      console.log('Note: Photo field will be updated separately after record creation');
+      console.log('Creating Services_Visuals_Attach record with data:', JSON.stringify(recordData));
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
@@ -516,6 +521,7 @@ export class CaspioService {
       
       const createResponseText = await createResponse.text();
       console.log(`Create response status: ${createResponse.status}`);
+      console.log(`Create response body: ${createResponseText}`);
       
       if (!createResponse.ok) {
         console.error('Failed to create Services_Visuals_Attach record:', createResponseText);
@@ -528,42 +534,23 @@ export class CaspioService {
         if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
           createResult = parsedResponse.Result[0];
           console.log('✅ Services_Visuals_Attach record created successfully:', createResult);
+        } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
+          createResult = parsedResponse[0];
+          console.log('✅ Services_Visuals_Attach record created successfully (array response):', createResult);
         } else {
           createResult = parsedResponse;
+          console.log('✅ Services_Visuals_Attach record created successfully (object response):', createResult);
         }
+      } else {
+        console.log('⚠️ Empty response from create, but status was OK');
+        createResult = { success: true };
       }
       
-      // Get the AttachID from the created record
+      // Return the created record with the file path
       const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
       console.log('Record created with AttachID:', attachId);
       
-      // STEP 3: Update the Photo field with the file path
-      console.log('Step 3: Updating Photo field with file path...');
-      const updateData = {
-        Photo: filePath
-      };
-      
-      const updateResponse = await fetch(
-        `${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(updateData)
-        }
-      );
-      
-      const updateResponseText = await updateResponse.text();
-      console.log(`Update response status: ${updateResponse.status}`);
-      
-      if (!updateResponse.ok) {
-        console.error('Failed to update Photo field:', updateResponseText);
-        // Still return the record even if Photo update failed
-      } else {
-        console.log('✅ Photo field updated successfully');
-      }
+      // No need for STEP 3 anymore - Photo field is already set with the file path
       
       return {
         ...createResult,
