@@ -414,15 +414,15 @@ export class CaspioService {
     );
   }
 
-  // Create Services_Visuals_Attach with file - EXACT COPY of working Attach method
+  // Create Services_Visuals_Attach with file using PROVEN Files API method
   createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File): Observable<any> {
-    console.log('📦 Method 2: Two-step upload for Services_Visuals_Attach');
+    console.log('📦 Two-step upload for Services_Visuals_Attach using Files API');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.testTwoStepUploadVisuals(visualId, annotation, file)
+      this.uploadVisualsAttachWithFilesAPI(visualId, annotation, file)
         .then(result => {
-          observer.next(result.create); // Return the created record
+          observer.next(result); // Return the created record
           observer.complete();
         })
         .catch(error => {
@@ -431,179 +431,97 @@ export class CaspioService {
     });
   }
 
-  // EXACT COPY of the working testTwoStepUpload but for Services_Visuals_Attach
-  private async testTwoStepUploadVisuals(visualId: number, annotation: string, file: File) {
-    console.log('📦 Method 2: Two-step upload for Services_Visuals_Attach');
-    console.log('=====================================');
-    console.log('TABLE: Services_Visuals_Attach');
-    console.log('COLUMNS:');
-    console.log('   VisualID (Integer) - Foreign key to Services_Visuals');
-    console.log('   Photo (File) - The image file field');
-    console.log('   Annotation (Text) - Description/notes');
-    console.log('=====================================');
+  // New method using PROVEN Files API approach for Services_Visuals_Attach
+  private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File) {
+    console.log('📦 Services_Visuals_Attach upload using PROVEN Files API method');
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    // Step 1: Create record with ONLY these fields (Photo is FILE type, added in step 2)
-    console.log('Step 1: Creating record with VisualID and Annotation...');
-    const recordData = {
-      VisualID: parseInt(visualId.toString()),
-      Annotation: annotation || file.name  // Store filename in Annotation if blank
-    };
-    
-    console.log(`Sending JSON: ${JSON.stringify(recordData)}`);
-    
-    const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(recordData)
-    });
-
-    const createResponseText = await createResponse.text();
-    console.log(`Create response status: ${createResponse.status}, body: ${createResponseText}`);
-    
-    let createResult: any;
-    if (createResponseText.length > 0) {
-      try {
-        createResult = JSON.parse(createResponseText);
-      } catch (e) {
-        throw new Error('Failed to parse create response: ' + createResponseText);
-      }
-    } else {
-      // Empty response might mean success, let's query for the record
-      console.log('Empty response from create. Querying for last record with VisualID...');
-      const queryResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=VisualID=${visualId}&q.orderBy=AttachID%20DESC&q.limit=1`, {
+    try {
+      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
+      console.log('Step 1: Uploading file to Caspio Files API...');
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      
+      const filesUrl = `${API_BASE_URL}/files`;
+      console.log('Uploading to Files API:', filesUrl);
+      
+      const uploadResponse = await fetch(filesUrl, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`
-        }
+          // NO Content-Type header - let browser set it with boundary
+        },
+        body: formData
       });
-      const queryResult = await queryResponse.json();
-      if (queryResult.Result && queryResult.Result.length > 0) {
-        createResult = queryResult.Result[0];
-        const recordId = createResult.AttachID || createResult.PK_ID || createResult.id;
-        console.log(`Found last record: ID=${recordId}`);
-      } else {
-        throw new Error('Failed to create record and could not find it');
-      }
-    }
-    
-    if (!createResponse.ok && !createResult) {
-      throw new Error('Failed to create record: ' + createResponseText);
-    }
-    
-    // Get the ID - could be PK_ID, AttachID, or id depending on table
-    const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
-    console.log(`✅ Step 1 complete. Record ID: ${attachId}`);
-    
-    // Step 2: Upload file to Photo field
-    console.log('Step 2: Uploading file to Photo field...');
-    
-    // Try different approaches for file upload
-    const approaches = [
-      {
-        name: 'FormData with file only',
-        buildBody: () => {
-          const fd = new FormData();
-          fd.append('Photo', file, file.name);
-          return fd;
-        },
-        headers: {}
-      },
-      {
-        name: 'FormData with all fields',
-        buildBody: () => {
-          const fd = new FormData();
-          fd.append('VisualID', visualId.toString());
-          fd.append('Annotation', annotation || '');
-          fd.append('Photo', file, file.name);
-          return fd;
-        },
-        headers: {}
-      },
-      {
-        name: 'JSON with base64',
-        buildBody: async () => {
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-              const base64 = (e.target?.result as string).split(',')[1];
-              resolve(JSON.stringify({ Photo: base64 }));
-            };
-            reader.readAsDataURL(file);
-          });
-        },
-        headers: { 'Content-Type': 'application/json' }
-      }
-    ];
-    
-    let uploadResult = null;
-    let successMethod = null;
-    
-    for (const approach of approaches) {
-      console.log(`Trying approach: ${approach.name}`);
       
-      const body = await approach.buildBody();
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
       
-      // Try PUT to update the record
-      const headers: any = {
-        'Authorization': `Bearer ${accessToken}`,
-        ...approach.headers
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ File uploaded to Files API:', uploadResult);
+      
+      // The file path for the Photo field
+      const filePath = `/${uploadResult.Name || file.name}`;
+      console.log('File path for Photo field:', filePath);
+      
+      // STEP 2: Create Services_Visuals_Attach record with the file path
+      console.log('Step 2: Creating Services_Visuals_Attach record with file path...');
+      const recordData = {
+        VisualID: parseInt(visualId.toString()),
+        Annotation: annotation || file.name,
+        Photo: filePath  // Store the file path from Files API
       };
       
-      // Use AttachID if available, otherwise fall back to PK_ID
-      const idField = createResult.AttachID ? 'AttachID' : 'PK_ID';
-      const putResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=${idField}=${attachId}`, {
-        method: 'PUT',
-        headers: headers,
-        body: body as any
-      });
-
-      const responseText = await putResponse.text();
-      console.log(`Response status: ${putResponse.status}, body length: ${responseText.length}`);
+      console.log('Creating Services_Visuals_Attach record with data:', recordData);
       
-      // Handle empty response (204 No Content is success)
-      if (putResponse.status === 204 || (putResponse.ok && responseText.length === 0)) {
-        uploadResult = { success: true, message: 'File uploaded successfully (empty response)' };
-        successMethod = approach.name;
-        console.log(`✅ File upload successful with: ${approach.name}`);
-        break;
-      } else if (responseText.length > 0) {
-        try {
-          uploadResult = JSON.parse(responseText);
-          if (putResponse.ok) {
-            successMethod = approach.name;
-            console.log(`✅ File upload successful with: ${approach.name}`);
-            break;
-          }
-        } catch (e) {
-          uploadResult = { response: responseText };
-        }
-        
-        if (!putResponse.ok) {
-          console.log(`❌ Failed with ${approach.name}: ${putResponse.status} - ${responseText}`);
+      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+      
+      const createResponseText = await createResponse.text();
+      console.log(`Create response status: ${createResponse.status}`);
+      
+      if (!createResponse.ok) {
+        console.error('Failed to create Services_Visuals_Attach record:', createResponseText);
+        throw new Error('Failed to create record: ' + createResponseText);
+      }
+      
+      let createResult: any;
+      if (createResponseText.length > 0) {
+        const parsedResponse = JSON.parse(createResponseText);
+        if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
+          createResult = parsedResponse.Result[0];
+          console.log('✅ Services_Visuals_Attach record created successfully:', createResult);
+        } else {
+          createResult = parsedResponse;
         }
       }
+      
+      return {
+        ...createResult,
+        Photo: filePath,  // Include the file path
+        success: true
+      };
+      
+    } catch (error) {
+      console.error('❌ Services_Visuals_Attach upload failed:', error);
+      throw error;
     }
-    
-    // Return complete record with Photo field populated
-    const finalRecord = {
-      ...createResult,
-      Photo: uploadResult?.Photo || file.name,
-      AttachID: attachId,
-      VisualID: visualId,
-      Annotation: annotation || file.name
-    };
-    
-    return { 
-      create: finalRecord, 
-      upload: uploadResult,
-      successMethod: successMethod 
-    };
   }
+
+  // OLD METHOD REMOVED - now using uploadVisualsAttachWithFilesAPI
+  // The old testTwoStepUploadVisuals method has been removed as it used incorrect approaches
+  // Always use the Files API method (upload file first, then store path in database)
 
   // Get unique categories from Services_Visuals_Templates
   getServicesVisualsCategories(): Observable<string[]> {
