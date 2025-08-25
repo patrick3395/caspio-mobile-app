@@ -950,11 +950,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           await this.showToast('Failed to upload photos', 'danger');
         }
         
-        // Don't reload photos - it overwrites the immediate previews
         // Photos are already added with proper previews during upload
-        // if (successCount > 0) {
-        //   await this.loadExistingPhotos();
-        // }
+        // Just trigger change detection to ensure they're displayed
+        if (successCount > 0) {
+          this.changeDetectorRef.detectChanges();
+        }
         
         // Clear upload tracking
         this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
@@ -1233,17 +1233,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           thumbnailUrl: '' // Will be populated below
         };
         
-        // Create immediate preview from the uploaded file
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          photoData.url = reader.result as string;
-          photoData.thumbnailUrl = reader.result as string;
-          // Trigger change detection to show preview immediately
-          this.changeDetectorRef.detectChanges();
-        };
-        reader.readAsDataURL(photo);
+        // Create immediate preview from the uploaded file BEFORE adding to array
+        await new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            photoData.url = reader.result as string;
+            photoData.thumbnailUrl = reader.result as string;
+            resolve();
+          };
+          reader.readAsDataURL(photo);
+        });
         
+        // Now add to array with preview already set
         this.visualPhotos[visualId].push(photoData);
+        console.log('🖼️ Photo added with preview:', {
+          visualId,
+          photoCount: this.visualPhotos[visualId].length,
+          hasUrl: !!photoData.url,
+          urlLength: photoData.url?.length || 0
+        });
+        
+        // Trigger change detection to show preview immediately
+        this.changeDetectorRef.detectChanges();
       }
       
       if (loading) {
@@ -1253,8 +1264,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         await this.showToast('Photo uploaded successfully', 'success');
       }
       
-      // Don't reload - it overwrites the immediate preview we just created
-      // await this.loadExistingPhotos();
+      // Don't reload all photos - just ensure this one is visible
+      // The preview is already set, just trigger change detection
+      this.changeDetectorRef.detectChanges();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
