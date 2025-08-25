@@ -903,12 +903,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
       
       if (visualId) {
+        // Convert FileList to File array properly
+        const fileArray: File[] = [];
+        for (let i = 0; i < files.length; i++) {
+          fileArray.push(files[i]);
+        }
+        
         // Upload all files in parallel for speed
-        const uploadPromises = Array.from(files).map((file: File, index) => 
+        const uploadPromises = fileArray.map((file, index) => 
           this.uploadPhotoForVisual(visualId, file, key, true)
             .then(() => {
               console.log(`✅ File ${index + 1} uploaded successfully`);
-              return { success: true };
+              return { success: true, error: null };
             })
             .catch((error) => {
               console.error(`❌ Failed to upload file ${index + 1}:`, error);
@@ -920,8 +926,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const results = await Promise.all(uploadPromises);
         
         // Count successes and failures
-        const successCount = results.filter(r => r.success).length;
-        const failCount = results.filter(r => !r.success).length;
+        const successCount = results.filter((r: { success: boolean }) => r.success).length;
+        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
         
         // Show result message
         if (failCount === 0) {
