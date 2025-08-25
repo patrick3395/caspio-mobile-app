@@ -1287,8 +1287,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Get photo count for a visual
   getPhotoCount(category: string, itemId: string): number {
-    const visualId = this.visualRecordIds[`${category}_${itemId}`];
-    return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+    const count = visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+    
+    // Debug log when checking photo count
+    if (this.selectedItems[key]) {
+      console.log(`📊 Photo count for ${key}:`, {
+        visualId,
+        count,
+        hasVisualPhotos: !!this.visualPhotos[visualId],
+        visualPhotosKeys: Object.keys(this.visualPhotos)
+      });
+    }
+    
+    return count;
   }
   
   // Check if photos are currently uploading for a visual
@@ -1638,17 +1651,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Create a placeholder image
   private createPlaceholderImage(): string {
     const canvas = document.createElement('canvas');
-    canvas.width = 180; // Increased to match new preview size
-    canvas.height = 135; // Increased to match new preview size
+    canvas.width = 150; // Match new preview size
+    canvas.height = 100; // Match new preview size
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 180, 135);
+      ctx.fillRect(0, 0, 150, 100);
       ctx.fillStyle = '#999';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('Photo', 90, 60);
-      ctx.fillText('Loading...', 90, 80);
+      ctx.fillText('Photo', 75, 45);
+      ctx.fillText('Loading...', 75, 60);
     }
     return canvas.toDataURL();
   }

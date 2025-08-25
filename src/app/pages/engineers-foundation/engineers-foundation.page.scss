@@ -479,15 +479,39 @@ ion-toolbar {
                 gap: 12px;
                 flex-wrap: wrap;
                 align-items: flex-start;
+                min-height: 80px; // Ensure container is visible
+                
+                .no-photos-message {
+                  width: 100%;
+                  padding: 20px;
+                  text-align: center;
+                  color: #999;
+                  background: rgba(0, 0, 0, 0.03);
+                  border-radius: 8px;
+                  border: 2px dashed #ddd;
+                  
+                  ion-icon {
+                    font-size: 32px;
+                    color: #ccc;
+                    margin-bottom: 8px;
+                  }
+                  
+                  p {
+                    margin: 0;
+                    font-size: 14px;
+                    color: #888;
+                  }
+                }
                 
                 .image-preview {
                   position: relative;
-                  width: 180px; // Increased from 120px
-                  height: 160px; // Increased from 110px for consistency
+                  width: calc(50% - 6px); // Half width minus gap
+                  max-width: 150px; // Maximum width
+                  height: 120px; // Reduced height
                   
                   img {
-                    width: 180px; // Increased from 120px
-                    height: 135px; // Increased from 90px
+                    width: 100%; // Full width of container
+                    height: 100px; // Fixed height
                     object-fit: cover;
                     border-radius: 8px;
                     border: 2px solid #ddd;
@@ -574,8 +598,9 @@ ion-toolbar {
                 }
                 
                 .add-more-btn {
-                  width: 180px; // Match preview size
-                  height: 135px; // Match preview height
+                  width: calc(50% - 6px); // Half width minus gap
+                  max-width: 150px; // Match preview max-width
+                  height: 100px; // Match image height
                   border: 2px dashed #ccc;
                   border-radius: 8px;
                   background: white;

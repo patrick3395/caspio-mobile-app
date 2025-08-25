@@ -291,13 +291,17 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (getPhotoCount(category, item.id) > 0 || isUploadingPhotos(category, item.id))">
+                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id)">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
+                          <div class="no-photos-message" *ngIf="getPhotoCount(category, item.id) === 0 && !isUploadingPhotos(category, item.id)">
+                            <ion-icon name="image-outline"></ion-icon>
+                            <p>No photos yet. Tap the camera icon to add photos.</p>
+                          </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
                             <img [src]="photo.thumbnailUrl || photo.url" [alt]="photo.name" (click)="viewPhoto(photo, category, item.id)">
                             <div class="image-overlay">
@@ -349,13 +353,17 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (getPhotoCount(category, item.id) > 0 || isUploadingPhotos(category, item.id))">
+                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id)">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
+                          <div class="no-photos-message" *ngIf="getPhotoCount(category, item.id) === 0 && !isUploadingPhotos(category, item.id)">
+                            <ion-icon name="image-outline"></ion-icon>
+                            <p>No photos yet. Tap the camera icon to add photos.</p>
+                          </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
                             <img [src]="photo.thumbnailUrl || photo.url" [alt]="photo.name" (click)="viewPhoto(photo, category, item.id)">
                             <div class="image-overlay">
