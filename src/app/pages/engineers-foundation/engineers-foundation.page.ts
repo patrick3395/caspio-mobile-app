@@ -28,7 +28,7 @@ interface ServicesVisualRecord {
   templateUrl: './engineers-foundation.page.html',
   styleUrls: ['./engineers-foundation.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, PhotoViewerComponent]
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class EngineersFoundationPage implements OnInit, AfterViewInit {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;

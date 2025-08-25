@@ -440,27 +440,30 @@ export class CaspioService {
   
   // Upload file to Caspio Files API
   uploadFile(file: File): Observable<any> {
+    const token = this.getCurrentToken();
+    if (!token) {
+      return throwError(() => new Error('No authentication token available'));
+    }
+    
     const formData = new FormData();
     formData.append('file', file, file.name);
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     return new Observable(observer => {
-      this.getValidToken().then(token => {
-        const API_BASE_URL = environment.caspio.apiBaseUrl;
-        fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        })
-        .then(response => response.json())
-        .then(result => {
-          observer.next(result);
-          observer.complete();
-        })
-        .catch(error => {
-          observer.error(error);
-        });
+      fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(result => {
+        observer.next(result);
+        observer.complete();
+      })
+      .catch(error => {
+        observer.error(error);
       });
     });
   }
