@@ -1220,10 +1220,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.log('✅ Photo uploaded successfully:', response);
       
       // Store photo reference - use the actual visualRecordIds value for this key
-      const actualVisualId = this.visualRecordIds[key];
+      const actualVisualId = String(this.visualRecordIds[key]); // Ensure string for consistency
       console.log('🔍 Getting visualId for key:', key, '-> actualVisualId:', actualVisualId);
       
-      if (actualVisualId) {
+      if (actualVisualId && actualVisualId !== 'undefined') {
         if (!this.visualPhotos[actualVisualId]) {
           this.visualPhotos[actualVisualId] = [];
         }
@@ -1293,8 +1293,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Get photo count for a visual
   getPhotoCount(category: string, itemId: string): number {
     const key = `${category}_${itemId}`;
-    const visualId = this.visualRecordIds[key];
-    const count = visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+    const visualId = String(this.visualRecordIds[key]); // Ensure string
+    const count = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
     
     // Debug log when checking photo count
     if (this.selectedItems[key]) {
@@ -1324,20 +1324,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Get photos for a visual
   getPhotosForVisual(category: string, itemId: string): any[] {
     const key = `${category}_${itemId}`;
-    const visualId = this.visualRecordIds[key];
-    const photos = visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
+    const visualId = String(this.visualRecordIds[key]); // Ensure string
+    const photos = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
     
-    // Debug logging
-    if (photos.length > 0 || this.isUploadingPhotos(category, itemId)) {
-      console.log('📷 getPhotosForVisual:', {
-        key,
-        visualId,
-        photoCount: photos.length,
-        photos: photos.map(p => ({ name: p.name, hasUrl: !!p.url }))
-      });
-    }
+    // Always log for debugging
+    console.log('📷 getPhotosForVisual called:', {
+      key,
+      visualId,
+      photoCount: photos.length,
+      hasVisualPhotos: !!this.visualPhotos[visualId],
+      photos: photos.map(p => ({ 
+        name: p.name || 'unnamed',
+        hasUrl: !!p.url,
+        hasThumbnail: !!p.thumbnailUrl,
+        urlStart: p.url ? p.url.substring(0, 50) : 'no-url',
+        filePath: p.filePath 
+      }))
+    });
     
     return photos;
+  }
+  
+  // Handle image loading errors
+  handleImageError(event: any, photo: any) {
+    console.log('⚠️ Image failed to load:', photo.name, photo.filePath);
+    // Replace with a simple inline SVG as fallback
+    const target = event.target as HTMLImageElement;
+    target.src = 'data:image/svg+xml;base64,' + btoa(`
+      <svg width="150" height="100" xmlns="http://www.w3.org/2000/svg">
+        <rect width="150" height="100" fill="#f0f0f0"/>
+        <text x="75" y="45" text-anchor="middle" fill="#999" font-family="Arial" font-size="14">📷</text>
+        <text x="75" y="65" text-anchor="middle" fill="#999" font-family="Arial" font-size="11">Photo</text>
+      </svg>
+    `);
   }
   
   // View photo - open in modal or new window
@@ -1601,13 +1620,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   async loadExistingPhotos() {
     console.log('🔄 Loading existing photos for all visuals...');
     console.log('Visual IDs to load:', this.visualRecordIds);
+    console.log('Current visualPhotos state:', this.visualPhotos);
     
     for (const key in this.visualRecordIds) {
-      const visualId = this.visualRecordIds[key];
-      if (visualId) {
+      const rawVisualId = this.visualRecordIds[key];
+      const visualId = String(rawVisualId); // Ensure string consistency
+      if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
         try {
           console.log(`📥 Fetching photos for visual ${visualId} (${key})`);
-          const photos = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
+          const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
           console.log(`Found ${photos?.length || 0} photos for visual ${visualId}:`, photos);
           
           if (photos && photos.length > 0) {
@@ -1621,20 +1642,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
                 thumbnailUrl: ''
               };
               
-              // If we have a Photo field with a file path, use a generic photo icon
+              // If we have a Photo field with a file path, try to fetch it
               if (photo.Photo && typeof photo.Photo === 'string') {
-                // Don't fetch the actual image - just create a generic photo placeholder
-                // This avoids slowdowns and failures from fetching many images
-                console.log(`📷 Photo found: ${photo.Photo}, using generic placeholder`);
-                photoData.url = this.createGenericPhotoPlaceholder();
-                photoData.thumbnailUrl = photoData.url;
                 photoData.filePath = photo.Photo;
                 photoData.hasPhoto = true;
+                
+                try {
+                  console.log(`🖼️ Fetching image from Files API for: ${photo.Photo}`);
+                  const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
+                  
+                  if (imageData && imageData.startsWith('data:')) {
+                    console.log('✅ Image data received, valid base64, length:', imageData.length);
+                    photoData.url = imageData;
+                    photoData.thumbnailUrl = imageData;
+                  } else {
+                    console.log('⚠️ Invalid image data, using fallback');
+                    // Use a simple base64 encoded SVG as fallback
+                    photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                    photoData.thumbnailUrl = photoData.url;
+                  }
+                } catch (err) {
+                  console.error('❌ Error fetching image:', err);
+                  // Use simple SVG fallback
+                  photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                  photoData.thumbnailUrl = photoData.url;
+                }
               } else {
                 console.log('⚠️ No Photo field or not a string:', photo.Photo);
-                // Use "no photo" placeholder
-                photoData.url = this.createPlaceholderImage();
-                photoData.thumbnailUrl = photoData.url;
+                // No photo exists
+                photoData.url = '';
+                photoData.thumbnailUrl = '';
                 photoData.hasPhoto = false;
               }
               
@@ -1648,14 +1685,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               return photoData;
             }));
             
+            // Store photos using the same ID format
             this.visualPhotos[visualId] = processedPhotos;
             console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}, stored in visualPhotos`);
+            console.log(`Photos stored at visualPhotos[${visualId}]:`, processedPhotos);
+          } else {
+            console.log(`No photos found for visual ${visualId}`);
           }
         } catch (error) {
           console.error(`Failed to load photos for visual ${visualId}:`, error);
         }
       }
     }
+    
+    // Log final state
+    console.log('📸 Final visualPhotos state after loading:', this.visualPhotos);
+    console.log('📸 Keys with photos:', Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k]?.length > 0));
     
     // Trigger change detection after all photos are loaded
     this.changeDetectorRef.detectChanges();

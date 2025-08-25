@@ -303,7 +303,10 @@
                             <p>No photos yet. Tap the camera icon to add photos.</p>
                           </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
-                            <img [src]="photo.thumbnailUrl || photo.url" [alt]="photo.name" (click)="viewPhoto(photo, category, item.id)">
+                            <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
+                                 [alt]="photo.name" 
+                                 (click)="viewPhoto(photo, category, item.id)"
+                                 (error)="handleImageError($event, photo)">
                             <div class="image-overlay">
                               <button class="overlay-btn" (click)="viewPhoto(photo, category, item.id)" title="View">
                                 <ion-icon name="eye-outline"></ion-icon>
@@ -365,7 +368,10 @@
                             <p>No photos yet. Tap the camera icon to add photos.</p>
                           </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
-                            <img [src]="photo.thumbnailUrl || photo.url" [alt]="photo.name" (click)="viewPhoto(photo, category, item.id)">
+                            <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
+                                 [alt]="photo.name" 
+                                 (click)="viewPhoto(photo, category, item.id)"
+                                 (error)="handleImageError($event, photo)">
                             <div class="image-overlay">
                               <button class="overlay-btn" (click)="viewPhoto(photo, category, item.id)" title="View">
                                 <ion-icon name="eye-outline"></ion-icon>
