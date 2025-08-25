@@ -18,6 +18,7 @@ interface ServicesVisualRecord {
   Category: string;
   Kind: string;  // Changed from Type to Kind
   Name: string;
+  Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
 }
 
@@ -615,6 +616,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       Category: category || '',   // Text(255) in Caspio
       Kind: template.Kind || '',  // Text(255) in Caspio - was Type, now Kind
       Name: template.Name || '',  // Text(255) in Caspio
+      Text: template.Text || '',   // Text field in Caspio - the full text content
       Notes: ''                    // Text(255) in Caspio - empty for now
     };
     
@@ -625,9 +627,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('   Category (Text 255):', visualData.Category);
     console.log('   Kind (Text 255):', visualData.Kind);
     console.log('   Name (Text 255):', visualData.Name);
+    console.log('   Text (Text field):', visualData.Text);
     console.log('   Notes (Text 255):', visualData.Notes);
     console.log('=====================================');
-    console.log('⚠️ NOT SENDING: Text, TemplateID (these columns do not exist in Services_Visuals)');
     console.log('📦 Full visualData object being sent:', JSON.stringify(visualData, null, 2));
     console.log('📌 Template info for reference (not sent):', {
       TemplateID: templateId,
@@ -1496,6 +1498,135 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         <text x="75" y="65" text-anchor="middle" fill="#999" font-family="Arial" font-size="11">Photo</text>
       </svg>
     `);
+  }
+  
+  // Add custom visual comment
+  async addCustomVisual(category: string, kind: string) {
+    const alert = await this.alertController.create({
+      header: `Add ${kind}`,
+      cssClass: 'custom-visual-alert',
+      inputs: [
+        {
+          name: 'name',
+          type: 'text',
+          placeholder: 'Enter title/name',
+          attributes: {
+            maxlength: 255
+          }
+        },
+        {
+          name: 'text',
+          type: 'textarea',
+          placeholder: 'Enter description/text',
+          attributes: {
+            rows: 4
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Add',
+          handler: async (data) => {
+            if (!data.name || !data.name.trim()) {
+              await this.showToast('Please enter a name', 'warning');
+              return false;
+            }
+            
+            // Create the custom visual
+            await this.createCustomVisual(category, kind, data.name, data.text || '');
+            return true;
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  // Create custom visual in database
+  async createCustomVisual(category: string, kind: string, name: string, text: string) {
+    try {
+      const serviceId = this.serviceId;
+      if (!serviceId) {
+        await this.showToast('Service ID not found', 'danger');
+        return;
+      }
+      
+      const serviceIdNum = parseInt(serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        await this.showToast('Invalid Service ID', 'danger');
+        return;
+      }
+      
+      const visualData: ServicesVisualRecord = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: ''
+      };
+      
+      const loading = await this.loadingController.create({
+        message: 'Adding visual...'
+      });
+      await loading.present();
+      
+      try {
+        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        console.log('✅ Custom visual created:', response);
+        
+        // Add to local data structure
+        if (!this.organizedData[category]) {
+          this.organizedData[category] = {
+            comments: [],
+            limitations: [],
+            deficiencies: []
+          };
+        }
+        
+        // Determine which array to add to based on kind
+        const kindKey = kind.toLowerCase() + 's'; // comments, limitations, deficiencies
+        const customItem = {
+          id: response?.PK_ID || Date.now().toString(),
+          name: name,
+          text: text,
+          isCustom: true
+        };
+        
+        if (kindKey === 'comments') {
+          this.organizedData[category].comments.push(customItem);
+        } else if (kindKey === 'limitations') {
+          this.organizedData[category].limitations.push(customItem);
+        } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
+          this.organizedData[category].deficiencies.push(customItem);
+        }
+        
+        // Store the visual ID for photo uploads
+        const key = `${category}_${customItem.id}`;
+        this.visualRecordIds[key] = String(response?.PK_ID || customItem.id);
+        
+        // Mark as selected
+        this.selectedVisuals[key] = true;
+        
+        await loading.dismiss();
+        await this.showToast('Visual added successfully', 'success');
+        
+        // Trigger change detection
+        this.changeDetectorRef.detectChanges();
+        
+      } catch (error) {
+        console.error('Error creating custom visual:', error);
+        await loading.dismiss();
+        await this.showToast('Failed to add visual', 'danger');
+      }
+    } catch (error) {
+      console.error('Error in createCustomVisual:', error);
+    }
   }
   
   // View photo - open in modal

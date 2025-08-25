@@ -263,8 +263,16 @@
               
               <div class="category-content" slot="content">
                 <!-- Comments Section -->
-                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].comments && organizedData[category].comments.length > 0">
-                  <h4 class="type-header">Comments</h4>
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].comments">
+                  <h4 class="type-header">
+                    Comments
+                    <button class="add-visual-btn" (click)="addCustomVisual(category, 'Comment')" title="Add custom comment">
+                      <ion-icon name="add-circle-outline"></ion-icon>
+                    </button>
+                  </h4>
+                  <div *ngIf="organizedData[category].comments.length === 0" class="no-items-message">
+                    No comments yet. Click + to add one.
+                  </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <ion-item lines="none" class="checkbox-item">
@@ -323,8 +331,16 @@
                 </div>
                 
                 <!-- Limitations Section -->
-                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].limitations && organizedData[category].limitations.length > 0">
-                  <h4 class="type-header">Limitations</h4>
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].limitations">
+                  <h4 class="type-header">
+                    Limitations
+                    <button class="add-visual-btn" (click)="addCustomVisual(category, 'Limitation')" title="Add custom limitation">
+                      <ion-icon name="add-circle-outline"></ion-icon>
+                    </button>
+                  </h4>
+                  <div *ngIf="organizedData[category].limitations.length === 0" class="no-items-message">
+                    No limitations yet. Click + to add one.
+                  </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].limitations">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <ion-item lines="none" class="checkbox-item">
@@ -383,8 +399,16 @@
                 </div>
                 
                 <!-- Deficiencies Section -->
-                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].deficiencies && organizedData[category].deficiencies.length > 0">
-                  <h4 class="type-header">Deficiencies</h4>
+                <div class="type-section" *ngIf="organizedData[category] && organizedData[category].deficiencies">
+                  <h4 class="type-header">
+                    Deficiencies
+                    <button class="add-visual-btn" (click)="addCustomVisual(category, 'Deficiency')" title="Add custom deficiency">
+                      <ion-icon name="add-circle-outline"></ion-icon>
+                    </button>
+                  </h4>
+                  <div *ngIf="organizedData[category].deficiencies.length === 0" class="no-items-message">
+                    No deficiencies yet. Click + to add one.
+                  </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <ion-item lines="none" class="checkbox-item">
