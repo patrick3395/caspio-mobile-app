@@ -298,10 +298,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               // Store the visual record ID
               const visualId = visual.VisualID || visual.PK_ID || visual.id;
               
-              // Store in tracking object for photo uploads
-              this.visualRecordIds[key] = visualId;
+              // Store in tracking object for photo uploads - ALWAYS as string
+              this.visualRecordIds[key] = String(visualId);
               
-              console.log('📌 Stored visual ID:', visualId, 'for key:', key);
+              console.log('📌 Stored visual ID:', visualId, 'for key:', key, 'Type:', typeof this.visualRecordIds[key]);
               console.log('📋 Updated selectedItems:', this.selectedItems);
             } else {
               console.log('⚠️ No matching template found for:', visual.Name);
@@ -580,9 +580,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         );
         if (exists) {
           console.log('⚠️ Visual already exists in database:', exists);
-          // Store the ID for future reference
-          this.visualRecordIds[key] = exists.VisualID || exists.PK_ID || exists.id;
-          console.log('   Stored existing ID:', this.visualRecordIds[key]);
+          // Store the ID for future reference - ALWAYS as string
+          const existingId = exists.VisualID || exists.PK_ID || exists.id;
+          this.visualRecordIds[key] = String(existingId);
+          console.log('   Stored existing ID:', this.visualRecordIds[key], 'Type:', typeof this.visualRecordIds[key]);
           return;
         }
       }
@@ -642,7 +643,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const tempId = `temp_${Date.now()}`;
         const recordKey = `visual_${category}_${templateId}`;
         localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = tempId;
+        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
         
         // Query the table to get the actual VisualID
         setTimeout(async () => {
@@ -712,7 +713,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const tempId = `temp_${Date.now()}`;
         const recordKey = `visual_${category}_${templateId}`;
         localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = tempId;
+        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
         
         // Try to get the real ID
         setTimeout(async () => {
@@ -1292,10 +1293,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         console.log('🖼️ Photo added with preview:', {
           key,
           actualVisualId,
+          actualVisualIdType: typeof actualVisualId,
           photoCount: this.visualPhotos[actualVisualId].length,
           hasUrl: !!photoData.url,
           urlLength: photoData.url?.length || 0,
-          allVisualPhotos: Object.keys(this.visualPhotos)
+          allVisualPhotoKeys: Object.keys(this.visualPhotos),
+          allVisualRecordIdKeys: Object.keys(this.visualRecordIds),
+          visualRecordIdsForThisKey: this.visualRecordIds[key]
         });
         
         // Trigger change detection to show preview immediately
@@ -1367,20 +1371,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     const visualId = String(this.visualRecordIds[key]); // Ensure string
     const photos = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
     
-    // Always log for debugging
-    console.log('📷 getPhotosForVisual called:', {
-      key,
-      visualId,
-      photoCount: photos.length,
-      hasVisualPhotos: !!this.visualPhotos[visualId],
-      photos: photos.map(p => ({ 
-        name: p.name || 'unnamed',
-        hasUrl: !!p.url,
-        hasThumbnail: !!p.thumbnailUrl,
-        urlStart: p.url ? p.url.substring(0, 50) : 'no-url',
-        filePath: p.filePath 
-      }))
-    });
+    // Enhanced debugging for problematic visuals
+    if (this.selectedItems[key]) {
+      console.log('📷 getPhotosForVisual DEBUG:', {
+        category,
+        itemId,
+        key,
+        visualId,
+        visualIdType: typeof this.visualRecordIds[key],
+        rawVisualId: this.visualRecordIds[key],
+        photoCount: photos.length,
+        hasVisualPhotos: !!this.visualPhotos[visualId],
+        allVisualPhotoKeys: Object.keys(this.visualPhotos),
+        allVisualRecordIdKeys: Object.keys(this.visualRecordIds),
+        photos: photos.map(p => ({ 
+          name: p.name || 'unnamed',
+          hasUrl: !!p.url,
+          hasThumbnail: !!p.thumbnailUrl,
+          urlStart: p.url ? p.url.substring(0, 50) : 'no-url',
+          filePath: p.filePath 
+        }))
+      });
+    }
     
     return photos;
   }
@@ -1725,10 +1737,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               return photoData;
             }));
             
-            // Store photos using the same ID format
+            // Store photos using the same ID format - ensure string consistency
             this.visualPhotos[visualId] = processedPhotos;
             console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}, stored in visualPhotos`);
-            console.log(`Photos stored at visualPhotos[${visualId}]:`, processedPhotos);
+            console.log(`Photos stored at visualPhotos[${visualId}]:`, {
+              visualId,
+              visualIdType: typeof visualId,
+              photos: processedPhotos,
+              keyForThisVisual: key
+            });
           } else {
             console.log(`No photos found for visual ${visualId}`);
           }
