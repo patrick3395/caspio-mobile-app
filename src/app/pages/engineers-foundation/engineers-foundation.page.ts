@@ -7,6 +7,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
+import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 
 interface ElevationReading {
   location: string;
@@ -1023,42 +1024,66 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           fileArray.push(files[i]);
         }
         
-        // Upload all files in parallel for speed
-        const uploadPromises = fileArray.map((file, index) => 
-          this.uploadPhotoForVisual(visualId, file, key, true)
-            .then(() => {
-              console.log(`✅ File ${index + 1} uploaded successfully`);
-              return { success: true, error: null };
-            })
-            .catch((error) => {
-              console.error(`❌ Failed to upload file ${index + 1}:`, error);
-              return { success: false, error };
-            })
-        );
-        
-        // Wait for all uploads to complete
-        const results = await Promise.all(uploadPromises);
-        
-        // Count successes and failures
-        const successCount = results.filter((r: { success: boolean }) => r.success).length;
-        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
-        
-        // Show result message
-        if (failCount === 0) {
-          await this.showToast(
+        // Ask if user wants to annotate photos (only for single photo)
+        if (fileArray.length === 1) {
+          const alert = await this.alertController.create({
+            header: 'Annotate Photo?',
+            message: 'Would you like to add annotations (arrows, text, circles) to this photo?',
+            buttons: [
+              {
+                text: 'Upload as is',
+                handler: async () => {
+                  await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
+                }
+              },
+              {
+                text: 'Annotate First',
+                handler: async () => {
+                  const annotatedFile = await this.annotatePhoto(fileArray[0]);
+                  await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
+                }
+              }
+            ]
+          });
+          await alert.present();
+        } else {
+          // Upload all files in parallel for speed (no annotation for batch)
+          const uploadPromises = fileArray.map((file, index) => 
+            this.uploadPhotoForVisual(visualId, file, key, true)
+              .then(() => {
+                console.log(`✅ File ${index + 1} uploaded successfully`);
+                return { success: true, error: null };
+              })
+              .catch((error) => {
+                console.error(`❌ Failed to upload file ${index + 1}:`, error);
+                return { success: false, error };
+              })
+          );
+          
+          // Wait for all uploads to complete
+          const results = await Promise.all(uploadPromises);
+          
+          // Count successes and failures
+          const successCount = results.filter((r: { success: boolean }) => r.success).length;
+          const failCount = results.filter((r: { success: boolean }) => !r.success).length;
+          
+          // Show result message
+          if (failCount === 0) {
+            await this.showToast(
             files.length > 1 
               ? `Successfully uploaded ${successCount} photos` 
               : 'Photo uploaded successfully',
-            'success'
-          );
-        } else if (successCount > 0) {
-          await this.showToast(
-            `Uploaded ${successCount} of ${files.length} photos. ${failCount} failed.`,
-            'warning'
-          );
-        } else {
-          await this.showToast('Failed to upload photos', 'danger');
-        }
+              'success'
+            );
+          } else if (successCount > 0) {
+            await this.showToast(
+              `Uploaded ${successCount} of ${files.length} photos. ${failCount} failed.`,
+              'warning'
+            );
+          } else {
+            await this.showToast('Failed to upload photos', 'danger');
+          }
+        } // End of else for batch upload
         
         // Restore accordion and section states after batch upload
         this.restoreAccordionState();
@@ -1177,6 +1202,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.error('❌ Error selecting document:', error);
       await this.showToast('Failed to select document', 'danger');
     }
+  }
+  
+  // Annotate photo before upload
+  async annotatePhoto(photo: File): Promise<File> {
+    const modal = await this.modalController.create({
+      component: PhotoAnnotatorComponent,
+      componentProps: {
+        imageFile: photo
+      },
+      cssClass: 'fullscreen-modal'
+    });
+    
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    
+    if (data && data instanceof Blob) {
+      // Convert blob to File with same name
+      return new File([data], photo.name, { type: 'image/jpeg' });
+    }
+    
+    // Return original photo if annotation was cancelled
+    return photo;
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table

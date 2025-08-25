@@ -998,3 +998,13 @@ ion-toolbar {
     padding: 0 !important;
   }
 }
+
+// Fullscreen modal for photo annotation
+::ng-deep .fullscreen-modal {
+  .modal-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+}
