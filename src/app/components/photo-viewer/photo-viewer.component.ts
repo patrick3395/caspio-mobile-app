@@ -63,6 +63,7 @@ export class PhotoViewerComponent {
   @Input() canAnnotate: boolean = false;
   @Input() visualId: string = '';
   @Input() categoryKey: string = '';
+  @Input() photoData: any = null;
 
   constructor(private modalController: ModalController) {}
 
@@ -80,9 +81,13 @@ export class PhotoViewerComponent {
     const { data } = await annotationModal.onDidDismiss();
     
     if (data && data instanceof Blob) {
-      // Return the annotated blob to parent
+      // Update the photo URL to show the new annotated version
+      this.photoUrl = URL.createObjectURL(data);
+      
+      // Return the annotated blob to parent along with photo data
       this.modalController.dismiss({
-        annotatedBlob: data
+        annotatedBlob: data,
+        photoData: this.photoData
       });
     }
   }

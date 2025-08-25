@@ -1904,6 +1904,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
+  // Update existing photo attachment
+  async updatePhotoAttachment(attachId: string, file: File): Promise<void> {
+    try {
+      // First upload the new file
+      const uploadResult = await this.caspioService.uploadFile(file).toPromise();
+      
+      if (!uploadResult || !uploadResult.Name) {
+        throw new Error('File upload failed');
+      }
+      
+      // Update the attachment record with new file path
+      const updateData = {
+        Photo: `/${uploadResult.Name}`
+      };
+      
+      await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
+      
+      console.log('✅ Photo attachment updated successfully');
+    } catch (error) {
+      console.error('❌ Failed to update photo attachment:', error);
+      throw error;
+    }
+  }
+  
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
@@ -1922,7 +1946,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           photoName: photoName,
           canAnnotate: true,
           visualId: visualId,
-          categoryKey: key
+          categoryKey: key,
+          photoData: photo  // Pass the photo object for update
         },
         cssClass: 'photo-viewer-modal'
       });
@@ -1933,22 +1958,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       const { data } = await modal.onDidDismiss();
       
       if (data && data.annotatedBlob) {
-        // Upload the annotated version as a new photo
-        const annotatedFile = new File([data.annotatedBlob], `annotated_${photoName}`, { type: 'image/jpeg' });
+        // Update the existing photo instead of creating new
+        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
         
-        if (visualId) {
+        if (photo.AttachID || photo.id) {
           const loading = await this.loadingController.create({
-            message: 'Uploading annotated photo...'
+            message: 'Updating photo...'
           });
           await loading.present();
           
           try {
-            await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
+            // Update the existing attachment
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile);
+            
+            // Update the local photo data
+            const photoIndex = this.visualPhotos[visualId]?.findIndex(
+              (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
+            );
+            
+            if (photoIndex !== -1 && this.visualPhotos[visualId]) {
+              // Update the photo URL with the new blob
+              const newUrl = URL.createObjectURL(data.annotatedBlob);
+              this.visualPhotos[visualId][photoIndex].url = newUrl;
+              this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+            }
+            
             await loading.dismiss();
-            await this.showToast('Annotated photo uploaded successfully', 'success');
+            await this.showToast('Photo updated successfully', 'success');
+            
+            // Trigger change detection
+            this.changeDetectorRef.detectChanges();
           } catch (error) {
             await loading.dismiss();
-            await this.showToast('Failed to upload annotated photo', 'danger');
+            await this.showToast('Failed to update photo', 'danger');
           }
         }
       }

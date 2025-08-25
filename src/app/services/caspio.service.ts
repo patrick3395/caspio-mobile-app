@@ -428,9 +428,41 @@ export class CaspioService {
     );
   }
   
+  // Update Services_Visuals_Attach record
+  updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
+    return this.put<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, data);
+  }
+  
   // Delete Services_Visuals_Attach record
   deleteServiceVisualsAttach(attachId: string): Observable<any> {
     return this.delete<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
+  }
+  
+  // Upload file to Caspio Files API
+  uploadFile(file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    
+    return new Observable(observer => {
+      this.getValidToken().then(token => {
+        const API_BASE_URL = environment.caspio.apiBaseUrl;
+        fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+      });
+    });
   }
   
   // Get image from Caspio Files API

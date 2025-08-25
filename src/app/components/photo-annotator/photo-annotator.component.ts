@@ -452,6 +452,24 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.currentColor = color;
   }
   
+  saveCurrentState() {
+    const canvas = this.annotationCanvas.nativeElement;
+    const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
+    // Don't save if it's the same as the last state
+    if (this.annotations.length === 0 || !this.isImageDataEqual(imageData, this.annotations[this.annotations.length - 1])) {
+      this.annotations.push(imageData);
+      this.canUndo = true;
+    }
+  }
+  
+  isImageDataEqual(a: ImageData, b: ImageData): boolean {
+    if (a.width !== b.width || a.height !== b.height) return false;
+    for (let i = 0; i < a.data.length; i++) {
+      if (a.data[i] !== b.data[i]) return false;
+    }
+    return true;
+  }
+  
   startDrawing(event: MouseEvent) {
     if (this.currentTool === 'text') {
       this.showTextInput = true;
@@ -462,6 +480,9 @@ export class PhotoAnnotatorComponent implements OnInit {
       setTimeout(() => this.textInput?.nativeElement.focus(), 100);
       return;
     }
+    
+    // Save current state before starting new drawing
+    this.saveCurrentState();
     
     this.isDrawing = true;
     this.startX = event.offsetX;
@@ -474,6 +495,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     if (this.currentTool === 'pen') {
       this.annotationCtx.beginPath();
       this.annotationCtx.moveTo(this.startX, this.startY);
+      this.currentPath = [{ x: this.startX, y: this.startY }];
     }
   }
   
@@ -522,17 +544,14 @@ export class PhotoAnnotatorComponent implements OnInit {
   stopDrawing(event: MouseEvent) {
     if (!this.isDrawing) return;
     
-    const endX = event.offsetX;
-    const endY = event.offsetY;
+    this.isDrawing = false;
     
-    // Shapes are already drawn in the draw method, just need to save
-    // Only need to redraw for pen tool completion
+    // Save the final state after drawing
+    this.saveCurrentState();
+    
     if (this.currentTool === 'pen') {
       this.currentPath = [];
     }
-    
-    this.isDrawing = false;
-    this.saveAnnotation();
   }
   
   handleTouch(event: TouchEvent) {
@@ -604,7 +623,9 @@ export class PhotoAnnotatorComponent implements OnInit {
     
     this.showTextInput = false;
     this.currentText = '';
-    this.saveAnnotation();
+    
+    // Save the state after adding text
+    this.saveCurrentState();
   }
   
   cancelText() {
@@ -612,17 +633,20 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.currentText = '';
   }
   
-  saveAnnotation() {
-    const canvas = this.annotationCanvas.nativeElement;
-    const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
-    this.annotations.push(imageData);
-    this.canUndo = true;
-  }
-  
   undo() {
-    if (this.annotations.length > 0) {
+    if (this.annotations.length > 1) {
+      // Remove the current state
       this.annotations.pop();
-      this.redrawAnnotations();
+      // Restore the previous state
+      const previousState = this.annotations[this.annotations.length - 1];
+      const canvas = this.annotationCanvas.nativeElement;
+      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+      this.annotationCtx.putImageData(previousState, 0, 0);
+    } else if (this.annotations.length === 1) {
+      // Clear to blank if undoing the first annotation
+      this.annotations.pop();
+      const canvas = this.annotationCanvas.nativeElement;
+      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
     }
     this.canUndo = this.annotations.length > 0;
   }
@@ -634,14 +658,6 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.canUndo = false;
   }
   
-  redrawAnnotations() {
-    const canvas = this.annotationCanvas.nativeElement;
-    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    if (this.annotations.length > 0) {
-      this.annotationCtx.putImageData(this.annotations[this.annotations.length - 1], 0, 0);
-    }
-  }
   
   async saveAnnotatedImage() {
     // Create a combined canvas
