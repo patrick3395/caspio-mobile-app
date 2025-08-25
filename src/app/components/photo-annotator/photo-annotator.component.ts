@@ -21,48 +21,76 @@ import { IonicModule, ModalController } from '@ionic/angular';
     
     <ion-content>
       <div class="annotation-toolbar">
-        <div class="toolbar-section tools">
-          <div class="section-label">Tools</div>
-          <div class="tool-group">
-            <button [class.active]="currentTool === 'pen'" (click)="selectTool('pen')" class="tool-btn">
+        <!-- Tools Dropdown -->
+        <div class="dropdown-wrapper">
+          <button class="dropdown-toggle" (click)="toggleDropdown('tools')" [class.active]="showToolsDropdown">
+            <ion-icon [name]="getToolIcon(currentTool)"></ion-icon>
+            <span>{{getToolName(currentTool)}}</span>
+            <ion-icon name="chevron-down-outline" class="chevron"></ion-icon>
+          </button>
+          <div class="dropdown-menu" *ngIf="showToolsDropdown">
+            <button (click)="selectTool('pen')" class="dropdown-item" [class.selected]="currentTool === 'pen'">
               <ion-icon name="brush-outline"></ion-icon>
+              <span>Pen</span>
             </button>
-            <button [class.active]="currentTool === 'arrow'" (click)="selectTool('arrow')" class="tool-btn">
+            <button (click)="selectTool('arrow')" class="dropdown-item" [class.selected]="currentTool === 'arrow'">
               <ion-icon name="arrow-forward-outline"></ion-icon>
+              <span>Arrow</span>
             </button>
-            <button [class.active]="currentTool === 'rectangle'" (click)="selectTool('rectangle')" class="tool-btn">
+            <button (click)="selectTool('rectangle')" class="dropdown-item" [class.selected]="currentTool === 'rectangle'">
               <ion-icon name="square-outline"></ion-icon>
+              <span>Rectangle</span>
             </button>
-            <button [class.active]="currentTool === 'circle'" (click)="selectTool('circle')" class="tool-btn">
+            <button (click)="selectTool('circle')" class="dropdown-item" [class.selected]="currentTool === 'circle'">
               <ion-icon name="ellipse-outline"></ion-icon>
+              <span>Circle</span>
             </button>
-            <button [class.active]="currentTool === 'text'" (click)="selectTool('text')" class="tool-btn">
+            <button (click)="selectTool('text')" class="dropdown-item" [class.selected]="currentTool === 'text'">
               <ion-icon name="text-outline"></ion-icon>
+              <span>Text</span>
             </button>
           </div>
         </div>
         
-        <div class="toolbar-section colors">
-          <div class="section-label">Color</div>
-          <div class="color-group">
-            <button *ngFor="let color of colors" 
-                    [style.background]="color" 
-                    [class.active]="currentColor === color"
-                    (click)="selectColor(color)" 
-                    class="color-btn"
-                    [style.border-color]="color === '#FFFFFF' ? '#ddd' : color"></button>
+        <!-- Color Dropdown -->
+        <div class="dropdown-wrapper">
+          <button class="dropdown-toggle" (click)="toggleDropdown('color')" [class.active]="showColorDropdown">
+            <span class="color-preview" [style.background]="currentColor"></span>
+            <span>Color</span>
+            <ion-icon name="chevron-down-outline" class="chevron"></ion-icon>
+          </button>
+          <div class="dropdown-menu color-menu" *ngIf="showColorDropdown">
+            <div class="color-grid">
+              <button *ngFor="let color of colors" 
+                      [style.background]="color" 
+                      [class.selected]="currentColor === color"
+                      (click)="selectColor(color)" 
+                      class="color-option"
+                      [style.border-color]="color === '#FFFFFF' ? '#ddd' : color"></button>
+            </div>
           </div>
         </div>
         
-        <div class="toolbar-section stroke">
-          <div class="section-label">Size</div>
-          <div class="stroke-group">
-            <input type="range" min="2" max="20" [(ngModel)]="strokeWidth" class="stroke-slider">
-            <span class="stroke-value">{{strokeWidth}}</span>
+        <!-- Size Dropdown -->
+        <div class="dropdown-wrapper">
+          <button class="dropdown-toggle" (click)="toggleDropdown('size')" [class.active]="showSizeDropdown">
+            <ion-icon name="resize-outline"></ion-icon>
+            <span>Size: {{strokeWidth}}</span>
+            <ion-icon name="chevron-down-outline" class="chevron"></ion-icon>
+          </button>
+          <div class="dropdown-menu size-menu" *ngIf="showSizeDropdown">
+            <div class="size-control">
+              <input type="range" min="2" max="20" [(ngModel)]="strokeWidth" class="size-slider">
+              <div class="size-preview">
+                <div class="preview-line" [style.height.px]="strokeWidth" [style.background]="currentColor"></div>
+                <span class="size-value">{{strokeWidth}}px</span>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="toolbar-section actions">
+        <!-- Action Buttons -->
+        <div class="toolbar-actions">
           <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo" title="Undo Last">
             <ion-icon name="arrow-undo-outline"></ion-icon>
             <span class="btn-label">Back</span>
@@ -114,132 +142,169 @@ import { IonicModule, ModalController } from '@ionic/angular';
       padding: 12px 16px;
       border-bottom: 1px solid rgba(0,0,0,0.08);
       display: flex;
-      gap: 24px;
+      gap: 12px;
       align-items: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      flex-wrap: wrap;
+      position: relative;
+      z-index: 100;
     }
     
-    .toolbar-section {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .section-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: #8492a6;
-      letter-spacing: 0.5px;
-    }
-    
-    .tool-group {
-      display: flex;
-      gap: 4px;
-      background: rgba(255,255,255,0.8);
-      padding: 4px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    
-    .tool-btn {
-      width: 40px;
-      height: 40px;
-      border: none;
-      background: transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
+    .dropdown-wrapper {
       position: relative;
     }
     
-    .tool-btn ion-icon {
-      font-size: 22px;
-      color: #5f6c7b;
-    }
-    
-    .tool-btn:hover {
-      background: rgba(241, 90, 39, 0.1);
-    }
-    
-    .tool-btn.active {
-      background: #F15A27;
-      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
-    }
-    
-    .tool-btn.active ion-icon {
-      color: white;
-    }
-    
-    .color-group {
+    .dropdown-toggle {
       display: flex;
-      gap: 6px;
-      padding: 4px;
-      background: rgba(255,255,255,0.8);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      flex-wrap: wrap;
-      max-width: 280px;
-    }
-    
-    .color-btn {
-      width: 28px;
-      height: 28px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
-      border: 2px solid transparent;
       cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
-    }
-    
-    .color-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    .color-btn.active {
-      border-color: #F15A27 !important;
-      transform: scale(1.15);
-      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
-    }
-    
-    .color-btn.active::after {
-      content: '✓';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
       font-size: 14px;
-      font-weight: bold;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      font-weight: 500;
+      color: #333;
+      transition: all 0.2s ease;
+      min-width: 100px;
     }
     
-    .stroke-group {
+    .dropdown-toggle:hover {
+      background: #f5f5f5;
+      border-color: #F15A27;
+    }
+    
+    .dropdown-toggle.active {
+      background: #FFF5F2;
+      border-color: #F15A27;
+      color: #F15A27;
+    }
+    
+    .dropdown-toggle ion-icon {
+      font-size: 18px;
+    }
+    
+    .dropdown-toggle .chevron {
+      font-size: 14px;
+      margin-left: auto;
+      transition: transform 0.2s ease;
+    }
+    
+    .dropdown-toggle.active .chevron {
+      transform: rotate(180deg);
+    }
+    
+    .color-preview {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      display: inline-block;
+    }
+    
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 8px;
+      min-width: 150px;
+      z-index: 1000;
+      animation: slideDown 0.2s ease;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .dropdown-item {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 8px 12px;
-      background: rgba(255,255,255,0.8);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      font-size: 14px;
+      color: #333;
+      transition: all 0.2s ease;
     }
     
-    .stroke-slider {
-      width: 120px;
+    .dropdown-item:hover {
+      background: #f5f5f5;
+    }
+    
+    .dropdown-item.selected {
+      background: #FFF5F2;
+      color: #F15A27;
+    }
+    
+    .dropdown-item ion-icon {
+      font-size: 18px;
+    }
+    
+    .color-menu {
+      min-width: 200px;
+    }
+    
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 4px;
+    }
+    
+    .color-option {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+    
+    .color-option.selected {
+      border-color: #F15A27;
+      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.2);
+    }
+    
+    .size-menu {
+      min-width: 250px;
+    }
+    
+    .size-control {
+      padding: 8px;
+    }
+    
+    .size-slider {
+      width: 100%;
       height: 4px;
       -webkit-appearance: none;
       appearance: none;
       background: #e3e8ee;
       border-radius: 2px;
       outline: none;
+      margin: 10px 0;
     }
     
-    .stroke-slider::-webkit-slider-thumb {
+    .size-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
       width: 20px;
@@ -250,12 +315,29 @@ import { IonicModule, ModalController } from '@ionic/angular';
       box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
     }
     
-    .stroke-value {
-      font-size: 12px;
+    .size-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    
+    .preview-line {
+      width: 100px;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+    
+    .size-value {
+      font-size: 14px;
       font-weight: 600;
-      color: #F15A27;
-      min-width: 30px;
-      text-align: center;
+      color: #5f6c7b;
+    }
+    
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
     }
     
     .action-btn {
@@ -403,13 +485,18 @@ export class PhotoAnnotatorComponent implements OnInit {
   currentTool: 'pen' | 'arrow' | 'rectangle' | 'circle' | 'text' = 'pen';
   currentColor = '#FF0000';
   strokeWidth = 3;
-  colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#000000', '#FFFFFF'];
+  colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#000000', '#FFFFFF', '#F15A27', '#FFA500', '#800080', '#808080'];
   
   showTextInput = false;
   textPosition = { x: 0, y: 0 };
   currentText = '';
   
   canUndo = false;
+  
+  // Dropdown states
+  showToolsDropdown = false;
+  showColorDropdown = false;
+  showSizeDropdown = false;
   
   constructor(private modalController: ModalController) {}
   
@@ -473,10 +560,51 @@ export class PhotoAnnotatorComponent implements OnInit {
   selectTool(tool: typeof this.currentTool) {
     this.currentTool = tool;
     this.showTextInput = false;
+    this.showToolsDropdown = false;
   }
   
   selectColor(color: string) {
     this.currentColor = color;
+    this.showColorDropdown = false;
+  }
+  
+  toggleDropdown(dropdown: 'tools' | 'color' | 'size') {
+    // Close all dropdowns first
+    const prevToolsState = this.showToolsDropdown;
+    const prevColorState = this.showColorDropdown;
+    const prevSizeState = this.showSizeDropdown;
+    
+    this.showToolsDropdown = false;
+    this.showColorDropdown = false;
+    this.showSizeDropdown = false;
+    
+    // Toggle the selected dropdown
+    switch(dropdown) {
+      case 'tools':
+        this.showToolsDropdown = !prevToolsState;
+        break;
+      case 'color':
+        this.showColorDropdown = !prevColorState;
+        break;
+      case 'size':
+        this.showSizeDropdown = !prevSizeState;
+        break;
+    }
+  }
+  
+  getToolIcon(tool: string): string {
+    const icons: any = {
+      'pen': 'brush-outline',
+      'arrow': 'arrow-forward-outline',
+      'rectangle': 'square-outline',
+      'circle': 'ellipse-outline',
+      'text': 'text-outline'
+    };
+    return icons[tool] || 'brush-outline';
+  }
+  
+  getToolName(tool: string): string {
+    return tool.charAt(0).toUpperCase() + tool.slice(1);
   }
   
   saveCurrentState() {
