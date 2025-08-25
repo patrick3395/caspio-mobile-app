@@ -63,11 +63,13 @@ import { IonicModule, ModalController } from '@ionic/angular';
         </div>
         
         <div class="toolbar-section actions">
-          <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo">
+          <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo" title="Undo Last">
             <ion-icon name="arrow-undo-outline"></ion-icon>
+            <span class="btn-label">Back</span>
           </button>
-          <button (click)="clearAnnotations()" class="action-btn clear">
+          <button (click)="clearAnnotations()" class="action-btn clear" title="Clear All">
             <ion-icon name="trash-outline"></ion-icon>
+            <span class="btn-label">Clear</span>
           </button>
         </div>
       </div>
@@ -115,6 +117,7 @@ import { IonicModule, ModalController } from '@ionic/angular';
       gap: 24px;
       align-items: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      flex-wrap: wrap;
     }
     
     .toolbar-section {
@@ -179,6 +182,8 @@ import { IonicModule, ModalController } from '@ionic/angular';
       background: rgba(255,255,255,0.8);
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      flex-wrap: wrap;
+      max-width: 280px;
     }
     
     .color-btn {
@@ -254,7 +259,8 @@ import { IonicModule, ModalController } from '@ionic/angular';
     }
     
     .action-btn {
-      width: 40px;
+      padding: 8px 12px;
+      min-width: 60px;
       height: 40px;
       border: none;
       background: rgba(255,255,255,0.8);
@@ -263,12 +269,19 @@ import { IonicModule, ModalController } from '@ionic/angular';
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 6px;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
+    .action-btn .btn-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5f6c7b;
+    }
+    
     .action-btn ion-icon {
-      font-size: 22px;
+      font-size: 18px;
       color: #5f6c7b;
     }
     
@@ -277,14 +290,28 @@ import { IonicModule, ModalController } from '@ionic/angular';
       box-shadow: 0 4px 12px rgba(241, 90, 39, 0.2);
     }
     
+    .action-btn.undo:hover:not(:disabled) .btn-label,
+    .action-btn.undo:hover:not(:disabled) ion-icon {
+      color: #F15A27;
+    }
+    
     .action-btn.clear:hover {
       background: rgba(239, 71, 111, 0.1);
       box-shadow: 0 4px 12px rgba(239, 71, 111, 0.2);
     }
     
+    .action-btn.clear:hover .btn-label,
+    .action-btn.clear:hover ion-icon {
+      color: #EF476F;
+    }
+    
     .action-btn:disabled {
       opacity: 0.3;
       cursor: not-allowed;
+    }
+    
+    .action-btn:disabled .btn-label {
+      color: #a0a9b8;
     }
     
     .canvas-container {
