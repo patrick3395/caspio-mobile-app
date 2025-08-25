@@ -1907,11 +1907,66 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Update existing photo attachment
   async updatePhotoAttachment(attachId: string, file: File): Promise<void> {
     try {
+      console.log('🔍 updatePhotoAttachment called with:');
+      console.log('  attachId:', attachId);
+      console.log('  attachId type:', typeof attachId);
+      console.log('  file:', file.name);
+      
+      // Debug popup - show what we're about to do
+      const debugAlert1 = await this.alertController.create({
+        header: 'Photo Update Debug - Step 1',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: blue;">📤 ATTEMPTING TO UPDATE PHOTO</strong><br><br>
+            
+            <strong>Attachment ID:</strong> ${attachId}<br>
+            <strong>Attachment ID Type:</strong> ${typeof attachId}<br>
+            <strong>Attachment ID Length:</strong> ${attachId?.length || 0}<br>
+            <strong>File Name:</strong> ${file.name}<br>
+            <strong>File Size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
+            <strong>File Type:</strong> ${file.type}<br><br>
+            
+            <strong>Process:</strong><br>
+            1. Upload new file to Files API<br>
+            2. Update Services_Visuals_Attach record<br>
+            3. Replace Photo field with new path<br><br>
+            
+            <strong style="color: orange;">Next: Uploading file to Caspio Files API...</strong>
+          </div>
+        `,
+        buttons: ['Continue']
+      });
+      await debugAlert1.present();
+      await debugAlert1.onDidDismiss();
+      
       // First upload the new file
       const uploadResult = await this.caspioService.uploadFile(file).toPromise();
       
+      // Debug popup - show upload result
+      const debugAlert2 = await this.alertController.create({
+        header: 'Photo Update Debug - Step 2',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: green;">✅ FILE UPLOADED SUCCESSFULLY</strong><br><br>
+            
+            <strong>Upload Result:</strong><br>
+            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
+              ${JSON.stringify(uploadResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div><br>
+            
+            <strong>File Name from API:</strong> ${uploadResult?.Name || 'NOT FOUND'}<br>
+            <strong>File Path to Store:</strong> /${uploadResult?.Name || 'unknown'}<br><br>
+            
+            <strong style="color: orange;">Next: Updating attachment record...</strong>
+          </div>
+        `,
+        buttons: ['Continue']
+      });
+      await debugAlert2.present();
+      await debugAlert2.onDidDismiss();
+      
       if (!uploadResult || !uploadResult.Name) {
-        throw new Error('File upload failed');
+        throw new Error('File upload failed - no Name returned');
       }
       
       // Update the attachment record with new file path
@@ -1919,11 +1974,80 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         Photo: `/${uploadResult.Name}`
       };
       
-      await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
+      // Debug popup - show update request
+      const debugAlert3 = await this.alertController.create({
+        header: 'Photo Update Debug - Step 3',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: blue;">📝 UPDATING ATTACHMENT RECORD</strong><br><br>
+            
+            <strong>Table:</strong> Services_Visuals_Attach<br>
+            <strong>Where:</strong> AttachID = ${attachId}<br><br>
+            
+            <strong>Update Data:</strong><br>
+            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
+              ${JSON.stringify(updateData, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div><br>
+            
+            <strong>API Endpoint:</strong><br>
+            PUT /tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}<br><br>
+            
+            <strong style="color: orange;">Sending update request...</strong>
+          </div>
+        `,
+        buttons: ['Send Update']
+      });
+      await debugAlert3.present();
+      await debugAlert3.onDidDismiss();
+      
+      const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
+      
+      // Debug popup - show update result
+      const debugAlert4 = await this.alertController.create({
+        header: 'Photo Update Debug - Complete',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: green;">✅ UPDATE COMPLETE</strong><br><br>
+            
+            <strong>Update Response:</strong><br>
+            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+              ${JSON.stringify(updateResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div><br>
+            
+            <strong>Photo attachment updated successfully!</strong>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await debugAlert4.present();
       
       console.log('✅ Photo attachment updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
+      
+      // Debug popup - show error
+      const errorAlert = await this.alertController.create({
+        header: 'Photo Update Error',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: red;">❌ UPDATE FAILED</strong><br><br>
+            
+            <strong>Error Message:</strong><br>
+            ${error?.message || 'Unknown error'}<br><br>
+            
+            <strong>Error Details:</strong><br>
+            <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+              ${JSON.stringify(error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div><br>
+            
+            <strong>Attachment ID:</strong> ${attachId}<br>
+            <strong>File Name:</strong> ${file?.name || 'N/A'}<br>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+      
       throw error;
     }
   }

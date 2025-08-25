@@ -430,7 +430,23 @@ export class CaspioService {
   
   // Update Services_Visuals_Attach record
   updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
-    return this.put<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, data);
+    console.log('📝 Updating Services_Visuals_Attach record');
+    console.log('  AttachID:', attachId);
+    console.log('  Update data:', data);
+    console.log('  Endpoint:', `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
+    
+    return this.put<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, data).pipe(
+      tap(response => {
+        console.log('✅ Update successful:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Update failed:', error);
+        console.error('  Status:', error.status);
+        console.error('  Message:', error.message);
+        console.error('  Body:', error.error);
+        return throwError(error);
+      })
+    );
   }
   
   // Delete Services_Visuals_Attach record
