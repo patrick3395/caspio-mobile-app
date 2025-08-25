@@ -1497,39 +1497,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     `);
   }
   
-  // View photo - open in modal or new window
+  // View photo - open in alert with custom styling
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
       console.log('👁️ Viewing photo:', photo);
       
-      // If we have a data URL (base64), open it in a new window
-      if (photo.url && photo.url.startsWith('data:')) {
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>${photo.name || 'Photo'}</title>
-              <style>
-                body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
-                img { max-width: 100%; max-height: 100vh; object-fit: contain; }
-              </style>
-            </head>
-            <body>
-              <img src="${photo.url}" alt="${photo.name || 'Photo'}">
-            </body>
-            </html>
-          `);
-          newWindow.document.close();
-        }
-      } else if (photo.link && photo.link.startsWith('https://')) {
-        window.open(photo.link, '_blank');
-      } else if (photo.Photo && photo.Photo.startsWith('https://')) {
-        window.open(photo.Photo, '_blank');
-      } else {
-        await this.showToast('Unable to view photo', 'warning');
-      }
+      // Use alert as a photo viewer
+      const alert = await this.alertController.create({
+        cssClass: 'photo-viewer-alert',
+        message: `
+          <div style="text-align: center;">
+            <img src="${photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png'}" 
+                 style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px;" 
+                 alt="${photo.name || 'Photo'}">
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">${photo.name || 'Photo'}</p>
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Close',
+            role: 'cancel'
+          }
+        ]
+      });
+      
+      await alert.present();
+      
     } catch (error) {
       console.error('Error viewing photo:', error);
       await this.showToast('Failed to view photo', 'danger');

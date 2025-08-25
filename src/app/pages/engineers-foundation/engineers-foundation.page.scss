@@ -910,3 +910,32 @@ ion-toolbar {
     }
   }
 }
+// Photo viewer alert styles  
+::ng-deep .photo-viewer-alert {
+  .alert-wrapper {
+    max-width: 90vw;
+    max-height: 90vh;
+    min-width: 300px;
+  }
+  
+  .alert-message {
+    max-height: 80vh;
+    overflow: auto;
+    padding: 20px;
+  }
+  
+  .alert-button-group {
+    padding: 0;
+    
+    .alert-button {
+      background: var(--noble-orange);
+      color: white;
+      font-weight: 600;
+      height: 44px;
+      
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+  }
+}
