@@ -465,7 +465,9 @@ import { IonicModule, ModalController } from '@ionic/angular';
 export class PhotoAnnotatorComponent implements OnInit {
   @Input() imageFile: File | null = null;
   @Input() imageUrl: string = '';
+  @Input() existingAnnotations: any[] = [];
   @Output() annotatedImage = new EventEmitter<Blob>();
+  @Output() annotationsData = new EventEmitter<any[]>();
   
   @ViewChild('imageCanvas') imageCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('annotationCanvas') annotationCanvas!: ElementRef<HTMLCanvasElement>;
@@ -477,7 +479,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
-  private annotations: any[] = [];
+  private annotationObjects: any[] = [];
   private currentPath: any[] = [];
   private tempCanvas!: HTMLCanvasElement;
   private tempCtx!: CanvasRenderingContext2D;
@@ -554,6 +556,13 @@ export class PhotoAnnotatorComponent implements OnInit {
       
       // Draw the image
       this.imageCtx.drawImage(img, 0, 0, width, height);
+      
+      // Load existing annotations if any
+      if (this.existingAnnotations && this.existingAnnotations.length > 0) {
+        this.annotationObjects = [...this.existingAnnotations];
+        this.redrawAllAnnotations();
+        this.canUndo = true;
+      }
     };
   }
   
@@ -607,22 +616,67 @@ export class PhotoAnnotatorComponent implements OnInit {
     return tool.charAt(0).toUpperCase() + tool.slice(1);
   }
   
-  saveCurrentState() {
-    const canvas = this.annotationCanvas.nativeElement;
-    const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
-    // Don't save if it's the same as the last state
-    if (this.annotations.length === 0 || !this.isImageDataEqual(imageData, this.annotations[this.annotations.length - 1])) {
-      this.annotations.push(imageData);
-      this.canUndo = true;
-    }
+  saveAnnotation(type: string, data: any) {
+    const annotation = {
+      type,
+      data,
+      color: this.currentColor,
+      strokeWidth: this.strokeWidth,
+      timestamp: Date.now()
+    };
+    this.annotationObjects.push(annotation);
+    this.canUndo = true;
   }
   
-  isImageDataEqual(a: ImageData, b: ImageData): boolean {
-    if (a.width !== b.width || a.height !== b.height) return false;
-    for (let i = 0; i < a.data.length; i++) {
-      if (a.data[i] !== b.data[i]) return false;
+  redrawAllAnnotations() {
+    const canvas = this.annotationCanvas.nativeElement;
+    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for (const annotation of this.annotationObjects) {
+      this.annotationCtx.strokeStyle = annotation.color;
+      this.annotationCtx.lineWidth = annotation.strokeWidth;
+      this.annotationCtx.lineCap = 'round';
+      this.annotationCtx.fillStyle = annotation.color;
+      
+      switch (annotation.type) {
+        case 'pen':
+          this.annotationCtx.beginPath();
+          if (annotation.data.length > 0) {
+            this.annotationCtx.moveTo(annotation.data[0].x, annotation.data[0].y);
+            for (let i = 1; i < annotation.data.length; i++) {
+              this.annotationCtx.lineTo(annotation.data[i].x, annotation.data[i].y);
+            }
+            this.annotationCtx.stroke();
+          }
+          break;
+        case 'arrow':
+          this.drawArrow(annotation.data.startX, annotation.data.startY, annotation.data.endX, annotation.data.endY);
+          break;
+        case 'rectangle':
+          this.annotationCtx.strokeRect(
+            annotation.data.x,
+            annotation.data.y,
+            annotation.data.width,
+            annotation.data.height
+          );
+          break;
+        case 'circle':
+          this.annotationCtx.beginPath();
+          this.annotationCtx.arc(
+            annotation.data.centerX,
+            annotation.data.centerY,
+            annotation.data.radius,
+            0,
+            2 * Math.PI
+          );
+          this.annotationCtx.stroke();
+          break;
+        case 'text':
+          this.annotationCtx.font = `${annotation.strokeWidth * 5}px Arial`;
+          this.annotationCtx.fillText(annotation.data.text, annotation.data.x, annotation.data.y);
+          break;
+      }
     }
-    return true;
   }
   
   startDrawing(event: MouseEvent) {
@@ -636,8 +690,7 @@ export class PhotoAnnotatorComponent implements OnInit {
       return;
     }
     
-    // Save current state before starting new drawing
-    this.saveCurrentState();
+    // No need to save state here anymore
     
     this.isDrawing = true;
     this.startX = event.offsetX;
@@ -673,9 +726,7 @@ export class PhotoAnnotatorComponent implements OnInit {
       this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Redraw all saved annotations
-      if (this.annotations.length > 0) {
-        this.annotationCtx.putImageData(this.annotations[this.annotations.length - 1], 0, 0);
-      }
+      this.redrawAllAnnotations();
       
       // Set styles for preview
       this.annotationCtx.strokeStyle = this.currentColor;
@@ -700,13 +751,38 @@ export class PhotoAnnotatorComponent implements OnInit {
     if (!this.isDrawing) return;
     
     this.isDrawing = false;
+    const endX = event.offsetX;
+    const endY = event.offsetY;
     
-    // Save the final state after drawing
-    this.saveCurrentState();
-    
-    if (this.currentTool === 'pen') {
+    // Save annotation as object
+    if (this.currentTool === 'pen' && this.currentPath.length > 0) {
+      this.saveAnnotation('pen', [...this.currentPath]);
       this.currentPath = [];
+    } else if (this.currentTool === 'arrow') {
+      this.saveAnnotation('arrow', {
+        startX: this.startX,
+        startY: this.startY,
+        endX: endX,
+        endY: endY
+      });
+    } else if (this.currentTool === 'rectangle') {
+      this.saveAnnotation('rectangle', {
+        x: this.startX,
+        y: this.startY,
+        width: endX - this.startX,
+        height: endY - this.startY
+      });
+    } else if (this.currentTool === 'circle') {
+      const radius = Math.sqrt(Math.pow(endX - this.startX, 2) + Math.pow(endY - this.startY, 2));
+      this.saveAnnotation('circle', {
+        centerX: this.startX,
+        centerY: this.startY,
+        radius: radius
+      });
     }
+    
+    // Redraw to ensure everything is clean
+    this.redrawAllAnnotations();
   }
   
   handleTouch(event: TouchEvent) {
@@ -771,16 +847,17 @@ export class PhotoAnnotatorComponent implements OnInit {
       return;
     }
     
-    const ctx = this.annotationCtx;
-    ctx.font = `${this.strokeWidth * 5}px Arial`;
-    ctx.fillStyle = this.currentColor;
-    ctx.fillText(this.currentText, this.textPosition.x, this.textPosition.y);
+    this.saveAnnotation('text', {
+      text: this.currentText,
+      x: this.textPosition.x,
+      y: this.textPosition.y
+    });
+    
+    // Redraw all including new text
+    this.redrawAllAnnotations();
     
     this.showTextInput = false;
     this.currentText = '';
-    
-    // Save the state after adding text
-    this.saveCurrentState();
   }
   
   cancelText() {
@@ -789,27 +866,19 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   undo() {
-    if (this.annotations.length > 1) {
-      // Remove the current state
-      this.annotations.pop();
-      // Restore the previous state
-      const previousState = this.annotations[this.annotations.length - 1];
-      const canvas = this.annotationCanvas.nativeElement;
-      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
-      this.annotationCtx.putImageData(previousState, 0, 0);
-    } else if (this.annotations.length === 1) {
-      // Clear to blank if undoing the first annotation
-      this.annotations.pop();
-      const canvas = this.annotationCanvas.nativeElement;
-      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    if (this.annotationObjects.length > 0) {
+      // Remove the last annotation
+      this.annotationObjects.pop();
+      // Redraw all remaining annotations
+      this.redrawAllAnnotations();
+      this.canUndo = this.annotationObjects.length > 0;
     }
-    this.canUndo = this.annotations.length > 0;
   }
   
   clearAnnotations() {
     const canvas = this.annotationCanvas.nativeElement;
     this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
-    this.annotations = [];
+    this.annotationObjects = [];
     this.canUndo = false;
   }
   
@@ -835,6 +904,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     combinedCanvas.toBlob((blob) => {
       if (blob) {
         this.annotatedImage.emit(blob);
+        this.annotationsData.emit(this.annotationObjects);
         this.dismiss(blob);
       }
     }, 'image/jpeg', 0.9);
