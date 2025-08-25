@@ -78,6 +78,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     elevation: false
   };
   
+  // Track which accordion categories are expanded
+  expandedAccordions: string[] = [];
+  @ViewChild('visualAccordionGroup') visualAccordionGroup: any;
+  
   saveStatus: string = '';
   saveStatusType: 'info' | 'success' | 'error' = 'info';
   
@@ -323,6 +327,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   toggleSection(section: string) {
     this.expandedSections[section] = !this.expandedSections[section];
+  }
+  
+  // Track which accordions are expanded
+  onAccordionChange(event: any) {
+    console.log('Accordion changed:', event.detail.value);
+    if (event.detail.value) {
+      // Store the expanded accordion value
+      this.expandedAccordions = Array.isArray(event.detail.value) 
+        ? event.detail.value 
+        : [event.detail.value];
+    } else {
+      this.expandedAccordions = [];
+    }
+  }
+  
+  // Restore accordion state after change detection
+  private restoreAccordionState() {
+    // Store current section states before they get reset
+    const currentSectionStates = { ...this.expandedSections };
+    
+    // Restore section states immediately
+    setTimeout(() => {
+      this.expandedSections = currentSectionStates;
+      
+      // Restore accordion states
+      if (this.visualAccordionGroup && this.expandedAccordions.length > 0) {
+        this.visualAccordionGroup.value = this.expandedAccordions;
+      }
+    }, 50);
   }
   
   getSectionCompletion(section: string): number {
@@ -955,6 +988,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           await this.showToast('Failed to upload photos', 'danger');
         }
         
+        // Restore accordion and section states after batch upload
+        this.restoreAccordionState();
+        
         // Photos are already added with proper previews during upload
         // Just trigger change detection to ensure they're displayed
         if (successCount > 0) {
@@ -1264,6 +1300,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Trigger change detection to show preview immediately
         this.changeDetectorRef.detectChanges();
+        // Restore accordion state after change detection
+        this.restoreAccordionState();
       }
       
       if (loading) {
@@ -1276,6 +1314,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Don't reload all photos - just ensure this one is visible
       // The preview is already set, just trigger change detection
       this.changeDetectorRef.detectChanges();
+      // Restore accordion state after change detection
+      this.restoreAccordionState();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
