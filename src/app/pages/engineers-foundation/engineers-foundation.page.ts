@@ -1296,7 +1296,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false);
+              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, currentExpandedAccordions);
             }
           }
         ]
@@ -1305,7 +1305,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true);
+        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, currentExpandedAccordions);
       }
       
     } catch (error) {
@@ -1315,7 +1315,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false) {
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, currentExpandedAccordions?: string[]) {
     let loading: any = null;
     if (!isBatchUpload) {
       loading = await this.loadingController.create({
@@ -1382,8 +1382,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Trigger change detection to show preview immediately
         this.changeDetectorRef.detectChanges();
-        // Ensure the current category stays expanded
-        this.expandedAccordions = currentExpandedAccordions;
+        // Ensure the current category stays expanded if provided
+        if (currentExpandedAccordions) {
+          this.expandedAccordions = currentExpandedAccordions;
+        }
         // Restore accordion state after change detection
         this.restoreAccordionState();
       }
@@ -1398,8 +1400,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Don't reload all photos - just ensure this one is visible
       // The preview is already set, just trigger change detection
       this.changeDetectorRef.detectChanges();
-      // Ensure the current category stays expanded
-      this.expandedAccordions = currentExpandedAccordions;
+      // Ensure the current category stays expanded if provided
+      if (currentExpandedAccordions) {
+        this.expandedAccordions = currentExpandedAccordions;
+      }
       // Restore accordion state after change detection
       this.restoreAccordionState();
       
