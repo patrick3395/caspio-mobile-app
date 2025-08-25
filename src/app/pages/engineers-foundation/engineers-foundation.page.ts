@@ -1580,6 +1580,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
         console.log('✅ Custom visual created:', response);
         
+        // Show debug popup with the response
+        const debugAlert = await this.alertController.create({
+          header: 'Custom Visual Creation Response',
+          message: `
+            <div style="text-align: left; font-family: monospace; font-size: 12px;">
+              <strong style="color: green;">✅ VISUAL CREATED SUCCESSFULLY</strong><br><br>
+              
+              <strong>Response from Caspio:</strong><br>
+              <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+                ${JSON.stringify(response, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div><br>
+              
+              <strong style="color: blue;">Key Fields:</strong><br>
+              • VisualID (PRIMARY): <strong style="color: green;">${response?.VisualID || 'NOT FOUND'}</strong><br>
+              • PK_ID: ${response?.PK_ID || 'N/A'}<br>
+              • ServiceID: ${response?.ServiceID || 'N/A'}<br>
+              • Category: ${response?.Category || 'N/A'}<br>
+              • Kind: ${response?.Kind || 'N/A'}<br>
+              • Name: ${response?.Name || 'N/A'}<br><br>
+              
+              <strong>Will be stored as:</strong><br>
+              • Key: ${category}_${response?.VisualID || response?.PK_ID || Date.now()}<br>
+              • VisualID for photos: <strong style="color: green;">${response?.VisualID || response?.PK_ID || 'MISSING!'}</strong>
+            </div>
+          `,
+          cssClass: 'debug-alert-wide',
+          buttons: ['OK']
+        });
+        await debugAlert.present();
+        
         // Add to local data structure
         if (!this.organizedData[category]) {
           this.organizedData[category] = {
@@ -1591,8 +1621,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Determine which array to add to based on kind
         const kindKey = kind.toLowerCase() + 's'; // comments, limitations, deficiencies
+        
+        // Use VisualID from response, NOT PK_ID
+        const visualId = response?.VisualID || response?.PK_ID || Date.now().toString();
         const customItem = {
-          id: response?.PK_ID || Date.now().toString(),
+          id: visualId.toString(), // Convert to string for consistency
           name: name,
           text: text,
           isCustom: true
@@ -1606,9 +1639,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           this.organizedData[category].deficiencies.push(customItem);
         }
         
-        // Store the visual ID for photo uploads
+        // Store the visual ID for photo uploads - use VisualID from response!
         const key = `${category}_${customItem.id}`;
-        this.visualRecordIds[key] = String(response?.PK_ID || customItem.id);
+        this.visualRecordIds[key] = String(response?.VisualID || response?.PK_ID || customItem.id);
+        console.log('📌 Stored VisualID for photos:', {
+          key: key,
+          visualId: this.visualRecordIds[key],
+          responseVisualID: response?.VisualID,
+          responsePK_ID: response?.PK_ID
+        });
         
         // Mark as selected (use selectedItems, not selectedVisuals)
         this.selectedItems[key] = true;

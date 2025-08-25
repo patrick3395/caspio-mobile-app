@@ -980,3 +980,11 @@ ion-toolbar {
     }
   }
 }
+
+// Debug alert styles
+::ng-deep .debug-alert-wide {
+  .alert-wrapper {
+    max-width: 90% !important;
+    width: 800px !important;
+  }
+}
