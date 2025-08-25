@@ -1497,35 +1497,101 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     `);
   }
   
-  // View photo - open in alert with custom styling
+  // Track if photo viewer is already opening
+  private isViewingPhoto = false;
+  
+  // View photo - open in new window
   async viewPhoto(photo: any, category: string, itemId: string) {
+    // Prevent double-clicks
+    if (this.isViewingPhoto) {
+      return;
+    }
+    
     try {
+      this.isViewingPhoto = true;
       console.log('👁️ Viewing photo:', photo);
       
-      // Use alert as a photo viewer
-      const alert = await this.alertController.create({
-        cssClass: 'photo-viewer-alert',
-        message: `
-          <div style="text-align: center;">
-            <img src="${photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png'}" 
-                 style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px;" 
-                 alt="${photo.name || 'Photo'}">
-            <p style="margin-top: 10px; color: #666; font-size: 14px;">${photo.name || 'Photo'}</p>
-          </div>
-        `,
-        buttons: [
-          {
-            text: 'Close',
-            role: 'cancel'
-          }
-        ]
-      });
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const photoName = photo.name || 'Photo';
       
-      await alert.present();
+      // Open in a new window with proper HTML
+      const newWindow = window.open('', '_blank', 'width=800,height=600');
+      if (newWindow) {
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${photoName}</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                margin: 0;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                background: #1a1a1a;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              }
+              img {
+                max-width: 95%;
+                max-height: 85vh;
+                object-fit: contain;
+                border-radius: 8px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+              }
+              .photo-name {
+                color: white;
+                margin-top: 20px;
+                font-size: 16px;
+                text-align: center;
+              }
+              .close-btn {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                color: #333;
+                border: none;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+                cursor: pointer;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+              }
+              .close-btn:hover {
+                background: #f0f0f0;
+                transform: scale(1.1);
+              }
+            </style>
+          </head>
+          <body>
+            <button class="close-btn" onclick="window.close()">×</button>
+            <img src="${imageUrl}" alt="${photoName}">
+            <div class="photo-name">${photoName}</div>
+          </body>
+          </html>
+        `);
+        newWindow.document.close();
+      } else {
+        await this.showToast('Unable to open photo viewer. Please check your popup settings.', 'warning');
+      }
       
     } catch (error) {
       console.error('Error viewing photo:', error);
       await this.showToast('Failed to view photo', 'danger');
+    } finally {
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        this.isViewingPhoto = false;
+      }, 500);
     }
   }
   
