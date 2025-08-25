@@ -1,11 +1,12 @@
 import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 
 @Component({
   selector: 'app-photo-annotator',
   standalone: true,
-  imports: [CommonModule, IonicModule],
+  imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
       <ion-toolbar color="primary">

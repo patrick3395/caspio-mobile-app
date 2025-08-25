@@ -1024,6 +1024,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           fileArray.push(files[i]);
         }
         
+        // Track upload results
+        let uploadSuccessCount = 0;
+        
         // Ask if user wants to annotate photos (only for single photo)
         if (fileArray.length === 1) {
           const alert = await this.alertController.create({
@@ -1034,6 +1037,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
                 text: 'Upload as is',
                 handler: async () => {
                   await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
+                  uploadSuccessCount = 1; // Assume success for single upload
                 }
               },
               {
@@ -1041,6 +1045,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
                 handler: async () => {
                   const annotatedFile = await this.annotatePhoto(fileArray[0]);
                   await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
+                  uploadSuccessCount = 1; // Assume success for single upload
                 }
               }
             ]
@@ -1064,20 +1069,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           const results = await Promise.all(uploadPromises);
           
           // Count successes and failures
-          const successCount = results.filter((r: { success: boolean }) => r.success).length;
+          uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
           const failCount = results.filter((r: { success: boolean }) => !r.success).length;
           
           // Show result message
           if (failCount === 0) {
             await this.showToast(
             files.length > 1 
-              ? `Successfully uploaded ${successCount} photos` 
+              ? `Successfully uploaded ${uploadSuccessCount} photos` 
               : 'Photo uploaded successfully',
               'success'
             );
-          } else if (successCount > 0) {
+          } else if (uploadSuccessCount > 0) {
             await this.showToast(
-              `Uploaded ${successCount} of ${files.length} photos. ${failCount} failed.`,
+              `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
               'warning'
             );
           } else {
@@ -1090,7 +1095,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Photos are already added with proper previews during upload
         // Just trigger change detection to ensure they're displayed
-        if (successCount > 0) {
+        if (uploadSuccessCount > 0) {
           this.changeDetectorRef.detectChanges();
         }
         
