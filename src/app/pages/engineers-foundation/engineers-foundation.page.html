@@ -284,7 +284,8 @@
                         <button 
                           *ngIf="isItemSelected(category, item.id)"
                           class="camera-icon-btn"
-                          (click)="uploadDocument(category, item.id, item)">
+                          (click)="uploadDocument(category, item.id, item)"
+                          title="Upload photos (multiple selection supported)">
                           <ion-icon name="camera-outline"></ion-icon>
                         </button>
                       </ion-item>
@@ -304,9 +305,9 @@
                             </div>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
                           </div>
-                          <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add Another Photo">
+                          <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
                             <ion-icon name="add-circle-outline"></ion-icon>
-                            <span>Add Photo</span>
+                            <span>Add Photos</span>
                           </button>
                         </div>
                       </div>
@@ -336,7 +337,8 @@
                         <button 
                           *ngIf="isItemSelected(category, item.id)"
                           class="camera-icon-btn"
-                          (click)="uploadDocument(category, item.id, item)">
+                          (click)="uploadDocument(category, item.id, item)"
+                          title="Upload photos (multiple selection supported)">
                           <ion-icon name="camera-outline"></ion-icon>
                         </button>
                       </ion-item>
@@ -356,9 +358,9 @@
                             </div>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
                           </div>
-                          <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add Another Photo">
+                          <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
                             <ion-icon name="add-circle-outline"></ion-icon>
-                            <span>Add Photo</span>
+                            <span>Add Photos</span>
                           </button>
                         </div>
                       </div>
@@ -496,10 +498,11 @@
     </div>
   </div>
   
-  <!-- File upload input (hidden) -->
+  <!-- File upload input (hidden, supports multiple files) -->
   <input 
     #fileInput 
     type="file" 
+    multiple
     style="display: none" 
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">

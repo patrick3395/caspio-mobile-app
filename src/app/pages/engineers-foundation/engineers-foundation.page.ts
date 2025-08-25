@@ -876,15 +876,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
-  // Handle file selection from the hidden input (same pattern as Required Documents)
+  // Handle file selection from the hidden input (supports multiple files)
   async handleFileSelect(event: any) {
-    const file = event.target.files[0];
-    if (!file || !this.currentUploadContext) return;
+    const files = event.target.files;
+    if (!files || files.length === 0 || !this.currentUploadContext) return;
     
     const { category, itemId, item } = this.currentUploadContext;
     
+    // Show loading for multiple files
+    const loading = await this.loadingController.create({
+      message: files.length > 1 ? `Uploading ${files.length} photos...` : 'Uploading photo...'
+    });
+    await loading.present();
+    
     try {
-      console.log('📸 File selected:', file.name);
+      console.log(`📸 ${files.length} file(s) selected`);
       
       // Get or create visual ID
       const key = `${category}_${itemId}`;
@@ -897,12 +903,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
       
       if (visualId) {
-        await this.uploadPhotoForVisual(visualId, file, key);
+        // Upload all files
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          try {
+            // Update loading message for progress
+            if (files.length > 1) {
+              loading.message = `Uploading photo ${i + 1} of ${files.length}...`;
+            }
+            
+            await this.uploadPhotoForVisual(visualId, file, key, true);
+            successCount++;
+          } catch (error) {
+            console.error(`❌ Failed to upload file ${i + 1}:`, error);
+            failCount++;
+          }
+        }
+        
+        // Show result message
+        if (failCount === 0) {
+          await this.showToast(
+            files.length > 1 
+              ? `Successfully uploaded ${successCount} photos` 
+              : 'Photo uploaded successfully',
+            'success'
+          );
+        } else if (successCount > 0) {
+          await this.showToast(
+            `Uploaded ${successCount} of ${files.length} photos. ${failCount} failed.`,
+            'warning'
+          );
+        } else {
+          await this.showToast('Failed to upload photos', 'danger');
+        }
       }
     } catch (error) {
-      console.error('❌ Error handling file:', error);
-      await this.showToast('Failed to upload file', 'danger');
+      console.error('❌ Error handling files:', error);
+      await this.showToast('Failed to upload files', 'danger');
     } finally {
+      await loading.dismiss();
       // Reset file input
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
@@ -1001,7 +1043,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
-  async uploadPhotoForVisual(visualId: string, photo: File, key: string) {
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false) {
     console.log('=====================================');
     console.log('📤 UPLOADING PHOTO TO SERVICE_VISUALS_ATTACH');
     console.log('=====================================');
@@ -1067,9 +1109,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         }
       };
       
-      // Show popup with data to be sent
-      const alert = await this.alertController.create({
-        header: 'Services_Visuals_Attach Upload Debug',
+      // Show popup with data to be sent (skip for batch uploads)
+      if (!isBatchUpload) {
+        const alert = await this.alertController.create({
+          header: 'Services_Visuals_Attach Upload Debug',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
             <strong style="color: red;">🔍 DEBUG INFO:</strong><br>
@@ -1109,13 +1152,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key);
+              await this.performVisualPhotoUpload(visualIdNum, photo, key, false);
             }
           }
         ]
       });
       
-      await alert.present();
+        await alert.present();
+      } else {
+        // For batch uploads, proceed directly without popup
+        await this.performVisualPhotoUpload(visualIdNum, photo, key, true);
+      }
       
     } catch (error) {
       console.error('❌ Failed to prepare upload:', error);
@@ -1124,11 +1171,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string) {
-    const loading = await this.loadingController.create({
-      message: 'Uploading photo...'
-    });
-    await loading.present();
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false) {
+    let loading: any = null;
+    if (!isBatchUpload) {
+      loading = await this.loadingController.create({
+        message: 'Uploading photo...'
+      });
+      await loading.present();
+    }
     
     try {
       // Using EXACT same approach as working Required Documents upload
@@ -1172,16 +1222,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         this.visualPhotos[visualId].push(photoData);
       }
       
-      await loading.dismiss();
-      await this.showToast('Photo uploaded successfully', 'success');
+      if (loading) {
+        await loading.dismiss();
+      }
+      if (!isBatchUpload) {
+        await this.showToast('Photo uploaded successfully', 'success');
+      }
       
       // Reload photos to show the new upload
       await this.loadExistingPhotos();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
-      await loading.dismiss();
-      await this.showToast('Failed to upload photo', 'danger');
+      if (loading) {
+        await loading.dismiss();
+      }
+      if (!isBatchUpload) {
+        await this.showToast('Failed to upload photo', 'danger');
+      } else {
+        throw error; // Re-throw for batch handler to catch
+      }
     }
   }
   
