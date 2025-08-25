@@ -633,6 +633,8 @@ export class PhotoAnnotatorComponent implements OnInit {
     const canvas = this.annotationCanvas.nativeElement;
     this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
     
+    console.log('🔄 Redrawing all annotations. Count:', this.annotationObjects.length);
+    
     for (const annotation of this.annotationObjects) {
       this.annotationCtx.strokeStyle = annotation.color;
       this.annotationCtx.lineWidth = annotation.strokeWidth;
@@ -641,13 +643,14 @@ export class PhotoAnnotatorComponent implements OnInit {
       
       switch (annotation.type) {
         case 'pen':
-          this.annotationCtx.beginPath();
           if (annotation.data.length > 0) {
+            this.annotationCtx.beginPath();
             this.annotationCtx.moveTo(annotation.data[0].x, annotation.data[0].y);
             for (let i = 1; i < annotation.data.length; i++) {
               this.annotationCtx.lineTo(annotation.data[i].x, annotation.data[i].y);
             }
             this.annotationCtx.stroke();
+            this.annotationCtx.closePath();
           }
           break;
         case 'arrow':
@@ -671,6 +674,7 @@ export class PhotoAnnotatorComponent implements OnInit {
             2 * Math.PI
           );
           this.annotationCtx.stroke();
+          this.annotationCtx.closePath();
           break;
         case 'text':
           this.annotationCtx.font = `${annotation.strokeWidth * 5}px Arial`;
@@ -880,9 +884,11 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   undo() {
+    console.log('⬅️ Undo called. Current annotations:', this.annotationObjects.length);
     if (this.annotationObjects.length > 0) {
       // Remove the last annotation
-      this.annotationObjects.pop();
+      const removed = this.annotationObjects.pop();
+      console.log('❌ Removed annotation:', removed?.type);
       // Redraw all remaining annotations
       this.redrawAllAnnotations();
       this.canUndo = this.annotationObjects.length > 0;
