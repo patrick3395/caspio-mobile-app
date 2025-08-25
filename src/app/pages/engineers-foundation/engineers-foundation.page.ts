@@ -1940,30 +1940,70 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       await debugAlert1.onDidDismiss();
       
       // First upload the new file
-      const uploadResult = await this.caspioService.uploadFile(file).toPromise();
-      
-      // Debug popup - show upload result
-      const debugAlert2 = await this.alertController.create({
-        header: 'Photo Update Debug - Step 2',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: green;">✅ FILE UPLOADED SUCCESSFULLY</strong><br><br>
-            
-            <strong>Upload Result:</strong><br>
-            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
-              ${JSON.stringify(uploadResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div><br>
-            
-            <strong>File Name from API:</strong> ${uploadResult?.Name || 'NOT FOUND'}<br>
-            <strong>File Path to Store:</strong> /${uploadResult?.Name || 'unknown'}<br><br>
-            
-            <strong style="color: orange;">Next: Updating attachment record...</strong>
-          </div>
-        `,
-        buttons: ['Continue']
-      });
-      await debugAlert2.present();
-      await debugAlert2.onDidDismiss();
+      let uploadResult: any;
+      try {
+        console.log('🔄 Attempting file upload...');
+        uploadResult = await this.caspioService.uploadFile(file).toPromise();
+        console.log('✅ Upload result:', uploadResult);
+        
+        // Debug popup - show upload result
+        const debugAlert2 = await this.alertController.create({
+          header: 'Photo Update Debug - Step 2',
+          message: `
+            <div style="text-align: left; font-family: monospace; font-size: 12px;">
+              <strong style="color: green;">✅ FILE UPLOADED SUCCESSFULLY</strong><br><br>
+              
+              <strong>Upload Result:</strong><br>
+              <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">
+                ${JSON.stringify(uploadResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div><br>
+              
+              <strong>File Name from API:</strong> ${uploadResult?.Name || 'NOT FOUND'}<br>
+              <strong>Alternative names checked:</strong><br>
+              • result.Name: ${uploadResult?.Name || 'undefined'}<br>
+              • result.name: ${uploadResult?.name || 'undefined'}<br>
+              • result.FileName: ${uploadResult?.FileName || 'undefined'}<br>
+              • result.fileName: ${uploadResult?.fileName || 'undefined'}<br><br>
+              
+              <strong>File Path to Store:</strong> /${uploadResult?.Name || 'unknown'}<br><br>
+              
+              <strong style="color: orange;">Next: Updating attachment record...</strong>
+            </div>
+          `,
+          buttons: ['Continue']
+        });
+        await debugAlert2.present();
+        await debugAlert2.onDidDismiss();
+        
+      } catch (uploadError: any) {
+        console.error('❌ File upload failed:', uploadError);
+        
+        // Show detailed error popup
+        const errorAlert = await this.alertController.create({
+          header: 'Photo Update Debug - Upload Error',
+          message: `
+            <div style="text-align: left; font-family: monospace; font-size: 12px;">
+              <strong style="color: red;">❌ FILE UPLOAD FAILED</strong><br><br>
+              
+              <strong>Error Message:</strong> ${uploadError?.message || 'Unknown error'}<br><br>
+              
+              <strong>Error Details:</strong><br>
+              <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+                ${JSON.stringify(uploadError, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div><br>
+              
+              <strong>File attempted:</strong> ${file.name}<br>
+              <strong>File size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
+              <strong>File type:</strong> ${file.type}<br><br>
+              
+              <strong style="color: orange;">Check console for more details</strong>
+            </div>
+          `,
+          buttons: ['OK']
+        });
+        await errorAlert.present();
+        throw uploadError;
+      }
       
       if (!uploadResult || !uploadResult.Name) {
         throw new Error('File upload failed - no Name returned');

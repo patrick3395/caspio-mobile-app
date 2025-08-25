@@ -461,6 +461,7 @@ export class CaspioService {
       return throwError(() => new Error('No authentication token available'));
     }
     
+    console.log('📤 Uploading file to Files API:', file.name);
     const formData = new FormData();
     formData.append('file', file, file.name);
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -473,12 +474,35 @@ export class CaspioService {
         },
         body: formData
       })
-      .then(response => response.json())
+      .then(async response => {
+        console.log('Files API response status:', response.status);
+        console.log('Files API response ok:', response.ok);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Files API error response:', errorText);
+          throw new Error(`Files API error (${response.status}): ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('Files API success response:', result);
+        
+        // Check multiple possible response formats
+        const fileName = result.Name || result.name || result.FileName || result.fileName || file.name;
+        const finalResult = {
+          ...result,
+          Name: fileName
+        };
+        
+        console.log('Final result with Name:', finalResult);
+        return finalResult;
+      })
       .then(result => {
         observer.next(result);
         observer.complete();
       })
       .catch(error => {
+        console.error('Upload file error:', error);
         observer.error(error);
       });
     });
