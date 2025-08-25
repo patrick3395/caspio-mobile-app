@@ -1187,6 +1187,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('   Photo Size:', photo.size);
     console.log('   Photo Type:', photo.type);
     
+    // Extract category from key (format: category_itemId)
+    const category = key.split('_')[0];
+    console.log('   Category:', category);
+    
+    // Store current accordion state before upload
+    const currentExpandedAccordions = [...this.expandedAccordions];
+    if (!currentExpandedAccordions.includes(category)) {
+      currentExpandedAccordions.push(category);
+    }
+    
     // Debug: Check all stored visual IDs
     console.log('🔍 All stored visual IDs:', this.visualRecordIds);
     console.log('🔍 Visual ID for this key:', this.visualRecordIds[key]);
@@ -1372,6 +1382,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Trigger change detection to show preview immediately
         this.changeDetectorRef.detectChanges();
+        // Ensure the current category stays expanded
+        this.expandedAccordions = currentExpandedAccordions;
         // Restore accordion state after change detection
         this.restoreAccordionState();
       }
@@ -1386,6 +1398,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Don't reload all photos - just ensure this one is visible
       // The preview is already set, just trigger change detection
       this.changeDetectorRef.detectChanges();
+      // Ensure the current category stays expanded
+      this.expandedAccordions = currentExpandedAccordions;
       // Restore accordion state after change detection
       this.restoreAccordionState();
       
