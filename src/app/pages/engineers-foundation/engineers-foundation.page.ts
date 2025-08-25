@@ -60,6 +60,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Track visual record IDs from Services_Visuals table
   visualRecordIds: { [key: string]: string } = {};
   
+  // Track selected visuals
+  selectedVisuals: { [key: string]: boolean } = {};
+  
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
   
