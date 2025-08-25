@@ -33,6 +33,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   serviceId: string = '';
   projectData: any = null;
   currentUploadContext: any = null;
+  uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -883,11 +884,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     
     const { category, itemId, item } = this.currentUploadContext;
     
-    // Show loading for multiple files
-    const loading = await this.loadingController.create({
-      message: files.length > 1 ? `Uploading ${files.length} photos...` : 'Uploading photo...'
-    });
-    await loading.present();
+    // Show non-blocking toast instead of loading modal
+    const uploadMessage = files.length > 1 
+      ? `Uploading ${files.length} photos in background...` 
+      : 'Uploading photo in background...';
+    await this.showToast(uploadMessage, 'primary');
     
     try {
       console.log(`📸 ${files.length} file(s) selected`);
@@ -895,6 +896,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Get or create visual ID
       const key = `${category}_${itemId}`;
       let visualId = this.visualRecordIds[key];
+      
+      // Track that we're uploading for this visual
+      this.uploadingPhotos[key] = (this.uploadingPhotos[key] || 0) + files.length;
       
       if (!visualId) {
         // Need to save the visual first
@@ -950,12 +954,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         if (successCount > 0) {
           await this.loadExistingPhotos();
         }
+        
+        // Clear upload tracking
+        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
+        if (this.uploadingPhotos[key] === 0) {
+          delete this.uploadingPhotos[key];
+        }
       }
     } catch (error) {
       console.error('❌ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
     } finally {
-      await loading.dismiss();
       // Reset file input
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
@@ -1260,6 +1269,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   getPhotoCount(category: string, itemId: string): number {
     const visualId = this.visualRecordIds[`${category}_${itemId}`];
     return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
+  }
+  
+  // Check if photos are currently uploading for a visual
+  isUploadingPhotos(category: string, itemId: string): boolean {
+    const key = `${category}_${itemId}`;
+    return (this.uploadingPhotos[key] || 0) > 0;
+  }
+  
+  // Get number of photos being uploaded
+  getUploadingCount(category: string, itemId: string): number {
+    const key = `${category}_${itemId}`;
+    return this.uploadingPhotos[key] || 0;
   }
   
   // Get photos for a visual

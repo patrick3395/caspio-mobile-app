@@ -456,15 +456,34 @@ ion-toolbar {
               border-top: 1px solid #e0e0e0;
               border-radius: 0 0 12px 12px;
               
+              .upload-status {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 12px;
+                background: rgba(241, 90, 39, 0.1);
+                border-radius: 8px;
+                margin-bottom: 12px;
+                color: var(--noble-orange);
+                font-size: 14px;
+                
+                ion-spinner {
+                  --color: var(--noble-orange);
+                  width: 20px;
+                  height: 20px;
+                }
+              }
+              
               .image-preview-container {
                 display: flex;
                 gap: 12px;
                 flex-wrap: wrap;
-                align-items: center;
+                align-items: flex-start;
                 
                 .image-preview {
                   position: relative;
                   width: 120px;
+                  height: 110px; // Fixed height for consistency
                   
                   img {
                     width: 120px;
@@ -474,6 +493,7 @@ ion-toolbar {
                     border: 2px solid #ddd;
                     cursor: pointer;
                     transition: all 0.3s ease;
+                    display: block; // Ensure proper display
                     
                     &:hover {
                       border-color: var(--noble-orange);
@@ -486,7 +506,7 @@ ion-toolbar {
                     top: 0;
                     left: 0;
                     right: 0;
-                    bottom: 20px;
+                    bottom: 20px; // Adjusted to account for name label
                     background: rgba(0, 0, 0, 0.7);
                     border-radius: 8px;
                     display: flex;
