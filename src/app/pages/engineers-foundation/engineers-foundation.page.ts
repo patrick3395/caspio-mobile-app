@@ -592,8 +592,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.log('✅ Visual saved to Services_Visuals:', response);
       console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
-      // Show debug popup for visual creation
-      await this.showVisualCreationDebug(category, templateId, response);
+      // Skip debug popup for faster performance
+      // await this.showVisualCreationDebug(category, templateId, response);
       
       // Check if response exists (even if empty, it might mean success)
       // Caspio sometimes returns empty response on successful POST
@@ -903,25 +903,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       }
       
       if (visualId) {
-        // Upload all files
-        let successCount = 0;
-        let failCount = 0;
+        // Upload all files in parallel for speed
+        const uploadPromises = Array.from(files).map((file, index) => 
+          this.uploadPhotoForVisual(visualId, file, key, true)
+            .then(() => {
+              console.log(`✅ File ${index + 1} uploaded successfully`);
+              return { success: true };
+            })
+            .catch((error) => {
+              console.error(`❌ Failed to upload file ${index + 1}:`, error);
+              return { success: false, error };
+            })
+        );
         
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          try {
-            // Update loading message for progress
-            if (files.length > 1) {
-              loading.message = `Uploading photo ${i + 1} of ${files.length}...`;
-            }
-            
-            await this.uploadPhotoForVisual(visualId, file, key, true);
-            successCount++;
-          } catch (error) {
-            console.error(`❌ Failed to upload file ${i + 1}:`, error);
-            failCount++;
-          }
-        }
+        // Wait for all uploads to complete
+        const results = await Promise.all(uploadPromises);
+        
+        // Count successes and failures
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
         
         // Show result message
         if (failCount === 0) {
@@ -938,6 +938,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           );
         } else {
           await this.showToast('Failed to upload photos', 'danger');
+        }
+        
+        // Reload photos once after all uploads complete
+        if (successCount > 0) {
+          await this.loadExistingPhotos();
         }
       }
     } catch (error) {
