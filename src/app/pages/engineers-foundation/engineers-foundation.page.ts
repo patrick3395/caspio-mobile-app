@@ -1214,11 +1214,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       
       console.log('✅ Photo uploaded successfully:', response);
       
-      // Store photo reference - need to use the visualId from the key parameter
-      const visualId = key.split('_').pop(); // Extract visualId from key
-      if (visualId) {
-        if (!this.visualPhotos[visualId]) {
-          this.visualPhotos[visualId] = [];
+      // Store photo reference - use the actual visualRecordIds value for this key
+      const actualVisualId = this.visualRecordIds[key];
+      console.log('🔍 Getting visualId for key:', key, '-> actualVisualId:', actualVisualId);
+      
+      if (actualVisualId) {
+        if (!this.visualPhotos[actualVisualId]) {
+          this.visualPhotos[actualVisualId] = [];
         }
         
         // Create photo object with immediate preview
@@ -1245,12 +1247,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         });
         
         // Now add to array with preview already set
-        this.visualPhotos[visualId].push(photoData);
+        this.visualPhotos[actualVisualId].push(photoData);
         console.log('🖼️ Photo added with preview:', {
-          visualId,
-          photoCount: this.visualPhotos[visualId].length,
+          key,
+          actualVisualId,
+          photoCount: this.visualPhotos[actualVisualId].length,
           hasUrl: !!photoData.url,
-          urlLength: photoData.url?.length || 0
+          urlLength: photoData.url?.length || 0,
+          allVisualPhotos: Object.keys(this.visualPhotos)
         });
         
         // Trigger change detection to show preview immediately
@@ -1301,8 +1305,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Get photos for a visual
   getPhotosForVisual(category: string, itemId: string): any[] {
-    const visualId = this.visualRecordIds[`${category}_${itemId}`];
-    return visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+    const photos = visualId && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
+    
+    // Debug logging
+    if (photos.length > 0 || this.isUploadingPhotos(category, itemId)) {
+      console.log('📷 getPhotosForVisual:', {
+        key,
+        visualId,
+        photoCount: photos.length,
+        photos: photos.map(p => ({ name: p.name, hasUrl: !!p.url }))
+      });
+    }
+    
+    return photos;
   }
   
   // View photo - open in modal or new window
