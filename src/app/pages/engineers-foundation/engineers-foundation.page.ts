@@ -904,7 +904,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       
       if (visualId) {
         // Upload all files in parallel for speed
-        const uploadPromises = Array.from(files).map((file, index) => 
+        const uploadPromises = Array.from(files).map((file: File, index) => 
           this.uploadPhotoForVisual(visualId, file, key, true)
             .then(() => {
               console.log(`✅ File ${index + 1} uploaded successfully`);
