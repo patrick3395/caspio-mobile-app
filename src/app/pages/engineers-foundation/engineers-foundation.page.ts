@@ -716,6 +716,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.error('   Error Body:', error?.error);
       console.error('=====================================');
       
+      // Show debug alert for the error
+      const errorAlert = await this.alertController.create({
+        header: 'Visual Save Error',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 12px;">
+            <strong style="color: red;">❌ FAILED TO SAVE VISUAL</strong><br><br>
+            
+            <strong>Data Sent:</strong><br>
+            • ServiceID: ${visualData.ServiceID}<br>
+            • Category: ${visualData.Category}<br>
+            • Kind: ${visualData.Kind}<br>
+            • Name: ${visualData.Name}<br>
+            • Text: ${visualData.Text?.substring(0, 50)}...<br>
+            • Notes: ${visualData.Notes}<br><br>
+            
+            <strong>Error Details:</strong><br>
+            • Status: ${error?.status || 'No status'}<br>
+            • Status Text: ${error?.statusText || 'Unknown'}<br>
+            • Message: ${error?.message || 'No message'}<br><br>
+            
+            <strong>Error Body:</strong><br>
+            <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
+              ${JSON.stringify(error?.error || error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+      
       // Check if it's a real error or just a response parsing issue
       // Status 200-299 means success even if response parsing failed
       if (error?.status >= 200 && error?.status < 300) {

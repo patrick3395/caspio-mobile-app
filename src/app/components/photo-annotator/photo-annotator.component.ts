@@ -626,6 +626,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     };
     this.annotationObjects.push(annotation);
     this.canUndo = true;
+    console.log('📝 Annotation saved:', type, 'Total annotations:', this.annotationObjects.length);
   }
   
   redrawAllAnnotations() {
@@ -754,31 +755,44 @@ export class PhotoAnnotatorComponent implements OnInit {
     const endX = event.offsetX;
     const endY = event.offsetY;
     
+    console.log('🛑 Stop drawing:', this.currentTool);
+    
     // Save annotation as object
     if (this.currentTool === 'pen' && this.currentPath.length > 0) {
       this.saveAnnotation('pen', [...this.currentPath]);
       this.currentPath = [];
     } else if (this.currentTool === 'arrow') {
-      this.saveAnnotation('arrow', {
-        startX: this.startX,
-        startY: this.startY,
-        endX: endX,
-        endY: endY
-      });
+      // Only save if we actually drew something (not just a click)
+      const distance = Math.sqrt(Math.pow(endX - this.startX, 2) + Math.pow(endY - this.startY, 2));
+      if (distance > 5) {
+        this.saveAnnotation('arrow', {
+          startX: this.startX,
+          startY: this.startY,
+          endX: endX,
+          endY: endY
+        });
+      }
     } else if (this.currentTool === 'rectangle') {
-      this.saveAnnotation('rectangle', {
-        x: this.startX,
-        y: this.startY,
-        width: endX - this.startX,
-        height: endY - this.startY
-      });
+      // Only save if we actually drew something
+      const width = Math.abs(endX - this.startX);
+      const height = Math.abs(endY - this.startY);
+      if (width > 5 || height > 5) {
+        this.saveAnnotation('rectangle', {
+          x: Math.min(this.startX, endX),
+          y: Math.min(this.startY, endY),
+          width: width,
+          height: height
+        });
+      }
     } else if (this.currentTool === 'circle') {
       const radius = Math.sqrt(Math.pow(endX - this.startX, 2) + Math.pow(endY - this.startY, 2));
-      this.saveAnnotation('circle', {
-        centerX: this.startX,
-        centerY: this.startY,
-        radius: radius
-      });
+      if (radius > 5) {
+        this.saveAnnotation('circle', {
+          centerX: this.startX,
+          centerY: this.startY,
+          radius: radius
+        });
+      }
     }
     
     // Redraw to ensure everything is clean

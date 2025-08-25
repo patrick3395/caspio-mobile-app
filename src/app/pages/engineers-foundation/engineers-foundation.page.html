@@ -287,15 +287,6 @@
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                        
-                        <!-- Camera icon in bottom right when selected -->
-                        <button 
-                          *ngIf="isItemSelected(category, item.id)"
-                          class="camera-icon-btn"
-                          (click)="uploadDocument(category, item.id, item)"
-                          title="Upload photos (multiple selection supported)">
-                          <ion-icon name="camera-outline"></ion-icon>
-                        </button>
                       </ion-item>
                       
                       <!-- Image preview section below the item -->
@@ -355,15 +346,6 @@
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                        
-                        <!-- Camera icon in bottom right when selected -->
-                        <button 
-                          *ngIf="isItemSelected(category, item.id)"
-                          class="camera-icon-btn"
-                          (click)="uploadDocument(category, item.id, item)"
-                          title="Upload photos (multiple selection supported)">
-                          <ion-icon name="camera-outline"></ion-icon>
-                        </button>
                       </ion-item>
                       
                       <!-- Image preview section below the item -->
@@ -423,15 +405,6 @@
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                        
-                        <!-- Camera icon in bottom right when selected -->
-                        <button 
-                          *ngIf="isItemSelected(category, item.id)"
-                          class="camera-icon-btn"
-                          (click)="uploadDocument(category, item.id, item)"
-                          title="Upload photos (multiple selection supported)">
-                          <ion-icon name="camera-outline"></ion-icon>
-                        </button>
                       </ion-item>
                       
                       <!-- Image preview section below the item -->
