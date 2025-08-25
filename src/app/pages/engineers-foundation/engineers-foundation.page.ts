@@ -2086,10 +2086,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
         
         if (photo.AttachID || photo.id) {
-          const loading = await this.loadingController.create({
-            message: 'Updating photo...'
-          });
-          await loading.present();
+          // Removed loading screen to allow debug popups to be visible
           
           try {
             // Update the existing attachment
@@ -2107,13 +2104,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
             }
             
-            await loading.dismiss();
             await this.showToast('Photo updated successfully', 'success');
             
             // Trigger change detection
             this.changeDetectorRef.detectChanges();
           } catch (error) {
-            await loading.dismiss();
             await this.showToast('Failed to update photo', 'danger');
           }
         }
