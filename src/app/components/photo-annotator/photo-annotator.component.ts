@@ -9,7 +9,7 @@ import { IonicModule, ModalController } from '@ionic/angular';
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <ion-toolbar style="--background: #F15A27;">
         <ion-title style="color: white; font-weight: 600;">Annotate Photo</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="dismiss()" style="color: white;">
@@ -160,12 +160,12 @@ import { IonicModule, ModalController } from '@ionic/angular';
     }
     
     .tool-btn:hover {
-      background: rgba(102, 126, 234, 0.1);
+      background: rgba(241, 90, 39, 0.1);
     }
     
     .tool-btn.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      background: #F15A27;
+      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
     }
     
     .tool-btn.active ion-icon {
@@ -197,9 +197,9 @@ import { IonicModule, ModalController } from '@ionic/angular';
     }
     
     .color-btn.active {
-      border-color: #667eea !important;
+      border-color: #F15A27 !important;
       transform: scale(1.15);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
     }
     
     .color-btn.active::after {
@@ -239,16 +239,16 @@ import { IonicModule, ModalController } from '@ionic/angular';
       appearance: none;
       width: 20px;
       height: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #F15A27;
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
     }
     
     .stroke-value {
       font-size: 12px;
       font-weight: 600;
-      color: #667eea;
+      color: #F15A27;
       min-width: 30px;
       text-align: center;
     }
@@ -273,8 +273,8 @@ import { IonicModule, ModalController } from '@ionic/angular';
     }
     
     .action-btn.undo:hover:not(:disabled) {
-      background: rgba(102, 126, 234, 0.1);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+      background: rgba(241, 90, 39, 0.1);
+      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.2);
     }
     
     .action-btn.clear:hover {
@@ -292,7 +292,7 @@ import { IonicModule, ModalController } from '@ionic/angular';
       width: 100%;
       height: calc(100% - 80px);
       overflow: auto;
-      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      background: #f5f5f5;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -489,22 +489,23 @@ export class PhotoAnnotatorComponent implements OnInit {
       this.annotationCtx.stroke();
       this.currentPath.push({ x: currentX, y: currentY });
     } else if (this.currentTool !== 'text') {
-      // For shapes, clear and redraw to show preview
+      // For shapes, use a preview approach
       const canvas = this.annotationCanvas.nativeElement;
       
-      // Save current annotation state
-      const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // Clear and restore
+      // Clear canvas
       this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
-      this.annotationCtx.putImageData(imageData, 0, 0);
       
-      // Set styles
+      // Redraw all saved annotations
+      if (this.annotations.length > 0) {
+        this.annotationCtx.putImageData(this.annotations[this.annotations.length - 1], 0, 0);
+      }
+      
+      // Set styles for preview
       this.annotationCtx.strokeStyle = this.currentColor;
       this.annotationCtx.lineWidth = this.strokeWidth;
       this.annotationCtx.lineCap = 'round';
       
-      // Draw preview of shape
+      // Draw preview of current shape
       if (this.currentTool === 'arrow') {
         this.drawArrow(this.startX, this.startY, currentX, currentY);
       } else if (this.currentTool === 'rectangle') {

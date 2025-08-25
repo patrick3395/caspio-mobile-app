@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
+import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.component';
 
 @Component({
   selector: 'app-photo-viewer',
@@ -8,10 +9,16 @@ import { IonicModule, ModalController } from '@ionic/angular';
   imports: [CommonModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar>
-        <ion-title>{{ photoName }}</ion-title>
+      <ion-toolbar style="--background: #F15A27;">
+        <ion-title style="color: white;">{{ photoName }}</ion-title>
+        <ion-buttons slot="start" *ngIf="canAnnotate">
+          <ion-button (click)="openAnnotator()" style="color: white;">
+            <ion-icon name="brush-outline" slot="icon-only"></ion-icon>
+            <span style="margin-left: 5px;">Annotate</span>
+          </ion-button>
+        </ion-buttons>
         <ion-buttons slot="end">
-          <ion-button (click)="dismiss()">
+          <ion-button (click)="dismiss()" style="color: white;">
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
         </ion-buttons>
@@ -40,13 +47,45 @@ import { IonicModule, ModalController } from '@ionic/angular';
       max-height: 100%;
       object-fit: contain;
     }
+    ion-toolbar ion-button {
+      --padding-start: 8px;
+      --padding-end: 8px;
+    }
+    ion-toolbar ion-button span {
+      font-size: 14px;
+      font-weight: 500;
+    }
   `]
 })
 export class PhotoViewerComponent {
   @Input() photoUrl: string = '';
   @Input() photoName: string = '';
+  @Input() canAnnotate: boolean = false;
+  @Input() visualId: string = '';
+  @Input() categoryKey: string = '';
 
   constructor(private modalController: ModalController) {}
+
+  async openAnnotator() {
+    // Open the annotation modal
+    const annotationModal = await this.modalController.create({
+      component: PhotoAnnotatorComponent,
+      componentProps: {
+        imageUrl: this.photoUrl
+      },
+      cssClass: 'fullscreen-modal'
+    });
+    
+    await annotationModal.present();
+    const { data } = await annotationModal.onDidDismiss();
+    
+    if (data && data instanceof Blob) {
+      // Return the annotated blob to parent
+      this.modalController.dismiss({
+        annotatedBlob: data
+      });
+    }
+  }
 
   dismiss() {
     this.modalController.dismiss();

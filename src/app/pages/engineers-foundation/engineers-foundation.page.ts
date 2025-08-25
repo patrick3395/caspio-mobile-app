@@ -1904,82 +1904,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
-  // View photo - open in modal with annotation option
+  // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
       console.log('👁️ Viewing photo:', photo);
       
       const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = photo.name || 'Photo';
+      const key = `${category}_${itemId}`;
+      const visualId = this.visualRecordIds[key];
       
-      // Show action sheet with options
-      const actionSheet = await this.actionSheetController.create({
-        header: 'Photo Options',
-        buttons: [
-          {
-            text: 'View',
-            icon: 'eye-outline',
-            handler: async () => {
-              const modal = await this.modalController.create({
-                component: PhotoViewerComponent,
-                componentProps: {
-                  photoUrl: imageUrl,
-                  photoName: photoName
-                },
-                cssClass: 'photo-viewer-modal'
-              });
-              await modal.present();
-            }
-          },
-          {
-            text: 'Annotate',
-            icon: 'brush-outline',
-            handler: async () => {
-              // Open annotation modal
-              const modal = await this.modalController.create({
-                component: PhotoAnnotatorComponent,
-                componentProps: {
-                  imageUrl: imageUrl
-                },
-                cssClass: 'fullscreen-modal'
-              });
-              
-              await modal.present();
-              const { data } = await modal.onDidDismiss();
-              
-              if (data && data instanceof Blob) {
-                // Upload the annotated version as a new photo
-                const annotatedFile = new File([data], `annotated_${photoName}`, { type: 'image/jpeg' });
-                const key = `${category}_${itemId}`;
-                const visualId = this.visualRecordIds[key];
-                
-                if (visualId) {
-                  const loading = await this.loadingController.create({
-                    message: 'Uploading annotated photo...'
-                  });
-                  await loading.present();
-                  
-                  try {
-                    await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
-                    await loading.dismiss();
-                    await this.showToast('Annotated photo uploaded successfully', 'success');
-                  } catch (error) {
-                    await loading.dismiss();
-                    await this.showToast('Failed to upload annotated photo', 'danger');
-                  }
-                }
-              }
-            }
-          },
-          {
-            text: 'Cancel',
-            icon: 'close',
-            role: 'cancel'
-          }
-        ]
+      // Open enhanced photo viewer with annotation option
+      const modal = await this.modalController.create({
+        component: PhotoViewerComponent,
+        componentProps: {
+          photoUrl: imageUrl,
+          photoName: photoName,
+          canAnnotate: true,
+          visualId: visualId,
+          categoryKey: key
+        },
+        cssClass: 'photo-viewer-modal'
       });
       
-      await actionSheet.present();
+      await modal.present();
+      
+      // Handle annotated photo if returned
+      const { data } = await modal.onDidDismiss();
+      
+      if (data && data.annotatedBlob) {
+        // Upload the annotated version as a new photo
+        const annotatedFile = new File([data.annotatedBlob], `annotated_${photoName}`, { type: 'image/jpeg' });
+        
+        if (visualId) {
+          const loading = await this.loadingController.create({
+            message: 'Uploading annotated photo...'
+          });
+          await loading.present();
+          
+          try {
+            await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
+            await loading.dismiss();
+            await this.showToast('Annotated photo uploaded successfully', 'success');
+          } catch (error) {
+            await loading.dismiss();
+            await this.showToast('Failed to upload annotated photo', 'danger');
+          }
+        }
+      }
       
     } catch (error) {
       console.error('Error viewing photo:', error);
