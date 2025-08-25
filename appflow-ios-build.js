@@ -51,4 +51,13 @@ try {
   console.error('Warning: Failed to set build number:', error.message);
 }
 
+// Set iOS permission strings
+console.log('Setting iOS permission strings...');
+try {
+  execSync('node scripts/set-ios-permissions.js', { stdio: 'inherit' });
+  console.log('✓ iOS permissions set');
+} catch (error) {
+  console.error('Warning: Failed to set permissions:', error.message);
+}
+
 console.log('\n=== iOS platform ready for build ===');
