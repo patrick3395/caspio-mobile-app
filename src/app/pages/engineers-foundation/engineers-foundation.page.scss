@@ -548,59 +548,40 @@ ion-toolbar {
                     }
                   }
                   
-                  .image-overlay {
+                  .delete-btn {
                     position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 25px; // Adjusted for larger preview
-                    background: rgba(0, 0, 0, 0.7);
-                    border-radius: 8px;
+                    top: 4px;
+                    right: 4px;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: rgba(255, 255, 255, 0.9);
+                    border: 1px solid rgba(0, 0, 0, 0.2);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 8px;
-                    opacity: 0;
-                    transition: opacity 0.3s ease;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    padding: 0;
+                    z-index: 10;
                     
-                    .overlay-btn {
-                      width: 32px;
-                      height: 32px;
-                      border-radius: 50%;
-                      background: white;
-                      border: none;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      cursor: pointer;
-                      transition: all 0.3s ease;
+                    ion-icon {
+                      font-size: 16px;
+                      color: #333;
+                    }
+                    
+                    &:hover {
+                      background: rgba(255, 59, 48, 0.9);
+                      border-color: rgba(255, 59, 48, 1);
                       
                       ion-icon {
-                        font-size: 18px;
-                        color: #333;
-                      }
-                      
-                      &:hover {
-                        background: var(--noble-orange);
-                        
-                        ion-icon {
-                          color: white;
-                        }
-                      }
-                      
-                      // Special styling for delete button
-                      &:hover ion-icon[name="trash-outline"] {
                         color: white;
                       }
-                      
-                      &:has(ion-icon[name="trash-outline"]):hover {
-                        background: #dc3545;
-                      }
                     }
-                  }
-                  
-                  &:hover .image-overlay {
-                    opacity: 1;
+                    
+                    &:active {
+                      transform: scale(0.9);
+                    }
                   }
                   
                   .image-name {

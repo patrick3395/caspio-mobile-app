@@ -307,14 +307,9 @@
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <div class="image-overlay">
-                              <button class="overlay-btn" (click)="viewPhoto(photo, category, item.id)" title="View">
-                                <ion-icon name="eye-outline"></ion-icon>
-                              </button>
-                              <button class="overlay-btn" (click)="deletePhoto(photo, category, item.id)" title="Delete">
-                                <ion-icon name="trash-outline"></ion-icon>
-                              </button>
-                            </div>
+                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
@@ -372,14 +367,9 @@
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <div class="image-overlay">
-                              <button class="overlay-btn" (click)="viewPhoto(photo, category, item.id)" title="View">
-                                <ion-icon name="eye-outline"></ion-icon>
-                              </button>
-                              <button class="overlay-btn" (click)="deletePhoto(photo, category, item.id)" title="Delete">
-                                <ion-icon name="trash-outline"></ion-icon>
-                              </button>
-                            </div>
+                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
@@ -437,14 +427,9 @@
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <div class="image-overlay">
-                              <button class="overlay-btn" (click)="viewPhoto(photo, category, item.id)" title="View">
-                                <ion-icon name="eye-outline"></ion-icon>
-                              </button>
-                              <button class="overlay-btn" (click)="deletePhoto(photo, category, item.id)" title="Delete">
-                                <ion-icon name="trash-outline"></ion-icon>
-                              </button>
-                            </div>
+                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
