@@ -29,6 +29,14 @@ if (fs.existsSync(infoPlistPath)) {
   fs.writeFileSync(infoPlistPath, content);
   console.log(`✅ iOS build number set to ${BUILD_NUMBER}`);
   console.log(`✅ iOS version set to ${VERSION}`);
+  
+  // Verify the change was applied
+  const updatedContent = fs.readFileSync(infoPlistPath, 'utf8');
+  const buildMatch = updatedContent.match(/<key>CFBundleVersion<\/key>\s*<string>([^<]*)<\/string>/);
+  const versionMatch = updatedContent.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]*)<\/string>/);
+  
+  console.log(`✅ VERIFIED: Build number in Info.plist: ${buildMatch ? buildMatch[1] : 'NOT FOUND'}`);
+  console.log(`✅ VERIFIED: Version in Info.plist: ${versionMatch ? versionMatch[1] : 'NOT FOUND'}`);
 } else {
   console.log('⚠️ Info.plist not found - this is expected if iOS platform hasn\'t been added yet');
 }
