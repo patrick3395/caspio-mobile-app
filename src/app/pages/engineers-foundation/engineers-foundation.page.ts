@@ -15,7 +15,7 @@ interface ElevationReading {
 interface ServicesVisualRecord {
   ServiceID: number;  // Changed to number to match Integer type in Caspio
   Category: string;
-  Type: string;
+  Kind: string;  // Changed from Type to Kind
   Name: string;
   Notes: string;  // Made required, will send empty string if not provided
 }
@@ -156,9 +156,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   async loadVisualCategories() {
     try {
-      // Get all templates
-      const templates = await this.caspioService.getServicesVisualsTemplates().toPromise();
-      this.visualTemplates = templates || [];
+      // Get all templates - filter by TypeID = 1 for Foundation Evaluation
+      const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      
+      // Filter templates for TypeID = 1 (Foundation Evaluation)
+      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
+      
+      console.log(`Filtered ${this.visualTemplates.length} templates for Foundation Evaluation (TypeID = 1)`);
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
@@ -196,23 +200,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             id: template.PK_ID,
             name: template.Name,
             text: template.Text || '',
-            type: template.Type,
+            kind: template.Kind, // Changed from Type to Kind
             category: template.Category
           };
           
           // Initialize selection state
           this.selectedItems[`${category}_${template.PK_ID}`] = false;
           
-          // Sort into appropriate Type section
-          const typeStr = String(template.Type).toLowerCase();
-          if (typeStr.includes('comment')) {
+          // Sort into appropriate Kind section (was Type, now Kind)
+          const kindStr = String(template.Kind || '').toLowerCase();
+          if (kindStr.includes('comment')) {
             this.organizedData[category].comments.push(templateData);
-          } else if (typeStr.includes('limitation')) {
+          } else if (kindStr.includes('limitation')) {
             this.organizedData[category].limitations.push(templateData);
-          } else if (typeStr.includes('deficienc')) {
+          } else if (kindStr.includes('deficienc')) {
             this.organizedData[category].deficiencies.push(templateData);
           } else {
-            // Default to comments if type is unclear
+            // Default to comments if kind is unclear
             this.organizedData[category].comments.push(templateData);
           }
           
@@ -221,7 +225,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             templateId: template.PK_ID,
             name: template.Name,
             text: template.Text,
-            type: template.Type,
+            kind: template.Kind, // Changed from Type to Kind
             selected: false,
             value: '',
             notes: ''
@@ -608,7 +612,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     const visualData: ServicesVisualRecord = {
       ServiceID: serviceIdNum,  // Integer type in Caspio
       Category: category || '',   // Text(255) in Caspio
-      Type: template.Type || '',  // Text(255) in Caspio
+      Kind: template.Kind || '',  // Text(255) in Caspio - was Type, now Kind
       Name: template.Name || '',  // Text(255) in Caspio
       Notes: ''                    // Text(255) in Caspio - empty for now
     };
@@ -730,7 +734,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       // Check for specific error types
       if (error?.status === 400) {
         console.error('⚠️ 400 Bad Request - Check column names and data types');
-        console.error('Expected columns: ServiceID (Integer), Category (Text), Type (Text), Name (Text), Notes (Text)');
+        console.error('Expected columns: ServiceID (Integer), Category (Text), Kind (Text), Name (Text), Notes (Text)');
       } else if (!error?.status) {
         console.log('⚠️ No status code - might be a response parsing issue, checking table...');
         // Try to verify if it was actually saved
