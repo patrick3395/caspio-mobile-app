@@ -482,12 +482,12 @@ ion-toolbar {
                 
                 .image-preview {
                   position: relative;
-                  width: 120px;
-                  height: 110px; // Fixed height for consistency
+                  width: 180px; // Increased from 120px
+                  height: 160px; // Increased from 110px for consistency
                   
                   img {
-                    width: 120px;
-                    height: 90px;
+                    width: 180px; // Increased from 120px
+                    height: 135px; // Increased from 90px
                     object-fit: cover;
                     border-radius: 8px;
                     border: 2px solid #ddd;
@@ -506,7 +506,7 @@ ion-toolbar {
                     top: 0;
                     left: 0;
                     right: 0;
-                    bottom: 20px; // Adjusted to account for name label
+                    bottom: 25px; // Adjusted for larger preview
                     background: rgba(0, 0, 0, 0.7);
                     border-radius: 8px;
                     display: flex;
@@ -574,8 +574,8 @@ ion-toolbar {
                 }
                 
                 .add-more-btn {
-                  width: 120px;
-                  height: 90px;
+                  width: 180px; // Match preview size
+                  height: 135px; // Match preview height
                   border: 2px dashed #ccc;
                   border-radius: 8px;
                   background: white;

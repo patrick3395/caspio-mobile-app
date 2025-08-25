@@ -950,16 +950,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
           await this.showToast('Failed to upload photos', 'danger');
         }
         
-        // Reload photos once after all uploads complete
-        if (successCount > 0) {
-          await this.loadExistingPhotos();
-        }
+        // Don't reload photos - it overwrites the immediate previews
+        // Photos are already added with proper previews during upload
+        // if (successCount > 0) {
+        //   await this.loadExistingPhotos();
+        // }
         
         // Clear upload tracking
         this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
         if (this.uploadingPhotos[key] === 0) {
           delete this.uploadingPhotos[key];
         }
+        
+        // Force change detection to update the view
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('❌ Error handling files:', error);
@@ -1249,8 +1253,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         await this.showToast('Photo uploaded successfully', 'success');
       }
       
-      // Reload photos to show the new upload
-      await this.loadExistingPhotos();
+      // Don't reload - it overwrites the immediate preview we just created
+      // await this.loadExistingPhotos();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
@@ -1605,17 +1609,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Create a placeholder image
   private createPlaceholderImage(): string {
     const canvas = document.createElement('canvas');
-    canvas.width = 120;
-    canvas.height = 90;
+    canvas.width = 180; // Increased to match new preview size
+    canvas.height = 135; // Increased to match new preview size
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 120, 90);
+      ctx.fillRect(0, 0, 180, 135);
       ctx.fillStyle = '#999';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('Photo', 60, 45);
-      ctx.fillText('Loading...', 60, 60);
+      ctx.fillText('Photo', 90, 60);
+      ctx.fillText('Loading...', 90, 80);
     }
     return canvas.toDataURL();
   }
