@@ -1188,6 +1188,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         window.open(photo.link, '_blank');
       } else if (photo.Photo && photo.Photo.startsWith('https://')) {
         window.open(photo.Photo, '_blank');
+      } else if (photo.filePath) {
+        // For Services_Visuals_Attach photos, we have the file path
+        // For now, show a message that viewing is not yet implemented
+        await this.showToast('Photo viewing will be available soon', 'info');
+      } else if (photo.url && photo.url.startsWith('data:')) {
+        // If we have a data URL, open it in a new window
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`<img src="${photo.url}" style="max-width:100%; height:auto;">`);
+        }
       } else {
         await this.showToast('Unable to view photo', 'warning');
       }
@@ -1392,21 +1402,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
                 thumbnailUrl: ''
               };
               
-              // If we have a Photo field with a file path, try to fetch it
+              // If we have a Photo field with a file path, create a preview URL
               if (photo.Photo && typeof photo.Photo === 'string') {
-                try {
-                  // Get the image as base64 from Caspio
-                  const imageData = await this.caspioService.getAttachmentImage(photo.Photo).toPromise();
-                  if (imageData) {
-                    photoData.url = imageData;
-                    photoData.thumbnailUrl = imageData;
-                  }
-                } catch (err) {
-                  console.log('Could not fetch image preview for:', photo.Photo);
-                  // Use placeholder
-                  photoData.url = this.createPlaceholderImage();
-                  photoData.thumbnailUrl = photoData.url;
-                }
+                // For now, we'll use a placeholder since we need to implement proper image fetching
+                // The Photo field contains the file path but we need to fetch it via Caspio Files API
+                photoData.url = this.createPlaceholderImage();
+                photoData.thumbnailUrl = photoData.url;
+                // Store the actual path for later viewing
+                photoData.filePath = photo.Photo;
               } else {
                 // Use placeholder if no photo path
                 photoData.url = this.createPlaceholderImage();
