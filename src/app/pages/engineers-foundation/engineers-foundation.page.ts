@@ -622,7 +622,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     console.log('COLUMN MAPPING TO SERVICES_VISUALS TABLE:');
     console.log('   ServiceID (Integer):', visualData.ServiceID, typeof visualData.ServiceID);
     console.log('   Category (Text 255):', visualData.Category);
-    console.log('   Type (Text 255):', visualData.Type);
+    console.log('   Kind (Text 255):', visualData.Kind);
     console.log('   Name (Text 255):', visualData.Name);
     console.log('   Notes (Text 255):', visualData.Notes);
     console.log('=====================================');
