@@ -1,0 +1,78 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Annotate Photo</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Toolbar -->
+  <div class="annotation-toolbar">
+    <div class="tool-group">
+      <button class="tool-btn" [class.active]="selectedTool === 'arrow'" (click)="selectTool('arrow')">
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+      <button class="tool-btn" [class.active]="selectedTool === 'circle'" (click)="selectTool('circle')">
+        <ion-icon name="ellipse-outline"></ion-icon>
+      </button>
+      <button class="tool-btn" [class.active]="selectedTool === 'rectangle'" (click)="selectTool('rectangle')">
+        <ion-icon name="square-outline"></ion-icon>
+      </button>
+      <button class="tool-btn" [class.active]="selectedTool === 'pen'" (click)="selectTool('pen')">
+        <ion-icon name="pencil"></ion-icon>
+      </button>
+      <button class="tool-btn" [class.active]="selectedTool === 'text'" (click)="selectTool('text')">
+        <ion-icon name="text"></ion-icon>
+      </button>
+    </div>
+    
+    <div class="tool-group">
+      <input type="color" [(ngModel)]="selectedColor" class="color-picker">
+      <ion-range min="1" max="10" [(ngModel)]="lineWidth" color="primary">
+        <ion-label slot="start">1</ion-label>
+        <ion-label slot="end">10</ion-label>
+      </ion-range>
+    </div>
+    
+    <div class="tool-group">
+      <ion-button size="small" (click)="undo()">
+        <ion-icon name="arrow-undo"></ion-icon>
+        Undo
+      </ion-button>
+      <ion-button size="small" (click)="clear()" color="danger">
+        <ion-icon name="trash"></ion-icon>
+        Clear
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Canvas container -->
+  <div class="canvas-container">
+    <img #imageElement [src]="imageUrl" style="display: none;">
+    <canvas #canvas class="annotation-canvas"></canvas>
+    
+    <!-- Text input overlay -->
+    <div class="text-input-overlay" *ngIf="isAddingText" [style.left.px]="textPosition.x" [style.top.px]="textPosition.y">
+      <input type="text" [(ngModel)]="textInput" (keyup.enter)="addText()" placeholder="Enter text..." autofocus>
+      <button (click)="addText()">Add</button>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="cancel()" color="medium">Cancel</ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="save()" color="primary" fill="solid">
+        <ion-icon name="checkmark" slot="start"></ion-icon>
+        Save
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

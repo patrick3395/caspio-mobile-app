@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
-import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController } from '@ionic/angular';
+import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
+import { CameraService } from '../../services/camera.service';
 
 interface ElevationReading {
   location: string;
@@ -100,7 +101,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     private alertController: AlertController,
     private actionSheetController: ActionSheetController,
     private modalController: ModalController,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private cameraService: CameraService,
+    private platform: Platform
   ) {}
 
   async ngOnInit() {
@@ -841,8 +844,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // EXACT COPY OF uploadDocument from project-detail
   async uploadDocument(category: string, itemId: string, item: any) {
-    this.currentUploadContext = { category, itemId, item, action: 'upload' };
-    this.fileInput.nativeElement.click();
+    // Show action sheet with camera and gallery options
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Select Photo Source',
+      buttons: [
+        {
+          text: 'Take Photo',
+          icon: 'camera',
+          handler: () => {
+            this.capturePhotoFromCamera(category, itemId, item);
+          }
+        },
+        {
+          text: 'Choose from Gallery',
+          icon: 'images',
+          handler: () => {
+            // Use existing file input for gallery
+            this.currentUploadContext = { category, itemId, item, action: 'upload' };
+            this.fileInput.nativeElement.click();
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close',
+          role: 'cancel'
+        }
+      ]
+    });
+    
+    await actionSheet.present();
+  }
+  
+  // New method to capture photo from camera
+  async capturePhotoFromCamera(category: string, itemId: string, item: any) {
+    try {
+      const photo = await this.cameraService.takePicture();
+      
+      if (!photo || !photo.dataUrl) {
+        console.log('No photo captured');
+        return;
+      }
+      
+      // Convert base64 to File
+      const fileName = `photo_${Date.now()}.jpg`;
+      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      
+      // Get visual ID
+      const key = `${category}_${itemId}`;
+      let visualId = this.visualRecordIds[key];
+      
+      if (!visualId) {
+        // Need to save the visual first
+        await this.saveVisualSelection(category, itemId);
+        visualId = this.visualRecordIds[key];
+      }
+      
+      if (visualId) {
+        // Upload the photo
+        await this.uploadPhotoForVisual(visualId, file, key, false);
+      }
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
   }
   
   // Camera button handler - EXACTLY like Required Documents uploadDocument
