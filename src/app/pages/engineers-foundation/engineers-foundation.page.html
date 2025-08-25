@@ -253,7 +253,7 @@
           
           <!-- Category Accordion -->
           <ion-accordion-group #visualAccordionGroup (ionChange)="onAccordionChange($event)">
-            <ion-accordion *ngFor="let category of visualCategories" [value]="category" [toggle-icon-slot]="'start'">
+            <ion-accordion *ngFor="let category of visualCategories" [value]="category">
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2>{{ category }}</h2>
