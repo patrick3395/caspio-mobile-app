@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -94,7 +94,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private actionSheetController: ActionSheetController,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -1145,12 +1146,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         if (!this.visualPhotos[visualId]) {
           this.visualPhotos[visualId] = [];
         }
-        this.visualPhotos[visualId].push({
+        
+        // Create photo object with immediate preview
+        const photoData: any = {
+          AttachID: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
           id: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
           name: photo.name,
-          link: response?.Photo || '',
-          uploadedAt: new Date().toISOString()
-        });
+          Photo: response?.Photo || '',
+          filePath: response?.Photo || '',
+          uploadedAt: new Date().toISOString(),
+          url: '', // Will be populated below
+          thumbnailUrl: '' // Will be populated below
+        };
+        
+        // Create immediate preview from the uploaded file
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          photoData.url = reader.result as string;
+          photoData.thumbnailUrl = reader.result as string;
+          // Trigger change detection to show preview immediately
+          this.changeDetectorRef.detectChanges();
+        };
+        reader.readAsDataURL(photo);
+        
+        this.visualPhotos[visualId].push(photoData);
       }
       
       await loading.dismiss();
@@ -1183,21 +1202,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     try {
       console.log('👁️ Viewing photo:', photo);
       
-      // If we have a Caspio URL in the link field
-      if (photo.link && photo.link.startsWith('https://')) {
+      // If we have a data URL (base64), open it in a new window
+      if (photo.url && photo.url.startsWith('data:')) {
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>${photo.name || 'Photo'}</title>
+              <style>
+                body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
+                img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+              </style>
+            </head>
+            <body>
+              <img src="${photo.url}" alt="${photo.name || 'Photo'}">
+            </body>
+            </html>
+          `);
+          newWindow.document.close();
+        }
+      } else if (photo.link && photo.link.startsWith('https://')) {
         window.open(photo.link, '_blank');
       } else if (photo.Photo && photo.Photo.startsWith('https://')) {
         window.open(photo.Photo, '_blank');
-      } else if (photo.filePath) {
-        // For Services_Visuals_Attach photos, we have the file path
-        // For now, show a message that viewing is not yet implemented
-        await this.showToast('Photo viewing will be available soon', 'info');
-      } else if (photo.url && photo.url.startsWith('data:')) {
-        // If we have a data URL, open it in a new window
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(`<img src="${photo.url}" style="max-width:100%; height:auto;">`);
-        }
       } else {
         await this.showToast('Unable to view photo', 'warning');
       }
@@ -1207,15 +1236,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
-  // Replace existing photo
-  async replacePhoto(photo: any, category: string, itemId: string) {
-    this.currentUploadContext = { 
-      category, 
-      itemId, 
-      action: 'replace',
-      existingPhotoId: photo.id || photo.AttachID
-    };
-    this.fileInput.nativeElement.click();
+  // Delete existing photo
+  async deletePhoto(photo: any, category: string, itemId: string) {
+    try {
+      const alert = await this.alertController.create({
+        header: 'Delete Photo',
+        message: 'Are you sure you want to delete this photo?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Delete',
+            handler: async () => {
+              const loading = await this.loadingController.create({
+                message: 'Deleting photo...'
+              });
+              await loading.present();
+              
+              try {
+                const attachId = photo.AttachID || photo.id;
+                await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+                
+                // Remove from local array
+                const visualId = this.visualRecordIds[`${category}_${itemId}`];
+                if (visualId && this.visualPhotos[visualId]) {
+                  this.visualPhotos[visualId] = this.visualPhotos[visualId].filter(
+                    (p: any) => (p.AttachID || p.id) !== attachId
+                  );
+                }
+                
+                await loading.dismiss();
+                await this.showToast('Photo deleted successfully', 'success');
+              } catch (error) {
+                await loading.dismiss();
+                console.error('Failed to delete photo:', error);
+                await this.showToast('Failed to delete photo', 'danger');
+              }
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+    } catch (error) {
+      console.error('Error in deletePhoto:', error);
+      await this.showToast('Failed to delete photo', 'danger');
+    }
   }
   
   // Add another photo
@@ -1402,13 +1470,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
                 thumbnailUrl: ''
               };
               
-              // If we have a Photo field with a file path, create a preview URL
+              // If we have a Photo field with a file path, fetch the actual image
               if (photo.Photo && typeof photo.Photo === 'string') {
-                // For now, we'll use a placeholder since we need to implement proper image fetching
-                // The Photo field contains the file path but we need to fetch it via Caspio Files API
-                photoData.url = this.createPlaceholderImage();
-                photoData.thumbnailUrl = photoData.url;
-                // Store the actual path for later viewing
+                try {
+                  // Fetch the actual image from Caspio Files API
+                  const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
+                  if (imageData) {
+                    photoData.url = imageData;
+                    photoData.thumbnailUrl = imageData;
+                  } else {
+                    // Fallback to placeholder if fetch fails
+                    photoData.url = this.createPlaceholderImage();
+                    photoData.thumbnailUrl = photoData.url;
+                  }
+                } catch (err) {
+                  console.log('Could not fetch image preview for:', photo.Photo);
+                  // Use placeholder on error
+                  photoData.url = this.createPlaceholderImage();
+                  photoData.thumbnailUrl = photoData.url;
+                }
+                // Store the actual path for direct viewing
                 photoData.filePath = photo.Photo;
               } else {
                 // Use placeholder if no photo path

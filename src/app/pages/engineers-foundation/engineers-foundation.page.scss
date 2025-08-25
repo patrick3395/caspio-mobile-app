@@ -520,6 +520,15 @@ ion-toolbar {
                           color: white;
                         }
                       }
+                      
+                      // Special styling for delete button
+                      &:hover ion-icon[name="trash-outline"] {
+                        color: white;
+                      }
+                      
+                      &:has(ion-icon[name="trash-outline"]):hover {
+                        background: #dc3545;
+                      }
                     }
                   }
                   

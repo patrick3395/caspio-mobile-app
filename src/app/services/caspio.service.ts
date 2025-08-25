@@ -427,6 +427,53 @@ export class CaspioService {
       map(response => response.Result || [])
     );
   }
+  
+  // Delete Services_Visuals_Attach record
+  deleteServiceVisualsAttach(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
+  }
+  
+  // Get image from Caspio Files API
+  getImageFromFilesAPI(filePath: string): Observable<string> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    return new Observable(observer => {
+      // Clean the file path
+      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      
+      // Fetch from Files API
+      fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/octet-stream'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Convert blob to base64 data URL
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          observer.next(reader.result as string);
+          observer.complete();
+        };
+        reader.onerror = () => {
+          observer.error('Failed to read image data');
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(error => {
+        console.error('Error fetching image:', error);
+        observer.error(error);
+      });
+    });
+  }
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
   createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File): Observable<any> {
