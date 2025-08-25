@@ -60,9 +60,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Track visual record IDs from Services_Visuals table
   visualRecordIds: { [key: string]: string } = {};
   
-  // Track selected visuals
-  selectedVisuals: { [key: string]: boolean } = {};
-  
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
   
@@ -1613,8 +1610,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const key = `${category}_${customItem.id}`;
         this.visualRecordIds[key] = String(response?.PK_ID || customItem.id);
         
-        // Mark as selected
-        this.selectedVisuals[key] = true;
+        // Mark as selected (use selectedItems, not selectedVisuals)
+        this.selectedItems[key] = true;
+        
+        // Also update categoryData for consistency
+        if (!this.categoryData[category]) {
+          this.categoryData[category] = {};
+        }
+        this.categoryData[category][customItem.id] = {
+          selected: true,
+          ...customItem
+        };
         
         await loading.dismiss();
         await this.showToast('Visual added successfully', 'success');
