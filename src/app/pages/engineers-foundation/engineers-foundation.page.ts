@@ -1502,42 +1502,85 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Add custom visual comment
   async addCustomVisual(category: string, kind: string) {
+    // Create hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*,application/pdf';
+    fileInput.multiple = true;
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    
+    let selectedFiles: FileList | null = null;
+    let fileNames = '';
+    
+    // Handle file selection
+    fileInput.onchange = (event: any) => {
+      selectedFiles = event.target?.files || null;
+      if (selectedFiles && selectedFiles.length > 0) {
+        fileNames = Array.from(selectedFiles).map(f => f.name).join(', ');
+        // Update display to show selected files
+        const fileDisplay = document.getElementById('selected-files-display');
+        if (fileDisplay) {
+          fileDisplay.textContent = `${selectedFiles.length} file(s) selected`;
+          fileDisplay.style.color = '#28a745';
+        }
+      }
+    };
+    
     const alert = await this.alertController.create({
       header: `Add ${kind}`,
-      cssClass: 'custom-visual-alert',
-      inputs: [
-        {
-          name: 'name',
-          type: 'text',
-          placeholder: 'Enter title/name',
-          attributes: {
-            maxlength: 255
-          }
-        },
-        {
-          name: 'text',
-          type: 'textarea',
-          placeholder: 'Enter description/text',
-          attributes: {
-            rows: 4
-          }
-        }
-      ],
+      cssClass: 'custom-visual-alert-with-photo',
+      message: `
+        <div class="custom-visual-form">
+          <div class="form-field">
+            <label>Title/Name <span style="color: red;">*</span></label>
+            <input type="text" id="visual-name" placeholder="Enter title/name" class="alert-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div class="form-field" style="margin-top: 12px;">
+            <label>Description</label>
+            <textarea id="visual-text" placeholder="Enter description/text" rows="4" class="alert-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+          </div>
+          <div class="form-field" style="margin-top: 12px;">
+            <label>Photos/Documents (Optional)</label>
+            <button type="button" onclick="document.querySelector('input[type=file]').click()" style="width: 100%; padding: 10px; background: var(--noble-orange); color: white; border: none; border-radius: 4px; cursor: pointer;">
+              📷 Choose Files
+            </button>
+            <div id="selected-files-display" style="margin-top: 8px; font-size: 12px; color: #666;">No files selected</div>
+          </div>
+        </div>
+      `,
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          handler: () => {
+            // Clean up
+            if (fileInput && fileInput.parentNode) {
+              fileInput.parentNode.removeChild(fileInput);
+            }
+          }
         },
         {
           text: 'Add',
-          handler: async (data) => {
-            if (!data.name || !data.name.trim()) {
+          handler: async () => {
+            const nameInput = document.getElementById('visual-name') as HTMLInputElement;
+            const textInput = document.getElementById('visual-text') as HTMLTextAreaElement;
+            
+            const name = nameInput?.value || '';
+            const text = textInput?.value || '';
+            
+            if (!name.trim()) {
               await this.showToast('Please enter a name', 'warning');
               return false;
             }
             
-            // Create the custom visual
-            await this.createCustomVisual(category, kind, data.name, data.text || '');
+            // Create the visual with optional photos
+            await this.createCustomVisualWithPhotos(category, kind, name, text, selectedFiles);
+            
+            // Clean up
+            if (fileInput && fileInput.parentNode) {
+              fileInput.parentNode.removeChild(fileInput);
+            }
             return true;
           }
         }
@@ -1547,7 +1590,139 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     await alert.present();
   }
   
-  // Create custom visual in database
+  // Create custom visual with photos
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | null) {
+    try {
+      const serviceId = this.serviceId;
+      if (!serviceId) {
+        await this.showToast('Service ID not found', 'danger');
+        return;
+      }
+      
+      const serviceIdNum = parseInt(serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        await this.showToast('Invalid Service ID', 'danger');
+        return;
+      }
+      
+      const visualData: ServicesVisualRecord = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: ''
+      };
+      
+      const loading = await this.loadingController.create({
+        message: 'Creating visual...'
+      });
+      await loading.present();
+      
+      try {
+        // Create the visual record
+        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        console.log('✅ Custom visual created:', response);
+        
+        // Use VisualID from response
+        const visualId = response?.VisualID || response?.PK_ID;
+        if (!visualId) {
+          throw new Error('No VisualID returned from server');
+        }
+        
+        // Add to local data structure
+        if (!this.organizedData[category]) {
+          this.organizedData[category] = {
+            comments: [],
+            limitations: [],
+            deficiencies: []
+          };
+        }
+        
+        const customItem = {
+          id: visualId.toString(),
+          name: name,
+          text: text,
+          isCustom: true
+        };
+        
+        // Add to appropriate array
+        const kindKey = kind.toLowerCase() + 's';
+        if (kindKey === 'comments') {
+          this.organizedData[category].comments.push(customItem);
+        } else if (kindKey === 'limitations') {
+          this.organizedData[category].limitations.push(customItem);
+        } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
+          this.organizedData[category].deficiencies.push(customItem);
+        }
+        
+        // Store the visual ID for photo uploads
+        const key = `${category}_${customItem.id}`;
+        this.visualRecordIds[key] = String(visualId);
+        
+        // Mark as selected
+        this.selectedItems[key] = true;
+        
+        // Update categoryData
+        if (!this.categoryData[category]) {
+          this.categoryData[category] = {};
+        }
+        this.categoryData[category][customItem.id] = {
+          selected: true,
+          ...customItem
+        };
+        
+        await loading.dismiss();
+        
+        // Upload photos if provided
+        if (files && files.length > 0) {
+          const uploadLoading = await this.loadingController.create({
+            message: `Uploading ${files.length} file(s)...`
+          });
+          await uploadLoading.present();
+          
+          let successCount = 0;
+          let failCount = 0;
+          
+          // Upload each file
+          for (let i = 0; i < files.length; i++) {
+            try {
+              await this.uploadPhotoForVisual(String(visualId), files[i], key, true);
+              successCount++;
+            } catch (error) {
+              console.error(`Failed to upload file ${i + 1}:`, error);
+              failCount++;
+            }
+          }
+          
+          await uploadLoading.dismiss();
+          
+          // Show result
+          if (failCount === 0) {
+            await this.showToast(`Visual created with ${successCount} file(s)`, 'success');
+          } else if (successCount > 0) {
+            await this.showToast(`Visual created. ${successCount} file(s) uploaded, ${failCount} failed`, 'warning');
+          } else {
+            await this.showToast('Visual created but file uploads failed', 'warning');
+          }
+        } else {
+          await this.showToast('Visual added successfully', 'success');
+        }
+        
+        // Trigger change detection
+        this.changeDetectorRef.detectChanges();
+        
+      } catch (error) {
+        console.error('Error creating custom visual:', error);
+        await loading.dismiss();
+        await this.showToast('Failed to add visual', 'danger');
+      }
+    } catch (error) {
+      console.error('Error in createCustomVisualWithPhotos:', error);
+    }
+  }
+  
+  // Create custom visual in database (original method kept for backward compatibility)
   async createCustomVisual(category: string, kind: string, name: string, text: string) {
     try {
       const serviceId = this.serviceId;

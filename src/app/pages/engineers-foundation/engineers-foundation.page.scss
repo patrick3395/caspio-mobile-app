@@ -988,3 +988,13 @@ ion-toolbar {
     width: 800px !important;
   }
 }
+
+// Custom visual alert with photo styles
+::ng-deep .custom-visual-alert-with-photo {
+  .alert-wrapper {
+    max-width: 500px !important;
+  }
+  .alert-message {
+    padding: 0 !important;
+  }
+}
