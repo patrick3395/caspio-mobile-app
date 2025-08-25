@@ -309,8 +309,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       console.log('✅ Visual selections restored:', this.selectedItems);
       console.log('📌 Visual record IDs:', this.visualRecordIds);
       
+      // Add a small delay to ensure visual IDs are properly set
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Load existing photos for these visuals
+      console.log('📸 About to load existing photos...');
       await this.loadExistingPhotos();
+      console.log('📸 Finished loading existing photos');
     } catch (error) {
       console.error('Error loading existing visual selections:', error);
     }
@@ -1594,58 +1599,67 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Load existing photos for visuals
   async loadExistingPhotos() {
+    console.log('🔄 Loading existing photos for all visuals...');
+    console.log('Visual IDs to load:', this.visualRecordIds);
+    
     for (const key in this.visualRecordIds) {
       const visualId = this.visualRecordIds[key];
       if (visualId) {
         try {
+          console.log(`📥 Fetching photos for visual ${visualId} (${key})`);
           const photos = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
+          console.log(`Found ${photos?.length || 0} photos for visual ${visualId}:`, photos);
+          
           if (photos && photos.length > 0) {
             // Process photos to add preview URLs
             const processedPhotos = await Promise.all(photos.map(async (photo: any) => {
+              console.log('Processing photo:', photo);
               const photoData = {
                 ...photo,
+                name: photo.Annotation || photo.Photo || 'Photo',
                 url: '',
                 thumbnailUrl: ''
               };
               
-              // If we have a Photo field with a file path, fetch the actual image
+              // If we have a Photo field with a file path, use a generic photo icon
               if (photo.Photo && typeof photo.Photo === 'string') {
-                try {
-                  // Fetch the actual image from Caspio Files API
-                  const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
-                  if (imageData) {
-                    photoData.url = imageData;
-                    photoData.thumbnailUrl = imageData;
-                  } else {
-                    // Fallback to placeholder if fetch fails
-                    photoData.url = this.createPlaceholderImage();
-                    photoData.thumbnailUrl = photoData.url;
-                  }
-                } catch (err) {
-                  console.log('Could not fetch image preview for:', photo.Photo);
-                  // Use placeholder on error
-                  photoData.url = this.createPlaceholderImage();
-                  photoData.thumbnailUrl = photoData.url;
-                }
-                // Store the actual path for direct viewing
+                // Don't fetch the actual image - just create a generic photo placeholder
+                // This avoids slowdowns and failures from fetching many images
+                console.log(`📷 Photo found: ${photo.Photo}, using generic placeholder`);
+                photoData.url = this.createGenericPhotoPlaceholder();
+                photoData.thumbnailUrl = photoData.url;
                 photoData.filePath = photo.Photo;
+                photoData.hasPhoto = true;
               } else {
-                // Use placeholder if no photo path
+                console.log('⚠️ No Photo field or not a string:', photo.Photo);
+                // Use "no photo" placeholder
                 photoData.url = this.createPlaceholderImage();
                 photoData.thumbnailUrl = photoData.url;
+                photoData.hasPhoto = false;
               }
+              
+              console.log('Photo data processed:', {
+                name: photoData.name,
+                hasUrl: !!photoData.url,
+                urlLength: photoData.url?.length,
+                filePath: photoData.filePath
+              });
               
               return photoData;
             }));
             
             this.visualPhotos[visualId] = processedPhotos;
-            console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}`);
+            console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}, stored in visualPhotos`);
           }
         } catch (error) {
           console.error(`Failed to load photos for visual ${visualId}:`, error);
         }
       }
     }
+    
+    // Trigger change detection after all photos are loaded
+    this.changeDetectorRef.detectChanges();
+    console.log('✅ All photos loaded, change detection triggered');
   }
   
   // Create a placeholder image
@@ -1662,6 +1676,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       ctx.textAlign = 'center';
       ctx.fillText('Photo', 75, 45);
       ctx.fillText('Loading...', 75, 60);
+    }
+    return canvas.toDataURL();
+  }
+  
+  // Create a generic photo placeholder (for existing photos)
+  private createGenericPhotoPlaceholder(): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = 150;
+    canvas.height = 100;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Light blue background
+      ctx.fillStyle = '#e3f2fd';
+      ctx.fillRect(0, 0, 150, 100);
+      
+      // Draw a simple camera icon
+      ctx.fillStyle = '#1976d2';
+      // Camera body
+      ctx.fillRect(55, 40, 40, 30);
+      // Camera lens
+      ctx.beginPath();
+      ctx.arc(75, 55, 8, 0, 2 * Math.PI);
+      ctx.fill();
+      // Flash
+      ctx.fillRect(65, 35, 20, 5);
+      
+      // Text
+      ctx.fillStyle = '#666';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Click to view', 75, 85);
     }
     return canvas.toDataURL();
   }
