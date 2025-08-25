@@ -9,10 +9,10 @@ import { IonicModule, ModalController } from '@ionic/angular';
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar color="primary">
-        <ion-title>Annotate Photo</ion-title>
+      <ion-toolbar style="--background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <ion-title style="color: white; font-weight: 600;">Annotate Photo</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="dismiss()">
+          <ion-button (click)="dismiss()" style="color: white;">
             <ion-icon name="close"></ion-icon>
           </ion-button>
         </ion-buttons>
@@ -21,54 +21,53 @@ import { IonicModule, ModalController } from '@ionic/angular';
     
     <ion-content>
       <div class="annotation-toolbar">
-        <div class="tool-group">
-          <button [class.active]="currentTool === 'pen'" (click)="selectTool('pen')" class="tool-btn">
-            <ion-icon name="pencil"></ion-icon>
-            <span>Draw</span>
-          </button>
-          <button [class.active]="currentTool === 'arrow'" (click)="selectTool('arrow')" class="tool-btn">
-            <ion-icon name="arrow-forward"></ion-icon>
-            <span>Arrow</span>
-          </button>
-          <button [class.active]="currentTool === 'rectangle'" (click)="selectTool('rectangle')" class="tool-btn">
-            <ion-icon name="square-outline"></ion-icon>
-            <span>Box</span>
-          </button>
-          <button [class.active]="currentTool === 'circle'" (click)="selectTool('circle')" class="tool-btn">
-            <ion-icon name="ellipse-outline"></ion-icon>
-            <span>Circle</span>
-          </button>
-          <button [class.active]="currentTool === 'text'" (click)="selectTool('text')" class="tool-btn">
-            <ion-icon name="text"></ion-icon>
-            <span>Text</span>
-          </button>
+        <div class="toolbar-section tools">
+          <div class="section-label">Tools</div>
+          <div class="tool-group">
+            <button [class.active]="currentTool === 'pen'" (click)="selectTool('pen')" class="tool-btn">
+              <ion-icon name="brush-outline"></ion-icon>
+            </button>
+            <button [class.active]="currentTool === 'arrow'" (click)="selectTool('arrow')" class="tool-btn">
+              <ion-icon name="arrow-forward-outline"></ion-icon>
+            </button>
+            <button [class.active]="currentTool === 'rectangle'" (click)="selectTool('rectangle')" class="tool-btn">
+              <ion-icon name="square-outline"></ion-icon>
+            </button>
+            <button [class.active]="currentTool === 'circle'" (click)="selectTool('circle')" class="tool-btn">
+              <ion-icon name="ellipse-outline"></ion-icon>
+            </button>
+            <button [class.active]="currentTool === 'text'" (click)="selectTool('text')" class="tool-btn">
+              <ion-icon name="text-outline"></ion-icon>
+            </button>
+          </div>
         </div>
         
-        <div class="tool-group">
-          <div class="color-picker">
-            <label>Color:</label>
+        <div class="toolbar-section colors">
+          <div class="section-label">Color</div>
+          <div class="color-group">
             <button *ngFor="let color of colors" 
                     [style.background]="color" 
                     [class.active]="currentColor === color"
                     (click)="selectColor(color)" 
-                    class="color-btn"></button>
-          </div>
-          
-          <div class="stroke-picker">
-            <label>Size:</label>
-            <input type="range" min="2" max="20" [(ngModel)]="strokeWidth" class="stroke-slider">
-            <span>{{strokeWidth}}px</span>
+                    class="color-btn"
+                    [style.border-color]="color === '#FFFFFF' ? '#ddd' : color"></button>
           </div>
         </div>
         
-        <div class="tool-group">
-          <button (click)="undo()" [disabled]="!canUndo" class="action-btn">
-            <ion-icon name="arrow-undo"></ion-icon>
-            <span>Undo</span>
+        <div class="toolbar-section stroke">
+          <div class="section-label">Size</div>
+          <div class="stroke-group">
+            <input type="range" min="2" max="20" [(ngModel)]="strokeWidth" class="stroke-slider">
+            <span class="stroke-value">{{strokeWidth}}</span>
+          </div>
+        </div>
+        
+        <div class="toolbar-section actions">
+          <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo">
+            <ion-icon name="arrow-undo-outline"></ion-icon>
           </button>
-          <button (click)="clearAnnotations()" class="action-btn">
-            <ion-icon name="trash"></ion-icon>
-            <span>Clear</span>
+          <button (click)="clearAnnotations()" class="action-btn clear">
+            <ion-icon name="trash-outline"></ion-icon>
           </button>
         </div>
       </div>
@@ -109,96 +108,183 @@ import { IonicModule, ModalController } from '@ionic/angular';
   `,
   styles: [`
     .annotation-toolbar {
-      background: #f8f8f8;
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
+      background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
       display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
+      gap: 24px;
       align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #8492a6;
+      letter-spacing: 0.5px;
     }
     
     .tool-group {
       display: flex;
-      gap: 8px;
-      align-items: center;
+      gap: 4px;
+      background: rgba(255,255,255,0.8);
+      padding: 4px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
-    .tool-btn, .action-btn {
-      background: white;
-      border: 2px solid #ddd;
+    .tool-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
       border-radius: 8px;
-      padding: 8px 12px;
       cursor: pointer;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 4px;
-      transition: all 0.3s;
+      justify-content: center;
+      transition: all 0.2s ease;
+      position: relative;
     }
     
-    .tool-btn.active, .tool-btn:hover, .action-btn:hover:not(:disabled) {
-      border-color: var(--ion-color-primary);
-      background: var(--ion-color-primary-tint);
+    .tool-btn ion-icon {
+      font-size: 22px;
+      color: #5f6c7b;
     }
     
-    .tool-btn ion-icon, .action-btn ion-icon {
-      font-size: 20px;
+    .tool-btn:hover {
+      background: rgba(102, 126, 234, 0.1);
     }
     
-    .tool-btn span, .action-btn span {
-      font-size: 10px;
+    .tool-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
     }
     
-    .action-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .tool-btn.active ion-icon {
+      color: white;
     }
     
-    .color-picker {
+    .color-group {
       display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .color-picker label {
-      font-size: 14px;
-      font-weight: 600;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
     .color-btn {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 1px #ddd;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 2px solid transparent;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .color-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
     .color-btn.active {
-      box-shadow: 0 0 0 2px var(--ion-color-primary);
-      transform: scale(1.2);
+      border-color: #667eea !important;
+      transform: scale(1.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
     
-    .stroke-picker {
+    .color-btn.active::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .stroke-group {
       display: flex;
       align-items: center;
-      gap: 8px;
-    }
-    
-    .stroke-picker label {
-      font-size: 14px;
-      font-weight: 600;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
     .stroke-slider {
-      width: 100px;
+      width: 120px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e3e8ee;
+      border-radius: 2px;
+      outline: none;
     }
     
-    .stroke-picker span {
+    .stroke-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stroke-value {
       font-size: 12px;
-      min-width: 40px;
+      font-weight: 600;
+      color: #667eea;
+      min-width: 30px;
+      text-align: center;
+    }
+    
+    .action-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: rgba(255,255,255,0.8);
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .action-btn ion-icon {
+      font-size: 22px;
+      color: #5f6c7b;
+    }
+    
+    .action-btn.undo:hover:not(:disabled) {
+      background: rgba(102, 126, 234, 0.1);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    .action-btn.clear:hover {
+      background: rgba(239, 71, 111, 0.1);
+      box-shadow: 0 4px 12px rgba(239, 71, 111, 0.2);
+    }
+    
+    .action-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
     }
     
     .canvas-container {
@@ -206,17 +292,20 @@ import { IonicModule, ModalController } from '@ionic/angular';
       width: 100%;
       height: calc(100% - 80px);
       overflow: auto;
-      background: #333;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
     
     canvas {
       position: absolute;
-      max-width: 100%;
-      max-height: 100%;
+      max-width: calc(100% - 40px);
+      max-height: calc(100% - 40px);
       cursor: crosshair;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     }
     
     #imageCanvas {
@@ -225,6 +314,11 @@ import { IonicModule, ModalController } from '@ionic/angular';
     
     #annotationCanvas {
       z-index: 2;
+      cursor: crosshair;
+    }
+    
+    #annotationCanvas[data-tool="pen"] {
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="%23667eea"/></svg>') 10 10, crosshair;
     }
     
     .text-input-overlay {
@@ -233,12 +327,29 @@ import { IonicModule, ModalController } from '@ionic/angular';
     }
     
     .text-input-overlay input {
-      padding: 4px 8px;
-      border: 2px solid var(--ion-color-primary);
-      border-radius: 4px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
       background: white;
       font-size: 16px;
-      min-width: 150px;
+      min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      outline: none;
+    }
+    
+    .text-input-overlay input:focus {
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    ion-footer ion-toolbar {
+      --background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    }
+    
+    ion-footer ion-button {
+      --border-radius: 8px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
   `]
 })
@@ -258,6 +369,9 @@ export class PhotoAnnotatorComponent implements OnInit {
   private startX = 0;
   private startY = 0;
   private annotations: any[] = [];
+  private currentPath: any[] = [];
+  private tempCanvas!: HTMLCanvasElement;
+  private tempCtx!: CanvasRenderingContext2D;
   
   currentTool: 'pen' | 'arrow' | 'rectangle' | 'circle' | 'text' = 'pen';
   currentColor = '#FF0000';
@@ -284,6 +398,10 @@ export class PhotoAnnotatorComponent implements OnInit {
     
     this.imageCtx = imageCanvas.getContext('2d')!;
     this.annotationCtx = annotationCanvas.getContext('2d')!;
+    
+    // Create temp canvas for preview
+    this.tempCanvas = document.createElement('canvas');
+    this.tempCtx = this.tempCanvas.getContext('2d')!;
     
     // Load the image
     const img = new Image();
@@ -317,6 +435,8 @@ export class PhotoAnnotatorComponent implements OnInit {
       imageCanvas.height = height;
       annotationCanvas.width = width;
       annotationCanvas.height = height;
+      this.tempCanvas.width = width;
+      this.tempCanvas.height = height;
       
       // Draw the image
       this.imageCtx.drawImage(img, 0, 0, width, height);
@@ -364,8 +484,37 @@ export class PhotoAnnotatorComponent implements OnInit {
     const currentY = event.offsetY;
     
     if (this.currentTool === 'pen') {
+      // For pen tool, draw directly
       this.annotationCtx.lineTo(currentX, currentY);
       this.annotationCtx.stroke();
+      this.currentPath.push({ x: currentX, y: currentY });
+    } else if (this.currentTool !== 'text') {
+      // For shapes, clear and redraw to show preview
+      const canvas = this.annotationCanvas.nativeElement;
+      
+      // Save current annotation state
+      const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Clear and restore
+      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+      this.annotationCtx.putImageData(imageData, 0, 0);
+      
+      // Set styles
+      this.annotationCtx.strokeStyle = this.currentColor;
+      this.annotationCtx.lineWidth = this.strokeWidth;
+      this.annotationCtx.lineCap = 'round';
+      
+      // Draw preview of shape
+      if (this.currentTool === 'arrow') {
+        this.drawArrow(this.startX, this.startY, currentX, currentY);
+      } else if (this.currentTool === 'rectangle') {
+        this.annotationCtx.strokeRect(this.startX, this.startY, currentX - this.startX, currentY - this.startY);
+      } else if (this.currentTool === 'circle') {
+        const radius = Math.sqrt(Math.pow(currentX - this.startX, 2) + Math.pow(currentY - this.startY, 2));
+        this.annotationCtx.beginPath();
+        this.annotationCtx.arc(this.startX, this.startY, radius, 0, 2 * Math.PI);
+        this.annotationCtx.stroke();
+      }
     }
   }
   
@@ -375,13 +524,10 @@ export class PhotoAnnotatorComponent implements OnInit {
     const endX = event.offsetX;
     const endY = event.offsetY;
     
-    if (this.currentTool === 'arrow') {
-      this.drawArrow(this.startX, this.startY, endX, endY);
-    } else if (this.currentTool === 'rectangle') {
-      this.drawRectangle(this.startX, this.startY, endX - this.startX, endY - this.startY);
-    } else if (this.currentTool === 'circle') {
-      const radius = Math.sqrt(Math.pow(endX - this.startX, 2) + Math.pow(endY - this.startY, 2));
-      this.drawCircle(this.startX, this.startY, radius);
+    // Shapes are already drawn in the draw method, just need to save
+    // Only need to redraw for pen tool completion
+    if (this.currentTool === 'pen') {
+      this.currentPath = [];
     }
     
     this.isDrawing = false;
