@@ -341,10 +341,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Use camera service for photo capture
-      const photoResult = await this.cameraService.selectAndProcessPhotos('single');
+      const photo = await this.cameraService.takePicture();
       
-      if (photoResult && photoResult.length > 0) {
-        const base64Image = photoResult[0];
+      if (photo && photo.dataUrl) {
+        const base64Image = photo.dataUrl;
         
         // Upload photo to Services_Rooms_Attach
         await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
