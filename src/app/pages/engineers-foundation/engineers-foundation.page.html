@@ -527,31 +527,32 @@
               <!-- Show room content only when selected -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName)">
                 
-                <!-- Flooring Difference Factor dropdown -->
+                <!-- Flooring Difference Factor dropdown - compact inline -->
                 <div class="fdf-dropdown-container">
-                  <label class="fdf-label">Flooring Difference Factor</label>
-                  <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
-                              placeholder="Select FDF"
-                              interface="action-sheet"
-                              (ionChange)="onFDFChange(room.RoomName)">
-                    <ion-select-option *ngFor="let option of fdfOptions" [value]="option">
-                      {{ option }}
-                    </ion-select-option>
-                  </ion-select>
+                  <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
+                    <ion-label style="font-size: 13px; font-weight: 600;">FDF:</ion-label>
+                    <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
+                                placeholder="Select"
+                                interface="popover"
+                                (ionChange)="onFDFChange(room.RoomName)"
+                                style="max-width: 150px;">
+                      <ion-select-option *ngFor="let option of fdfOptions" [value]="option">
+                        {{ option }}
+                      </ion-select-option>
+                    </ion-select>
+                  </ion-item>
                 </div>
                 
-                <!-- Elevation Points with photo capture only -->
+                <!-- Elevation Points with photo capture only - more compact -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
-                  <h4 class="points-header">Measurement Points</h4>
                   <div class="elevation-points-grid">
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
                       <div class="point-header">
-                        <span class="point-label">{{ point.name }}</span>
+                        <span class="point-label" [title]="point.name">{{ point.name }}</span>
                         <button class="camera-button-primary" 
                                 (click)="capturePhotoForPoint(room.RoomName, point, $event)" 
                                 title="Capture Photo">
                           <ion-icon name="camera"></ion-icon>
-                          <span *ngIf="!point.photoCount || point.photoCount === 0">Capture</span>
                           <span *ngIf="point.photoCount > 0" class="photo-badge">{{ point.photoCount }}</span>
                         </button>
                       </div>
@@ -570,13 +571,13 @@
                   </div>
                 </div>
                 
-                <!-- Room-specific notes -->
+                <!-- Room-specific notes - compact -->
                 <div class="room-notes">
-                  <label>Notes for {{ room.RoomName }}</label>
                   <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
-                                rows="3"
-                                placeholder="Enter any notes specific to this room..."
-                                (ionBlur)="onRoomNotesChange(room.RoomName)">
+                                rows="2"
+                                placeholder="Notes for {{ room.RoomName }}..."
+                                (ionBlur)="onRoomNotesChange(room.RoomName)"
+                                style="font-size: 13px;">
                   </ion-textarea>
                 </div>
               </div>

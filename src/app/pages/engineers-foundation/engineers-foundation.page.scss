@@ -879,18 +879,18 @@ ion-toolbar {
               }
               
               .point-photo-preview {
-                margin-top: 10px;
+                margin-top: 6px;
                 
                 .photo-thumbnails {
                   display: flex;
-                  gap: 8px;
+                  gap: 4px;
                   flex-wrap: wrap;
                   
                   img {
                     width: 60px;
                     height: 60px;
                     object-fit: cover;
-                    border-radius: 4px;
+                    border-radius: 3px;
                     border: 1px solid #e0e0e0;
                     cursor: pointer;
                     transition: all 0.3s ease;
