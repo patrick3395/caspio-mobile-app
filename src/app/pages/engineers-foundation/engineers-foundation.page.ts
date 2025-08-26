@@ -1308,95 +1308,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          // Create input element
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*';
-          input.capture = 'environment'; // Use 'environment' for rear camera
-          input.setAttribute('capture', 'environment'); // Set attribute directly
+          // Show toast before opening camera
+          await this.showToast(`📸 Opening camera for photo ${photoCounter + 1}...`, 'info');
           
-          // Make it invisible but present
-          input.style.position = 'absolute';
-          input.style.opacity = '0';
-          input.style.pointerEvents = 'none';
-          document.body.appendChild(input);
+          // Use native Camera API
+          const photo = await this.cameraService.takePicture();
           
-          // Show alert with camera button
-          const cameraAlert = await this.alertController.create({
-            header: `📸 Photo ${photoCounter + 1}`,
-            message: 'Ready to take a photo',
-            buttons: [
-              {
-                text: 'Cancel All',
-                role: 'cancel',
-                handler: () => {
-                  keepCapturing = false;
-                  retakePhoto = false;
-                  document.body.removeChild(input);
-                  return true;
-                }
-              },
-              {
-                text: '📷 Take Photo',
-                handler: () => {
-                  // Don't dismiss alert yet
-                  setTimeout(() => {
-                    input.click();
-                  }, 100);
-                  return true;
-                }
-              }
-            ],
-            backdropDismiss: false
-          });
+          if (!photo) {
+            // User cancelled or error occurred
+            await this.showToast('Camera cancelled or failed', 'warning');
+            keepCapturing = false;
+            retakePhoto = false;
+            break;
+          }
           
-          await cameraAlert.present();
+          // Convert base64 to File object
+          const fileName = `photo_${Date.now()}.jpg`;
+          currentFile = this.cameraService.base64ToFile(photo.dataUrl || '', fileName);
           
-          // Set up file handler
-          const fileSelected = new Promise<File | null>((resolve) => {
-            let resolved = false;
-            
-            input.onchange = async (event: any) => {
-              if (!resolved) {
-                resolved = true;
-                const file = event.target?.files?.[0];
-                if (file) {
-                  await this.showToast(`✅ Photo captured: ${file.name}`, 'success');
-                }
-                cameraAlert.dismiss();
-                try {
-                  document.body.removeChild(input);
-                } catch (e) {}
-                resolve(file || null);
-              }
-            };
-            
-            // Handle cancel
-            input.addEventListener('cancel', () => {
-              if (!resolved) {
-                resolved = true;
-                try {
-                  document.body.removeChild(input);
-                } catch (e) {}
-                resolve(null);
-              }
-            });
-            
-            // Timeout
-            setTimeout(() => {
-              if (!resolved) {
-                resolved = true;
-                try {
-                  document.body.removeChild(input);
-                } catch (e) {}
-                resolve(null);
-              }
-            }, 60000);
-          });
+          if (!currentFile) {
+            await this.showToast('Failed to process photo', 'danger');
+            continue;
+          }
           
-          // Wait for user to dismiss alert (camera will be triggered by button)
-          
-          currentFile = await fileSelected;
+          // Now we have the photo as a File object, show preview
           
           if (currentFile) {
             await this.showToast(`✅ Photo received: ${currentFile.name}`, 'success');
