@@ -1461,60 +1461,34 @@ export class CaspioService {
           })
         };
 
-        console.log('Authentication attempt:');
-        console.log('Original email:', email);
-        console.log('WHERE clause:', whereClause);
-        console.log('Full params:', JSON.stringify(params));
-        console.log('URL will be:', `${environment.caspio.apiBaseUrl}/tables/Users/records?q=${encodeURIComponent(JSON.stringify({where: whereClause}))}`);
-
         return this.http.get<any>(
           `${environment.caspio.apiBaseUrl}/tables/Users/records`,
           { headers, params }
         ).pipe(
           map(response => {
-            console.log('Raw authentication response:', response);
             const allUsers = response.Result || [];
-            console.log(`Total users returned: ${allUsers.length}`);
             
             if (allUsers.length > 0) {
-              console.log('All users in response:');
-              allUsers.forEach((u: any, index: number) => {
-                console.log(`User ${index + 1}: Email=${u.Email}, ID=${u.PK_ID || u.UserID || u.UsersID}, Name=${u.Name}`);
-              });
-              
               // Find exact email match (case-insensitive)
               const exactMatch = allUsers.find((u: any) => 
                 u.Email && u.Email.toLowerCase() === email.toLowerCase()
               );
               
               if (exactMatch) {
-                console.log('Found exact email match:', exactMatch);
-                
-                // NOW check if password matches
+                // Check if password matches
                 if (exactMatch.Password === password) {
-                  console.log('Password matches!');
                   return [exactMatch]; // Return only the matching user
                 } else {
-                  console.log('Password does NOT match');
-                  console.log('Expected:', password);
-                  console.log('Got:', exactMatch.Password);
-                  // Still return the user for debugging but mark as wrong password
-                  exactMatch._passwordMismatch = true;
-                  return [exactMatch];
+                  // Password doesn't match - return empty array
+                  return [];
                 }
               } else {
-                console.log('WARNING: No exact email match found for:', email);
-                console.log('Emails in database:', allUsers.map((u: any) => u.Email).join(', '));
-                // Return empty array since no match
+                // No email match found
                 return [];
               }
-            } else {
-              console.log('No users found with email:', email);
-              // Try alternate query without special character encoding
-              console.log('Will try alternate query format...');
             }
             
-            return allUsers;
+            return [];
           }),
           catchError(error => {
             console.error('User authentication failed:', error);

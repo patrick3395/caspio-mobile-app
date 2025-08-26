@@ -80,131 +80,20 @@ export class LoginPage implements OnInit {
 
     try {
       // Authenticate user against Users table
-      console.log('Login attempt with:', {
-        email: this.credentials.email,
-        password: '***hidden***',
-        companyId: this.credentials.companyId
-      });
-      
       const users = await this.caspioService.authenticateUser(
         this.credentials.email,
         this.credentials.password,
         this.credentials.companyId
       ).toPromise();
-
-      console.log('Authentication response - users found:', users?.length || 0);
       
       if (users && users.length > 0) {
         const user = users[0];
-        console.log('First user in response:', user);
         
-        // Check for email mismatch
-        const emailMatch = user.Email && user.Email.toLowerCase() === this.credentials.email.toLowerCase();
-        const passwordMismatch = user._passwordMismatch === true;
-        
-        // Dismiss loading screen FIRST to avoid blocking the debug popup
-        await loading.dismiss();
-        
-        // Show debug popup with user data
-        const debugAlert = await this.alertController.create({
-          header: '🔍 Login Debug Info',
-          message: `
-            <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              ${!emailMatch ? '<div style="background: #ffcccc; padding: 10px; border: 2px solid red; margin-bottom: 10px;"><strong>⚠️ WARNING: EMAIL MISMATCH!</strong><br>You entered: ' + this.credentials.email + '<br>But got user: ' + (user.Email || 'NO EMAIL') + '</div>' : ''}
-              ${passwordMismatch ? '<div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin-bottom: 10px;"><strong>⚠️ PASSWORD INCORRECT!</strong><br>The email matches but the password is wrong.</div>' : ''}
-              
-              <strong style="color: blue;">Query Sent to Caspio:</strong><br>
-              • Your Email: "${this.credentials.email}"<br>
-              • Your Password: ***hidden***<br>
-              • SQL WHERE: Email='${this.credentials.email}' AND Password='***'<br><br>
-              
-              <strong style="color: ${emailMatch ? 'green' : 'red'};">User Data Received:</strong><br>
-              • Total Users Found: ${users.length}<br>
-              • Email Match: ${emailMatch ? '✅ YES' : '❌ NO - WRONG USER!'}<br><br>
-              
-              <strong>First User Returned:</strong><br>
-              • ID: ${user.PK_ID || user.UserID || user.UsersID || 'No ID field'}<br>
-              • Name: ${user.Name || user.UserName || 'No Name'}<br>
-              • Email: <strong>${user.Email || 'NO EMAIL FIELD'}</strong><br>
-              • CompanyID: <strong style="color: red;">${user.CompanyID}</strong><br><br>
-              
-              ${users.length > 1 ? '<strong>⚠️ Multiple Users Found:</strong><br>' + users.map((u: any, i: number) => `${i+1}. ${u.Email || 'no-email'} (ID: ${u.PK_ID || u.UserID || '?'})`).join('<br>') + '<br><br>' : ''}
-              
-              <strong>All Fields in User Record:</strong><br>
-              ${Object.keys(user).map(key => `• ${key}: ${user[key]}`).join('<br>')}<br><br>
-              
-              <strong>Raw User Object:</strong><br>
-              <div style="background: #f0f0f0; padding: 5px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
-                ${JSON.stringify(user, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-              </div><br>
-              
-              <p style="color: ${emailMatch ? 'blue' : 'red'}; font-weight: bold;">
-                ${emailMatch ? 'Choose how to proceed:' : '⚠️ WRONG USER - Query may have failed!'}
-              </p>
-            </div>
-          `,
-          buttons: [
-            {
-              text: 'Cancel Login',
-              role: 'cancel',
-              handler: () => {
-                // Loading already dismissed
-                return true;
-              }
-            },
-            {
-              text: 'Use CompanyID 1',
-              handler: () => {
-                // Force CompanyID to 1 for Noble Property Inspections
-                user.CompanyID = 1;
-                this.completeLogin(user, null); // Pass null since loading is already dismissed
-                return true;
-              }
-            },
-            {
-              text: 'Continue as is',
-              handler: () => {
-                this.completeLogin(user, null); // Pass null since loading is already dismissed
-                return true;
-              }
-            }
-          ]
-        });
-        await debugAlert.present();
+        // Complete the login directly without debug popup
+        await this.completeLogin(user, loading);
       } else {
         await loading.dismiss();
-        
-        // If no users found, try to get ALL users for debugging
-        console.log('No users found with query. Fetching ALL users for debugging...');
-        
-        const allUsersDebug = await this.caspioService.getAllUsersForDebug().toPromise();
-        const debugAlert = await this.alertController.create({
-          header: '❌ Login Failed - Debug Info',
-          message: `
-            <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: red;">No users found with your email!</strong><br><br>
-              
-              <strong>You searched for:</strong><br>
-              • Email: ${this.credentials.email}<br><br>
-              
-              <strong>All Users in Database (${allUsersDebug?.length || 0} total):</strong><br>
-              <div style="background: #f0f0f0; padding: 5px; border-radius: 3px; max-height: 200px; overflow-y: auto;">
-                ${allUsersDebug && allUsersDebug.length > 0 ? 
-                  allUsersDebug.map((u: any, i: number) => 
-                    `${i+1}. Email: <strong>${u.Email || 'NO EMAIL'}</strong> (ID: ${u.PK_ID || u.UserID || '?'}, Company: ${u.CompanyID})`
-                  ).join('<br>') 
-                  : 'Could not fetch users or table is empty'}
-              </div><br>
-              
-              <strong>Possible Issues:</strong><br>
-              • Email has special characters (like +) that aren't matching<br>
-              • Email field name might be different<br>
-              • Query syntax issue with Caspio API<br>
-            </div>
-          `,
-          buttons: ['OK']
-        });
-        await debugAlert.present();
+        await this.showAlert('Login Failed', 'Invalid email or password. Please try again.');
       }
     } catch (error) {
       await loading.dismiss();
