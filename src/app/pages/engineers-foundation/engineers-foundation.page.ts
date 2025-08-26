@@ -213,14 +213,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Get existing Services_Rooms for this service
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-          const existingRoomNames = new Set((existingRooms || []).map((room: any) => room.RoomName));
           
-          await this.showToast(`Found ${existingRoomNames.size} existing rooms`, 'info');
-          
-          let roomsCreated = 0;
-          // Create Services_Rooms records for templates that don't exist yet
-          for (const template of autoTemplates) {
-            if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
+          // Check if ANY rooms exist for this ServiceID
+          if (existingRooms && existingRooms.length > 0) {
+            await this.showToast(`Found ${existingRooms.length} existing rooms for ServiceID ${this.serviceId} - skipping creation`, 'warning');
+            // Rooms already exist for this ServiceID, don't create duplicates
+          } else {
+            // No rooms exist yet, create them
+            await this.showToast('No rooms found for this ServiceID - creating rooms...', 'info');
+            
+            let roomsCreated = 0;
+            // Create Services_Rooms records for all templates
+            for (const template of autoTemplates) {
+              if (template.RoomName) {
               try {
                 // ONLY send ServiceID - nothing else
                 const roomData: any = {
@@ -287,11 +292,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 });
                 await errorAlert.present();
               }
+              }
             }
-          }
-          
-          if (roomsCreated > 0) {
-            await this.showToast(`✅ Created ${roomsCreated} new rooms`, 'success');
+            
+            if (roomsCreated > 0) {
+              await this.showToast(`✅ Created ${roomsCreated} new rooms`, 'success');
+            }
           }
         } else {
           await this.showToast('⚠️ No ServiceID found - cannot create rooms', 'warning');
