@@ -15,10 +15,19 @@ export class ActiveProjectsPage implements OnInit {
   projects: Project[] = [];
   loading = false;
   error = '';
+  currentUser: any = null;
 
   // Force update timestamp
   getCurrentTimestamp(): string {
     return new Date().toLocaleString();
+  }
+
+  // Get current user info
+  getUserInfo(): string {
+    if (this.currentUser) {
+      return `${this.currentUser.name || this.currentUser.Name || 'User'} (Company ${this.currentUser.companyId || this.currentUser.CompanyID || ''})`;
+    }
+    return '';
   }
 
   constructor(
@@ -31,6 +40,17 @@ export class ActiveProjectsPage implements OnInit {
   ) {}
 
   ngOnInit() {
+    // Load current user info
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) {
+      try {
+        this.currentUser = JSON.parse(userStr);
+        console.log('Current user:', this.currentUser);
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+    
     // Subscribe to query params to handle refresh
     this.route.queryParams.subscribe(params => {
       if (params['refresh']) {
@@ -76,27 +96,41 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.error = '';
     
+    // Get the current user's CompanyID from localStorage
+    const userStr = localStorage.getItem('currentUser');
+    let companyId: number | undefined;
+    
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        companyId = user.companyId || user.CompanyID;
+        console.log('Loading projects for CompanyID:', companyId);
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+    
     // First, let's get the table definition to understand the structure
     this.projectsService.getProjectTableDefinition().subscribe({
       next: (definition) => {
         console.log('Projects table structure:', definition);
         
-        // Now load the active projects
-        this.projectsService.getActiveProjects().subscribe({
+        // Now load the active projects filtered by CompanyID
+        this.projectsService.getActiveProjects(companyId).subscribe({
           next: (projects) => {
             this.projects = projects;
             this.loading = false;
-            console.log('Active projects loaded:', projects);
+            console.log(`Active projects loaded for CompanyID ${companyId}:`, projects);
           },
           error: (error) => {
             // If filtered query fails, try getting all projects and filter locally
-            this.projectsService.getAllProjects().subscribe({
+            this.projectsService.getAllProjects(companyId).subscribe({
               next: (allProjects) => {
                 this.projects = allProjects.filter(p => 
                   p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
                 );
                 this.loading = false;
-                console.log('Projects filtered locally:', this.projects);
+                console.log(`Projects filtered locally for CompanyID ${companyId}:`, this.projects);
               },
               error: (err) => {
                 this.error = 'Failed to load projects';
@@ -124,23 +158,37 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.error = '';
     
-    this.projectsService.getActiveProjects().subscribe({
+    // Get the current user's CompanyID
+    const userStr = localStorage.getItem('currentUser');
+    let companyId: number | undefined;
+    
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        companyId = user.companyId || user.CompanyID;
+        console.log('Loading projects directly for CompanyID:', companyId);
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+    
+    this.projectsService.getActiveProjects(companyId).subscribe({
       next: (projects) => {
         this.projects = projects;
         this.loading = false;
         this.error = '';
-        console.log('Projects loaded directly:', projects);
+        console.log(`Projects loaded directly for CompanyID ${companyId}:`, projects);
       },
       error: (error) => {
         // If filtered query fails, try getting all projects and filter locally
-        this.projectsService.getAllProjects().subscribe({
+        this.projectsService.getAllProjects(companyId).subscribe({
           next: (allProjects) => {
             this.projects = allProjects.filter(p => 
               p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
             );
             this.loading = false;
             this.error = '';
-            console.log('All projects loaded and filtered:', this.projects);
+            console.log(`All projects loaded and filtered for CompanyID ${companyId}:`, this.projects);
           },
           error: (err) => {
             const errorMessage = err?.error?.message || err?.message || 'Unknown error';

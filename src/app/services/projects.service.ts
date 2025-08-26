@@ -69,15 +69,27 @@ export class ProjectsService {
     return this.caspioService.get('/tables/Projects/definition');
   }
 
-  getActiveProjects(): Observable<Project[]> {
-    // Fetch projects with StatusID = 1 (Active)
-    return this.caspioService.get<any>('/tables/Projects/records?q.where=StatusID%3D1').pipe(
+  getActiveProjects(companyId?: number): Observable<Project[]> {
+    // Build the where clause
+    let whereClause = 'StatusID%3D1';
+    if (companyId) {
+      whereClause += `%20AND%20CompanyID%3D${companyId}`;
+    }
+    
+    // Fetch projects with StatusID = 1 (Active) and optionally filter by CompanyID
+    return this.caspioService.get<any>(`/tables/Projects/records?q.where=${whereClause}`).pipe(
       map(response => response.Result || [])
     );
   }
 
-  getAllProjects(): Observable<Project[]> {
-    return this.caspioService.get<any>('/tables/Projects/records').pipe(
+  getAllProjects(companyId?: number): Observable<Project[]> {
+    // Build the URL with optional CompanyID filter
+    let url = '/tables/Projects/records';
+    if (companyId) {
+      url += `?q.where=CompanyID%3D${companyId}`;
+    }
+    
+    return this.caspioService.get<any>(url).pipe(
       map(response => response.Result || [])
     );
   }
