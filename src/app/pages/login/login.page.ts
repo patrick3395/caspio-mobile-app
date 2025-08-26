@@ -82,37 +82,65 @@ export class LoginPage implements OnInit {
       if (users && users.length > 0) {
         const user = users[0];
         
-        // Store user info and auth status
-        localStorage.setItem('currentUser', JSON.stringify({
-          id: user.PK_ID || user.UserID,
-          name: user.Name,
-          email: user.Email,
-          companyId: user.CompanyID
-        }));
-        
-        // Store auth token (use Caspio token if available)
-        const token = await this.caspioService.getAuthToken();
-        if (token) {
-          localStorage.setItem('authToken', token);
-        } else {
-          // Fallback: create a simple auth indicator
-          localStorage.setItem('authToken', 'authenticated');
-        }
-        
-        // Save credentials if remember me is checked
-        if (this.rememberMe) {
-          localStorage.setItem('savedCredentials', JSON.stringify({
-            email: this.credentials.email,
-            companyId: this.credentials.companyId
-          }));
-        } else {
-          localStorage.removeItem('savedCredentials');
-        }
-        
-        await loading.dismiss();
-        
-        // Navigate to main app
-        this.router.navigate(['/tabs/active-projects']);
+        // Show debug popup with user data
+        const debugAlert = await this.alertController.create({
+          header: '🔍 Login Debug Info',
+          message: `
+            <div style="text-align: left; font-family: monospace; font-size: 12px;">
+              <strong style="color: blue;">User Data from Caspio:</strong><br><br>
+              
+              <strong>User Fields:</strong><br>
+              • ID: ${user.PK_ID || user.UserID || 'Not found'}<br>
+              • Name: ${user.Name || 'Not found'}<br>
+              • Email: ${user.Email || 'Not found'}<br>
+              • CompanyID from DB: <strong style="color: red;">${user.CompanyID}</strong><br>
+              • Company_ID: ${user.Company_ID || 'Not found'}<br><br>
+              
+              <strong>Login Request:</strong><br>
+              • Requested CompanyID: ${this.credentials.companyId}<br>
+              • Email: ${this.credentials.email}<br><br>
+              
+              <strong>All User Fields:</strong><br>
+              <div style="background: #f0f0f0; padding: 5px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
+                ${JSON.stringify(user, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div><br>
+              
+              <strong style="color: orange;">What will be stored:</strong><br>
+              • CompanyID: ${user.CompanyID}<br>
+              
+              <p style="color: red; font-weight: bold;">
+                If CompanyID is wrong, check Users table!
+              </p>
+            </div>
+          `,
+          buttons: [
+            {
+              text: 'Cancel Login',
+              role: 'cancel',
+              handler: () => {
+                loading.dismiss();
+                return true;
+              }
+            },
+            {
+              text: 'Use CompanyID 1',
+              handler: () => {
+                // Force CompanyID to 1 for Noble Property Inspections
+                user.CompanyID = 1;
+                this.completeLogin(user, loading);
+                return true;
+              }
+            },
+            {
+              text: 'Continue as is',
+              handler: () => {
+                this.completeLogin(user, loading);
+                return true;
+              }
+            }
+          ]
+        });
+        await debugAlert.present();
       } else {
         await loading.dismiss();
         await this.showAlert('Login Failed', 'Invalid email or password');
@@ -122,6 +150,40 @@ export class LoginPage implements OnInit {
       console.error('Login error:', error);
       await this.showAlert('Error', 'An error occurred during login. Please try again.');
     }
+  }
+
+  async completeLogin(user: any, loading: any) {
+    // Store user info and auth status
+    localStorage.setItem('currentUser', JSON.stringify({
+      id: user.PK_ID || user.UserID,
+      name: user.Name,
+      email: user.Email,
+      companyId: user.CompanyID
+    }));
+    
+    // Store auth token (use Caspio token if available)
+    const token = await this.caspioService.getAuthToken();
+    if (token) {
+      localStorage.setItem('authToken', token);
+    } else {
+      // Fallback: create a simple auth indicator
+      localStorage.setItem('authToken', 'authenticated');
+    }
+    
+    // Save credentials if remember me is checked
+    if (this.rememberMe) {
+      localStorage.setItem('savedCredentials', JSON.stringify({
+        email: this.credentials.email,
+        companyId: this.credentials.companyId
+      }));
+    } else {
+      localStorage.removeItem('savedCredentials');
+    }
+    
+    await loading.dismiss();
+    
+    // Navigate to main app
+    this.router.navigate(['/tabs/active-projects']);
   }
 
   async showAlert(header: string, message: string) {
