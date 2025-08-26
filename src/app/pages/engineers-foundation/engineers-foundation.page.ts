@@ -559,15 +559,75 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   scrollToCurrentSectionTop() {
-    // Find the current visible section by checking which section headers are in view
-    const sections = ['project', 'structural', 'elevation'];
     const viewportHeight = window.innerHeight;
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const currentPosition = scrollTop + (viewportHeight / 3); // Check top third of viewport
     
-    // Find which section the user is currently viewing
+    // First check if we're in an expanded accordion item (category within Structural Systems)
+    if (this.expandedSections['structural']) {
+      // Check all expanded accordion categories
+      const expandedCategories = this.expandedAccordions;
+      for (const category of expandedCategories) {
+        const accordionHeader = document.querySelector(`ion-accordion[value="${category}"] ion-item[slot="header"]`) as HTMLElement;
+        if (accordionHeader) {
+          const rect = accordionHeader.getBoundingClientRect();
+          const categoryTop = rect.top + scrollTop;
+          
+          // Find the next accordion or section boundary
+          const allAccordions = document.querySelectorAll('ion-accordion');
+          let categoryBottom = document.documentElement.scrollHeight;
+          
+          allAccordions.forEach((accordion, index) => {
+            if (accordion.getAttribute('value') === category && index < allAccordions.length - 1) {
+              const nextAccordion = allAccordions[index + 1] as HTMLElement;
+              const nextRect = nextAccordion.getBoundingClientRect();
+              categoryBottom = nextRect.top + scrollTop;
+            }
+          });
+          
+          // Check if we're within this accordion's bounds
+          if (currentPosition >= categoryTop && currentPosition < categoryBottom) {
+            // Scroll to the accordion header
+            accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      }
+    }
+    
+    // Check if we're in an expanded room (within Elevation Plot)
+    if (this.expandedSections['elevation']) {
+      const roomAccordions = document.querySelectorAll('.room-elevations-container ion-accordion');
+      for (const roomAccordion of Array.from(roomAccordions)) {
+        const roomHeader = roomAccordion.querySelector('ion-item[slot="header"]') as HTMLElement;
+        const roomContent = roomAccordion.querySelector('.elevation-content') as HTMLElement;
+        
+        if (roomHeader && roomContent && roomContent.offsetHeight > 0) { // Room is expanded
+          const rect = roomHeader.getBoundingClientRect();
+          const roomTop = rect.top + scrollTop;
+          
+          // Find next room or section boundary
+          const nextRoom = roomAccordion.nextElementSibling as HTMLElement;
+          let roomBottom = document.documentElement.scrollHeight;
+          if (nextRoom) {
+            const nextRect = nextRoom.getBoundingClientRect();
+            roomBottom = nextRect.top + scrollTop;
+          }
+          
+          // Check if we're within this room's bounds
+          if (currentPosition >= roomTop && currentPosition < roomBottom) {
+            // Scroll to the room header
+            roomHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      }
+    }
+    
+    // Otherwise, check main sections
+    const sections = ['project', 'structural', 'elevation'];
     for (const section of sections) {
       const sectionHeader = document.querySelector(`.section-header[data-section="${section}"]`) as HTMLElement;
-      const sectionContent = document.querySelector(`.section[data-section="${section}"]`) as HTMLElement;
       
       if (sectionHeader) {
         const rect = sectionHeader.getBoundingClientRect();
@@ -584,7 +644,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         
         // Check if we're within this section's bounds
-        const currentPosition = scrollTop + (viewportHeight / 2);
         if (currentPosition >= sectionTop && currentPosition < sectionBottom) {
           // Scroll to this section's header
           sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
