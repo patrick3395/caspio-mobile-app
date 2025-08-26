@@ -1212,12 +1212,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           input.click();
           
           currentFile = await fileSelected;
+          console.log('📷 Photo file received:', currentFile?.name, currentFile?.size);
           
           if (currentFile) {
             // Show preview and options
             const objectUrl = URL.createObjectURL(currentFile);
+            console.log('🖼️ Object URL created:', objectUrl);
+            
+            // Add a small delay to ensure the file is fully processed
+            await new Promise(resolve => setTimeout(resolve, 500));
             
             // Create custom alert with photo preview
+            console.log('📋 Creating photo review alert...');
             const alert = await this.alertController.create({
               header: 'Photo Review',
               message: `
@@ -1229,8 +1235,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               buttons: [
                 {
                   text: 'Retake',
-                  role: 'retake',
-                  cssClass: 'alert-button-retake',
                   handler: () => {
                     console.log('👤 User chose to retake photo');
                     URL.revokeObjectURL(objectUrl);
@@ -1240,8 +1244,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 },
                 {
                   text: 'Use Photo',
-                  role: 'use',
-                  cssClass: 'alert-button-use',
                   handler: () => {
                     console.log('✅ User chose to use photo');
                     URL.revokeObjectURL(objectUrl);
@@ -1252,7 +1254,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 },
                 {
                   text: 'Take Another Photo',
-                  role: 'another',
                   cssClass: 'alert-button-primary',
                   handler: () => {
                     console.log('➕ User chose to take another photo');
@@ -1263,18 +1264,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                 }
               ],
-              backdropDismiss: false
+              backdropDismiss: false,
+              cssClass: 'photo-review-alert'
             });
             
+            console.log('🎭 Presenting photo review alert...');
             await alert.present();
+            console.log('⏳ Waiting for user decision...');
             const { role } = await alert.onDidDismiss();
+            console.log('🎯 User selected role:', role);
             
             // Process based on user choice
-            if (role === 'retake') {
+            // Since we're using handlers that return true, check the retakePhoto and keepCapturing flags
+            // which are set in the handlers
+            if (retakePhoto) {
               // Continue the retake loop
+              console.log('🔄 Retaking photo...');
               currentFile = null;
-            } else if (role === 'use' || role === 'another') {
-              // Save the photo
+            } else if (currentFile) {
+              // Save the photo (either "Use Photo" or "Take Another Photo" was chosen)
               photoCounter++;
               capturedPhotos.push(currentFile);
               console.log(`📸 Photo ${photoCounter} accepted: ${currentFile.name}`);
@@ -1291,11 +1299,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
                 });
               
-              retakePhoto = false;
-              
-              if (role === 'use') {
-                keepCapturing = false;
-              }
+              // keepCapturing is already set by the handlers
             }
           } else {
             // User cancelled camera
