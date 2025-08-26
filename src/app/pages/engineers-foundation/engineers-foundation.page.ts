@@ -222,22 +222,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           for (const template of autoTemplates) {
             if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
               try {
-                // Convert ServiceID to integer as Caspio expects
+                // ONLY send ServiceID and RoomName - nothing else
                 const roomData: any = {
                   ServiceID: parseInt(this.serviceId, 10),
-                  RoomName: template.RoomName,
-                  RoomTemplateID: template.PK_ID || template.TemplateId,
-                  // Copy point data from template
-                  PointCount: template.PointCount || 0
+                  RoomName: template.RoomName
                 };
-                
-                // Add point names from template
-                for (let i = 1; i <= 20; i++) {
-                  const pointColumnName = `Point${i}Name`;
-                  if (template[pointColumnName]) {
-                    roomData[pointColumnName] = template[pointColumnName];
-                  }
-                }
                 
                 // Debug popup showing exact data being sent
                 const debugAlert = await this.alertController.create({
@@ -246,10 +235,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     <div style="text-align: left; font-size: 12px;">
                       <strong>Room:</strong> ${template.RoomName}<br>
                       <strong>ServiceID:</strong> ${roomData.ServiceID} (type: ${typeof roomData.ServiceID})<br>
-                      <strong>RoomTemplateID:</strong> ${roomData.RoomTemplateID}<br>
-                      <strong>PointCount:</strong> ${roomData.PointCount}<br>
                       <strong>API Endpoint:</strong> /tables/Services_Rooms/records<br>
-                      <strong>Full Data:</strong><br>
+                      <strong>Data Being Sent (ONLY):</strong><br>
                       <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(roomData, null, 2)}</pre>
                     </div>
                   `,
