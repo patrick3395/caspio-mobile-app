@@ -535,7 +535,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   toggleSection(section: string) {
-    this.expandedSections[section] = !this.expandedSections[section];
+    // Use requestAnimationFrame for smooth animation
+    requestAnimationFrame(() => {
+      this.expandedSections[section] = !this.expandedSections[section];
+    });
+  }
+  
+  // TrackBy functions for better list performance
+  trackByCategory(index: number, item: any): string {
+    return item || index;
+  }
+  
+  trackByTemplateId(index: number, item: any): string {
+    return item.TemplateID || index;
+  }
+  
+  trackByRoomName(index: number, item: any): string {
+    return item.RoomName || index;
   }
   
   // Track which accordions are expanded

@@ -40,7 +40,7 @@
         </div>
       </div>
       
-      <div class="section-content" *ngIf="expandedSections['project']">
+      <div class="section-content" [class.expanded]="expandedSections['project']">
         <!-- People & Roles -->
         <div class="info-group">
           <h3 class="group-title">
@@ -247,13 +247,13 @@
         </div>
       </div>
 
-      <div class="section-content" *ngIf="expandedSections['structural']">
+      <div class="section-content" [class.expanded]="expandedSections['structural']">
         <!-- Visual Categories from Services_Visuals_Templates -->
         <div class="categories-container" *ngIf="visualCategories.length > 0">
           
           <!-- Category Accordion -->
           <ion-accordion-group #visualAccordionGroup (ionChange)="onAccordionChange($event)">
-            <ion-accordion *ngFor="let category of visualCategories" [value]="category">
+            <ion-accordion *ngFor="let category of visualCategories; trackBy: trackByCategory" [value]="category">
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2>{{ category }}</h2>
@@ -498,13 +498,13 @@
         </div>
       </div>
 
-      <div class="section-content" *ngIf="expandedSections['elevation']">
+      <div class="section-content" [class.expanded]="expandedSections['elevation']">
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           
           <!-- Room accordion -->
           <ion-accordion-group *ngIf="roomTemplates.length > 0">
-            <ion-accordion *ngFor="let room of roomTemplates" [value]="room.RoomName">
+            <ion-accordion *ngFor="let room of roomTemplates; trackBy: trackByRoomName" [value]="room.RoomName">
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2>{{ room.RoomName }}</h2>
