@@ -211,13 +211,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (this.serviceId) {
           // Get existing Services_Rooms for this service
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-          const existingRoomNames = new Set(existingRooms.map((room: any) => room.RoomName));
+          const existingRoomNames = new Set((existingRooms || []).map((room: any) => room.RoomName));
           
           // Create Services_Rooms records for templates that don't exist yet
           for (const template of autoTemplates) {
             if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
               try {
-                const roomData = {
+                const roomData: any = {
                   ServiceID: this.serviceId,
                   RoomName: template.RoomName,
                   RoomTemplateID: template.PK_ID || template.TemplateId,
