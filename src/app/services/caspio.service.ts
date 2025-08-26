@@ -475,9 +475,119 @@ export class CaspioService {
     );
   }
   
-  // Create Services_Rooms_Points_Attach record
+  // Create Services_Rooms_Points_Attach record with file using two-step Files API method
+  createServicesRoomsPointsAttachWithFile(pointId: number, annotation: string, file: File): Observable<any> {
+    console.log('📦 Two-step upload for Services_Rooms_Points_Attach using Files API');
+    
+    // Wrap the entire async function in Observable to return to Angular
+    return new Observable(observer => {
+      this.uploadRoomPointsAttachWithFilesAPI(pointId, annotation, file)
+        .then(result => {
+          observer.next(result); // Return the created record
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  // Two-step upload method for Services_Rooms_Points_Attach (matching visual method)
+  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, annotation: string, file: File) {
+    console.log('📦 Services_Rooms_Points_Attach upload using PROVEN Files API method');
+    console.log('====== TABLE STRUCTURE ======');
+    console.log('AttachID: Autonumber (Primary Key)');
+    console.log('PointID: Integer (Foreign Key)');
+    console.log('Photo: File (stores path)');
+    console.log('Annotation: Text(255)');
+    console.log('=============================');
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    console.log('Input parameters:');
+    console.log('  PointID:', pointId, '(type:', typeof pointId, ')');
+    console.log('  Annotation:', annotation || '(empty)');
+    console.log('  File:', file.name, 'Size:', file.size);
+    
+    try {
+      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
+      console.log('Step 1: Uploading file to Caspio Files API...');
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      
+      const filesUrl = `${API_BASE_URL}/files`;
+      console.log('Uploading to Files API:', filesUrl);
+      
+      const uploadResponse = await fetch(filesUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+          // NO Content-Type header - let browser set it with boundary
+        },
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ File uploaded to Files API:', uploadResult);
+      
+      // The file path for the Photo field
+      const filePath = `/${uploadResult.Name || file.name}`;
+      console.log('File path for Photo field:', filePath);
+      
+      // STEP 2: Create Services_Rooms_Points_Attach record WITH the Photo field path
+      console.log('Step 2: Creating Services_Rooms_Points_Attach record with file path...');
+      console.log('Table: Services_Rooms_Points_Attach');
+      console.log('Fields being sent:');
+      console.log('  - PointID (Integer):', parseInt(pointId.toString()));
+      console.log('  - Annotation (Text):', annotation || '');
+      console.log('  - Photo (File path):', filePath);
+      
+      const recordData = {
+        PointID: parseInt(pointId.toString()),
+        Annotation: annotation || '',  // Keep blank if no annotation provided
+        Photo: filePath  // Include the file path in initial creation
+      };
+      
+      console.log('Record data JSON:', JSON.stringify(recordData, null, 2));
+      
+      const createUrl = `${API_BASE_URL}/tables/Services_Rooms_Points_Attach/records?response=rows`;
+      const createResponse = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+      
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error('Record creation failed:', errorText);
+        throw new Error('Failed to create Services_Rooms_Points_Attach record: ' + errorText);
+      }
+      
+      const createdRecord = await createResponse.json();
+      console.log('✅ Services_Rooms_Points_Attach record created:', createdRecord);
+      
+      // Return the created record (Result[0] has the full record with AttachID)
+      return createdRecord.Result?.[0] || createdRecord;
+      
+    } catch (error) {
+      console.error('❌ Two-step upload failed:', error);
+      throw error;
+    }
+  }
+
+  // Legacy method for direct data posting (kept for backward compatibility)
   createServicesRoomsAttach(data: any): Observable<any> {
-    console.log('Creating Services_Rooms_Points_Attach record:', data);
+    console.log('Creating Services_Rooms_Points_Attach record (LEGACY):', data);
     console.log('Data types:', {
       PointID: typeof data.PointID,
       Photo: typeof data.Photo,

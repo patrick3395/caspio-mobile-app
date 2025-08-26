@@ -709,104 +709,160 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Upload photo from File object to Services_Rooms_Attach
+  // Upload photo from File object to Services_Rooms_Points_Attach (matching visual method)
   async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string) {
     try {
-      // Generate filename
-      const timestamp = new Date().getTime();
-      const fileName = `room_point_${pointId}_${timestamp}.jpg`;
+      const pointIdNum = parseInt(pointId, 10);
       
-      // Upload to Caspio Files API
-      const formData = new FormData();
-      formData.append('file', file, fileName);
-      
-      const token = await this.caspioService.getValidToken().toPromise();
-      const account = this.caspioService.getAccountID();
-      
-      // Debug: Show what we're uploading
-      await this.showToast(`Uploading: ${fileName} (${Math.round(file.size/1024)}KB)`, 'primary');
-      
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      
-      const uploadResult = await uploadResponse.json();
-      
-      if (!uploadResult?.Name) {
-        // Debug: Show upload error
-        const errorMsg = `Upload failed: ${JSON.stringify(uploadResult)}`;
-        alert(`DEBUG - File Upload Error:\n${errorMsg}`);
-        throw new Error('File upload failed');
-      }
-      
-      // Create Services_Rooms_Points_Attach record
-      // Try different field combinations to see what works
-      const attachData = {
-        PointID: parseInt(pointId, 10), // Ensure it's a proper integer
-        Photo: `/${uploadResult.Name}`,  // File path from Files API
-        Annotation: ''  // Try empty string instead of null
+      // Prepare debug information (similar to visual upload)
+      const dataToSend = {
+        table: 'Services_Rooms_Points_Attach',
+        fields: {
+          PointID: pointIdNum,
+          Annotation: '',
+          Photo: '(will be file path after upload)'
+        },
+        fileInfo: {
+          name: file.name,
+          size: `${Math.round(file.size / 1024)}KB`,
+          type: file.type || 'image/jpeg'
+        },
+        process: [
+          'Step 1: Upload file to Caspio Files API',
+          'Step 2: Create Services_Rooms_Points_Attach record with file path'
+        ],
+        debug: {
+          originalPointId: pointId,
+          parsedPointId: pointIdNum,
+          isValidNumber: !isNaN(pointIdNum)
+        }
       };
       
-      // Comprehensive debug before sending
-      let debugInfo = '=== SERVICES_ROOMS_POINTS_ATTACH DEBUG ===\n\n';
-      debugInfo += '1. FILE UPLOAD RESULT:\n';
-      debugInfo += `   - Uploaded file name: ${uploadResult.Name}\n`;
-      debugInfo += `   - Full upload response: ${JSON.stringify(uploadResult)}\n\n`;
+      // Show comprehensive debug popup (matching visual style)
+      const alert = await this.alertController.create({
+        header: '🔍 Room Point Photo Upload Debug',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 11px;">
+            <strong style="color: blue;">EXACT DATA BEING SENT</strong><br><br>
+            
+            <strong>Table:</strong> ${dataToSend.table}<br><br>
+            
+            <strong>Fields to Send:</strong><br>
+            <div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin: 10px 0;">
+              • PointID: <strong style="color: red;">${dataToSend.fields.PointID}</strong> (Integer)<br>
+              • Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
+              • Photo: Will store file path after upload<br>
+            </div>
+            
+            <strong>File Info:</strong><br>
+            • Name: ${dataToSend.fileInfo.name}<br>
+            • Size: ${dataToSend.fileInfo.size}<br>
+            • Type: ${dataToSend.fileInfo.type}<br><br>
+            
+            <strong>Upload Process:</strong><br>
+            ${dataToSend.process.map(step => `• ${step}`).join('<br>')}<br><br>
+            
+            <strong>Debug Info:</strong><br>
+            • Original PointID: "${dataToSend.debug.originalPointId}"<br>
+            • Parsed PointID: ${dataToSend.debug.parsedPointId}<br>
+            • Is Valid Number: ${dataToSend.debug.isValidNumber ? '✅ YES' : '❌ NO'}<br><br>
+            
+            <strong style="color: green;">This uses the SAME two-step method as working Visual uploads!</strong>
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Upload',
+            handler: async () => {
+              // Proceed with upload using the new two-step method
+              await this.performRoomPointPhotoUpload(pointIdNum, file, pointName);
+            }
+          }
+        ]
+      });
       
-      debugInfo += '2. POINT INFORMATION:\n';
-      debugInfo += `   - PointID from variable: ${pointId}\n`;
-      debugInfo += `   - PointID parsed: ${attachData.PointID}\n`;
-      debugInfo += `   - PointID type: ${typeof attachData.PointID}\n`;
-      debugInfo += `   - Is PointID a valid number: ${!isNaN(attachData.PointID)}\n\n`;
-      
-      debugInfo += '3. DATA BEING SENT:\n';
-      debugInfo += `   - PointID: ${attachData.PointID}\n`;
-      debugInfo += `   - Photo: "${attachData.Photo}"\n`;
-      debugInfo += `   - Annotation: "${attachData.Annotation}"\n\n`;
-      
-      debugInfo += '4. JSON PAYLOAD:\n';
-      debugInfo += `   ${JSON.stringify(attachData, null, 2)}\n\n`;
-      
-      debugInfo += '5. TABLE ENDPOINT:\n';
-      debugInfo += '   /tables/Services_Rooms_Points_Attach/records';
-      
-      alert(debugInfo);
-      
-      try {
-        const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
-        
-        // Debug: Show successful response
-        alert(`SUCCESS - Attachment Created:\n\n${JSON.stringify(attachResponse, null, 2)}`);
-        
-        console.log(`Photo uploaded for point ${pointName}`);
-        await this.showToast(`Photo saved to point '${pointName}'`, 'success');
-      } catch (attachError: any) {
-        // Detailed error information
-        let errorInfo = '=== ATTACHMENT ERROR ===\n\n';
-        errorInfo += `1. ERROR MESSAGE: ${attachError.message || attachError}\n\n`;
-        
-        if (attachError.error) {
-          errorInfo += `2. ERROR DETAILS:\n${JSON.stringify(attachError.error, null, 2)}\n\n`;
-        }
-        
-        if (attachError.status) {
-          errorInfo += `3. HTTP STATUS: ${attachError.status}\n\n`;
-        }
-        
-        errorInfo += `4. POINT INFO:\n`;
-        errorInfo += `   - Point Name: ${pointName}\n`;
-        errorInfo += `   - PointID Used: ${attachData.PointID}\n\n`;
-        
-        errorInfo += `5. FULL ERROR OBJECT:\n${JSON.stringify(attachError, null, 2)}`;
-        
-        alert(errorInfo);
-        throw attachError;
-      }
+      await alert.present();
       
     } catch (error) {
-      console.error('Error uploading room point photo from file:', error);
+      console.error('Error in uploadPhotoToRoomPointFromFile:', error);
+      throw error;
+    }
+  }
+  
+  // Perform the actual room point photo upload (matching visual method)
+  private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string) {
+    try {
+      console.log('📦 Using two-step upload for room point photo');
+      
+      // Use the new two-step method that matches visual upload
+      const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
+        pointIdNum,
+        '', // Annotation blank as requested
+        photo
+      ).toPromise();
+      
+      console.log('✅ Room point photo uploaded successfully:', response);
+      
+      // Show success popup with response details
+      const successAlert = await this.alertController.create({
+        header: '✅ Upload Successful',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 11px;">
+            <strong>Photo uploaded for: ${pointName}</strong><br><br>
+            
+            <strong>Response from Server:</strong><br>
+            <div style="background: #d4edda; padding: 10px; border: 1px solid #28a745; margin: 10px 0;">
+              ${JSON.stringify(response, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+            </div>
+            
+            <strong>Next Steps:</strong><br>
+            • Photo is now saved to Services_Rooms_Points_Attach<br>
+            • You can take another photo or tap Done
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      
+      await successAlert.present();
+      await this.showToast(`✅ Photo saved to '${pointName}'`, 'success');
+      
+    } catch (error: any) {
+      console.error('❌ Failed to upload room point photo:', error);
+      
+      // Show detailed error popup
+      const errorAlert = await this.alertController.create({
+        header: '❌ Upload Failed',
+        message: `
+          <div style="text-align: left; font-family: monospace; font-size: 11px;">
+            <strong style="color: red;">ERROR DETAILS</strong><br><br>
+            
+            <strong>Point Name:</strong> ${pointName}<br>
+            <strong>PointID:</strong> ${pointIdNum}<br><br>
+            
+            <strong>Error Message:</strong><br>
+            <div style="background: #f8d7da; padding: 10px; border: 1px solid #dc3545; margin: 10px 0;">
+              ${error.message || error}
+            </div>
+            
+            ${error.error ? `
+              <strong>Server Response:</strong><br>
+              <div style="background: #fff3cd; padding: 10px; border: 1px solid #ffc107; margin: 10px 0;">
+                ${JSON.stringify(error.error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div>
+            ` : ''}
+            
+            ${error.status ? `<strong>HTTP Status:</strong> ${error.status}<br>` : ''}
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      
+      await errorAlert.present();
+      await this.showToast('Failed to upload photo', 'danger');
       throw error;
     }
   }

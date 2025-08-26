@@ -395,12 +395,17 @@ export class ProjectDetailPage implements OnInit {
       }
       
       // Check if we're in add-service mode (adding to a completed project)
-      const queryParams = this.route.snapshot.queryParams;
+      // Use activatedRoute params which are live, not snapshot
+      const currentMode = await new Promise<string | undefined>((resolve) => {
+        this.route.queryParams.subscribe(params => {
+          resolve(params['mode']);
+        });
+      });
       
       // Initial debug to see if we're even entering the update logic
-      alert(`DEBUG - Add Service Check:\n\nMode: ${queryParams['mode']}\nProject exists: ${!!this.project}\nShould update status: ${queryParams['mode'] === 'add-service' && !!this.project}`);
+      alert(`DEBUG - Add Service Check:\n\nMode: ${currentMode}\nProject exists: ${!!this.project}\nShould update status: ${currentMode === 'add-service' && !!this.project}`);
       
-      if (queryParams['mode'] === 'add-service' && this.project) {
+      if (currentMode === 'add-service' && this.project) {
         // Debug: Show all project IDs and current status
         let debugInfo = '=== PROJECT STATUS UPDATE ATTEMPT ===\n\n';
         debugInfo += '1. CURRENT PROJECT DATA:\n';
