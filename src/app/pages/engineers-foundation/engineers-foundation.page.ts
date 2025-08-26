@@ -416,17 +416,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             photoCounter++;
             capturedPhotos.push(currentFile);
             
-            // Upload photo in background
+            // Create object URL for preview  
+            const photoUrl = URL.createObjectURL(currentFile);
+            
+            // Upload photo in background and update UI only after successful upload
             const fileToUpload = currentFile; // Capture the file in a const
             this.uploadPhotoToRoomPointFromFile(pointId, fileToUpload, point.name)
               .then(() => {
                 console.log(`Photo ${photoCounter} uploaded for point ${point.name}`);
-                // Update UI to show photo
+                // Update UI to show photo only after successful upload
                 if (!point.photos) {
                   point.photos = [];
                 }
-                // Create object URL for preview (fileToUpload is guaranteed to be non-null here)
-                const photoUrl = URL.createObjectURL(fileToUpload);
                 point.photos.push({
                   url: photoUrl,
                   thumbnailUrl: photoUrl
@@ -438,32 +439,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
               });
             
-            // Ask if user wants to take another photo
+            // Ask if user wants to take another photo using role-based approach
             const continueAlert = await this.alertController.create({
               cssClass: 'compact-photo-selector',
+              message: `Photo ${photoCounter} captured`,
               buttons: [
                 {
-                  text: 'Take Another Photo',
-                  cssClass: 'action-button',
-                  handler: () => {
-                    keepCapturing = true;
-                    return true;
-                  }
+                  text: 'Done',
+                  role: 'done',
+                  cssClass: 'done-button'
                 },
                 {
-                  text: 'Done',
-                  cssClass: 'done-button',
-                  handler: () => {
-                    keepCapturing = false;
-                    return true;
-                  }
+                  text: 'Take Another Photo',
+                  role: 'another',
+                  cssClass: 'action-button'
                 }
               ],
               backdropDismiss: false
             });
             
             await continueAlert.present();
-            await continueAlert.onDidDismiss();
+            const result = await continueAlert.onDidDismiss();
+            
+            // Check the role to determine whether to continue
+            keepCapturing = result.role === 'another';
           } else {
             // User cancelled or no photo selected
             console.log('No photo captured, ending capture loop');
