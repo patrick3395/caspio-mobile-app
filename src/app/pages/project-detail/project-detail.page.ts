@@ -93,6 +93,15 @@ export class ProjectDetailPage implements OnInit {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     console.log('🔍 DEBUG: ProjectDetailPage initialized with projectId:', this.projectId);
     
+    // Check for add-service mode
+    this.route.queryParams.subscribe(params => {
+      if (params['mode'] === 'add-service') {
+        // Temporarily allow editing for adding services to completed projects
+        this.isReadOnly = false;
+        console.log('🔍 DEBUG: Add-service mode activated');
+      }
+    });
+    
     // Log environment config (without secrets)
     console.log('🔍 DEBUG: API Base URL:', this.caspioService['http'] ? 'HttpClient available' : 'HttpClient NOT available');
     
@@ -144,7 +153,15 @@ export class ProjectDetailPage implements OnInit {
         // Check if project is completed or in any non-active state (StatusID != 1)
         // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
         const statusId = project.StatusID;
-        this.isReadOnly = statusId !== 1 && statusId !== '1';
+        
+        // Check if we're in add-service mode (which overrides read-only)
+        const queryParams = this.route.snapshot.queryParams;
+        if (queryParams['mode'] === 'add-service') {
+          this.isReadOnly = false;
+          console.log('Add-service mode: Project editable despite StatusID:', statusId);
+        } else {
+          this.isReadOnly = statusId !== 1 && statusId !== '1';
+        }
         
         if (this.isReadOnly) {
           console.log('Project is read-only. StatusID:', statusId);
@@ -496,6 +513,33 @@ export class ProjectDetailPage implements OnInit {
     const offer = this.availableOffers.find(o => o.OffersID === offersId);
     if (offer) {
       await this.addService(offer);
+    }
+  }
+
+  async addAdditionalService() {
+    // Navigate to a new project page with this project's ID but in active mode
+    // This allows adding services to completed projects
+    const projectId = this.project?.PK_ID || this.project?.ProjectID;
+    if (projectId) {
+      // Create a temporary active version of the project
+      const tempProject = { ...this.project, StatusID: 1 };
+      this.router.navigate(['/project', projectId], {
+        queryParams: { mode: 'add-service' },
+        state: { project: tempProject }
+      });
+      
+      // Temporarily enable editing
+      this.isReadOnly = false;
+      await this.showToast('You can now add additional services to this project', 'success');
+      
+      // After a short delay, show the services grid
+      setTimeout(() => {
+        // Scroll to services section
+        const servicesSection = document.querySelector('.info-section:nth-child(2)');
+        if (servicesSection) {
+          servicesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500);
     }
   }
 

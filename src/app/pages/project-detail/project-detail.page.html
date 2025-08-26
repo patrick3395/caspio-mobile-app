@@ -35,7 +35,7 @@
     <!-- Read-only indicator for non-active projects -->
     <div *ngIf="isReadOnly" class="read-only-banner">
       <ion-icon name="eye-outline"></ion-icon>
-      <span>View Only - Project is not active</span>
+      <span>Project is not active</span>
     </div>
 
     <!-- Project Information Section -->
@@ -65,7 +65,17 @@
 
     <!-- Service Selection Section -->
     <div class="info-section">
-      <h2 class="section-title">Services</h2>
+      <div class="section-header-with-button">
+        <h2 class="section-title">Services</h2>
+        <ion-button *ngIf="isReadOnly" 
+                    size="small" 
+                    fill="outline" 
+                    color="primary"
+                    (click)="addAdditionalService()">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Additional Service
+        </ion-button>
+      </div>
       
       <!-- Loading services -->
       <div *ngIf="loadingServices" class="services-loading">
@@ -73,20 +83,38 @@
         <span>Loading services...</span>
       </div>
       
-      <!-- Service checkboxes -->
-      <div *ngIf="!loadingServices" class="services-grid">
+      <!-- Service checkboxes for active projects -->
+      <div *ngIf="!loadingServices && !isReadOnly" class="services-grid">
         <div *ngFor="let offer of availableOffers" 
              class="service-item">
           <ion-checkbox 
             [checked]="isServiceSelected(offer.OffersID)"
             (ionChange)="toggleService($event, offer)"
-            [disabled]="updatingServices || isReadOnly">
+            [disabled]="updatingServices">
           </ion-checkbox>
-          <label (click)="!isReadOnly && toggleServiceByLabel(offer)"
-                 [style.cursor]="isReadOnly ? 'default' : 'pointer'">
+          <label (click)="toggleServiceByLabel(offer)"
+                 style="cursor: pointer">
             {{ offer.TypeName || offer.Service_Name || offer.Description }}
           </label>
         </div>
+      </div>
+      
+      <!-- Services performed list for read-only projects -->
+      <div *ngIf="!loadingServices && isReadOnly && selectedServices.length > 0" class="services-performed-list">
+        <div *ngFor="let service of selectedServices" class="performed-service-item">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          <span class="service-name">{{ service.typeName }}</span>
+          <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+            #{{ getServiceInstanceNumber(service) }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- No services message for read-only projects -->
+      <div *ngIf="!loadingServices && isReadOnly && selectedServices.length === 0" class="no-services-performed">
+        <ion-text color="medium">
+          <p>No services have been performed yet.</p>
+        </ion-text>
       </div>
       
       <!-- Selected Services Table -->

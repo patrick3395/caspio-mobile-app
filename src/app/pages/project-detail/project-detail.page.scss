@@ -33,6 +33,9 @@ img{width:100%;height:100%;object-fit:cover}}
 
 .info-section{padding:20px;background:white;margin-bottom:10px;border-bottom:1px solid $border;
 .section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
+.section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
+.section-title{margin:0;padding:0;border:none}
+ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;
 .info-label{font-weight:500;color:$gray;width:140px}
@@ -44,6 +47,16 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 label{flex:1;cursor:pointer;font-size:14px;color:$dark !important;} // Never green
 ion-checkbox{--checkmark-color:white;--checkbox-background-checked:#{$orange};} // Orange brand color
 }
+
+// Services performed list for read-only view
+.services-performed-list{display:flex;flex-direction:column;gap:10px;
+.performed-service-item{display:flex;align-items:center;gap:10px;padding:10px;background:$light-gray;border:1px solid $border;border-radius:8px;
+ion-icon{font-size:20px;flex-shrink:0}
+.service-name{flex:1;font-size:14px;color:$dark;font-weight:500}
+.instance-badge{background:rgba($orange,0.1);color:$orange;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}}}
+
+.no-services-performed{text-align:center;padding:20px;
+p{color:$gray;font-size:14px}}
 
 .selected-services-table{margin-top:20px;padding-top:20px;border-top:2px solid $border;
 h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
