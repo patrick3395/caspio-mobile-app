@@ -72,6 +72,9 @@ export class ProjectDetailPage implements OnInit {
   
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
+  
+  // Navigation flag to prevent double-clicks
+  isNavigating = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -1295,8 +1298,21 @@ export class ProjectDetailPage implements OnInit {
   }
 
   // Template navigation
-  async openTemplate(service: ServiceSelection) {
+  async openTemplate(service: ServiceSelection, event?: Event) {
+    // Prevent any event bubbling
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    // Add debounce to prevent double-clicks
+    if (this.isNavigating) {
+      return;
+    }
+    
     if (service.serviceId) {
+      this.isNavigating = true;
+      
       // Navigate directly to template without alert
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
@@ -1318,14 +1334,37 @@ export class ProjectDetailPage implements OnInit {
         service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
         typeIdStr === '35';
         
-      if (isEngineersFoundation) {
-        console.log('✅ Navigating to Engineers Foundation template');
-        console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
-        this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
-      } else {
-        console.log('📝 Navigating to standard template form');
-        console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
-        this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+      try {
+        if (isEngineersFoundation) {
+          console.log('✅ Navigating to Engineers Foundation template');
+          console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
+          const result = await this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
+          console.log('   Navigation result:', result);
+          
+          // If navigation failed, try with navigateByUrl
+          if (!result) {
+            console.log('   Retrying with navigateByUrl...');
+            await this.router.navigateByUrl(`/engineers-foundation/${this.projectId}/${service.serviceId}`);
+          }
+        } else {
+          console.log('📝 Navigating to standard template form');
+          console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
+          const result = await this.router.navigate(['/template-form', this.projectId, service.serviceId]);
+          console.log('   Navigation result:', result);
+          
+          // If navigation failed, try with navigateByUrl
+          if (!result) {
+            console.log('   Retrying with navigateByUrl...');
+            await this.router.navigateByUrl(`/template-form/${this.projectId}/${service.serviceId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Navigation error:', error);
+      } finally {
+        // Reset navigation flag after a delay
+        setTimeout(() => {
+          this.isNavigating = false;
+        }, 1000);
       }
     }
   }

@@ -307,7 +307,7 @@
       <div class="templates-container">
         <div *ngFor="let service of selectedServices" 
              class="template-bar" 
-             (click)="openTemplate(service)">
+             (click)="openTemplate(service, $event)">
           
           <!-- Progress fill background -->
           <div class="template-progress" 
