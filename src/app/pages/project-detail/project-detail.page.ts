@@ -394,6 +394,25 @@ export class ProjectDetailPage implements OnInit {
         throw new Error('Offer missing TypeID');
       }
       
+      // Check if we're in add-service mode (adding to a completed project)
+      const queryParams = this.route.snapshot.queryParams;
+      if (queryParams['mode'] === 'add-service' && this.project) {
+        // Update project status to Active (StatusID = 1) when adding service to completed project
+        const projectPkId = this.project.PK_ID || this.project.ProjectID;
+        console.log('🔍 DEBUG: Updating project status to Active for project:', projectPkId);
+        
+        try {
+          await this.caspioService.updateProject(projectPkId, { StatusID: 1 }).toPromise();
+          // Update local project object
+          this.project.StatusID = 1;
+          console.log('🔍 DEBUG: Project status updated to Active');
+          await this.showToast('Project moved to Active status', 'success');
+        } catch (error) {
+          console.error('Error updating project status:', error);
+          // Continue with service creation even if status update fails
+        }
+      }
+      
       // Create service record in Caspio - Services table only has ProjectID, TypeID, DateOfInspection
       // IMPORTANT: Use project.ProjectID (not PK_ID) for the Services table relationship
       const serviceData = {
@@ -521,16 +540,15 @@ export class ProjectDetailPage implements OnInit {
     // This allows adding services to completed projects
     const projectId = this.project?.PK_ID || this.project?.ProjectID;
     if (projectId) {
-      // Create a temporary active version of the project
-      const tempProject = { ...this.project, StatusID: 1 };
+      // Navigate with add-service mode
       this.router.navigate(['/project', projectId], {
         queryParams: { mode: 'add-service' },
-        state: { project: tempProject }
+        state: { project: this.project }
       });
       
       // Temporarily enable editing
       this.isReadOnly = false;
-      await this.showToast('You can now add additional services to this project', 'success');
+      await this.showToast('Select services to add. Project will be moved to Active status.', 'info');
       
       // After a short delay, show the services grid
       setTimeout(() => {
