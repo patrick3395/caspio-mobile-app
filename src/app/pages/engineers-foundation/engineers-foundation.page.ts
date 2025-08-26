@@ -1267,11 +1267,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     let keepCapturing = true;
     let photoCounter = 0;
     
+    // Debug alert to confirm method is called
+    const debugAlert = await this.alertController.create({
+      header: '🔍 DEBUG: Multi-Photo Started',
+      message: `Method called for ${category} with VisualID: ${visualId}`,
+      buttons: ['Continue']
+    });
+    await debugAlert.present();
+    await debugAlert.onDidDismiss();
+    
     // Show initial instructions
     const startAlert = await this.alertController.create({
-      header: '📸 Multi-Photo Capture',
-      message: 'Take as many photos as you need. After each photo, you can Retake, Use it, or Take Another.',
-      buttons: ['Start Taking Photos']
+      header: '📸 Multi-Photo Mode',
+      message: 'You will be prompted to take photos one by one. After each photo, choose what to do.',
+      buttons: ['Start']
     });
     await startAlert.present();
     await startAlert.onDidDismiss();
@@ -1283,71 +1292,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          // Create file input for camera capture
+          // Debug popup before camera
+          await this.showToast(`📸 Opening camera for photo ${photoCounter + 1}...`, 'info');
+          
+          // Simple approach - create input and trigger immediately
           const input = document.createElement('input');
           input.type = 'file';
           input.accept = 'image/*';
-          input.capture = 'camera' as any; // Force camera
+          input.capture = 'camera' as any;
           input.style.display = 'none';
           document.body.appendChild(input);
-          
-          // Show alert to trigger camera
-          const cameraPrompt = await this.alertController.create({
-            header: `📸 Photo ${photoCounter + 1}`,
-            message: 'Tap "Open Camera" to take a photo',
-            buttons: [
-              {
-                text: 'Cancel',
-                role: 'cancel'
-              },
-              {
-                text: 'Open Camera',
-                cssClass: 'primary',
-                handler: () => {
-                  // Trigger file input click after alert dismisses
-                  setTimeout(() => input.click(), 100);
-                  return true;
-                }
-              }
-            ],
-            backdropDismiss: false
-          });
-          
-          await cameraPrompt.present();
-          const { role } = await cameraPrompt.onDidDismiss();
-          
-          if (role === 'cancel') {
-            document.body.removeChild(input);
-            keepCapturing = false;
-            retakePhoto = false;
-            break;
-          }
           
           const fileSelected = new Promise<File | null>((resolve) => {
             let resolved = false;
             
-            input.onchange = async (event: any) => {
+            input.onchange = (event: any) => {
               if (!resolved) {
                 resolved = true;
                 const file = event.target?.files?.[0];
-                if (file) {
-                  await this.showToast(`📷 Photo captured: ${file.name}`, 'success');
-                }
-                document.body.removeChild(input);
+                try {
+                  document.body.removeChild(input);
+                } catch (e) {}
                 resolve(file || null);
               }
             };
             
-            // Handle cancel event
-            input.addEventListener('cancel', () => {
-              if (!resolved) {
-                resolved = true;
-                document.body.removeChild(input);
-                resolve(null);
-              }
-            });
-            
-            // Add timeout
+            // Timeout for cancel
             setTimeout(() => {
               if (!resolved) {
                 resolved = true;
@@ -1356,22 +1326,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 } catch (e) {}
                 resolve(null);
               }
-            }, 120000); // 2 minutes timeout
+            }, 60000); // 1 minute timeout
           });
+          
+          // Trigger camera after a small delay
+          setTimeout(() => {
+            input.click();
+          }, 500);
           
           currentFile = await fileSelected;
           
           if (currentFile) {
+            await this.showToast(`✅ Photo received: ${currentFile.name}`, 'success');
+            
             // Show preview and options
             const objectUrl = URL.createObjectURL(currentFile);
             
             // Create custom alert with photo preview
             const alert = await this.alertController.create({
-              header: `Photo ${photoCounter + 1} Review`,
+              header: `Photo ${photoCounter + 1}`,
               message: `
                 <div style="text-align: center;">
                   <img src="${objectUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin: 10px 0;">
-                  <p style="margin-top: 10px; font-weight: bold;">What would you like to do?</p>
+                  <p>Choose an option:</p>
                 </div>
               `,
               buttons: [
@@ -1466,8 +1443,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Camera button handler - allows multiple photo capture
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    // Debug popup for camera button click
-    await this.showToast(`📸 Camera clicked: ${category}`, 'info');
+    // Debug alert to confirm button was clicked
+    const clickDebug = await this.alertController.create({
+      header: '🔍 DEBUG: Camera Button',
+      message: `Button clicked for ${category} / ${itemId}`,
+      buttons: ['Continue']
+    });
+    await clickDebug.present();
+    await clickDebug.onDidDismiss();
     
     // Prevent event bubbling
     if (event) {
@@ -1501,6 +1484,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
     }
+    
+    // Debug before starting multi-photo
+    const preStartDebug = await this.alertController.create({
+      header: '🎬 Starting Multi-Photo',
+      message: `VisualID: ${visualId}\nKey: ${key}\nCategory: ${category}`,
+      buttons: ['Start']
+    });
+    await preStartDebug.present();
+    await preStartDebug.onDidDismiss();
     
     // Start multiple photo capture session
     await this.startMultiPhotoCapture(visualId, key, category, itemId);
