@@ -170,6 +170,15 @@ export class AllProjectsPage implements OnInit {
 
   async selectProject(project: Project) {
     console.log('Selected project:', project);
+    console.log('Project data keys:', Object.keys(project));
+    console.log('Project Address:', project.Address);
+    
+    // Validate project data
+    if (!project || typeof project !== 'object') {
+      console.error('Invalid project data:', project);
+      await this.showErrorAlert('Invalid project data');
+      return;
+    }
     
     // Show project details in a modal
     const alert = await this.alertController.create({
@@ -186,30 +195,52 @@ export class AllProjectsPage implements OnInit {
 
     await alert.present();
   }
+  
+  private async showErrorAlert(message: string) {
+    const alert = await this.alertController.create({
+      header: 'Error',
+      message: message,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
 
   private getProjectDetailContent(project: Project): string {
+    // Helper function to escape HTML
+    const escapeHtml = (text: any): string => {
+      if (!text) return '';
+      const str = String(text);
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+    
     const formatDate = (date: string) => {
       if (!date) return 'N/A';
-      return new Date(date).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      try {
+        return new Date(date).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      } catch {
+        return 'Invalid Date';
+      }
     };
 
     let content = `
       <div class="project-detail-content">
         <div class="detail-row">
-          <strong>Project ID:</strong> ${this.formatProjectId(project)}
+          <strong>Project ID:</strong> ${escapeHtml(this.formatProjectId(project))}
         </div>
         <div class="detail-row">
-          <strong>Address:</strong> ${project.Address || 'N/A'}
+          <strong>Address:</strong> ${escapeHtml(project.Address) || 'N/A'}
         </div>
         <div class="detail-row">
-          <strong>City, State:</strong> ${project.City || 'N/A'}, ${project.State || 'N/A'} ${project.Zip || ''}
+          <strong>City, State:</strong> ${escapeHtml(project.City) || 'N/A'}, ${escapeHtml(project.State) || 'N/A'} ${escapeHtml(project.Zip) || ''}
         </div>
         <div class="detail-row">
-          <strong>Status:</strong> <span class="status-badge ${this.getStatusColor(project)}">${this.getStatusLabel(project)}</span>
+          <strong>Status:</strong> <span class="status-badge ${this.getStatusColor(project)}">${escapeHtml(this.getStatusLabel(project))}</span>
         </div>
     `;
 
@@ -218,13 +249,13 @@ export class AllProjectsPage implements OnInit {
       content += `<div class="detail-separator"></div>`;
       
       if (project['DateCreated']) {
-        content += `<div class="detail-row"><strong>Created:</strong> ${formatDate(project['DateCreated'])}</div>`;
+        content += `<div class="detail-row"><strong>Created:</strong> ${escapeHtml(formatDate(project['DateCreated']))}</div>`;
       }
       if (project['DateOfInspection']) {
-        content += `<div class="detail-row"><strong>Inspection:</strong> ${formatDate(project['DateOfInspection'])}</div>`;
+        content += `<div class="detail-row"><strong>Inspection:</strong> ${escapeHtml(formatDate(project['DateOfInspection']))}</div>`;
       }
       if (project['DateCompleted']) {
-        content += `<div class="detail-row"><strong>Completed:</strong> ${formatDate(project['DateCompleted'])}</div>`;
+        content += `<div class="detail-row"><strong>Completed:</strong> ${escapeHtml(formatDate(project['DateCompleted']))}</div>`;
       }
     }
 
@@ -233,13 +264,13 @@ export class AllProjectsPage implements OnInit {
       content += `<div class="detail-separator"></div>`;
       
       if (project['ClientName']) {
-        content += `<div class="detail-row"><strong>Client:</strong> ${project['ClientName']}</div>`;
+        content += `<div class="detail-row"><strong>Client:</strong> ${escapeHtml(project['ClientName'])}</div>`;
       }
       if (project['ClientPhone']) {
-        content += `<div class="detail-row"><strong>Phone:</strong> ${project['ClientPhone']}</div>`;
+        content += `<div class="detail-row"><strong>Phone:</strong> ${escapeHtml(project['ClientPhone'])}</div>`;
       }
       if (project['ClientEmail']) {
-        content += `<div class="detail-row"><strong>Email:</strong> ${project['ClientEmail']}</div>`;
+        content += `<div class="detail-row"><strong>Email:</strong> ${escapeHtml(project['ClientEmail'])}</div>`;
       }
     }
 
@@ -249,7 +280,7 @@ export class AllProjectsPage implements OnInit {
         <div class="detail-separator"></div>
         <div class="detail-row">
           <strong>Notes:</strong><br>
-          <div class="notes-text">${project['Notes']}</div>
+          <div class="notes-text">${escapeHtml(project['Notes'])}</div>
         </div>
       `;
     }
