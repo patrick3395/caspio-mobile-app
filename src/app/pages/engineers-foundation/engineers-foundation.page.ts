@@ -154,6 +154,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.saveDebounceTimer = null;
     }
     
+    // Clean up object URLs to prevent memory leaks
+    Object.values(this.visualPhotos).forEach((photos: any) => {
+      if (Array.isArray(photos)) {
+        photos.forEach((photo: any) => {
+          if (photo.isObjectUrl && photo.url) {
+            URL.revokeObjectURL(photo.url);
+          }
+        });
+      }
+    });
+    
     // Clear any data to prevent memory leaks
     this.visualPhotos = {};
     this.roomElevationData = {};
@@ -1357,9 +1368,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
   async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false) {
-    // Minimal logging for performance
-    console.log('Uploading photo:', photo.name);
-    
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
     
@@ -1369,10 +1377,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       currentExpandedAccordions.push(category);
     }
     
-    try {
-      // Use the ID from visualRecordIds to ensure consistency
-      const actualVisualId = this.visualRecordIds[key] || visualId;
+    // Use the ID from visualRecordIds to ensure consistency
+    const actualVisualId = this.visualRecordIds[key] || visualId;
+    
+    // INSTANTLY show preview with object URL
+    if (actualVisualId && actualVisualId !== 'undefined') {
+      if (!this.visualPhotos[actualVisualId]) {
+        this.visualPhotos[actualVisualId] = [];
+      }
       
+      // Create instant preview
+      const objectUrl = URL.createObjectURL(photo);
+      const tempId = `temp_${Date.now()}_${Math.random()}`;
+      const photoData: any = {
+        AttachID: tempId,
+        id: tempId,
+        name: photo.name,
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
+        isObjectUrl: true,
+        uploading: true // Flag to show it's uploading
+      };
+      
+      // Add immediately for instant feedback
+      this.visualPhotos[actualVisualId].push(photoData);
+      
+      // Restore accordion state
+      if (currentExpandedAccordions) {
+        this.expandedAccordions = currentExpandedAccordions;
+      }
+      this.restoreAccordionState();
+    }
+    
+    // Now do the actual upload in background
+    try {
       // Parse visualId to number as required by the service
       const visualIdNum = parseInt(actualVisualId, 10);
       
@@ -1476,14 +1514,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, currentExpandedAccordions?: string[]) {
-    let loading: any = null;
-    if (!isBatchUpload) {
-      loading = await this.loadingController.create({
-        message: 'Uploading photo...'
-      });
-      await loading.present();
-    }
-    
     try {
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
@@ -1494,82 +1524,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log('✅ Photo uploaded successfully:', response);
       
-      // Store photo reference - use the actual visualRecordIds value for this key
-      const actualVisualId = String(this.visualRecordIds[key]); // Ensure string for consistency
-      console.log('🔍 Getting visualId for key:', key, '-> actualVisualId:', actualVisualId);
+      // Update the temporary photo with real data
+      const actualVisualId = String(this.visualRecordIds[key]);
       
-      if (actualVisualId && actualVisualId !== 'undefined') {
-        if (!this.visualPhotos[actualVisualId]) {
-          this.visualPhotos[actualVisualId] = [];
-        }
+      if (actualVisualId && actualVisualId !== 'undefined' && this.visualPhotos[actualVisualId]) {
+        // Find the temp photo and update it with real data
+        const photos = this.visualPhotos[actualVisualId];
+        const tempPhotoIndex = photos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
         
-        // Create photo object with immediate preview
-        const photoData: any = {
-          AttachID: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
-          id: response?.AttachID || response?.PK_ID || response?.id || Date.now(),
-          name: photo.name,
-          Photo: response?.Photo || '',
-          filePath: response?.Photo || '',
-          uploadedAt: new Date().toISOString(),
-          url: '', // Will be populated below
-          thumbnailUrl: '' // Will be populated below
-        };
-        
-        // Create immediate preview from the uploaded file BEFORE adding to array
-        await new Promise<void>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            photoData.url = reader.result as string;
-            photoData.thumbnailUrl = reader.result as string;
-            resolve();
+        if (tempPhotoIndex !== -1) {
+          // Update the temp photo with real data
+          photos[tempPhotoIndex] = {
+            ...photos[tempPhotoIndex],
+            AttachID: response?.AttachID || response?.PK_ID || response?.id,
+            id: response?.AttachID || response?.PK_ID || response?.id,
+            Photo: response?.Photo || '',
+            filePath: response?.Photo || '',
+            uploading: false // Remove uploading flag
+            // Keep the object URL for preview
           };
-          reader.readAsDataURL(photo);
-        });
-        
-        // Now add to array with preview already set
-        this.visualPhotos[actualVisualId].push(photoData);
-        console.log('🖼️ Photo added with preview:', {
-          key,
-          actualVisualId,
-          actualVisualIdType: typeof actualVisualId,
-          photoCount: this.visualPhotos[actualVisualId].length,
-          hasUrl: !!photoData.url,
-          urlLength: photoData.url?.length || 0,
-          allVisualPhotoKeys: Object.keys(this.visualPhotos),
-          allVisualRecordIdKeys: Object.keys(this.visualRecordIds),
-          visualRecordIdsForThisKey: this.visualRecordIds[key]
-        });
-        
-        // Removed change detection to improve performance
-        // Ensure the current category stays expanded if provided
-        if (currentExpandedAccordions) {
-          this.expandedAccordions = currentExpandedAccordions;
         }
-        // Restore accordion state after change detection
-        this.restoreAccordionState();
       }
       
-      if (loading) {
-        await loading.dismiss();
-      }
-      if (!isBatchUpload) {
-        await this.showToast('Photo uploaded successfully', 'success');
-      }
-      
-      // Don't reload all photos - just ensure this one is visible
-      // Removed change detection to improve performance
       // Ensure the current category stays expanded if provided
       if (currentExpandedAccordions) {
         this.expandedAccordions = currentExpandedAccordions;
       }
-      // Restore accordion state after change detection
       this.restoreAccordionState();
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
-      if (loading) {
-        await loading.dismiss();
+      
+      // Remove the failed temp photo from display
+      const actualVisualId = String(this.visualRecordIds[key]);
+      if (actualVisualId && this.visualPhotos[actualVisualId]) {
+        const photos = this.visualPhotos[actualVisualId];
+        const tempPhotoIndex = photos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+        if (tempPhotoIndex !== -1) {
+          photos.splice(tempPhotoIndex, 1);
+        }
       }
+      
       if (!isBatchUpload) {
         await this.showToast('Failed to upload photo', 'danger');
       } else {

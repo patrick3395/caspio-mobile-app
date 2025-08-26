@@ -301,12 +301,15 @@
                             <ion-icon name="image-outline"></ion-icon>
                             <p>No photos yet. Tap the camera icon to add photos.</p>
                           </div>
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                            <div class="upload-indicator" *ngIf="photo.uploading">
+                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                            </div>
+                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <input 
@@ -367,12 +370,15 @@
                             <ion-icon name="image-outline"></ion-icon>
                             <p>No photos yet. Tap the camera icon to add photos.</p>
                           </div>
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                            <div class="upload-indicator" *ngIf="photo.uploading">
+                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                            </div>
+                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <input 
@@ -433,12 +439,15 @@
                             <ion-icon name="image-outline"></ion-icon>
                             <p>No photos yet. Tap the camera icon to add photos.</p>
                           </div>
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
-                            <button class="delete-btn" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                            <div class="upload-indicator" *ngIf="photo.uploading">
+                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                            </div>
+                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <input 
