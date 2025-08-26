@@ -507,7 +507,7 @@
             <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
                  [class.selected]="isRoomSelected(room.RoomName)">
               
-              <!-- Room card header with checkbox -->
+              <!-- Room card header with checkbox and collapse toggle -->
               <div class="room-card-header">
                 <ion-item lines="none" class="checkbox-item">
                   <ion-checkbox 
@@ -516,16 +516,21 @@
                     [disabled]="isRoomSaving(room.RoomName)"
                     (ionChange)="toggleRoomSelection(room.RoomName)">
                   </ion-checkbox>
-                  <ion-label class="item-label">
+                  <ion-label class="item-label" (click)="toggleRoomExpanded(room.RoomName)">
                     <h3>{{ room.RoomName }}</h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
+                  <ion-icon *ngIf="isRoomSelected(room.RoomName)" 
+                            [name]="isRoomExpanded(room.RoomName) ? 'chevron-up' : 'chevron-down'"
+                            slot="end"
+                            (click)="toggleRoomExpanded(room.RoomName)"
+                            style="cursor: pointer; font-size: 20px; color: var(--noble-gray);"></ion-icon>
                 </ion-item>
               </div>
               
-              <!-- Show room content only when selected -->
-              <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName)">
+              <!-- Show room content only when selected and expanded -->
+              <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
                 
                 <!-- Flooring Difference Factor dropdown - compact inline -->
                 <div class="fdf-dropdown-container">
@@ -557,14 +562,22 @@
                         </button>
                       </div>
                       
-                      <!-- Photo preview if exists -->
+                      <!-- Photo preview with captions if exists -->
                       <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
                         <div class="photo-thumbnails">
-                          <img *ngFor="let photo of point.photos; let i = index" 
-                               [src]="photo.thumbnailUrl || photo.url" 
-                               (click)="viewElevationPhoto(photo)"
-                               (error)="handleImageError($event, photo)"
-                               [alt]="'Photo ' + (i+1) + ' for ' + point.name">
+                          <div class="photo-thumb-container" *ngFor="let photo of point.photos; let i = index">
+                            <img [src]="photo.thumbnailUrl || photo.url" 
+                                 (click)="viewRoomPhoto(photo, room.RoomName, point)"
+                                 (error)="handleImageError($event, photo)"
+                                 [alt]="'Photo ' + (i+1) + ' for ' + point.name">
+                            <input type="text" 
+                                   class="room-photo-caption"
+                                   [(ngModel)]="photo.annotation"
+                                   (blur)="saveRoomPhotoCaption(photo, room.RoomName, point)"
+                                   (click)="$event.stopPropagation()"
+                                   placeholder="Caption..."
+                                   maxlength="255">
+                          </div>
                         </div>
                       </div>
                     </div>

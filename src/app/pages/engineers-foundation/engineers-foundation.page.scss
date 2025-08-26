@@ -883,21 +883,52 @@ ion-toolbar {
                 
                 .photo-thumbnails {
                   display: flex;
-                  gap: 4px;
+                  gap: 6px;
                   flex-wrap: wrap;
                   
-                  img {
+                  .photo-thumb-container {
+                    display: flex;
+                    flex-direction: column;
                     width: 60px;
-                    height: 60px;
-                    object-fit: cover;
-                    border-radius: 3px;
-                    border: 1px solid #e0e0e0;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
                     
-                    &:hover {
-                      transform: scale(1.1);
-                      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    img {
+                      width: 60px;
+                      height: 60px;
+                      object-fit: cover;
+                      border-radius: 3px 3px 0 0;
+                      border: 1px solid #e0e0e0;
+                      border-bottom: none;
+                      cursor: pointer;
+                      transition: all 0.3s ease;
+                      
+                      &:hover {
+                        transform: scale(1.05);
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+                      }
+                    }
+                    
+                    .room-photo-caption {
+                      width: 60px;
+                      padding: 2px 4px;
+                      font-size: 10px;
+                      text-align: center;
+                      border: 1px solid #e0e0e0;
+                      border-top: none;
+                      border-radius: 0 0 3px 3px;
+                      background: white;
+                      color: #666;
+                      transition: all 0.2s ease;
+                      
+                      &:focus {
+                        outline: none;
+                        border-color: var(--noble-orange);
+                        background: #fffbf8;
+                      }
+                      
+                      &::placeholder {
+                        color: #ccc;
+                        font-size: 9px;
+                      }
                     }
                   }
                 }

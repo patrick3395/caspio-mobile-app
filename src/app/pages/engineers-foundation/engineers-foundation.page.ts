@@ -72,6 +72,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
   savingRooms: { [roomName: string]: boolean } = {};
   roomPointIds: { [key: string]: string } = {}; // Track Services_Rooms_Points IDs
+  expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
   
@@ -253,6 +254,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const template = autoTemplates.find((t: any) => t.RoomName === roomName);
               if (template && roomName && roomId) {
                 this.selectedRooms[roomName] = true;
+                this.expandedRooms[roomName] = true; // Auto-expand when loaded
                 this.roomRecordIds[roomName] = roomId;
                 
                 // Load existing FDF and Notes values if present
@@ -430,7 +432,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
                 point.photos.push({
                   url: photoUrl,
-                  thumbnailUrl: photoUrl
+                  thumbnailUrl: photoUrl,
+                  annotation: '',  // Initialize with empty annotation
+                  pointId: pointId,
+                  attachId: null  // Will be set when we get response
                 });
                 point.photoCount = point.photos.length;
               })
@@ -838,6 +843,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     }
                     this.roomRecordIds[roomName] = roomId;
                     this.selectedRooms[roomName] = true;
+                    this.expandedRooms[roomName] = true; // Auto-expand when selected
                     await this.showToast(`Room "${roomName}" added`, 'success');
                     console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
                     
@@ -913,6 +919,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             await this.showToast('Failed to remove room', 'danger');
             // Revert UI state on error
             this.selectedRooms[roomName] = true;
+            this.expandedRooms[roomName] = true;
           }
         }
       }
@@ -930,6 +937,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   isRoomSaving(roomName: string): boolean {
     return !!this.savingRooms[roomName];
+  }
+  
+  // Check if room is expanded
+  isRoomExpanded(roomName: string): boolean {
+    // Default to expanded when first selected
+    if (this.expandedRooms[roomName] === undefined && this.isRoomSelected(roomName)) {
+      this.expandedRooms[roomName] = true;
+    }
+    return this.expandedRooms[roomName] || false;
+  }
+  
+  // Toggle room expansion
+  toggleRoomExpanded(roomName: string) {
+    if (this.isRoomSelected(roomName)) {
+      this.expandedRooms[roomName] = !this.expandedRooms[roomName];
+    }
   }
 
   async loadVisualCategories() {
@@ -1451,7 +1474,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // View elevation photo in modal
+  // View room photo with viewer modal
+  async viewRoomPhoto(photo: any, roomName: string, point: any) {
+    try {
+      const modal = await this.modalController.create({
+        component: PhotoViewerComponent,
+        componentProps: {
+          photo: photo,
+          photoName: `${roomName} - ${point.name}`,
+          showAnnotation: true,
+          captionEditable: true
+        }
+      });
+      
+      await modal.present();
+      
+      const { data } = await modal.onDidDismiss();
+      if (data && data.updatedCaption !== undefined) {
+        photo.annotation = data.updatedCaption;
+        await this.saveRoomPhotoCaption(photo, roomName, point);
+      }
+    } catch (error) {
+      console.error('Error viewing room photo:', error);
+    }
+  }
+  
+  // Save room photo caption/annotation
+  async saveRoomPhotoCaption(photo: any, roomName: string, point: any) {
+    try {
+      // We need to find the attachment ID for this photo
+      // For now, just log it - we'll need to track attachIds when uploading
+      console.log('Save room photo caption:', photo.annotation, 'for', point.name);
+      
+      // TODO: Update Services_Rooms_Points_Attach record with annotation
+      if (photo.attachId) {
+        // Update the annotation in the database
+        const updateData = { Annotation: photo.annotation || '' };
+        // await this.caspioService.updateRoomPointAttachment(photo.attachId, updateData).toPromise();
+        console.log('Would update attachment', photo.attachId, 'with', updateData);
+      }
+      
+      // Don't show toast for every blur event
+    } catch (error) {
+      console.error('Error saving room photo caption:', error);
+      await this.showToast('Failed to save caption', 'danger');
+    }
+  }
+  
+  // View elevation photo in modal (legacy redirect)
   async viewElevationPhoto(photo: any) {
     console.log('Viewing elevation photo:', photo);
     
