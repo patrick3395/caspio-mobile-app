@@ -312,38 +312,22 @@ export class CaspioService {
     );
   }
 
-  // Services Room Templates methods
+  // Services Room Templates methods - simplified
   getServicesRoomTemplates(): Observable<any[]> {
-    // Try without 's' first (Services_Room_Templates), then with 's' (Services_Rooms_Templates)
+    // Simply return empty array for now to prevent API issues
+    return of([]);
+    
+    // Original implementation commented out to prevent performance issues
+    // Will re-enable once we fix the table name and structure
+    /*
     return this.get<any>('/tables/Services_Room_Templates/records').pipe(
-      map(response => {
-        const allRecords = response.Result || [];
-        // Filter for Auto = Yes (handle different possible values)
-        return allRecords.filter((record: any) => 
-          record.Auto === 'Yes' || record.Auto === 'yes' || 
-          record.Auto === true || record.Auto === 1 || 
-          record.Auto === '1'
-        );
-      }),
+      map(response => response.Result || []),
       catchError(error => {
-        console.log('Trying alternative table name Services_Rooms_Templates...');
-        // If first attempt fails, try with 's'
-        return this.get<any>('/tables/Services_Rooms_Templates/records').pipe(
-          map(response => {
-            const allRecords = response.Result || [];
-            return allRecords.filter((record: any) => 
-              record.Auto === 'Yes' || record.Auto === 'yes' || 
-              record.Auto === true || record.Auto === 1 || 
-              record.Auto === '1'
-            );
-          }),
-          catchError(secondError => {
-            console.error('Both table names failed:', error, secondError);
-            return of([]); // Return empty array on error
-          })
-        );
+        console.error('Room templates error:', error);
+        return of([]);
       })
     );
+    */
   }
   
   // Services Visuals methods (for saving selected items)

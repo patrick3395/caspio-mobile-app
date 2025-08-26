@@ -129,8 +129,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Load visual categories from Services_Visuals_Templates FIRST
     await this.loadVisualCategories();
     
-    // Load room templates for elevation plot
-    await this.loadRoomTemplates();
+    // Temporarily disable room templates to fix performance
+    // await this.loadRoomTemplates();
+    this.roomTemplates = []; // Initialize as empty
+    this.roomElevationData = {}; // Initialize as empty
     
     // Then load any existing template data (including visual selections)
     await this.loadExistingData();
@@ -149,7 +151,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Clean up timers
     if (this.saveDebounceTimer) {
       clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
     }
+    
+    // Clear any data to prevent memory leaks
+    this.visualPhotos = {};
+    this.roomElevationData = {};
+    this.roomTemplates = [];
+    
+    // Force garbage collection hints
+    this.formData = {};
+    this.elevationReadings = [];
   }
   
   async loadProjectData() {
@@ -313,16 +325,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.formData = { ...this.formData, ...parsed.formData };
         this.elevationReadings = parsed.elevationReadings || [];
         
-        // Load room elevation data if present
-        if (parsed.roomElevationData) {
-          // Merge with existing room templates structure
-          Object.keys(parsed.roomElevationData).forEach(roomName => {
-            if (this.roomElevationData[roomName]) {
-              this.roomElevationData[roomName].points = parsed.roomElevationData[roomName].points || this.roomElevationData[roomName].points;
-              this.roomElevationData[roomName].notes = parsed.roomElevationData[roomName].notes || '';
-            }
-          });
-        }
+        // Skip loading room elevation data to prevent issues
         
         console.log('Draft data loaded from localStorage');
       } catch (error) {
@@ -490,7 +493,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const draftData = {
         formData: this.formData,
         elevationReadings: this.elevationReadings,
-        roomElevationData: this.roomElevationData,
+        // Removed roomElevationData to prevent memory issues
         savedAt: new Date().toISOString()
       };
       
@@ -1213,10 +1216,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.restoreAccordionState();
         
         // Photos are already added with proper previews during upload
-        // Just trigger change detection to ensure they're displayed
-        if (uploadSuccessCount > 0) {
-          this.changeDetectorRef.detectChanges();
-        }
+        // Removed change detection to improve performance
         
         // Clear upload tracking
         this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
@@ -1224,8 +1224,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           delete this.uploadingPhotos[key];
         }
         
-        // Force change detection to update the view
-        this.changeDetectorRef.detectChanges();
+        // Removed change detection to improve performance
       }
     } catch (error) {
       console.error('❌ Error handling files:', error);
@@ -1554,8 +1553,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           visualRecordIdsForThisKey: this.visualRecordIds[key]
         });
         
-        // Trigger change detection to show preview immediately
-        this.changeDetectorRef.detectChanges();
+        // Removed change detection to improve performance
         // Ensure the current category stays expanded if provided
         if (currentExpandedAccordions) {
           this.expandedAccordions = currentExpandedAccordions;
@@ -1572,8 +1570,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Don't reload all photos - just ensure this one is visible
-      // The preview is already set, just trigger change detection
-      this.changeDetectorRef.detectChanges();
+      // Removed change detection to improve performance
       // Ensure the current category stays expanded if provided
       if (currentExpandedAccordions) {
         this.expandedAccordions = currentExpandedAccordions;
