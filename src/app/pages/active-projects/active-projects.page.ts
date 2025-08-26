@@ -3,6 +3,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
+import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-active-projects',
@@ -25,7 +26,8 @@ export class ActiveProjectsPage implements OnInit {
     private caspioService: CaspioService,
     private deployService: IonicDeployService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -252,5 +254,33 @@ export class ActiveProjectsPage implements OnInit {
       console.error('Live update check failed (non-critical):', updateError);
       // Don't show error to user as refresh still worked
     }
+  }
+
+  async logout() {
+    const alert = await this.alertController.create({
+      header: 'Confirm Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Logout',
+          handler: () => {
+            // Clear auth data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('caspio_token');
+            localStorage.removeItem('caspio_token_expiry');
+            
+            // Navigate to login
+            this.router.navigate(['/login']);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 }

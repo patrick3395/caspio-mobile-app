@@ -1,0 +1,61 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Login</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="login-content">
+  <div class="login-container">
+    <div class="logo-section">
+      <div class="app-logo">
+        <ion-icon name="business-outline" size="large"></ion-icon>
+      </div>
+      <h1>Noble Property Inspections</h1>
+      <p>Caspio Mobile v1.3.95</p>
+    </div>
+
+    <div class="form-section">
+      <ion-item lines="none" class="input-item">
+        <ion-icon name="mail-outline" slot="start"></ion-icon>
+        <ion-input 
+          [(ngModel)]="credentials.email" 
+          type="email" 
+          placeholder="Email Address"
+          autocomplete="email"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item lines="none" class="input-item">
+        <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+        <ion-input 
+          [(ngModel)]="credentials.password" 
+          [type]="showPassword ? 'text' : 'password'" 
+          placeholder="Password"
+          autocomplete="current-password"
+          required>
+        </ion-input>
+        <ion-button 
+          fill="clear" 
+          slot="end" 
+          (click)="togglePasswordVisibility()">
+          <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+        </ion-button>
+      </ion-item>
+
+      <ion-button 
+        expand="block" 
+        class="login-button"
+        (click)="login()"
+        [disabled]="!credentials.email || !credentials.password">
+        Login
+      </ion-button>
+
+      <div class="forgot-password">
+        <ion-button fill="clear" size="small" (click)="forgotPassword()">
+          Forgot Password?
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>

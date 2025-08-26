@@ -670,15 +670,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // TrackBy functions for better list performance
-  trackByCategory(index: number, item: any): string {
+  trackByCategory(index: number, item: any): any {
     return item || index;
   }
   
-  trackByTemplateId(index: number, item: any): string {
+  trackByTemplateId(index: number, item: any): any {
     return item.TemplateID || index;
   }
   
-  trackByRoomName(index: number, item: any): string {
+  trackByRoomName(index: number, item: any): any {
     return item.RoomName || index;
   }
   

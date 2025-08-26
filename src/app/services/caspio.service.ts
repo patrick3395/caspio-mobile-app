@@ -1422,4 +1422,42 @@ export class CaspioService {
     };
     return mimeTypes[ext || ''] || 'application/octet-stream';
   }
+
+  // Authenticate user against Users table
+  authenticateUser(email: string, password: string, companyId: number): Observable<any> {
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
+
+        // Query Users table with email, password, and company ID
+        const params = {
+          q: JSON.stringify({
+            where: `Email='${email}' AND Password='${password}' AND CompanyID=${companyId}`
+          })
+        };
+
+        return this.http.get<any>(
+          `${environment.caspio.apiBaseUrl}/tables/Users/records`,
+          { headers, params }
+        ).pipe(
+          map(response => {
+            // Return the users that match (should be 0 or 1)
+            return response.Result || [];
+          }),
+          catchError(error => {
+            console.error('User authentication failed:', error);
+            return of([]);
+          })
+        );
+      })
+    );
+  }
+
+  // Get the current auth token (for storing in localStorage)
+  async getAuthToken(): Promise<string | null> {
+    return this.tokenSubject.value;
+  }
 }
