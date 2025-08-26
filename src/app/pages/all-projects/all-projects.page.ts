@@ -122,7 +122,7 @@ export class AllProjectsPage implements OnInit {
     const term = this.searchTerm.toLowerCase();
     return this.projects.filter(project => 
       (project.Address && project.Address.toLowerCase().includes(term)) ||
-      (project.Title && project.Title.toLowerCase().includes(term)) ||
+      (project['Title'] && project['Title'].toLowerCase().includes(term)) ||
       (project.ProjectID && project.ProjectID.toString().includes(term))
     );
   }

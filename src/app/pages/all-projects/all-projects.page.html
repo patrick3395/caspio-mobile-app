@@ -57,15 +57,15 @@
             </ion-badge>
           </div>
           <h3 class="project-address">{{ project.Address || 'No Address' }}</h3>
-          <p class="project-title" *ngIf="project.Title">{{ project.Title }}</p>
+          <p class="project-title" *ngIf="project['Title']">{{ project['Title'] }}</p>
           <div class="project-details">
-            <span class="detail-item" *ngIf="project.DateCreated">
+            <span class="detail-item" *ngIf="project['DateCreated']">
               <ion-icon name="calendar-outline"></ion-icon>
-              Created: {{ project.DateCreated | date:'shortDate' }}
+              Created: {{ project['DateCreated'] | date:'shortDate' }}
             </span>
-            <span class="detail-item" *ngIf="project.DateCompleted">
+            <span class="detail-item" *ngIf="project['DateCompleted']">
               <ion-icon name="checkmark-circle-outline"></ion-icon>
-              Completed: {{ project.DateCompleted | date:'shortDate' }}
+              Completed: {{ project['DateCompleted'] | date:'shortDate' }}
             </span>
           </div>
         </div>
