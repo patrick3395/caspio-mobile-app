@@ -32,7 +32,6 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
       <!-- Caption button at bottom center -->
       <div class="caption-button-container">
         <ion-button (click)="addCaption()" fill="solid" color="primary">
-          <ion-icon name="text-outline" slot="start"></ion-icon>
           {{ photoCaption ? 'Edit Caption' : 'Add Caption' }}
         </ion-button>
       </div>

@@ -314,12 +314,6 @@ export class CaspioService {
 
   // Services Room Templates methods - simplified
   getServicesRoomTemplates(): Observable<any[]> {
-    // Simply return empty array for now to prevent API issues
-    return of([]);
-    
-    // Original implementation commented out to prevent performance issues
-    // Will re-enable once we fix the table name and structure
-    /*
     return this.get<any>('/tables/Services_Room_Templates/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
@@ -327,7 +321,6 @@ export class CaspioService {
         return of([]);
       })
     );
-    */
   }
   
   // Services Visuals methods (for saving selected items)

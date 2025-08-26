@@ -129,10 +129,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Load visual categories from Services_Visuals_Templates FIRST
     await this.loadVisualCategories();
     
-    // Temporarily disable room templates to fix performance
-    // await this.loadRoomTemplates();
-    this.roomTemplates = []; // Initialize as empty
-    this.roomElevationData = {}; // Initialize as empty
+    // Load room templates for elevation plot
+    await this.loadRoomTemplates();
     
     // Then load any existing template data (including visual selections)
     await this.loadExistingData();
@@ -1017,6 +1015,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // New method to capture photo from camera
   async capturePhotoFromCamera(category: string, itemId: string, item: any) {
     try {
+      // Prevent any navigation
+      event?.preventDefault();
+      event?.stopPropagation();
+      
       const photo = await this.cameraService.takePicture();
       
       if (!photo || !photo.dataUrl) {
@@ -1166,25 +1168,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             buttons: [
               {
                 text: 'Upload as is',
-                handler: async () => {
-                  // Properly await the upload
-                  try {
-                    await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
-                    uploadSuccessCount = 1;
-                    await this.showToast('Photo uploaded successfully', 'success');
-                  } catch (error) {
-                    console.error('Upload failed:', error);
-                    await this.showToast('Failed to upload photo', 'danger');
-                  }
-                  return true; // This dismisses the alert
+                handler: () => {
+                  // Don't use async handler, instead handle the promise separately
+                  alert.dismiss().then(async () => {
+                    try {
+                      await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
+                      uploadSuccessCount = 1;
+                      await this.showToast('Photo uploaded successfully', 'success');
+                    } catch (error) {
+                      console.error('Upload failed:', error);
+                      await this.showToast('Failed to upload photo', 'danger');
+                    }
+                  });
+                  return false; // Prevent auto-dismiss
                 }
               },
               {
                 text: 'Annotate First',
-                handler: async () => {
-                  const annotatedFile = await this.annotatePhoto(fileArray[0]);
-                  await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
-                  uploadSuccessCount = 1; // Assume success for single upload
+                handler: () => {
+                  alert.dismiss().then(async () => {
+                    const annotatedFile = await this.annotatePhoto(fileArray[0]);
+                    await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
+                    uploadSuccessCount = 1; // Assume success for single upload
+                  });
+                  return false; // Prevent auto-dismiss
                 }
               }
             ]

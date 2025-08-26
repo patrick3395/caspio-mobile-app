@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-photo-annotator',
@@ -125,6 +125,11 @@ import { IonicModule, ModalController } from '@ionic/angular';
         <ion-buttons slot="start">
           <ion-button (click)="dismiss()" color="medium">
             Cancel
+          </ion-button>
+        </ion-buttons>
+        <ion-buttons slot="start">
+          <ion-button (click)="addCaption()" color="medium">
+            Add Caption
           </ion-button>
         </ion-buttons>
         <ion-buttons slot="end">
@@ -492,6 +497,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   showTextInput = false;
   textPosition = { x: 0, y: 0 };
   currentText = '';
+  photoCaption = '';
   
   canUndo = false;
   
@@ -500,7 +506,10 @@ export class PhotoAnnotatorComponent implements OnInit {
   showColorDropdown = false;
   showSizeDropdown = false;
   
-  constructor(private modalController: ModalController) {}
+  constructor(
+    private modalController: ModalController,
+    private alertController: AlertController
+  ) {}
   
   ngOnInit() {
     setTimeout(() => this.initializeCanvas(), 100);
@@ -900,6 +909,40 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
     this.annotationObjects = [];
     this.canUndo = false;
+  }
+
+  async addCaption() {
+    const alert = await this.alertController.create({
+      header: 'Add Caption',
+      inputs: [
+        {
+          name: 'caption',
+          type: 'text',
+          placeholder: 'Enter caption...',
+          value: this.photoCaption || '',
+          attributes: {
+            maxlength: 255
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: (data) => {
+            if (data.caption !== undefined) {
+              this.photoCaption = data.caption;
+              // The caption will be included when saving the image
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
   
   
