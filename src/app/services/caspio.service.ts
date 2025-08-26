@@ -419,6 +419,21 @@ export class CaspioService {
       })
     );
   }
+
+  // Delete a Services_Rooms record
+  deleteServicesRoom(roomId: string): Observable<any> {
+    console.log('Deleting Services_Rooms record with RoomID:', roomId);
+    const query = `RoomID=${roomId}`;
+    return this.delete<any>(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).pipe(
+      tap(response => {
+        console.log('Services_Rooms delete response:', response);
+      }),
+      catchError(error => {
+        console.error('Services_Rooms deletion error:', error);
+        throw error;
+      })
+    );
+  }
   
   // Update Services_Rooms record
   updateServicesRoom(roomId: string, data: any): Observable<any> {

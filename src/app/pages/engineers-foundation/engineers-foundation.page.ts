@@ -341,26 +341,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event.preventDefault();
     }
     
-    // Debug alert
-    await this.showDebugAlert('Capture initiated', `Room: ${roomName}, Point: ${point.name}`);
-    
     try {
       const roomId = this.roomRecordIds[roomName];
       if (!roomId) {
-        await this.showDebugAlert('No room ID', 'Room needs to be saved first');
         await this.showToast('Please save the room first', 'warning');
         return;
       }
-      
-      await this.showDebugAlert('Room ID found', `Using RoomID: ${roomId} (this should match the RoomID field, not PK_ID)`);
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.roomPointIds[pointKey];
       
       if (!pointId) {
-        await this.showDebugAlert('Checking point', `Looking for existing point: ${point.name} in room ${roomId}`);
-        
         // First check if this point already exists in the database
         const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
         
@@ -368,7 +360,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Point already exists, use its ID
           pointId = existingPoint.PK_ID || existingPoint.PointID;
           this.roomPointIds[pointKey] = pointId;
-          await this.showDebugAlert('Point exists', `Found existing point with ID: ${pointId}`);
           console.log(`Using existing point record with ID: ${pointId}`);
         } else {
           // Create new Services_Rooms_Points record
@@ -377,21 +368,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             PointName: point.name
           };
           
-          await this.showDebugAlert('Creating point', `Creating new point: ${point.name}`);
           console.log('Creating Services_Rooms_Points record:', pointData);
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
           
           if (createResponse && createResponse.PK_ID) {
             pointId = createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
-            await this.showDebugAlert('Point created', `New point ID: ${pointId}`);
             console.log(`Created point record with ID: ${pointId}`);
           } else {
             throw new Error('Failed to create point record');
           }
         }
-      } else {
-        await this.showDebugAlert('Point cached', `Using cached point ID: ${pointId}`);
       }
       
       // Now start photo capture loop
@@ -527,29 +514,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Helper method to capture photo using native file input
   private async capturePhotoNative(): Promise<File | null> {
-    // Debug alert
-    await this.showDebugAlert('Starting photo capture', 'About to use file input for camera');
-    
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       try {
         // Use the ViewChild file input (same as visuals which work)
         if (this.fileInput && this.fileInput.nativeElement) {
-          await this.showDebugAlert('Using ViewChild', 'Found file input element via ViewChild');
-          
           const input = this.fileInput.nativeElement;
           
           // Store the original attributes
           const originalAccept = input.accept;
           const originalMultiple = input.multiple;
-          const originalCapture = input.getAttribute('capture');
           
-          // Configure for single photo capture
+          // Configure for single photo capture - iOS will show camera/gallery options
           input.accept = 'image/*';
           input.multiple = false;
-          input.removeAttribute('capture'); // Remove capture to allow iOS to show options
           input.value = ''; // Clear any previous value
-          
-          await this.showDebugAlert('Input configured', `accept: ${input.accept}, multiple: ${input.multiple}`);
           
           // Set up one-time change listener
           const handleChange = (e: any) => {
@@ -558,18 +536,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Restore original attributes
             input.accept = originalAccept;
             input.multiple = originalMultiple;
-            if (originalCapture) {
-              input.setAttribute('capture', originalCapture);
-            }
             
             // Remove listener
             input.removeEventListener('change', handleChange);
             
             if (file) {
-              this.showDebugAlert('File selected', `File: ${file.name}, Size: ${file.size} bytes`);
+              console.log(`Photo captured: ${file.name}, Size: ${file.size}`);
               resolve(file);
             } else {
-              this.showDebugAlert('No file selected', 'User cancelled or no file chosen');
+              console.log('No file selected');
               resolve(null);
             }
           };
@@ -577,80 +552,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Add the change listener
           input.addEventListener('change', handleChange);
           
-          // Trigger the file input click
-          await this.showDebugAlert('About to click', 'Triggering file input click event');
+          // Trigger the file input click - this will open iOS camera/gallery selector
           input.click();
-          await this.showDebugAlert('Click completed', 'File input click() has been called');
           
-        } else if (!this.fileInput) {
-          await this.showDebugAlert('Error', 'fileInput ViewChild is null');
-          // Fallback: create new input element
-          await this.showDebugAlert('Creating new input', 'ViewChild not available, creating new element');
-          
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*';
-          input.capture = 'environment';
-          
-          // Set up timeout
-          const timeout = setTimeout(() => {
-            this.showDebugAlert('Timeout', 'Photo capture timed out after 30s');
-            resolve(null);
-          }, 30000);
-          
-          input.onchange = async (e: any) => {
-            clearTimeout(timeout);
-            const file = e.target.files?.[0];
-            if (file) {
-              await this.showDebugAlert('File captured', `File: ${file.name}, Size: ${file.size}`);
-              resolve(file);
-            } else {
-              await this.showDebugAlert('No file', 'Change event fired but no file selected');
-              resolve(null);
-            }
-          };
-          
-          // Add to DOM
-          input.style.position = 'fixed';
-          input.style.top = '-100px';
-          input.style.left = '-100px';
-          input.style.opacity = '0';
-          document.body.appendChild(input);
-          
-          await this.showDebugAlert('Input added to DOM', 'Element appended to body');
-          
-          // Try to click
-          try {
-            input.click();
-            await this.showDebugAlert('Click triggered', 'New input click() called');
-          } catch (clickError) {
-            await this.showDebugAlert('Click failed', `Error: ${clickError}`);
-          }
-          
-          // Cleanup after delay
-          setTimeout(() => {
-            if (document.body.contains(input)) {
-              document.body.removeChild(input);
-            }
-          }, 2000);
+        } else {
+          console.error('fileInput ViewChild is null, cannot capture photo');
+          reject(new Error('File input not available'));
         }
         
       } catch (error) {
-        await this.showDebugAlert('Fatal error', `Error in capturePhotoNative: ${error}`);
         console.error('Error in capturePhotoNative:', error);
         reject(error);
       }
     });
-  }
-  
-  // Debug alert helper
-  private async showDebugAlert(title: string, message: string) {
-    const alert = await this.alertController.create({
-      header: `DEBUG: ${title}`,
-      message: message,
-      buttons: ['OK']
-    });
-    await alert.present();
   }
   
   // Process the captured photo for room point
@@ -945,11 +859,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Remove room from Services_Rooms
         const roomId = this.roomRecordIds[roomName];
         if (roomId) {
-          // Note: You'll need to add a delete method in your service if it doesn't exist
-          // await this.caspioService.deleteServicesRoom(roomId).toPromise();
-          delete this.roomRecordIds[roomName];
-          this.selectedRooms[roomName] = false;
-          await this.showToast(`Room "${roomName}" removed`, 'warning');
+          try {
+            // Delete the room from Services_Rooms table
+            await this.caspioService.deleteServicesRoom(roomId).toPromise();
+            delete this.roomRecordIds[roomName];
+            this.selectedRooms[roomName] = false;
+            
+            // Clear any associated room data
+            if (this.roomElevationData[roomName]) {
+              delete this.roomElevationData[roomName];
+            }
+            
+            await this.showToast(`Room "${roomName}" removed`, 'success');
+            console.log(`Room ${roomName} deleted from Services_Rooms table`);
+          } catch (error) {
+            console.error('Error deleting room:', error);
+            await this.showToast('Failed to remove room', 'danger');
+            // Revert UI state on error
+            this.selectedRooms[roomName] = true;
+          }
         }
       }
     } catch (error: any) {
