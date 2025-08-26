@@ -366,7 +366,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       let pointId = this.roomPointIds[pointKey];
       
       if (!pointId) {
-        // First check if this point already exists in the database
+        // Need to create point - do it quickly and silently
         const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
         
         if (existingPoint) {
@@ -375,7 +375,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.roomPointIds[pointKey] = pointId;
           console.log(`Using existing point record with PointID: ${pointId}`);
         } else {
-          // Create new Services_Rooms_Points record BEFORE photo capture
+          // Create new Services_Rooms_Points record
           const pointData = {
             RoomID: parseInt(roomId),
             PointName: point.name
@@ -388,9 +388,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
-            console.log(`Created point record with PointID: ${pointId}`);
-            // Don't show any UI here - it interrupts iOS capture flow
-          } else {
+            console.log(`Created point record with PointID: ${pointId}`);\n          } else {
             throw new Error('Failed to create point record');
           }
         }
@@ -742,15 +740,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('File upload failed');
       }
       
-      // Create Services_Rooms_Points_Attach record (note the table name!)
+      // Create Services_Rooms_Attach record - ONLY these 3 fields!
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
         Annotation: ''
       };
       
-      // Debug: Show what we're sending to Services_Rooms_Points_Attach
-      alert(`DEBUG - Sending to Services_Rooms_Points_Attach:\n\nPointID: ${attachData.PointID} (from parameter: ${pointId})\nPhoto: ${attachData.Photo}\nAnnotation: ${attachData.Annotation || '(empty)'}\n\nTable: Services_Rooms_Attach`);
+      // Debug: Show EXACTLY what we're sending - no other fields!
+      const attachDataKeys = Object.keys(attachData);
+      alert(`DEBUG - Sending to Services_Rooms_Attach:\n\nFields being sent (${attachDataKeys.length}):\n${attachDataKeys.join(', ')}\n\nPointID: ${attachData.PointID}\nPhoto: ${attachData.Photo}\nAnnotation: ${attachData.Annotation || '(empty)'}\n\nJSON: ${JSON.stringify(attachData)}`);
       
       const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
       
