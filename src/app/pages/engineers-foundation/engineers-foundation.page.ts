@@ -310,6 +310,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         const parsed = JSON.parse(draftData);
         this.formData = { ...this.formData, ...parsed.formData };
         this.elevationReadings = parsed.elevationReadings || [];
+        
+        // Load room elevation data if present
+        if (parsed.roomElevationData) {
+          // Merge with existing room templates structure
+          Object.keys(parsed.roomElevationData).forEach(roomName => {
+            if (this.roomElevationData[roomName]) {
+              this.roomElevationData[roomName].points = parsed.roomElevationData[roomName].points || this.roomElevationData[roomName].points;
+              this.roomElevationData[roomName].notes = parsed.roomElevationData[roomName].notes || '';
+            }
+          });
+        }
+        
         console.log('Draft data loaded from localStorage');
       } catch (error) {
         console.error('Error loading draft data:', error);
@@ -467,17 +479,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Save and submit functions
-  async saveTemplate() {
-    // Save to localStorage as draft
+  saveDraft() {
+    // Save to localStorage as draft (non-async version for auto-save)
     const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
     const draftData = {
       formData: this.formData,
       elevationReadings: this.elevationReadings,
+      roomElevationData: this.roomElevationData,
       savedAt: new Date().toISOString()
     };
     
     localStorage.setItem(draftKey, JSON.stringify(draftData));
-    
+  }
+
+  async saveTemplate() {
+    // Save to localStorage as draft
+    this.saveDraft();
     this.showSaveStatus('Draft saved locally', 'success');
     await this.showToast('Template saved as draft', 'success');
   }
