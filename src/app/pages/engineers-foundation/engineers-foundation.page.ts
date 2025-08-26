@@ -1346,33 +1346,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             } else {
               await this.showToast('Failed to get visual ID', 'danger');
             }
+            return true; // Dismiss the action sheet
           }
         },
         {
           text: 'Photo Library',
           icon: 'images',
-          handler: async () => {
-            // Use Camera plugin to select from gallery
-            const photo = await this.cameraService.selectFromGallery();
-            if (photo && photo.dataUrl) {
-              // Convert to file and upload
-              const fileName = `gallery_${Date.now()}.jpg`;
-              const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
-              
-              // Get visual ID
-              const key = `${category}_${itemId}`;
-              let visualId = this.visualRecordIds[key];
-              
-              if (!visualId) {
-                await this.saveVisualSelection(category, itemId);
-                visualId = this.visualRecordIds[key];
-              }
-              
-              if (visualId) {
-                // Upload the photo
-                await this.uploadPhotoForVisual(visualId, file, key);
-              }
-            }
+          handler: () => {
+            // Go back to using file input for multiple selection
+            this.currentUploadContext = { category, itemId, item, action: 'upload' };
+            this.fileInput.nativeElement.click();
+            return true; // Dismiss the action sheet
           }
         },
         {
@@ -2726,33 +2710,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             } else {
               await this.showToast('Failed to get visual ID', 'danger');
             }
+            return true; // Dismiss the action sheet
           }
         },
         {
           text: 'Photo Library',
           icon: 'images',
-          handler: async () => {
-            // Use Camera plugin to select from gallery
-            const photo = await this.cameraService.selectFromGallery();
-            if (photo && photo.dataUrl) {
-              // Convert to file and upload
-              const fileName = `gallery_${Date.now()}.jpg`;
-              const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
-              
-              // Get visual ID
-              const key = `${category}_${itemId}`;
-              let visualId = this.visualRecordIds[key];
-              
-              if (!visualId) {
-                await this.saveVisualSelection(category, itemId);
-                visualId = this.visualRecordIds[key];
-              }
-              
-              if (visualId) {
-                // Upload the photo
-                await this.uploadPhotoForVisual(visualId, file, key);
-              }
-            }
+          handler: () => {
+            // Use file input for multiple selection
+            this.currentUploadContext = { 
+              category, 
+              itemId,
+              action: 'add'
+            };
+            this.fileInput.nativeElement.click();
+            return true; // Dismiss the action sheet
           }
         },
         {
