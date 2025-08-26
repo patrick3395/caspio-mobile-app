@@ -25,7 +25,7 @@
 
     <!-- Project Information Section (Shared across all services) -->
     <div class="section-card">
-      <div class="section-header" (click)="toggleSection('project')">
+      <div class="section-header" data-section="project" (click)="toggleSection('project')">
         <div class="section-info">
           <div class="section-title">
             <ion-icon name="information-circle-outline"></ion-icon>
@@ -227,12 +227,19 @@
             </div>
           </div>
         </div>
+        <!-- Back to Top Button -->
+        <div class="back-to-top-container">
+          <ion-button size="small" fill="clear" (click)="scrollToSection('project')">
+            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
+            Back to Section Top
+          </ion-button>
+        </div>
       </div>
     </div>
 
     <!-- Structural Systems Section -->
     <div class="section-card">
-      <div class="section-header" (click)="toggleSection('structural')">
+      <div class="section-header" data-section="structural" (click)="toggleSection('structural')">
         <div class="section-info">
           <div class="section-title">
             <ion-icon name="construct-outline"></ion-icon>
@@ -478,12 +485,19 @@
           <ion-spinner name="crescent"></ion-spinner>
           Loading visual categories...
         </div>
+        <!-- Back to Top Button -->
+        <div class="back-to-top-container">
+          <ion-button size="small" fill="clear" (click)="scrollToSection('structural')">
+            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
+            Back to Section Top
+          </ion-button>
+        </div>
       </div>
     </div>
 
     <!-- Elevation Plot Section -->
     <div class="section-card">
-      <div class="section-header" (click)="toggleSection('elevation')">
+      <div class="section-header" data-section="elevation" (click)="toggleSection('elevation')">
         <div class="section-info">
           <div class="section-title">
             <ion-icon name="analytics-outline"></ion-icon>
@@ -603,6 +617,13 @@
                         rows="6" 
                         placeholder="Enter analysis of elevation data...">
           </ion-textarea>
+        </div>
+        <!-- Back to Top Button -->
+        <div class="back-to-top-container">
+          <ion-button size="small" fill="clear" (click)="scrollToSection('elevation')">
+            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
+            Back to Section Top
+          </ion-button>
         </div>
       </div>
     </div>

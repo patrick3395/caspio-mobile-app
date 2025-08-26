@@ -540,6 +540,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.expandedSections[section] = !this.expandedSections[section];
     });
   }
+
+  scrollToSection(section: string) {
+    // Find the section header element
+    const sectionElement = document.querySelector(`.section-header[data-section="${section}"]`);
+    if (sectionElement) {
+      // Scroll to the element with smooth behavior and a small offset from the top
+      sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Optionally collapse the section after scrolling
+      setTimeout(() => {
+        this.expandedSections[section] = false;
+      }, 500);
+    }
+  }
   
   // TrackBy functions for better list performance
   trackByCategory(index: number, item: any): string {

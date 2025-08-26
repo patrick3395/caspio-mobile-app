@@ -1201,6 +1201,25 @@ ion-toolbar {
     }
   }
 }
+
+.back-to-top-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  
+  ion-button {
+    --color: var(--noble-orange);
+    font-weight: 500;
+    text-transform: none;
+    
+    ion-icon {
+      font-size: 18px;
+      margin-right: 4px;
+    }
+  }
+}
   
 ::ng-deep .photo-viewer-alert {
   .alert-wrapper {
