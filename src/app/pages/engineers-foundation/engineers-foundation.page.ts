@@ -865,9 +865,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             delete this.roomRecordIds[roomName];
             this.selectedRooms[roomName] = false;
             
-            // Clear any associated room data
+            // Don't delete the room elevation data structure, just reset it
+            // This preserves the elevation points and configuration
             if (this.roomElevationData[roomName]) {
-              delete this.roomElevationData[roomName];
+              // Clear photos but keep the structure
+              if (this.roomElevationData[roomName].elevationPoints) {
+                this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
+                  point.photos = [];
+                  point.photoCount = 0;
+                });
+              }
+              // Reset FDF to default
+              this.roomElevationData[roomName].fdf = 'None';
             }
             
             await this.showToast(`Room "${roomName}" removed`, 'success');
