@@ -173,36 +173,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         this.roomTemplates = templates;
         console.log(`Loaded ${templates.length} room templates:`, templates);
         
-        // Initialize room elevation data structure
+        // Initialize room elevation data structure - simplified for now
         templates.forEach((template: any) => {
-          const points: any[] = [];
-          
-          // Check Point1Name through Point10Name
-          for (let i = 1; i <= 10; i++) {
-            const pointName = template[`Point${i}Name`];
-            if (pointName && pointName.trim() !== '') {
-              points.push({
-                name: pointName,
-                value: null,
-                fieldName: `Point${i}`
-              });
-            }
-          }
-          
           this.roomElevationData[template.RoomName] = {
             roomName: template.RoomName,
-            points: points,
-            expanded: false
+            points: [], // Start with empty points, we'll add functionality later
+            expanded: false,
+            notes: ''
           };
         });
         
         console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
         console.log('No room templates with Auto=Yes found');
+        // Don't show error toast if no templates found - this is valid
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading room templates:', error);
-      await this.showToast('Failed to load room templates', 'danger');
+      // Show more detailed error message
+      const errorMsg = error?.message || 'Failed to load room templates';
+      console.error('Room templates error details:', errorMsg);
+      // Only show toast for actual errors, not empty results
+      if (error?.status !== 404) {
+        await this.showToast(`Room templates error: ${errorMsg}`, 'danger');
+      }
     }
   }
 
@@ -467,13 +461,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Room elevation helper methods
-  getPointsCount(roomName: string): number {
-    const roomData = this.roomElevationData[roomName];
-    return roomData ? roomData.points.length : 0;
-  }
-  
-  onElevationPointChange(roomName: string, point: any) {
-    console.log(`Elevation point changed for ${roomName}:`, point);
+  onRoomNotesChange(roomName: string) {
+    console.log(`Notes changed for room ${roomName}`);
     // Auto-save to draft
     this.saveDraft();
   }

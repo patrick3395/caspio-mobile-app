@@ -314,7 +314,7 @@ export class CaspioService {
 
   // Services Room Templates methods
   getServicesRoomTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Room_Templates/records?q.where=Auto=Yes').pipe(
+    return this.get<any>('/tables/Services_Rooms_Templates/records?q.where=Auto="Yes"').pipe(
       map(response => response.Result || [])
     );
   }

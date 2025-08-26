@@ -17,10 +17,6 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
             <ion-icon name="brush-outline" slot="icon-only"></ion-icon>
             <span style="margin-left: 5px;">Annotate</span>
           </ion-button>
-          <ion-button (click)="addCaption()" style="color: white;">
-            <ion-icon name="text-outline" slot="icon-only"></ion-icon>
-            <span style="margin-left: 5px;">Caption</span>
-          </ion-button>
         </ion-buttons>
         <ion-buttons slot="end">
           <ion-button (click)="dismiss()" style="color: white;">
@@ -32,6 +28,13 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
     <ion-content class="photo-viewer-content">
       <div class="photo-container">
         <img [src]="photoUrl" [alt]="photoName" />
+      </div>
+      <!-- Caption button at bottom center -->
+      <div class="caption-button-container">
+        <ion-button (click)="addCaption()" fill="solid" color="primary">
+          <ion-icon name="text-outline" slot="start"></ion-icon>
+          {{ photoCaption ? 'Edit Caption' : 'Add Caption' }}
+        </ion-button>
       </div>
       <!-- Caption display -->
       <div class="caption-display" *ngIf="photoCaption">
@@ -64,6 +67,24 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
     ion-toolbar ion-button span {
       font-size: 14px;
       font-weight: 500;
+    }
+    .caption-button-container {
+      position: absolute;
+      bottom: 80px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+    }
+    .caption-button-container ion-button {
+      --background: #F15A27;
+      --background-hover: #d44e20;
+      --border-radius: 25px;
+      --padding-start: 20px;
+      --padding-end: 20px;
+      font-weight: 600;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     }
     .caption-display {
       position: absolute;

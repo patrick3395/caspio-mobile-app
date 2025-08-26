@@ -493,33 +493,20 @@
       <div class="section-content" *ngIf="expandedSections['elevation']">
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
-          <h3 class="subsection-title">Room Elevation Measurements</h3>
+          <h3 class="subsection-title">Room Categories</h3>
           
           <!-- Room accordion -->
-          <ion-accordion-group>
+          <ion-accordion-group *ngIf="roomTemplates.length > 0">
             <ion-accordion *ngFor="let room of roomTemplates" [value]="room.RoomName">
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2>{{ room.RoomName }}</h2>
-                  <p>{{ getPointsCount(room.RoomName) }} measurement points</p>
+                  <p>Click to expand</p>
                 </ion-label>
               </ion-item>
               
               <div class="room-elevation-content" slot="content">
-                <div class="elevation-points-grid">
-                  <div class="point-row" *ngFor="let point of roomElevationData[room.RoomName].points">
-                    <label class="point-label">{{ point.name }}</label>
-                    <input type="number" 
-                           [(ngModel)]="point.value" 
-                           placeholder="0.0" 
-                           step="0.1"
-                           class="point-input"
-                           (change)="onElevationPointChange(room.RoomName, point)">
-                    <span class="point-unit">inches</span>
-                  </div>
-                </div>
-                
-                <!-- Room-specific notes -->
+                <!-- Room-specific notes for now -->
                 <div class="room-notes">
                   <label>Notes for {{ room.RoomName }}</label>
                   <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
@@ -527,6 +514,9 @@
                                 placeholder="Enter any notes specific to this room...">
                   </ion-textarea>
                 </div>
+                <p style="color: #666; font-size: 13px; margin-top: 10px;">
+                  Additional functionality will be added here.
+                </p>
               </div>
             </ion-accordion>
           </ion-accordion-group>
@@ -534,7 +524,7 @@
           <!-- No rooms message -->
           <div *ngIf="roomTemplates.length === 0" class="no-rooms-message">
             <ion-icon name="home-outline"></ion-icon>
-            <p>No room templates available for elevation measurements.</p>
+            <p>No room templates found. Check Services_Rooms_Templates table.</p>
           </div>
         </div>
 
