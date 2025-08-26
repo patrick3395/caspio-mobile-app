@@ -511,7 +511,8 @@
                   <label>Notes for {{ room.RoomName }}</label>
                   <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
                                 rows="3"
-                                placeholder="Enter any notes specific to this room...">
+                                placeholder="Enter any notes specific to this room..."
+                                (ionBlur)="onRoomNotesChange(room.RoomName)">
                   </ion-textarea>
                 </div>
                 <p style="color: #666; font-size: 13px; margin-top: 10px;">

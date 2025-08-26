@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -30,7 +30,7 @@ interface ServicesVisualRecord {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class EngineersFoundationPage implements OnInit, AfterViewInit {
+export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   
   projectId: string = '';
@@ -145,6 +145,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     // ViewChild ready
   }
   
+  ngOnDestroy() {
+    // Clean up timers
+    if (this.saveDebounceTimer) {
+      clearTimeout(this.saveDebounceTimer);
+    }
+  }
+  
   async loadProjectData() {
     if (!this.projectId) return;
     
@@ -167,48 +174,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   async loadRoomTemplates() {
     try {
       console.log('Loading room templates...');
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout loading room templates')), 5000)
-      );
       
-      const templates = await Promise.race([
-        this.caspioService.getServicesRoomTemplates().toPromise(),
-        timeoutPromise
-      ]) as any[];
+      const templates = await this.caspioService.getServicesRoomTemplates().toPromise();
       
       if (templates && templates.length > 0) {
         this.roomTemplates = templates;
         console.log(`Loaded ${templates.length} room templates:`, templates);
         
-        // Initialize room elevation data structure - simplified for now
+        // Only initialize if not already initialized (to preserve existing data)
         templates.forEach((template: any) => {
-          if (template.RoomName) {
+          if (template.RoomName && !this.roomElevationData[template.RoomName]) {
             this.roomElevationData[template.RoomName] = {
               roomName: template.RoomName,
-              points: [], // Start with empty points, we'll add functionality later
+              points: [],
               expanded: false,
               notes: ''
             };
           }
         });
         
-        console.log('Initialized room elevation data:', this.roomElevationData);
+        console.log('Room elevation data:', this.roomElevationData);
       } else {
-        console.log('No room templates found or none with Auto=Yes');
-        this.roomTemplates = []; // Ensure it's initialized as empty array
+        console.log('No room templates found');
+        this.roomTemplates = [];
       }
     } catch (error: any) {
-      console.error('Error loading room templates:', error);
-      // Initialize as empty array to prevent undefined errors
+      console.error('Error loading room templates (non-critical):', error);
       this.roomTemplates = [];
-      this.roomElevationData = {};
-      
-      // Don't show error toast for 404 or timeout - just log it
-      if (error?.status && error.status !== 404) {
-        console.log('Room templates not critical - continuing without them');
+      // Don't reset roomElevationData if it already has data
+      if (!this.roomElevationData || Object.keys(this.roomElevationData).length === 0) {
+        this.roomElevationData = {};
       }
-      // Don't throw or propagate the error - let the page continue loading
     }
   }
 
@@ -473,24 +469,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   }
   
   // Room elevation helper methods
+  private saveDebounceTimer: any;
+  
   onRoomNotesChange(roomName: string) {
     console.log(`Notes changed for room ${roomName}`);
-    // Auto-save to draft
-    this.saveDraft();
+    // Debounce auto-save to prevent too frequent saves
+    if (this.saveDebounceTimer) {
+      clearTimeout(this.saveDebounceTimer);
+    }
+    this.saveDebounceTimer = setTimeout(() => {
+      this.saveDraft();
+    }, 1000); // Save after 1 second of no changes
   }
   
   // Save and submit functions
   saveDraft() {
-    // Save to localStorage as draft (non-async version for auto-save)
-    const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
-    const draftData = {
-      formData: this.formData,
-      elevationReadings: this.elevationReadings,
-      roomElevationData: this.roomElevationData,
-      savedAt: new Date().toISOString()
-    };
-    
-    localStorage.setItem(draftKey, JSON.stringify(draftData));
+    try {
+      // Save to localStorage as draft (non-async version for auto-save)
+      const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
+      const draftData = {
+        formData: this.formData,
+        elevationReadings: this.elevationReadings,
+        roomElevationData: this.roomElevationData,
+        savedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      console.log('Draft saved at', new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
   }
 
   async saveTemplate() {
