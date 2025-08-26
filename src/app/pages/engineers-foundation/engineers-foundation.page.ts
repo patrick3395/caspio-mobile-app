@@ -239,11 +239,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                 }
                 
+                // Debug popup showing exact data being sent
+                const debugAlert = await this.alertController.create({
+                  header: 'Creating Services_Rooms Record',
+                  message: `
+                    <div style="text-align: left; font-size: 12px;">
+                      <strong>Room:</strong> ${template.RoomName}<br>
+                      <strong>ServiceID:</strong> ${roomData.ServiceID} (type: ${typeof roomData.ServiceID})<br>
+                      <strong>RoomTemplateID:</strong> ${roomData.RoomTemplateID}<br>
+                      <strong>PointCount:</strong> ${roomData.PointCount}<br>
+                      <strong>API Endpoint:</strong> /tables/Services_Rooms/records<br>
+                      <strong>Full Data:</strong><br>
+                      <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(roomData, null, 2)}</pre>
+                    </div>
+                  `,
+                  buttons: ['OK']
+                });
+                await debugAlert.present();
+                await debugAlert.onDidDismiss();
+                
                 const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
                 roomsCreated++;
                 await this.showToast(`✅ Created room: ${template.RoomName}`, 'success');
               } catch (error: any) {
-                await this.showToast(`❌ Failed to create ${template.RoomName}: ${error.message || error}`, 'danger');
+                // Show detailed error
+                const errorAlert = await this.alertController.create({
+                  header: '❌ Room Creation Failed',
+                  message: `
+                    <div style="text-align: left; font-size: 12px;">
+                      <strong>Room:</strong> ${template.RoomName}<br>
+                      <strong>Error:</strong> ${error.message || error}<br>
+                      <strong>Status:</strong> ${error.status || 'Unknown'}<br>
+                      <strong>Response:</strong> ${JSON.stringify(error.error || error, null, 2)}
+                    </div>
+                  `,
+                  buttons: ['OK']
+                });
+                await errorAlert.present();
               }
             }
           }
@@ -1382,8 +1414,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Camera button handler - allows multiple photo capture
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    // Debug alert
-    await this.showToast(`📸 Camera clicked for ${category} - ${itemId}`, 'info');
+    // Immediate debug alert to confirm button click
+    const clickAlert = await this.alertController.create({
+      header: '📸 Camera Button Clicked',
+      message: `
+        <div style="text-align: left; font-size: 12px;">
+          <strong>Category:</strong> ${category}<br>
+          <strong>ItemId:</strong> ${itemId}<br>
+          <strong>Event:</strong> ${event ? 'Yes' : 'No'}<br>
+          <strong>Method Called:</strong> takePhotoForVisual<br>
+          <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+        </div>
+      `,
+      buttons: ['Continue']
+    });
+    await clickAlert.present();
+    await clickAlert.onDidDismiss();
     
     // Prevent event bubbling
     if (event) {
