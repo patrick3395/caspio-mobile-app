@@ -559,51 +559,86 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   scrollToCurrentSectionTop() {
-    const viewportHeight = window.innerHeight;
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const currentPosition = scrollTop + 100; // Check near top of viewport for better accuracy
+    const viewportTop = scrollTop;
+    const viewportMiddle = scrollTop + (window.innerHeight / 2);
+    
+    console.log('Scroll Debug:', {
+      scrollTop,
+      viewportMiddle,
+      expandedSections: this.expandedSections,
+      expandedAccordions: this.expandedAccordions
+    });
     
     // First check if we're in an expanded accordion item (category within Structural Systems)
     if (this.expandedSections['structural'] && this.expandedAccordions.length > 0) {
       // Get all accordions in the structural section
       const allAccordions = Array.from(document.querySelectorAll('.categories-container ion-accordion'));
       
-      // Check each accordion to see if we're currently viewing it
-      for (let i = 0; i < allAccordions.length; i++) {
-        const accordion = allAccordions[i] as HTMLElement;
+      console.log('Found accordions:', allAccordions.length);
+      
+      // Find which expanded accordion we're currently viewing
+      let closestAccordion: HTMLElement | null = null;
+      let closestDistance = Infinity;
+      let foundMatch = false;
+      
+      for (const accordion of allAccordions) {
         const accordionValue = accordion.getAttribute('value');
         
-        // Check if this accordion is expanded
+        // Only check expanded accordions
         if (this.expandedAccordions.includes(accordionValue || '')) {
           const accordionHeader = accordion.querySelector('ion-item[slot="header"]') as HTMLElement;
+          const accordionContent = accordion.querySelector('.categories-content') as HTMLElement;
           
           if (accordionHeader) {
-            const rect = accordionHeader.getBoundingClientRect();
-            const accordionTop = rect.top + scrollTop;
+            const headerRect = accordionHeader.getBoundingClientRect();
+            const accordionTop = headerRect.top + scrollTop;
             
-            // Find the bottom boundary (next accordion or end of section)
-            let accordionBottom = document.documentElement.scrollHeight;
-            if (i < allAccordions.length - 1) {
-              const nextAccordion = allAccordions[i + 1] as HTMLElement;
-              const nextRect = nextAccordion.getBoundingClientRect();
-              accordionBottom = nextRect.top + scrollTop;
+            // Try to get actual content height
+            let contentHeight = 0;
+            if (accordionContent && accordionContent.offsetHeight > 0) {
+              contentHeight = accordionContent.offsetHeight;
             } else {
-              // Last accordion - use elevation section as boundary
-              const elevationSection = document.querySelector('.section-header[data-section="elevation"]') as HTMLElement;
-              if (elevationSection) {
-                const elevRect = elevationSection.getBoundingClientRect();
-                accordionBottom = elevRect.top + scrollTop;
+              // Fallback: look for any content within the accordion
+              const anyContent = accordion.querySelector('[slot="content"]') as HTMLElement;
+              if (anyContent && anyContent.offsetHeight > 0) {
+                contentHeight = anyContent.offsetHeight;
               }
             }
             
-            // Check if current scroll position is within this accordion
-            if (currentPosition >= accordionTop && currentPosition < accordionBottom) {
-              // Scroll to this accordion's header
+            const accordionBottom = accordionTop + headerRect.height + contentHeight;
+            
+            console.log(`Accordion ${accordionValue}:`, {
+              top: accordionTop,
+              bottom: accordionBottom,
+              contentHeight,
+              isInView: viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom
+            });
+            
+            // Check if we're viewing this accordion (viewport middle is within accordion bounds)
+            if (viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom) {
+              // We're in this accordion!
+              console.log(`Found! Scrolling to ${accordionValue}`);
               accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              foundMatch = true;
               return;
+            }
+            
+            // Track closest accordion as fallback
+            const distance = Math.abs(accordionTop - viewportTop);
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestAccordion = accordionHeader;
             }
           }
         }
+      }
+      
+      // If we found a close accordion, scroll to it
+      if (!foundMatch && closestAccordion) {
+        console.log('Using closest accordion as fallback');
+        closestAccordion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
       }
     }
     
