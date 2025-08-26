@@ -194,7 +194,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      console.log('Loading room templates from Services_Room_Templates...');
+      await this.showToast('Loading room templates...', 'info');
       
       const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
       
@@ -205,20 +205,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
         
         this.roomTemplates = autoTemplates;
-        console.log(`Loaded ${autoTemplates.length} auto room templates from ${allTemplates.length} total:`, autoTemplates);
+        await this.showToast(`Found ${autoTemplates.length} auto room templates`, 'info');
         
         // Check if we have a ServiceID to create Services_Rooms records
         if (this.serviceId) {
+          await this.showToast(`ServiceID: ${this.serviceId} - checking existing rooms...`, 'info');
+          
           // Get existing Services_Rooms for this service
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
           const existingRoomNames = new Set((existingRooms || []).map((room: any) => room.RoomName));
           
+          await this.showToast(`Found ${existingRoomNames.size} existing rooms`, 'info');
+          
+          let roomsCreated = 0;
           // Create Services_Rooms records for templates that don't exist yet
           for (const template of autoTemplates) {
             if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
               try {
+                // Convert ServiceID to integer as Caspio expects
                 const roomData: any = {
-                  ServiceID: this.serviceId,
+                  ServiceID: parseInt(this.serviceId, 10),
                   RoomName: template.RoomName,
                   RoomTemplateID: template.PK_ID || template.TemplateId,
                   // Copy point data from template
@@ -234,12 +240,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
                 
                 const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
-                console.log(`Created Services_Rooms record for ${template.RoomName}:`, createdRoom);
-              } catch (error) {
-                console.error(`Failed to create Services_Rooms record for ${template.RoomName}:`, error);
+                roomsCreated++;
+                await this.showToast(`✅ Created room: ${template.RoomName}`, 'success');
+              } catch (error: any) {
+                await this.showToast(`❌ Failed to create ${template.RoomName}: ${error.message || error}`, 'danger');
               }
             }
           }
+          
+          if (roomsCreated > 0) {
+            await this.showToast(`✅ Created ${roomsCreated} new rooms`, 'success');
+          }
+        } else {
+          await this.showToast('⚠️ No ServiceID found - cannot create rooms', 'warning');
         }
         
         // Initialize room elevation data for each auto template
