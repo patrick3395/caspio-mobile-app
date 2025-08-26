@@ -1155,10 +1155,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             buttons: [
               {
                 text: 'Upload as is',
-                handler: () => {
-                  // Close alert immediately and upload in background
-                  this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
-                  uploadSuccessCount = 1; // Assume success for single upload
+                handler: async () => {
+                  // Properly await the upload
+                  try {
+                    await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
+                    uploadSuccessCount = 1;
+                    await this.showToast('Photo uploaded successfully', 'success');
+                  } catch (error) {
+                    console.error('Upload failed:', error);
+                    await this.showToast('Failed to upload photo', 'danger');
+                  }
                   return true; // This dismisses the alert
                 }
               },
@@ -1351,18 +1357,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
   async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false) {
-    console.log('=====================================');
-    console.log('📤 UPLOADING PHOTO TO SERVICE_VISUALS_ATTACH');
-    console.log('=====================================');
-    console.log('   VisualID (string):', visualId);
-    console.log('   Key:', key);
-    console.log('   Photo Name:', photo.name);
-    console.log('   Photo Size:', photo.size);
-    console.log('   Photo Type:', photo.type);
+    // Minimal logging for performance
+    console.log('Uploading photo:', photo.name);
     
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
-    console.log('   Category:', category);
     
     // Store current accordion state before upload
     const currentExpandedAccordions = [...this.expandedAccordions];
@@ -1370,24 +1369,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       currentExpandedAccordions.push(category);
     }
     
-    // Debug: Check all stored visual IDs
-    console.log('🔍 All stored visual IDs:', this.visualRecordIds);
-    console.log('🔍 Visual ID for this key:', this.visualRecordIds[key]);
-    
     try {
-      // Validate the visualId before proceeding
-      console.log('🔍 Validating VisualID before upload:');
-      console.log('   - Raw visualId parameter:', visualId);
-      console.log('   - Type of visualId:', typeof visualId);
-      console.log('   - visualRecordIds[key]:', this.visualRecordIds[key]);
-      
       // Use the ID from visualRecordIds to ensure consistency
       const actualVisualId = this.visualRecordIds[key] || visualId;
-      console.log('   - Using actualVisualId:', actualVisualId);
       
       // Parse visualId to number as required by the service
       const visualIdNum = parseInt(actualVisualId, 10);
-      console.log('   - Parsed to number:', visualIdNum);
       
       if (isNaN(visualIdNum)) {
         throw new Error(`Invalid VisualID: ${actualVisualId}`);
@@ -1597,15 +1584,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const visualId = String(this.visualRecordIds[key]); // Ensure string
     const count = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId].length : 0;
     
-    // Debug log when checking photo count
-    if (this.selectedItems[key]) {
-      console.log(`📊 Photo count for ${key}:`, {
-        visualId,
-        count,
-        hasVisualPhotos: !!this.visualPhotos[visualId],
-        visualPhotosKeys: Object.keys(this.visualPhotos)
-      });
-    }
+    // Removed console logging for performance
     
     return count;
   }
@@ -1628,28 +1607,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const visualId = String(this.visualRecordIds[key]); // Ensure string
     const photos = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
     
-    // Enhanced debugging for problematic visuals
-    if (this.selectedItems[key]) {
-      console.log('📷 getPhotosForVisual DEBUG:', {
-        category,
-        itemId,
-        key,
-        visualId,
-        visualIdType: typeof this.visualRecordIds[key],
-        rawVisualId: this.visualRecordIds[key],
-        photoCount: photos.length,
-        hasVisualPhotos: !!this.visualPhotos[visualId],
-        allVisualPhotoKeys: Object.keys(this.visualPhotos),
-        allVisualRecordIdKeys: Object.keys(this.visualRecordIds),
-        photos: photos.map(p => ({ 
-          name: p.name || 'unnamed',
-          hasUrl: !!p.url,
-          hasThumbnail: !!p.thumbnailUrl,
-          urlStart: p.url ? p.url.substring(0, 50) : 'no-url',
-          filePath: p.filePath 
-        }))
-      });
-    }
+    // Removed console logging for performance
     
     return photos;
   }
@@ -2570,13 +2528,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
     
-    // Log final state
-    console.log('📸 Final visualPhotos state after loading:', this.visualPhotos);
-    console.log('📸 Keys with photos:', Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k]?.length > 0));
-    
-    // Trigger change detection after all photos are loaded
-    this.changeDetectorRef.detectChanges();
-    console.log('✅ All photos loaded, change detection triggered');
+    // Log final state (reduced logging)
+    console.log('Photos loaded for', Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k]?.length > 0).length, 'visuals');
   }
   
   // Create a placeholder image
