@@ -323,6 +323,24 @@ export class CaspioService {
     );
   }
   
+  // Services Rooms methods
+  getServicesRooms(serviceId: string): Observable<any[]> {
+    const query = `ServiceID=${serviceId}`;
+    return this.get<any>(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Services Rooms error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  createServicesRoom(data: any): Observable<any> {
+    return this.post<any>('/tables/Services_Rooms/records', data).pipe(
+      map(response => response.Result?.[0] || response)
+    );
+  }
+  
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
     console.log('🔍 Creating Services_Visual record:', visualData);

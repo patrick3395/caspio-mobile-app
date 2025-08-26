@@ -207,6 +207,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomTemplates = autoTemplates;
         console.log(`Loaded ${autoTemplates.length} auto room templates from ${allTemplates.length} total:`, autoTemplates);
         
+        // Check if we have a ServiceID to create Services_Rooms records
+        if (this.serviceId) {
+          // Get existing Services_Rooms for this service
+          const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          const existingRoomNames = new Set(existingRooms.map((room: any) => room.RoomName));
+          
+          // Create Services_Rooms records for templates that don't exist yet
+          for (const template of autoTemplates) {
+            if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
+              try {
+                const roomData = {
+                  ServiceID: this.serviceId,
+                  RoomName: template.RoomName,
+                  RoomTemplateID: template.PK_ID || template.TemplateId,
+                  // Copy point data from template
+                  PointCount: template.PointCount || 0
+                };
+                
+                // Add point names from template
+                for (let i = 1; i <= 20; i++) {
+                  const pointColumnName = `Point${i}Name`;
+                  if (template[pointColumnName]) {
+                    roomData[pointColumnName] = template[pointColumnName];
+                  }
+                }
+                
+                const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
+                console.log(`Created Services_Rooms record for ${template.RoomName}:`, createdRoom);
+              } catch (error) {
+                console.error(`Failed to create Services_Rooms record for ${template.RoomName}:`, error);
+              }
+            }
+          }
+        }
+        
         // Initialize room elevation data for each auto template
         autoTemplates.forEach((template: any) => {
           if (template.RoomName && !this.roomElevationData[template.RoomName]) {
@@ -1212,18 +1247,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           input.click();
           
           currentFile = await fileSelected;
-          console.log('📷 Photo file received:', currentFile?.name, currentFile?.size);
+          
+          // Debug popup
+          if (currentFile) {
+            await this.showToast(`📷 Photo received: ${currentFile.name} (${Math.round(currentFile.size/1024)}KB)`, 'info');
+          }
           
           if (currentFile) {
             // Show preview and options
             const objectUrl = URL.createObjectURL(currentFile);
-            console.log('🖼️ Object URL created:', objectUrl);
             
             // Add a small delay to ensure the file is fully processed
             await new Promise(resolve => setTimeout(resolve, 500));
             
             // Create custom alert with photo preview
-            console.log('📋 Creating photo review alert...');
             const alert = await this.alertController.create({
               header: 'Photo Review',
               message: `
