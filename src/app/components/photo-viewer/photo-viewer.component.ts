@@ -46,10 +46,11 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
   styles: [`
     .photo-viewer-content {
       --background: #000;
+      position: relative;
     }
     .photo-container {
       width: 100%;
-      height: 100%;
+      height: calc(100% - 120px); /* Leave space for caption button and display */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -69,13 +70,11 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
       font-weight: 500;
     }
     .caption-button-container {
-      position: absolute;
-      bottom: 80px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      z-index: 10;
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
     }
     .caption-button-container ion-button {
       --background: #F15A27;
@@ -83,26 +82,36 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
       --border-radius: 25px;
       --padding-start: 20px;
       --padding-end: 20px;
+      --padding-top: 10px;
+      --padding-bottom: 10px;
       font-weight: 600;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      font-size: 14px;
+      box-shadow: 0 4px 15px rgba(241, 90, 39, 0.5);
     }
     .caption-display {
-      position: absolute;
-      bottom: 20px;
+      position: fixed;
+      bottom: 10px;
       left: 20px;
       right: 20px;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.8);
       color: white;
-      padding: 12px;
+      padding: 12px 16px;
       border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 14px;
+      z-index: 100;
+      max-width: calc(100% - 40px);
     }
     .caption-display ion-icon {
       font-size: 18px;
       color: #F15A27;
+      flex-shrink: 0;
+    }
+    .caption-display span {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   `]
 })
