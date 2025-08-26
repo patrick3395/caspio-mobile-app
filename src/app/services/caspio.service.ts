@@ -1445,12 +1445,15 @@ export class CaspioService {
           'Content-Type': 'application/json'
         });
 
-        // Build the WHERE clause - escape single quotes in email
-        const escapedEmail = email.replace(/'/g, "''");
-        const escapedPassword = password.replace(/'/g, "''");
+        // FIRST - Try to find user by email ONLY
+        // Properly escape special characters for Caspio
+        // The + character and @ need to be handled carefully
+        const escapedEmail = email
+          .replace(/'/g, "''")  // Escape single quotes for SQL
+          .replace(/\+/g, '%2B'); // URL encode plus sign
         
-        // Try exact match on email and password
-        const whereClause = `Email='${escapedEmail}' AND Password='${escapedPassword}'`;
+        // Query by EMAIL ONLY first to see what we get
+        const whereClause = `Email='${email.replace(/'/g, "''")}'`; // Keep original email in WHERE clause
         
         const params = {
           q: JSON.stringify({
@@ -1458,8 +1461,11 @@ export class CaspioService {
           })
         };
 
-        console.log('Authentication query WHERE clause:', whereClause);
-        console.log('Full params object:', params);
+        console.log('Authentication attempt:');
+        console.log('Original email:', email);
+        console.log('WHERE clause:', whereClause);
+        console.log('Full params:', JSON.stringify(params));
+        console.log('URL will be:', `${environment.caspio.apiBaseUrl}/tables/Users/records?q=${encodeURIComponent(JSON.stringify({where: whereClause}))}`);
 
         return this.http.get<any>(
           `${environment.caspio.apiBaseUrl}/tables/Users/records`,
@@ -1467,7 +1473,6 @@ export class CaspioService {
         ).pipe(
           map(response => {
             console.log('Raw authentication response:', response);
-            // Return ALL users for debugging
             const allUsers = response.Result || [];
             console.log(`Total users returned: ${allUsers.length}`);
             
@@ -1477,19 +1482,36 @@ export class CaspioService {
                 console.log(`User ${index + 1}: Email=${u.Email}, ID=${u.PK_ID || u.UserID || u.UsersID}, Name=${u.Name}`);
               });
               
-              // Check if any actually match our email
+              // Find exact email match (case-insensitive)
               const exactMatch = allUsers.find((u: any) => 
                 u.Email && u.Email.toLowerCase() === email.toLowerCase()
               );
               
               if (exactMatch) {
                 console.log('Found exact email match:', exactMatch);
+                
+                // NOW check if password matches
+                if (exactMatch.Password === password) {
+                  console.log('Password matches!');
+                  return [exactMatch]; // Return only the matching user
+                } else {
+                  console.log('Password does NOT match');
+                  console.log('Expected:', password);
+                  console.log('Got:', exactMatch.Password);
+                  // Still return the user for debugging but mark as wrong password
+                  exactMatch._passwordMismatch = true;
+                  return [exactMatch];
+                }
               } else {
                 console.log('WARNING: No exact email match found for:', email);
-                console.log('Returning first user (may be wrong!)');
+                console.log('Emails in database:', allUsers.map((u: any) => u.Email).join(', '));
+                // Return empty array since no match
+                return [];
               }
             } else {
-              console.log('No users found with this email/password combination');
+              console.log('No users found with email:', email);
+              // Try alternate query without special character encoding
+              console.log('Will try alternate query format...');
             }
             
             return allUsers;
@@ -1506,5 +1528,33 @@ export class CaspioService {
   // Get the current auth token (for storing in localStorage)
   async getAuthToken(): Promise<string | null> {
     return this.tokenSubject.value;
+  }
+
+  // Get ALL users for debugging (no WHERE clause)
+  getAllUsersForDebug(): Observable<any> {
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
+
+        // Get ALL users without any WHERE clause
+        return this.http.get<any>(
+          `${environment.caspio.apiBaseUrl}/tables/Users/records`,
+          { headers }
+        ).pipe(
+          map(response => {
+            const users = response.Result || [];
+            console.log(`Debug: Found ${users.length} total users in database`);
+            return users;
+          }),
+          catchError(error => {
+            console.error('Failed to get users for debug:', error);
+            return of([]);
+          })
+        );
+      })
+    );
   }
 }
