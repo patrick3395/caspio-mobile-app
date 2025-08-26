@@ -72,6 +72,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
   savingRooms: { [roomName: string]: boolean } = {};
   roomPointIds: { [key: string]: string } = {}; // Track Services_Rooms_Points IDs
+  roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
   
   // FDF dropdown options from Services_Rooms_Drop table
@@ -254,12 +255,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 this.selectedRooms[roomName] = true;
                 this.roomRecordIds[roomName] = roomId;
                 
-                // Load existing FDF value if present
-                if (room.FDF && this.roomElevationData[roomName]) {
-                  this.roomElevationData[roomName].fdf = room.FDF;
+                // Load existing FDF and Notes values if present
+                if (this.roomElevationData[roomName]) {
+                  if (room.FDF) {
+                    this.roomElevationData[roomName].fdf = room.FDF;
+                  }
+                  if (room.Notes) {
+                    this.roomElevationData[roomName].notes = room.Notes;
+                  }
                 }
                 
-                console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}`);
+                console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}, Notes: ${room.Notes ? 'Yes' : 'No'}`);
                 
                 // Load existing room points for this room
                 this.loadExistingRoomPoints(roomId, roomName);
@@ -319,14 +325,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Handle FDF selection change
   async onFDFChange(roomName: string) {
     const roomId = this.roomRecordIds[roomName];
-    if (!roomId) return;
+    if (!roomId) {
+      await this.showToast('Room must be saved first', 'warning');
+      return;
+    }
     
     try {
       const fdfValue = this.roomElevationData[roomName].fdf;
       
-      // Update Services_Rooms record with FDF value
-      await this.caspioService.updateServicesRoom(roomId, { FDF: fdfValue }).toPromise();
+      // Update Services_Rooms record with FDF value using RoomID field
+      const updateData = { FDF: fdfValue };
+      const query = `RoomID=${roomId}`;
       
+      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      
+      await this.showToast(`FDF updated to: ${fdfValue}`, 'success');
       console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
     } catch (error) {
       console.error('Error updating FDF:', error);
@@ -362,7 +375,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.roomPointIds[pointKey] = pointId;
           console.log(`Using existing point record with ID: ${pointId}`);
         } else {
-          // Create new Services_Rooms_Points record
+          // Create new Services_Rooms_Points record BEFORE photo capture
           const pointData = {
             RoomID: parseInt(roomId),
             PointName: point.name
@@ -374,6 +387,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (createResponse && createResponse.PK_ID) {
             pointId = createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
+            await this.showToast(`Point '${point.name}' created. Ready for photos.`, 'success');
             console.log(`Created point record with ID: ${pointId}`);
           } else {
             throw new Error('Failed to create point record');
@@ -381,11 +395,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Now start photo capture loop
+      // Immediately start photo capture without waiting - iOS needs immediate user action
+      // Now start photo capture loop with the existing pointId
       let keepCapturing = true;
       let photoCounter = 0;
       const capturedPhotos: File[] = [];
       
+      // Start capture immediately after point is ready
       while (keepCapturing) {
         let currentFile: File | null = null;
         
@@ -702,6 +718,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const token = await this.caspioService.getValidToken().toPromise();
       const account = this.caspioService.getAccountID();
       
+      // Debug: Show what we're uploading
+      await this.showToast(`Uploading: ${fileName} (${Math.round(file.size/1024)}KB)`, 'primary');
+      
       const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -711,22 +730,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const uploadResult = await uploadResponse.json();
       
       if (!uploadResult?.Name) {
+        // Debug: Show upload error
+        const errorMsg = `Upload failed: ${JSON.stringify(uploadResult)}`;
+        alert(`DEBUG - File Upload Error:\n${errorMsg}`);
         throw new Error('File upload failed');
       }
       
-      // Create Services_Rooms_Attach record
+      // Create Services_Rooms_Points_Attach record (note the table name!)
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
         Annotation: ''
       };
       
-      await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      // Debug: Show what we're sending to Services_Rooms_Points_Attach
+      alert(`DEBUG - Sending to Services_Rooms_Points_Attach:\n\nPointID: ${attachData.PointID}\nPhoto: ${attachData.Photo}\nAnnotation: (empty)\n\nTable: Services_Rooms_Points_Attach`);
+      
+      const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      
+      // Debug: Show response from attachment creation
+      alert(`DEBUG - Attach Response:\n${JSON.stringify(attachResponse)}`);
       
       console.log(`Photo uploaded for point ${pointName}`);
+      await this.showToast(`Photo saved to point '${pointName}'`, 'success');
       
     } catch (error) {
       console.error('Error uploading room point photo from file:', error);
+      // Debug: Show detailed error
+      alert(`DEBUG - Upload Error:\n${error}\n\nPoint: ${pointName}\nPointID: ${pointId}`);
       throw error;
     }
   }
@@ -749,10 +780,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         
         // Send ServiceID and RoomName
-        const roomData = {
+        const roomData: any = {
           ServiceID: serviceIdNum,
           RoomName: roomName
         };
+        
+        // Include FDF and Notes if they exist
+        if (this.roomElevationData[roomName]) {
+          if (this.roomElevationData[roomName].fdf) {
+            roomData.FDF = this.roomElevationData[roomName].fdf;
+          }
+          if (this.roomElevationData[roomName].notes) {
+            roomData.Notes = this.roomElevationData[roomName].notes;
+          }
+        }
         
         // Show debug popup before sending
         const debugAlert = await this.alertController.create({
@@ -1310,15 +1351,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Room elevation helper methods
   private saveDebounceTimer: any;
   
-  onRoomNotesChange(roomName: string) {
-    console.log(`Notes changed for room ${roomName}`);
-    // Debounce auto-save to prevent too frequent saves
-    if (this.saveDebounceTimer) {
-      clearTimeout(this.saveDebounceTimer);
+  async onRoomNotesChange(roomName: string) {
+    const roomId = this.roomRecordIds[roomName];
+    if (!roomId) {
+      // Room not saved yet, just save to draft
+      if (this.saveDebounceTimer) {
+        clearTimeout(this.saveDebounceTimer);
+      }
+      this.saveDebounceTimer = setTimeout(() => {
+        this.saveDraft();
+      }, 1000);
+      return;
     }
-    this.saveDebounceTimer = setTimeout(() => {
+    
+    // Debounce the update
+    if (this.roomNotesDebounce[roomName]) {
+      clearTimeout(this.roomNotesDebounce[roomName]);
+    }
+    
+    this.roomNotesDebounce[roomName] = setTimeout(async () => {
+      try {
+        const notes = this.roomElevationData[roomName].notes || '';
+        
+        // Update Services_Rooms record with Notes using RoomID field
+        const updateData = { Notes: notes };
+        const query = `RoomID=${roomId}`;
+        
+        await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+        
+        console.log(`Updated Notes for room ${roomName}`);
+        // Don't show toast for notes to avoid interrupting user typing
+      } catch (error) {
+        console.error('Error updating room notes:', error);
+      }
+      
+      // Also save to draft
       this.saveDraft();
-    }, 1000); // Save after 1 second of no changes
+      delete this.roomNotesDebounce[roomName];
+    }, 1500); // Wait 1.5 seconds after user stops typing
   }
 
   // Handle elevation point value change

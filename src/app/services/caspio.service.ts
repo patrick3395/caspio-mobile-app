@@ -383,12 +383,14 @@ export class CaspioService {
   }
 
   // Get Services_Rooms_Attach for specific point IDs
-  getServicesRoomsAttachments(pointIds: string[]): Observable<any[]> {
-    if (!pointIds || pointIds.length === 0) {
+  getServicesRoomsAttachments(pointIds: string[] | string): Observable<any[]> {
+    // Handle single ID or array of IDs
+    const idArray = Array.isArray(pointIds) ? pointIds : [pointIds];
+    if (!idArray || idArray.length === 0) {
       return of([]);
     }
     // Build query for multiple PointIDs using OR
-    const query = pointIds.map(id => `PointID=${id}`).join(' OR ');
+    const query = idArray.map(id => `PointID=${id}`).join(' OR ');
     return this.get<any>(`/tables/Services_Rooms_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
