@@ -169,31 +169,51 @@ export class AllProjectsPage implements OnInit {
   }
 
   async selectProject(project: Project) {
-    console.log('Selected project:', project);
-    console.log('Project data keys:', Object.keys(project));
-    console.log('Project Address:', project.Address);
-    
-    // Validate project data
-    if (!project || typeof project !== 'object') {
-      console.error('Invalid project data:', project);
-      await this.showErrorAlert('Invalid project data');
-      return;
-    }
-    
-    // Show project details in a modal
-    const alert = await this.alertController.create({
-      header: this.formatAddress(project),
-      cssClass: 'project-detail-alert',
-      message: this.getProjectDetailContent(project),
-      buttons: [
-        {
-          text: 'Close',
-          role: 'cancel'
-        }
-      ]
-    });
+    try {
+      console.log('selectProject called');
+      console.log('Selected project:', project);
+      
+      // Simple test alert first
+      const testAlert = await this.alertController.create({
+        header: 'Project Selected',
+        message: `Address: ${project.Address || 'No address'}`,
+        buttons: ['OK']
+      });
+      await testAlert.present();
+      
+      // After test works, show full details
+      /*
+      // Validate project data
+      if (!project || typeof project !== 'object') {
+        console.error('Invalid project data:', project);
+        await this.showErrorAlert('Invalid project data');
+        return;
+      }
+      
+      // Show project details in a modal
+      const alert = await this.alertController.create({
+        header: this.formatAddress(project),
+        cssClass: 'project-detail-alert',
+        message: this.getProjectDetailContent(project),
+        buttons: [
+          {
+            text: 'Close',
+            role: 'cancel'
+          }
+        ]
+      });
 
-    await alert.present();
+      await alert.present();
+      */
+    } catch (error) {
+      console.error('Error in selectProject:', error);
+      const errorAlert = await this.alertController.create({
+        header: 'Error',
+        message: `Failed to show project: ${error}`,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+    }
   }
   
   private async showErrorAlert(message: string) {

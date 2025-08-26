@@ -16,10 +16,16 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
+  appVersion = '1.4.19'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
     return new Date().toLocaleString();
+  }
+  
+  // Get app version
+  getAppVersion(): string {
+    return this.appVersion;
   }
 
   // Get current user info
