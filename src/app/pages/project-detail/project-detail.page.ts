@@ -396,29 +396,50 @@ export class ProjectDetailPage implements OnInit {
       
       // Check if we're in add-service mode (adding to a completed project)
       const queryParams = this.route.snapshot.queryParams;
+      
+      // Initial debug to see if we're even entering the update logic
+      alert(`DEBUG - Add Service Check:\n\nMode: ${queryParams['mode']}\nProject exists: ${!!this.project}\nShould update status: ${queryParams['mode'] === 'add-service' && !!this.project}`);
+      
       if (queryParams['mode'] === 'add-service' && this.project) {
-        // Debug: Show all project IDs available
-        alert(`DEBUG - Project IDs before Status Update:\n\nPK_ID: ${this.project.PK_ID}\nProjectID: ${this.project.ProjectID}\nCurrent StatusID: ${this.project.StatusID}\nCurrent Status Type: ${typeof this.project.StatusID}`);
+        // Debug: Show all project IDs and current status
+        let debugInfo = '=== PROJECT STATUS UPDATE ATTEMPT ===\n\n';
+        debugInfo += '1. CURRENT PROJECT DATA:\n';
+        debugInfo += `   PK_ID: ${this.project.PK_ID}\n`;
+        debugInfo += `   ProjectID: ${this.project.ProjectID}\n`;
+        debugInfo += `   Current StatusID: ${this.project.StatusID}\n`;
+        debugInfo += `   StatusID Type: ${typeof this.project.StatusID}\n\n`;
+        
+        debugInfo += '2. IDs TO USE:\n';
+        debugInfo += `   Will use PK_ID for WHERE: ${this.project.PK_ID}\n`;
+        debugInfo += `   Will update StatusID to: 1 (integer)\n\n`;
+        
+        alert(debugInfo);
         
         // Update project status to Active (StatusID = 1) when adding service to completed project
-        // Use PK_ID to find the project in the Projects table
         const projectPkId = this.project.PK_ID;
         const projectId = this.project.ProjectID;
         
         if (projectPkId) {
-          console.log('🔍 DEBUG: Updating project status to Active');
-          console.log('PK_ID:', projectPkId);
-          console.log('ProjectID:', projectId);
-          
           try {
-            // Use PK_ID in WHERE clause to find the correct project record
-            const updateUrl = `/tables/Projects/records?q.where=PK_ID=${projectPkId}`;
+            // Try using ProjectID in WHERE clause instead of PK_ID
+            const updateUrl = `/tables/Projects/records?q.where=ProjectID=${projectId}`;
             const updateData = { 
-              StatusID: 1  // Ensure this is integer 1
+              StatusID: 1  // Integer 1
             };
             
-            // Debug: Show exact update being sent
-            alert(`DEBUG - Updating Project Status:\n\nURL: ${updateUrl}\nData: ${JSON.stringify(updateData)}\nStatusID Type: ${typeof updateData.StatusID}`);
+            // Debug: Show exact API call
+            let apiDebug = '=== API CALL DETAILS ===\n\n';
+            apiDebug += '1. UPDATE URL:\n';
+            apiDebug += `   ${updateUrl}\n\n`;
+            apiDebug += '2. UPDATE DATA:\n';
+            apiDebug += `   ${JSON.stringify(updateData, null, 2)}\n\n`;
+            apiDebug += '3. DATA TYPES:\n';
+            apiDebug += `   StatusID type: ${typeof updateData.StatusID}\n`;
+            apiDebug += `   StatusID value: ${updateData.StatusID}\n\n`;
+            apiDebug += '4. WHERE CLAUSE:\n';
+            apiDebug += `   Using ProjectID=${projectId} to find record\n`;
+            
+            alert(apiDebug);
             
             await this.caspioService.put<any>(updateUrl, updateData).toPromise();
             
@@ -429,15 +450,43 @@ export class ProjectDetailPage implements OnInit {
             await this.showToast('Project moved to Active status', 'success');
             
             // Debug: Confirm update
-            alert(`DEBUG - Status Update Complete:\n\nProject ${projectPkId} StatusID set to ${this.project.StatusID}`);
-          } catch (error) {
+            alert(`SUCCESS - Status Update Complete:\n\nProject ${projectId} (PK_ID: ${projectPkId})\nStatusID updated to: ${this.project.StatusID}`);
+          } catch (error: any) {
             console.error('Error updating project status:', error);
-            alert(`DEBUG - Status Update Failed:\n\n${error}`);
+            
+            // Detailed error debug
+            let errorDebug = '=== STATUS UPDATE FAILED ===\n\n';
+            errorDebug += '1. ERROR MESSAGE:\n';
+            errorDebug += `   ${error.message || error}\n\n`;
+            
+            if (error.error) {
+              errorDebug += '2. ERROR DETAILS:\n';
+              errorDebug += `   ${JSON.stringify(error.error, null, 2)}\n\n`;
+            }
+            
+            if (error.status) {
+              errorDebug += '3. HTTP STATUS:\n';
+              errorDebug += `   ${error.status} ${error.statusText || ''}\n\n`;
+            }
+            
+            errorDebug += '4. ATTEMPTED UPDATE:\n';
+            errorDebug += `   ProjectID: ${projectId}\n`;
+            errorDebug += `   PK_ID: ${projectPkId}\n`;
+            errorDebug += `   Tried to set StatusID to: 1\n`;
+            
+            alert(errorDebug);
             // Continue with service creation even if status update fails
           }
         } else {
           console.error('No PK_ID available for status update');
-          alert('DEBUG - No PK_ID available for status update');
+          
+          let noIdDebug = '=== NO PROJECT ID AVAILABLE ===\n\n';
+          noIdDebug += 'Project object:\n';
+          noIdDebug += `PK_ID: ${this.project?.PK_ID}\n`;
+          noIdDebug += `ProjectID: ${this.project?.ProjectID}\n`;
+          noIdDebug += '\nCannot update status without project ID';
+          
+          alert(noIdDebug);
         }
       }
       
