@@ -1,4 +1,4 @@
-// Noble Property Inspections Brand Colors
+// Brand Colors
 ion-toolbar {
   --background: var(--noble-orange);
 }
@@ -11,7 +11,6 @@ ion-toolbar {
   margin: 0 auto;
 }
 
-// Modern Save Status Badge
 .save-status {
   position: fixed;
   top: 70px;
@@ -55,7 +54,7 @@ ion-toolbar {
   }
 }
 
-// Modern Form Controls
+// Form Controls
 .form-group {
   position: relative;
   margin-bottom: 20px;
@@ -136,7 +135,7 @@ ion-toolbar {
   50% { transform: scale(1.1); }
 }
 
-// Modern Section Cards
+// Sections
 .section-card {
   background: white;
   border-radius: 16px;
@@ -273,7 +272,7 @@ ion-toolbar {
   }
 }
 
-// Modern Categories Container
+// Categories
 .categories-container {
   margin-top: 32px;
   
@@ -592,21 +591,6 @@ ion-toolbar {
                     }
                   }
                   
-                  .image-name {
-                    position: absolute;
-                    bottom: 24px;
-                    left: 0;
-                    right: 0;
-                    background: rgba(255, 255, 255, 0.95);
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    text-align: center;
-                    border-radius: 0;
-                    color: #333;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                  }
                   
                   .image-caption {
                     position: absolute;
@@ -682,19 +666,18 @@ ion-toolbar {
   }
 }
 
-// Modern Elevation Plot
-// Room-based elevation styles
+// Elevation
+.subsection-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--noble-gray);
+  margin-bottom: 15px;
+  padding-left: 10px;
+  border-left: 3px solid var(--noble-orange);
+}
+
 .room-elevations-container {
   margin-bottom: 30px;
-  
-  .subsection-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--noble-gray);
-    margin-bottom: 15px;
-    padding-left: 10px;
-    border-left: 3px solid var(--noble-orange);
-  }
   
   ion-accordion-group {
     margin-bottom: 20px;
@@ -803,15 +786,6 @@ ion-toolbar {
 
 .manual-elevation-section {
   margin-top: 30px;
-  
-  .subsection-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--noble-gray);
-    margin-bottom: 15px;
-    padding-left: 10px;
-    border-left: 3px solid var(--noble-orange);
-  }
 }
 
 .elevation-controls {
@@ -891,7 +865,7 @@ ion-toolbar {
   }
 }
 
-// Modern Submit Button
+// Actions
 .form-actions {
   margin-top: 32px;
   padding: 24px;
@@ -975,7 +949,6 @@ ion-toolbar {
   }
 }
 
-// Modern Text Editor Modal
 ::ng-deep .text-editor-modal {
   --background: rgba(0, 0, 0, 0.7);
   --max-width: 600px;
@@ -1083,7 +1056,7 @@ ion-toolbar {
     }
   }
 }
-// Photo viewer alert styles  
+  
 ::ng-deep .photo-viewer-alert {
   .alert-wrapper {
     max-width: 90vw;
@@ -1113,7 +1086,6 @@ ion-toolbar {
   }
 }
 
-// Debug alert styles
 ::ng-deep .debug-alert-wide {
   .alert-wrapper {
     max-width: 90% !important;
@@ -1121,7 +1093,6 @@ ion-toolbar {
   }
 }
 
-// Custom visual alert with photo styles
 ::ng-deep .custom-visual-alert-with-photo {
   .alert-wrapper {
     max-width: 500px !important;
@@ -1131,7 +1102,6 @@ ion-toolbar {
   }
 }
 
-// Fullscreen modal for photo annotation
 ::ng-deep .fullscreen-modal {
   .modal-wrapper {
     width: 100% !important;
