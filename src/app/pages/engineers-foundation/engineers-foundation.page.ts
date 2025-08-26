@@ -1143,9 +1143,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
             buttons: [
               {
                 text: 'Upload as is',
-                handler: async () => {
-                  await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
+                handler: () => {
+                  // Close alert immediately and upload in background
+                  this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
                   uploadSuccessCount = 1; // Assume success for single upload
+                  return true; // This dismisses the alert
                 }
               },
               {
@@ -1662,85 +1664,42 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   // Add custom visual comment
   async addCustomVisual(category: string, kind: string) {
-    // Create hidden file input
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*,application/pdf';
-    fileInput.multiple = true;
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
-    
-    let selectedFiles: FileList | null = null;
-    let fileNames = '';
-    
-    // Handle file selection
-    fileInput.onchange = (event: any) => {
-      selectedFiles = event.target?.files || null;
-      if (selectedFiles && selectedFiles.length > 0) {
-        fileNames = Array.from(selectedFiles).map(f => f.name).join(', ');
-        // Update display to show selected files
-        const fileDisplay = document.getElementById('selected-files-display');
-        if (fileDisplay) {
-          fileDisplay.textContent = `${selectedFiles.length} file(s) selected`;
-          fileDisplay.style.color = '#28a745';
-        }
-      }
-    };
-    
     const alert = await this.alertController.create({
       header: `Add ${kind}`,
-      cssClass: 'custom-visual-alert-with-photo',
-      message: `
-        <div class="custom-visual-form">
-          <div class="form-field">
-            <label>Title/Name <span style="color: red;">*</span></label>
-            <input type="text" id="visual-name" placeholder="Enter title/name" class="alert-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div class="form-field" style="margin-top: 12px;">
-            <label>Description</label>
-            <textarea id="visual-text" placeholder="Enter description/text" rows="4" class="alert-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
-          </div>
-          <div class="form-field" style="margin-top: 12px;">
-            <label>Photos/Documents (Optional)</label>
-            <button type="button" onclick="document.querySelector('input[type=file]').click()" style="width: 100%; padding: 10px; background: var(--noble-orange); color: white; border: none; border-radius: 4px; cursor: pointer;">
-              📷 Choose Files
-            </button>
-            <div id="selected-files-display" style="margin-top: 8px; font-size: 12px; color: #666;">No files selected</div>
-          </div>
-        </div>
-      `,
-      buttons: [
+      inputs: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          handler: () => {
-            // Clean up
-            if (fileInput && fileInput.parentNode) {
-              fileInput.parentNode.removeChild(fileInput);
-            }
+          name: 'name',
+          type: 'text',
+          placeholder: 'Enter title/name',
+          attributes: {
+            required: true
           }
         },
         {
+          name: 'description',
+          type: 'textarea',
+          placeholder: 'Enter description (optional)',
+          attributes: {
+            rows: 4
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
           text: 'Add',
-          handler: async () => {
-            const nameInput = document.getElementById('visual-name') as HTMLInputElement;
-            const textInput = document.getElementById('visual-text') as HTMLTextAreaElement;
-            
-            const name = nameInput?.value || '';
-            const text = textInput?.value || '';
-            
-            if (!name.trim()) {
+          handler: async (data) => {
+            if (!data.name || !data.name.trim()) {
               await this.showToast('Please enter a name', 'warning');
               return false;
             }
             
-            // Create the visual with optional photos
-            await this.createCustomVisualWithPhotos(category, kind, name, text, selectedFiles);
+            // Create the visual without photos initially
+            await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', null);
             
-            // Clean up
-            if (fileInput && fileInput.parentNode) {
-              fileInput.parentNode.removeChild(fileInput);
-            }
             return true;
           }
         }
