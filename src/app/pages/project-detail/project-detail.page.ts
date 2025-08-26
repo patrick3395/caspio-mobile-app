@@ -397,31 +397,47 @@ export class ProjectDetailPage implements OnInit {
       // Check if we're in add-service mode (adding to a completed project)
       const queryParams = this.route.snapshot.queryParams;
       if (queryParams['mode'] === 'add-service' && this.project) {
+        // Debug: Show all project IDs available
+        alert(`DEBUG - Project IDs before Status Update:\n\nPK_ID: ${this.project.PK_ID}\nProjectID: ${this.project.ProjectID}\nCurrent StatusID: ${this.project.StatusID}\nCurrent Status Type: ${typeof this.project.StatusID}`);
+        
         // Update project status to Active (StatusID = 1) when adding service to completed project
-        const projectPkId = this.project.PK_ID || this.project.ProjectID;
+        // Use PK_ID to find the project in the Projects table
+        const projectPkId = this.project.PK_ID;
+        const projectId = this.project.ProjectID;
         
         if (projectPkId) {
-          console.log('🔍 DEBUG: Updating project status to Active for project PK_ID:', projectPkId);
+          console.log('🔍 DEBUG: Updating project status to Active');
+          console.log('PK_ID:', projectPkId);
+          console.log('ProjectID:', projectId);
           
           try {
-            // Update using ProjectID field to match the project, set StatusID to integer 1
-            const projectIdToUpdate = this.project.ProjectID || projectPkId;
-            await this.caspioService.put<any>(
-              `/tables/Projects/records?q.where=ProjectID=${projectIdToUpdate}`,
-              { StatusID: 1 }  // Ensure this is sent as integer 1
-            ).toPromise();
+            // Use PK_ID in WHERE clause to find the correct project record
+            const updateUrl = `/tables/Projects/records?q.where=PK_ID=${projectPkId}`;
+            const updateData = { 
+              StatusID: 1  // Ensure this is integer 1
+            };
+            
+            // Debug: Show exact update being sent
+            alert(`DEBUG - Updating Project Status:\n\nURL: ${updateUrl}\nData: ${JSON.stringify(updateData)}\nStatusID Type: ${typeof updateData.StatusID}`);
+            
+            await this.caspioService.put<any>(updateUrl, updateData).toPromise();
             
             // Update local project object
             this.project.StatusID = 1;
             this.isReadOnly = false; // Make sure project is editable now
             console.log('🔍 DEBUG: Project status updated to Active (StatusID = 1)');
             await this.showToast('Project moved to Active status', 'success');
+            
+            // Debug: Confirm update
+            alert(`DEBUG - Status Update Complete:\n\nProject ${projectPkId} StatusID set to ${this.project.StatusID}`);
           } catch (error) {
             console.error('Error updating project status:', error);
+            alert(`DEBUG - Status Update Failed:\n\n${error}`);
             // Continue with service creation even if status update fails
           }
         } else {
-          console.error('No project ID available for status update');
+          console.error('No PK_ID available for status update');
+          alert('DEBUG - No PK_ID available for status update');
         }
       }
       
