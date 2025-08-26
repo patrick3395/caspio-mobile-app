@@ -1248,3 +1248,41 @@ ion-toolbar {
     max-height: 100% !important;
   }
 }
+
+// Photo confirmation alert styles
+::ng-deep ion-alert {
+  &.alert-button-retake {
+    .alert-button-group {
+      .alert-button:first-child {
+        color: #dc3545;
+      }
+    }
+  }
+  
+  &.alert-button-use {
+    .alert-button-group {
+      .alert-button:nth-child(2) {
+        color: #28a745;
+        font-weight: 600;
+      }
+    }
+  }
+  
+  &.alert-button-primary {
+    .alert-button-group {
+      .alert-button:last-child {
+        background: var(--noble-orange);
+        color: white;
+        font-weight: 600;
+      }
+    }
+  }
+  
+  // General photo alert styling
+  .alert-message {
+    img {
+      border: 2px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+  }
+}

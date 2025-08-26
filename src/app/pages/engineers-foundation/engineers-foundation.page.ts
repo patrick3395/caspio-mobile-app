@@ -1158,89 +1158,157 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Multiple photo capture session
+  // Multiple photo capture session with proper confirmation
   private async startMultiPhotoCapture(visualId: string, key: string, category: string, itemId: string) {
     const capturedPhotos: File[] = [];
     let keepCapturing = true;
+    let photoCounter = 0;
     
     console.log('🎬 Starting multi-photo capture session');
     
     while (keepCapturing) {
-      try {
-        console.log(`📸 Opening camera for photo ${capturedPhotos.length + 1}`);
-        
-        // Create file input for camera capture
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'camera' as any; // Force camera
-        
-        const fileSelected = new Promise<File | null>((resolve) => {
-          let resolved = false;
+      let currentFile: File | null = null;
+      let retakePhoto = true;
+      
+      // Keep retaking until user is satisfied with the photo
+      while (retakePhoto) {
+        try {
+          console.log(`📸 Opening camera for photo ${photoCounter + 1}`);
           
-          input.onchange = (event: any) => {
-            if (!resolved) {
-              resolved = true;
-              const file = event.target?.files?.[0];
-              console.log('📁 File selected:', file?.name);
-              resolve(file || null);
-            }
-          };
+          // Create file input for camera capture
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.capture = 'camera' as any; // Force camera
           
-          // Don't use timeout as it interferes with camera usage
-          // Users can cancel by pressing back/cancel in camera
-        });
-        
-        input.click();
-        
-        const file = await fileSelected;
-        if (file) {
-          capturedPhotos.push(file);
-          console.log(`✅ Photo captured: ${file.name} (${capturedPhotos.length} total)`);
-          
-          // Upload this photo immediately in background
-          console.log(`📤 Uploading photo ${capturedPhotos.length} in background...`);
-          this.uploadPhotoForVisual(visualId, file, key, true)
-            .then(() => console.log(`✅ Photo ${capturedPhotos.length} uploaded`))
-            .catch(err => console.error(`❌ Failed to upload photo ${capturedPhotos.length}:`, err));
-          
-          // Ask if they want to capture more
-          const alert = await this.alertController.create({
-            header: `Photo ${capturedPhotos.length} Captured`,
-            message: 'Would you like to take another photo?',
-            buttons: [
-              {
-                text: 'Done',
-                role: 'cancel',
-                cssClass: 'alert-button-cancel'
-              },
-              {
-                text: 'Take Another',
-                role: 'confirm',
-                cssClass: 'alert-button-confirm'
+          const fileSelected = new Promise<File | null>((resolve) => {
+            let resolved = false;
+            
+            input.onchange = (event: any) => {
+              if (!resolved) {
+                resolved = true;
+                const file = event.target?.files?.[0];
+                console.log('📁 File selected:', file?.name);
+                resolve(file || null);
               }
-            ]
+            };
+            
+            // Add a listener for cancel - give reasonable timeout
+            setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                resolve(null);
+              }
+            }, 120000); // 2 minutes timeout
           });
           
-          await alert.present();
-          const { role } = await alert.onDidDismiss();
-          console.log('🔘 User selected:', role);
-          keepCapturing = (role === 'confirm');
-        } else {
-          // User cancelled or no file selected
-          console.log('❌ No file selected, ending capture session');
+          input.click();
+          
+          currentFile = await fileSelected;
+          
+          if (currentFile) {
+            // Show preview and options
+            const objectUrl = URL.createObjectURL(currentFile);
+            
+            // Create custom alert with photo preview
+            const alert = await this.alertController.create({
+              header: 'Photo Review',
+              message: `
+                <div style="text-align: center;">
+                  <img src="${objectUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin: 10px 0;">
+                  <p style="margin-top: 10px;">What would you like to do with this photo?</p>
+                </div>
+              `,
+              buttons: [
+                {
+                  text: 'Retake',
+                  role: 'retake',
+                  cssClass: 'alert-button-retake',
+                  handler: () => {
+                    console.log('👤 User chose to retake photo');
+                    URL.revokeObjectURL(objectUrl);
+                    retakePhoto = true;
+                    return true;
+                  }
+                },
+                {
+                  text: 'Use Photo',
+                  role: 'use',
+                  cssClass: 'alert-button-use',
+                  handler: () => {
+                    console.log('✅ User chose to use photo');
+                    URL.revokeObjectURL(objectUrl);
+                    retakePhoto = false;
+                    keepCapturing = false; // End capture session after using photo
+                    return true;
+                  }
+                },
+                {
+                  text: 'Take Another Photo',
+                  role: 'another',
+                  cssClass: 'alert-button-primary',
+                  handler: () => {
+                    console.log('➕ User chose to take another photo');
+                    URL.revokeObjectURL(objectUrl);
+                    retakePhoto = false;
+                    keepCapturing = true; // Continue capture session
+                    return true;
+                  }
+                }
+              ],
+              backdropDismiss: false
+            });
+            
+            await alert.present();
+            const { role } = await alert.onDidDismiss();
+            
+            // Process based on user choice
+            if (role === 'retake') {
+              // Continue the retake loop
+              currentFile = null;
+            } else if (role === 'use' || role === 'another') {
+              // Save the photo
+              photoCounter++;
+              capturedPhotos.push(currentFile);
+              console.log(`📸 Photo ${photoCounter} accepted: ${currentFile.name}`);
+              
+              // Upload this photo immediately in background
+              console.log(`📤 Uploading photo ${photoCounter} in background...`);
+              this.uploadPhotoForVisual(visualId, currentFile, key, true)
+                .then(() => {
+                  console.log(`✅ Photo ${photoCounter} uploaded successfully`);
+                  this.showToast(`Photo ${photoCounter} uploaded`, 'success');
+                })
+                .catch(err => {
+                  console.error(`❌ Failed to upload photo ${photoCounter}:`, err);
+                  this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
+                });
+              
+              retakePhoto = false;
+              
+              if (role === 'use') {
+                keepCapturing = false;
+              }
+            }
+          } else {
+            // User cancelled camera
+            console.log('❌ Camera cancelled by user');
+            retakePhoto = false;
+            keepCapturing = false;
+          }
+        } catch (error) {
+          console.error('❌ Error capturing photo:', error);
+          await this.showToast('Failed to capture photo', 'danger');
+          retakePhoto = false;
           keepCapturing = false;
         }
-      } catch (error) {
-        console.error('❌ Error capturing photo:', error);
-        keepCapturing = false;
       }
     }
     
-    // All photos have been uploaded in background already
+    // Final summary
     if (capturedPhotos.length > 0) {
-      console.log(`✅ Capture session complete. ${capturedPhotos.length} photo(s) uploaded in background`);
-      await this.showToast(`${capturedPhotos.length} photo${capturedPhotos.length > 1 ? 's' : ''} captured and uploaded`, 'success');
+      console.log(`✅ Capture session complete. ${capturedPhotos.length} photo(s) being uploaded`);
+      // Don't show another toast here as we already show individual upload toasts
     } else {
       console.log('📷 No photos captured in this session');
     }
