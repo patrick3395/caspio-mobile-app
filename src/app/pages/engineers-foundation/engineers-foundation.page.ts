@@ -281,19 +281,98 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       if (isSelected) {
         // Create room in Services_Rooms
+        const serviceIdNum = parseInt(this.serviceId, 10);
         const roomData = {
-          ServiceID: parseInt(this.serviceId, 10),
+          ServiceID: serviceIdNum,
           RoomName: roomName
         };
         
-        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
-        
-        if (response) {
-          const roomId = response.PK_ID || response.RoomID || response.id;
-          this.roomRecordIds[roomName] = roomId;
-          this.selectedRooms[roomName] = true;
-          await this.showToast(`Room "${roomName}" added`, 'success');
-        }
+        // Show debug popup before sending
+        const debugAlert = await this.alertController.create({
+          header: '🔍 Services_Rooms Debug',
+          message: `
+            <div style="text-align: left; font-family: monospace; font-size: 12px;">
+              <strong style="color: blue;">Creating Room in Services_Rooms</strong><br><br>
+              
+              <strong>Table:</strong> Services_Rooms<br><br>
+              
+              <strong>Data Being Sent:</strong><br>
+              • ServiceID: <strong style="color: red;">${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
+              • RoomName: <strong style="color: green;">"${roomData.RoomName}"</strong><br><br>
+              
+              <strong>Current Context:</strong><br>
+              • ProjectID: ${this.projectId}<br>
+              • ServiceID (raw): ${this.serviceId}<br>
+              • ServiceID (parsed): ${serviceIdNum}<br>
+              • Is NaN: ${isNaN(serviceIdNum)}<br><br>
+              
+              <strong>API Endpoint:</strong><br>
+              POST /tables/Services_Rooms/records
+            </div>
+          `,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel',
+              handler: () => {
+                this.savingRooms[roomName] = false;
+                this.selectedRooms[roomName] = false;
+                return true;
+              }
+            },
+            {
+              text: 'Send',
+              handler: async () => {
+                try {
+                  const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+                  
+                  if (response) {
+                    const roomId = response.PK_ID || response.RoomID || response.id;
+                    this.roomRecordIds[roomName] = roomId;
+                    this.selectedRooms[roomName] = true;
+                    await this.showToast(`Room "${roomName}" added`, 'success');
+                    
+                    // Show success response
+                    const successAlert = await this.alertController.create({
+                      header: '✅ Room Created',
+                      message: `
+                        <div style="text-align: left; font-family: monospace; font-size: 12px;">
+                          <strong>Response:</strong><br>
+                          ${JSON.stringify(response, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+                          <br><br>
+                          <strong>Room ID:</strong> ${roomId}
+                        </div>
+                      `,
+                      buttons: ['OK']
+                    });
+                    await successAlert.present();
+                  }
+                } catch (err: any) {
+                  // Show error details
+                  const errorAlert = await this.alertController.create({
+                    header: '❌ Room Creation Failed',
+                    message: `
+                      <div style="text-align: left; font-family: monospace; font-size: 12px;">
+                        <strong>Error Details:</strong><br>
+                        • Status: ${err?.status || 'Unknown'}<br>
+                        • Message: ${err?.message || 'No message'}<br><br>
+                        
+                        <strong>Error Response:</strong><br>
+                        <div style="background: #ffe0e0; padding: 5px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
+                          ${JSON.stringify(err?.error || err, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+                        </div>
+                      </div>
+                    `,
+                    buttons: ['OK']
+                  });
+                  await errorAlert.present();
+                }
+                return true;
+              }
+            }
+          ]
+        });
+        await debugAlert.present();
       } else {
         // Remove room from Services_Rooms
         const roomId = this.roomRecordIds[roomName];
@@ -305,7 +384,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.showToast(`Room "${roomName}" removed`, 'warning');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling room selection:', error);
       await this.showToast('Failed to update room selection', 'danger');
     } finally {

@@ -1,6 +1,6 @@
-<ion-header>
-  <ion-toolbar color="primary">
-    <ion-title>Login</ion-title>
+<ion-header class="custom-header">
+  <ion-toolbar color="light">
+    <ion-title class="page-title">📱 Caspio Mobile</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -8,20 +8,24 @@
   <div class="login-container">
     <div class="logo-section">
       <div class="app-logo">
-        <ion-icon name="business-outline" size="large"></ion-icon>
+        <ion-icon name="home-outline"></ion-icon>
       </div>
       <h1>Noble Property Inspections</h1>
-      <p>Caspio Mobile v1.3.95</p>
+      <p>Version 1.3.99</p>
     </div>
 
     <div class="form-section">
+      <div class="section-title">Sign In</div>
+      
       <ion-item lines="none" class="input-item">
         <ion-icon name="mail-outline" slot="start"></ion-icon>
         <ion-input 
           [(ngModel)]="credentials.email" 
           type="email" 
           placeholder="Email Address"
-          autocomplete="email"
+          autocomplete="username email"
+          autocapitalize="off"
+          inputmode="email"
           required>
         </ion-input>
       </ion-item>
@@ -38,9 +42,19 @@
         <ion-button 
           fill="clear" 
           slot="end" 
+          class="visibility-toggle"
           (click)="togglePasswordVisibility()">
           <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
         </ion-button>
+      </ion-item>
+
+      <ion-item lines="none" class="remember-item">
+        <ion-checkbox 
+          slot="start" 
+          [(ngModel)]="rememberMe"
+          color="primary">
+        </ion-checkbox>
+        <ion-label>Remember me</ion-label>
       </ion-item>
 
       <ion-button 
@@ -48,14 +62,24 @@
         class="login-button"
         (click)="login()"
         [disabled]="!credentials.email || !credentials.password">
-        Login
+        <ion-icon name="log-in-outline" slot="start"></ion-icon>
+        Sign In
       </ion-button>
 
       <div class="forgot-password">
         <ion-button fill="clear" size="small" (click)="forgotPassword()">
+          <ion-icon name="help-circle-outline" slot="start"></ion-icon>
           Forgot Password?
         </ion-button>
       </div>
+    </div>
+
+    <div class="footer-text">
+      <p>© 2024 Noble Property Inspections</p>
+      <p class="secure-text">
+        <ion-icon name="lock-closed-outline"></ion-icon>
+        Secure Connection
+      </p>
     </div>
   </div>
 </ion-content>

@@ -21,6 +21,7 @@ export class LoginPage implements OnInit {
   };
 
   showPassword = false;
+  rememberMe = false;
 
   constructor(
     private router: Router,
@@ -37,6 +38,20 @@ export class LoginPage implements OnInit {
     if (token && user) {
       // User is already logged in, redirect to active projects
       this.router.navigate(['/tabs/active-projects']);
+      return;
+    }
+    
+    // Check for saved credentials
+    const savedCredentials = localStorage.getItem('savedCredentials');
+    if (savedCredentials) {
+      try {
+        const creds = JSON.parse(savedCredentials);
+        this.credentials.email = creds.email || '';
+        this.credentials.companyId = creds.companyId || 1;
+        this.rememberMe = true;
+      } catch (e) {
+        console.error('Error loading saved credentials:', e);
+      }
     }
   }
 
@@ -82,6 +97,16 @@ export class LoginPage implements OnInit {
         } else {
           // Fallback: create a simple auth indicator
           localStorage.setItem('authToken', 'authenticated');
+        }
+        
+        // Save credentials if remember me is checked
+        if (this.rememberMe) {
+          localStorage.setItem('savedCredentials', JSON.stringify({
+            email: this.credentials.email,
+            companyId: this.credentials.companyId
+          }));
+        } else {
+          localStorage.removeItem('savedCredentials');
         }
         
         await loading.dismiss();
