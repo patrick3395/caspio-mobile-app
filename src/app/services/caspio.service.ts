@@ -311,6 +311,13 @@ export class CaspioService {
       map(response => response.Result || [])
     );
   }
+
+  // Services Room Templates methods
+  getServicesRoomTemplates(): Observable<any[]> {
+    return this.get<any>('/tables/Services_Room_Templates/records?q.where=Auto=Yes').pipe(
+      map(response => response.Result || [])
+    );
+  }
   
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {

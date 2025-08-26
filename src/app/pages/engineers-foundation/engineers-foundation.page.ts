@@ -75,6 +75,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   // Elevation readings array
   elevationReadings: ElevationReading[] = [];
   
+  // Room templates for elevation plot
+  roomTemplates: any[] = [];
+  roomElevationData: { [roomName: string]: any } = {};
+  
   // UI state
   expandedSections: { [key: string]: boolean } = {
     project: false,  // Project Details collapsed by default
@@ -125,6 +129,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     // Load visual categories from Services_Visuals_Templates FIRST
     await this.loadVisualCategories();
     
+    // Load room templates for elevation plot
+    await this.loadRoomTemplates();
+    
     // Then load any existing template data (including visual selections)
     await this.loadExistingData();
     
@@ -157,6 +164,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     }
   }
   
+  async loadRoomTemplates() {
+    try {
+      console.log('Loading room templates with Auto=Yes...');
+      const templates = await this.caspioService.getServicesRoomTemplates().toPromise();
+      
+      if (templates && templates.length > 0) {
+        this.roomTemplates = templates;
+        console.log(`Loaded ${templates.length} room templates:`, templates);
+        
+        // Initialize room elevation data structure
+        templates.forEach((template: any) => {
+          const points: any[] = [];
+          
+          // Check Point1Name through Point10Name
+          for (let i = 1; i <= 10; i++) {
+            const pointName = template[`Point${i}Name`];
+            if (pointName && pointName.trim() !== '') {
+              points.push({
+                name: pointName,
+                value: null,
+                fieldName: `Point${i}`
+              });
+            }
+          }
+          
+          this.roomElevationData[template.RoomName] = {
+            roomName: template.RoomName,
+            points: points,
+            expanded: false
+          };
+        });
+        
+        console.log('Initialized room elevation data:', this.roomElevationData);
+      } else {
+        console.log('No room templates with Auto=Yes found');
+      }
+    } catch (error) {
+      console.error('Error loading room templates:', error);
+      await this.showToast('Failed to load room templates', 'danger');
+    }
+  }
+
   async loadVisualCategories() {
     try {
       // Get all templates - filter by TypeID = 1 for Foundation Evaluation
@@ -403,6 +452,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   clearElevationReadings() {
     this.elevationReadings = [];
     this.addElevationReading(); // Add one empty reading
+  }
+  
+  // Room elevation helper methods
+  getPointsCount(roomName: string): number {
+    const roomData = this.roomElevationData[roomName];
+    return roomData ? roomData.points.length : 0;
+  }
+  
+  onElevationPointChange(roomName: string, point: any) {
+    console.log(`Elevation point changed for ${roomName}:`, point);
+    // Auto-save to draft
+    this.saveDraft();
   }
   
   // Save and submit functions
@@ -2138,6 +2199,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         componentProps: {
           photoUrl: imageUrl,
           photoName: photoName,
+          photoCaption: photo.caption || '',
           canAnnotate: true,
           visualId: visualId,
           categoryKey: key,
@@ -2148,10 +2210,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
       
       await modal.present();
       
-      // Handle annotated photo if returned
+      // Handle annotated photo or updated caption if returned
       const { data } = await modal.onDidDismiss();
       
-      if (data && data.annotatedBlob) {
+      if (data && data.updatedCaption !== undefined) {
+        // Caption was updated
+        photo.caption = data.updatedCaption;
+        await this.saveCaption(photo, category, itemId);
+        this.changeDetectorRef.detectChanges();
+      } else if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
         
