@@ -253,8 +253,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (template) {
                 this.selectedRooms[template.RoomName] = true;
                 this.roomRecordIds[template.RoomName] = room.PK_ID || room.RoomID;
+              }
+            }
           }
-        });
+        }
         
         console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
