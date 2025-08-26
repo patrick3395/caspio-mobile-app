@@ -290,10 +290,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
         
-        // ONLY send ServiceID and RoomName - nothing else!
+        // ONLY send ServiceID - NOTHING ELSE!
         const roomData = {
-          ServiceID: serviceIdNum,
-          RoomName: roomName
+          ServiceID: serviceIdNum
         };
         
         // Show debug popup before sending
@@ -303,12 +302,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
               <strong style="color: blue;">Creating Room in Services_Rooms Table</strong><br><br>
               
-              <strong style="color: red;">⚠️ ONLY These Fields Will Be Sent:</strong><br>
+              <strong style="color: red;">⚠️ ONLY This Field Will Be Sent:</strong><br>
               <div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin: 10px 0;">
                 • ServiceID: <strong>${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
-                • RoomName: <strong>"${roomData.RoomName}"</strong><br>
                 <br>
-                <strong>NO ProjectID will be sent!</strong>
+                <strong>NOTHING ELSE - No RoomName, No ProjectID!</strong>
               </div>
               
               <strong>Validation Check:</strong><br>
@@ -317,6 +315,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               • Is valid number: ${!isNaN(serviceIdNum) ? '✅ YES' : '❌ NO'}<br><br>
               
               <strong>Context (NOT sent, just FYI):</strong><br>
+              • Room Name: "${roomName}" (NOT SENT - just for UI)<br>
               • Current ProjectID: ${this.projectId} (NOT SENT)<br>
               • Route params: serviceId=${this.serviceId}<br><br>
               
