@@ -310,6 +310,14 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
+                            <input 
+                              type="text" 
+                              class="image-caption" 
+                              [(ngModel)]="photo.caption" 
+                              (blur)="saveCaption(photo, category, item.id)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Add caption..."
+                              maxlength="255">
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
                             <ion-icon name="add-circle-outline"></ion-icon>
@@ -369,6 +377,14 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
+                            <input 
+                              type="text" 
+                              class="image-caption" 
+                              [(ngModel)]="photo.caption" 
+                              (blur)="saveCaption(photo, category, item.id)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Add caption..."
+                              maxlength="255">
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
                             <ion-icon name="add-circle-outline"></ion-icon>
@@ -428,6 +444,14 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <span class="image-name">{{ photo.name || 'Photo' }}</span>
+                            <input 
+                              type="text" 
+                              class="image-caption" 
+                              [(ngModel)]="photo.caption" 
+                              (blur)="saveCaption(photo, category, item.id)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Add caption..."
+                              maxlength="255">
                           </div>
                           <button class="add-more-btn" (click)="addAnotherPhoto(category, item.id)" title="Add more photos (multiple selection supported)">
                             <ion-icon name="add-circle-outline"></ion-icon>

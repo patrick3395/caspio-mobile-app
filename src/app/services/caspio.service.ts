@@ -428,6 +428,12 @@ export class CaspioService {
     );
   }
   
+  // Update Services_Visuals_Attach record (for caption/annotation updates)
+  updateServicesVisualsAttach(attachId: string, data: any): Observable<any> {
+    const url = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data);
+  }
+  
   // Update Services_Visuals_Attach record
   updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
     console.log('📝 Updating Services_Visuals_Attach record');

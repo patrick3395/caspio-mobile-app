@@ -521,7 +521,7 @@ ion-toolbar {
                   position: relative;
                   width: calc(50% - 6px); // Half width minus gap
                   max-width: 150px; // Maximum width
-                  height: 120px; // Reduced height
+                  height: 140px; // Increased height to accommodate caption
                   display: inline-block; // Ensure proper layout
                   vertical-align: top;
                   
@@ -594,18 +594,52 @@ ion-toolbar {
                   
                   .image-name {
                     position: absolute;
-                    bottom: 0;
+                    bottom: 24px;
                     left: 0;
                     right: 0;
                     background: rgba(255, 255, 255, 0.95);
                     padding: 4px 8px;
                     font-size: 11px;
                     text-align: center;
-                    border-radius: 0 0 6px 6px;
+                    border-radius: 0;
                     color: #333;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
+                  }
+                  
+                  .image-caption {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    width: 100%;
+                    padding: 4px 6px;
+                    font-size: 11px;
+                    text-align: center;
+                    border: none;
+                    border-top: 1px solid #e0e0e0;
+                    background: rgba(255, 255, 255, 0.98);
+                    border-radius: 0 0 6px 6px;
+                    color: #333;
+                    outline: none;
+                    transition: all 0.2s ease;
+                    
+                    &::placeholder {
+                      color: #999;
+                      font-style: italic;
+                      font-size: 10px;
+                    }
+                    
+                    &:focus {
+                      background: white;
+                      border-top-color: var(--noble-orange);
+                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    }
+                    
+                    &:hover {
+                      background: white;
+                    }
                   }
                 }
                 

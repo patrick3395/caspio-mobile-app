@@ -2250,6 +2250,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
     this.fileInput.nativeElement.click();
   }
   
+  // Save caption to the Annotation field in Services_Visuals_Attach table
+  async saveCaption(photo: any, category: string, itemId: string) {
+    try {
+      // Only save if there's an AttachID and the caption has changed
+      if (!photo.AttachID) {
+        console.warn('No AttachID for photo, cannot save caption');
+        return;
+      }
+
+      // Update the Services_Visuals_Attach record with the new caption
+      const updateData = {
+        Annotation: photo.caption || ''  // Save caption or empty string
+      };
+
+      await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
+      
+      // Show brief toast
+      await this.showToast('Caption saved', 'success');
+      
+    } catch (error) {
+      console.error('Error saving caption:', error);
+      await this.showToast('Failed to save caption', 'danger');
+    }
+  }
+  
   // Verify if visual was actually saved
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
@@ -2429,7 +2454,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
               console.log('Processing photo:', photo);
               const photoData = {
                 ...photo,
-                name: photo.Annotation || photo.Photo || 'Photo',
+                name: photo.Photo || 'Photo',
+                caption: photo.Annotation || '',  // Load existing caption from Annotation field
                 url: '',
                 thumbnailUrl: ''
               };
