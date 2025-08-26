@@ -665,7 +665,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           
           // Check if we're within this room's bounds
-          if (currentPosition >= roomTop && currentPosition < roomBottom) {
+          if (viewportMiddle >= roomTop && viewportMiddle < roomBottom) {
             // Scroll to the room header
             roomHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
@@ -694,7 +694,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         
         // Check if we're within this section's bounds
-        if (currentPosition >= sectionTop && currentPosition < sectionBottom) {
+        if (viewportMiddle >= sectionTop && viewportMiddle < sectionBottom) {
           // Scroll to this section's header
           sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
           return;
