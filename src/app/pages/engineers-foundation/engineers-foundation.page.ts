@@ -1490,18 +1490,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Add immediately for instant feedback
       this.visualPhotos[actualVisualId].push(photoData);
-      
-      // Restore accordion state
-      if (currentExpandedAccordions) {
-        this.expandedAccordions = currentExpandedAccordions;
-      }
-      
-      // IMPORTANT: Restore main section states to prevent collapsing
-      if (currentExpandedSections) {
-        this.expandedSections = currentExpandedSections;
-      }
-      
-      this.restoreAccordionState();
     }
     
     // Now do the actual upload in background
