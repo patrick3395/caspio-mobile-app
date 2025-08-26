@@ -213,6 +213,53 @@ ion-action-sheet {
   }
 }
 
+// Compact Photo Selector Alert
+.compact-photo-selector {
+  .alert-wrapper {
+    .alert-button-group {
+      padding: 0;
+      
+      .alert-button {
+        height: 44px;
+        justify-content: center;
+        border-bottom: 0.55px solid rgba(0, 0, 0, 0.1);
+        
+        &.action-button {
+          color: var(--noble-orange) !important;
+          font-weight: 400;
+          
+          .alert-button-inner {
+            justify-content: center;
+            color: var(--noble-orange) !important;
+          }
+        }
+        
+        &.cancel-button {
+          color: var(--noble-orange) !important;
+          font-weight: 600;
+          
+          .alert-button-inner {
+            justify-content: center;
+            color: var(--noble-orange) !important;
+          }
+        }
+        
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+    
+    .alert-head {
+      display: none;
+    }
+    
+    .alert-message {
+      display: none;
+    }
+  }
+}
+
 // Custom utility classes
 .text-orange {
   color: var(--noble-orange) !important;

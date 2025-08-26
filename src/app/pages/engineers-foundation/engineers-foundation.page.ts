@@ -1343,20 +1343,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // Ask if user wants to take another photo
             const continueAlert = await this.alertController.create({
-              header: `Photo ${photoCounter} Captured`,
-              message: 'Would you like to take another photo?',
+              cssClass: 'compact-photo-selector',
               buttons: [
                 {
+                  text: 'Take Another Photo',
+                  cssClass: 'action-button',
+                  handler: () => {
+                    keepCapturing = true;
+                    return true;
+                  }
+                },
+                {
                   text: 'Done',
+                  cssClass: 'action-button',
                   handler: () => {
                     keepCapturing = false;
                     return true;
                   }
                 },
                 {
-                  text: 'Take Another Photo',
+                  text: 'Cancel',
+                  role: 'cancel',
+                  cssClass: 'cancel-button',
                   handler: () => {
-                    keepCapturing = true;
+                    keepCapturing = false;
                     return true;
                   }
                 }
