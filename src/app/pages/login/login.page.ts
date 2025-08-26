@@ -89,6 +89,9 @@ export class LoginPage implements OnInit {
       if (users && users.length > 0) {
         const user = users[0];
         
+        // Dismiss loading screen FIRST to avoid blocking the debug popup
+        await loading.dismiss();
+        
         // Show debug popup with user data
         const debugAlert = await this.alertController.create({
           header: '🔍 Login Debug Info',
@@ -125,7 +128,7 @@ export class LoginPage implements OnInit {
               text: 'Cancel Login',
               role: 'cancel',
               handler: () => {
-                loading.dismiss();
+                // Loading already dismissed
                 return true;
               }
             },
@@ -134,14 +137,14 @@ export class LoginPage implements OnInit {
               handler: () => {
                 // Force CompanyID to 1 for Noble Property Inspections
                 user.CompanyID = 1;
-                this.completeLogin(user, loading);
+                this.completeLogin(user, null); // Pass null since loading is already dismissed
                 return true;
               }
             },
             {
               text: 'Continue as is',
               handler: () => {
-                this.completeLogin(user, loading);
+                this.completeLogin(user, null); // Pass null since loading is already dismissed
                 return true;
               }
             }
@@ -188,7 +191,10 @@ export class LoginPage implements OnInit {
       localStorage.removeItem('savedCredentials');
     }
     
-    await loading.dismiss();
+    // Only dismiss loading if it exists (it might already be dismissed)
+    if (loading) {
+      await loading.dismiss();
+    }
     
     // Navigate to main app
     this.router.navigate(['/tabs/active-projects']);
