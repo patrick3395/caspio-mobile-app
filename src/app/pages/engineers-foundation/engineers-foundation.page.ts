@@ -1053,8 +1053,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const capturedPhotos: File[] = [];
     let keepCapturing = true;
     
+    console.log('🎬 Starting multi-photo capture session');
+    
     while (keepCapturing) {
       try {
+        console.log(`📸 Opening camera for photo ${capturedPhotos.length + 1}`);
+        
         // Create file input for camera capture
         const input = document.createElement('input');
         input.type = 'file';
@@ -1062,14 +1066,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         input.capture = 'camera' as any; // Force camera
         
         const fileSelected = new Promise<File | null>((resolve) => {
+          let resolved = false;
+          
           input.onchange = (event: any) => {
-            const file = event.target?.files?.[0];
-            resolve(file || null);
+            if (!resolved) {
+              resolved = true;
+              const file = event.target?.files?.[0];
+              console.log('📁 File selected:', file?.name);
+              resolve(file || null);
+            }
           };
-          // Handle cancel - give user 60 seconds to take photo
-          setTimeout(() => {
-            resolve(null);
-          }, 60000);
+          
+          // Don't use timeout as it interferes with camera usage
+          // Users can cancel by pressing back/cancel in camera
         });
         
         input.click();
@@ -1077,7 +1086,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const file = await fileSelected;
         if (file) {
           capturedPhotos.push(file);
-          console.log(`📸 Photo captured: ${file.name} (${capturedPhotos.length} total)`);
+          console.log(`✅ Photo captured: ${file.name} (${capturedPhotos.length} total)`);
+          
+          // Upload this photo immediately in background
+          console.log(`📤 Uploading photo ${capturedPhotos.length} in background...`);
+          this.uploadPhotoForVisual(visualId, file, key, true)
+            .then(() => console.log(`✅ Photo ${capturedPhotos.length} uploaded`))
+            .catch(err => console.error(`❌ Failed to upload photo ${capturedPhotos.length}:`, err));
           
           // Ask if they want to capture more
           const alert = await this.alertController.create({
@@ -1087,82 +1102,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               {
                 text: 'Done',
                 role: 'cancel',
-                handler: () => {
-                  keepCapturing = false;
-                }
+                cssClass: 'alert-button-cancel'
               },
               {
                 text: 'Take Another',
-                handler: () => {
-                  keepCapturing = true;
-                }
+                role: 'confirm',
+                cssClass: 'alert-button-confirm'
               }
             ]
           });
+          
           await alert.present();
           const { role } = await alert.onDidDismiss();
-          keepCapturing = role !== 'cancel';
+          console.log('🔘 User selected:', role);
+          keepCapturing = (role === 'confirm');
         } else {
-          // User cancelled or timed out
+          // User cancelled or no file selected
+          console.log('❌ No file selected, ending capture session');
           keepCapturing = false;
         }
       } catch (error) {
-        console.error('Error capturing photo:', error);
+        console.error('❌ Error capturing photo:', error);
         keepCapturing = false;
       }
     }
     
-    // Upload all captured photos
+    // All photos have been uploaded in background already
     if (capturedPhotos.length > 0) {
-      console.log(`📤 Uploading ${capturedPhotos.length} photos...`);
-      
-      // Show upload progress
-      await this.showToast(`Uploading ${capturedPhotos.length} photo${capturedPhotos.length > 1 ? 's' : ''}...`, 'primary');
-      
-      // Track uploads
-      this.uploadingPhotos[key] = (this.uploadingPhotos[key] || 0) + capturedPhotos.length;
-      
-      try {
-        // Upload all photos in parallel
-        const uploadPromises = capturedPhotos.map((photo, index) => 
-          this.uploadPhotoForVisual(visualId, photo, key, true)
-            .then(() => {
-              console.log(`✅ Photo ${index + 1} uploaded successfully`);
-              return true;
-            })
-            .catch((error) => {
-              console.error(`❌ Failed to upload photo ${index + 1}:`, error);
-              return false;
-            })
-        );
-        
-        const results = await Promise.all(uploadPromises);
-        const successCount = results.filter(r => r).length;
-        
-        // Clear upload tracking
-        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - capturedPhotos.length);
-        if (this.uploadingPhotos[key] === 0) {
-          delete this.uploadingPhotos[key];
-        }
-        
-        // Show result
-        if (successCount === capturedPhotos.length) {
-          await this.showToast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded successfully`, 'success');
-        } else if (successCount > 0) {
-          await this.showToast(`${successCount} of ${capturedPhotos.length} photos uploaded`, 'warning');
-        } else {
-          await this.showToast('Failed to upload photos', 'danger');
-        }
-      } catch (error) {
-        console.error('Error uploading photos:', error);
-        await this.showToast('Failed to upload photos', 'danger');
-        
-        // Clear upload tracking
-        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - capturedPhotos.length);
-        if (this.uploadingPhotos[key] === 0) {
-          delete this.uploadingPhotos[key];
-        }
-      }
+      console.log(`✅ Capture session complete. ${capturedPhotos.length} photo(s) uploaded in background`);
+      await this.showToast(`${capturedPhotos.length} photo${capturedPhotos.length > 1 ? 's' : ''} captured and uploaded`, 'success');
+    } else {
+      console.log('📷 No photos captured in this session');
     }
   }
   
