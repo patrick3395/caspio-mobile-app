@@ -377,15 +377,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             capturedPhotos.push(currentFile);
             
             // Upload photo in background
-            this.uploadPhotoToRoomPointFromFile(pointId, currentFile, point.name)
+            const fileToUpload = currentFile; // Capture the file in a const
+            this.uploadPhotoToRoomPointFromFile(pointId, fileToUpload, point.name)
               .then(() => {
                 console.log(`Photo ${photoCounter} uploaded for point ${point.name}`);
                 // Update UI to show photo
                 if (!point.photos) {
                   point.photos = [];
                 }
-                // Create object URL for preview
-                const photoUrl = URL.createObjectURL(currentFile);
+                // Create object URL for preview (fileToUpload is guaranteed to be non-null here)
+                const photoUrl = URL.createObjectURL(fileToUpload);
                 point.photos.push({
                   url: photoUrl,
                   thumbnailUrl: photoUrl
