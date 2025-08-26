@@ -432,20 +432,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Restore accordion state after change detection
+  // Ensure accordion values are synced without causing UI flicker
   private restoreAccordionState() {
-    // Store current section states before they get reset
-    const currentSectionStates = { ...this.expandedSections };
-    
-    // Restore section states immediately
-    setTimeout(() => {
-      this.expandedSections = currentSectionStates;
-      
-      // Restore accordion states
-      if (this.visualAccordionGroup && this.expandedAccordions.length > 0) {
-        this.visualAccordionGroup.value = this.expandedAccordions;
-      }
-    }, 50);
+    // Simply ensure accordion values are set if needed
+    if (this.visualAccordionGroup && this.expandedAccordions.length > 0) {
+      this.visualAccordionGroup.value = this.expandedAccordions;
+    }
+    // No need to mess with expandedSections - they should maintain their state naturally
   }
   
   getSectionCompletion(section: string): number {
@@ -1055,7 +1048,125 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Camera button handler - EXACTLY like Required Documents uploadDocument
+  // Multiple photo capture session
+  private async startMultiPhotoCapture(visualId: string, key: string, category: string, itemId: string) {
+    const capturedPhotos: File[] = [];
+    let keepCapturing = true;
+    
+    while (keepCapturing) {
+      try {
+        // Create file input for camera capture
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'camera' as any; // Force camera
+        
+        const fileSelected = new Promise<File | null>((resolve) => {
+          input.onchange = (event: any) => {
+            const file = event.target?.files?.[0];
+            resolve(file || null);
+          };
+          // Handle cancel - give user 60 seconds to take photo
+          setTimeout(() => {
+            resolve(null);
+          }, 60000);
+        });
+        
+        input.click();
+        
+        const file = await fileSelected;
+        if (file) {
+          capturedPhotos.push(file);
+          console.log(`📸 Photo captured: ${file.name} (${capturedPhotos.length} total)`);
+          
+          // Ask if they want to capture more
+          const alert = await this.alertController.create({
+            header: `Photo ${capturedPhotos.length} Captured`,
+            message: 'Would you like to take another photo?',
+            buttons: [
+              {
+                text: 'Done',
+                role: 'cancel',
+                handler: () => {
+                  keepCapturing = false;
+                }
+              },
+              {
+                text: 'Take Another',
+                handler: () => {
+                  keepCapturing = true;
+                }
+              }
+            ]
+          });
+          await alert.present();
+          const { role } = await alert.onDidDismiss();
+          keepCapturing = role !== 'cancel';
+        } else {
+          // User cancelled or timed out
+          keepCapturing = false;
+        }
+      } catch (error) {
+        console.error('Error capturing photo:', error);
+        keepCapturing = false;
+      }
+    }
+    
+    // Upload all captured photos
+    if (capturedPhotos.length > 0) {
+      console.log(`📤 Uploading ${capturedPhotos.length} photos...`);
+      
+      // Show upload progress
+      await this.showToast(`Uploading ${capturedPhotos.length} photo${capturedPhotos.length > 1 ? 's' : ''}...`, 'primary');
+      
+      // Track uploads
+      this.uploadingPhotos[key] = (this.uploadingPhotos[key] || 0) + capturedPhotos.length;
+      
+      try {
+        // Upload all photos in parallel
+        const uploadPromises = capturedPhotos.map((photo, index) => 
+          this.uploadPhotoForVisual(visualId, photo, key, true)
+            .then(() => {
+              console.log(`✅ Photo ${index + 1} uploaded successfully`);
+              return true;
+            })
+            .catch((error) => {
+              console.error(`❌ Failed to upload photo ${index + 1}:`, error);
+              return false;
+            })
+        );
+        
+        const results = await Promise.all(uploadPromises);
+        const successCount = results.filter(r => r).length;
+        
+        // Clear upload tracking
+        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - capturedPhotos.length);
+        if (this.uploadingPhotos[key] === 0) {
+          delete this.uploadingPhotos[key];
+        }
+        
+        // Show result
+        if (successCount === capturedPhotos.length) {
+          await this.showToast(`${successCount} photo${successCount > 1 ? 's' : ''} uploaded successfully`, 'success');
+        } else if (successCount > 0) {
+          await this.showToast(`${successCount} of ${capturedPhotos.length} photos uploaded`, 'warning');
+        } else {
+          await this.showToast('Failed to upload photos', 'danger');
+        }
+      } catch (error) {
+        console.error('Error uploading photos:', error);
+        await this.showToast('Failed to upload photos', 'danger');
+        
+        // Clear upload tracking
+        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - capturedPhotos.length);
+        if (this.uploadingPhotos[key] === 0) {
+          delete this.uploadingPhotos[key];
+        }
+      }
+    }
+  }
+  
+  // Camera button handler - allows multiple photo capture
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
     console.log('📸 Camera button clicked!', { category, itemId });
     
@@ -1086,6 +1197,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
     }
+    
+    // Start multiple photo capture session
+    await this.startMultiPhotoCapture(visualId, key, category, itemId);
+    return; // Skip the old single-photo logic below
     
     // DETAILED DEBUGGING
     console.log('🔍 DEBUGGING FILE INPUT:');
@@ -1165,84 +1280,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Track upload results
         let uploadSuccessCount = 0;
         
-        // Ask if user wants to annotate photos (only for single photo)
-        if (fileArray.length === 1) {
-          const alert = await this.alertController.create({
-            header: 'Annotate Photo?',
-            message: 'Would you like to add annotations (arrows, text, circles) to this photo?',
-            buttons: [
-              {
-                text: 'Upload as is',
-                handler: () => {
-                  // Don't use async handler, instead handle the promise separately
-                  alert.dismiss().then(async () => {
-                    try {
-                      await this.uploadPhotoForVisual(visualId, fileArray[0], key, true);
-                      uploadSuccessCount = 1;
-                      await this.showToast('Photo uploaded successfully', 'success');
-                    } catch (error) {
-                      console.error('Upload failed:', error);
-                      await this.showToast('Failed to upload photo', 'danger');
-                    }
-                  });
-                  return false; // Prevent auto-dismiss
-                }
-              },
-              {
-                text: 'Annotate First',
-                handler: () => {
-                  alert.dismiss().then(async () => {
-                    const annotatedFile = await this.annotatePhoto(fileArray[0]);
-                    await this.uploadPhotoForVisual(visualId, annotatedFile, key, true);
-                    uploadSuccessCount = 1; // Assume success for single upload
-                  });
-                  return false; // Prevent auto-dismiss
-                }
-              }
-            ]
-          });
-          await alert.present();
-        } else {
-          // Upload all files in parallel for speed (no annotation for batch)
-          const uploadPromises = fileArray.map((file, index) => 
-            this.uploadPhotoForVisual(visualId, file, key, true)
-              .then(() => {
-                console.log(`✅ File ${index + 1} uploaded successfully`);
-                return { success: true, error: null };
-              })
-              .catch((error) => {
-                console.error(`❌ Failed to upload file ${index + 1}:`, error);
-                return { success: false, error };
-              })
-          );
-          
-          // Wait for all uploads to complete
-          const results = await Promise.all(uploadPromises);
-          
-          // Count successes and failures
-          uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
-          const failCount = results.filter((r: { success: boolean }) => !r.success).length;
-          
-          // Show result message
-          if (failCount === 0) {
-            await this.showToast(
-            files.length > 1 
-              ? `Successfully uploaded ${uploadSuccessCount} photos` 
-              : 'Photo uploaded successfully',
-              'success'
-            );
-          } else if (uploadSuccessCount > 0) {
-            await this.showToast(
-              `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
-              'warning'
-            );
-          } else {
-            await this.showToast('Failed to upload photos', 'danger');
-          }
-        } // End of else for batch upload
+        // Upload all photos directly without annotation popup
+        const uploadPromises = fileArray.map((file, index) => 
+          this.uploadPhotoForVisual(visualId, file, key, true)
+            .then(() => {
+              console.log(`✅ File ${index + 1} uploaded successfully`);
+              return { success: true, error: null };
+            })
+            .catch((error) => {
+              console.error(`❌ Failed to upload file ${index + 1}:`, error);
+              return { success: false, error };
+            })
+        );
         
-        // Restore accordion and section states after batch upload
-        this.restoreAccordionState();
+        // Wait for all uploads to complete
+        const results = await Promise.all(uploadPromises);
+        
+        // Count successes and failures
+        uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
+        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
+        
+        // Show result message
+        if (failCount === 0) {
+          await this.showToast(
+          files.length > 1 
+            ? `Successfully uploaded ${uploadSuccessCount} photos` 
+            : 'Photo uploaded successfully',
+            'success'
+          );
+        } else if (uploadSuccessCount > 0) {
+          await this.showToast(
+            `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
+            'warning'
+          );
+        } else {
+          await this.showToast('Failed to upload photos', 'danger');
+        }
+        
+        // No need to restore states - the UI should remain unchanged
         
         // Photos are already added with proper previews during upload
         // Removed change detection to improve performance
@@ -1383,14 +1458,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
     
-    // Store current accordion state before upload
-    const currentExpandedAccordions = [...this.expandedAccordions];
-    if (!currentExpandedAccordions.includes(category)) {
-      currentExpandedAccordions.push(category);
+    // Ensure the accordion for this category stays expanded
+    if (!this.expandedAccordions.includes(category)) {
+      this.expandedAccordions.push(category);
+      if (this.visualAccordionGroup) {
+        this.visualAccordionGroup.value = this.expandedAccordions;
+      }
     }
-    
-    // IMPORTANT: Store the main section states to prevent collapsing
-    const currentExpandedSections = { ...this.expandedSections };
     
     // Use the ID from visualRecordIds to ensure consistency
     const actualVisualId = this.visualRecordIds[key] || visualId;
@@ -1515,7 +1589,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, currentExpandedAccordions, currentExpandedSections);
+              await this.performVisualPhotoUpload(visualIdNum, photo, key, false);
             }
           }
         ]
@@ -1524,7 +1598,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, currentExpandedAccordions, currentExpandedSections);
+        await this.performVisualPhotoUpload(visualIdNum, photo, key, true);
       }
       
     } catch (error) {
@@ -1534,7 +1608,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, currentExpandedAccordions?: string[], currentExpandedSections?: any) {
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false) {
     try {
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
@@ -1567,17 +1641,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Ensure the current category stays expanded if provided
-      if (currentExpandedAccordions) {
-        this.expandedAccordions = currentExpandedAccordions;
-      }
-      
-      // IMPORTANT: Restore main section states to prevent collapsing
-      if (currentExpandedSections) {
-        this.expandedSections = currentExpandedSections;
-      }
-      
-      this.restoreAccordionState();
+      // No need to restore states - the UI should remain unchanged
       
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
