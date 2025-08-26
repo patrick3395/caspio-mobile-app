@@ -2439,31 +2439,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           },
           {
             text: 'Delete',
-            handler: async () => {
-              const loading = await this.loadingController.create({
-                message: 'Deleting photo...'
-              });
-              await loading.present();
-              
-              try {
-                const attachId = photo.AttachID || photo.id;
-                await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+            handler: () => {
+              // Return false to prevent auto-dismiss, dismiss manually after delete
+              // This prevents the handler from blocking the alert dismissal
+              setTimeout(async () => {
+                const loading = await this.loadingController.create({
+                  message: 'Deleting photo...'
+                });
+                await loading.present();
                 
-                // Remove from local array
-                const visualId = this.visualRecordIds[`${category}_${itemId}`];
-                if (visualId && this.visualPhotos[visualId]) {
-                  this.visualPhotos[visualId] = this.visualPhotos[visualId].filter(
-                    (p: any) => (p.AttachID || p.id) !== attachId
-                  );
+                try {
+                  const attachId = photo.AttachID || photo.id;
+                  await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+                  
+                  // Remove from local array
+                  const visualId = this.visualRecordIds[`${category}_${itemId}`];
+                  if (visualId && this.visualPhotos[visualId]) {
+                    this.visualPhotos[visualId] = this.visualPhotos[visualId].filter(
+                      (p: any) => (p.AttachID || p.id) !== attachId
+                    );
+                  }
+                  
+                  await loading.dismiss();
+                  await this.showToast('Photo deleted successfully', 'success');
+                } catch (error) {
+                  await loading.dismiss();
+                  console.error('Failed to delete photo:', error);
+                  await this.showToast('Failed to delete photo', 'danger');
                 }
-                
-                await loading.dismiss();
-                await this.showToast('Photo deleted successfully', 'success');
-              } catch (error) {
-                await loading.dismiss();
-                console.error('Failed to delete photo:', error);
-                await this.showToast('Failed to delete photo', 'danger');
-              }
+              }, 100);
+              
+              return true; // Allow alert to dismiss immediately
             }
           }
         ]
