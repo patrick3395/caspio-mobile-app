@@ -1283,24 +1283,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     let keepCapturing = true;
     let photoCounter = 0;
     
-    // Debug alert to confirm method is called
-    const debugAlert = await this.alertController.create({
-      header: '🔍 DEBUG: Multi-Photo Started',
-      message: `Method called for ${category} with VisualID: ${visualId}`,
-      buttons: ['Continue']
-    });
-    await debugAlert.present();
-    await debugAlert.onDidDismiss();
-    
-    // Show initial instructions
-    const startAlert = await this.alertController.create({
-      header: '📸 Multi-Photo Mode',
-      message: 'You will be prompted to take photos one by one. After each photo, choose what to do.',
-      buttons: ['Start']
-    });
-    await startAlert.present();
-    await startAlert.onDidDismiss();
-    
     while (keepCapturing) {
       let currentFile: File | null = null;
       let retakePhoto = true;
@@ -1308,10 +1290,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          // Show toast before opening camera
-          await this.showToast(`📸 Opening camera for photo ${photoCounter + 1}...`, 'info');
-          
-          // Use native Camera API
+          // Use native Camera API directly
           const photo = await this.cameraService.takePicture();
           
           if (!photo) {
@@ -1334,87 +1313,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Now we have the photo as a File object, show preview
           
           if (currentFile) {
-            await this.showToast(`✅ Photo received: ${currentFile.name}`, 'success');
+            // Immediately accept the photo and show options
+            photoCounter++;
+            capturedPhotos.push(currentFile);
+            retakePhoto = false; // Accept photo immediately
             
-            // Show preview and options
-            const objectUrl = URL.createObjectURL(currentFile);
+            // Upload in background
+            this.uploadPhotoForVisual(visualId, currentFile, key, true)
+              .then(() => {
+                this.showToast(`Photo ${photoCounter} uploaded`, 'success');
+              })
+              .catch(err => {
+                this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
+              });
             
-            // Create custom alert with photo preview
-            const alert = await this.alertController.create({
-              header: `Photo ${photoCounter + 1}`,
-              message: `
-                <div style="text-align: center;">
-                  <img src="${objectUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin: 10px 0;">
-                  <p>Choose an option:</p>
-                </div>
-              `,
+            // Ask if user wants to take another photo
+            const continueAlert = await this.alertController.create({
+              header: `Photo ${photoCounter} Captured`,
+              message: 'Would you like to take another photo?',
               buttons: [
                 {
-                  text: 'Retake',
+                  text: 'Done',
                   handler: () => {
-                    console.log('👤 User chose to retake photo');
-                    URL.revokeObjectURL(objectUrl);
-                    retakePhoto = true;
-                    return true;
-                  }
-                },
-                {
-                  text: 'Use Photo',
-                  handler: () => {
-                    console.log('✅ User chose to use photo');
-                    URL.revokeObjectURL(objectUrl);
-                    retakePhoto = false;
-                    keepCapturing = false; // End capture session after using photo
+                    keepCapturing = false;
                     return true;
                   }
                 },
                 {
                   text: 'Take Another Photo',
-                  cssClass: 'alert-button-primary',
                   handler: () => {
-                    console.log('➕ User chose to take another photo');
-                    URL.revokeObjectURL(objectUrl);
-                    retakePhoto = false;
-                    keepCapturing = true; // Continue capture session
+                    keepCapturing = true;
                     return true;
                   }
                 }
               ],
-              backdropDismiss: false,
-              cssClass: 'photo-review-alert'
+              backdropDismiss: false
             });
             
-            console.log('🎭 Presenting photo review alert...');
-            await alert.present();
-            console.log('⏳ Waiting for user decision...');
-            const { role } = await alert.onDidDismiss();
-            console.log('🎯 User selected role:', role);
-            
-            // Process based on user choice
-            // Since we're using handlers that return true, check the retakePhoto and keepCapturing flags
-            // which are set in the handlers
-            if (retakePhoto) {
-              // Continue the retake loop
-              console.log('🔄 Retaking photo...');
-              currentFile = null;
-            } else if (currentFile) {
-              // Save the photo (either "Use Photo" or "Take Another Photo" was chosen)
-              photoCounter++;
-              capturedPhotos.push(currentFile);
-              console.log(`📸 Photo ${photoCounter} accepted: ${currentFile.name}`);
-              
-              // Upload this photo immediately in background
-              await this.showToast(`📤 Uploading photo ${photoCounter}...`, 'info');
-              this.uploadPhotoForVisual(visualId, currentFile, key, true)
-                .then(() => {
-                  this.showToast(`✅ Photo ${photoCounter} uploaded`, 'success');
-                })
-                .catch(err => {
-                  this.showToast(`❌ Failed to upload photo ${photoCounter}`, 'danger');
-                });
-              
-              // keepCapturing is already set by the handlers
-            }
+            await continueAlert.present();
+            await continueAlert.onDidDismiss();
           } else {
             // User cancelled camera
             await this.showToast('❌ Camera cancelled', 'warning');
@@ -2624,24 +2561,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async addAnotherPhoto(category: string, itemId: string) {
     // Show action sheet to choose photo source
     const actionSheet = await this.actionSheetController.create({
-      header: 'Select Photo Source',
       buttons: [
         {
-          text: '📷 Take Multiple Photos',
+          text: 'Take Photo',
+          icon: 'camera',
           handler: async () => {
             // Get visual ID for this item
             const key = `${category}_${itemId}`;
             let visualId = this.visualRecordIds[key];
             
             if (!visualId) {
-              await this.showToast('Saving visual first...', 'info');
               await this.saveVisualSelection(category, itemId);
               visualId = this.visualRecordIds[key];
             }
             
             if (visualId) {
               // Start multi-photo capture session
-              await this.showToast('Starting multi-photo mode...', 'info');
               await this.startMultiPhotoCapture(visualId, key, category, itemId);
             } else {
               await this.showToast('Failed to get visual ID', 'danger');
@@ -2649,7 +2584,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         },
         {
-          text: '📁 Choose from Gallery',
+          text: 'Choose from Library',
+          icon: 'images',
           handler: () => {
             // Use traditional file picker for gallery
             this.currentUploadContext = { 
@@ -2662,6 +2598,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         },
         {
           text: 'Cancel',
+          icon: 'close',
           role: 'cancel'
         }
       ]
