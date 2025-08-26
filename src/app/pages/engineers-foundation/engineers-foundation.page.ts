@@ -33,6 +33,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   serviceId: string = '';
   projectData: any = null;
   currentUploadContext: any = null;
+  currentRoomPointContext: any = null;  // For room photo uploads
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
   
   // Categories from Services_Visuals_Templates
@@ -349,7 +350,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Capture photo for room elevation point - with photo loop like visuals
+  // Capture photo for room elevation point - using EXACT visual method
   async capturePhotoForPoint(roomName: string, point: any, event?: Event) {
     if (event) {
       event.stopPropagation();
@@ -397,93 +398,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Immediately start photo capture without waiting - iOS needs immediate user action
-      // Now start photo capture loop with the existing pointId
-      let keepCapturing = true;
-      let photoCounter = 0;
-      const capturedPhotos: File[] = [];
+      // Now use the EXACT same file input method as visuals
+      // Set the context for the file input handler
+      this.currentRoomPointContext = {
+        roomName,
+        point,
+        pointId,
+        roomId
+      };
       
-      // Start capture immediately after point is ready
-      while (keepCapturing) {
-        let currentFile: File | null = null;
+      // Trigger file input to open camera/gallery selector (just like visuals)
+      if (this.fileInput && this.fileInput.nativeElement) {
+        const input = this.fileInput.nativeElement;
         
-        try {
-          console.log('Starting photo capture for point:', point.name);
-          // Use native file input for iOS camera
-          currentFile = await this.capturePhotoNative();
-          
-          if (currentFile) {
-            console.log('Photo captured successfully, file size:', currentFile.size);
-            // Photo captured successfully
-            photoCounter++;
-            capturedPhotos.push(currentFile);
-            
-            // Create object URL for preview  
-            const photoUrl = URL.createObjectURL(currentFile);
-            
-            // Upload photo in background and update UI only after successful upload
-            const fileToUpload = currentFile; // Capture the file in a const
-            this.uploadPhotoToRoomPointFromFile(pointId, fileToUpload, point.name)
-              .then(() => {
-                console.log(`Photo ${photoCounter} uploaded for point ${point.name}`);
-                // Update UI to show photo only after successful upload
-                if (!point.photos) {
-                  point.photos = [];
-                }
-                point.photos.push({
-                  url: photoUrl,
-                  thumbnailUrl: photoUrl,
-                  annotation: '',  // Initialize with empty annotation
-                  pointId: pointId,
-                  attachId: null  // Will be set when we get response
-                });
-                point.photoCount = point.photos.length;
-              })
-              .catch(err => {
-                console.error(`Failed to upload photo ${photoCounter}:`, err);
-                this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
-              });
-            
-            // Ask if user wants to take another photo using role-based approach
-            const continueAlert = await this.alertController.create({
-              cssClass: 'compact-photo-selector',
-              message: `Photo ${photoCounter} captured`,
-              buttons: [
-                {
-                  text: 'Done',
-                  role: 'done',
-                  cssClass: 'done-button'
-                },
-                {
-                  text: 'Take Another Photo',
-                  role: 'another',
-                  cssClass: 'action-button'
-                }
-              ],
-              backdropDismiss: false
-            });
-            
-            await continueAlert.present();
-            const result = await continueAlert.onDidDismiss();
-            
-            // Check the role to determine whether to continue
-            keepCapturing = result.role === 'another';
-          } else {
-            // User cancelled or no photo selected
-            console.log('No photo captured, ending capture loop');
-            keepCapturing = false;
-          }
-        } catch (error) {
-          console.error('Photo capture error details:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          await this.showToast(`Photo capture failed: ${errorMessage}`, 'danger');
-          keepCapturing = false;
-        }
-      }
-      
-      // Final summary
-      if (capturedPhotos.length > 0) {
-        await this.showToast(`✅ ${capturedPhotos.length} photo(s) captured for ${point.name}`, 'success');
+        // Configure for photo capture
+        input.accept = 'image/*';
+        input.multiple = true;  // Allow multiple photos like visuals
+        input.value = '';  // Clear previous value
+        
+        // Click to open selector
+        input.click();
+        console.log('Triggered file input for room point photo capture');
+      } else {
+        console.error('File input not available');
+        await this.showToast('Camera not available', 'danger');
       }
       
     } catch (error) {
@@ -535,7 +473,125 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Helper method to capture photo using native file input
+  // Handle file selection for room points (exact copy of visual method)
+  private async handleRoomPointFileSelect(files: FileList) {
+    try {
+      const { roomName, point, pointId, roomId } = this.currentRoomPointContext;
+      
+      console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
+      
+      // Show non-blocking toast
+      const uploadMessage = files.length > 1 
+        ? `Uploading ${files.length} photos...`
+        : 'Uploading photo...';
+      await this.showToast(uploadMessage, 'info');
+      
+      let uploadSuccessCount = 0;
+      const uploadPromises = [];
+      
+      // Process each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Create preview immediately
+        const photoUrl = URL.createObjectURL(file);
+        
+        // Add to UI immediately with uploading flag
+        if (!point.photos) {
+          point.photos = [];
+        }
+        
+        const photoEntry = {
+          url: photoUrl,
+          thumbnailUrl: photoUrl,
+          annotation: '',
+          uploading: true,
+          file: file
+        };
+        
+        point.photos.push(photoEntry);
+        point.photoCount = point.photos.length;
+        
+        // Upload in background
+        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
+          .then(() => {
+            photoEntry.uploading = false;
+            uploadSuccessCount++;
+            console.log(`Photo ${i + 1} uploaded for point ${point.name}`);
+          })
+          .catch((err) => {
+            console.error(`Failed to upload photo ${i + 1}:`, err);
+            // Remove failed photo from UI
+            const index = point.photos.indexOf(photoEntry);
+            if (index > -1) {
+              point.photos.splice(index, 1);
+              point.photoCount = point.photos.length;
+            }
+          });
+        
+        uploadPromises.push(uploadPromise);
+      }
+      
+      // Wait for all uploads to complete
+      await Promise.all(uploadPromises);
+      
+      // Show results
+      if (uploadSuccessCount > 0) {
+        const successMessage = uploadSuccessCount === files.length
+          ? `✅ All ${uploadSuccessCount} photo(s) uploaded`
+          : `✅ ${uploadSuccessCount} of ${files.length} photo(s) uploaded`;
+        await this.showToast(successMessage, 'success');
+      } else {
+        await this.showToast('Failed to upload photos', 'danger');
+      }
+      
+      // If only one photo was uploaded, offer to take more (like visuals)
+      if (files.length === 1 && uploadSuccessCount === 1) {
+        setTimeout(async () => {
+          const continueAlert = await this.alertController.create({
+            cssClass: 'compact-photo-selector',
+            message: 'Photo uploaded',
+            buttons: [
+              {
+                text: 'Done',
+                role: 'done',
+                cssClass: 'done-button'
+              },
+              {
+                text: 'Take Another Photo',
+                role: 'another',
+                cssClass: 'action-button',
+                handler: () => {
+                  // Trigger file input again
+                  setTimeout(() => {
+                    if (this.fileInput && this.fileInput.nativeElement) {
+                      this.fileInput.nativeElement.click();
+                    }
+                  }, 100);
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+          
+          await continueAlert.present();
+        }, 500);
+      }
+      
+    } catch (error) {
+      console.error('Error handling room point files:', error);
+      await this.showToast('Failed to process photos', 'danger');
+    } finally {
+      // Reset file input
+      if (this.fileInput && this.fileInput.nativeElement) {
+        this.fileInput.nativeElement.value = '';
+      }
+      this.currentRoomPointContext = null;
+    }
+  }
+  
+  // Helper method to capture photo using native file input (DEPRECATED - kept for legacy)
   private async capturePhotoNative(): Promise<File | null> {
     return new Promise((resolve, reject) => {
       try {
@@ -2268,7 +2324,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Handle file selection from the hidden input (supports multiple files)
   async handleFileSelect(event: any) {
     const files = event.target.files;
-    if (!files || files.length === 0 || !this.currentUploadContext) return;
+    if (!files || files.length === 0) return;
+    
+    // Check if this is for room points or visuals
+    if (this.currentRoomPointContext) {
+      await this.handleRoomPointFileSelect(files);
+      return;
+    }
+    
+    if (!this.currentUploadContext) return;
     
     const { category, itemId, item } = this.currentUploadContext;
     
