@@ -1206,7 +1206,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     let keepCapturing = true;
     let photoCounter = 0;
     
-    console.log('🎬 Starting multi-photo capture session');
+    // Debug alert
+    await this.showToast('📱 Opening camera...', 'info');
     
     while (keepCapturing) {
       let currentFile: File | null = null;
@@ -1215,7 +1216,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          console.log(`📸 Opening camera for photo ${photoCounter + 1}`);
+          // Debug alert for each photo attempt
+          await this.showToast(`📸 Taking photo ${photoCounter + 1}...`, 'info');
           
           // Create file input for camera capture
           const input = document.createElement('input');
@@ -1259,6 +1261,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // Add a small delay to ensure the file is fully processed
             await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Debug alert before showing review
+            await this.showToast('📋 Showing photo review options...', 'info');
             
             // Create custom alert with photo preview
             const alert = await this.alertController.create({
@@ -1340,7 +1345,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
           } else {
             // User cancelled camera
-            console.log('❌ Camera cancelled by user');
+            await this.showToast('❌ Camera cancelled', 'warning');
             retakePhoto = false;
             keepCapturing = false;
           }
@@ -1364,7 +1369,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Camera button handler - allows multiple photo capture
   async takePhotoForVisual(category: string, itemId: string, event?: Event) {
-    console.log('📸 Camera button clicked!', { category, itemId });
+    // Debug alert
+    await this.showToast(`📸 Camera clicked for ${category} - ${itemId}`, 'info');
     
     // Prevent event bubbling
     if (event) {
@@ -1376,14 +1382,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     let visualId = this.visualRecordIds[key];
     
     if (!visualId) {
-      console.error('❌ No Visual ID found for:', key);
       await this.showToast('Please save the visual first by checking the box', 'warning');
       return;
     }
     
     // Check if it's a temp ID
     if (visualId.startsWith('temp_')) {
-      console.log('⏳ Visual has temp ID, refreshing...');
+      await this.showToast('Visual saving... please wait', 'info');
       await this.refreshVisualId(category, itemId);
       const updatedId = this.visualRecordIds[key];
       if (updatedId && !updatedId.startsWith('temp_')) {
@@ -1393,6 +1398,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
     }
+    
+    // Debug alert before starting capture
+    await this.showToast('Starting multi-photo capture session...', 'info');
     
     // Start multiple photo capture session
     await this.startMultiPhotoCapture(visualId, key, category, itemId);
