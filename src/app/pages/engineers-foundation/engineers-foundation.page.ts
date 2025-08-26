@@ -322,7 +322,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Capture photo for room elevation point
+  // Capture photo for room elevation point - with photo loop like visuals
   async capturePhotoForPoint(roomName: string, point: any, event?: Event) {
     if (event) {
       event.stopPropagation();
@@ -336,38 +336,139 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
-      // Store current point info for later use
-      this.currentRoomPointCapture = {
-        roomName: roomName,
-        point: point,
-        roomId: roomId
-      };
+      // Check if point record exists, create if not
+      const pointKey = `${roomName}_${point.name}`;
+      let pointId = this.roomPointIds[pointKey];
       
-      // Use native iOS file input
+      if (!pointId) {
+        // Create Services_Rooms_Points record first
+        const pointData = {
+          RoomID: parseInt(roomId),
+          PointName: point.name
+        };
+        
+        console.log('Creating Services_Rooms_Points record:', pointData);
+        const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+        
+        if (createResponse && createResponse.PK_ID) {
+          pointId = createResponse.PK_ID;
+          this.roomPointIds[pointKey] = pointId;
+          console.log(`Created point record with ID: ${pointId}`);
+        } else {
+          throw new Error('Failed to create point record');
+        }
+      }
+      
+      // Now start photo capture loop
+      let keepCapturing = true;
+      let photoCounter = 0;
+      const capturedPhotos: File[] = [];
+      
+      while (keepCapturing) {
+        let currentFile: File | null = null;
+        
+        try {
+          // Use native file input for iOS camera
+          currentFile = await this.capturePhotoNative();
+          
+          if (currentFile) {
+            // Photo captured successfully
+            photoCounter++;
+            capturedPhotos.push(currentFile);
+            
+            // Upload photo in background
+            this.uploadPhotoToRoomPointFromFile(pointId, currentFile, point.name)
+              .then(() => {
+                console.log(`Photo ${photoCounter} uploaded for point ${point.name}`);
+                // Update UI to show photo
+                if (!point.photos) {
+                  point.photos = [];
+                }
+                // Create object URL for preview
+                const photoUrl = URL.createObjectURL(currentFile);
+                point.photos.push({
+                  url: photoUrl,
+                  thumbnailUrl: photoUrl
+                });
+                point.photoCount = point.photos.length;
+              })
+              .catch(err => {
+                console.error(`Failed to upload photo ${photoCounter}:`, err);
+                this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
+              });
+            
+            // Ask if user wants to take another photo
+            const continueAlert = await this.alertController.create({
+              cssClass: 'compact-photo-selector',
+              buttons: [
+                {
+                  text: 'Take Another Photo',
+                  cssClass: 'action-button',
+                  handler: () => {
+                    keepCapturing = true;
+                    return true;
+                  }
+                },
+                {
+                  text: 'Done',
+                  cssClass: 'done-button',
+                  handler: () => {
+                    keepCapturing = false;
+                    return true;
+                  }
+                }
+              ],
+              backdropDismiss: false
+            });
+            
+            await continueAlert.present();
+            await continueAlert.onDidDismiss();
+          } else {
+            // User cancelled or no photo selected
+            keepCapturing = false;
+          }
+        } catch (error) {
+          console.error('Error capturing photo:', error);
+          await this.showToast('Failed to capture photo', 'danger');
+          keepCapturing = false;
+        }
+      }
+      
+      // Final summary
+      if (capturedPhotos.length > 0) {
+        await this.showToast(`✅ ${capturedPhotos.length} photo(s) captured for ${point.name}`, 'success');
+      }
+      
+    } catch (error) {
+      console.error('Error in capturePhotoForPoint:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
+  // Helper method to capture photo using native file input
+  private capturePhotoNative(): Promise<File | null> {
+    return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.capture = 'environment'; // Opens camera by default
+      input.capture = 'environment'; // Opens camera by default on iOS
       
-      input.onchange = async (e: any) => {
+      input.onchange = (e: any) => {
         const file = e.target.files?.[0];
-        if (!file) return;
-        
-        // Convert file to base64
-        const reader = new FileReader();
-        reader.onload = async (event: any) => {
-          const base64Image = event.target.result;
-          await this.processRoomPointPhoto(base64Image);
-        };
-        reader.readAsDataURL(file);
+        if (file) {
+          resolve(file);
+        } else {
+          resolve(null);
+        }
       };
       
-      input.click();
+      // Handle cancel
+      input.addEventListener('cancel', () => {
+        resolve(null);
+      });
       
-    } catch (error) {
-      console.error('Error capturing photo for point:', error);
-      await this.showToast('Failed to capture photo', 'danger');
-    }
+      input.click();
+    });
   }
   
   // Process the captured photo for room point
@@ -487,6 +588,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
     } catch (error) {
       console.error('Error uploading room point photo:', error);
+      throw error;
+    }
+  }
+  
+  // Upload photo from File object to Services_Rooms_Attach
+  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string) {
+    try {
+      // Generate filename
+      const timestamp = new Date().getTime();
+      const fileName = `room_point_${pointId}_${timestamp}.jpg`;
+      
+      // Upload to Caspio Files API
+      const formData = new FormData();
+      formData.append('file', file, fileName);
+      
+      const token = await this.caspioService.getValidToken().toPromise();
+      const account = this.caspioService.getAccountID();
+      
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      const uploadResult = await uploadResponse.json();
+      
+      if (!uploadResult?.Name) {
+        throw new Error('File upload failed');
+      }
+      
+      // Create Services_Rooms_Attach record
+      const attachData = {
+        PointID: parseInt(pointId),
+        Photo: `/${uploadResult.Name}`,
+        Annotation: ''
+      };
+      
+      await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      
+      console.log(`Photo uploaded for point ${pointName}`);
+      
+    } catch (error) {
+      console.error('Error uploading room point photo from file:', error);
       throw error;
     }
   }

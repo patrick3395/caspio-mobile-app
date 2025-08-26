@@ -1,26 +1,35 @@
 // Noble Property Inspections Brand Colors
 $orange: #F15A27;
 $gray: #69635D;
+$light-gray: #F5F5F5;
+$dark-gray: #333333;
+$white: #FFFFFF;
 
-.custom-toolbar {
-  --background: linear-gradient(135deg, #{$orange} 0%, #d64920 100%);
-  --color: white;
-  
-  .page-title {
-    font-weight: 600;
-    font-size: 20px;
-  }
-  
-  ion-buttons {
-    ion-button {
-      --color: white;
-    }
+.custom-header {
+  ion-toolbar {
+    --background: #{$orange};
+    --border-width: 0;
+    --padding-top: 20px;
+    --padding-bottom: 10px;
+    --color: #{$white};
   }
 }
 
-.user-info-toolbar {
-  --background: rgba(241, 90, 39, 0.9);
-  --min-height: 32px;
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #{$white};
+}
+
+.projects-content {
+  --background: #{$light-gray};
+}
+
+.user-banner {
+  background: rgba(241, 90, 39, 0.9);
+  padding: 8px 16px;
+  text-align: center;
   
   .user-info {
     font-size: 12px;
@@ -35,121 +44,168 @@ $gray: #69635D;
   padding: 8px 16px;
 }
 
-.loading-container, .error-container {
+.projects-container {
+  padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.status-section {
+  margin-bottom: 24px;
+  
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #{$dark-gray};
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+    
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: #{$white};
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(105, 99, 93, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.project-image {
+  width: 60px;
+  height: 60px;
+  margin-right: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #{$light-gray};
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.project-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-address {
+  font-size: 14px;
+  font-weight: 500;
+  color: #{$dark-gray};
+  line-height: 1.4;
+}
+
+.project-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .project-id {
+    font-size: 12px;
+    color: #{$orange};
+    font-weight: 600;
+  }
+  
+  .status-text {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    
+    &.completed {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    &.on-hold {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    &.cancelled {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    &.archived {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+  }
+}
+
+.project-date {
+  font-size: 11px;
+  color: #{$gray};
+  font-style: italic;
+}
+
+.loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 60vh;
+  padding: 60px 20px;
   
   ion-spinner {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 16px;
     --color: #{$orange};
-    width: 48px;
-    height: 48px;
-    margin-bottom: 16px;
   }
-  
-  ion-icon {
-    font-size: 64px;
-    margin-bottom: 16px;
-  }
-  
+
   p {
     color: #{$gray};
-    font-size: 16px;
-    margin: 8px 0;
-  }
-  
-  ion-button {
-    margin-top: 16px;
-    --background: #{$orange};
+    font-size: 14px;
   }
 }
 
-.projects-container {
-  padding: 16px;
-  
-  .projects-header {
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+
+  p {
+    color: #{$gray};
+    font-size: 14px;
     margin-bottom: 16px;
-    
-    h2 {
-      color: #{$gray};
-      font-size: 18px;
-      font-weight: 600;
-    }
   }
-  
-  .projects-list {
-    background: transparent;
-    
-    .project-item {
-      --background: white;
-      --border-radius: 8px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      
-      &:hover {
-        --background: #f9f9f9;
-      }
-      
-      .project-content {
-        width: 100%;
-        padding: 4px 0;
-        
-        .project-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-          
-          .project-id {
-            color: #{$orange};
-            font-weight: 600;
-            font-size: 14px;
-          }
-          
-          .status-badge {
-            font-size: 11px;
-            padding: 4px 8px;
-            text-transform: uppercase;
-            font-weight: 600;
-          }
-        }
-        
-        .project-address {
-          font-size: 16px;
-          font-weight: 600;
-          color: #333;
-          margin: 0 0 4px 0;
-        }
-        
-        .project-title {
-          font-size: 14px;
-          color: #{$gray};
-          margin: 4px 0;
-        }
-        
-        .project-details {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 16px;
-          margin-top: 8px;
-          
-          .detail-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 12px;
-            color: #666;
-            
-            ion-icon {
-              font-size: 14px;
-              color: #{$gray};
-            }
-          }
-        }
-      }
-    }
+
+  ion-button {
+    --border-radius: 20px;
+    --background: #{$orange};
   }
 }
 
@@ -158,8 +214,7 @@ $gray: #69635D;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 50vh;
-  text-align: center;
+  padding: 60px 20px;
   
   ion-icon {
     font-size: 80px;
@@ -167,16 +222,8 @@ $gray: #69635D;
     margin-bottom: 20px;
   }
   
-  h3 {
-    color: #{$gray};
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0 0 12px 0;
-  }
-  
   p {
-    color: #999;
+    color: #{$gray};
     font-size: 14px;
-    max-width: 300px;
   }
 }

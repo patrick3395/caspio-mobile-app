@@ -127,6 +127,49 @@ export class AllProjectsPage implements OnInit {
     );
   }
 
+  // Get projects by specific status
+  getProjectsByStatus(statusId: number): Project[] {
+    const filtered = this.getFilteredProjects();
+    return filtered.filter(p => 
+      p.StatusID === statusId || p.StatusID === statusId.toString()
+    );
+  }
+
+  // Get projects with other/unknown status
+  getOtherProjects(): Project[] {
+    const filtered = this.getFilteredProjects();
+    return filtered.filter(p => 
+      p.StatusID !== 2 && p.StatusID !== '2' &&
+      p.StatusID !== 3 && p.StatusID !== '3' &&
+      p.StatusID !== 4 && p.StatusID !== '4'
+    );
+  }
+
+  // Format address for display
+  formatAddress(project: Project): string {
+    const parts = [];
+    if (project.Address) parts.push(project.Address);
+    if (project.City) parts.push(project.City);
+    if (project.State) parts.push(project.State);
+    return parts.join(', ') || 'No Address';
+  }
+
+  // Get project thumbnail image using Google Street View
+  getProjectImage(project: Project): string {
+    const address = this.formatAddress(project);
+    if (!address || address === 'No Address') {
+      return 'assets/img/project-placeholder.svg';
+    }
+    const encodedAddress = encodeURIComponent(address);
+    const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+  }
+
+  // Handle image loading errors
+  handleImageError(event: any) {
+    event.target.src = 'assets/img/project-placeholder.svg';
+  }
+
   selectProject(project: Project) {
     console.log('Selected project:', project);
     // Navigate to project detail page with project ID

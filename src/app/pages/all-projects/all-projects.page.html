@@ -1,18 +1,20 @@
-<ion-header [translucent]="true">
-  <ion-toolbar class="custom-toolbar">
+<ion-header class="custom-header">
+  <ion-toolbar color="light">
     <ion-title class="page-title">All Projects</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="logout()" color="light">
-        <ion-icon name="log-out-outline"></ion-icon>
+      <ion-button (click)="logout()" fill="clear">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-  <ion-toolbar *ngIf="currentUser" class="user-info-toolbar">
-    <ion-title size="small" class="user-info">{{ getUserInfo() }}</ion-title>
-  </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
+<ion-content class="projects-content">
+  <!-- User info banner -->
+  <div class="user-banner" *ngIf="currentUser">
+    <span class="user-info">👤 {{ getUserInfo() }}</span>
+  </div>
+
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
@@ -20,64 +22,131 @@
   <!-- Search bar -->
   <ion-searchbar 
     [(ngModel)]="searchTerm" 
-    placeholder="Search projects..."
+    placeholder="Search all projects..."
     class="search-bar">
   </ion-searchbar>
 
-  <!-- Loading state -->
-  <div class="loading-container" *ngIf="loading">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading projects...</p>
-  </div>
-
-  <!-- Error state -->
-  <div class="error-container" *ngIf="error && !loading">
-    <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
-    <p>{{ error }}</p>
-    <ion-button (click)="checkAuthAndLoadProjects()">Retry</ion-button>
-  </div>
-
-  <!-- Projects list -->
-  <div class="projects-container" *ngIf="!loading && !error">
-    <div class="projects-header">
-      <h2>{{ getFilteredProjects().length }} Project<span *ngIf="getFilteredProjects().length !== 1">s</span></h2>
+  <div class="projects-container">
+    <!-- Loading state -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading projects...</p>
     </div>
-    
-    <ion-list class="projects-list">
-      <ion-item *ngFor="let project of getFilteredProjects()" 
-                (click)="selectProject(project)" 
-                button 
-                detail="true"
-                class="project-item">
-        <div class="project-content">
-          <div class="project-header">
-            <span class="project-id">{{ formatProjectId(project) }}</span>
-            <ion-badge [color]="getStatusColor(project)" class="status-badge">
-              {{ getStatusLabel(project) }}
-            </ion-badge>
-          </div>
-          <h3 class="project-address">{{ project.Address || 'No Address' }}</h3>
-          <p class="project-title" *ngIf="project['Title']">{{ project['Title'] }}</p>
-          <div class="project-details">
-            <span class="detail-item" *ngIf="project['DateCreated']">
-              <ion-icon name="calendar-outline"></ion-icon>
-              Created: {{ project['DateCreated'] | date:'shortDate' }}
-            </span>
-            <span class="detail-item" *ngIf="project['DateCompleted']">
-              <ion-icon name="checkmark-circle-outline"></ion-icon>
-              Completed: {{ project['DateCompleted'] | date:'shortDate' }}
-            </span>
+
+    <!-- Error state -->
+    <div *ngIf="error && !loading" class="error-container">
+      <p>{{ error }}</p>
+      <ion-button (click)="checkAuthAndLoadProjects()">Retry</ion-button>
+    </div>
+
+    <!-- Projects sections by status -->
+    <div *ngIf="!loading && !error">
+      
+      <!-- Completed Projects Section -->
+      <div class="status-section" *ngIf="getProjectsByStatus(2).length > 0">
+        <h3 class="section-title">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          Completed Projects ({{ getProjectsByStatus(2).length }})
+        </h3>
+        <div class="projects-list">
+          <div class="project-item" *ngFor="let project of getProjectsByStatus(2)" (click)="selectProject(project)">
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ formatAddress(project) }}</div>
+              <div class="project-info">
+                <span class="project-id">{{ formatProjectId(project) }}</span>
+                <span class="status-text completed">Completed</span>
+              </div>
+              <div class="project-date" *ngIf="project['DateCompleted']">
+                Completed: {{ project['DateCompleted'] | date:'shortDate' }}
+              </div>
+            </div>
           </div>
         </div>
-      </ion-item>
-    </ion-list>
+      </div>
 
-    <!-- Empty state -->
-    <div class="empty-state" *ngIf="getFilteredProjects().length === 0 && !loading">
-      <ion-icon name="folder-open-outline"></ion-icon>
-      <h3>No Projects Found</h3>
-      <p *ngIf="!searchTerm">There are no archived or completed projects for your company.</p>
-      <p *ngIf="searchTerm">No projects match your search criteria.</p>
+      <!-- On Hold Projects Section -->
+      <div class="status-section" *ngIf="getProjectsByStatus(4).length > 0">
+        <h3 class="section-title">
+          <ion-icon name="pause-circle" color="warning"></ion-icon>
+          On Hold Projects ({{ getProjectsByStatus(4).length }})
+        </h3>
+        <div class="projects-list">
+          <div class="project-item" *ngFor="let project of getProjectsByStatus(4)" (click)="selectProject(project)">
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ formatAddress(project) }}</div>
+              <div class="project-info">
+                <span class="project-id">{{ formatProjectId(project) }}</span>
+                <span class="status-text on-hold">On Hold</span>
+              </div>
+              <div class="project-date" *ngIf="project['DateCreated']">
+                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cancelled Projects Section -->
+      <div class="status-section" *ngIf="getProjectsByStatus(3).length > 0">
+        <h3 class="section-title">
+          <ion-icon name="close-circle" color="danger"></ion-icon>
+          Cancelled Projects ({{ getProjectsByStatus(3).length }})
+        </h3>
+        <div class="projects-list">
+          <div class="project-item" *ngFor="let project of getProjectsByStatus(3)" (click)="selectProject(project)">
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ formatAddress(project) }}</div>
+              <div class="project-info">
+                <span class="project-id">{{ formatProjectId(project) }}</span>
+                <span class="status-text cancelled">Cancelled</span>
+              </div>
+              <div class="project-date" *ngIf="project['DateCreated']">
+                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other/Archived Projects Section -->
+      <div class="status-section" *ngIf="getOtherProjects().length > 0">
+        <h3 class="section-title">
+          <ion-icon name="archive" color="medium"></ion-icon>
+          Archived Projects ({{ getOtherProjects().length }})
+        </h3>
+        <div class="projects-list">
+          <div class="project-item" *ngFor="let project of getOtherProjects()" (click)="selectProject(project)">
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ formatAddress(project) }}</div>
+              <div class="project-info">
+                <span class="project-id">{{ formatProjectId(project) }}</span>
+                <span class="status-text archived">Archived</span>
+              </div>
+              <div class="project-date" *ngIf="project['DateCreated']">
+                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" *ngIf="projects.length === 0">
+        <ion-icon name="folder-open-outline"></ion-icon>
+        <p>No projects found</p>
+      </div>
     </div>
   </div>
 </ion-content>
