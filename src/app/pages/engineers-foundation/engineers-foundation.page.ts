@@ -166,8 +166,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
   
   async loadRoomTemplates() {
     try {
-      console.log('Loading room templates with Auto=Yes...');
-      const templates = await this.caspioService.getServicesRoomTemplates().toPromise();
+      console.log('Loading room templates...');
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading room templates')), 5000)
+      );
+      
+      const templates = await Promise.race([
+        this.caspioService.getServicesRoomTemplates().toPromise(),
+        timeoutPromise
+      ]) as any[];
       
       if (templates && templates.length > 0) {
         this.roomTemplates = templates;
@@ -175,28 +183,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit {
         
         // Initialize room elevation data structure - simplified for now
         templates.forEach((template: any) => {
-          this.roomElevationData[template.RoomName] = {
-            roomName: template.RoomName,
-            points: [], // Start with empty points, we'll add functionality later
-            expanded: false,
-            notes: ''
-          };
+          if (template.RoomName) {
+            this.roomElevationData[template.RoomName] = {
+              roomName: template.RoomName,
+              points: [], // Start with empty points, we'll add functionality later
+              expanded: false,
+              notes: ''
+            };
+          }
         });
         
         console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
-        console.log('No room templates with Auto=Yes found');
-        // Don't show error toast if no templates found - this is valid
+        console.log('No room templates found or none with Auto=Yes');
+        this.roomTemplates = []; // Ensure it's initialized as empty array
       }
     } catch (error: any) {
       console.error('Error loading room templates:', error);
-      // Show more detailed error message
-      const errorMsg = error?.message || 'Failed to load room templates';
-      console.error('Room templates error details:', errorMsg);
-      // Only show toast for actual errors, not empty results
-      if (error?.status !== 404) {
-        await this.showToast(`Room templates error: ${errorMsg}`, 'danger');
+      // Initialize as empty array to prevent undefined errors
+      this.roomTemplates = [];
+      this.roomElevationData = {};
+      
+      // Don't show error toast for 404 or timeout - just log it
+      if (error?.status && error.status !== 404) {
+        console.log('Room templates not critical - continuing without them');
       }
+      // Don't throw or propagate the error - let the page continue loading
     }
   }
 

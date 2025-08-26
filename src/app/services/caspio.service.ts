@@ -314,8 +314,35 @@ export class CaspioService {
 
   // Services Room Templates methods
   getServicesRoomTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Rooms_Templates/records?q.where=Auto="Yes"').pipe(
-      map(response => response.Result || [])
+    // Try without 's' first (Services_Room_Templates), then with 's' (Services_Rooms_Templates)
+    return this.get<any>('/tables/Services_Room_Templates/records').pipe(
+      map(response => {
+        const allRecords = response.Result || [];
+        // Filter for Auto = Yes (handle different possible values)
+        return allRecords.filter((record: any) => 
+          record.Auto === 'Yes' || record.Auto === 'yes' || 
+          record.Auto === true || record.Auto === 1 || 
+          record.Auto === '1'
+        );
+      }),
+      catchError(error => {
+        console.log('Trying alternative table name Services_Rooms_Templates...');
+        // If first attempt fails, try with 's'
+        return this.get<any>('/tables/Services_Rooms_Templates/records').pipe(
+          map(response => {
+            const allRecords = response.Result || [];
+            return allRecords.filter((record: any) => 
+              record.Auto === 'Yes' || record.Auto === 'yes' || 
+              record.Auto === true || record.Auto === 1 || 
+              record.Auto === '1'
+            );
+          }),
+          catchError(secondError => {
+            console.error('Both table names failed:', error, secondError);
+            return of([]); // Return empty array on error
+          })
+        );
+      })
     );
   }
   
