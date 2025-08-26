@@ -314,7 +314,7 @@ export class CaspioService {
 
   // Services Room Templates methods - simplified
   getServicesRoomTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Room_Templates/records').pipe(
+    return this.get<any>('/tables/Services_Rooms_Templates/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Room templates error:', error);

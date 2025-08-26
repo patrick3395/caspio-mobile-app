@@ -194,16 +194,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      console.log('Loading room templates...');
+      console.log('Loading room templates from Services_Room_Templates...');
       
-      const templates = await this.caspioService.getServicesRoomTemplates().toPromise();
+      const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
       
-      if (templates && templates.length > 0) {
-        this.roomTemplates = templates;
-        console.log(`Loaded ${templates.length} room templates:`, templates);
+      if (allTemplates && allTemplates.length > 0) {
+        // Filter templates where Auto = 'Yes'
+        const autoTemplates = allTemplates.filter((template: any) => 
+          template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
+        );
         
-        // Only initialize if not already initialized (to preserve existing data)
-        templates.forEach((template: any) => {
+        this.roomTemplates = autoTemplates;
+        console.log(`Loaded ${autoTemplates.length} auto room templates from ${allTemplates.length} total:`, autoTemplates);
+        
+        // Initialize room elevation data for each auto template
+        autoTemplates.forEach((template: any) => {
           if (template.RoomName && !this.roomElevationData[template.RoomName]) {
             this.roomElevationData[template.RoomName] = {
               roomName: template.RoomName,
@@ -214,9 +219,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         });
         
-        console.log('Room elevation data:', this.roomElevationData);
+        console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
-        console.log('No room templates found');
+        console.log('No room templates found in Services_Room_Templates');
         this.roomTemplates = [];
       }
     } catch (error: any) {
