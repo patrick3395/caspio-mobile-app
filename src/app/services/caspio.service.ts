@@ -478,6 +478,11 @@ export class CaspioService {
   // Create Services_Rooms_Points_Attach record
   createServicesRoomsAttach(data: any): Observable<any> {
     console.log('Creating Services_Rooms_Points_Attach record:', data);
+    console.log('Data types:', {
+      PointID: typeof data.PointID,
+      Photo: typeof data.Photo,
+      Annotation: typeof data.Annotation
+    });
     return this.post<any>('/tables/Services_Rooms_Points_Attach/records?response=rows', data).pipe(
       map(response => {
         console.log('Services_Rooms_Points_Attach response:', response);
@@ -491,6 +496,13 @@ export class CaspioService {
       }),
       catchError(error => {
         console.error('Services_Rooms_Points_Attach creation error:', error);
+        console.error('Request data was:', data);
+        console.error('Error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          message: error.message,
+          error: error.error
+        });
         throw error;
       })
     );

@@ -742,28 +742,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Create Services_Rooms_Points_Attach record
-      // PointID must be integer, Photo is the file path from Files API, Annotation is text
+      // Try different field combinations to see what works
       const attachData = {
         PointID: parseInt(pointId, 10), // Ensure it's a proper integer
         Photo: `/${uploadResult.Name}`,  // File path from Files API
-        Annotation: null  // Use null instead of empty string for text field
+        Annotation: ''  // Try empty string instead of null
       };
       
-      // Debug: Verify data types
-      alert(`DEBUG - Services_Rooms_Points_Attach Data:\n\nPointID: ${attachData.PointID} (type: ${typeof attachData.PointID})\nPhoto: ${attachData.Photo} (type: ${typeof attachData.Photo})\nAnnotation: ${attachData.Annotation} (type: ${typeof attachData.Annotation})\n\nJSON: ${JSON.stringify(attachData)}`);
+      // Comprehensive debug before sending
+      let debugInfo = '=== SERVICES_ROOMS_POINTS_ATTACH DEBUG ===\n\n';
+      debugInfo += '1. FILE UPLOAD RESULT:\n';
+      debugInfo += `   - Uploaded file name: ${uploadResult.Name}\n`;
+      debugInfo += `   - Full upload response: ${JSON.stringify(uploadResult)}\n\n`;
       
-      const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      debugInfo += '2. POINT INFORMATION:\n';
+      debugInfo += `   - PointID from variable: ${pointId}\n`;
+      debugInfo += `   - PointID parsed: ${attachData.PointID}\n`;
+      debugInfo += `   - PointID type: ${typeof attachData.PointID}\n`;
+      debugInfo += `   - Is PointID a valid number: ${!isNaN(attachData.PointID)}\n\n`;
       
-      // Debug: Show response from attachment creation
-      alert(`DEBUG - Attach Response:\n${JSON.stringify(attachResponse)}`);
+      debugInfo += '3. DATA BEING SENT:\n';
+      debugInfo += `   - PointID: ${attachData.PointID}\n`;
+      debugInfo += `   - Photo: "${attachData.Photo}"\n`;
+      debugInfo += `   - Annotation: "${attachData.Annotation}"\n\n`;
       
-      console.log(`Photo uploaded for point ${pointName}`);
-      await this.showToast(`Photo saved to point '${pointName}'`, 'success');
+      debugInfo += '4. JSON PAYLOAD:\n';
+      debugInfo += `   ${JSON.stringify(attachData, null, 2)}\n\n`;
+      
+      debugInfo += '5. TABLE ENDPOINT:\n';
+      debugInfo += '   /tables/Services_Rooms_Points_Attach/records';
+      
+      alert(debugInfo);
+      
+      try {
+        const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+        
+        // Debug: Show successful response
+        alert(`SUCCESS - Attachment Created:\n\n${JSON.stringify(attachResponse, null, 2)}`);
+        
+        console.log(`Photo uploaded for point ${pointName}`);
+        await this.showToast(`Photo saved to point '${pointName}'`, 'success');
+      } catch (attachError: any) {
+        // Detailed error information
+        let errorInfo = '=== ATTACHMENT ERROR ===\n\n';
+        errorInfo += `1. ERROR MESSAGE: ${attachError.message || attachError}\n\n`;
+        
+        if (attachError.error) {
+          errorInfo += `2. ERROR DETAILS:\n${JSON.stringify(attachError.error, null, 2)}\n\n`;
+        }
+        
+        if (attachError.status) {
+          errorInfo += `3. HTTP STATUS: ${attachError.status}\n\n`;
+        }
+        
+        errorInfo += `4. POINT INFO:\n`;
+        errorInfo += `   - Point Name: ${pointName}\n`;
+        errorInfo += `   - PointID Used: ${attachData.PointID}\n\n`;
+        
+        errorInfo += `5. FULL ERROR OBJECT:\n${JSON.stringify(attachError, null, 2)}`;
+        
+        alert(errorInfo);
+        throw attachError;
+      }
       
     } catch (error) {
       console.error('Error uploading room point photo from file:', error);
-      // Debug: Show detailed error
-      alert(`DEBUG - Upload Error:\n${error}\n\nPoint: ${pointName}\nPointID: ${pointId}`);
       throw error;
     }
   }
