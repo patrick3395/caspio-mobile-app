@@ -243,11 +243,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
               const roomName = room.RoomName;
-              const roomId = room.PK_ID || room.RoomID || room.id;
+              // Use RoomID field, NOT PK_ID - RoomID is what links to Services_Rooms_Points
+              const roomId = room.RoomID;
+              
+              console.log(`Loading room: ${roomName}, RoomID: ${roomId}, PK_ID: ${room.PK_ID}`);
               
               // Find matching template by RoomName
               const template = autoTemplates.find((t: any) => t.RoomName === roomName);
-              if (template && roomName) {
+              if (template && roomName && roomId) {
                 this.selectedRooms[roomName] = true;
                 this.roomRecordIds[roomName] = roomId;
                 
@@ -349,7 +352,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
-      await this.showDebugAlert('Room ID found', `Room ID: ${roomId}`);
+      await this.showDebugAlert('Room ID found', `Using RoomID: ${roomId} (this should match the RoomID field, not PK_ID)`);
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
@@ -857,10 +860,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   const response = await this.caspioService.createServicesRoom(roomData).toPromise();
                   
                   if (response) {
-                    const roomId = response.PK_ID || response.RoomID || response.id;
+                    // Use RoomID from the response, NOT PK_ID
+                    const roomId = response.RoomID || response.roomId;
+                    if (!roomId) {
+                      console.error('No RoomID in response:', response);
+                      // If RoomID is not in response, it might be the PK_ID
+                      throw new Error('RoomID not found in response');
+                    }
                     this.roomRecordIds[roomName] = roomId;
                     this.selectedRooms[roomName] = true;
                     await this.showToast(`Room "${roomName}" added`, 'success');
+                    console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
                     
                     // Show success response
                     const successAlert = await this.alertController.create({
