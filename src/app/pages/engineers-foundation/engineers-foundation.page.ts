@@ -237,20 +237,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Load existing Services_Rooms for this service to check which are already selected
         if (this.serviceId) {
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          console.log('Existing Services_Rooms records:', existingRooms);
           
           if (existingRooms && existingRooms.length > 0) {
-            // Mark existing rooms as selected and store their IDs
+            // Now we can use the RoomName field directly
             for (const room of existingRooms) {
+              const roomName = room.RoomName;
+              const roomId = room.PK_ID || room.RoomID || room.id;
+              
               // Find matching template by RoomName
-              const template = autoTemplates.find((t: any) => t.RoomName === room.RoomName);
-              if (template) {
-                this.selectedRooms[template.RoomName] = true;
-                this.roomRecordIds[template.RoomName] = room.PK_ID || room.RoomID;
+              const template = autoTemplates.find((t: any) => t.RoomName === roomName);
+              if (template && roomName) {
+                this.selectedRooms[roomName] = true;
+                this.roomRecordIds[roomName] = roomId;
                 
                 // Load existing FDF value if present
-                if (room.FDF && this.roomElevationData[template.RoomName]) {
-                  this.roomElevationData[template.RoomName].fdf = room.FDF;
+                if (room.FDF && this.roomElevationData[roomName]) {
+                  this.roomElevationData[roomName].fdf = room.FDF;
                 }
+                
+                console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}`);
+                
+                // Load existing room points for this room
+                this.loadExistingRoomPoints(roomId, roomName);
               }
             }
           }
@@ -443,6 +452,46 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
       await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
+  // Load existing room points and their photos
+  async loadExistingRoomPoints(roomId: string, roomName: string) {
+    try {
+      // Get all points for this room
+      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      
+      if (points && points.length > 0) {
+        for (const point of points) {
+          const pointId = point.PK_ID || point.PointID;
+          const pointKey = `${roomName}_${point.PointName}`;
+          
+          // Store the point ID for future reference
+          this.roomPointIds[pointKey] = pointId;
+          
+          // Find the corresponding point in roomElevationData and mark it as having photos
+          if (this.roomElevationData[roomName]?.elevationPoints) {
+            const elevationPoint = this.roomElevationData[roomName].elevationPoints.find(
+              (p: any) => p.name === point.PointName
+            );
+            
+            if (elevationPoint) {
+              // Get photo count for this point
+              const photos = await this.caspioService.getServicesRoomsAttachments(pointId).toPromise();
+              if (photos && photos.length > 0) {
+                elevationPoint.photoCount = photos.length;
+                elevationPoint.photos = photos.map((photo: any) => ({
+                  url: photo.Photo,
+                  thumbnailUrl: photo.Photo
+                }));
+                console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading room points:', error);
     }
   }
   
@@ -653,9 +702,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
         
-        // ONLY send ServiceID - NOTHING ELSE!
+        // Send ServiceID and RoomName
         const roomData = {
-          ServiceID: serviceIdNum
+          ServiceID: serviceIdNum,
+          RoomName: roomName
         };
         
         // Show debug popup before sending
@@ -665,11 +715,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
               <strong style="color: blue;">Creating Room in Services_Rooms Table</strong><br><br>
               
-              <strong style="color: red;">⚠️ ONLY This Field Will Be Sent:</strong><br>
+              <strong style="color: red;">Fields Being Sent:</strong><br>
               <div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin: 10px 0;">
                 • ServiceID: <strong>${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
-                <br>
-                <strong>NOTHING ELSE - No RoomName, No ProjectID!</strong>
+                • RoomName: <strong>${roomData.RoomName}</strong> (type: ${typeof roomData.RoomName})<br>
               </div>
               
               <strong>Validation Check:</strong><br>
@@ -677,8 +726,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               • ServiceID parsed: ${serviceIdNum}<br>
               • Is valid number: ${!isNaN(serviceIdNum) ? '✅ YES' : '❌ NO'}<br><br>
               
-              <strong>Context (NOT sent, just FYI):</strong><br>
-              • Room Name: "${roomName}" (NOT SENT - just for UI)<br>
+              <strong>Context:</strong><br>
               • Current ProjectID: ${this.projectId} (NOT SENT)<br>
               • Route params: serviceId=${this.serviceId}<br><br>
               

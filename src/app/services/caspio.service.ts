@@ -355,6 +355,34 @@ export class CaspioService {
     );
   }
 
+  // Get Services_Rooms_Points for a specific room
+  getServicesRoomsPoints(roomId: string): Observable<any[]> {
+    const query = `RoomID=${roomId}`;
+    return this.get<any>(`/tables/Services_Rooms_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Services Rooms Points error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  // Get Services_Rooms_Attach for specific point IDs
+  getServicesRoomsAttachments(pointIds: string[]): Observable<any[]> {
+    if (!pointIds || pointIds.length === 0) {
+      return of([]);
+    }
+    // Build query for multiple PointIDs using OR
+    const query = pointIds.map(id => `PointID=${id}`).join(' OR ');
+    return this.get<any>(`/tables/Services_Rooms_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Services Rooms Attachments error:', error);
+        return of([]);
+      })
+    );
+  }
+
   createServicesRoom(data: any): Observable<any> {
     console.log('Creating Services_Rooms record with data:', data);
     return this.post<any>('/tables/Services_Rooms/records?response=rows', data).pipe(
