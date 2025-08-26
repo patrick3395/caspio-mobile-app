@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { AlertController, ModalController } from '@ionic/angular';
+import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-all-projects',
@@ -30,8 +30,7 @@ export class AllProjectsPage implements OnInit {
     private caspioService: CaspioService,
     private router: Router,
     private route: ActivatedRoute,
-    private alertController: AlertController,
-    private modalController: ModalController
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -122,9 +121,7 @@ export class AllProjectsPage implements OnInit {
     
     const term = this.searchTerm.toLowerCase();
     return this.projects.filter(project => 
-      (project.Address && project.Address.toLowerCase().includes(term)) ||
-      (project['Title'] && project['Title'].toLowerCase().includes(term)) ||
-      (project.ProjectID && project.ProjectID.toString().includes(term))
+      project.Address && project.Address.toLowerCase().includes(term)
     );
   }
 
@@ -174,24 +171,23 @@ export class AllProjectsPage implements OnInit {
   async selectProject(project: Project) {
     console.log('Selected project:', project);
     
-    // Create a modal to show project details
-    const modal = await this.modalController.create({
-      component: 'ion-modal',
-      cssClass: 'project-detail-modal',
-      componentProps: {
-        project: project
-      }
+    // Show project details in a modal
+    const alert = await this.alertController.create({
+      header: this.formatAddress(project),
+      cssClass: 'project-detail-alert',
+      message: this.getProjectDetailContent(project),
+      buttons: [
+        {
+          text: 'Close',
+          role: 'cancel'
+        }
+      ]
     });
 
-    // Present the modal
-    const modalElement = modal as any;
-    modalElement.innerHTML = this.getProjectDetailModalContent(project);
-    
-    await modal.present();
+    await alert.present();
   }
 
-  private getProjectDetailModalContent(project: Project): string {
-    const streetViewUrl = this.getProjectImage(project);
+  private getProjectDetailContent(project: Project): string {
     const formatDate = (date: string) => {
       if (!date) return 'N/A';
       return new Date(date).toLocaleDateString('en-US', { 
@@ -201,146 +197,65 @@ export class AllProjectsPage implements OnInit {
       });
     };
 
-    return `
-      <ion-header>
-        <ion-toolbar color="primary">
-          <ion-title>${this.formatAddress(project)}</ion-title>
-          <ion-buttons slot="end">
-            <ion-button onclick="this.closest('ion-modal').dismiss()">
-              <ion-icon name="close" slot="icon-only"></ion-icon>
-            </ion-button>
-          </ion-buttons>
-        </ion-toolbar>
-      </ion-header>
-      <ion-content class="project-detail-content">
-        <div class="street-view-section">
-          <img src="${streetViewUrl}" alt="Street View" class="street-view-image" onerror="this.src='assets/img/project-placeholder.svg'">
+    let content = `
+      <div class="project-detail-content">
+        <div class="detail-row">
+          <strong>Project ID:</strong> ${this.formatProjectId(project)}
         </div>
-        
-        <div class="detail-sections">
-          <!-- Project Information -->
-          <div class="detail-section">
-            <h3 class="section-header">
-              <ion-icon name="information-circle"></ion-icon>
-              Project Information
-            </h3>
-            <ion-list lines="none">
-              <ion-item>
-                <ion-label>
-                  <p>Project ID</p>
-                  <h3>${this.formatProjectId(project)}</h3>
-                </ion-label>
-              </ion-item>
-              <ion-item>
-                <ion-label>
-                  <p>Address</p>
-                  <h3>${project.Address || 'N/A'}</h3>
-                </ion-label>
-              </ion-item>
-              <ion-item>
-                <ion-label>
-                  <p>City, State</p>
-                  <h3>${project.City || 'N/A'}, ${project.State || 'N/A'} ${project.Zip || ''}</h3>
-                </ion-label>
-              </ion-item>
-              <ion-item>
-                <ion-label>
-                  <p>Status</p>
-                  <h3>
-                    <ion-badge color="${this.getStatusColor(project)}">
-                      ${this.getStatusLabel(project)}
-                    </ion-badge>
-                  </h3>
-                </ion-label>
-              </ion-item>
-            </ion-list>
-          </div>
-
-          <!-- Dates -->
-          <div class="detail-section">
-            <h3 class="section-header">
-              <ion-icon name="calendar"></ion-icon>
-              Important Dates
-            </h3>
-            <ion-list lines="none">
-              ${project['DateCreated'] ? `
-                <ion-item>
-                  <ion-label>
-                    <p>Created</p>
-                    <h3>${formatDate(project['DateCreated'])}</h3>
-                  </ion-label>
-                </ion-item>
-              ` : ''}
-              ${project['DateOfInspection'] ? `
-                <ion-item>
-                  <ion-label>
-                    <p>Inspection Date</p>
-                    <h3>${formatDate(project['DateOfInspection'])}</h3>
-                  </ion-label>
-                </ion-item>
-              ` : ''}
-              ${project['DateCompleted'] ? `
-                <ion-item>
-                  <ion-label>
-                    <p>Completed</p>
-                    <h3>${formatDate(project['DateCompleted'])}</h3>
-                  </ion-label>
-                </ion-item>
-              ` : ''}
-            </ion-list>
-          </div>
-
-          <!-- Contact Information -->
-          ${(project['ClientName'] || project['ClientPhone'] || project['ClientEmail']) ? `
-            <div class="detail-section">
-              <h3 class="section-header">
-                <ion-icon name="person"></ion-icon>
-                Contact Information
-              </h3>
-              <ion-list lines="none">
-                ${project['ClientName'] ? `
-                  <ion-item>
-                    <ion-label>
-                      <p>Client Name</p>
-                      <h3>${project['ClientName']}</h3>
-                    </ion-label>
-                  </ion-item>
-                ` : ''}
-                ${project['ClientPhone'] ? `
-                  <ion-item>
-                    <ion-label>
-                      <p>Phone</p>
-                      <h3>${project['ClientPhone']}</h3>
-                    </ion-label>
-                  </ion-item>
-                ` : ''}
-                ${project['ClientEmail'] ? `
-                  <ion-item>
-                    <ion-label>
-                      <p>Email</p>
-                      <h3>${project['ClientEmail']}</h3>
-                    </ion-label>
-                  </ion-item>
-                ` : ''}
-              </ion-list>
-            </div>
-          ` : ''}
-
-          <!-- Additional Details -->
-          ${project['Notes'] ? `
-            <div class="detail-section">
-              <h3 class="section-header">
-                <ion-icon name="document-text"></ion-icon>
-                Notes
-              </h3>
-              <div class="notes-content">
-                ${project['Notes']}
-              </div>
-            </div>
-          ` : ''}
+        <div class="detail-row">
+          <strong>Address:</strong> ${project.Address || 'N/A'}
         </div>
-      </ion-content>
+        <div class="detail-row">
+          <strong>City, State:</strong> ${project.City || 'N/A'}, ${project.State || 'N/A'} ${project.Zip || ''}
+        </div>
+        <div class="detail-row">
+          <strong>Status:</strong> <span class="status-badge ${this.getStatusColor(project)}">${this.getStatusLabel(project)}</span>
+        </div>
     `;
+
+    // Add dates section if any exist
+    if (project['DateCreated'] || project['DateOfInspection'] || project['DateCompleted']) {
+      content += `<div class="detail-separator"></div>`;
+      
+      if (project['DateCreated']) {
+        content += `<div class="detail-row"><strong>Created:</strong> ${formatDate(project['DateCreated'])}</div>`;
+      }
+      if (project['DateOfInspection']) {
+        content += `<div class="detail-row"><strong>Inspection:</strong> ${formatDate(project['DateOfInspection'])}</div>`;
+      }
+      if (project['DateCompleted']) {
+        content += `<div class="detail-row"><strong>Completed:</strong> ${formatDate(project['DateCompleted'])}</div>`;
+      }
+    }
+
+    // Add contact info if exists
+    if (project['ClientName'] || project['ClientPhone'] || project['ClientEmail']) {
+      content += `<div class="detail-separator"></div>`;
+      
+      if (project['ClientName']) {
+        content += `<div class="detail-row"><strong>Client:</strong> ${project['ClientName']}</div>`;
+      }
+      if (project['ClientPhone']) {
+        content += `<div class="detail-row"><strong>Phone:</strong> ${project['ClientPhone']}</div>`;
+      }
+      if (project['ClientEmail']) {
+        content += `<div class="detail-row"><strong>Email:</strong> ${project['ClientEmail']}</div>`;
+      }
+    }
+
+    // Add notes if exists
+    if (project['Notes']) {
+      content += `
+        <div class="detail-separator"></div>
+        <div class="detail-row">
+          <strong>Notes:</strong><br>
+          <div class="notes-text">${project['Notes']}</div>
+        </div>
+      `;
+    }
+
+    content += `</div>`;
+    return content;
   }
 
   formatProjectId(project: Project): string {

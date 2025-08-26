@@ -246,81 +246,91 @@ $white: #FFFFFF;
   }
 }
 
-// Project Detail Modal Styles
-.project-detail-modal {
-  --width: 90%;
-  --max-width: 600px;
-  --height: 85%;
-  --border-radius: 12px;
-  --box-shadow: 0 28px 48px rgba(0, 0, 0, 0.2);
+// Project Detail Alert Styles
+.project-detail-alert {
+  .alert-wrapper {
+    --max-width: 90%;
+    --width: 600px;
+  }
   
-  .street-view-section {
-    width: 100%;
-    height: 200px;
-    overflow: hidden;
-    background: #{$light-gray};
-    
-    .street-view-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+  .alert-head {
+    h2 {
+      color: #{$dark-gray};
+      font-size: 18px;
+      font-weight: 600;
     }
   }
   
-  .detail-sections {
-    padding: 16px;
+  .alert-message {
+    max-height: 70vh;
+    overflow-y: auto;
+    color: #{$dark-gray};
     
-    .detail-section {
-      margin-bottom: 24px;
+    .project-detail-content {
+      padding: 8px 0;
       
-      .section-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        color: #{$dark-gray};
-        margin-bottom: 12px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid #{$orange};
-        
-        ion-icon {
-          font-size: 20px;
-          color: #{$orange};
-        }
-      }
-      
-      ion-list {
-        background: transparent;
-        
-        ion-item {
-          --padding-start: 0;
-          --inner-padding-end: 0;
-          --background: transparent;
-          
-          ion-label {
-            p {
-              font-size: 12px;
-              color: #{$gray};
-              margin-bottom: 4px;
-            }
-            
-            h3 {
-              font-size: 14px;
-              color: #{$dark-gray};
-              font-weight: 500;
-            }
-          }
-        }
-      }
-      
-      .notes-content {
-        padding: 12px;
-        background: #{$light-gray};
-        border-radius: 8px;
+      .detail-row {
+        padding: 8px 0;
         font-size: 14px;
-        color: #{$dark-gray};
         line-height: 1.5;
+        
+        strong {
+          color: #{$dark-gray};
+          font-weight: 600;
+        }
+      }
+      
+      .detail-separator {
+        height: 1px;
+        background: #e0e0e0;
+        margin: 12px 0;
+      }
+      
+      .status-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        display: inline-block;
+        
+        &.success {
+          background: #d4edda;
+          color: #155724;
+        }
+        
+        &.warning {
+          background: #fff3cd;
+          color: #856404;
+        }
+        
+        &.danger {
+          background: #f8d7da;
+          color: #721c24;
+        }
+        
+        &.medium {
+          background: #e2e3e5;
+          color: #383d41;
+        }
+      }
+      
+      .notes-text {
+        margin-top: 8px;
+        padding: 8px;
+        background: #{$light-gray};
+        border-radius: 4px;
+        font-size: 13px;
+        white-space: pre-wrap;
+      }
+    }
+  }
+  
+  .alert-button-group {
+    .alert-button {
+      .button-inner {
+        color: #{$orange};
+        font-weight: 600;
       }
     }
   }
