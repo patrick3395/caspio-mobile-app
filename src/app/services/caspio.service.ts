@@ -382,7 +382,7 @@ export class CaspioService {
     );
   }
 
-  // Get Services_Rooms_Attach for specific point IDs
+  // Get Services_Rooms_Points_Attach for specific point IDs
   getServicesRoomsAttachments(pointIds: string[] | string): Observable<any[]> {
     // Handle single ID or array of IDs
     const idArray = Array.isArray(pointIds) ? pointIds : [pointIds];
@@ -391,10 +391,10 @@ export class CaspioService {
     }
     // Build query for multiple PointIDs using OR
     const query = idArray.map(id => `PointID=${id}`).join(' OR ');
-    return this.get<any>(`/tables/Services_Rooms_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/Services_Rooms_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
-        console.error('Services Rooms Attachments error:', error);
+        console.error('Services_Rooms_Points_Attach error:', error);
         return of([]);
       })
     );
@@ -475,12 +475,12 @@ export class CaspioService {
     );
   }
   
-  // Create Services_Rooms_Attach record
+  // Create Services_Rooms_Points_Attach record
   createServicesRoomsAttach(data: any): Observable<any> {
-    console.log('Creating Services_Rooms_Attach record:', data);
-    return this.post<any>('/tables/Services_Rooms_Attach/records?response=rows', data).pipe(
+    console.log('Creating Services_Rooms_Points_Attach record:', data);
+    return this.post<any>('/tables/Services_Rooms_Points_Attach/records?response=rows', data).pipe(
       map(response => {
-        console.log('Services_Rooms_Attach response:', response);
+        console.log('Services_Rooms_Points_Attach response:', response);
         if (!response) {
           return {};
         }
@@ -490,7 +490,7 @@ export class CaspioService {
         return response;
       }),
       catchError(error => {
-        console.error('Services_Rooms_Attach creation error:', error);
+        console.error('Services_Rooms_Points_Attach creation error:', error);
         throw error;
       })
     );

@@ -741,16 +741,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('File upload failed');
       }
       
-      // Create Services_Rooms_Attach record - ONLY these 3 fields!
+      // Create Services_Rooms_Points_Attach record
+      // PointID must be integer, Photo is the file path from Files API, Annotation is text
       const attachData = {
-        PointID: parseInt(pointId),
-        Photo: `/${uploadResult.Name}`,
-        Annotation: ''
+        PointID: parseInt(pointId, 10), // Ensure it's a proper integer
+        Photo: `/${uploadResult.Name}`,  // File path from Files API
+        Annotation: null  // Use null instead of empty string for text field
       };
       
-      // Debug: Show EXACTLY what we're sending - no other fields!
-      const attachDataKeys = Object.keys(attachData);
-      alert(`DEBUG - Sending to Services_Rooms_Attach:\n\nFields being sent (${attachDataKeys.length}):\n${attachDataKeys.join(', ')}\n\nPointID: ${attachData.PointID}\nPhoto: ${attachData.Photo}\nAnnotation: ${attachData.Annotation || '(empty)'}\n\nJSON: ${JSON.stringify(attachData)}`);
+      // Debug: Verify data types
+      alert(`DEBUG - Services_Rooms_Points_Attach Data:\n\nPointID: ${attachData.PointID} (type: ${typeof attachData.PointID})\nPhoto: ${attachData.Photo} (type: ${typeof attachData.Photo})\nAnnotation: ${attachData.Annotation} (type: ${typeof attachData.Annotation})\n\nJSON: ${JSON.stringify(attachData)}`);
       
       const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
       
