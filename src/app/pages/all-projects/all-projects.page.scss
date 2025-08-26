@@ -38,10 +38,28 @@ $white: #FFFFFF;
   }
 }
 
-.search-bar {
-  --background: white;
-  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 8px 16px;
+.search-container {
+  background: white;
+  padding: 12px 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  
+  .enhanced-search-bar {
+    --background: #{$light-gray};
+    --border-radius: 8px;
+    --box-shadow: none;
+    --placeholder-color: #{$gray};
+    --placeholder-opacity: 0.7;
+    --icon-color: #{$orange};
+    --clear-button-color: #{$orange};
+    padding: 0;
+    
+    .searchbar-input-container {
+      .searchbar-input {
+        font-size: 14px;
+        padding: 8px 12px !important;
+      }
+    }
+  }
 }
 
 .projects-container {
@@ -225,5 +243,85 @@ $white: #FFFFFF;
   p {
     color: #{$gray};
     font-size: 14px;
+  }
+}
+
+// Project Detail Modal Styles
+.project-detail-modal {
+  --width: 90%;
+  --max-width: 600px;
+  --height: 85%;
+  --border-radius: 12px;
+  --box-shadow: 0 28px 48px rgba(0, 0, 0, 0.2);
+  
+  .street-view-section {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #{$light-gray};
+    
+    .street-view-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+  
+  .detail-sections {
+    padding: 16px;
+    
+    .detail-section {
+      margin-bottom: 24px;
+      
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #{$dark-gray};
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #{$orange};
+        
+        ion-icon {
+          font-size: 20px;
+          color: #{$orange};
+        }
+      }
+      
+      ion-list {
+        background: transparent;
+        
+        ion-item {
+          --padding-start: 0;
+          --inner-padding-end: 0;
+          --background: transparent;
+          
+          ion-label {
+            p {
+              font-size: 12px;
+              color: #{$gray};
+              margin-bottom: 4px;
+            }
+            
+            h3 {
+              font-size: 14px;
+              color: #{$dark-gray};
+              font-weight: 500;
+            }
+          }
+        }
+      }
+      
+      .notes-content {
+        padding: 12px;
+        background: #{$light-gray};
+        border-radius: 8px;
+        font-size: 14px;
+        color: #{$dark-gray};
+        line-height: 1.5;
+      }
+    }
   }
 }

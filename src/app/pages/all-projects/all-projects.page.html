@@ -19,12 +19,16 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <!-- Search bar -->
-  <ion-searchbar 
-    [(ngModel)]="searchTerm" 
-    placeholder="Search all projects..."
-    class="search-bar">
-  </ion-searchbar>
+  <!-- Enhanced Search bar -->
+  <div class="search-container">
+    <ion-searchbar 
+      [(ngModel)]="searchTerm" 
+      placeholder="Search by address, project ID, or title..."
+      class="enhanced-search-bar"
+      showClearButton="focus"
+      animated="true">
+    </ion-searchbar>
+  </div>
 
   <div class="projects-container">
     <!-- Loading state -->
@@ -46,7 +50,7 @@
       <div class="status-section" *ngIf="getProjectsByStatus(2).length > 0">
         <h3 class="section-title">
           <ion-icon name="checkmark-circle" color="success"></ion-icon>
-          Completed Projects ({{ getProjectsByStatus(2).length }})
+          Completed ({{ getProjectsByStatus(2).length }})
         </h3>
         <div class="projects-list">
           <div class="project-item" *ngFor="let project of getProjectsByStatus(2)" (click)="selectProject(project)">
@@ -71,7 +75,7 @@
       <div class="status-section" *ngIf="getProjectsByStatus(4).length > 0">
         <h3 class="section-title">
           <ion-icon name="pause-circle" color="warning"></ion-icon>
-          On Hold Projects ({{ getProjectsByStatus(4).length }})
+          On Hold ({{ getProjectsByStatus(4).length }})
         </h3>
         <div class="projects-list">
           <div class="project-item" *ngFor="let project of getProjectsByStatus(4)" (click)="selectProject(project)">
@@ -96,7 +100,7 @@
       <div class="status-section" *ngIf="getProjectsByStatus(3).length > 0">
         <h3 class="section-title">
           <ion-icon name="close-circle" color="danger"></ion-icon>
-          Cancelled Projects ({{ getProjectsByStatus(3).length }})
+          Cancelled ({{ getProjectsByStatus(3).length }})
         </h3>
         <div class="projects-list">
           <div class="project-item" *ngFor="let project of getProjectsByStatus(3)" (click)="selectProject(project)">
@@ -121,7 +125,7 @@
       <div class="status-section" *ngIf="getOtherProjects().length > 0">
         <h3 class="section-title">
           <ion-icon name="archive" color="medium"></ion-icon>
-          Archived Projects ({{ getOtherProjects().length }})
+          Archived ({{ getOtherProjects().length }})
         </h3>
         <div class="projects-list">
           <div class="project-item" *ngFor="let project of getOtherProjects()" (click)="selectProject(project)">
