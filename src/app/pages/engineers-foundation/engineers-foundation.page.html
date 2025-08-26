@@ -518,7 +518,41 @@
               </ion-item>
               
               <div class="room-elevation-content" slot="content">
-                <!-- Room-specific notes for now -->
+                <!-- Elevation Points -->
+                <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
+                  <h4 class="points-header">Elevation Points</h4>
+                  <div class="elevation-points-grid">
+                    <div class="elevation-point-item" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                      <div class="point-label">{{ point.name }}</div>
+                      <div class="point-input-group">
+                        <ion-input 
+                          type="number" 
+                          [(ngModel)]="point.value" 
+                          placeholder="Enter elevation"
+                          (ionBlur)="onElevationPointChange(room.RoomName, point)"
+                          step="0.01"
+                          inputmode="decimal">
+                        </ion-input>
+                        <button class="camera-button" (click)="takePhotoForElevationPoint(room.RoomName, point, $event)" title="Take Photo">
+                          <ion-icon name="camera-outline"></ion-icon>
+                          <span class="photo-count" *ngIf="point.photoCount > 0">{{ point.photoCount }}</span>
+                        </button>
+                      </div>
+                      <!-- Photo preview if exists -->
+                      <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
+                        <div class="photo-thumbnails">
+                          <img *ngFor="let photo of point.photos" 
+                               [src]="photo.thumbnailUrl || photo.url" 
+                               (click)="viewElevationPhoto(photo)"
+                               (error)="handleImageError($event, photo)"
+                               alt="Elevation point photo">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Room-specific notes -->
                 <div class="room-notes">
                   <label>Notes for {{ room.RoomName }}</label>
                   <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
@@ -527,9 +561,6 @@
                                 (ionBlur)="onRoomNotesChange(room.RoomName)">
                   </ion-textarea>
                 </div>
-                <p style="color: #666; font-size: 13px; margin-top: 10px;">
-                  Additional functionality will be added here.
-                </p>
               </div>
             </ion-accordion>
           </ion-accordion-group>

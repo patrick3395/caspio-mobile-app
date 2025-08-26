@@ -210,9 +210,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Initialize room elevation data for each auto template
         autoTemplates.forEach((template: any) => {
           if (template.RoomName && !this.roomElevationData[template.RoomName]) {
+            // Extract elevation points from Point1Name, Point2Name, etc.
+            const elevationPoints: any[] = [];
+            
+            // Check for up to 20 point columns (Point1Name through Point20Name)
+            for (let i = 1; i <= 20; i++) {
+              const pointColumnName = `Point${i}Name`;
+              const pointName = template[pointColumnName];
+              
+              if (pointName && pointName.trim() !== '') {
+                elevationPoints.push({
+                  pointNumber: i,
+                  name: pointName,
+                  value: '',  // User will input the elevation value
+                  photo: null  // User can attach a photo
+                });
+              }
+            }
+            
+            console.log(`Room ${template.RoomName} has ${elevationPoints.length} elevation points:`, elevationPoints);
+            
             this.roomElevationData[template.RoomName] = {
               roomName: template.RoomName,
-              points: [],
+              templateId: template.PK_ID || template.TemplateId,
+              elevationPoints: elevationPoints,
+              pointCount: template.PointCount || elevationPoints.length,
+              points: [],  // Legacy - keeping for compatibility
               expanded: false,
               notes: ''
             };
@@ -490,6 +513,93 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.saveDebounceTimer = setTimeout(() => {
       this.saveDraft();
     }, 1000); // Save after 1 second of no changes
+  }
+
+  // Handle elevation point value change
+  onElevationPointChange(roomName: string, point: any) {
+    console.log(`Elevation changed for ${roomName} - ${point.name}: ${point.value}`);
+    
+    // Save to draft after a delay
+    if (this.saveDebounceTimer) {
+      clearTimeout(this.saveDebounceTimer);
+    }
+    this.saveDebounceTimer = setTimeout(() => {
+      this.saveDraft();
+    }, 1000);
+  }
+
+  // Take photo for elevation point
+  async takePhotoForElevationPoint(roomName: string, point: any, event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    console.log(`Taking photo for elevation point: ${roomName} - ${point.name}`);
+    
+    try {
+      // Initialize photos array if needed
+      if (!point.photos) {
+        point.photos = [];
+      }
+      
+      // Create file input for camera
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'camera' as any;
+      input.multiple = true; // Allow multiple photos
+      
+      const filesSelected = new Promise<FileList | null>((resolve) => {
+        input.onchange = (event: any) => {
+          resolve(event.target?.files || null);
+        };
+      });
+      
+      input.click();
+      
+      const files = await filesSelected;
+      if (files && files.length > 0) {
+        // Convert files to preview URLs
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const objectUrl = URL.createObjectURL(file);
+          
+          point.photos.push({
+            file: file,
+            url: objectUrl,
+            thumbnailUrl: objectUrl,
+            name: file.name,
+            isObjectUrl: true
+          });
+        }
+        
+        // Update photo count
+        point.photoCount = point.photos.length;
+        
+        console.log(`Added ${files.length} photo(s) to ${point.name}. Total: ${point.photoCount}`);
+        await this.showToast(`${files.length} photo(s) added to ${point.name}`, 'success');
+        
+        // TODO: Upload to Caspio when saving
+        this.saveDraft();
+      }
+    } catch (error) {
+      console.error('Error taking photo for elevation point:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+
+  // View elevation photo in modal
+  async viewElevationPhoto(photo: any) {
+    console.log('Viewing elevation photo:', photo);
+    
+    // Use the existing photo viewer
+    if (photo && (photo.url || photo.filePath)) {
+      await this.viewPhoto({
+        ...photo,
+        Photo: photo.filePath || photo.url
+      });
+    }
   }
   
   // Save and submit functions
