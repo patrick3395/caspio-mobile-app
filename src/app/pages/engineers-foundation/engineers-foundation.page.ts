@@ -561,35 +561,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   scrollToCurrentSectionTop() {
     const viewportHeight = window.innerHeight;
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const currentPosition = scrollTop + (viewportHeight / 3); // Check top third of viewport
+    const currentPosition = scrollTop + 100; // Check near top of viewport for better accuracy
     
     // First check if we're in an expanded accordion item (category within Structural Systems)
-    if (this.expandedSections['structural']) {
-      // Check all expanded accordion categories
-      const expandedCategories = this.expandedAccordions;
-      for (const category of expandedCategories) {
-        const accordionHeader = document.querySelector(`ion-accordion[value="${category}"] ion-item[slot="header"]`) as HTMLElement;
-        if (accordionHeader) {
-          const rect = accordionHeader.getBoundingClientRect();
-          const categoryTop = rect.top + scrollTop;
+    if (this.expandedSections['structural'] && this.expandedAccordions.length > 0) {
+      // Get all accordions in the structural section
+      const allAccordions = Array.from(document.querySelectorAll('.categories-container ion-accordion'));
+      
+      // Check each accordion to see if we're currently viewing it
+      for (let i = 0; i < allAccordions.length; i++) {
+        const accordion = allAccordions[i] as HTMLElement;
+        const accordionValue = accordion.getAttribute('value');
+        
+        // Check if this accordion is expanded
+        if (this.expandedAccordions.includes(accordionValue || '')) {
+          const accordionHeader = accordion.querySelector('ion-item[slot="header"]') as HTMLElement;
           
-          // Find the next accordion or section boundary
-          const allAccordions = document.querySelectorAll('ion-accordion');
-          let categoryBottom = document.documentElement.scrollHeight;
-          
-          allAccordions.forEach((accordion, index) => {
-            if (accordion.getAttribute('value') === category && index < allAccordions.length - 1) {
-              const nextAccordion = allAccordions[index + 1] as HTMLElement;
+          if (accordionHeader) {
+            const rect = accordionHeader.getBoundingClientRect();
+            const accordionTop = rect.top + scrollTop;
+            
+            // Find the bottom boundary (next accordion or end of section)
+            let accordionBottom = document.documentElement.scrollHeight;
+            if (i < allAccordions.length - 1) {
+              const nextAccordion = allAccordions[i + 1] as HTMLElement;
               const nextRect = nextAccordion.getBoundingClientRect();
-              categoryBottom = nextRect.top + scrollTop;
+              accordionBottom = nextRect.top + scrollTop;
+            } else {
+              // Last accordion - use elevation section as boundary
+              const elevationSection = document.querySelector('.section-header[data-section="elevation"]') as HTMLElement;
+              if (elevationSection) {
+                const elevRect = elevationSection.getBoundingClientRect();
+                accordionBottom = elevRect.top + scrollTop;
+              }
             }
-          });
-          
-          // Check if we're within this accordion's bounds
-          if (currentPosition >= categoryTop && currentPosition < categoryBottom) {
-            // Scroll to the accordion header
-            accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            return;
+            
+            // Check if current scroll position is within this accordion
+            if (currentPosition >= accordionTop && currentPosition < accordionBottom) {
+              // Scroll to this accordion's header
+              accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              return;
+            }
           }
         }
       }
@@ -597,19 +609,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Check if we're in an expanded room (within Elevation Plot)
     if (this.expandedSections['elevation']) {
-      const roomAccordions = document.querySelectorAll('.room-elevations-container ion-accordion');
-      for (const roomAccordion of Array.from(roomAccordions)) {
+      const roomAccordions = Array.from(document.querySelectorAll('.room-elevations-container ion-accordion'));
+      
+      for (let i = 0; i < roomAccordions.length; i++) {
+        const roomAccordion = roomAccordions[i] as HTMLElement;
         const roomHeader = roomAccordion.querySelector('ion-item[slot="header"]') as HTMLElement;
         const roomContent = roomAccordion.querySelector('.elevation-content') as HTMLElement;
         
-        if (roomHeader && roomContent && roomContent.offsetHeight > 0) { // Room is expanded
+        // Check if room is expanded by checking if content has height
+        if (roomHeader && roomContent && roomContent.offsetHeight > 0) {
           const rect = roomHeader.getBoundingClientRect();
           const roomTop = rect.top + scrollTop;
           
-          // Find next room or section boundary
-          const nextRoom = roomAccordion.nextElementSibling as HTMLElement;
+          // Find next boundary
           let roomBottom = document.documentElement.scrollHeight;
-          if (nextRoom) {
+          if (i < roomAccordions.length - 1) {
+            const nextRoom = roomAccordions[i + 1] as HTMLElement;
             const nextRect = nextRoom.getBoundingClientRect();
             roomBottom = nextRect.top + scrollTop;
           }
