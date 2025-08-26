@@ -367,6 +367,21 @@ export class CaspioService {
     );
   }
 
+  // Check if a specific point exists for a room
+  checkRoomPointExists(roomId: string, pointName: string): Observable<any> {
+    const query = `RoomID=${roomId} AND PointName='${pointName}'`;
+    return this.get<any>(`/tables/Services_Rooms_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+      map(response => {
+        const results = response.Result || [];
+        return results.length > 0 ? results[0] : null;
+      }),
+      catchError(error => {
+        console.error('Check room point error:', error);
+        return of(null);
+      })
+    );
+  }
+
   // Get Services_Rooms_Attach for specific point IDs
   getServicesRoomsAttachments(pointIds: string[]): Observable<any[]> {
     if (!pointIds || pointIds.length === 0) {

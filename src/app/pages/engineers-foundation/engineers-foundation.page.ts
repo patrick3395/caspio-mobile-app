@@ -359,22 +359,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       let pointId = this.roomPointIds[pointKey];
       
       if (!pointId) {
-        // Create Services_Rooms_Points record first
-        const pointData = {
-          RoomID: parseInt(roomId),
-          PointName: point.name
-        };
+        await this.showDebugAlert('Checking point', `Looking for existing point: ${point.name} in room ${roomId}`);
         
-        console.log('Creating Services_Rooms_Points record:', pointData);
-        const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+        // First check if this point already exists in the database
+        const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
         
-        if (createResponse && createResponse.PK_ID) {
-          pointId = createResponse.PK_ID;
+        if (existingPoint) {
+          // Point already exists, use its ID
+          pointId = existingPoint.PK_ID || existingPoint.PointID;
           this.roomPointIds[pointKey] = pointId;
-          console.log(`Created point record with ID: ${pointId}`);
+          await this.showDebugAlert('Point exists', `Found existing point with ID: ${pointId}`);
+          console.log(`Using existing point record with ID: ${pointId}`);
         } else {
-          throw new Error('Failed to create point record');
+          // Create new Services_Rooms_Points record
+          const pointData = {
+            RoomID: parseInt(roomId),
+            PointName: point.name
+          };
+          
+          await this.showDebugAlert('Creating point', `Creating new point: ${point.name}`);
+          console.log('Creating Services_Rooms_Points record:', pointData);
+          const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+          
+          if (createResponse && createResponse.PK_ID) {
+            pointId = createResponse.PK_ID;
+            this.roomPointIds[pointKey] = pointId;
+            await this.showDebugAlert('Point created', `New point ID: ${pointId}`);
+            console.log(`Created point record with ID: ${pointId}`);
+          } else {
+            throw new Error('Failed to create point record');
+          }
         }
+      } else {
+        await this.showDebugAlert('Point cached', `Using cached point ID: ${pointId}`);
       }
       
       // Now start photo capture loop
@@ -511,51 +528,62 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Helper method to capture photo using native file input
   private async capturePhotoNative(): Promise<File | null> {
     // Debug alert
-    await this.showDebugAlert('Starting photo capture', 'About to create file input element');
+    await this.showDebugAlert('Starting photo capture', 'About to use file input for camera');
     
     return new Promise(async (resolve, reject) => {
       try {
-        // Try using the ViewChild file input first (like visuals)
+        // Use the ViewChild file input (same as visuals which work)
         if (this.fileInput && this.fileInput.nativeElement) {
-          await this.showDebugAlert('Using ViewChild', 'Found existing file input element');
+          await this.showDebugAlert('Using ViewChild', 'Found file input element via ViewChild');
           
           const input = this.fileInput.nativeElement;
           
-          // Clear any previous value
-          input.value = '';
+          // Store the original attributes
+          const originalAccept = input.accept;
+          const originalMultiple = input.multiple;
+          const originalCapture = input.getAttribute('capture');
           
-          // Set up for single image capture
+          // Configure for single photo capture
           input.accept = 'image/*';
           input.multiple = false;
-          input.capture = 'environment';
+          input.removeAttribute('capture'); // Remove capture to allow iOS to show options
+          input.value = ''; // Clear any previous value
+          
+          await this.showDebugAlert('Input configured', `accept: ${input.accept}, multiple: ${input.multiple}`);
           
           // Set up one-time change listener
           const handleChange = (e: any) => {
             const file = e.target.files?.[0];
+            
+            // Restore original attributes
+            input.accept = originalAccept;
+            input.multiple = originalMultiple;
+            if (originalCapture) {
+              input.setAttribute('capture', originalCapture);
+            }
+            
+            // Remove listener
+            input.removeEventListener('change', handleChange);
+            
             if (file) {
-              this.showDebugAlert('File captured', `File name: ${file.name}, Size: ${file.size}`);
+              this.showDebugAlert('File selected', `File: ${file.name}, Size: ${file.size} bytes`);
               resolve(file);
             } else {
-              this.showDebugAlert('No file', 'No file was selected');
+              this.showDebugAlert('No file selected', 'User cancelled or no file chosen');
               resolve(null);
             }
-            // Clean up
-            input.removeEventListener('change', handleChange);
-            input.value = '';
           };
           
+          // Add the change listener
           input.addEventListener('change', handleChange);
           
-          // Try to click
-          try {
-            input.click();
-            await this.showDebugAlert('Click triggered', 'File input click() called successfully');
-          } catch (clickError) {
-            await this.showDebugAlert('Click error', `Error: ${clickError}`);
-            throw clickError;
-          }
+          // Trigger the file input click
+          await this.showDebugAlert('About to click', 'Triggering file input click event');
+          input.click();
+          await this.showDebugAlert('Click completed', 'File input click() has been called');
           
-        } else {
+        } else if (!this.fileInput) {
+          await this.showDebugAlert('Error', 'fileInput ViewChild is null');
           // Fallback: create new input element
           await this.showDebugAlert('Creating new input', 'ViewChild not available, creating new element');
           
