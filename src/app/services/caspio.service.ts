@@ -1445,14 +1445,21 @@ export class CaspioService {
           'Content-Type': 'application/json'
         });
 
-        // First try to find user by email and password only (ignore CompanyID for now)
+        // Build the WHERE clause - escape single quotes in email
+        const escapedEmail = email.replace(/'/g, "''");
+        const escapedPassword = password.replace(/'/g, "''");
+        
+        // Try exact match on email and password
+        const whereClause = `Email='${escapedEmail}' AND Password='${escapedPassword}'`;
+        
         const params = {
           q: JSON.stringify({
-            where: `Email='${email}' AND Password='${password}'`
+            where: whereClause
           })
         };
 
-        console.log('Authentication query:', `Email='${email}' AND Password='${password}'`);
+        console.log('Authentication query WHERE clause:', whereClause);
+        console.log('Full params object:', params);
 
         return this.http.get<any>(
           `${environment.caspio.apiBaseUrl}/tables/Users/records`,
@@ -1460,13 +1467,32 @@ export class CaspioService {
         ).pipe(
           map(response => {
             console.log('Raw authentication response:', response);
-            // Return the users that match (should be 0 or 1)
-            const users = response.Result || [];
-            if (users.length > 0) {
-              console.log('User found:', users[0]);
-              console.log('User CompanyID:', users[0].CompanyID, 'Requested CompanyID:', companyId);
+            // Return ALL users for debugging
+            const allUsers = response.Result || [];
+            console.log(`Total users returned: ${allUsers.length}`);
+            
+            if (allUsers.length > 0) {
+              console.log('All users in response:');
+              allUsers.forEach((u: any, index: number) => {
+                console.log(`User ${index + 1}: Email=${u.Email}, ID=${u.PK_ID || u.UserID || u.UsersID}, Name=${u.Name}`);
+              });
+              
+              // Check if any actually match our email
+              const exactMatch = allUsers.find((u: any) => 
+                u.Email && u.Email.toLowerCase() === email.toLowerCase()
+              );
+              
+              if (exactMatch) {
+                console.log('Found exact email match:', exactMatch);
+              } else {
+                console.log('WARNING: No exact email match found for:', email);
+                console.log('Returning first user (may be wrong!)');
+              }
+            } else {
+              console.log('No users found with this email/password combination');
             }
-            return users;
+            
+            return allUsers;
           }),
           catchError(error => {
             console.error('User authentication failed:', error);

@@ -98,6 +98,9 @@ export class LoginPage implements OnInit {
         const user = users[0];
         console.log('First user in response:', user);
         
+        // Check for email mismatch
+        const emailMatch = user.Email && user.Email.toLowerCase() === this.credentials.email.toLowerCase();
+        
         // Dismiss loading screen FIRST to avoid blocking the debug popup
         await loading.dismiss();
         
@@ -106,19 +109,26 @@ export class LoginPage implements OnInit {
           header: '🔍 Login Debug Info',
           message: `
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: blue;">Query Sent:</strong><br>
-              • Email: "${this.credentials.email}"<br>
-              • Password: ***hidden***<br>
-              • Query: Email='${this.credentials.email}' AND Password='***'<br><br>
+              ${!emailMatch ? '<div style="background: #ffcccc; padding: 10px; border: 2px solid red; margin-bottom: 10px;"><strong>⚠️ WARNING: EMAIL MISMATCH!</strong><br>You entered: ' + this.credentials.email + '<br>But got user: ' + (user.Email || 'NO EMAIL') + '</div>' : ''}
               
-              <strong style="color: green;">User Data Received:</strong><br>
-              • Users Found: ${users.length}<br>
-              • ID: ${user.PK_ID || user.UserID || user.UsersID || 'No ID field found'}<br>
-              • Name: ${user.Name || user.UserName || 'No Name field'}<br>
-              • Email: ${user.Email || 'No Email field'}<br>
+              <strong style="color: blue;">Query Sent to Caspio:</strong><br>
+              • Your Email: "${this.credentials.email}"<br>
+              • Your Password: ***hidden***<br>
+              • SQL WHERE: Email='${this.credentials.email}' AND Password='***'<br><br>
+              
+              <strong style="color: ${emailMatch ? 'green' : 'red'};">User Data Received:</strong><br>
+              • Total Users Found: ${users.length}<br>
+              • Email Match: ${emailMatch ? '✅ YES' : '❌ NO - WRONG USER!'}<br><br>
+              
+              <strong>First User Returned:</strong><br>
+              • ID: ${user.PK_ID || user.UserID || user.UsersID || 'No ID field'}<br>
+              • Name: ${user.Name || user.UserName || 'No Name'}<br>
+              • Email: <strong>${user.Email || 'NO EMAIL FIELD'}</strong><br>
               • CompanyID: <strong style="color: red;">${user.CompanyID}</strong><br><br>
               
-              <strong>All Available Fields:</strong><br>
+              ${users.length > 1 ? '<strong>⚠️ Multiple Users Found:</strong><br>' + users.map((u: any, i: number) => `${i+1}. ${u.Email || 'no-email'} (ID: ${u.PK_ID || u.UserID || '?'})`).join('<br>') + '<br><br>' : ''}
+              
+              <strong>All Fields in User Record:</strong><br>
               ${Object.keys(user).map(key => `• ${key}: ${user[key]}`).join('<br>')}<br><br>
               
               <strong>Raw User Object:</strong><br>
@@ -126,12 +136,8 @@ export class LoginPage implements OnInit {
                 ${JSON.stringify(user, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
               </div><br>
               
-              <strong style="color: orange;">CompanyID Mismatch:</strong><br>
-              • Your User has CompanyID: ${user.CompanyID}<br>
-              • Form requested CompanyID: ${this.credentials.companyId}<br>
-              
-              <p style="color: blue; font-weight: bold;">
-                Choose how to proceed:
+              <p style="color: ${emailMatch ? 'blue' : 'red'}; font-weight: bold;">
+                ${emailMatch ? 'Choose how to proceed:' : '⚠️ WRONG USER - Query may have failed!'}
               </p>
             </div>
           `,
