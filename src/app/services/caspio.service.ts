@@ -336,8 +336,24 @@ export class CaspioService {
   }
 
   createServicesRoom(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_Rooms/records', data).pipe(
-      map(response => response.Result?.[0] || response)
+    console.log('Creating Services_Rooms record with data:', data);
+    return this.post<any>('/tables/Services_Rooms/records?response=rows', data).pipe(
+      map(response => {
+        console.log('Services_Rooms response:', response);
+        // Handle various response formats
+        if (!response) {
+          console.log('Warning: null response from Services_Rooms creation');
+          return {};
+        }
+        if (response.Result && Array.isArray(response.Result)) {
+          return response.Result[0] || response;
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('Services_Rooms creation error:', error);
+        throw error;
+      })
     );
   }
   

@@ -227,6 +227,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   ServiceID: parseInt(this.serviceId, 10)
                 };
                 
+                // Validate ServiceID
+                if (!roomData.ServiceID || isNaN(roomData.ServiceID)) {
+                  throw new Error(`Invalid ServiceID: ${this.serviceId}`);
+                }
+                
                 // Debug popup showing exact data being sent
                 const debugAlert = await this.alertController.create({
                   header: 'Creating Services_Rooms Record',
@@ -244,9 +249,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 await debugAlert.present();
                 await debugAlert.onDidDismiss();
                 
-                const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
-                roomsCreated++;
-                await this.showToast(`✅ Created room: ${template.RoomName}`, 'success');
+                try {
+                  const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
+                  
+                  // Debug the response
+                  const responseAlert = await this.alertController.create({
+                    header: '✅ Room Created',
+                    message: `
+                      <div style="text-align: left; font-size: 12px;">
+                        <strong>Room:</strong> ${template.RoomName}<br>
+                        <strong>Response:</strong><br>
+                        <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(createdRoom, null, 2)}</pre>
+                      </div>
+                    `,
+                    buttons: ['OK']
+                  });
+                  await responseAlert.present();
+                  await responseAlert.onDidDismiss();
+                  
+                  roomsCreated++;
+                } catch (apiError: any) {
+                  throw new Error(`API Error: ${apiError.message || apiError}`);
+                }
               } catch (error: any) {
                 // Show detailed error
                 const errorAlert = await this.alertController.create({
