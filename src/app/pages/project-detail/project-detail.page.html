@@ -32,6 +32,12 @@
       <img [src]="getStreetViewUrl()" alt="Street View">
     </div>
 
+    <!-- Read-only indicator for non-active projects -->
+    <div *ngIf="isReadOnly" class="read-only-banner">
+      <ion-icon name="eye-outline"></ion-icon>
+      <span>View Only - Project is not active</span>
+    </div>
+
     <!-- Project Information Section -->
     <div class="info-section">
       <h2 class="section-title">Project Information</h2>
@@ -74,9 +80,10 @@
           <ion-checkbox 
             [checked]="isServiceSelected(offer.OffersID)"
             (ionChange)="toggleService($event, offer)"
-            [disabled]="updatingServices">
+            [disabled]="updatingServices || isReadOnly">
           </ion-checkbox>
-          <label (click)="toggleServiceByLabel(offer)">
+          <label (click)="!isReadOnly && toggleServiceByLabel(offer)"
+                 [style.cursor]="isReadOnly ? 'default' : 'pointer'">
             {{ offer.TypeName || offer.Service_Name || offer.Description }}
           </label>
         </div>
@@ -105,7 +112,8 @@
                   class="date-input"
                   [value]="formatDateForInput(service.dateOfInspection)"
                   (change)="updateServiceDateFromInput(service, $event)"
-                  [disabled]="updatingServices">
+                  [disabled]="updatingServices || isReadOnly"
+                  [readonly]="isReadOnly">
                 <span *ngIf="service.saving" class="saving-indicator">
                   <ion-spinner name="dots"></ion-spinner>
                 </span>
@@ -113,7 +121,7 @@
                   <ion-icon name="checkmark-circle" color="success"></ion-icon>
                 </span>
               </div>
-              <div class="col-actions">
+              <div class="col-actions" *ngIf="!isReadOnly">
                 <ion-button 
                   size="small" 
                   fill="clear" 
@@ -248,7 +256,7 @@
             <div class="doc-actions">
               <!-- Upload button for documents without files -->
               <ion-button 
-                *ngIf="!doc.uploaded"
+                *ngIf="!doc.uploaded && !isReadOnly"
                 size="small" 
                 fill="outline" 
                 color="primary" 
@@ -267,6 +275,7 @@
                   <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
+                  *ngIf="!isReadOnly"
                   size="small" 
                   fill="clear" 
                   color="warning" 
@@ -275,6 +284,7 @@
                   <ion-icon name="swap-horizontal-outline" slot="icon-only"></ion-icon>
                 </ion-button>
                 <ion-button 
+                  *ngIf="!isReadOnly"
                   size="small" 
                   fill="clear" 
                   color="success" 

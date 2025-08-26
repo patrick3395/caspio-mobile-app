@@ -55,6 +55,7 @@ export class ProjectDetailPage implements OnInit {
   loading = false;
   error = '';
   projectId: string = '';
+  isReadOnly = false; // Track if project should be view-only
   
   // Services
   availableOffers: any[] = [];
@@ -139,6 +140,15 @@ export class ProjectDetailPage implements OnInit {
         this.project = project;
         this.loading = false;
         console.log('Project loaded:', project);
+        
+        // Check if project is completed or in any non-active state (StatusID != 1)
+        // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
+        const statusId = project.StatusID;
+        this.isReadOnly = statusId !== 1 && statusId !== '1';
+        
+        if (this.isReadOnly) {
+          console.log('Project is read-only. StatusID:', statusId);
+        }
         
         // Load offers first, then services (services need offers to match properly)
         await this.loadAvailableOffers();
