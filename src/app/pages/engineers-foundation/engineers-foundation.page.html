@@ -31,7 +31,6 @@
             <ion-icon name="information-circle-outline"></ion-icon>
             Project Information
           </div>
-          <div class="section-description">Project #{{ projectId }}</div>
         </div>
         <div class="section-toggle">
           <span class="completion-badge" [class.complete]="getProjectCompletion() === 100">
@@ -239,7 +238,6 @@
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
-          <div class="section-description">Foundation observations and measurements</div>
         </div>
         <div class="section-toggle">
           <span class="completion-badge" [class.complete]="getSectionCompletion('structural') === 100">
@@ -252,7 +250,6 @@
       <div class="section-content" *ngIf="expandedSections['structural']">
         <!-- Visual Categories from Services_Visuals_Templates -->
         <div class="categories-container" *ngIf="visualCategories.length > 0">
-          <h3 class="categories-title">Visual Categories</h3>
           
           <!-- Category Accordion -->
           <ion-accordion-group #visualAccordionGroup (ionChange)="onAccordionChange($event)">
@@ -492,7 +489,6 @@
             <ion-icon name="analytics-outline"></ion-icon>
             Elevation Plot
           </div>
-          <div class="section-description">Floor elevation measurements and analysis</div>
         </div>
         <div class="section-toggle">
           <span class="completion-badge" [class.complete]="getSectionCompletion('elevation') === 100">
@@ -505,7 +501,6 @@
       <div class="section-content" *ngIf="expandedSections['elevation']">
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
-          <h3 class="subsection-title">Room Categories</h3>
           
           <!-- Room accordion -->
           <ion-accordion-group *ngIf="roomTemplates.length > 0">
