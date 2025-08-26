@@ -282,6 +282,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (isSelected) {
         // Create room in Services_Rooms
         const serviceIdNum = parseInt(this.serviceId, 10);
+        
+        // Validate ServiceID
+        if (!this.serviceId || isNaN(serviceIdNum)) {
+          await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+          this.savingRooms[roomName] = false;
+          return;
+        }
+        
+        // ONLY send ServiceID and RoomName - nothing else!
         const roomData = {
           ServiceID: serviceIdNum,
           RoomName: roomName
@@ -292,19 +301,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           header: '🔍 Services_Rooms Debug',
           message: `
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: blue;">Creating Room in Services_Rooms</strong><br><br>
+              <strong style="color: blue;">Creating Room in Services_Rooms Table</strong><br><br>
               
-              <strong>Table:</strong> Services_Rooms<br><br>
+              <strong style="color: red;">⚠️ ONLY These Fields Will Be Sent:</strong><br>
+              <div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin: 10px 0;">
+                • ServiceID: <strong>${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
+                • RoomName: <strong>"${roomData.RoomName}"</strong><br>
+                <br>
+                <strong>NO ProjectID will be sent!</strong>
+              </div>
               
-              <strong>Data Being Sent:</strong><br>
-              • ServiceID: <strong style="color: red;">${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
-              • RoomName: <strong style="color: green;">"${roomData.RoomName}"</strong><br><br>
+              <strong>Validation Check:</strong><br>
+              • ServiceID from URL: "${this.serviceId}"<br>
+              • ServiceID parsed: ${serviceIdNum}<br>
+              • Is valid number: ${!isNaN(serviceIdNum) ? '✅ YES' : '❌ NO'}<br><br>
               
-              <strong>Current Context:</strong><br>
-              • ProjectID: ${this.projectId}<br>
-              • ServiceID (raw): ${this.serviceId}<br>
-              • ServiceID (parsed): ${serviceIdNum}<br>
-              • Is NaN: ${isNaN(serviceIdNum)}<br><br>
+              <strong>Context (NOT sent, just FYI):</strong><br>
+              • Current ProjectID: ${this.projectId} (NOT SENT)<br>
+              • Route params: serviceId=${this.serviceId}<br><br>
+              
+              <strong>Exact JSON being sent:</strong><br>
+              <div style="background: #f0f0f0; padding: 5px; border-radius: 3px;">
+                ${JSON.stringify(roomData, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
+              </div><br>
               
               <strong>API Endpoint:</strong><br>
               POST /tables/Services_Rooms/records
