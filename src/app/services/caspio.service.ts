@@ -643,7 +643,7 @@ export class CaspioService {
       
       const recordData = {
         VisualID: parseInt(visualId.toString()),
-        Annotation: annotation || file.name,
+        Annotation: annotation || '',  // Keep blank if no annotation provided
         Photo: filePath  // Include the file path in initial creation
       };
       

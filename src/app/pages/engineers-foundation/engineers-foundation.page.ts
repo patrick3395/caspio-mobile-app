@@ -1389,6 +1389,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       currentExpandedAccordions.push(category);
     }
     
+    // IMPORTANT: Store the main section states to prevent collapsing
+    const currentExpandedSections = { ...this.expandedSections };
+    
     // Use the ID from visualRecordIds to ensure consistency
     const actualVisualId = this.visualRecordIds[key] || visualId;
     
@@ -1418,6 +1421,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (currentExpandedAccordions) {
         this.expandedAccordions = currentExpandedAccordions;
       }
+      
+      // IMPORTANT: Restore main section states to prevent collapsing
+      if (currentExpandedSections) {
+        this.expandedSections = currentExpandedSections;
+      }
+      
       this.restoreAccordionState();
     }
     
@@ -1506,7 +1515,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, currentExpandedAccordions);
+              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, currentExpandedAccordions, currentExpandedSections);
             }
           }
         ]
@@ -1515,7 +1524,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, currentExpandedAccordions);
+        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, currentExpandedAccordions, currentExpandedSections);
       }
       
     } catch (error) {
@@ -1525,7 +1534,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, currentExpandedAccordions?: string[]) {
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, currentExpandedAccordions?: string[], currentExpandedSections?: any) {
     try {
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
@@ -1562,6 +1571,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (currentExpandedAccordions) {
         this.expandedAccordions = currentExpandedAccordions;
       }
+      
+      // IMPORTANT: Restore main section states to prevent collapsing
+      if (currentExpandedSections) {
+        this.expandedSections = currentExpandedSections;
+      }
+      
       this.restoreAccordionState();
       
     } catch (error) {
