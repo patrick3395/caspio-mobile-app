@@ -2639,14 +2639,53 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Add another photo
+  // Add another photo - triggers multi-photo capture
   async addAnotherPhoto(category: string, itemId: string) {
-    this.currentUploadContext = { 
-      category, 
-      itemId,
-      action: 'add'
-    };
-    this.fileInput.nativeElement.click();
+    // Show action sheet to choose photo source
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Select Photo Source',
+      buttons: [
+        {
+          text: '📷 Take Multiple Photos',
+          handler: async () => {
+            // Get visual ID for this item
+            const key = `${category}_${itemId}`;
+            let visualId = this.visualRecordIds[key];
+            
+            if (!visualId) {
+              await this.showToast('Saving visual first...', 'info');
+              await this.saveVisualSelection(category, itemId);
+              visualId = this.visualRecordIds[key];
+            }
+            
+            if (visualId) {
+              // Start multi-photo capture session
+              await this.showToast('Starting multi-photo mode...', 'info');
+              await this.startMultiPhotoCapture(visualId, key, category, itemId);
+            } else {
+              await this.showToast('Failed to get visual ID', 'danger');
+            }
+          }
+        },
+        {
+          text: '📁 Choose from Gallery',
+          handler: () => {
+            // Use traditional file picker for gallery
+            this.currentUploadContext = { 
+              category, 
+              itemId,
+              action: 'add'
+            };
+            this.fileInput.nativeElement.click();
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        }
+      ]
+    });
+    await actionSheet.present();
   }
   
   // Save caption to the Annotation field in Services_Visuals_Attach table
