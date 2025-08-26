@@ -2092,8 +2092,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           } else {
             await this.showToast('Visual created but file uploads failed', 'warning');
           }
-        } else {
-          await this.showToast('Visual added successfully', 'success');
         }
         
         // Trigger change detection
@@ -2224,8 +2222,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         };
         
         await loading.dismiss();
-        await this.showToast('Visual added successfully', 'success');
-        
         // Trigger change detection
         this.changeDetectorRef.detectChanges();
         
