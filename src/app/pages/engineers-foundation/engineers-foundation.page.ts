@@ -388,7 +388,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
-            console.log(`Created point record with PointID: ${pointId}`);\n          } else {
+            console.log(`Created point record with PointID: ${pointId}`);
+          } else {
             throw new Error('Failed to create point record');
           }
         }
