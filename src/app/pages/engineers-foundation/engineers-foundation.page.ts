@@ -72,6 +72,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
   savingRooms: { [roomName: string]: boolean } = {};
   roomPointIds: { [key: string]: string } = {}; // Track Services_Rooms_Points IDs
+  currentRoomPointCapture: any = null; // Store current capture context
   
   // FDF dropdown options from Services_Rooms_Drop table
   fdfOptions: string[] = [];
@@ -227,7 +228,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               templateId: template.PK_ID || template.TemplateId,
               elevationPoints: elevationPoints,
               pointCount: template.PointCount || elevationPoints.length,
-              notes: ''
+              notes: '',
+              fdf: 'None' // Initialize FDF with default value
             };
           }
         });
@@ -244,6 +246,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (template) {
                 this.selectedRooms[template.RoomName] = true;
                 this.roomRecordIds[template.RoomName] = room.PK_ID || room.RoomID;
+                
+                // Load existing FDF value if present
+                if (room.FDF && this.roomElevationData[template.RoomName]) {
+                  this.roomElevationData[template.RoomName].fdf = room.FDF;
+                }
               }
             }
           }
@@ -267,18 +274,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
     try {
-      const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+      // Always use default options for now - can be customized later
+      this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      console.log('FDF Options set:', this.fdfOptions);
       
-      if (dropdownData && dropdownData.length > 0) {
-        // Filter for FDF options (where RoomName = 'FDF')
-        const fdfRows = dropdownData.filter((row: any) => row.RoomName === 'FDF');
-        // Extract dropdown values
-        this.fdfOptions = fdfRows.map((row: any) => row.Dropdown).filter((val: any) => val);
-        console.log('FDF Options loaded:', this.fdfOptions);
-      } else {
-        // Default options if table is empty
-        this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
-        console.log('Using default FDF options');
+      // Try to load from table but don't block if it fails
+      try {
+        const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+        
+        if (dropdownData && dropdownData.length > 0) {
+          // Filter for FDF options (where RoomName = 'FDF')
+          const fdfRows = dropdownData.filter((row: any) => row.RoomName === 'FDF');
+          if (fdfRows.length > 0) {
+            // Extract dropdown values
+            const customOptions = fdfRows.map((row: any) => row.Dropdown).filter((val: any) => val);
+            if (customOptions.length > 0) {
+              this.fdfOptions = customOptions;
+              console.log('FDF Options loaded from table:', this.fdfOptions);
+            }
+          }
+        }
+      } catch (tableError) {
+        console.log('Could not load custom FDF options, using defaults');
       }
     } catch (error) {
       console.error('Error loading FDF options:', error);
@@ -319,6 +336,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
+      // Store current point info for later use
+      this.currentRoomPointCapture = {
+        roomName: roomName,
+        point: point,
+        roomId: roomId
+      };
+      
+      // Use native iOS file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Opens camera by default
+      
+      input.onchange = async (e: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = async (event: any) => {
+          const base64Image = event.target.result;
+          await this.processRoomPointPhoto(base64Image);
+        };
+        reader.readAsDataURL(file);
+      };
+      
+      input.click();
+      
+    } catch (error) {
+      console.error('Error capturing photo for point:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
+  // Process the captured photo for room point
+  async processRoomPointPhoto(base64Image: string) {
+    try {
+      if (!this.currentRoomPointCapture) {
+        throw new Error('No capture context');
+      }
+      
+      const { roomName, point, roomId } = this.currentRoomPointCapture;
+      
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.roomPointIds[pointKey];
@@ -340,54 +400,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Use camera service for photo capture
-      const photo = await this.cameraService.takePicture();
+      // Upload photo to Services_Rooms_Attach
+      await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
       
-      if (photo && photo.dataUrl) {
-        const base64Image = photo.dataUrl;
-        
-        // Upload photo to Services_Rooms_Attach
-        await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
-        
-        // Update UI to show photo
-        if (!point.photos) {
-          point.photos = [];
-        }
-        point.photos.push({
-          url: base64Image,
-          thumbnailUrl: base64Image
-        });
-        point.photoCount = point.photos.length;
-        
-        // Offer to take another photo
-        const alert = await this.alertController.create({
-          header: 'Photo Captured',
-          message: 'Would you like to take another photo?',
-          cssClass: 'orange-alert',
-          buttons: [
-            {
-              text: 'Done',
-              role: 'cancel',
-              cssClass: 'secondary'
-            },
-            {
-              text: 'Take Another',
-              cssClass: 'primary',
-              handler: () => {
-                setTimeout(() => {
-                  this.capturePhotoForPoint(roomName, point);
-                }, 500);
-              }
-            }
-          ]
-        });
-        
-        await alert.present();
+      // Update UI to show photo
+      if (!point.photos) {
+        point.photos = [];
       }
+      point.photos.push({
+        url: base64Image,
+        thumbnailUrl: base64Image
+      });
+      point.photoCount = point.photos.length;
+      
+      // Offer to take another photo
+      const alert = await this.alertController.create({
+        header: 'Photo Captured',
+        message: 'Would you like to take another photo?',
+        cssClass: 'orange-alert',
+        buttons: [
+          {
+            text: 'Done',
+            role: 'cancel',
+            cssClass: 'secondary'
+          },
+          {
+            text: 'Take Another',
+            cssClass: 'primary',
+            handler: () => {
+              setTimeout(() => {
+                this.capturePhotoForPoint(roomName, point);
+              }, 500);
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
       
     } catch (error) {
-      console.error('Error capturing photo for point:', error);
-      await this.showToast('Failed to capture photo', 'danger');
+      console.error('Error processing room point photo:', error);
+      await this.showToast('Failed to process photo', 'danger');
     }
   }
   
