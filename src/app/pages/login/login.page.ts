@@ -80,14 +80,23 @@ export class LoginPage implements OnInit {
 
     try {
       // Authenticate user against Users table
+      console.log('Login attempt with:', {
+        email: this.credentials.email,
+        password: '***hidden***',
+        companyId: this.credentials.companyId
+      });
+      
       const users = await this.caspioService.authenticateUser(
         this.credentials.email,
         this.credentials.password,
         this.credentials.companyId
       ).toPromise();
 
+      console.log('Authentication response - users found:', users?.length || 0);
+      
       if (users && users.length > 0) {
         const user = users[0];
+        console.log('First user in response:', user);
         
         // Dismiss loading screen FIRST to avoid blocking the debug popup
         await loading.dismiss();
@@ -97,29 +106,32 @@ export class LoginPage implements OnInit {
           header: '🔍 Login Debug Info',
           message: `
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: blue;">User Data from Caspio:</strong><br><br>
+              <strong style="color: blue;">Query Sent:</strong><br>
+              • Email: "${this.credentials.email}"<br>
+              • Password: ***hidden***<br>
+              • Query: Email='${this.credentials.email}' AND Password='***'<br><br>
               
-              <strong>User Fields:</strong><br>
-              • ID: ${user.PK_ID || user.UserID || 'Not found'}<br>
-              • Name: ${user.Name || 'Not found'}<br>
-              • Email: ${user.Email || 'Not found'}<br>
-              • CompanyID from DB: <strong style="color: red;">${user.CompanyID}</strong><br>
-              • Company_ID: ${user.Company_ID || 'Not found'}<br><br>
+              <strong style="color: green;">User Data Received:</strong><br>
+              • Users Found: ${users.length}<br>
+              • ID: ${user.PK_ID || user.UserID || user.UsersID || 'No ID field found'}<br>
+              • Name: ${user.Name || user.UserName || 'No Name field'}<br>
+              • Email: ${user.Email || 'No Email field'}<br>
+              • CompanyID: <strong style="color: red;">${user.CompanyID}</strong><br><br>
               
-              <strong>Login Request:</strong><br>
-              • Requested CompanyID: ${this.credentials.companyId}<br>
-              • Email: ${this.credentials.email}<br><br>
+              <strong>All Available Fields:</strong><br>
+              ${Object.keys(user).map(key => `• ${key}: ${user[key]}`).join('<br>')}<br><br>
               
-              <strong>All User Fields:</strong><br>
+              <strong>Raw User Object:</strong><br>
               <div style="background: #f0f0f0; padding: 5px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
                 ${JSON.stringify(user, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
               </div><br>
               
-              <strong style="color: orange;">What will be stored:</strong><br>
-              • CompanyID: ${user.CompanyID}<br>
+              <strong style="color: orange;">CompanyID Mismatch:</strong><br>
+              • Your User has CompanyID: ${user.CompanyID}<br>
+              • Form requested CompanyID: ${this.credentials.companyId}<br>
               
-              <p style="color: red; font-weight: bold;">
-                If CompanyID is wrong, check Users table!
+              <p style="color: blue; font-weight: bold;">
+                Choose how to proceed:
               </p>
             </div>
           `,

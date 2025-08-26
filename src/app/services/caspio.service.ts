@@ -1445,20 +1445,28 @@ export class CaspioService {
           'Content-Type': 'application/json'
         });
 
-        // Query Users table with email, password, and company ID
+        // First try to find user by email and password only (ignore CompanyID for now)
         const params = {
           q: JSON.stringify({
-            where: `Email='${email}' AND Password='${password}' AND CompanyID=${companyId}`
+            where: `Email='${email}' AND Password='${password}'`
           })
         };
+
+        console.log('Authentication query:', `Email='${email}' AND Password='${password}'`);
 
         return this.http.get<any>(
           `${environment.caspio.apiBaseUrl}/tables/Users/records`,
           { headers, params }
         ).pipe(
           map(response => {
+            console.log('Raw authentication response:', response);
             // Return the users that match (should be 0 or 1)
-            return response.Result || [];
+            const users = response.Result || [];
+            if (users.length > 0) {
+              console.log('User found:', users[0]);
+              console.log('User CompanyID:', users[0].CompanyID, 'Requested CompanyID:', companyId);
+            }
+            return users;
           }),
           catchError(error => {
             console.error('User authentication failed:', error);
