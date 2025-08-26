@@ -78,6 +78,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Room templates for elevation plot
   roomTemplates: any[] = [];
   roomElevationData: { [roomName: string]: any } = {};
+  selectedRooms: { [roomName: string]: boolean } = {};
+  roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
+  savingRooms: { [roomName: string]: boolean } = {};
   
   // UI state
   expandedSections: { [key: string]: boolean } = {
@@ -197,8 +200,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      await this.showToast('Loading room templates...', 'info');
-      
       const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
       
       if (allTemplates && allTemplates.length > 0) {
@@ -208,111 +209,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
         
         this.roomTemplates = autoTemplates;
-        await this.showToast(`Found ${autoTemplates.length} auto room templates`, 'info');
         
-        // Check if we have a ServiceID to create Services_Rooms records
-        if (this.serviceId) {
-          await this.showToast(`ServiceID: ${this.serviceId} - checking existing rooms...`, 'info');
-          
-          // Get existing Services_Rooms for this service
-          const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-          
-          // Check if ANY rooms exist for this ServiceID
-          if (existingRooms && existingRooms.length > 0) {
-            await this.showToast(`Found ${existingRooms.length} existing rooms for ServiceID ${this.serviceId} - skipping creation`, 'warning');
-            // Rooms already exist for this ServiceID, don't create duplicates
-          } else {
-            // No rooms exist yet, create them
-            await this.showToast('No rooms found for this ServiceID - creating rooms...', 'info');
-            
-            let roomsCreated = 0;
-            // Create Services_Rooms records for all templates
-            for (const template of autoTemplates) {
-              if (template.RoomName) {
-              try {
-                // ONLY send ServiceID - nothing else
-                const roomData: any = {
-                  ServiceID: parseInt(this.serviceId, 10)
-                };
-                
-                // Validate ServiceID
-                if (!roomData.ServiceID || isNaN(roomData.ServiceID)) {
-                  throw new Error(`Invalid ServiceID: ${this.serviceId}`);
-                }
-                
-                // Debug popup showing exact data being sent
-                const debugAlert = await this.alertController.create({
-                  header: 'Creating Services_Rooms Record',
-                  message: `
-                    <div style="text-align: left; font-size: 12px;">
-                      <strong>Template Room:</strong> ${template.RoomName}<br>
-                      <strong>ServiceID (ONLY field):</strong> ${roomData.ServiceID} (type: ${typeof roomData.ServiceID})<br>
-                      <strong>API Endpoint:</strong> /tables/Services_Rooms/records<br>
-                      <strong>Data Being Sent:</strong><br>
-                      <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(roomData, null, 2)}</pre>
-                    </div>
-                  `,
-                  buttons: ['OK']
-                });
-                await debugAlert.present();
-                await debugAlert.onDidDismiss();
-                
-                try {
-                  const createdRoom = await this.caspioService.createServicesRoom(roomData).toPromise();
-                  
-                  // Debug the response
-                  const responseAlert = await this.alertController.create({
-                    header: '✅ Room Created',
-                    message: `
-                      <div style="text-align: left; font-size: 12px;">
-                        <strong>Room:</strong> ${template.RoomName}<br>
-                        <strong>Response:</strong><br>
-                        <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(createdRoom, null, 2)}</pre>
-                      </div>
-                    `,
-                    buttons: ['OK']
-                  });
-                  await responseAlert.present();
-                  await responseAlert.onDidDismiss();
-                  
-                  roomsCreated++;
-                } catch (apiError: any) {
-                  throw new Error(`API Error: ${apiError.message || apiError}`);
-                }
-              } catch (error: any) {
-                // Show detailed error
-                const errorAlert = await this.alertController.create({
-                  header: '❌ Room Creation Failed',
-                  message: `
-                    <div style="text-align: left; font-size: 12px;">
-                      <strong>Room:</strong> ${template.RoomName}<br>
-                      <strong>Error:</strong> ${error.message || error}<br>
-                      <strong>Status:</strong> ${error.status || 'Unknown'}<br>
-                      <strong>Response:</strong> ${JSON.stringify(error.error || error, null, 2)}
-                    </div>
-                  `,
-                  buttons: ['OK']
-                });
-                await errorAlert.present();
-              }
-              }
-            }
-            
-            if (roomsCreated > 0) {
-              await this.showToast(`✅ Created ${roomsCreated} new rooms`, 'success');
-            }
-          }
-        } else {
-          await this.showToast('⚠️ No ServiceID found - cannot create rooms', 'warning');
-        }
-        
-        // Initialize room elevation data for each auto template
+        // Initialize room elevation data for each template (but don't create in Services_Rooms yet)
         autoTemplates.forEach((template: any) => {
           if (template.RoomName && !this.roomElevationData[template.RoomName]) {
             // Extract elevation points from Point1Name, Point2Name, etc.
             const elevationPoints: any[] = [];
             
-            // Check for up to 20 point columns (Point1Name through Point20Name)
+            // Check for up to 20 point columns
             for (let i = 1; i <= 20; i++) {
               const pointColumnName = `Point${i}Name`;
               const pointName = template[pointColumnName];
@@ -322,22 +226,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   pointNumber: i,
                   name: pointName,
                   value: '',  // User will input the elevation value
-                  photo: null  // User can attach a photo
+                  photo: null
                 });
               }
             }
-            
-            console.log(`Room ${template.RoomName} has ${elevationPoints.length} elevation points:`, elevationPoints);
             
             this.roomElevationData[template.RoomName] = {
               roomName: template.RoomName,
               templateId: template.PK_ID || template.TemplateId,
               elevationPoints: elevationPoints,
               pointCount: template.PointCount || elevationPoints.length,
-              points: [],  // Legacy - keeping for compatibility
-              expanded: false,
               notes: ''
             };
+          }
+        });
+        
+        // Load existing Services_Rooms for this service to check which are already selected
+        if (this.serviceId) {
+          const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          
+          if (existingRooms && existingRooms.length > 0) {
+            // Mark existing rooms as selected and store their IDs
+            for (const room of existingRooms) {
+              // Find matching template by RoomName
+              const template = autoTemplates.find((t: any) => t.RoomName === room.RoomName);
+              if (template) {
+                this.selectedRooms[template.RoomName] = true;
+                this.roomRecordIds[template.RoomName] = room.PK_ID || room.RoomID;
           }
         });
         
@@ -354,6 +269,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomElevationData = {};
       }
     }
+  }
+  
+  // Toggle room selection - create or remove from Services_Rooms
+  async toggleRoomSelection(roomName: string) {
+    const isSelected = !this.selectedRooms[roomName];
+    this.savingRooms[roomName] = true;
+    
+    try {
+      if (isSelected) {
+        // Create room in Services_Rooms
+        const roomData = {
+          ServiceID: parseInt(this.serviceId, 10),
+          RoomName: roomName
+        };
+        
+        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+        
+        if (response) {
+          const roomId = response.PK_ID || response.RoomID || response.id;
+          this.roomRecordIds[roomName] = roomId;
+          this.selectedRooms[roomName] = true;
+          await this.showToast(`Room "${roomName}" added`, 'success');
+        }
+      } else {
+        // Remove room from Services_Rooms
+        const roomId = this.roomRecordIds[roomName];
+        if (roomId) {
+          // Note: You'll need to add a delete method in your service if it doesn't exist
+          // await this.caspioService.deleteServicesRoom(roomId).toPromise();
+          delete this.roomRecordIds[roomName];
+          this.selectedRooms[roomName] = false;
+          await this.showToast(`Room "${roomName}" removed`, 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling room selection:', error);
+      await this.showToast('Failed to update room selection', 'danger');
+    } finally {
+      this.savingRooms[roomName] = false;
+    }
+  }
+  
+  isRoomSelected(roomName: string): boolean {
+    return !!this.selectedRooms[roomName];
+  }
+  
+  isRoomSaving(roomName: string): boolean {
+    return !!this.savingRooms[roomName];
   }
 
   async loadVisualCategories() {

@@ -502,17 +502,25 @@
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           
-          <!-- Room accordion -->
-          <ion-accordion-group *ngIf="roomTemplates.length > 0">
-            <ion-accordion *ngFor="let room of roomTemplates; trackBy: trackByRoomName" [value]="room.RoomName">
-              <ion-item slot="header" color="light">
+          <!-- Room selection list (like visuals) -->
+          <div class="room-templates-list" *ngIf="roomTemplates.length > 0">
+            <div class="room-item" *ngFor="let room of roomTemplates; trackBy: trackByRoomName">
+              <ion-item lines="none">
+                <ion-checkbox 
+                  slot="start" 
+                  [checked]="isRoomSelected(room.RoomName)"
+                  [disabled]="isRoomSaving(room.RoomName)"
+                  (ionChange)="toggleRoomSelection(room.RoomName)">
+                </ion-checkbox>
                 <ion-label>
-                  <h2>{{ room.RoomName }}</h2>
-                  <p>{{ room.PointCount || 0 }} Points</p>
+                  <h3>{{ room.RoomName }}</h3>
+                  <p>{{ room.PointCount || 0 }} measurement points</p>
                 </ion-label>
+                <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
               </ion-item>
               
-              <div class="room-elevation-content" slot="content">
+              <!-- Show elevation inputs only when room is selected -->
+              <div class="room-elevation-content" *ngIf="isRoomSelected(room.RoomName)">
                 <!-- Elevation Points -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
                   <h4 class="points-header">Elevation Points</h4>
@@ -557,8 +565,8 @@
                   </ion-textarea>
                 </div>
               </div>
-            </ion-accordion>
-          </ion-accordion-group>
+            </div>
+          </div>
           
           <!-- No rooms message -->
           <div *ngIf="roomTemplates.length === 0" class="no-rooms-message">

@@ -712,27 +712,44 @@ ion-toolbar {
 .room-elevations-container {
   margin-bottom: 30px;
   
-  ion-accordion-group {
-    margin-bottom: 20px;
-    
-    ion-accordion {
+  .room-templates-list {
+    .room-item {
+      margin-bottom: 15px;
       border: 1px solid #e0e0e0;
       border-radius: 8px;
-      margin-bottom: 10px;
       overflow: hidden;
       
-      ion-item[slot="header"] {
+      ion-item {
         --background: #f9f9f9;
-        --color: #333;
+        --padding-start: 10px;
+        --padding-end: 10px;
         
-        ion-label h2 {
-          font-size: 15px;
-          font-weight: 600;
+        ion-checkbox {
+          margin-right: 15px;
+          --size: 20px;
+          --background-checked: var(--noble-orange);
+          --border-color-checked: var(--noble-orange);
         }
         
-        ion-label p {
-          font-size: 12px;
-          color: #666;
+        ion-label {
+          h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            margin: 0 0 5px 0;
+          }
+          
+          p {
+            font-size: 12px;
+            color: #666;
+            margin: 0;
+          }
+        }
+        
+        ion-spinner {
+          --color: var(--noble-orange);
+          width: 20px;
+          height: 20px;
         }
       }
     }
@@ -741,6 +758,8 @@ ion-toolbar {
   .room-elevation-content {
     padding: 15px;
     background: white;
+    margin-top: 10px;
+    border-top: 1px solid #e0e0e0;
     
     .elevation-points-grid {
       margin-bottom: 15px;
