@@ -222,10 +222,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           for (const template of autoTemplates) {
             if (template.RoomName && !existingRoomNames.has(template.RoomName)) {
               try {
-                // ONLY send ServiceID and RoomName - nothing else
+                // ONLY send ServiceID - nothing else
                 const roomData: any = {
-                  ServiceID: parseInt(this.serviceId, 10),
-                  RoomName: template.RoomName
+                  ServiceID: parseInt(this.serviceId, 10)
                 };
                 
                 // Debug popup showing exact data being sent
@@ -233,10 +232,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   header: 'Creating Services_Rooms Record',
                   message: `
                     <div style="text-align: left; font-size: 12px;">
-                      <strong>Room:</strong> ${template.RoomName}<br>
-                      <strong>ServiceID:</strong> ${roomData.ServiceID} (type: ${typeof roomData.ServiceID})<br>
+                      <strong>Template Room:</strong> ${template.RoomName}<br>
+                      <strong>ServiceID (ONLY field):</strong> ${roomData.ServiceID} (type: ${typeof roomData.ServiceID})<br>
                       <strong>API Endpoint:</strong> /tables/Services_Rooms/records<br>
-                      <strong>Data Being Sent (ONLY):</strong><br>
+                      <strong>Data Being Sent:</strong><br>
                       <pre style="font-size: 10px; overflow: auto;">${JSON.stringify(roomData, null, 2)}</pre>
                     </div>
                   `,
