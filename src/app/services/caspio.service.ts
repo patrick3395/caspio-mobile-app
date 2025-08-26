@@ -130,6 +130,13 @@ export class CaspioService {
       );
     }
   }
+  
+  // Get the Caspio account ID from the API URL
+  getAccountID(): string {
+    // Extract account ID from the API base URL
+    const match = environment.caspio.apiBaseUrl.match(/https:\/\/([^.]+)\.caspio\.com/);
+    return match ? match[1] : 'c2hcf092'; // Fallback to known account ID
+  }
 
   get<T>(endpoint: string): Observable<T> {
     const token = this.getCurrentToken();
@@ -365,6 +372,65 @@ export class CaspioService {
       }),
       catchError(error => {
         console.error('Services_Rooms creation error:', error);
+        throw error;
+      })
+    );
+  }
+  
+  // Update Services_Rooms record
+  updateServicesRoom(roomId: string, data: any): Observable<any> {
+    return this.put<any>(`/tables/Services_Rooms/records?q.where=PK_ID=${roomId}`, data);
+  }
+  
+  // Get Services_Rooms_Drop for dropdown options
+  getServicesRoomsDrop(): Observable<any[]> {
+    return this.get<any>('/tables/Services_Rooms_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+  
+  // Create Services_Rooms_Points record
+  createServicesRoomsPoint(data: any): Observable<any> {
+    console.log('Creating Services_Rooms_Points record:', data);
+    return this.post<any>('/tables/Services_Rooms_Points/records?response=rows', data).pipe(
+      map(response => {
+        console.log('Services_Rooms_Points response:', response);
+        if (!response) {
+          return {};
+        }
+        if (response.Result && Array.isArray(response.Result)) {
+          return response.Result[0] || response;
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('Services_Rooms_Points creation error:', error);
+        throw error;
+      })
+    );
+  }
+  
+  // Create Services_Rooms_Attach record
+  createServicesRoomsAttach(data: any): Observable<any> {
+    console.log('Creating Services_Rooms_Attach record:', data);
+    return this.post<any>('/tables/Services_Rooms_Attach/records?response=rows', data).pipe(
+      map(response => {
+        console.log('Services_Rooms_Attach response:', response);
+        if (!response) {
+          return {};
+        }
+        if (response.Result && Array.isArray(response.Result)) {
+          return response.Result[0] || response;
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('Services_Rooms_Attach creation error:', error);
         throw error;
       })
     );

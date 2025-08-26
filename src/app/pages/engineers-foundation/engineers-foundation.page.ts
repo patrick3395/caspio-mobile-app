@@ -9,10 +9,6 @@ import { CameraService } from '../../services/camera.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 
-interface ElevationReading {
-  location: string;
-  value: number | null;
-}
 
 interface ServicesVisualRecord {
   ServiceID: number;  // Changed to number to match Integer type in Caspio
@@ -66,14 +62,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Form data for the template
   formData: any = {
-    // Elevation Plot fields
-    elevationAnalysis: '',
-    
     // Additional fields to be added based on requirements
   };
-  
-  // Elevation readings array
-  elevationReadings: ElevationReading[] = [];
   
   // Room templates for elevation plot
   roomTemplates: any[] = [];
@@ -81,6 +71,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   selectedRooms: { [roomName: string]: boolean } = {};
   roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
   savingRooms: { [roomName: string]: boolean } = {};
+  roomPointIds: { [key: string]: string } = {}; // Track Services_Rooms_Points IDs
+  
+  // FDF dropdown options from Services_Rooms_Drop table
+  fdfOptions: string[] = [];
   
   // UI state
   expandedSections: { [key: string]: boolean } = {
@@ -138,13 +132,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Load room templates for elevation plot
     await this.loadRoomTemplates();
     
+    // Load FDF dropdown options
+    await this.loadFDFOptions();
+    
     // Then load any existing template data (including visual selections)
     await this.loadExistingData();
-    
-    // Initialize with some default elevation readings
-    if (this.elevationReadings.length === 0) {
-      this.addElevationReading();
-    }
   }
   
   ngAfterViewInit() {
@@ -176,7 +168,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Force garbage collection hints
     this.formData = {};
-    this.elevationReadings = [];
   }
   
   async loadProjectData() {
@@ -270,6 +261,180 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (!this.roomElevationData || Object.keys(this.roomElevationData).length === 0) {
         this.roomElevationData = {};
       }
+    }
+  }
+  
+  // Load FDF options from Services_Rooms_Drop table
+  async loadFDFOptions() {
+    try {
+      const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+      
+      if (dropdownData && dropdownData.length > 0) {
+        // Filter for FDF options (where RoomName = 'FDF')
+        const fdfRows = dropdownData.filter((row: any) => row.RoomName === 'FDF');
+        // Extract dropdown values
+        this.fdfOptions = fdfRows.map((row: any) => row.Dropdown).filter((val: any) => val);
+        console.log('FDF Options loaded:', this.fdfOptions);
+      } else {
+        // Default options if table is empty
+        this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+        console.log('Using default FDF options');
+      }
+    } catch (error) {
+      console.error('Error loading FDF options:', error);
+      // Default options on error
+      this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+    }
+  }
+  
+  // Handle FDF selection change
+  async onFDFChange(roomName: string) {
+    const roomId = this.roomRecordIds[roomName];
+    if (!roomId) return;
+    
+    try {
+      const fdfValue = this.roomElevationData[roomName].fdf;
+      
+      // Update Services_Rooms record with FDF value
+      await this.caspioService.updateServicesRoom(roomId, { FDF: fdfValue }).toPromise();
+      
+      console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
+    } catch (error) {
+      console.error('Error updating FDF:', error);
+      await this.showToast('Failed to update FDF', 'danger');
+    }
+  }
+  
+  // Capture photo for room elevation point
+  async capturePhotoForPoint(roomName: string, point: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
+    try {
+      const roomId = this.roomRecordIds[roomName];
+      if (!roomId) {
+        await this.showToast('Please save the room first', 'warning');
+        return;
+      }
+      
+      // Check if point record exists, create if not
+      const pointKey = `${roomName}_${point.name}`;
+      let pointId = this.roomPointIds[pointKey];
+      
+      if (!pointId) {
+        // Create Services_Rooms_Points record
+        const pointData = {
+          RoomID: parseInt(roomId),
+          PointName: point.name
+        };
+        
+        const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+        
+        if (createResponse && createResponse.PK_ID) {
+          pointId = createResponse.PK_ID;
+          this.roomPointIds[pointKey] = pointId;
+        } else {
+          throw new Error('Failed to create point record');
+        }
+      }
+      
+      // Use camera service for photo capture
+      const photoResult = await this.cameraService.selectAndProcessPhotos('single');
+      
+      if (photoResult && photoResult.length > 0) {
+        const base64Image = photoResult[0];
+        
+        // Upload photo to Services_Rooms_Attach
+        await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
+        
+        // Update UI to show photo
+        if (!point.photos) {
+          point.photos = [];
+        }
+        point.photos.push({
+          url: base64Image,
+          thumbnailUrl: base64Image
+        });
+        point.photoCount = point.photos.length;
+        
+        // Offer to take another photo
+        const alert = await this.alertController.create({
+          header: 'Photo Captured',
+          message: 'Would you like to take another photo?',
+          cssClass: 'orange-alert',
+          buttons: [
+            {
+              text: 'Done',
+              role: 'cancel',
+              cssClass: 'secondary'
+            },
+            {
+              text: 'Take Another',
+              cssClass: 'primary',
+              handler: () => {
+                setTimeout(() => {
+                  this.capturePhotoForPoint(roomName, point);
+                }, 500);
+              }
+            }
+          ]
+        });
+        
+        await alert.present();
+      }
+      
+    } catch (error) {
+      console.error('Error capturing photo for point:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
+  // Upload photo to Services_Rooms_Attach
+  async uploadPhotoToRoomPoint(pointId: string, base64Image: string, pointName: string) {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(base64Image);
+      const blob = await response.blob();
+      
+      // Generate filename
+      const timestamp = new Date().getTime();
+      const fileName = `room_point_${pointId}_${timestamp}.jpg`;
+      
+      // Upload to Caspio Files API
+      const formData = new FormData();
+      formData.append('file', blob, fileName);
+      
+      const token = await this.caspioService.getValidToken().toPromise();
+      const account = this.caspioService.getAccountID();
+      
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      const uploadResult = await uploadResponse.json();
+      
+      if (!uploadResult?.Name) {
+        throw new Error('File upload failed');
+      }
+      
+      // Create Services_Rooms_Attach record
+      const attachData = {
+        PointID: parseInt(pointId),
+        Photo: `/${uploadResult.Name}`,
+        Annotation: ''
+      };
+      
+      await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      
+      console.log(`Photo uploaded for point ${pointName}`);
+      
+    } catch (error) {
+      console.error('Error uploading room point photo:', error);
+      throw error;
     }
   }
   
@@ -521,7 +686,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         const parsed = JSON.parse(draftData);
         this.formData = { ...this.formData, ...parsed.formData };
-        this.elevationReadings = parsed.elevationReadings || [];
         
         // Skip loading room elevation data to prevent issues
         
@@ -812,33 +976,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return Math.round((filledStructural / structuralFields.length) * 100);
         
       case 'elevation':
-        const hasReadings = this.elevationReadings.some(r => r.location && r.value !== null);
-        const hasAnalysis = !!this.formData.elevationAnalysis;
-        if (hasReadings && hasAnalysis) return 100;
-        if (hasReadings || hasAnalysis) return 50;
-        return 0;
+        const hasRoomData = Object.keys(this.roomElevationData).length > 0;
+        return hasRoomData ? 100 : 0;
         
       default:
         return 0;
     }
   }
   
-  // Elevation readings management
-  addElevationReading() {
-    this.elevationReadings.push({
-      location: '',
-      value: null
-    });
-  }
-  
-  removeElevationReading(index: number) {
-    this.elevationReadings.splice(index, 1);
-  }
-  
-  clearElevationReadings() {
-    this.elevationReadings = [];
-    this.addElevationReading(); // Add one empty reading
-  }
   
   // Room elevation helper methods
   private saveDebounceTimer: any;
@@ -955,7 +1100,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
       const draftData = {
         formData: this.formData,
-        elevationReadings: this.elevationReadings,
         // Removed roomElevationData to prevent memory issues
         savedAt: new Date().toISOString()
       };
@@ -994,7 +1138,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ProjectID: this.projectId,
         ServiceID: this.serviceId,
         ...this.formData,
-        ElevationReadings: JSON.stringify(this.elevationReadings),
         SubmittedAt: new Date().toISOString()
       };
       

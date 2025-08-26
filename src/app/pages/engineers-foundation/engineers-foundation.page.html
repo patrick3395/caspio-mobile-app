@@ -502,53 +502,68 @@
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           
-          <!-- Room selection list (like visuals) -->
+          <!-- Room selection list (like visuals with outlined cards) -->
           <div class="room-templates-list" *ngIf="roomTemplates.length > 0">
-            <div class="room-item" *ngFor="let room of roomTemplates; trackBy: trackByRoomName">
-              <ion-item lines="none">
-                <ion-checkbox 
-                  slot="start" 
-                  [checked]="isRoomSelected(room.RoomName)"
-                  [disabled]="isRoomSaving(room.RoomName)"
-                  (ionChange)="toggleRoomSelection(room.RoomName)">
-                </ion-checkbox>
-                <ion-label>
-                  <h3>{{ room.RoomName }}</h3>
-                  <p>{{ room.PointCount || 0 }} measurement points</p>
-                </ion-label>
-                <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-              </ion-item>
+            <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
+                 [class.selected]="isRoomSelected(room.RoomName)">
               
-              <!-- Show elevation inputs only when room is selected -->
-              <div class="room-elevation-content" *ngIf="isRoomSelected(room.RoomName)">
-                <!-- Elevation Points -->
+              <!-- Room card header with checkbox -->
+              <div class="room-card-header">
+                <ion-item lines="none" class="checkbox-item">
+                  <ion-checkbox 
+                    slot="start" 
+                    [checked]="isRoomSelected(room.RoomName)"
+                    [disabled]="isRoomSaving(room.RoomName)"
+                    (ionChange)="toggleRoomSelection(room.RoomName)">
+                  </ion-checkbox>
+                  <ion-label class="item-label">
+                    <h3>{{ room.RoomName }}</h3>
+                    <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
+                  </ion-label>
+                  <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
+                </ion-item>
+              </div>
+              
+              <!-- Show room content only when selected -->
+              <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName)">
+                
+                <!-- Flooring Difference Factor dropdown -->
+                <div class="fdf-dropdown-container">
+                  <label class="fdf-label">Flooring Difference Factor</label>
+                  <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
+                              placeholder="Select FDF"
+                              interface="action-sheet"
+                              (ionChange)="onFDFChange(room.RoomName)">
+                    <ion-select-option *ngFor="let option of fdfOptions" [value]="option">
+                      {{ option }}
+                    </ion-select-option>
+                  </ion-select>
+                </div>
+                
+                <!-- Elevation Points with photo capture only -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
-                  <h4 class="points-header">Elevation Points</h4>
+                  <h4 class="points-header">Measurement Points</h4>
                   <div class="elevation-points-grid">
-                    <div class="elevation-point-item" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
-                      <div class="point-label">{{ point.name }}</div>
-                      <div class="point-input-group">
-                        <ion-input 
-                          type="number" 
-                          [(ngModel)]="point.value" 
-                          placeholder="Enter elevation"
-                          (ionBlur)="onElevationPointChange(room.RoomName, point)"
-                          step="0.01"
-                          inputmode="decimal">
-                        </ion-input>
-                        <button class="camera-button" (click)="takePhotoForElevationPoint(room.RoomName, point, $event)" title="Take Photo">
-                          <ion-icon name="camera-outline"></ion-icon>
-                          <span class="photo-count" *ngIf="point.photoCount > 0">{{ point.photoCount }}</span>
+                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                      <div class="point-header">
+                        <span class="point-label">{{ point.name }}</span>
+                        <button class="camera-button-primary" 
+                                (click)="capturePhotoForPoint(room.RoomName, point, $event)" 
+                                title="Capture Photo">
+                          <ion-icon name="camera"></ion-icon>
+                          <span *ngIf="!point.photoCount || point.photoCount === 0">Capture</span>
+                          <span *ngIf="point.photoCount > 0" class="photo-badge">{{ point.photoCount }}</span>
                         </button>
                       </div>
+                      
                       <!-- Photo preview if exists -->
                       <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
                         <div class="photo-thumbnails">
-                          <img *ngFor="let photo of point.photos" 
+                          <img *ngFor="let photo of point.photos; let i = index" 
                                [src]="photo.thumbnailUrl || photo.url" 
                                (click)="viewElevationPhoto(photo)"
                                (error)="handleImageError($event, photo)"
-                               alt="Elevation point photo">
+                               [alt]="'Photo ' + (i+1) + ' for ' + point.name">
                         </div>
                       </div>
                     </div>
@@ -575,43 +590,6 @@
           </div>
         </div>
 
-        <!-- Manual elevation readings (keep existing functionality) -->
-        <div class="manual-elevation-section">
-          <h3 class="subsection-title">Additional Manual Readings</h3>
-          <div class="elevation-controls">
-            <ion-button size="small" (click)="addElevationReading()">
-              <ion-icon name="add" slot="start"></ion-icon>
-              Add Reading
-            </ion-button>
-            <ion-button size="small" (click)="clearElevationReadings()" color="danger">
-              <ion-icon name="trash" slot="start"></ion-icon>
-              Clear All
-            </ion-button>
-          </div>
-
-          <div class="elevation-grid" *ngIf="elevationReadings.length > 0">
-            <div class="elevation-header">
-              <div>Location</div>
-              <div>Reading (inches)</div>
-              <div>Actions</div>
-            </div>
-            <div class="elevation-row" *ngFor="let reading of elevationReadings; let i = index">
-              <input type="text" [(ngModel)]="reading.location" placeholder="Room/Location">
-              <input type="number" [(ngModel)]="reading.value" placeholder="0.0" step="0.1">
-              <ion-button size="small" fill="clear" color="danger" (click)="removeElevationReading(i)">
-                <ion-icon name="close-circle-outline"></ion-icon>
-              </ion-button>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Overall Elevation Analysis</label>
-          <ion-textarea [(ngModel)]="formData.elevationAnalysis" 
-                        rows="6" 
-                        placeholder="Enter analysis of elevation data...">
-          </ion-textarea>
-        </div>
       </div>
     </div>
 

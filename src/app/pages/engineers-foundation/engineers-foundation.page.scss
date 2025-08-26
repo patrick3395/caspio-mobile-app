@@ -713,221 +713,224 @@ ion-toolbar {
   margin-bottom: 30px;
   
   .room-templates-list {
-    .room-item {
+    .room-item-container {
       margin-bottom: 15px;
       border: 1px solid #e0e0e0;
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
+      transition: all 0.3s ease;
+      background: white;
       
-      ion-item {
-        --background: #f9f9f9;
-        --padding-start: 10px;
-        --padding-end: 10px;
-        
-        ion-checkbox {
-          margin-right: 15px;
-          --size: 20px;
-          --background-checked: var(--noble-orange);
-          --border-color-checked: var(--noble-orange);
-        }
-        
-        ion-label {
-          h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: #333;
-            margin: 0 0 5px 0;
+      &.selected {
+        border: 2px solid var(--noble-orange);
+        box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.1);
+        background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+      }
+      
+      .room-card-header {
+        .checkbox-item {
+          --background: white;
+          --background-hover: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+          padding: 12px;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          
+          &:hover {
+            background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
           }
           
-          p {
-            font-size: 12px;
-            color: #666;
-            margin: 0;
+          ion-checkbox {
+            --size: 22px;
+            --checkbox-background-checked: var(--noble-orange);
+            --border-color-checked: var(--noble-orange);
+            margin-right: 12px;
+          }
+          
+          .item-label {
+            h3 {
+              font-size: 15px;
+              font-weight: 600;
+              color: #333;
+              margin-bottom: 4px;
+            }
+            
+            .item-text {
+              font-size: 13px;
+              color: var(--noble-gray);
+            }
+          }
+          
+          ion-spinner {
+            --color: var(--noble-orange);
+            width: 20px;
+            height: 20px;
           }
         }
-        
-        ion-spinner {
-          --color: var(--noble-orange);
-          width: 20px;
-          height: 20px;
-        }
       }
-    }
-  }
-  
-  .room-elevation-content {
-    padding: 15px;
-    background: white;
-    margin-top: 10px;
-    border-top: 1px solid #e0e0e0;
-    
-    .elevation-points-grid {
-      margin-bottom: 15px;
       
-      .point-row {
-        display: grid;
-        grid-template-columns: 2fr 1fr 60px;
-        gap: 10px;
-        align-items: center;
-        margin-bottom: 10px;
+      .room-card-content {
+        padding: 20px;
+        background: #f8f8f8;
+        border-top: 1px solid #e0e0e0;
         
-        .point-label {
-          font-size: 14px;
-          color: #333;
-          font-weight: 500;
-        }
-        
-        .point-input {
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
-          text-align: center;
+        .fdf-dropdown-container {
+          margin-bottom: 20px;
+          padding: 15px;
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e0e0e0;
           
-          &:focus {
-            border-color: var(--noble-orange);
-            outline: none;
-          }
-        }
-        
-        .point-unit {
-          font-size: 12px;
-          color: #666;
-        }
-      }
-    }
-    
-    .elevation-points-container {
-      margin-bottom: 20px;
-      
-      .points-header {
-        font-size: 16px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 15px;
-        border-bottom: 2px solid var(--noble-orange);
-        padding-bottom: 5px;
-      }
-      
-      .elevation-points-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 15px;
-      }
-      
-      .elevation-point-item {
-        background: #f9f9f9;
-        border-radius: 8px;
-        padding: 12px;
-        border: 1px solid #e0e0e0;
-        
-        .point-label {
-          font-size: 14px;
-          font-weight: 600;
-          color: #444;
-          margin-bottom: 8px;
-        }
-        
-        .point-input-group {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          
-          ion-input {
-            flex: 1;
-            --background: white;
-            --padding-start: 10px;
-            --padding-end: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+          .fdf-label {
+            display: block;
             font-size: 14px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            margin-bottom: 8px;
           }
           
-          .camera-button {
-            position: relative;
-            background: var(--noble-orange);
-            border: none;
-            border-radius: 4px;
-            padding: 8px 12px;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-            
-            &:hover {
-              background: #d35400;
-            }
-            
-            ion-icon {
-              font-size: 20px;
-            }
-            
-            .photo-count {
-              position: absolute;
-              top: -5px;
-              right: -5px;
-              background: #28a745;
-              color: white;
-              border-radius: 50%;
-              width: 18px;
-              height: 18px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 11px;
-              font-weight: bold;
-            }
+          ion-select {
+            width: 100%;
+            --padding-start: 12px;
+            --padding-end: 12px;
+            --padding-top: 10px;
+            --padding-bottom: 10px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
           }
         }
         
-        .point-photo-preview {
-          margin-top: 10px;
+        .elevation-points-container {
+          margin-bottom: 20px;
           
-          .photo-thumbnails {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
+          .points-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+          }
+          
+          .elevation-points-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
             
-            img {
-              width: 50px;
-              height: 50px;
-              object-fit: cover;
-              border-radius: 4px;
-              cursor: pointer;
-              border: 2px solid transparent;
-              transition: all 0.2s;
+            .elevation-point-card {
+              background: white;
+              border: 1px solid #e0e0e0;
+              border-radius: 8px;
+              padding: 12px;
+              transition: all 0.3s ease;
               
               &:hover {
-                border-color: var(--noble-orange);
-                transform: scale(1.05);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                transform: translateY(-2px);
+              }
+              
+              .point-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                
+                .point-label {
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: #333;
+                }
+                
+                .camera-button-primary {
+                  background: var(--noble-orange);
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  padding: 6px 10px;
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  font-size: 12px;
+                  
+                  ion-icon {
+                    font-size: 16px;
+                  }
+                  
+                  .photo-badge {
+                    background: white;
+                    color: var(--noble-orange);
+                    padding: 2px 6px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    margin-left: 4px;
+                  }
+                  
+                  &:hover {
+                    background: #d94925;
+                    transform: scale(1.05);
+                  }
+                  
+                  &:active {
+                    transform: scale(0.95);
+                  }
+                }
+              }
+              
+              .point-photo-preview {
+                margin-top: 10px;
+                
+                .photo-thumbnails {
+                  display: flex;
+                  gap: 8px;
+                  flex-wrap: wrap;
+                  
+                  img {
+                    width: 60px;
+                    height: 60px;
+                    object-fit: cover;
+                    border-radius: 4px;
+                    border: 1px solid #e0e0e0;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    
+                    &:hover {
+                      transform: scale(1.1);
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    }
+                  }
+                }
               }
             }
           }
         }
-      }
-    }
-    
-    .room-notes {
-      margin-top: 15px;
-      
-      label {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        color: #666;
-        margin-bottom: 5px;
-      }
-      
-      ion-textarea {
-        --background: #f9f9f9;
-        --padding-start: 10px;
-        --padding-end: 10px;
-        --padding-top: 8px;
-        --padding-bottom: 8px;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
+        
+        .room-notes {
+          margin-top: 20px;
+          
+          label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            margin-bottom: 8px;
+          }
+          
+          ion-textarea {
+            width: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 14px;
+            background: white;
+            
+            &:focus {
+              border-color: var(--noble-orange);
+              outline: none;
+            }
+          }
+        }
       }
     }
   }
