@@ -227,13 +227,6 @@
             </div>
           </div>
         </div>
-        <!-- Back to Top Button -->
-        <div class="back-to-top-container">
-          <ion-button size="small" fill="clear" (click)="scrollToSection('project')">
-            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
-            Back to Section Top
-          </ion-button>
-        </div>
       </div>
     </div>
 
@@ -485,13 +478,6 @@
           <ion-spinner name="crescent"></ion-spinner>
           Loading visual categories...
         </div>
-        <!-- Back to Top Button -->
-        <div class="back-to-top-container">
-          <ion-button size="small" fill="clear" (click)="scrollToSection('structural')">
-            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
-            Back to Section Top
-          </ion-button>
-        </div>
       </div>
     </div>
 
@@ -618,13 +604,6 @@
                         placeholder="Enter analysis of elevation data...">
           </ion-textarea>
         </div>
-        <!-- Back to Top Button -->
-        <div class="back-to-top-container">
-          <ion-button size="small" fill="clear" (click)="scrollToSection('elevation')">
-            <ion-icon name="arrow-up-outline" slot="start"></ion-icon>
-            Back to Section Top
-          </ion-button>
-        </div>
       </div>
     </div>
 
@@ -644,4 +623,9 @@
     style="display: none" 
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">
+
+  <!-- Floating Back to Top Button -->
+  <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
+    <ion-icon name="arrow-up"></ion-icon>
+  </button>
 </ion-content>

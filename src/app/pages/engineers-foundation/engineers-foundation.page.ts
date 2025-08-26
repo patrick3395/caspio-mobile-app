@@ -86,6 +86,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     elevation: false
   };
   
+  // Back to top button state
+  showBackToTop = true; // Always show the button
+  
   // Track which accordion categories are expanded
   expandedAccordions: string[] = [];
   @ViewChild('visualAccordionGroup') visualAccordionGroup: any;
@@ -553,6 +556,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.expandedSections[section] = false;
       }, 500);
     }
+  }
+  
+  scrollToCurrentSectionTop() {
+    // Find the current visible section by checking which section headers are in view
+    const sections = ['project', 'structural', 'elevation'];
+    const viewportHeight = window.innerHeight;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // Find which section the user is currently viewing
+    for (const section of sections) {
+      const sectionHeader = document.querySelector(`.section-header[data-section="${section}"]`) as HTMLElement;
+      const sectionContent = document.querySelector(`.section[data-section="${section}"]`) as HTMLElement;
+      
+      if (sectionHeader) {
+        const rect = sectionHeader.getBoundingClientRect();
+        const sectionTop = rect.top + scrollTop;
+        const nextSection = sections[sections.indexOf(section) + 1];
+        let sectionBottom = document.documentElement.scrollHeight;
+        
+        if (nextSection) {
+          const nextHeader = document.querySelector(`.section-header[data-section="${nextSection}"]`) as HTMLElement;
+          if (nextHeader) {
+            const nextRect = nextHeader.getBoundingClientRect();
+            sectionBottom = nextRect.top + scrollTop;
+          }
+        }
+        
+        // Check if we're within this section's bounds
+        const currentPosition = scrollTop + (viewportHeight / 2);
+        if (currentPosition >= sectionTop && currentPosition < sectionBottom) {
+          // Scroll to this section's header
+          sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+    }
+    
+    // If no section found, scroll to top of page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   
   // TrackBy functions for better list performance
