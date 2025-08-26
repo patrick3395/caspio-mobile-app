@@ -370,10 +370,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
         
         if (existingPoint) {
-          // Point already exists, use its ID
-          pointId = existingPoint.PK_ID || existingPoint.PointID;
+          // Point already exists, use its PointID (NOT PK_ID!)
+          pointId = existingPoint.PointID || existingPoint.PK_ID;
           this.roomPointIds[pointKey] = pointId;
-          console.log(`Using existing point record with ID: ${pointId}`);
+          console.log(`Using existing point record with PointID: ${pointId}`);
         } else {
           // Create new Services_Rooms_Points record BEFORE photo capture
           const pointData = {
@@ -384,11 +384,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.log('Creating Services_Rooms_Points record:', pointData);
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
           
-          if (createResponse && createResponse.PK_ID) {
-            pointId = createResponse.PK_ID;
+          // Use PointID from response, NOT PK_ID!
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
-            await this.showToast(`Point '${point.name}' created. Ready for photos.`, 'success');
-            console.log(`Created point record with ID: ${pointId}`);
+            console.log(`Created point record with PointID: ${pointId}`);
+            // Don't show any UI here - it interrupts iOS capture flow
           } else {
             throw new Error('Failed to create point record');
           }
@@ -496,11 +497,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       if (points && points.length > 0) {
         for (const point of points) {
-          const pointId = point.PK_ID || point.PointID;
+          // Use PointID as the primary ID field, fallback to PK_ID
+          const pointId = point.PointID || point.PK_ID;
           const pointKey = `${roomName}_${point.PointName}`;
           
           // Store the point ID for future reference
           this.roomPointIds[pointKey] = pointId;
+          console.log(`Loaded existing point: ${point.PointName} with PointID: ${pointId}`);
           
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
@@ -509,8 +512,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             );
             
             if (elevationPoint) {
-              // Get photo count for this point
-              const photos = await this.caspioService.getServicesRoomsAttachments(pointId).toPromise();
+              // Get photo count for this point - use the correct PointID
+              const actualPointId = point.PointID || pointId;
+              const photos = await this.caspioService.getServicesRoomsAttachments(actualPointId).toPromise();
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 elevationPoint.photos = photos.map((photo: any) => ({
@@ -605,9 +609,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
         
-        if (createResponse && createResponse.PK_ID) {
-          pointId = createResponse.PK_ID;
+        // Use PointID from response, NOT PK_ID!
+        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+          pointId = createResponse.PointID || createResponse.PK_ID;
           this.roomPointIds[pointKey] = pointId;
+          console.log(`processRoomPointPhoto created point with PointID: ${pointId}`);
         } else {
           throw new Error('Failed to create point record');
         }
@@ -744,7 +750,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       
       // Debug: Show what we're sending to Services_Rooms_Points_Attach
-      alert(`DEBUG - Sending to Services_Rooms_Points_Attach:\n\nPointID: ${attachData.PointID}\nPhoto: ${attachData.Photo}\nAnnotation: (empty)\n\nTable: Services_Rooms_Points_Attach`);
+      alert(`DEBUG - Sending to Services_Rooms_Points_Attach:\n\nPointID: ${attachData.PointID} (from parameter: ${pointId})\nPhoto: ${attachData.Photo}\nAnnotation: ${attachData.Annotation || '(empty)'}\n\nTable: Services_Rooms_Attach`);
       
       const attachResponse = await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
       
