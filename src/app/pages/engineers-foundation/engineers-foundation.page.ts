@@ -377,10 +377,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         let currentFile: File | null = null;
         
         try {
+          console.log('Starting photo capture for point:', point.name);
           // Use native file input for iOS camera
           currentFile = await this.capturePhotoNative();
           
           if (currentFile) {
+            console.log('Photo captured successfully, file size:', currentFile.size);
             // Photo captured successfully
             photoCounter++;
             capturedPhotos.push(currentFile);
@@ -435,11 +437,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             await continueAlert.onDidDismiss();
           } else {
             // User cancelled or no photo selected
+            console.log('No photo captured, ending capture loop');
             keepCapturing = false;
           }
         } catch (error) {
-          console.error('Error capturing photo:', error);
-          await this.showToast('Failed to capture photo', 'danger');
+          console.error('Photo capture error details:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          await this.showToast(`Photo capture failed: ${errorMessage}`, 'danger');
           keepCapturing = false;
         }
       }
@@ -497,27 +501,57 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Helper method to capture photo using native file input
   private capturePhotoNative(): Promise<File | null> {
-    return new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.capture = 'environment'; // Opens camera by default on iOS
-      
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          resolve(file);
-        } else {
+    return new Promise((resolve, reject) => {
+      try {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Opens camera by default on iOS
+        
+        // Set up timeout in case the input doesn't trigger
+        const timeout = setTimeout(() => {
+          console.log('Photo capture timed out');
           resolve(null);
-        }
-      };
-      
-      // Handle cancel
-      input.addEventListener('cancel', () => {
-        resolve(null);
-      });
-      
-      input.click();
+        }, 30000); // 30 second timeout
+        
+        input.onchange = (e: any) => {
+          clearTimeout(timeout);
+          const file = e.target.files?.[0];
+          if (file) {
+            console.log('Photo captured:', file.name);
+            resolve(file);
+          } else {
+            console.log('No file selected');
+            resolve(null);
+          }
+        };
+        
+        // Handle cancel (not supported on all browsers)
+        input.addEventListener('cancel', () => {
+          clearTimeout(timeout);
+          console.log('Photo capture cancelled');
+          resolve(null);
+        });
+        
+        // Add to DOM temporarily (required for iOS)
+        input.style.position = 'fixed';
+        input.style.top = '-100px';
+        document.body.appendChild(input);
+        
+        // Click and cleanup
+        input.click();
+        
+        // Remove from DOM after a delay
+        setTimeout(() => {
+          if (document.body.contains(input)) {
+            document.body.removeChild(input);
+          }
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Error creating file input:', error);
+        reject(error);
+      }
     });
   }
   
