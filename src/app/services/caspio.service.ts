@@ -118,6 +118,19 @@ export class CaspioService {
     }
   }
 
+  // Get a valid token, authenticating if necessary
+  getValidToken(): Observable<string> {
+    const currentToken = this.getCurrentToken();
+    if (currentToken) {
+      return of(currentToken);
+    } else {
+      // Need to authenticate first
+      return this.authenticate().pipe(
+        map(response => response.access_token)
+      );
+    }
+  }
+
   get<T>(endpoint: string): Observable<T> {
     const token = this.getCurrentToken();
     if (!token) {

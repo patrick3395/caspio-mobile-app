@@ -1,4 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
@@ -7,6 +10,8 @@ import { CaspioService } from '../../services/caspio.service';
   selector: 'app-login',
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class LoginPage implements OnInit {
   credentials = {
