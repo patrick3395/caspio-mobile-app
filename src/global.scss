@@ -213,6 +213,33 @@ ion-action-sheet {
   }
 }
 
+// Photo Source Action Sheet (iOS Style)
+.photo-source-sheet {
+  .action-sheet-wrapper {
+    .action-sheet-container {
+      .action-sheet-group {
+        .action-sheet-button {
+          color: var(--noble-orange) !important;
+          font-weight: 400;
+          
+          &.action-sheet-cancel {
+            font-weight: 600;
+          }
+          
+          .action-sheet-button-inner {
+            justify-content: flex-start;
+            
+            .action-sheet-icon {
+              color: var(--noble-gray);
+              margin-right: 16px;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 // Compact Photo Selector Alert
 .compact-photo-selector {
   .alert-wrapper {

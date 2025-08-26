@@ -1224,17 +1224,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async uploadDocument(category: string, itemId: string, item: any) {
     // Show action sheet with camera and gallery options
     const actionSheet = await this.actionSheetController.create({
-      header: 'Select Photo Source',
+      cssClass: 'photo-source-sheet',
       buttons: [
         {
           text: 'Take Photo',
           icon: 'camera',
-          handler: () => {
-            this.capturePhotoFromCamera(category, itemId, item);
+          handler: async () => {
+            // Get visual ID for this item
+            const key = `${category}_${itemId}`;
+            let visualId = this.visualRecordIds[key];
+            
+            if (!visualId) {
+              await this.saveVisualSelection(category, itemId);
+              visualId = this.visualRecordIds[key];
+            }
+            
+            if (visualId) {
+              // Start multi-photo capture session with looping
+              await this.startMultiPhotoCapture(visualId, key, category, itemId);
+            } else {
+              await this.showToast('Failed to get visual ID', 'danger');
+            }
           }
         },
         {
-          text: 'Choose from Gallery',
+          text: 'Photo Library',
           icon: 'images',
           handler: () => {
             // Use existing file input for gallery
@@ -2581,6 +2595,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async addAnotherPhoto(category: string, itemId: string) {
     // Show action sheet to choose photo source
     const actionSheet = await this.actionSheetController.create({
+      cssClass: 'photo-source-sheet',
       buttons: [
         {
           text: 'Take Photo',
@@ -2604,7 +2619,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         },
         {
-          text: 'Choose from Library',
+          text: 'Photo Library',
           icon: 'images',
           handler: () => {
             // Use traditional file picker for gallery
