@@ -1292,10 +1292,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         {
           text: 'Photo Library',
           icon: 'images',
-          handler: () => {
-            // Use existing file input for gallery
-            this.currentUploadContext = { category, itemId, item, action: 'upload' };
-            this.fileInput.nativeElement.click();
+          handler: async () => {
+            // Use Camera plugin to select from gallery
+            const photo = await this.cameraService.selectFromGallery();
+            if (photo && photo.dataUrl) {
+              // Convert to file and upload
+              const fileName = `gallery_${Date.now()}.jpg`;
+              const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+              
+              // Get visual ID
+              const key = `${category}_${itemId}`;
+              let visualId = this.visualRecordIds[key];
+              
+              if (!visualId) {
+                await this.saveVisualSelection(category, itemId);
+                visualId = this.visualRecordIds[key];
+              }
+              
+              if (visualId) {
+                // Upload the photo
+                await this.uploadPhotoToVisual(visualId, file, key, category, itemId);
+              }
+            }
           }
         },
         {
@@ -1411,16 +1429,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 },
                 {
                   text: 'Done',
-                  cssClass: 'action-button',
-                  handler: () => {
-                    keepCapturing = false;
-                    return true;
-                  }
-                },
-                {
-                  text: 'Cancel',
-                  role: 'cancel',
-                  cssClass: 'cancel-button',
+                  cssClass: 'done-button',
                   handler: () => {
                     keepCapturing = false;
                     return true;
@@ -2663,14 +2672,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         {
           text: 'Photo Library',
           icon: 'images',
-          handler: () => {
-            // Use traditional file picker for gallery
-            this.currentUploadContext = { 
-              category, 
-              itemId,
-              action: 'add'
-            };
-            this.fileInput.nativeElement.click();
+          handler: async () => {
+            // Use Camera plugin to select from gallery
+            const photo = await this.cameraService.selectFromGallery();
+            if (photo && photo.dataUrl) {
+              // Convert to file and upload
+              const fileName = `gallery_${Date.now()}.jpg`;
+              const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+              
+              // Get visual ID
+              const key = `${category}_${itemId}`;
+              let visualId = this.visualRecordIds[key];
+              
+              if (!visualId) {
+                await this.saveVisualSelection(category, itemId);
+                visualId = this.visualRecordIds[key];
+              }
+              
+              if (visualId) {
+                // Upload the photo
+                await this.uploadPhotoToVisual(visualId, file, key, category, itemId);
+              }
+            }
           }
         },
         {
