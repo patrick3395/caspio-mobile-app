@@ -1308,25 +1308,62 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          // Debug message
-          await this.showToast(`📸 Preparing photo ${photoCounter + 1}...`, 'info');
-          
-          // Create input element FIRST
+          // Create input element
           const input = document.createElement('input');
           input.type = 'file';
           input.accept = 'image/*';
-          input.capture = 'camera' as any;
-          input.style.display = 'none';
+          input.capture = 'environment'; // Use 'environment' for rear camera
+          input.setAttribute('capture', 'environment'); // Set attribute directly
+          
+          // Make it invisible but present
+          input.style.position = 'absolute';
+          input.style.opacity = '0';
+          input.style.pointerEvents = 'none';
           document.body.appendChild(input);
+          
+          // Show alert with camera button
+          const cameraAlert = await this.alertController.create({
+            header: `📸 Photo ${photoCounter + 1}`,
+            message: 'Ready to take a photo',
+            buttons: [
+              {
+                text: 'Cancel All',
+                role: 'cancel',
+                handler: () => {
+                  keepCapturing = false;
+                  retakePhoto = false;
+                  document.body.removeChild(input);
+                  return true;
+                }
+              },
+              {
+                text: '📷 Take Photo',
+                handler: () => {
+                  // Don't dismiss alert yet
+                  setTimeout(() => {
+                    input.click();
+                  }, 100);
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+          
+          await cameraAlert.present();
           
           // Set up file handler
           const fileSelected = new Promise<File | null>((resolve) => {
             let resolved = false;
             
-            input.onchange = (event: any) => {
+            input.onchange = async (event: any) => {
               if (!resolved) {
                 resolved = true;
                 const file = event.target?.files?.[0];
+                if (file) {
+                  await this.showToast(`✅ Photo captured: ${file.name}`, 'success');
+                }
+                cameraAlert.dismiss();
                 try {
                   document.body.removeChild(input);
                 } catch (e) {}
@@ -1357,11 +1394,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }, 60000);
           });
           
-          // Immediately trigger the camera
-          input.click();
-          
-          // Debug message
-          await this.showToast(`📷 Camera should be opening now...`, 'info');
+          // Wait for user to dismiss alert (camera will be triggered by button)
           
           currentFile = await fileSelected;
           
