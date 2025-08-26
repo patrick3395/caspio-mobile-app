@@ -338,12 +338,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event.preventDefault();
     }
     
+    // Debug alert
+    await this.showDebugAlert('Capture initiated', `Room: ${roomName}, Point: ${point.name}`);
+    
     try {
       const roomId = this.roomRecordIds[roomName];
       if (!roomId) {
+        await this.showDebugAlert('No room ID', 'Room needs to be saved first');
         await this.showToast('Please save the room first', 'warning');
         return;
       }
+      
+      await this.showDebugAlert('Room ID found', `Room ID: ${roomId}`);
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
@@ -500,59 +506,120 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Helper method to capture photo using native file input
-  private capturePhotoNative(): Promise<File | null> {
-    return new Promise((resolve, reject) => {
+  private async capturePhotoNative(): Promise<File | null> {
+    // Debug alert
+    await this.showDebugAlert('Starting photo capture', 'About to create file input element');
+    
+    return new Promise(async (resolve, reject) => {
       try {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'environment'; // Opens camera by default on iOS
-        
-        // Set up timeout in case the input doesn't trigger
-        const timeout = setTimeout(() => {
-          console.log('Photo capture timed out');
-          resolve(null);
-        }, 30000); // 30 second timeout
-        
-        input.onchange = (e: any) => {
-          clearTimeout(timeout);
-          const file = e.target.files?.[0];
-          if (file) {
-            console.log('Photo captured:', file.name);
-            resolve(file);
-          } else {
-            console.log('No file selected');
+        // Try using the ViewChild file input first (like visuals)
+        if (this.fileInput && this.fileInput.nativeElement) {
+          await this.showDebugAlert('Using ViewChild', 'Found existing file input element');
+          
+          const input = this.fileInput.nativeElement;
+          
+          // Clear any previous value
+          input.value = '';
+          
+          // Set up for single image capture
+          input.accept = 'image/*';
+          input.multiple = false;
+          input.capture = 'environment';
+          
+          // Set up one-time change listener
+          const handleChange = (e: any) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              this.showDebugAlert('File captured', `File name: ${file.name}, Size: ${file.size}`);
+              resolve(file);
+            } else {
+              this.showDebugAlert('No file', 'No file was selected');
+              resolve(null);
+            }
+            // Clean up
+            input.removeEventListener('change', handleChange);
+            input.value = '';
+          };
+          
+          input.addEventListener('change', handleChange);
+          
+          // Try to click
+          try {
+            input.click();
+            await this.showDebugAlert('Click triggered', 'File input click() called successfully');
+          } catch (clickError) {
+            await this.showDebugAlert('Click error', `Error: ${clickError}`);
+            throw clickError;
+          }
+          
+        } else {
+          // Fallback: create new input element
+          await this.showDebugAlert('Creating new input', 'ViewChild not available, creating new element');
+          
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.capture = 'environment';
+          
+          // Set up timeout
+          const timeout = setTimeout(() => {
+            this.showDebugAlert('Timeout', 'Photo capture timed out after 30s');
             resolve(null);
+          }, 30000);
+          
+          input.onchange = async (e: any) => {
+            clearTimeout(timeout);
+            const file = e.target.files?.[0];
+            if (file) {
+              await this.showDebugAlert('File captured', `File: ${file.name}, Size: ${file.size}`);
+              resolve(file);
+            } else {
+              await this.showDebugAlert('No file', 'Change event fired but no file selected');
+              resolve(null);
+            }
+          };
+          
+          // Add to DOM
+          input.style.position = 'fixed';
+          input.style.top = '-100px';
+          input.style.left = '-100px';
+          input.style.opacity = '0';
+          document.body.appendChild(input);
+          
+          await this.showDebugAlert('Input added to DOM', 'Element appended to body');
+          
+          // Try to click
+          try {
+            input.click();
+            await this.showDebugAlert('Click triggered', 'New input click() called');
+          } catch (clickError) {
+            await this.showDebugAlert('Click failed', `Error: ${clickError}`);
           }
-        };
-        
-        // Handle cancel (not supported on all browsers)
-        input.addEventListener('cancel', () => {
-          clearTimeout(timeout);
-          console.log('Photo capture cancelled');
-          resolve(null);
-        });
-        
-        // Add to DOM temporarily (required for iOS)
-        input.style.position = 'fixed';
-        input.style.top = '-100px';
-        document.body.appendChild(input);
-        
-        // Click and cleanup
-        input.click();
-        
-        // Remove from DOM after a delay
-        setTimeout(() => {
-          if (document.body.contains(input)) {
-            document.body.removeChild(input);
-          }
-        }, 1000);
+          
+          // Cleanup after delay
+          setTimeout(() => {
+            if (document.body.contains(input)) {
+              document.body.removeChild(input);
+            }
+          }, 2000);
+        }
         
       } catch (error) {
-        console.error('Error creating file input:', error);
+        await this.showDebugAlert('Fatal error', `Error in capturePhotoNative: ${error}`);
+        console.error('Error in capturePhotoNative:', error);
         reject(error);
       }
     });
+  }
+  
+  // Debug alert helper
+  private async showDebugAlert(title: string, message: string) {
+    const alert = await this.alertController.create({
+      header: `DEBUG: ${title}`,
+      message: message,
+      buttons: ['OK']
+    });
+    await alert.present();
   }
   
   // Process the captured photo for room point
