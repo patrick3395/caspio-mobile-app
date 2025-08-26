@@ -399,17 +399,29 @@ export class ProjectDetailPage implements OnInit {
       if (queryParams['mode'] === 'add-service' && this.project) {
         // Update project status to Active (StatusID = 1) when adding service to completed project
         const projectPkId = this.project.PK_ID || this.project.ProjectID;
-        console.log('🔍 DEBUG: Updating project status to Active for project:', projectPkId);
         
-        try {
-          await this.caspioService.updateProject(projectPkId, { StatusID: 1 }).toPromise();
-          // Update local project object
-          this.project.StatusID = 1;
-          console.log('🔍 DEBUG: Project status updated to Active');
-          await this.showToast('Project moved to Active status', 'success');
-        } catch (error) {
-          console.error('Error updating project status:', error);
-          // Continue with service creation even if status update fails
+        if (projectPkId) {
+          console.log('🔍 DEBUG: Updating project status to Active for project PK_ID:', projectPkId);
+          
+          try {
+            // Update using ProjectID field to match the project, set StatusID to integer 1
+            const projectIdToUpdate = this.project.ProjectID || projectPkId;
+            await this.caspioService.put<any>(
+              `/tables/Projects/records?q.where=ProjectID=${projectIdToUpdate}`,
+              { StatusID: 1 }  // Ensure this is sent as integer 1
+            ).toPromise();
+            
+            // Update local project object
+            this.project.StatusID = 1;
+            this.isReadOnly = false; // Make sure project is editable now
+            console.log('🔍 DEBUG: Project status updated to Active (StatusID = 1)');
+            await this.showToast('Project moved to Active status', 'success');
+          } catch (error) {
+            console.error('Error updating project status:', error);
+            // Continue with service creation even if status update fails
+          }
+        } else {
+          console.error('No project ID available for status update');
         }
       }
       

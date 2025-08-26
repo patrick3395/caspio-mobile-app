@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.28'; // Update this to match package.json version
+  appVersion = '1.4.29'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
