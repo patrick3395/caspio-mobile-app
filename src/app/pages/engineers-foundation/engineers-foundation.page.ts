@@ -593,12 +593,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async viewElevationPhoto(photo: any) {
     console.log('Viewing elevation photo:', photo);
     
-    // Use the existing photo viewer
+    // Use the PhotoViewerComponent directly since we don't have category/itemId context
     if (photo && (photo.url || photo.filePath)) {
-      await this.viewPhoto({
-        ...photo,
-        Photo: photo.filePath || photo.url
+      const modal = await this.modalController.create({
+        component: PhotoViewerComponent,
+        componentProps: {
+          photo: {
+            ...photo,
+            Photo: photo.filePath || photo.url
+          }
+        },
+        cssClass: 'photo-viewer-modal'
       });
+      await modal.present();
     }
   }
   
