@@ -78,6 +78,37 @@
     margin-bottom: 20px;
     text-align: center;
   }
+  
+  .remembered-info {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 15px;
+    color: #155724;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    animation: slideDown 0.3s ease;
+    
+    ion-icon {
+      font-size: 20px;
+      color: #28a745;
+    }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .input-item {
@@ -154,6 +185,7 @@
   text-transform: none;
   letter-spacing: 0.5px;
   box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
+  transition: all 0.3s ease;
   
   ion-icon {
     margin-right: 8px;
@@ -164,6 +196,26 @@
     --background: #ccc;
     --color: #999;
     box-shadow: none;
+  }
+  
+  &.ready-to-login {
+    --background: #28a745;
+    --background-hover: #218838;
+    --background-activated: #1e7e34;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    animation: pulse-ready 2s infinite;
+  }
+}
+
+@keyframes pulse-ready {
+  0% {
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
   }
 }
 

@@ -47,8 +47,15 @@ export class LoginPage implements OnInit {
       try {
         const creds = JSON.parse(savedCredentials);
         this.credentials.email = creds.email || '';
+        this.credentials.password = creds.password || '';
         this.credentials.companyId = creds.companyId || 1;
         this.rememberMe = true;
+        
+        // If we have both email and password saved, they can just click login
+        if (this.credentials.email && this.credentials.password) {
+          // Optionally auto-login after a short delay
+          // setTimeout(() => this.login(), 500);
+        }
       } catch (e) {
         console.error('Error loading saved credentials:', e);
       }
@@ -174,6 +181,7 @@ export class LoginPage implements OnInit {
     if (this.rememberMe) {
       localStorage.setItem('savedCredentials', JSON.stringify({
         email: this.credentials.email,
+        password: this.credentials.password,
         companyId: this.credentials.companyId
       }));
     } else {

@@ -17,6 +17,11 @@
     <div class="form-section">
       <div class="section-title">Sign In</div>
       
+      <div class="remembered-info" *ngIf="rememberMe && credentials.email && credentials.password">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        Your credentials are saved - just click Sign In!
+      </div>
+      
       <ion-item lines="none" class="input-item">
         <ion-icon name="mail-outline" slot="start"></ion-icon>
         <ion-input 
@@ -60,10 +65,11 @@
       <ion-button 
         expand="block" 
         class="login-button"
+        [class.ready-to-login]="credentials.email && credentials.password"
         (click)="login()"
         [disabled]="!credentials.email || !credentials.password">
         <ion-icon name="log-in-outline" slot="start"></ion-icon>
-        Sign In
+        {{ (credentials.email && credentials.password && rememberMe) ? 'Welcome Back - Sign In' : 'Sign In' }}
       </ion-button>
 
       <div class="forgot-password">
