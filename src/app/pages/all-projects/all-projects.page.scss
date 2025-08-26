@@ -1,0 +1,182 @@
+// Noble Property Inspections Brand Colors
+$orange: #F15A27;
+$gray: #69635D;
+
+.custom-toolbar {
+  --background: linear-gradient(135deg, #{$orange} 0%, #d64920 100%);
+  --color: white;
+  
+  .page-title {
+    font-weight: 600;
+    font-size: 20px;
+  }
+  
+  ion-buttons {
+    ion-button {
+      --color: white;
+    }
+  }
+}
+
+.user-info-toolbar {
+  --background: rgba(241, 90, 39, 0.9);
+  --min-height: 32px;
+  
+  .user-info {
+    font-size: 12px;
+    color: white;
+    opacity: 0.9;
+  }
+}
+
+.search-bar {
+  --background: white;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 8px 16px;
+}
+
+.loading-container, .error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  
+  ion-spinner {
+    --color: #{$orange};
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+  
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+  
+  p {
+    color: #{$gray};
+    font-size: 16px;
+    margin: 8px 0;
+  }
+  
+  ion-button {
+    margin-top: 16px;
+    --background: #{$orange};
+  }
+}
+
+.projects-container {
+  padding: 16px;
+  
+  .projects-header {
+    margin-bottom: 16px;
+    
+    h2 {
+      color: #{$gray};
+      font-size: 18px;
+      font-weight: 600;
+    }
+  }
+  
+  .projects-list {
+    background: transparent;
+    
+    .project-item {
+      --background: white;
+      --border-radius: 8px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      
+      &:hover {
+        --background: #f9f9f9;
+      }
+      
+      .project-content {
+        width: 100%;
+        padding: 4px 0;
+        
+        .project-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          
+          .project-id {
+            color: #{$orange};
+            font-weight: 600;
+            font-size: 14px;
+          }
+          
+          .status-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            text-transform: uppercase;
+            font-weight: 600;
+          }
+        }
+        
+        .project-address {
+          font-size: 16px;
+          font-weight: 600;
+          color: #333;
+          margin: 0 0 4px 0;
+        }
+        
+        .project-title {
+          font-size: 14px;
+          color: #{$gray};
+          margin: 4px 0;
+        }
+        
+        .project-details {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          margin-top: 8px;
+          
+          .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #666;
+            
+            ion-icon {
+              font-size: 14px;
+              color: #{$gray};
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 80px;
+    color: #ddd;
+    margin-bottom: 20px;
+  }
+  
+  h3 {
+    color: #{$gray};
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+  }
+  
+  p {
+    color: #999;
+    font-size: 14px;
+    max-width: 300px;
+  }
+}
