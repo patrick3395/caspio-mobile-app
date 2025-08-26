@@ -15,6 +15,11 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
 
+  // Force update timestamp
+  getCurrentTimestamp(): string {
+    return new Date().toLocaleString();
+  }
+
   constructor(
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
