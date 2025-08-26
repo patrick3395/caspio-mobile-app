@@ -1311,7 +1311,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               
               if (visualId) {
                 // Upload the photo
-                await this.uploadPhotoToVisual(visualId, file, key, category, itemId);
+                await this.uploadPhotoForVisual(visualId, file, key);
               }
             }
           }
@@ -2691,7 +2691,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               
               if (visualId) {
                 // Upload the photo
-                await this.uploadPhotoToVisual(visualId, file, key, category, itemId);
+                await this.uploadPhotoForVisual(visualId, file, key);
               }
             }
           }
