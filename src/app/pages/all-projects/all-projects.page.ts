@@ -168,51 +168,18 @@ export class AllProjectsPage implements OnInit {
     event.target.src = 'assets/img/project-placeholder.svg';
   }
 
-  async selectProject(project: Project) {
-    try {
-      console.log('selectProject called');
-      console.log('Selected project:', project);
-      
-      // Simple test alert first
-      const testAlert = await this.alertController.create({
-        header: 'Project Selected',
-        message: `Address: ${project.Address || 'No address'}`,
-        buttons: ['OK']
+  selectProject(project: Project) {
+    console.log('Selected project:', project);
+    
+    // Navigate to project detail page with project ID
+    const projectId = project.PK_ID || project.ProjectID;
+    if (projectId) {
+      this.router.navigate(['/project', projectId], {
+        state: { project }
       });
-      await testAlert.present();
-      
-      // After test works, show full details
-      /*
-      // Validate project data
-      if (!project || typeof project !== 'object') {
-        console.error('Invalid project data:', project);
-        await this.showErrorAlert('Invalid project data');
-        return;
-      }
-      
-      // Show project details in a modal
-      const alert = await this.alertController.create({
-        header: this.formatAddress(project),
-        cssClass: 'project-detail-alert',
-        message: this.getProjectDetailContent(project),
-        buttons: [
-          {
-            text: 'Close',
-            role: 'cancel'
-          }
-        ]
-      });
-
-      await alert.present();
-      */
-    } catch (error) {
-      console.error('Error in selectProject:', error);
-      const errorAlert = await this.alertController.create({
-        header: 'Error',
-        message: `Failed to show project: ${error}`,
-        buttons: ['OK']
-      });
-      await errorAlert.present();
+    } else {
+      console.error('No project ID found:', project);
+      this.showErrorAlert('Cannot open project - no ID found');
     }
   }
   
