@@ -1308,10 +1308,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep retaking until user is satisfied with the photo
       while (retakePhoto) {
         try {
-          // Debug popup before camera
-          await this.showToast(`📸 Opening camera for photo ${photoCounter + 1}...`, 'info');
+          // Debug message
+          await this.showToast(`📸 Preparing photo ${photoCounter + 1}...`, 'info');
           
-          // Simple approach - create input and trigger immediately
+          // Create input element FIRST
           const input = document.createElement('input');
           input.type = 'file';
           input.accept = 'image/*';
@@ -1319,6 +1319,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           input.style.display = 'none';
           document.body.appendChild(input);
           
+          // Set up file handler
           const fileSelected = new Promise<File | null>((resolve) => {
             let resolved = false;
             
@@ -1333,7 +1334,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
             };
             
-            // Timeout for cancel
+            // Handle cancel
+            input.addEventListener('cancel', () => {
+              if (!resolved) {
+                resolved = true;
+                try {
+                  document.body.removeChild(input);
+                } catch (e) {}
+                resolve(null);
+              }
+            });
+            
+            // Timeout
             setTimeout(() => {
               if (!resolved) {
                 resolved = true;
@@ -1342,13 +1354,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 } catch (e) {}
                 resolve(null);
               }
-            }, 60000); // 1 minute timeout
+            }, 60000);
           });
           
-          // Trigger camera after a small delay
-          setTimeout(() => {
-            input.click();
-          }, 500);
+          // Immediately trigger the camera
+          input.click();
+          
+          // Debug message
+          await this.showToast(`📷 Camera should be opening now...`, 'info');
           
           currentFile = await fileSelected;
           
