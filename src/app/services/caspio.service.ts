@@ -1072,13 +1072,24 @@ export class CaspioService {
   
   // Service methods
   getService(serviceId: string): Observable<any> {
-    return this.get<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`).pipe(
+    // Services table uses PK_ID as primary key, not ServiceID
+    return this.get<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
   
   updateService(serviceId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`, updateData);
+    // Services table uses PK_ID as primary key, not ServiceID
+    console.log('🔍 [CaspioService.updateService] Updating service:', { serviceId, updateData });
+    return this.put<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`, updateData).pipe(
+      tap(response => {
+        console.log('✅ [CaspioService.updateService] Service updated successfully:', response);
+      }),
+      catchError(error => {
+        console.error('❌ [CaspioService.updateService] Failed to update service:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   // Attach (Attachments) table methods

@@ -213,7 +213,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   async loadServiceData() {
-    if (!this.serviceId) return;
+    if (!this.serviceId) {
+      alert('⚠️ DEBUG: No serviceId available for loading service data');
+      return;
+    }
+    
+    alert(`🔍 DEBUG: Loading service data for ServiceID: ${this.serviceId}`);
     
     try {
       // Load service data from Services table
@@ -221,6 +226,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (serviceResponse) {
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
+        alert(`✅ Service data loaded successfully!\n\nWeatherConditions: ${this.serviceData.WeatherConditions || '(empty)'}`);
       }
     } catch (error) {
       console.error('Error loading service data:', error);
@@ -4303,18 +4309,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Auto-save service field to Caspio Services table  
   private autoSaveServiceField(fieldName: string, value: any) {
-    if (!this.serviceId) return;
+    if (!this.serviceId) {
+      alert(`⚠️ DEBUG: Cannot save ${fieldName} - No ServiceID!\n\nServiceID is: ${this.serviceId}`);
+      return;
+    }
+    
+    // Debug popup for Services table updates
+    const debugInfo = `🔍 DEBUG: Services Table Update\n\n` +
+      `ServiceID (PK_ID): ${this.serviceId}\n` +
+      `Field: ${fieldName}\n` +
+      `New Value: ${value}\n` +
+      `Update Data: ${JSON.stringify({ [fieldName]: value })}`;
+    
+    alert(debugInfo);
     
     this.showSaveStatus(`Saving ${fieldName}...`, 'info');
     
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
-      next: () => {
+      next: (response) => {
         this.showSaveStatus(`${fieldName} saved`, 'success');
+        alert(`✅ SUCCESS: ${fieldName} updated!\n\nResponse: ${JSON.stringify(response)}`);
       },
       error: (error) => {
         console.error(`Error saving service field ${fieldName}:`, error);
         this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+        alert(`❌ ERROR: Failed to update ${fieldName}!\n\nError: ${error.message || JSON.stringify(error)}`);
       }
     });
   }
