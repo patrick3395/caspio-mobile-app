@@ -1454,6 +1454,63 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Automatically expand the elevation section to show the new room
       this.expandedSections['elevation'] = true;
       
+      // Automatically select the room (create Services_Rooms record)
+      this.savingRooms[roomName] = true;
+      
+      try {
+        // Create room in Services_Rooms
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        
+        // Validate ServiceID
+        if (!this.serviceId || isNaN(serviceIdNum)) {
+          await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+          this.savingRooms[roomName] = false;
+          return;
+        }
+        
+        // Send ServiceID and RoomName
+        const roomData: any = {
+          ServiceID: serviceIdNum,
+          RoomName: roomName
+        };
+        
+        // Include FDF and Notes if they exist
+        if (this.roomElevationData[roomName]) {
+          if (this.roomElevationData[roomName].fdf) {
+            roomData.FDF = this.roomElevationData[roomName].fdf;
+          }
+          if (this.roomElevationData[roomName].notes) {
+            roomData.Notes = this.roomElevationData[roomName].notes;
+          }
+        }
+        
+        // Create room directly
+        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+        
+        if (response) {
+          // Use RoomID from the response, NOT PK_ID
+          const roomId = response.RoomID || response.roomId;
+          if (!roomId) {
+            console.error('No RoomID in response:', response);
+            throw new Error('RoomID not found in response');
+          }
+          this.roomRecordIds[roomName] = roomId;
+          this.selectedRooms[roomName] = true;
+          this.expandedRooms[roomName] = true; // Auto-expand when selected
+          console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+        }
+      } catch (error: any) {
+        console.error('Room creation error:', error);
+        await this.showToast('Failed to create room in database', 'danger');
+        // Remove from templates if failed to create
+        const index = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+        if (index > -1) {
+          this.roomTemplates.splice(index, 1);
+        }
+      } finally {
+        this.savingRooms[roomName] = false;
+      }
+      
       // Success toast removed per user request
     } catch (error) {
       console.error('Error adding room template:', error);

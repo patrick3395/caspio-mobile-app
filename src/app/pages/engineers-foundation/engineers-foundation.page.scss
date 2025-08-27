@@ -780,29 +780,23 @@ ion-toolbar {
   
   .room-templates-list {
     .room-item-container {
-      margin-bottom: 15px;
       border: 1px solid #e0e0e0;
-      border-radius: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
       overflow: hidden;
-      transition: all 0.3s ease;
       background: white;
-      
-      &.selected {
-        border: 2px solid var(--noble-orange);
-        box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.1);
-        background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-      }
       
       .room-card-header {
         .checkbox-item {
-          --background: white;
-          --background-hover: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-          padding: 12px;
-          border-radius: 8px 8px 0 0;
-          transition: all 0.3s ease;
+          --background: #f9f9f9;
+          --color: #333;
+          --padding-top: 12px;
+          --padding-bottom: 12px;
+          --padding-start: 16px;
+          --padding-end: 16px;
           
           &:hover {
-            background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+            --background: linear-gradient(135deg, #fff5f0 0%, #ffe8df 100%);
           }
           
           ion-checkbox {
@@ -817,12 +811,12 @@ ion-toolbar {
               font-size: 15px;
               font-weight: 600;
               color: #333;
-              margin-bottom: 4px;
+              margin-bottom: 0;
             }
             
             .item-text {
-              font-size: 13px;
-              color: var(--noble-gray);
+              font-size: 12px;
+              color: #666;
             }
           }
           
@@ -878,9 +872,8 @@ ion-toolbar {
       }
       
       .room-card-content {
+        background: white;
         padding: 20px;
-        background: #f8f8f8;
-        border-top: 1px solid #e0e0e0;
         
         .fdf-dropdown-container {
           margin-bottom: 20px;

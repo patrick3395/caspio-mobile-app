@@ -1791,9 +1791,15 @@ export class ProjectDetailPage implements OnInit {
       
       // Update the Projects table with the new photo path using PK_ID
       console.log(`Updating Projects table (PK_ID: ${projectId}) with PrimaryPhoto:`, photoPath);
+      
+      // Show debug popup before update
+      await this.showToast(`Updating PK_ID: ${projectId} with path: ${photoPath}`, 'info');
+      
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: photoPath
       }).toPromise();
+      
+      console.log('Update response:', updateResponse);
       
       // Update local project data
       if (this.project) {
