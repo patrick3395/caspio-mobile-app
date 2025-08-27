@@ -2534,8 +2534,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         yPosition += 10;
       }
 
-      // Structural Systems Section
-      if (this.expandedSections['structural'] && this.visualCategories.length > 0) {
+      // Structural Systems Section - Always include in PDF
+      if (this.visualCategories.length > 0) {
         addSectionHeader('Structural Systems');
         
         pdf.setFontSize(10);
@@ -2638,8 +2638,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
-      // Elevation Plot Section (Rooms)
-      if (this.expandedSections['elevation'] && Object.keys(this.selectedRooms).length > 0) {
+      // Elevation Plot Section (Rooms) - Always include in PDF
+      if (Object.keys(this.selectedRooms).length > 0) {
         addSectionHeader('Elevation Plot - Room Measurements');
         
         pdf.setFontSize(10);
@@ -2702,7 +2702,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Generate PDF blob and open in viewer
       const pdfBlob = pdf.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
       
       await loading.dismiss();
       
@@ -2710,7 +2709,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const modal = await this.modalController.create({
         component: PDFViewerModal,
         componentProps: {
-          pdfUrl: pdfUrl,
+          pdfBlob: pdfBlob,
           projectId: this.projectId,
           fileName: `EFE_Report_${this.projectId}_${new Date().getTime()}.pdf`
         },
