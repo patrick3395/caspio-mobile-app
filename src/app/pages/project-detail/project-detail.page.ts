@@ -1657,7 +1657,7 @@ export class ProjectDetailPage implements OnInit {
           <strong>Token Length:</strong> ${tokenValue?.length || 0}<br>
           <strong>Account:</strong> ${this.caspioService.getAccountID()}<br>
           <strong>Current Token:</strong> ${this.caspioService.getCurrentToken() ? 'Present' : 'Missing'}<br>
-          <strong>PrimaryPhoto Value:</strong> ${this.project?.PrimaryPhoto || 'Not set'}<br>
+          <strong>PrimaryPhoto Value:</strong> ${this.project?.['PrimaryPhoto'] || 'Not set'}<br>
           <br>
           <strong>Full URL (first 150 chars):</strong><br>
           ${errorUrl.substring(0, 150)}...
