@@ -2451,297 +2451,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Utility functions
   formatDate(dateString: string): string {
-        yPosition += 10;
-        // Add underline
-        pdf.setDrawColor(241, 90, 39);
-        pdf.line(margin, yPosition - 3, margin + contentWidth, yPosition - 3);
-        yPosition += 5;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'normal');
-      };
-
-      // ==== COVER PAGE ====
-      pdf.setFillColor(241, 90, 39); // Noble orange
-      pdf.rect(0, 0, pageWidth, 60, 'F');
-      
-      // Title
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(24);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Engineer\'s Foundation Evaluation', pageWidth / 2, 25, { align: 'center' });
-      
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Inspection Report', pageWidth / 2, 35, { align: 'center' });
-
-      // Project photo placeholder (would need to fetch from project)
-      const photoY = 70;
-      const photoHeight = 60;
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setFillColor(245, 245, 245);
-      pdf.rect(margin, photoY, contentWidth, photoHeight, 'FD');
-      
-      // Photo placeholder text
-      pdf.setTextColor(150, 150, 150);
-      pdf.setFontSize(12);
-      pdf.text('Property Photo', pageWidth / 2, photoY + photoHeight / 2, { align: 'center' });
-
-      // Project Information Box
-      yPosition = photoY + photoHeight + 20;
-      pdf.setFillColor(248, 248, 248);
-      pdf.rect(margin, yPosition, contentWidth, 50, 'F');
-      
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Project Information', margin + 5, yPosition + 10);
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(11);
-      const projectInfo = [
-        `Address: ${this.projectData?.Address || 'Not specified'}`,
-        `City, State: ${this.projectData?.City || ''}, ${this.projectData?.State || ''}`,
-        `Inspection Date: ${this.formatDate(this.serviceData?.DateOfInspection || new Date().toISOString())}`,
-        `Project ID: #${this.projectId}`
-      ];
-      
-      let infoY = yPosition + 20;
-      projectInfo.forEach(line => {
-        pdf.text(line, margin + 5, infoY);
-        infoY += 8;
-      });
-
-      // Company Info
-      yPosition = infoY + 15;
-      pdf.setFontSize(10);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text('Noble Property Inspections', pageWidth / 2, yPosition, { align: 'center' });
-      pdf.text('Professional Foundation Evaluation Services', pageWidth / 2, yPosition + 5, { align: 'center' });
-
-      // ==== NEW PAGE - CONTENT ====
-      pdf.addPage();
-      yPosition = margin;
-
-      // Project Details Section (if expanded)
-      if (this.expandedSections['project']) {
-        addSectionHeader('Project Details');
-        
-        const projectDetails = [
-          { label: 'Foundation Type', value: this.formData.foundationType || 'Not specified' },
-          { label: 'Foundation Condition', value: this.formData.foundationCondition || 'Not specified' },
-          { label: 'Crawlspace Height', value: this.formData.crawlspaceHeight ? `${this.formData.crawlspaceHeight}"` : 'Not specified' },
-          { label: 'Weather Conditions', value: this.serviceData?.WeatherConditions || 'Not specified' },
-          { label: 'Notes', value: this.serviceData?.Notes || 'None' }
-        ];
-
-        pdf.setFontSize(10);
-        projectDetails.forEach(detail => {
-          if (detail.value && detail.value !== 'Not specified' && detail.value !== 'None') {
-            checkNewPage(15);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text(`${detail.label}:`, margin, yPosition);
-            pdf.setFont('helvetica', 'normal');
-            const lines = pdf.splitTextToSize(detail.value, contentWidth - 50);
-            pdf.text(lines, margin + 50, yPosition);
-            yPosition += lines.length * 5 + 3;
-          }
-        });
-        yPosition += 10;
-      }
-
-      // Structural Systems Section - Always include in PDF
-      if (this.visualCategories.length > 0) {
-        addSectionHeader('Structural Systems');
-        
-        pdf.setFontSize(10);
-        
-        // Process each category that has selected items
-        for (const category of this.visualCategories) {
-          const categoryData = this.organizedData[category];
-          if (!categoryData) continue;
-
-          // Check if category has any selected items
-          const hasSelectedItems = 
-            (categoryData.comments && categoryData.comments.some((c: any) => this.isCommentSelected(category, c.VisualID))) ||
-            (categoryData.limitations && categoryData.limitations.some((l: any) => this.isLimitationSelected(category, l.VisualID))) ||
-            (categoryData.deficiencies && categoryData.deficiencies.some((d: any) => this.isDeficiencySelected(category, d.VisualID)));
-
-          if (hasSelectedItems) {
-            checkNewPage(25);
-            
-            // Category header
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(11);
-            pdf.setTextColor(241, 90, 39);
-            pdf.text(category, margin + 5, yPosition);
-            yPosition += 8;
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFontSize(10);
-
-            // Comments
-            const selectedComments = categoryData.comments?.filter((c: any) => 
-              this.isCommentSelected(category, c.VisualID)) || [];
-            
-            if (selectedComments.length > 0) {
-              pdf.setFont('helvetica', 'italic');
-              pdf.text('Comments:', margin + 10, yPosition);
-              yPosition += 5;
-              pdf.setFont('helvetica', 'normal');
-              
-              selectedComments.forEach((comment: any) => {
-                checkNewPage(15);
-                const text = comment.Text || comment.Name || '';
-                const lines = pdf.splitTextToSize(`• ${text}`, contentWidth - 15);
-                pdf.text(lines, margin + 15, yPosition);
-                yPosition += lines.length * 4 + 2;
-                
-                // Note if has photos
-                const photoCount = this.getVisualPhotoCount(comment.VisualID);
-                if (photoCount > 0) {
-                  pdf.setFontSize(9);
-                  pdf.setTextColor(100, 100, 100);
-                  pdf.text(`  [${photoCount} photo(s) attached]`, margin + 20, yPosition);
-                  yPosition += 5;
-                  pdf.setTextColor(0, 0, 0);
-                  pdf.setFontSize(10);
-                }
-              });
-            }
-
-            // Limitations
-            const selectedLimitations = categoryData.limitations?.filter((l: any) => 
-              this.isLimitationSelected(category, l.VisualID)) || [];
-            
-            if (selectedLimitations.length > 0) {
-              yPosition += 3;
-              pdf.setFont('helvetica', 'italic');
-              pdf.text('Limitations:', margin + 10, yPosition);
-              yPosition += 5;
-              pdf.setFont('helvetica', 'normal');
-              
-              selectedLimitations.forEach((limitation: any) => {
-                checkNewPage(15);
-                const text = limitation.Text || limitation.Name || '';
-                const lines = pdf.splitTextToSize(`• ${text}`, contentWidth - 15);
-                pdf.text(lines, margin + 15, yPosition);
-                yPosition += lines.length * 4 + 2;
-              });
-            }
-
-            // Deficiencies
-            const selectedDeficiencies = categoryData.deficiencies?.filter((d: any) => 
-              this.isDeficiencySelected(category, d.VisualID)) || [];
-            
-            if (selectedDeficiencies.length > 0) {
-              yPosition += 3;
-              pdf.setFont('helvetica', 'italic');
-              pdf.text('Deficiencies:', margin + 10, yPosition);
-              yPosition += 5;
-              pdf.setFont('helvetica', 'normal');
-              
-              selectedDeficiencies.forEach((deficiency: any) => {
-                checkNewPage(15);
-                const text = deficiency.Text || deficiency.Name || '';
-                const lines = pdf.splitTextToSize(`• ${text}`, contentWidth - 15);
-                pdf.text(lines, margin + 15, yPosition);
-                yPosition += lines.length * 4 + 2;
-              });
-            }
-
-            yPosition += 8;
-          }
-        }
-      }
-
-      // Elevation Plot Section (Rooms) - Always include in PDF
-      if (Object.keys(this.selectedRooms).length > 0) {
-        addSectionHeader('Elevation Plot - Room Measurements');
-        
-        pdf.setFontSize(10);
-        
-        for (const roomName of Object.keys(this.selectedRooms)) {
-          if (!this.selectedRooms[roomName]) continue;
-          
-          const roomData = this.roomElevationData[roomName];
-          if (!roomData) continue;
-
-          checkNewPage(30);
-          
-          // Room header
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(roomName, margin + 5, yPosition);
-          yPosition += 6;
-          
-          // FDF and Notes
-          if (roomData.fdf && roomData.fdf !== 'None') {
-            pdf.setFont('helvetica', 'normal');
-            pdf.text(`FDF: ${roomData.fdf}`, margin + 10, yPosition);
-            yPosition += 5;
-          }
-          
-          if (roomData.notes) {
-            pdf.setFont('helvetica', 'italic');
-            const lines = pdf.splitTextToSize(`Notes: ${roomData.notes}`, contentWidth - 15);
-            pdf.text(lines, margin + 10, yPosition);
-            yPosition += lines.length * 4 + 2;
-          }
-          
-          // Elevation points
-          const pointsWithValues = roomData.elevationPoints?.filter((p: any) => p.value) || [];
-          if (pointsWithValues.length > 0) {
-            pdf.setFont('helvetica', 'normal');
-            pdf.text('Elevation Points:', margin + 10, yPosition);
-            yPosition += 5;
-            
-            pointsWithValues.forEach((point: any) => {
-              checkNewPage(10);
-              const photoText = point.photoCount > 0 ? ` [${point.photoCount} photo(s)]` : '';
-              pdf.text(`• ${point.name}: ${point.value}"${photoText}`, margin + 15, yPosition);
-              yPosition += 5;
-            });
-          }
-          
-          yPosition += 5;
-        }
-      }
-
-      // Footer on each page
-      const pageCount = pdf.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(9);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-        pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-      }
-
-      // Generate PDF blob and open in viewer
-      const pdfBlob = pdf.output('blob');
-      
-      await loading.dismiss();
-      
-      // Open PDF in a new modal viewer
-      const modal = await this.modalController.create({
-        component: PDFViewerModal,
-        componentProps: {
-          pdfBlob: pdfBlob,
-          projectId: this.projectId,
-          fileName: `EFE_Report_${this.projectId}_${new Date().getTime()}.pdf`
-        },
-        cssClass: 'pdf-viewer-modal'
-      });
-      
-      await modal.present();
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      await loading.dismiss();
-      await this.showToast('Failed to generate PDF', 'danger');
-    }
-  }
-  
-  // Utility functions
-  formatDate(dateString: string): string {
     if (!dateString) return '';
     try {
       const date = new Date(dateString);
@@ -2777,6 +2486,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   getTemplatesCountForCategory(category: string): number {
     return this.visualTemplates.filter(t => t.Category === category).length;
+  }
+  
+  getProjectCompletion(): number {
+    // Calculate project details completion percentage
+    const requiredFields = ['foundationType', 'foundationCondition'];
+    let completed = 0;
+    
+    requiredFields.forEach(field => {
+      if (this.formData[field] && this.formData[field] !== '') {
+        completed++;
+      }
+    });
+    
+    return Math.round((completed / requiredFields.length) * 100);
   }
   
   // Toggle item selection
@@ -2820,6 +2543,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Clear saving state
       this.savingItems[key] = false;
     }
+  }
+  
+  async showToast(message: string, color: string = 'primary') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
   
   // Save visual selection to Services_Visuals table
