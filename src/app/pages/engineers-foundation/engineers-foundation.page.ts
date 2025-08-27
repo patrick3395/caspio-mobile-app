@@ -147,6 +147,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // ViewChild ready
   }
   
+  // Refresh photo URLs when page is re-entered
+  async ionViewWillEnter() {
+    console.log('ionViewWillEnter - refreshing photo URLs');
+    await this.refreshRoomPhotoUrls();
+  }
+
   ngOnDestroy() {
     // Clean up timers
     if (this.saveDebounceTimer) {
@@ -172,6 +178,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Force garbage collection hints
     this.formData = {};
+  }
+  
+  // Refresh all room photo URLs with fresh auth tokens
+  async refreshRoomPhotoUrls() {
+    try {
+      // Only refresh if we have room data with photos
+      for (const roomName of Object.keys(this.roomElevationData)) {
+        const roomData = this.roomElevationData[roomName];
+        if (roomData?.elevationPoints) {
+          for (const point of roomData.elevationPoints) {
+            if (point.photos && point.photos.length > 0) {
+              // Refresh each photo URL with a new token
+              for (const photo of point.photos) {
+                if (photo.originalPath) {
+                  // Reconstruct URL with fresh token
+                  photo.url = await this.getCaspioFileUrl(photo.originalPath);
+                  photo.thumbnailUrl = photo.url; // Use same URL for thumbnail
+                }
+              }
+            }
+          }
+        }
+      }
+      console.log('Photo URLs refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing photo URLs:', error);
+    }
   }
   
   async loadProjectData() {
@@ -398,22 +431,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Use camera service directly (like Structural section does)
-      const photo = await this.cameraService.takePicture();
-      
-      if (!photo || !photo.dataUrl) {
-        console.log('No photo captured');
-        return;
-      }
-      
-      // Convert base64 to File
-      const fileName = `room_point_${pointId}_${Date.now()}.jpg`;
-      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      // First photo - use file input to show iOS options (camera/gallery)
+      // Use the capturePhotoNative method that shows iOS selector
+      const file = await this.capturePhotoNative();
       
       if (!file) {
-        await this.showToast('Failed to process photo', 'danger');
+        console.log('No photo selected');
         return;
       }
+      
+      const fileName = file.name || `room_point_${pointId}_${Date.now()}.jpg`;
       
       // Create preview
       const photoUrl = URL.createObjectURL(file);
@@ -1015,142 +1042,87 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // Show debug popup before sending
-        const debugAlert = await this.alertController.create({
-          header: '🔍 Services_Rooms Debug',
-          message: `
-            <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: blue;">Creating Room in Services_Rooms Table</strong><br><br>
-              
-              <strong style="color: red;">Fields Being Sent:</strong><br>
-              <div style="background: #ffffcc; padding: 10px; border: 2px solid orange; margin: 10px 0;">
-                • ServiceID: <strong>${roomData.ServiceID}</strong> (type: ${typeof roomData.ServiceID})<br>
-                • RoomName: <strong>${roomData.RoomName}</strong> (type: ${typeof roomData.RoomName})<br>
-              </div>
-              
-              <strong>Validation Check:</strong><br>
-              • ServiceID from URL: "${this.serviceId}"<br>
-              • ServiceID parsed: ${serviceIdNum}<br>
-              • Is valid number: ${!isNaN(serviceIdNum) ? '✅ YES' : '❌ NO'}<br><br>
-              
-              <strong>Context:</strong><br>
-              • Current ProjectID: ${this.projectId} (NOT SENT)<br>
-              • Route params: serviceId=${this.serviceId}<br><br>
-              
-              <strong>Exact JSON being sent:</strong><br>
-              <div style="background: #f0f0f0; padding: 5px; border-radius: 3px;">
-                ${JSON.stringify(roomData, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-              </div><br>
-              
-              <strong>API Endpoint:</strong><br>
-              POST /tables/Services_Rooms/records
-            </div>
-          `,
+        // Create room directly without debug popup
+        try {
+          const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+          
+          if (response) {
+            // Use RoomID from the response, NOT PK_ID
+            const roomId = response.RoomID || response.roomId;
+            if (!roomId) {
+              console.error('No RoomID in response:', response);
+              throw new Error('RoomID not found in response');
+            }
+            this.roomRecordIds[roomName] = roomId;
+            this.selectedRooms[roomName] = true;
+            this.expandedRooms[roomName] = true; // Auto-expand when selected
+            await this.showToast(`Room "${roomName}" added`, 'success');
+            console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+          }
+        } catch (err: any) {
+          console.error('Room creation error:', err);
+          await this.showToast('Failed to create room', 'danger');
+          this.selectedRooms[roomName] = false;
+        }
+        
+      } else {
+        // Confirm room deletion
+        const confirmAlert = await this.alertController.create({
+          header: 'Confirm Remove Room',
+          message: `Are you sure you want to remove "${roomName}"? This will delete all photos and data for this room.`,
           buttons: [
             {
               text: 'Cancel',
               role: 'cancel',
               handler: () => {
-                this.savingRooms[roomName] = false;
-                this.selectedRooms[roomName] = false;
+                // Revert checkbox state
+                this.selectedRooms[roomName] = true;
                 return true;
               }
             },
             {
-              text: 'Send',
+              text: 'Remove',
+              cssClass: 'danger-button',
               handler: async () => {
-                try {
-                  const response = await this.caspioService.createServicesRoom(roomData).toPromise();
-                  
-                  if (response) {
-                    // Use RoomID from the response, NOT PK_ID
-                    const roomId = response.RoomID || response.roomId;
-                    if (!roomId) {
-                      console.error('No RoomID in response:', response);
-                      // If RoomID is not in response, it might be the PK_ID
-                      throw new Error('RoomID not found in response');
-                    }
-                    this.roomRecordIds[roomName] = roomId;
-                    this.selectedRooms[roomName] = true;
-                    this.expandedRooms[roomName] = true; // Auto-expand when selected
-                    await this.showToast(`Room "${roomName}" added`, 'success');
-                    console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+                // Remove room from Services_Rooms
+                const roomId = this.roomRecordIds[roomName];
+                if (roomId) {
+                  try {
+                    // Delete the room from Services_Rooms table
+                    await this.caspioService.deleteServicesRoom(roomId).toPromise();
+                    delete this.roomRecordIds[roomName];
+                    this.selectedRooms[roomName] = false;
                     
-                    // Show success response
-                    const successAlert = await this.alertController.create({
-                      header: '✅ Room Created',
-                      message: `
-                        <div style="text-align: left; font-family: monospace; font-size: 12px;">
-                          <strong>Response:</strong><br>
-                          ${JSON.stringify(response, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-                          <br><br>
-                          <strong>Room ID:</strong> ${roomId}
-                        </div>
-                      `,
-                      buttons: ['OK']
-                    });
-                    await successAlert.present();
+                    // Don't delete the room elevation data structure, just reset it
+                    // This preserves the elevation points and configuration
+                    if (this.roomElevationData[roomName]) {
+                      // Clear photos but keep the structure
+                      if (this.roomElevationData[roomName].elevationPoints) {
+                        this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
+                          point.photos = [];
+                          point.photoCount = 0;
+                        });
+                      }
+                      // Reset FDF to default
+                      this.roomElevationData[roomName].fdf = 'None';
+                    }
+                    
+                    await this.showToast(`Room "${roomName}" removed`, 'success');
+                    console.log(`Room ${roomName} deleted from Services_Rooms table`);
+                  } catch (error) {
+                    console.error('Error deleting room:', error);
+                    await this.showToast('Failed to remove room', 'danger');
+                    // Revert UI state on error
+                    this.selectedRooms[roomName] = true;
+                    this.expandedRooms[roomName] = true;
                   }
-                } catch (err: any) {
-                  // Show error details
-                  const errorAlert = await this.alertController.create({
-                    header: '❌ Room Creation Failed',
-                    message: `
-                      <div style="text-align: left; font-family: monospace; font-size: 12px;">
-                        <strong>Error Details:</strong><br>
-                        • Status: ${err?.status || 'Unknown'}<br>
-                        • Message: ${err?.message || 'No message'}<br><br>
-                        
-                        <strong>Error Response:</strong><br>
-                        <div style="background: #ffe0e0; padding: 5px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
-                          ${JSON.stringify(err?.error || err, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-                        </div>
-                      </div>
-                    `,
-                    buttons: ['OK']
-                  });
-                  await errorAlert.present();
                 }
                 return true;
               }
             }
           ]
         });
-        await debugAlert.present();
-      } else {
-        // Remove room from Services_Rooms
-        const roomId = this.roomRecordIds[roomName];
-        if (roomId) {
-          try {
-            // Delete the room from Services_Rooms table
-            await this.caspioService.deleteServicesRoom(roomId).toPromise();
-            delete this.roomRecordIds[roomName];
-            this.selectedRooms[roomName] = false;
-            
-            // Don't delete the room elevation data structure, just reset it
-            // This preserves the elevation points and configuration
-            if (this.roomElevationData[roomName]) {
-              // Clear photos but keep the structure
-              if (this.roomElevationData[roomName].elevationPoints) {
-                this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
-                  point.photos = [];
-                  point.photoCount = 0;
-                });
-              }
-              // Reset FDF to default
-              this.roomElevationData[roomName].fdf = 'None';
-            }
-            
-            await this.showToast(`Room "${roomName}" removed`, 'success');
-            console.log(`Room ${roomName} deleted from Services_Rooms table`);
-          } catch (error) {
-            console.error('Error deleting room:', error);
-            await this.showToast('Failed to remove room', 'danger');
-            // Revert UI state on error
-            this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = true;
-          }
-        }
+        await confirmAlert.present();
       }
     } catch (error: any) {
       console.error('Error toggling room selection:', error);
@@ -2293,16 +2265,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event?.preventDefault();
       event?.stopPropagation();
       
-      const photo = await this.cameraService.takePicture();
+      // First photo - use file input to show iOS options (camera/gallery)
+      const file = await this.capturePhotoNative();
       
-      if (!photo || !photo.dataUrl) {
-        console.log('No photo captured');
+      if (!file) {
+        console.log('No photo selected');
         return;
       }
       
-      // Convert base64 to File
-      const fileName = `photo_${Date.now()}.jpg`;
-      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      const fileName = file.name || `photo_${Date.now()}.jpg`;
       
       // Get visual ID
       const key = `${category}_${itemId}`;
