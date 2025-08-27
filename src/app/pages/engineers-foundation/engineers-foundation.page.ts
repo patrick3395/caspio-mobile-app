@@ -517,10 +517,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const photos = await this.caspioService.getServicesRoomsAttachments(actualPointId).toPromise();
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
-                elevationPoint.photos = photos.map((photo: any) => ({
-                  url: photo.Photo,
-                  thumbnailUrl: photo.Photo
-                }));
+                
+                // Construct proper URLs for the photos
+                const account = this.caspioService.getAccountID();
+                const token = await this.caspioService.getValidToken().toPromise();
+                
+                elevationPoint.photos = photos.map((photo: any) => {
+                  // Photo field contains path like "/filename.jpg"
+                  const photoPath = photo.Photo || '';
+                  // Construct full URL to access the file
+                  const photoUrl = photoPath ? `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}` : '';
+                  
+                  return {
+                    url: photoUrl,
+                    thumbnailUrl: photoUrl,
+                    annotation: photo.Annotation || '',
+                    attachId: photo.AttachID || photo.PK_ID,
+                    originalPath: photoPath
+                  };
+                });
                 console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
             }
@@ -1688,16 +1703,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  // Helper method to construct Caspio file URL
+  async getCaspioFileUrl(filePath: string): Promise<string> {
+    if (!filePath) return '';
+    
+    // If it's already a full URL or blob URL, return as is
+    if (filePath.startsWith('http') || filePath.startsWith('blob:')) {
+      return filePath;
+    }
+    
+    const account = this.caspioService.getAccountID();
+    const token = await this.caspioService.getValidToken().toPromise();
+    
+    // Ensure path starts with /
+    const path = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `https://${account}.caspio.com/rest/v2/files${path}?access_token=${token}`;
+  }
+  
   // View room photo with viewer modal
   async viewRoomPhoto(photo: any, roomName: string, point: any) {
     try {
+      // Get the proper URL for viewing
+      let photoUrl = photo.url || photo.thumbnailUrl;
+      
+      // If it's a Caspio file path, construct the full URL
+      if (photo.originalPath || (photoUrl && !photoUrl.startsWith('http') && !photoUrl.startsWith('blob:'))) {
+        photoUrl = await this.getCaspioFileUrl(photo.originalPath || photoUrl);
+      }
+      
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
         componentProps: {
-          photo: photo,
+          photoUrl: photoUrl,
           photoName: `${roomName} - ${point.name}`,
+          photoCaption: photo.annotation || '',
           showAnnotation: true,
-          captionEditable: true
+          captionEditable: true,
+          photoData: photo
         }
       });
       
