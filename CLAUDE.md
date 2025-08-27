@@ -3,11 +3,25 @@
 ## 🚨 CRITICAL - NEVER CHANGE THE FILE UPLOAD METHOD 🚨
 **THE FILE UPLOAD METHOD BELOW IS TESTED AND WORKING. DO NOT MODIFY IT UNDER ANY CIRCUMSTANCES.**
 
-## 🚨 CRITICAL - DEBUGGING ON MOBILE 🚨
-**USER IS ON MOBILE WITHOUT CONSOLE ACCESS. USE TOASTS/ALERTS FOR DEBUG OUTPUT, NOT console.log**
-- Use `await this.showToast('Debug: ' + message, 'info')` for debug output
-- Use `alert()` for critical debug breakpoints
-- NEVER rely on console.log for debugging - user cannot see it
+## 🚨 CRITICAL - THIS IS A MOBILE APP, NOT A WEB APP 🚨
+**THIS IS A NATIVE iOS/ANDROID MOBILE APPLICATION, NOT A WEB APPLICATION**
+- User has NO browser console access - debugging must be visible in the UI
+- All debug statements MUST include a "Copy Debug Info" button for sharing
+- Use `await this.showToast('Debug: ' + message, 'info')` for quick debug output
+- Use AlertController with copy button for detailed debug information:
+  ```typescript
+  const debugText = `Debug Info:\n${details}`;
+  const alert = await this.alertController.create({
+    header: 'Debug Info',
+    message: htmlFormattedMessage,
+    buttons: [
+      { text: 'Copy Debug Info', handler: () => { /* copy logic */ } },
+      { text: 'OK', role: 'cancel' }
+    ]
+  });
+  ```
+- NEVER rely on console.log alone - user cannot see it
+- Always provide fallback clipboard methods for WebView compatibility
 
 ## CURRENT APP STATE (as of December 2024)
 

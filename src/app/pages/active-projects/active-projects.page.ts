@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.109'; // Update this to match package.json version
+  appVersion = '1.4.110'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -250,6 +250,16 @@ export class ActiveProjectsPage implements OnInit {
     const token = this.caspioService.getCurrentToken();
     const account = this.caspioService.getAccountID();
     
+    // Create debug text for copying
+    const debugText = `Project Image Load Failed Debug Info:
+Project ID: ${project?.PK_ID}
+Address: ${this.formatAddress(project)}
+PrimaryPhoto: ${primaryPhoto}
+Has Token: ${token ? 'Yes' : 'No'}
+Token Length: ${token?.length || 0}
+Account: ${account}
+URL Attempted: ${imgUrl}`;
+
     const alert = await this.alertController.create({
       header: 'Project Image Load Failed',
       message: `
@@ -262,6 +272,55 @@ export class ActiveProjectsPage implements OnInit {
         <strong>URL Attempted:</strong> ${imgUrl.substring(0, 100)}...
       `,
       buttons: [
+        {
+          text: 'Copy Debug Info',
+          handler: async () => {
+            // Copy to clipboard
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(debugText).then(async () => {
+                // Show toast through a separate method call to avoid context issues
+                const toast = await this.alertController.create({
+                  header: 'Copied!',
+                  message: 'Debug info copied to clipboard',
+                  buttons: ['OK']
+                });
+                await toast.present();
+                setTimeout(() => toast.dismiss(), 2000);
+              }).catch(async () => {
+                // Fallback for older browsers/WebView
+                const textArea = document.createElement('textarea');
+                textArea.value = debugText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                const toast = await this.alertController.create({
+                  header: 'Copied!',
+                  message: 'Debug info copied to clipboard',
+                  buttons: ['OK']
+                });
+                await toast.present();
+                setTimeout(() => toast.dismiss(), 2000);
+              });
+            } else {
+              // Fallback for older browsers/WebView
+              const textArea = document.createElement('textarea');
+              textArea.value = debugText;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              const toast = await this.alertController.create({
+                header: 'Copied!',
+                message: 'Debug info copied to clipboard',
+                buttons: ['OK']
+              });
+              await toast.present();
+              setTimeout(() => toast.dismiss(), 2000);
+            }
+            return false; // Keep alert open
+          }
+        },
         {
           text: 'Try Refresh',
           handler: () => {

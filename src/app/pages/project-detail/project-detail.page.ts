@@ -1648,6 +1648,16 @@ export class ProjectDetailPage implements OnInit {
       const pathMatch = baseUrl.match(/\/files(.+)$/);
       const filePath = pathMatch ? pathMatch[1] : 'Unknown';
       
+      // Create debug text for copying
+      const debugText = `Image Load Failed Debug Info:
+File Path: ${filePath}
+Has Token: ${hasToken ? 'Yes' : 'No'}
+Token Length: ${tokenValue?.length || 0}
+Account: ${this.caspioService.getAccountID()}
+Current Token: ${this.caspioService.getCurrentToken() ? 'Present' : 'Missing'}
+PrimaryPhoto Value: ${this.project?.['PrimaryPhoto'] || 'Not set'}
+Full URL: ${errorUrl}`;
+
       // Show detailed debug alert
       const alert = await this.alertController.create({
         header: 'Image Load Failed',
@@ -1663,6 +1673,36 @@ export class ProjectDetailPage implements OnInit {
           ${errorUrl.substring(0, 150)}...
         `,
         buttons: [
+          {
+            text: 'Copy Debug Info',
+            handler: () => {
+              // Copy to clipboard
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(debugText).then(() => {
+                  this.showToast('Debug info copied to clipboard', 'success');
+                }).catch(() => {
+                  // Fallback for older browsers/WebView
+                  const textArea = document.createElement('textarea');
+                  textArea.value = debugText;
+                  document.body.appendChild(textArea);
+                  textArea.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(textArea);
+                  this.showToast('Debug info copied to clipboard', 'success');
+                });
+              } else {
+                // Fallback for older browsers/WebView
+                const textArea = document.createElement('textarea');
+                textArea.value = debugText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                this.showToast('Debug info copied to clipboard', 'success');
+              }
+              return false; // Keep alert open
+            }
+          },
           {
             text: 'Try Fresh Token',
             handler: () => {
