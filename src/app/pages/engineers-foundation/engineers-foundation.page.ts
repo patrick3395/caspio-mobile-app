@@ -77,8 +77,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
   
-  // FDF dropdown options from Services_Rooms_Drop table
+  // FDF dropdown options from Services_Rooms_Drop table - mapped by room name
   fdfOptions: string[] = [];
+  roomFdfOptions: { [roomName: string]: string[] } = {};
   
   // UI state
   expandedSections: { [key: string]: boolean } = {
@@ -295,34 +296,59 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
     try {
-      // Always use default options for now - can be customized later
-      this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
-      console.log('FDF Options set:', this.fdfOptions);
+      // Set default options first
+      const defaultOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      this.fdfOptions = defaultOptions;
       
-      // Try to load from table but don't block if it fails
+      // Try to load room-specific options from Services_Rooms_Drop table
       try {
         const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
         
         if (dropdownData && dropdownData.length > 0) {
-          // Filter for FDF options (where RoomName = 'FDF')
-          const fdfRows = dropdownData.filter((row: any) => row.RoomName === 'FDF');
-          if (fdfRows.length > 0) {
-            // Extract dropdown values
-            const customOptions = fdfRows.map((row: any) => row.Dropdown).filter((val: any) => val);
-            if (customOptions.length > 0) {
-              this.fdfOptions = customOptions;
-              console.log('FDF Options loaded from table:', this.fdfOptions);
+          // Group dropdown options by RoomName
+          const optionsByRoom: { [roomName: string]: string[] } = {};
+          
+          dropdownData.forEach((row: any) => {
+            if (row.RoomName && row.Dropdown) {
+              if (!optionsByRoom[row.RoomName]) {
+                optionsByRoom[row.RoomName] = [];
+              }
+              // Add unique dropdown values for this room
+              if (!optionsByRoom[row.RoomName].includes(row.Dropdown)) {
+                optionsByRoom[row.RoomName].push(row.Dropdown);
+              }
             }
+          });
+          
+          // Store room-specific options
+          this.roomFdfOptions = optionsByRoom;
+          
+          // If there are FDF-specific options, use those as default
+          if (optionsByRoom['FDF'] && optionsByRoom['FDF'].length > 0) {
+            this.fdfOptions = optionsByRoom['FDF'];
           }
+          
+          console.log('Room-specific FDF options loaded:', this.roomFdfOptions);
+          console.log('Default FDF options:', this.fdfOptions);
         }
       } catch (tableError) {
-        console.log('Could not load custom FDF options, using defaults');
+        console.log('Could not load custom FDF options, using defaults:', tableError);
       }
     } catch (error) {
       console.error('Error loading FDF options:', error);
       // Default options on error
       this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
     }
+  }
+  
+  // Get FDF options for a specific room
+  getFDFOptionsForRoom(roomName: string): string[] {
+    // Check if room-specific options exist
+    if (this.roomFdfOptions[roomName] && this.roomFdfOptions[roomName].length > 0) {
+      return this.roomFdfOptions[roomName];
+    }
+    // Fall back to default options
+    return this.fdfOptions;
   }
   
   // Handle FDF selection change
@@ -1820,6 +1846,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('Error saving room photo caption:', error);
       // Don't show error toast for every blur
+    }
+  }
+  
+  // Delete room photo
+  async deleteRoomPhoto(photo: any, roomName: string, point: any) {
+    try {
+      // Confirm deletion
+      const alert = await this.alertController.create({
+        header: 'Delete Photo',
+        message: 'Are you sure you want to delete this photo?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Delete',
+            cssClass: 'danger-button',
+            handler: async () => {
+              try {
+                // Delete from Services_Rooms_Points_Attach table if attachId exists
+                if (photo.attachId) {
+                  await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                  console.log('Deleted room photo attachment:', photo.attachId);
+                }
+                
+                // Remove from point's photos array
+                if (point.photos) {
+                  const index = point.photos.indexOf(photo);
+                  if (index > -1) {
+                    point.photos.splice(index, 1);
+                    point.photoCount = point.photos.length;
+                  }
+                }
+                
+                console.log('Room photo deleted successfully');
+              } catch (error) {
+                console.error('Error deleting room photo:', error);
+                await this.showToast('Failed to delete photo', 'danger');
+              }
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+    } catch (error) {
+      console.error('Error in deleteRoomPhoto:', error);
     }
   }
   

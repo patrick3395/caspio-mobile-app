@@ -551,7 +551,7 @@
                                 interface="popover"
                                 (ionChange)="onFDFChange(room.RoomName)"
                                 style="max-width: 150px;">
-                      <ion-select-option *ngFor="let option of fdfOptions" [value]="option">
+                      <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
                         {{ option }}
                       </ion-select-option>
                     </ion-select>
@@ -594,6 +594,9 @@
                                  (click)="viewRoomPhoto(photo, room.RoomName, point)"
                                  (error)="handleImageError($event, photo)"
                                  [alt]="'Photo ' + (i+1) + ' for ' + point.name">
+                            <button class="delete-btn" (click)="deleteRoomPhoto(photo, room.RoomName, point); $event.stopPropagation()" title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                             <input type="text" 
                                    class="room-photo-caption"
                                    [(ngModel)]="photo.annotation"
