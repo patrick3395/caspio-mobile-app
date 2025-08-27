@@ -3347,11 +3347,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const { category, itemId, item } = this.currentUploadContext;
     
-    // Show non-blocking toast instead of loading modal
-    const uploadMessage = files.length > 1 
-      ? `Uploading ${files.length} photos in background...` 
-      : 'Uploading photo in background...';
-    await this.showToast(uploadMessage, 'primary');
+    // Removed uploading in background toast per user request
     
     try {
       console.log(`📸 ${files.length} file(s) selected`);
