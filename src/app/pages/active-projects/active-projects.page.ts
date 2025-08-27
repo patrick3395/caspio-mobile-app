@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.126'; // Update this to match package.json version
+  appVersion = '1.4.127'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -70,6 +70,8 @@ export class ActiveProjectsPage implements OnInit {
   ionViewWillEnter() {
     // Always reload when entering the page
     console.log('ionViewWillEnter - reloading active projects');
+    // Clear image cache to ensure fresh images are loaded
+    this.projectImageCache = {};
     this.checkAuthAndLoadProjects();
   }
 
@@ -258,8 +260,13 @@ export class ActiveProjectsPage implements OnInit {
       return;
     }
     
-    // If already loading or loaded, skip
-    if (this.projectImageCache[projectId]) {
+    // Create a cache key that includes the photo path to detect changes
+    const cacheKey = `${projectId}_${primaryPhoto}`;
+    
+    // Check if we already have this exact image cached
+    if (this.projectImageCache[cacheKey]) {
+      // Update the projectId cache to point to this image
+      this.projectImageCache[projectId] = this.projectImageCache[cacheKey];
       return;
     }
     
@@ -269,8 +276,9 @@ export class ActiveProjectsPage implements OnInit {
       const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
       
       if (imageData && imageData.startsWith('data:')) {
-        // Store in cache
+        // Store in cache with both keys
         this.projectImageCache[projectId] = imageData;
+        this.projectImageCache[cacheKey] = imageData;
         
         // Trigger change detection to update the view
         // The template will re-evaluate getProjectImage and use the cached value
