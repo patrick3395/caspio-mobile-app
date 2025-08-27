@@ -147,10 +147,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // ViewChild ready
   }
   
-  // Refresh photo URLs when page is re-entered
+  // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('ionViewWillEnter - refreshing photo URLs');
-    await this.refreshRoomPhotoUrls();
+    console.log('ionViewWillEnter - page re-entered');
+    // Photos now use base64 data URLs like Structural section
+    // No need to refresh URLs as they don't expire
   }
 
   ngOnDestroy() {
@@ -178,33 +179,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Force garbage collection hints
     this.formData = {};
-  }
-  
-  // Refresh all room photo URLs with fresh auth tokens
-  async refreshRoomPhotoUrls() {
-    try {
-      // Only refresh if we have room data with photos
-      for (const roomName of Object.keys(this.roomElevationData)) {
-        const roomData = this.roomElevationData[roomName];
-        if (roomData?.elevationPoints) {
-          for (const point of roomData.elevationPoints) {
-            if (point.photos && point.photos.length > 0) {
-              // Refresh each photo URL with a new token
-              for (const photo of point.photos) {
-                if (photo.originalPath) {
-                  // Reconstruct URL with fresh token
-                  photo.url = await this.getCaspioFileUrl(photo.originalPath);
-                  photo.thumbnailUrl = photo.url; // Use same URL for thumbnail
-                }
-              }
-            }
-          }
-        }
-      }
-      console.log('Photo URLs refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing photo URLs:', error);
-    }
   }
   
   async loadProjectData() {
@@ -483,24 +457,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 
-                // Construct proper URLs for the photos
-                const account = this.caspioService.getAccountID();
-                const token = await this.caspioService.getValidToken().toPromise();
-                
-                elevationPoint.photos = photos.map((photo: any) => {
-                  // Photo field contains path like "/filename.jpg"
+                // Process photos to get base64 URLs like Structural section does
+                elevationPoint.photos = await Promise.all(photos.map(async (photo: any) => {
                   const photoPath = photo.Photo || '';
-                  // Construct full URL to access the file
-                  const photoUrl = photoPath ? `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}` : '';
+                  let photoUrl = '';
+                  let thumbnailUrl = '';
+                  
+                  if (photoPath) {
+                    try {
+                      // Use the same method as Structural section - fetch as base64 data URL
+                      console.log(`Fetching room photo from Files API: ${photoPath}`);
+                      const imageData = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
+                      
+                      if (imageData && imageData.startsWith('data:')) {
+                        photoUrl = imageData;
+                        thumbnailUrl = imageData;
+                      } else {
+                        // Fallback to SVG if fetch fails
+                        photoUrl = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                        thumbnailUrl = photoUrl;
+                      }
+                    } catch (err) {
+                      console.error('Error fetching room photo:', err);
+                      // Fallback to SVG on error
+                      photoUrl = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                      thumbnailUrl = photoUrl;
+                    }
+                  }
                   
                   return {
                     url: photoUrl,
-                    thumbnailUrl: photoUrl,
+                    thumbnailUrl: thumbnailUrl,
                     annotation: photo.Annotation || '',
                     attachId: photo.AttachID || photo.PK_ID,
-                    originalPath: photoPath
+                    originalPath: photoPath,
+                    filePath: photoPath  // Keep for compatibility
                   };
-                });
+                }));
                 console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
             }
@@ -953,7 +946,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Toggle room selection - create or remove from Services_Rooms
   async toggleRoomSelection(roomName: string) {
-    const isSelected = !this.selectedRooms[roomName];
+    const wasSelected = this.selectedRooms[roomName];
+    const isSelected = !wasSelected;
     this.savingRooms[roomName] = true;
     
     try {
@@ -1017,8 +1011,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               text: 'Cancel',
               role: 'cancel',
               handler: () => {
-                // Revert checkbox state
-                this.selectedRooms[roomName] = true;
+                // Keep room selected since user cancelled
+                // The checkbox already changed, so we need to restore it
+                setTimeout(() => {
+                  this.selectedRooms[roomName] = true;
+                }, 50);
                 return true;
               }
             },
