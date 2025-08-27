@@ -1052,7 +1052,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.showToast('Failed to create room', 'danger');
           this.selectedRooms[roomName] = false;
         }
-        
+      }
     } catch (error: any) {
       console.error('Error toggling room selection:', error);
       await this.showToast('Failed to update room selection', 'danger');
