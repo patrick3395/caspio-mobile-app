@@ -1346,7 +1346,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Automatically expand the elevation section to show the new room
       this.expandedSections['elevation'] = true;
       
-      await this.showToast(`Added ${template.RoomName} to the list`, 'success');
+      // Success toast removed per user request
     } catch (error) {
       console.error('Error adding room template:', error);
       await this.showToast('Failed to add room', 'danger');
@@ -1967,7 +1967,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         point.photoCount = point.photos.length;
         
         console.log(`Added ${files.length} photo(s) to ${point.name}. Total: ${point.photoCount}`);
-        await this.showToast(`${files.length} photo(s) added to ${point.name}`, 'success');
+        // Success toast removed per user request
         
         // TODO: Upload to Caspio when saving
         this.saveDraft();
@@ -2254,7 +2254,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (this.selectedItems[key]) {
         // Item was selected - save to Services_Visuals
         await this.saveVisualSelection(category, itemId);
-        await this.showToast('Selection saved', 'success');
+        // Success toast removed per user request
       } else {
         // Item was deselected - remove from Services_Visuals if exists
         await this.removeVisualSelection(category, itemId);
@@ -2477,7 +2477,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.refreshVisualId(category, templateId);
         }, 1000);
         
-        await this.showToast('Selection saved', 'success');
+        // Success toast removed per user request
         return; // Keep the checkbox selected
       }
       
@@ -2492,7 +2492,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const saved = await this.verifyVisualSaved(category, templateId);
           if (saved) {
             console.log('✅ Verified: Visual was actually saved');
-            await this.showToast('Selection saved', 'success');
+            // Success toast removed per user request
           } else {
             console.error('❌ Verified: Visual was NOT saved');
             // Only now revert the selection
@@ -2586,7 +2586,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               item.name = data.title;
               item.text = data.description;
               this.saveTemplate(); // Auto-save the changes
-              this.showToast('Changes saved', 'success');
+              // Success toast removed per user request
             }
             return true;
           }
@@ -2871,12 +2871,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Show result message
         if (failCount === 0) {
-          await this.showToast(
-          files.length > 1 
-            ? `Successfully uploaded ${uploadSuccessCount} photos` 
-            : 'Photo uploaded successfully',
-            'success'
-          );
+          // Success toast removed per user request - photos uploaded successfully
         } else if (uploadSuccessCount > 0) {
           await this.showToast(
             `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
@@ -3454,7 +3449,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Show result
           if (failCount === 0) {
-            await this.showToast(`Visual created with ${successCount} file(s)`, 'success');
+            // Success toast removed per user request - visual created with files
           } else if (successCount > 0) {
             await this.showToast(`Visual created. ${successCount} file(s) uploaded, ${failCount} failed`, 'warning');
           } else {
@@ -3849,7 +3844,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
             }
             
-            await this.showToast('Photo updated successfully', 'success');
+            // Success toast removed per user request
             
             // Trigger change detection
             this.changeDetectorRef.detectChanges();
@@ -3900,7 +3895,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                   
                   await loading.dismiss();
-                  await this.showToast('Photo deleted successfully', 'success');
+                  // Success toast removed per user request
                 } catch (error) {
                   await loading.dismiss();
                   console.error('Failed to delete photo:', error);
@@ -3949,8 +3944,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
       
-      // Show brief toast
-      await this.showToast('Caption saved', 'success');
+      // Success toast removed per user request
       
     } catch (error) {
       console.error('Error saving caption:', error);
