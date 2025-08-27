@@ -2577,12 +2577,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const loading = await this.loadingController.create({
-      message: 'Preparing preview...',
+      message: 'Loading inspection data from database...',
       spinner: 'crescent'
     });
     await loading.present();
 
     try {
+      // Fetch all visual records and attachments from the database
+      await this.fetchAllVisualsFromDatabase();
+      
       // Prepare data for the preview
       const structuralSystemsData = await this.prepareStructuralSystemsData();
       const elevationPlotData = await this.prepareElevationPlotData();
@@ -4965,5 +4968,101 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Get photos for a specific room
     // This would need to be implemented based on your photo storage
     return [];
+  }
+
+  async fetchAllVisualsFromDatabase() {
+    try {
+      console.log('📊 Fetching all visuals from database for ServiceID:', this.serviceId);
+      
+      // Fetch all Services_Visuals records for this service
+      const visualsResponse = await this.caspioService.getTableRecords(
+        'Services_Visuals',
+        `ServiceID=${this.serviceId}`
+      ).toPromise();
+      
+      const visuals = visualsResponse?.Result || [];
+      console.log(`Found ${visuals.length} visual records`);
+      
+      // Clear and rebuild the visualPhotos mapping
+      this.visualPhotos = {};
+      
+      // For each visual, fetch its attachments
+      for (const visual of visuals) {
+        const visualId = visual.VisualID;
+        
+        if (visualId) {
+          // Fetch attachments for this visual
+          const attachResponse = await this.caspioService.getTableRecords(
+            'Services_Visuals_Attach',
+            `VisualID=${visualId}`
+          ).toPromise();
+          
+          const attachments = attachResponse?.Result || [];
+          console.log(`Visual ${visualId} has ${attachments.length} attachments`);
+          
+          // Store the attachments in our mapping
+          this.visualPhotos[visualId] = attachments.map((att: any) => ({
+            Photo: att.Photo,
+            Annotation: att.Annotation,
+            AttachID: att.AttachID || att.PK_ID
+          }));
+          
+          // Also update the visual in our organized data if it exists
+          this.updateVisualInOrganizedData(visual);
+        }
+      }
+      
+      console.log('✅ Database fetch complete. Visual photos:', this.visualPhotos);
+    } catch (error) {
+      console.error('❌ Error fetching visuals from database:', error);
+      await this.showToast('Error loading inspection data. Some images may not appear.', 'warning');
+    }
+  }
+
+  updateVisualInOrganizedData(visual: any) {
+    const category = visual.Category;
+    const kind = visual.Kind?.toLowerCase();
+    
+    if (!this.organizedData[category]) {
+      this.organizedData[category] = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+    }
+    
+    // Check if this visual already exists in our organized data
+    let found = false;
+    
+    if (kind === 'comment' && this.organizedData[category].comments) {
+      const existing = this.organizedData[category].comments.find((c: any) => c.VisualID === visual.VisualID);
+      if (existing) {
+        // Update with database values
+        existing.Text = visual.Text || existing.Text;
+        existing.Notes = visual.Notes || existing.Notes;
+        found = true;
+      }
+    } else if (kind === 'limitation' && this.organizedData[category].limitations) {
+      const existing = this.organizedData[category].limitations.find((l: any) => l.VisualID === visual.VisualID);
+      if (existing) {
+        existing.Text = visual.Text || existing.Text;
+        existing.Notes = visual.Notes || existing.Notes;
+        found = true;
+      }
+    } else if (kind === 'deficiency' && this.organizedData[category].deficiencies) {
+      const existing = this.organizedData[category].deficiencies.find((d: any) => d.VisualID === visual.VisualID);
+      if (existing) {
+        existing.Text = visual.Text || existing.Text;
+        existing.Notes = visual.Notes || existing.Notes;
+        found = true;
+      }
+    }
+    
+    // If not found in organized data but exists in database, mark it as selected
+    if (!found && visual.VisualID) {
+      const key = `${category}-${kind}-${visual.VisualID}`;
+      this.selectedItems[key] = true;
+      console.log(`Marked as selected from database: ${key}`);
+    }
   }
 }

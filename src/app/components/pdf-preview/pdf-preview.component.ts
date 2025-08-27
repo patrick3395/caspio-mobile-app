@@ -568,7 +568,7 @@ export class PdfPreviewComponent implements OnInit {
           yPos = 50;
         }
         
-        yPos = await this.addVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
+        yPos = await this.addEnhancedVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
       }
     }
     
@@ -600,7 +600,7 @@ export class PdfPreviewComponent implements OnInit {
           yPos = 50;
         }
         
-        yPos = await this.addVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
+        yPos = await this.addEnhancedVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
       }
     }
     
@@ -633,7 +633,7 @@ export class PdfPreviewComponent implements OnInit {
           yPos = 50;
         }
         
-        yPos = await this.addVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
+        yPos = await this.addEnhancedVisualItem(pdf, item, margin, contentWidth, yPos, maxY);
       }
     }
     
@@ -696,6 +696,130 @@ export class PdfPreviewComponent implements OnInit {
     
     yPos += 5;
     return yPos;
+  }
+
+  private async addEnhancedVisualItem(pdf: jsPDF, item: any, margin: number, contentWidth: number, yPos: number, maxY: number): Promise<number> {
+    // Add border and background for each item
+    const itemStartY = yPos;
+    
+    // Item title with better formatting
+    pdf.setFillColor(248, 249, 250);
+    pdf.rect(margin - 2, yPos - 5, contentWidth + 4, 8, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(51, 51, 51);
+    pdf.text(`${item.name}`, margin + 2, yPos);
+    yPos += 8;
+    
+    // Item text with proper wrapping
+    if (item.text) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(73, 80, 87);
+      const lines = pdf.splitTextToSize(item.text, contentWidth - 10);
+      pdf.text(lines, margin + 5, yPos);
+      yPos += lines.length * 4 + 4;
+    }
+    
+    // Enhanced photo display
+    if (item.photos && item.photos.length > 0) {
+      yPos += 3;
+      
+      // Larger, clearer photos for professional look
+      const photoWidth = 60;  // Increased size
+      const photoHeight = 45; // Increased size
+      const photosPerRow = 3; // Fixed 3 per row for consistency
+      const spacing = (contentWidth - (photosPerRow * photoWidth)) / (photosPerRow - 1);
+      
+      for (let i = 0; i < item.photos.length; i++) {
+        const photo = item.photos[i];
+        const col = i % photosPerRow;
+        const xPos = margin + (col * (photoWidth + spacing));
+        
+        if (col === 0 && i > 0) {
+          yPos += photoHeight + 12;
+          
+          // Check for page break
+          if (yPos > maxY - photoHeight) {
+            return yPos; // Let the parent method handle page break
+          }
+        }
+        
+        try {
+          const imgUrl = this.getPhotoUrl(photo);
+          console.log(`Loading photo ${i + 1}/${item.photos.length} for ${item.name}`);
+          const imgData = await this.loadImage(imgUrl);
+          
+          if (imgData) {
+            // Add shadow effect
+            pdf.setFillColor(200, 200, 200);
+            pdf.rect(xPos + 1, yPos + 1, photoWidth, photoHeight, 'F');
+            
+            // Add the image
+            pdf.addImage(imgData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+            
+            // Add border
+            pdf.setDrawColor(180, 180, 180);
+            pdf.setLineWidth(0.5);
+            pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+            
+            // Add photo number and caption
+            if (photo.caption || i >= 0) {
+              pdf.setFillColor(0, 0, 0, 0.7);
+              pdf.rect(xPos, yPos + photoHeight - 8, photoWidth, 8, 'F');
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(8);
+              pdf.setTextColor(255, 255, 255);
+              const caption = photo.caption ? 
+                `Photo ${i + 1}: ${photo.caption.substring(0, 25)}${photo.caption.length > 25 ? '...' : ''}` :
+                `Photo ${i + 1}`;
+              pdf.text(caption, xPos + 2, yPos + photoHeight - 2);
+            }
+          } else {
+            // Show placeholder for missing images
+            pdf.setFillColor(240, 240, 240);
+            pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
+            pdf.setDrawColor(180, 180, 180);
+            pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+            pdf.setFont('helvetica', 'italic');
+            pdf.setFontSize(9);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text('Image not available', xPos + photoWidth/2, yPos + photoHeight/2, { align: 'center' });
+          }
+        } catch (error) {
+          console.error('Error loading photo:', error);
+          // Add placeholder
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
+        }
+      }
+      
+      yPos += photoHeight + 15;
+    }
+    
+    // Add separator line
+    pdf.setDrawColor(220, 220, 220);
+    pdf.setLineWidth(0.2);
+    pdf.line(margin, yPos - 2, margin + contentWidth, yPos - 2);
+    
+    yPos += 5;
+    return yPos;
+  }
+
+  private addContinuationHeader(pdf: jsPDF, categoryName: string, margin: number, pageNum: number) {
+    const headerHeight = 12;
+    pdf.setFillColor(241, 90, 39);
+    pdf.rect(0, margin - 5, pdf.internal.pageSize.getWidth(), headerHeight, 'F');
+    
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${categoryName.toUpperCase()} (CONTINUED)`, margin, margin + 2);
+    
+    pdf.setFontSize(10);
+    pdf.text(`Page ${pageNum}`, pdf.internal.pageSize.getWidth() - margin, margin + 2, { align: 'right' });
+    
+    pdf.setTextColor(51, 51, 51);
   }
 
   private async addElevationPlotSection(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number, pageHeight: number) {
@@ -926,63 +1050,57 @@ export class PdfPreviewComponent implements OnInit {
     try {
       console.log('Loading image for PDF:', url);
       
+      // Handle different types of URLs
+      if (url.includes('blob:')) {
+        // Handle blob URLs directly
+        return await this.convertBlobUrlToDataUrl(url);
+      }
+      
       // For Caspio images with access token, fetch the image as blob first
       if (url.includes('caspio.com') && url.includes('access_token')) {
         try {
-          // Extract key parts for debug
-          const urlParts = new URL(url);
-          const pathParts = urlParts.pathname.split('/');
-          const filename = pathParts[pathParts.length - 1];
-          const hasToken = urlParts.searchParams.has('access_token');
-          const tokenValue = urlParts.searchParams.get('access_token');
+          console.log('Fetching Caspio image with token...');
           
-          // Show debug info
-          await this.showDebugAlert('Image Load Attempt', `
-            Filename: ${filename}
-            Has Token: ${hasToken}
-            Token Length: ${tokenValue?.length || 0}
-            Account: ${this.caspioService.getAccountID()}
-            Full URL: ${url.substring(0, 100)}...
-          `);
-          
+          // Fetch the image with proper headers
           const response = await fetch(url, {
             method: 'GET',
             mode: 'cors',
-            credentials: 'omit' // Don't send cookies
+            credentials: 'omit'
           });
           
           if (!response.ok) {
-            await this.showDebugAlert('Fetch Failed', `
-              Status: ${response.status}
-              Status Text: ${response.statusText}
-              URL: ${url.substring(0, 100)}...
+            console.error('Failed to fetch image:', response.status, response.statusText);
+            // Try to refresh token and retry once
+            const token = this.caspioService.getCurrentToken();
+            if (token) {
+              const newUrl = url.replace(/access_token=[^&]+/, `access_token=${token}`);
+              const retryResponse = await fetch(newUrl, {
+                method: 'GET',
+                mode: 'cors',
+                credentials: 'omit'
+              });
               
-              Possible causes:
-              - Token expired
-              - File doesn't exist
-              - CORS blocked
-              - Network error
-            `);
-            console.error('Failed to fetch Caspio image:', response.status, response.statusText);
+              if (retryResponse.ok) {
+                const blob = await retryResponse.blob();
+                return await this.blobToDataURL(blob);
+              }
+            }
             return null;
           }
           
           const blob = await response.blob();
-          const dataUrl = await this.blobToDataUrl(blob);
+          const dataUrl = await this.blobToDataURL(blob);
+          
+          // Cache the result
           this.imageCache.set(url, dataUrl);
           
-          // Success toast
-          await this.showToast(`✅ Image loaded: ${filename}`, 'success');
+          console.log('✅ Caspio image loaded successfully');
           return dataUrl;
-        } catch (fetchError: any) {
-          await this.showDebugAlert('Fetch Exception', `
-            Error: ${fetchError.message || fetchError}
-            URL: ${url.substring(0, 100)}...
-            
-            Will try fallback method...
-          `);
+        } catch (fetchError) {
           console.error('Error fetching Caspio image:', fetchError);
-          // Fall back to regular image loading
+          
+          // Show debug info only in development
+          return null;
         }
       }
       
@@ -1048,7 +1166,18 @@ export class PdfPreviewComponent implements OnInit {
     }
   }
   
-  private blobToDataUrl(blob: Blob): Promise<string> {
+  private async convertBlobUrlToDataUrl(blobUrl: string): Promise<string | null> {
+    try {
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+      return await this.blobToDataURL(blob);
+    } catch (error) {
+      console.error('Error converting blob URL:', error);
+      return null;
+    }
+  }
+
+  private blobToDataURL(blob: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -1058,12 +1187,15 @@ export class PdfPreviewComponent implements OnInit {
   }
   
   private async showDebugAlert(title: string, message: string) {
-    const alert = await this.alertController.create({
-      header: `DEBUG: ${title}`,
-      message: message.replace(/\s+/g, ' ').trim(),
-      buttons: ['OK']
-    });
-    await alert.present();
+    // Only show debug alerts in development mode
+    if (window.location.hostname === 'localhost') {
+      const alert = await this.alertController.create({
+        header: `DEBUG: ${title}`,
+        message: message.replace(/\s+/g, ' ').trim(),
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
   
   private async showToast(message: string, color: string = 'primary') {
