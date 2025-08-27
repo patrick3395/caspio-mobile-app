@@ -1736,9 +1736,38 @@ export class ProjectDetailPage implements OnInit {
   }
   
   async onPhotoError(event: any) {
-    console.error('❌ Photo failed to load:', event.target.src);
     const errorUrl = event.target.src;
     
+    // Don't show error for placeholder/loading images - these are expected
+    if (errorUrl.includes('photo-loading.svg') || 
+        errorUrl.includes('project-placeholder.svg')) {
+      // Just set fallback silently
+      event.target.src = 'assets/img/project-placeholder.svg';
+      return;
+    }
+    
+    // If it's a data URL that failed, silently use fallback (shouldn't happen but just in case)
+    if (errorUrl.startsWith('data:')) {
+      event.target.src = 'assets/img/project-placeholder.svg';
+      return;
+    }
+    
+    // If it's a Google Street View URL that failed, use placeholder
+    if (errorUrl.includes('maps.googleapis.com/maps/api/streetview')) {
+      event.target.src = 'assets/img/project-placeholder.svg';
+      return;
+    }
+    
+    // Only log real errors (not placeholders)
+    console.error('❌ Photo failed to load:', event.target.src);
+    
+    // Set fallback image
+    event.target.src = 'assets/img/project-placeholder.svg';
+    
+    // Don't show alerts in production - too intrusive
+    return;
+    
+    /* Commented out for production
     // Parse the URL to show debug information
     if (errorUrl.includes('caspio.com')) {
       const urlParts = errorUrl.split('?');
@@ -1850,6 +1879,7 @@ Troubleshooting:
     
     // Set a fallback image
     event.target.src = 'assets/img/project-placeholder.svg';
+    */
   }
 
   getCityState(): string {

@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.120'; // Update this to match package.json version
+  appVersion = '1.4.121'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -311,6 +311,31 @@ export class ActiveProjectsPage implements OnInit {
 
   async onProjectImageError(event: any, project: Project) {
     const imgUrl = event.target?.src || '';
+    
+    // Don't show error for placeholder images - these are expected
+    if (imgUrl.includes('photo-loading.svg') || 
+        imgUrl.includes('project-placeholder.svg')) {
+      // Just set fallback silently
+      event.target.src = 'assets/img/project-placeholder.svg';
+      return;
+    }
+    
+    // If it's a data URL that failed, silently use fallback (shouldn't happen but just in case)
+    if (imgUrl.startsWith('data:')) {
+      event.target.src = 'assets/img/project-placeholder.svg';
+      return;
+    }
+    
+    // Only log real errors (not placeholders)
+    console.error('Project image failed to load:', imgUrl);
+    
+    // Set fallback image
+    event.target.src = 'assets/img/project-placeholder.svg';
+    
+    // Don't show alert - just use fallback silently
+    return;
+    
+    /* Commented out alert for production - too intrusive
     const primaryPhoto = project?.['PrimaryPhoto'] || '';
     const token = this.caspioService.getCurrentToken();
     const account = this.caspioService.getAccountID();
@@ -403,6 +428,7 @@ URL Attempted: ${imgUrl}`;
     
     // Set fallback image
     event.target.src = 'assets/img/project-placeholder.svg';
+    */
   }
 
   createNewProject() {
