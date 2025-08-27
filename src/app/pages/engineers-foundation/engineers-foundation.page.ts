@@ -1244,7 +1244,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             this.roomRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = false; // Auto-expand when selected
+            this.expandedRooms[roomName] = true; // Expand when newly selected
             console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
           }
         } catch (err: any) {
@@ -1313,9 +1313,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Check if room is expanded
   isRoomExpanded(roomName: string): boolean {
-    // Default to expanded when first selected
-    if (this.expandedRooms[roomName] === undefined && this.isRoomSelected(roomName)) {
-      this.expandedRooms[roomName] = true;
+    // Default to collapsed
+    if (this.expandedRooms[roomName] === undefined) {
+      this.expandedRooms[roomName] = false;
     }
     return this.expandedRooms[roomName] || false;
   }
@@ -1543,7 +1543,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           this.roomRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = false; // Auto-expand when selected
+          this.expandedRooms[roomName] = true; // Expand when newly added
           console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
         }
       } catch (error: any) {
