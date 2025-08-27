@@ -962,7 +962,7 @@ export class PdfPreviewComponent implements OnInit {
     return hasPhotos;
   }
 
-  private countVisualFindings(): number {
+  countVisualFindings(): number {
     let count = 0;
     
     if (this.structuralData) {
@@ -976,7 +976,7 @@ export class PdfPreviewComponent implements OnInit {
     return count;
   }
 
-  private countTotalPhotos(): number {
+  countTotalPhotos(): number {
     let count = 0;
     
     if (this.structuralData) {
@@ -1043,47 +1043,6 @@ export class PdfPreviewComponent implements OnInit {
     }
     
     return photos;
-  }
-
-  countVisualFindings(): number {
-    let count = 0;
-    
-    if (this.structuralData) {
-      this.structuralData.forEach(category => {
-        count += (category.comments?.length || 0);
-        count += (category.limitations?.length || 0);
-        count += (category.deficiencies?.length || 0);
-      });
-    }
-    
-    return count;
-  }
-
-  countTotalPhotos(): number {
-    let count = 0;
-    
-    if (this.structuralData) {
-      this.structuralData.forEach(category => {
-        ['comments', 'limitations', 'deficiencies'].forEach(type => {
-          if (category[type]) {
-            category[type].forEach((item: any) => {
-              count += (item.photos?.length || 0);
-            });
-          }
-        });
-      });
-    }
-    
-    if (this.elevationData) {
-      this.elevationData.forEach(room => {
-        count += (room.photos?.length || 0);
-        room.points?.forEach((point: any) => {
-          count += (point.photoCount || 0);
-        });
-      });
-    }
-    
-    return count;
   }
 
   dismiss() {
