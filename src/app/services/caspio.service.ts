@@ -701,6 +701,15 @@ export class CaspioService {
     );
   }
   
+  getServiceById(serviceId: string): Observable<any> {
+    return this.get<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`).pipe(
+      map(response => {
+        const result = response.Result;
+        return result && result.length > 0 ? result[0] : null;
+      })
+    );
+  }
+  
   getServicesVisualsByServiceId(serviceId: string): Observable<any[]> {
     return this.get<any>(`/tables/Services_Visuals/records?q.where=ServiceID=${serviceId}`).pipe(
       map(response => response.Result || [])

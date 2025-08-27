@@ -5,6 +5,15 @@ import { CaspioService } from '../../services/caspio.service';
 import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
+import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: any;
+  }
+}
 
 interface ServiceSelection {
   instanceId: string;
@@ -2374,6 +2383,150 @@ Time: ${debugInfo.timestamp}
         ]
       });
       await alert.present();
+    }
+  }
+
+  async generateServicePDF() {
+    // Check if we have services selected
+    if (!this.selectedServices || this.selectedServices.length === 0) {
+      await this.showToast('Please select a service first', 'warning');
+      return;
+    }
+
+    // If multiple services, ask user to select one
+    let selectedService: ServiceSelection;
+    
+    if (this.selectedServices.length > 1) {
+      const alert = await this.alertController.create({
+        header: 'Select Service for PDF',
+        message: 'Which service would you like to generate a PDF for?',
+        inputs: this.selectedServices.map((service, index) => ({
+          type: 'radio',
+          label: `${service.typeName} - ${this.formatDateForDisplay(service.dateOfInspection)}`,
+          value: index,
+          checked: index === 0
+        })),
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Generate PDF',
+            handler: (selectedIndex) => {
+              selectedService = this.selectedServices[selectedIndex];
+              this.generatePDFForService(selectedService);
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      selectedService = this.selectedServices[0];
+      await this.generatePDFForService(selectedService);
+    }
+  }
+
+  async generatePDFForService(service: ServiceSelection) {
+    if (!service.serviceId) {
+      await this.showToast('Service has not been saved yet. Please save the service first.', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Generating PDF Report...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Step 1: Get full project data from Projects table
+      const projectData = this.project; // We already have this
+      
+      // Step 2: Get the specific service data from Services table
+      const serviceData = await this.caspioService.getServiceById(service.serviceId).toPromise();
+      console.log('Service data:', serviceData);
+      
+      // Step 3: Get all visuals for this service from Services_Visuals table
+      const visualsData = await this.caspioService.getServicesVisualsByServiceId(service.serviceId).toPromise();
+      console.log('Visuals data:', visualsData);
+      
+      // Step 4: For each visual, get attachments from Services_Visuals_Attach table
+      const visualsWithAttachments = [];
+      if (visualsData && Array.isArray(visualsData)) {
+        for (const visual of visualsData) {
+          const visualId = visual.VisualID || visual.PK_ID;
+          if (visualId) {
+            try {
+              const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
+              visualsWithAttachments.push({
+                ...visual,
+                attachments: attachments || []
+              });
+            } catch (error) {
+              console.error(`Error fetching attachments for visual ${visualId}:`, error);
+              visualsWithAttachments.push({
+                ...visual,
+                attachments: []
+              });
+            }
+          }
+        }
+      }
+      console.log('Visuals with attachments:', visualsWithAttachments);
+      
+      await loading.dismiss();
+      
+      // Step 5: Open PDF preview modal with all the data
+      const modal = await this.modalController.create({
+        component: PdfPreviewComponent,
+        componentProps: {
+          projectData: {
+            // Project Information
+            address: projectData.Address || '',
+            city: projectData.City || '',
+            state: projectData.State || '',
+            zipCode: projectData.ZIP || '',
+            clientName: projectData.ClientName || '',
+            agentName: projectData.AgentName || '',
+            inspectorName: projectData.InspectorName || '',
+            yearBuilt: projectData.YearBuilt || '',
+            squareFeet: projectData.SquareFeet || '',
+            typeOfBuilding: projectData.TypeOfBuilding || '',
+            style: projectData.Style || '',
+            primaryPhoto: projectData.PrimaryPhoto || '',
+            // Additional project fields
+            projectId: this.projectId,
+            statusId: projectData.StatusID,
+            companyId: projectData.CompanyID
+          },
+          serviceData: {
+            // Service Information
+            serviceId: service.serviceId,
+            serviceName: service.typeName,
+            dateOfInspection: service.dateOfInspection,
+            typeId: service.typeId,
+            ...serviceData // Include all service fields
+          },
+          structuralData: visualsWithAttachments.filter(v => 
+            v.Category === 'Structural Systems' || 
+            v.Kind === 'Structural' ||
+            !v.Category // Include uncategorized for now
+          ),
+          elevationData: visualsWithAttachments.filter(v => 
+            v.Category === 'Elevation' || 
+            v.Kind === 'Elevation'
+          )
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      
+      await modal.present();
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to generate PDF. Please try again.', 'danger');
     }
   }
 }

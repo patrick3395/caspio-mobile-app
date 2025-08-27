@@ -26,8 +26,8 @@
       </div>
       
       <div class="report-title-section">
-        <h2 class="report-title">ENGINEERS FOUNDATION</h2>
-        <h2 class="report-subtitle">EVALUATION REPORT</h2>
+        <h2 class="report-title">{{ serviceData?.serviceName || 'SERVICE' }}</h2>
+        <h2 class="report-subtitle">INSPECTION REPORT</h2>
       </div>
       
       <div class="property-photo-container" *ngIf="projectData?.primaryPhoto">
@@ -245,7 +245,50 @@
       </div>
     </div>
     
-    <!-- Structural Systems Pages -->
+    <!-- Services Visuals Page -->
+    <div class="pdf-page content-page" *ngIf="structuralData && structuralData.length > 0">
+      <div class="page-header">
+        <h2>INSPECTION FINDINGS - VISUALS</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="visuals-container">
+          <div class="visual-entry" *ngFor="let visual of structuralData">
+            <div class="visual-header">
+              <h3>{{ visual.Name || 'Visual Item' }}</h3>
+              <span class="visual-category" *ngIf="visual.Category">[{{ visual.Category }}]</span>
+              <span class="visual-kind" *ngIf="visual.Kind"> - {{ visual.Kind }}</span>
+            </div>
+            
+            <div class="visual-details">
+              <p class="visual-text" *ngIf="visual.Text">{{ visual.Text }}</p>
+              <p class="visual-notes" *ngIf="visual.Notes"><strong>Notes:</strong> {{ visual.Notes }}</p>
+              
+              <!-- Display attachments if any -->
+              <div class="attachments-section" *ngIf="visual.attachments && visual.attachments.length > 0">
+                <h4>Photos/Attachments:</h4>
+                <div class="attachment-grid">
+                  <div class="attachment-item" *ngFor="let attachment of visual.attachments">
+                    <div *ngIf="attachment.Photo && attachment.Photo.startsWith('/')">
+                      <img 
+                        [src]="getAttachmentUrl(attachment.Photo)" 
+                        alt="Attachment"
+                        (error)="handleImageError($event)"
+                        (load)="handleImageLoad($event)"
+                        class="attachment-image loading" />
+                      <p class="attachment-annotation" *ngIf="attachment.Annotation">{{ attachment.Annotation }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Structural Systems Pages (Original) -->
     <div class="pdf-page content-page" *ngFor="let category of structuralData">
       <div class="page-header">
         <h2>{{ category.name | uppercase }}</h2>

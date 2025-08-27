@@ -131,7 +131,13 @@
       
       <!-- Selected Services Table -->
       <div *ngIf="selectedServices.length > 0" class="selected-services-table">
-        <h3>Selected Services & Inspection Dates</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>Selected Services & Inspection Dates</h3>
+          <ion-button size="small" color="tertiary" (click)="generateServicePDF()" *ngIf="selectedServices.length > 0">
+            <ion-icon name="document-text-outline" slot="start"></ion-icon>
+            Generate PDF Report
+          </ion-button>
+        </div>
         <div class="services-table">
           <div class="table-header">
             <div class="col-service">Service</div>

@@ -87,6 +87,20 @@ export class PdfPreviewComponent implements OnInit {
     return photo;
   }
 
+  getAttachmentUrl(photoPath: string): string {
+    if (!photoPath) {
+      return 'assets/img/photo-placeholder.svg';
+    }
+    
+    if (photoPath.startsWith('/')) {
+      const account = this.caspioService.getAccountID();
+      const token = this.caspioService.getCurrentToken() || '';
+      return `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+    }
+    
+    return photoPath;
+  }
+  
   getPhotoUrl(photo: any): string {
     if (!photo) {
       console.log('No photo provided');
