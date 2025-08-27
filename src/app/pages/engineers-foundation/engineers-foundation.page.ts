@@ -398,31 +398,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Now use the EXACT same file input method as visuals
-      // Set the context for the file input handler
-      this.currentRoomPointContext = {
-        roomName,
-        point,
-        pointId,
-        roomId
+      // Use camera service directly (like Structural section does)
+      const photo = await this.cameraService.takePicture();
+      
+      if (!photo || !photo.dataUrl) {
+        console.log('No photo captured');
+        return;
+      }
+      
+      // Convert base64 to File
+      const fileName = `room_point_${pointId}_${Date.now()}.jpg`;
+      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      
+      if (!file) {
+        await this.showToast('Failed to process photo', 'danger');
+        return;
+      }
+      
+      // Create preview
+      const photoUrl = URL.createObjectURL(file);
+      
+      // Add to UI immediately with uploading flag
+      if (!point.photos) {
+        point.photos = [];
+      }
+      
+      const photoEntry: any = {
+        url: photoUrl,
+        thumbnailUrl: photoUrl,
+        annotation: '',
+        uploading: true,
+        file: file,
+        attachId: null
       };
       
-      // Trigger file input to open camera/gallery selector (just like visuals)
-      if (this.fileInput && this.fileInput.nativeElement) {
-        const input = this.fileInput.nativeElement;
-        
-        // Configure for photo capture
-        input.accept = 'image/*';
-        input.multiple = true;  // Allow multiple photos like visuals
-        input.value = '';  // Clear previous value
-        
-        // Click to open selector
-        input.click();
-        console.log('Triggered file input for room point photo capture');
-      } else {
-        console.error('File input not available');
-        await this.showToast('Camera not available', 'danger');
-      }
+      point.photos.push(photoEntry);
+      point.photoCount = point.photos.length;
+      
+      // Upload in background
+      this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
+        .then((response) => {
+          photoEntry.uploading = false;
+          photoEntry.attachId = response?.AttachID || response?.PK_ID;
+          console.log(`Photo uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
+        })
+        .catch((err) => {
+          console.error('Failed to upload photo:', err);
+          // Remove failed photo from UI
+          const index = point.photos.indexOf(photoEntry);
+          if (index > -1) {
+            point.photos.splice(index, 1);
+            point.photoCount = point.photos.length;
+          }
+          this.showToast('Failed to upload photo', 'danger');
+        });
+      
+      await this.showToast('Photo captured', 'success');
+      
+      // Ask if they want another photo
+      const continueAlert = await this.alertController.create({
+        cssClass: 'compact-photo-selector',
+        message: 'Photo captured',
+        buttons: [
+          {
+            text: 'Done',
+            role: 'done',
+            cssClass: 'done-button'
+          },
+          {
+            text: 'Take Another Photo',
+            role: 'another',
+            cssClass: 'action-button',
+            handler: async () => {
+              // Use camera service directly for next photo
+              setTimeout(async () => {
+                await this.captureAnotherRoomPhoto(roomName, point, pointId);
+              }, 100);
+              return true;
+            }
+          }
+        ],
+        backdropDismiss: false
+      });
+      
+      await continueAlert.present();
       
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
@@ -473,6 +532,100 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Capture another room photo using camera service directly
+  private async captureAnotherRoomPhoto(roomName: string, point: any, pointId: string) {
+    try {
+      // Use camera service directly (like Structural section)
+      const photo = await this.cameraService.takePicture();
+      
+      if (!photo || !photo.dataUrl) {
+        console.log('No photo captured');
+        return;
+      }
+      
+      // Convert base64 to File
+      const fileName = `room_point_${pointId}_${Date.now()}.jpg`;
+      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      
+      if (!file) {
+        await this.showToast('Failed to process photo', 'danger');
+        return;
+      }
+      
+      // Create preview
+      const photoUrl = URL.createObjectURL(file);
+      
+      // Add to UI immediately with uploading flag
+      if (!point.photos) {
+        point.photos = [];
+      }
+      
+      const photoEntry: any = {
+        url: photoUrl,
+        thumbnailUrl: photoUrl,
+        annotation: '',
+        uploading: true,
+        file: file,
+        attachId: null
+      };
+      
+      point.photos.push(photoEntry);
+      point.photoCount = point.photos.length;
+      
+      // Upload in background
+      this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
+        .then((response) => {
+          photoEntry.uploading = false;
+          photoEntry.attachId = response?.AttachID || response?.PK_ID;
+          console.log(`Photo uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
+        })
+        .catch((err) => {
+          console.error('Failed to upload photo:', err);
+          // Remove failed photo from UI
+          const index = point.photos.indexOf(photoEntry);
+          if (index > -1) {
+            point.photos.splice(index, 1);
+            point.photoCount = point.photos.length;
+          }
+          this.showToast('Failed to upload photo', 'danger');
+        });
+      
+      await this.showToast('Photo captured', 'success');
+      
+      // Ask if they want another photo
+      const continueAlert = await this.alertController.create({
+        cssClass: 'compact-photo-selector',
+        message: 'Photo captured',
+        buttons: [
+          {
+            text: 'Done',
+            role: 'done',
+            cssClass: 'done-button'
+          },
+          {
+            text: 'Take Another Photo',
+            role: 'another',
+            cssClass: 'action-button',
+            handler: async () => {
+              // Recursively call to capture another photo
+              setTimeout(async () => {
+                await this.captureAnotherRoomPhoto(roomName, point, pointId);
+              }, 100);
+              return true;
+            }
+          }
+        ],
+        backdropDismiss: false
+      });
+      
+      await continueAlert.present();
+      
+    } catch (error) {
+      console.error('Error capturing room photo:', error);
+      await this.showToast('Failed to capture photo', 'danger');
+    }
+  }
+  
   // Handle file selection for room points (exact copy of visual method)
   private async handleRoomPointFileSelect(files: FileList) {
     try {
@@ -501,12 +654,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           point.photos = [];
         }
         
-        const photoEntry = {
+        const photoEntry: any = {
           url: photoUrl,
           thumbnailUrl: photoUrl,
           annotation: '',
           uploading: true,
-          file: file
+          file: file,
+          attachId: null  // Initialize attachId property
         };
         
         point.photos.push(photoEntry);
@@ -564,12 +718,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 text: 'Take Another Photo',
                 role: 'another',
                 cssClass: 'action-button',
-                handler: () => {
-                  // Trigger file input again
-                  setTimeout(() => {
-                    if (this.fileInput && this.fileInput.nativeElement) {
-                      this.fileInput.nativeElement.click();
-                    }
+                handler: async () => {
+                  // Use camera service directly like Structural section
+                  setTimeout(async () => {
+                    await this.captureAnotherRoomPhoto(roomName, point, pointId);
                   }, 100);
                   return true;
                 }
