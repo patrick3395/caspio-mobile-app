@@ -3071,6 +3071,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isItemSelected(category: string, itemId: string): boolean {
     return this.selectedItems[`${category}_${itemId}`] || false;
   }
+
+  // Helper methods for PDF generation - check selection by visual ID
+  isCommentSelected(category: string, visualId: string): boolean {
+    // Check if this comment visual is selected using the same format as toggleItemSelection
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  isLimitationSelected(category: string, visualId: string): boolean {
+    // Check if this limitation visual is selected using the same format as toggleItemSelection
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  isDeficiencySelected(category: string, visualId: string): boolean {
+    // Check if this deficiency visual is selected using the same format as toggleItemSelection
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  // Get photo count for a visual ID
+  getVisualPhotoCount(visualId: string): number {
+    // Find photos associated with this visual ID
+    const photos = this.visualPhotos[visualId] || [];
+    return photos.length;
+  }
   
   // Check if item is being saved
   isItemSaving(category: string, itemId: string): boolean {
