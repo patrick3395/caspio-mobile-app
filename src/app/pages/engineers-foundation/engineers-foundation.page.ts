@@ -1758,13 +1758,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // View room photo with viewer modal
   async viewRoomPhoto(photo: any, roomName: string, point: any) {
     try {
-      // Get the proper URL for viewing
-      let photoUrl = photo.url || photo.thumbnailUrl;
-      
-      // If it's a Caspio file path, construct the full URL
-      if (photo.originalPath || (photoUrl && !photoUrl.startsWith('http') && !photoUrl.startsWith('blob:'))) {
-        photoUrl = await this.getCaspioFileUrl(photo.originalPath || photoUrl);
-      }
+      // Use the photo URL directly (it's already base64 or a proper URL)
+      const photoUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
       
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
