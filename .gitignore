@@ -68,3 +68,9 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Python virtual environments
+.venv/
+omnara_env/
+__pycache__/
+*.pyc
