@@ -532,7 +532,7 @@ export class ProjectDetailPage implements OnInit {
       this.updateDocumentsList();
       
       console.log('✅ Service added successfully');
-      await this.showToast(`${selection.typeName} added`, 'success');
+      // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error adding service - Full details:', error);
       console.error('Error type:', typeof error);
@@ -589,7 +589,7 @@ export class ProjectDetailPage implements OnInit {
       
       this.updateDocumentsList();
       
-      await this.showToast(`${service.typeName} removed`, 'success');
+      // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error removing service:', error);
       // Still remove from UI even if Caspio delete fails
@@ -1471,8 +1471,8 @@ export class ProjectDetailPage implements OnInit {
       event.stopPropagation();
     }
     
+    // Navigate immediately without any checks
     if (service.serviceId) {
-      // Remove debounce check to allow immediate navigation
       
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
