@@ -4975,12 +4975,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('📊 Fetching all visuals from database for ServiceID:', this.serviceId);
       
       // Fetch all Services_Visuals records for this service
-      const visualsResponse = await this.caspioService.getTableRecords(
-        'Services_Visuals',
-        `ServiceID=${this.serviceId}`
-      ).toPromise();
+      const visualsResponse = await this.caspioService.getVisualsForService(this.serviceId).toPromise();
       
-      const visuals = visualsResponse?.Result || [];
+      const visuals = visualsResponse || [];
       console.log(`Found ${visuals.length} visual records`);
       
       // Clear and rebuild the visualPhotos mapping
@@ -4992,12 +4989,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         if (visualId) {
           // Fetch attachments for this visual
-          const attachResponse = await this.caspioService.getTableRecords(
-            'Services_Visuals_Attach',
-            `VisualID=${visualId}`
-          ).toPromise();
+          const attachments = await this.caspioService.getVisualAttachments(visualId).toPromise();
           
-          const attachments = attachResponse?.Result || [];
           console.log(`Visual ${visualId} has ${attachments.length} attachments`);
           
           // Store the attachments in our mapping
