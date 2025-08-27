@@ -418,13 +418,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const optionsByRoom: { [roomName: string]: string[] } = {};
           
           dropdownData.forEach((row: any) => {
-            if (row.RoomName && row.Dropdown) {
-              if (!optionsByRoom[row.RoomName]) {
-                optionsByRoom[row.RoomName] = [];
+            // Use RoomsName field (with 's')
+            const roomName = row.RoomsName || row.RoomName;
+            const dropdownValue = row.Dropdown;
+            
+            if (roomName && dropdownValue) {
+              if (!optionsByRoom[roomName]) {
+                optionsByRoom[roomName] = [];
               }
               // Add unique dropdown values for this room
-              if (!optionsByRoom[row.RoomName].includes(row.Dropdown)) {
-                optionsByRoom[row.RoomName].push(row.Dropdown);
+              if (!optionsByRoom[roomName].includes(dropdownValue)) {
+                optionsByRoom[roomName].push(dropdownValue);
               }
             }
           });
@@ -434,7 +438,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // If there are FDF-specific options, use those as default
           if (optionsByRoom['FDF'] && optionsByRoom['FDF'].length > 0) {
-            this.fdfOptions = optionsByRoom['FDF'];
+            // Sort FDF options properly (None first, then numeric)
+            this.fdfOptions = optionsByRoom['FDF'].sort((a, b) => {
+              if (a === 'None') return -1;
+              if (b === 'None') return 1;
+              
+              // Try to parse as numbers for proper numeric sorting
+              const aNum = parseFloat(a.replace(/['"]/g, ''));
+              const bNum = parseFloat(b.replace(/['"]/g, ''));
+              
+              if (!isNaN(aNum) && !isNaN(bNum)) {
+                return aNum - bNum;
+              }
+              return a.localeCompare(b);
+            });
           }
           
           console.log('Room-specific FDF options loaded:', this.roomFdfOptions);

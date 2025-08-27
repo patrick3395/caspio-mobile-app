@@ -1523,3 +1523,78 @@ ion-toolbar {
     }
   }
 }
+
+// Improved FDF Selector Styles
+.fdf-dropdown-container {
+  margin: 15px 0;
+  padding: 12px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  
+  .fdf-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    
+    .fdf-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    
+    .fdf-select {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --padding-top: 10px;
+      --padding-bottom: 10px;
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: var(--noble-orange);
+      }
+      
+      &.select-expanded {
+        border-color: var(--noble-orange);
+        box-shadow: 0 2px 8px rgba(241, 90, 39, 0.2);
+      }
+    }
+    
+    .fdf-value-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #e8f5e9;
+      border-radius: 4px;
+      margin-top: 4px;
+      
+      ion-icon {
+        font-size: 18px;
+      }
+      
+      span {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2e7d32;
+      }
+    }
+  }
+}
+
+// FDF Select Option styling
+ion-select-option {
+  .option-text {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 0;
+  }
+}

@@ -524,18 +524,24 @@
                 
                 <!-- Flooring Difference Factor dropdown - compact inline -->
                 <div class="fdf-dropdown-container">
-                  <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
-                    <ion-label style="font-size: 13px; font-weight: 600;">FDF:</ion-label>
-                    <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
-                                placeholder="Select"
-                                interface="popover"
-                                (ionChange)="onFDFChange(room.RoomName)"
-                                style="max-width: 150px;">
+                  <div class="fdf-selector">
+                    <label class="fdf-label">FDF (Floor Differential Factor)</label>
+                    <ion-select 
+                      [(ngModel)]="roomElevationData[room.RoomName].fdf" 
+                      placeholder="Select FDF"
+                      interface="popover"
+                      (ionChange)="onFDFChange(room.RoomName)"
+                      class="fdf-select"
+                      [disabled]="isRoomSaving(room.RoomName)">
                       <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
-                        {{ option }}
+                        <span class="option-text">{{ option }}</span>
                       </ion-select-option>
                     </ion-select>
-                  </ion-item>
+                    <div class="fdf-value-display" *ngIf="roomElevationData[room.RoomName]?.fdf && roomElevationData[room.RoomName].fdf !== 'None'">
+                      <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                      <span>{{ roomElevationData[room.RoomName].fdf }}</span>
+                    </div>
+                  </div>
                 </div>
                 
                 <!-- Measurements Section -->
