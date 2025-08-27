@@ -294,7 +294,7 @@
                     </ion-button>
                     <ion-button size="small" fill="clear" color="danger" 
                                 *ngIf="!isReadOnly"
-                                (click)="replaceDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)"
+                                (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)"
                                 title="Delete">
                       <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
                     </ion-button>

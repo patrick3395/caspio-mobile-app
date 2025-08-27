@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.107 - PDF Image Support Enhanced</div>
+    <div class="version-header">Version 1.4.111 - Submit Button Removed</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -735,12 +735,6 @@
       </div>
     </div>
 
-    <!-- Submit Button -->
-    <div class="form-actions">
-      <ion-button expand="block" size="large" (click)="submitTemplate()">
-        Submit Evaluation
-      </ion-button>
-    </div>
   </div>
   
   <!-- File upload input (hidden, supports multiple files) -->

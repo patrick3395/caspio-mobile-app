@@ -1173,6 +1173,55 @@ export class ProjectDetailPage implements OnInit {
     }
   }
 
+  async deleteRequiredDocument(serviceId: string, doc: DocumentItem) {
+    // Show confirmation
+    const confirm = await this.alertController.create({
+      header: 'Delete Document',
+      message: `Are you sure you want to delete "${doc.linkName || doc.filename}"?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger-button',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Deleting document...'
+            });
+            await loading.present();
+
+            try {
+              // Delete the attachment record
+              if (doc.attachId) {
+                await this.caspioService.deleteAttachment(doc.attachId).toPromise();
+              }
+              
+              // Clear the document data
+              doc.uploaded = false;
+              doc.attachId = undefined;
+              doc.filename = undefined;
+              doc.linkName = undefined;
+              doc.notes = undefined;
+              
+              await loading.dismiss();
+              await this.showToast('Document deleted successfully', 'success');
+              
+              // Refresh the documents to ensure consistency
+              await this.loadRequiredDocuments();
+            } catch (error) {
+              console.error('Error deleting document:', error);
+              await loading.dismiss();
+              await this.showToast('Failed to delete document', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    await confirm.present();
+  }
+
   async deleteAdditionalFile(serviceId: string, additionalFile: any) {
     // Show confirmation
     const confirm = await this.alertController.create({
