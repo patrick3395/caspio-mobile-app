@@ -329,8 +329,7 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
 .template-bar{position:relative;height:60px;background:white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
-&:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.1)}
-&:active{transform:translateY(0)}}
+&:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}}
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
 

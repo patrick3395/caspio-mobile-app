@@ -1777,6 +1777,8 @@ export class ProjectDetailPage implements OnInit {
       });
       
       console.log('Upload response status:', uploadResponse.status);
+      
+      // Read response text once
       const responseText = await uploadResponse.text();
       console.log('Upload response text:', responseText);
       
@@ -1787,9 +1789,14 @@ export class ProjectDetailPage implements OnInit {
       // Parse the response
       let uploadResult;
       try {
+        if (!responseText) {
+          throw new Error('Empty response from server');
+        }
+        
         uploadResult = JSON.parse(responseText);
       } catch (e) {
-        throw new Error(`Invalid JSON response: ${responseText}`);
+        console.error('Failed to parse response:', e);
+        throw new Error(`Failed to parse upload response: ${e.message}`);
       }
       
       // Get the file path from response

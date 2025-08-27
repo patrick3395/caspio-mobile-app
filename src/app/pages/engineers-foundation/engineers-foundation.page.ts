@@ -312,12 +312,59 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               
               console.log(`Loading room: ${roomName}, RoomID: ${roomId}, PK_ID: ${room.PK_ID}`);
               
-              // Find matching template by RoomName
-              const template = autoTemplates.find((t: any) => t.RoomName === roomName);
-              if (template && roomName && roomId) {
+              // Find matching template by RoomName - check all templates, not just auto
+              let template = autoTemplates.find((t: any) => t.RoomName === roomName);
+              
+              // If not in auto templates, check all templates (for manually added rooms)
+              if (!template) {
+                // Extract base name by removing number suffix if present
+                const baseName = roomName.replace(/ #\d+$/, '');
+                template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);
+                
+                // If found, add it to roomTemplates so it displays
+                if (template) {
+                  // Create a new template object with the numbered name
+                  const roomToAdd = { ...template, RoomName: roomName };
+                  this.roomTemplates.push(roomToAdd);
+                  console.log(`Added manually created room to templates: ${roomName}`);
+                }
+              }
+              
+              if (roomName && roomId) {
                 this.selectedRooms[roomName] = true;
                 this.expandedRooms[roomName] = false; // Start collapsed
                 this.roomRecordIds[roomName] = roomId;
+                
+                // Initialize room elevation data if not present
+                if (!this.roomElevationData[roomName] && template) {
+                  const elevationPoints: any[] = [];
+                  
+                  // Check for up to 20 point columns
+                  for (let i = 1; i <= 20; i++) {
+                    const pointColumnName = `Point${i}Name`;
+                    const pointName = template[pointColumnName];
+                    
+                    if (pointName && pointName.trim() !== '') {
+                      elevationPoints.push({
+                        pointNumber: i,
+                        name: pointName,
+                        value: '',
+                        photo: null,
+                        photos: [],
+                        photoCount: 0
+                      });
+                    }
+                  }
+                  
+                  this.roomElevationData[roomName] = {
+                    roomName: roomName,
+                    templateId: template.PK_ID || template.TemplateId,
+                    elevationPoints: elevationPoints,
+                    pointCount: template.PointCount || elevationPoints.length,
+                    notes: '',
+                    fdf: 'None'
+                  };
+                }
                 
                 // Load existing FDF and Notes values if present
                 if (this.roomElevationData[roomName]) {
