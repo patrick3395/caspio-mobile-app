@@ -169,10 +169,7 @@
                       (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
                       class="styled-input">
                 <option value="">Select status</option>
-                <option value="Occupied - Furnished">Occupied - Furnished</option>
-                <option value="Occupied - Unfurnished">Occupied - Unfurnished</option>
-                <option value="Vacant - Furnished">Vacant - Furnished</option>
-                <option value="Vacant - Unfurnished">Vacant - Unfurnished</option>
+                <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>
@@ -196,13 +193,7 @@
                       (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
                       class="styled-input">
                 <option value="">Select weather</option>
-                <option value="Clear">Clear</option>
-                <option value="Partly Cloudy">Partly Cloudy</option>
-                <option value="Cloudy">Cloudy</option>
-                <option value="Light Rain">Light Rain</option>
-                <option value="Heavy Rain">Heavy Rain</option>
-                <option value="Windy">Windy</option>
-                <option value="Foggy">Foggy</option>
+                <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -212,10 +203,12 @@
                 <ion-icon name="thermometer-outline"></ion-icon>
                 Outdoor Temperature
               </label>
-              <input type="text" [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
-                     (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
-                     placeholder="e.g., 75°F"
-                     class="styled-input">
+              <select [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
+                      (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
+                      class="styled-input">
+                <option value="">Select temperature</option>
+                <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
+              </select>
             </div>
           </div>
         </div>

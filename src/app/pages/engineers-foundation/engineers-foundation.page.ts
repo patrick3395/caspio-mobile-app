@@ -85,6 +85,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
   
+  // Services dropdown options from Services_Drop table
+  weatherConditionsOptions: string[] = [];
+  outdoorTemperatureOptions: string[] = [];
+  occupancyFurnishingsOptions: string[] = [];
+  
   // Project dropdown options from Projects_Drop table
   typeOfBuildingOptions: string[] = [];
   styleOptions: string[] = [];
@@ -143,7 +148,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadVisualCategories(),
         this.loadRoomTemplates(),
         this.loadFDFOptions(),
-        this.loadProjectDropdownOptions()
+        this.loadProjectDropdownOptions(),
+        this.loadServicesDropdownOptions()
       ]);
       
       // Then load any existing template data (including visual selections)
@@ -399,6 +405,65 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (!this.roomElevationData || Object.keys(this.roomElevationData).length === 0) {
         this.roomElevationData = {};
       }
+    }
+  }
+  
+  // Load dropdown options from Services_Drop table
+  async loadServicesDropdownOptions() {
+    try {
+      console.log('Loading Services_Drop dropdown options...');
+      
+      // Set default options first
+      this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy'];
+      this.outdoorTemperatureOptions = ['60°F', '65°F', '70°F', '75°F', '80°F', '85°F', '90°F', '95°F', '100°F'];
+      this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished'];
+      
+      // Load from Services_Drop table
+      const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+      
+      if (servicesDropData && servicesDropData.length > 0) {
+        console.log('Services_Drop data loaded:', servicesDropData.length, 'records');
+        
+        // Group by ServicesName
+        const optionsByService: { [serviceName: string]: string[] } = {};
+        
+        servicesDropData.forEach((row: any) => {
+          const serviceName = row.ServicesName || '';
+          const dropdown = row.Dropdown || '';
+          
+          if (serviceName && dropdown) {
+            if (!optionsByService[serviceName]) {
+              optionsByService[serviceName] = [];
+            }
+            if (!optionsByService[serviceName].includes(dropdown)) {
+              optionsByService[serviceName].push(dropdown);
+            }
+          }
+        });
+        
+        console.log('Parsed Services_Drop options:', optionsByService);
+        
+        // Set Weather Conditions options
+        if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
+          this.weatherConditionsOptions = optionsByService['WeatherConditions'];
+          console.log('Weather Conditions options:', this.weatherConditionsOptions);
+        }
+        
+        // Set Outdoor Temperature options
+        if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
+          this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
+          console.log('Outdoor Temperature options:', this.outdoorTemperatureOptions);
+        }
+        
+        // Set Occupancy Furnishings options
+        if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
+          this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
+          console.log('Occupancy Furnishings options:', this.occupancyFurnishingsOptions);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Services_Drop options:', error);
+      // Keep default options on error
     }
   }
   
