@@ -537,6 +537,11 @@
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
                 
+                <!-- General Section -->
+                <div class="room-section-delimiter">
+                  <span class="delimiter-label">General</span>
+                </div>
+                
                 <!-- Flooring Difference Factor dropdown - compact inline -->
                 <div class="fdf-dropdown-container">
                   <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
@@ -553,8 +558,22 @@
                   </ion-item>
                 </div>
                 
+                <!-- Measurements Section -->
+                <div class="room-section-delimiter" style="margin-top: 15px;">
+                  <span class="delimiter-label">Measurements</span>
+                </div>
+                
                 <!-- Elevation Points with photo capture only - more compact -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
+                  <!-- Add custom point button at top right -->
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
+                            style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
+                      Add Custom Point
+                    </button>
+                  </div>
+                  
                   <div class="elevation-points-grid">
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
                       <div class="point-header">
@@ -587,15 +606,11 @@
                       </div>
                     </div>
                   </div>
-                  
-                  <!-- Add custom point button -->
-                  <div style="margin-top: 10px; text-align: center;">
-                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
-                            style="background: #f0f0f0; border: 1px dashed #999; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
-                      <ion-icon name="add-circle-outline" style="margin-right: 5px;"></ion-icon>
-                      Add Custom Point
-                    </button>
-                  </div>
+                </div>
+                
+                <!-- Notes Section -->
+                <div class="room-section-delimiter" style="margin-top: 15px;">
+                  <span class="delimiter-label">Notes</span>
                 </div>
                 
                 <!-- Room-specific notes - compact -->

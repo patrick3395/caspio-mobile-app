@@ -577,8 +577,8 @@ ion-toolbar {
                   }
                   
                   img {
-                    width: 100%; // Full width of container
-                    height: 100px; // Fixed height
+                    width: 60px; // Match elevation plot size
+                    height: 60px; // Match elevation plot size
                     object-fit: cover;
                     border-radius: 8px;
                     border: 2px solid #ddd;
@@ -680,9 +680,8 @@ ion-toolbar {
                 }
                 
                 .add-more-btn {
-                  width: calc(50% - 6px); // Half width minus gap
-                  max-width: 150px; // Match preview max-width
-                  height: 100px; // Match image height
+                  width: 60px; // Match elevation plot size
+                  height: 60px; // Match elevation plot size
                   border: 2px dashed #ccc;
                   border-radius: 8px;
                   background: white;
@@ -690,17 +689,18 @@ ion-toolbar {
                   flex-direction: column;
                   align-items: center;
                   justify-content: center;
-                  gap: 4px;
+                  gap: 2px;
                   cursor: pointer;
                   transition: all 0.3s ease;
+                  flex-shrink: 0; // Prevent shrinking
                   
                   ion-icon {
-                    font-size: 24px;
+                    font-size: 20px;
                     color: var(--noble-orange);
                   }
                   
                   span {
-                    font-size: 12px;
+                    font-size: 10px;
                     color: #666;
                   }
                   
@@ -726,6 +726,32 @@ ion-toolbar {
   margin-bottom: 15px;
   padding-left: 10px;
   border-left: 3px solid var(--noble-orange);
+}
+
+// Room section delimiters
+.room-section-delimiter {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0;
+  
+  .delimiter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-right: 10px;
+    white-space: nowrap;
+  }
+  
+  &::after {
+    content: '';
+    flex-grow: 1;
+    height: 1px;
+    background: #e0e0e0;
+    margin-left: 10px;
+  }
 }
 
 .room-elevations-container {
