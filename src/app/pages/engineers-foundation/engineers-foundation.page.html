@@ -509,14 +509,16 @@
               
               <!-- Room card header with checkbox and collapse in header -->
               <div class="room-card-header">
-                <ion-item lines="none" class="checkbox-item">
+                <ion-item lines="none" class="checkbox-item" [button]="false">
                   <ion-checkbox 
                     slot="start" 
                     [checked]="isRoomSelected(room.RoomName)"
                     [disabled]="isRoomSaving(room.RoomName)"
-                    (ionChange)="toggleRoomSelection(room.RoomName)">
+                    (ionChange)="toggleRoomSelection(room.RoomName)"
+                    (click)="$event.stopPropagation()">
                   </ion-checkbox>
-                  <ion-label class="item-label" (click)="isRoomSelected(room.RoomName) ? toggleRoomExpanded(room.RoomName) : null"
+                  <ion-label class="item-label" 
+                             (click)="isRoomSelected(room.RoomName) ? toggleRoomExpanded(room.RoomName) : $event.stopPropagation()"
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
                     <h3>{{ room.RoomName }}</h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
@@ -526,7 +528,7 @@
                   <ion-icon *ngIf="isRoomSelected(room.RoomName)" 
                             slot="end"
                             [name]="isRoomExpanded(room.RoomName) ? 'chevron-up-circle' : 'chevron-down-circle'"
-                            (click)="toggleRoomExpanded(room.RoomName)"
+                            (click)="toggleRoomExpanded(room.RoomName); $event.stopPropagation()"
                             style="cursor: pointer; font-size: 24px; color: var(--ion-color-medium);">
                   </ion-icon>
                 </ion-item>

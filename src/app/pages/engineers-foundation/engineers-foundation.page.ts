@@ -413,14 +413,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomId 
       };
       
-      // Trigger file input exactly like Structural section does for photos
-      if (this.fileInput && this.fileInput.nativeElement) {
-        this.fileInput.nativeElement.click();
-      } else {
-        console.error('File input not available');
-        await this.showToast('File input not available', 'danger');
-        this.currentRoomPointContext = null;
-      }
+      // Trigger file input with small delay to ensure UI is ready
+      setTimeout(() => {
+        if (this.fileInput && this.fileInput.nativeElement) {
+          this.fileInput.nativeElement.click();
+        } else {
+          console.error('File input not available');
+          this.showToast('File input not available', 'danger');
+          this.currentRoomPointContext = null;
+        }
+      }, 100);
       
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
