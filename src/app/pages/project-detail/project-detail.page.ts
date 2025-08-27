@@ -1838,9 +1838,12 @@ export class ProjectDetailPage implements OnInit {
       console.log('Files API response headers:', uploadResponse.headers);
       console.log('Files API response statusText:', uploadResponse.statusText);
       
+      // Get response text first for debugging
+      const responseText = await uploadResponse.text();
+      console.log('Files API raw response:', responseText);
+      
       if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Files API error:', errorText);
+        console.error('Files API error:', responseText);
         
         // More detailed error for common issues
         if (uploadResponse.status === 401) {
@@ -1850,20 +1853,51 @@ export class ProjectDetailPage implements OnInit {
         } else if (uploadResponse.status === 413) {
           throw new Error(`File too large (413): Please use a smaller image.`);
         } else {
-          throw new Error(`Files API failed: ${uploadResponse.status} - ${errorText}`);
+          throw new Error(`Files API failed: ${uploadResponse.status} - ${responseText}`);
         }
       }
       
-      // Parse Files API response
-      const uploadResult = await uploadResponse.json();
-      console.log('Files API response:', uploadResult);
-      
-      if (!uploadResult.Name) {
-        throw new Error('No file name in Files API response');
+      // Try to parse the response as JSON
+      let uploadResult: any;
+      try {
+        uploadResult = JSON.parse(responseText);
+      } catch (parseError) {
+        console.log('Response is not JSON, treating as string:', responseText);
+        uploadResult = responseText;
       }
       
+      console.log('Files API parsed response:', uploadResult);
+      
+      // Debug: Show full response structure
+      await this.showToast(`Files API Response: ${JSON.stringify(uploadResult)}`, 'info');
+      
+      // Handle different possible response formats from Files API
+      let uploadedFileName: string;
+      
+      // Check different possible property names for the filename
+      if (uploadResult.Name) {
+        uploadedFileName = uploadResult.Name;
+      } else if (uploadResult.name) {
+        uploadedFileName = uploadResult.name;
+      } else if (uploadResult.fileName) {
+        uploadedFileName = uploadResult.fileName;
+      } else if (uploadResult.FileName) {
+        uploadedFileName = uploadResult.FileName;
+      } else if (typeof uploadResult === 'string') {
+        // Sometimes the API returns just the filename as a string
+        uploadedFileName = uploadResult;
+      } else if (uploadResult.Result && uploadResult.Result.Name) {
+        uploadedFileName = uploadResult.Result.Name;
+      } else {
+        // If we can't find the filename in the response, use the original filename
+        console.warn('Could not find filename in Files API response, using original:', fileName);
+        uploadedFileName = fileName;
+      }
+      
+      console.log('Extracted filename from response:', uploadedFileName);
+      
       // STEP 2: Update Projects table with the file path
-      const filePath = `/${uploadResult.Name}`;
+      const filePath = `/${uploadedFileName}`;
       console.log('Step 2: Updating Projects table with file path:', filePath);
       console.log('Using PK_ID:', projectId);
       
