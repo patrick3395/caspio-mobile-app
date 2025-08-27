@@ -548,9 +548,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Upload in background
       this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
-        .then((response) => {
+        .then(async (response) => {
           photoEntry.uploading = false;
           photoEntry.attachId = response?.AttachID || response?.PK_ID;
+          
+          // Store original path and fetch as base64 for preview
+          if (response?.Photo) {
+            photoEntry.originalPath = response.Photo;
+            
+            // Fetch the image as base64 like we do when loading
+            try {
+              const imageData = await this.caspioService.getImageFromFilesAPI(response.Photo).toPromise();
+              if (imageData && imageData.startsWith('data:')) {
+                photoEntry.url = imageData;
+                photoEntry.thumbnailUrl = imageData;
+              }
+            } catch (err) {
+              console.error('Error fetching uploaded image as base64:', err);
+              // Keep the blob URL as fallback
+            }
+          }
+          
           console.log(`Photo uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
         })
         .catch((err) => {
@@ -639,13 +657,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Upload in background
         const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
-          .then((response) => {
+          .then(async (response) => {
             photoEntry.uploading = false;
             // Store the attachment ID for annotation updates
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
             // Store the original path for URL reconstruction later
             if (response?.Photo) {
               photoEntry.originalPath = response.Photo;
+              
+              // Fetch the image as base64 like we do when loading
+              try {
+                const imageData = await this.caspioService.getImageFromFilesAPI(response.Photo).toPromise();
+                if (imageData && imageData.startsWith('data:')) {
+                  photoEntry.url = imageData;
+                  photoEntry.thumbnailUrl = imageData;
+                }
+              } catch (err) {
+                console.error('Error fetching uploaded image as base64:', err);
+                // Keep the blob URL as fallback
+              }
             }
             uploadSuccessCount++;
             console.log(`Photo ${i + 1} uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
@@ -1079,6 +1109,109 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.isRoomSelected(roomName)) {
       this.expandedRooms[roomName] = !this.expandedRooms[roomName];
     }
+  }
+  
+  // Add custom point to room
+  async addCustomPoint(roomName: string) {
+    const alert = await this.alertController.create({
+      header: 'Add Custom Point',
+      inputs: [
+        {
+          name: 'pointName',
+          type: 'text',
+          placeholder: 'Enter point name',
+          attributes: {
+            maxlength: 100
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Add',
+          handler: async (data) => {
+            if (!data.pointName || data.pointName.trim() === '') {
+              await this.showToast('Please enter a point name', 'warning');
+              return false;
+            }
+            
+            const pointName = data.pointName.trim();
+            
+            // Check if point already exists
+            if (this.roomElevationData[roomName]?.elevationPoints) {
+              const exists = this.roomElevationData[roomName].elevationPoints.some(
+                (p: any) => p.name.toLowerCase() === pointName.toLowerCase()
+              );
+              
+              if (exists) {
+                await this.showToast('This point already exists', 'warning');
+                return false;
+              }
+            }
+            
+            // Add the point to the room's elevation points
+            if (!this.roomElevationData[roomName]) {
+              this.roomElevationData[roomName] = {
+                elevationPoints: [],
+                fdf: 'None',
+                notes: ''
+              };
+            }
+            
+            if (!this.roomElevationData[roomName].elevationPoints) {
+              this.roomElevationData[roomName].elevationPoints = [];
+            }
+            
+            // Add the new point
+            const newPoint = {
+              name: pointName,
+              photoCount: 0,
+              photos: []
+            };
+            
+            this.roomElevationData[roomName].elevationPoints.push(newPoint);
+            
+            // Create the point in the database if room is already saved
+            const roomId = this.roomRecordIds[roomName];
+            if (roomId) {
+              try {
+                const pointData = {
+                  RoomID: parseInt(roomId),
+                  PointName: pointName
+                };
+                
+                const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+                if (response && (response.PointID || response.PK_ID)) {
+                  const pointId = response.PointID || response.PK_ID;
+                  const pointKey = `${roomName}_${pointName}`;
+                  this.roomPointIds[pointKey] = pointId;
+                  console.log(`Created custom point with PointID: ${pointId}`);
+                }
+              } catch (error) {
+                console.error('Error creating custom point:', error);
+                await this.showToast('Failed to create point', 'danger');
+                // Remove from UI if creation failed
+                const index = this.roomElevationData[roomName].elevationPoints.findIndex(
+                  (p: any) => p.name === pointName
+                );
+                if (index > -1) {
+                  this.roomElevationData[roomName].elevationPoints.splice(index, 1);
+                }
+                return false;
+              }
+            }
+            
+            console.log(`Added custom point: ${pointName} to room: ${roomName}`);
+            return true;
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
   }
 
   async loadVisualCategories() {

@@ -587,6 +587,15 @@
                       </div>
                     </div>
                   </div>
+                  
+                  <!-- Add custom point button -->
+                  <div style="margin-top: 10px; text-align: center;">
+                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
+                            style="background: #f0f0f0; border: 1px dashed #999; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                      <ion-icon name="add-circle-outline" style="margin-right: 5px;"></ion-icon>
+                      Add Custom Point
+                    </button>
+                  </div>
                 </div>
                 
                 <!-- Room-specific notes - compact -->
