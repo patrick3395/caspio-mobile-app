@@ -514,10 +514,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Upload in background
         const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
-          .then(() => {
+          .then((response) => {
             photoEntry.uploading = false;
+            // Store the attachment ID for annotation updates
+            photoEntry.attachId = response?.AttachID || response?.PK_ID;
             uploadSuccessCount++;
-            console.log(`Photo ${i + 1} uploaded for point ${point.name}`);
+            console.log(`Photo ${i + 1} uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
+            return response;
           })
           .catch((err) => {
             console.error(`Failed to upload photo ${i + 1}:`, err);
@@ -774,8 +777,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const pointIdNum = parseInt(pointId, 10);
       
-      // Directly proceed with upload without debug popup
-      await this.performRoomPointPhotoUpload(pointIdNum, file, pointName);
+      // Directly proceed with upload and return the response
+      const response = await this.performRoomPointPhotoUpload(pointIdNum, file, pointName);
+      return response;  // Return response so we can get AttachID
       
     } catch (error) {
       console.error('Error in uploadPhotoToRoomPointFromFile:', error);
@@ -799,6 +803,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Just show simple success toast
       await this.showToast(`✅ Photo saved to '${pointName}'`, 'success');
+      
+      return response;  // Return the response with AttachID
       
     } catch (error: any) {
       console.error('❌ Failed to upload room point photo:', error);
@@ -1558,22 +1564,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Save room photo caption/annotation
   async saveRoomPhotoCaption(photo: any, roomName: string, point: any) {
     try {
-      // We need to find the attachment ID for this photo
-      // For now, just log it - we'll need to track attachIds when uploading
-      console.log('Save room photo caption:', photo.annotation, 'for', point.name);
+      console.log('Save room photo caption:', photo.annotation, 'for', point.name, 'AttachID:', photo.attachId);
       
-      // TODO: Update Services_Rooms_Points_Attach record with annotation
-      if (photo.attachId) {
+      // Update Services_Rooms_Points_Attach record with annotation
+      if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
-        // await this.caspioService.updateRoomPointAttachment(photo.attachId, updateData).toPromise();
-        console.log('Would update attachment', photo.attachId, 'with', updateData);
+        await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+        console.log('Updated attachment', photo.attachId, 'with annotation:', updateData.Annotation);
       }
       
       // Don't show toast for every blur event
     } catch (error) {
       console.error('Error saving room photo caption:', error);
-      await this.showToast('Failed to save caption', 'danger');
+      // Don't show error toast for every blur
     }
   }
   

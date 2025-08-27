@@ -618,6 +618,24 @@ export class CaspioService {
     );
   }
   
+  // Update Services_Rooms_Points_Attach record (for caption/annotation updates)
+  updateServicesRoomsPointsAttach(attachId: string, data: any): Observable<any> {
+    console.log('📝 Updating Services_Rooms_Points_Attach annotation');
+    console.log('  AttachID:', attachId);
+    console.log('  Update data:', data);
+    
+    const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data).pipe(
+      tap(response => {
+        console.log('✅ Room point annotation updated:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Failed to update room point annotation:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
     console.log('🔍 Creating Services_Visual record:', visualData);
