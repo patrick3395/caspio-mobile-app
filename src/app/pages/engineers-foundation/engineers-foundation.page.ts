@@ -4936,8 +4936,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async getVisualPhotos(visualId: string) {
     // Get photos for a specific visual from Services_Visuals_Attach
     const photos = this.visualPhotos[visualId] || [];
-    const account = localStorage.getItem('caspioAccount') || '';
-    const token = localStorage.getItem('caspioToken') || '';
+    const account = this.caspioService.getAccountID();
+    const token = this.caspioService.getCurrentToken() || '';
     
     console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
     

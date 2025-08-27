@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, Platform } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
+import { CaspioService } from '../../services/caspio.service';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 declare module 'jspdf' {
@@ -14,6 +15,7 @@ declare module 'jspdf' {
   selector: 'app-pdf-preview',
   standalone: true,
   imports: [CommonModule, IonicModule],
+  providers: [CaspioService],
   templateUrl: './pdf-preview.component.html',
   styleUrls: ['./pdf-preview.component.scss']
 })
@@ -29,7 +31,8 @@ export class PdfPreviewComponent implements OnInit {
   constructor(
     private modalController: ModalController,
     private loadingController: LoadingController,
-    private platform: Platform
+    private platform: Platform,
+    private caspioService: CaspioService
   ) {}
 
   ngOnInit() {
@@ -72,25 +75,47 @@ export class PdfPreviewComponent implements OnInit {
     const photo = this.projectData.primaryPhoto;
     
     if (photo.startsWith('/')) {
-      const account = localStorage.getItem('caspioAccount') || '';
-      const token = localStorage.getItem('caspioToken') || '';
-      return `https://${account}.caspio.com/rest/v2/files${photo}?access_token=${token}`;
+      const account = this.caspioService.getAccountID();
+      const token = this.caspioService.getCurrentToken() || '';
+      const photoUrl = `https://${account}.caspio.com/rest/v2/files${photo}?access_token=${token}`;
+      console.log('Primary photo URL:', photoUrl);
+      return photoUrl;
     }
     
     return photo;
   }
 
   getPhotoUrl(photo: any): string {
-    if (!photo) return 'assets/img/photo-placeholder.svg';
-    
-    const photoPath = photo.url || photo.Photo || photo.Attachment || photo;
-    
-    if (typeof photoPath === 'string' && photoPath.startsWith('/')) {
-      const account = localStorage.getItem('caspioAccount') || '';
-      const token = localStorage.getItem('caspioToken') || '';
-      return `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+    if (!photo) {
+      console.log('No photo provided');
+      return 'assets/img/photo-placeholder.svg';
     }
     
+    // Handle different photo object structures
+    const photoPath = photo.url || photo.Photo || photo.Attachment || photo.filePath || photo;
+    
+    console.log('Processing photo:', { 
+      original: photo, 
+      extracted: photoPath,
+      type: typeof photoPath 
+    });
+    
+    // Already a full URL
+    if (typeof photoPath === 'string' && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
+      console.log('Using full URL:', photoPath);
+      return photoPath;
+    }
+    
+    // Caspio file path
+    if (typeof photoPath === 'string' && photoPath.startsWith('/')) {
+      const account = this.caspioService.getAccountID();
+      const token = this.caspioService.getCurrentToken() || '';
+      const photoUrl = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+      console.log('Constructed Caspio URL:', photoUrl);
+      return photoUrl;
+    }
+    
+    console.log('Using fallback or direct path:', photoPath);
     return photoPath || 'assets/img/photo-placeholder.svg';
   }
 
@@ -897,41 +922,101 @@ export class PdfPreviewComponent implements OnInit {
     }
     
     try {
+      console.log('Loading image for PDF:', url);
+      
+      // For Caspio images with access token, fetch the image as blob first
+      if (url.includes('caspio.com') && url.includes('access_token')) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit' // Don't send cookies
+          });
+          
+          if (!response.ok) {
+            console.error('Failed to fetch Caspio image:', response.status, response.statusText);
+            return null;
+          }
+          
+          const blob = await response.blob();
+          const dataUrl = await this.blobToDataUrl(blob);
+          this.imageCache.set(url, dataUrl);
+          return dataUrl;
+        } catch (fetchError) {
+          console.error('Error fetching Caspio image:', fetchError);
+          // Fall back to regular image loading
+        }
+      }
+      
+      // For blob URLs or other sources
       return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        
+        // Only set crossOrigin for non-blob URLs
+        if (!url.startsWith('blob:')) {
+          img.crossOrigin = 'anonymous';
+        }
         
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            this.imageCache.set(url, dataUrl);
-            resolve(dataUrl);
-          } else {
+          try {
+            const canvas = document.createElement('canvas');
+            // Limit size for PDF performance
+            const maxWidth = 800;
+            const maxHeight = 600;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width *= ratio;
+              height *= ratio;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Slightly lower quality for smaller file
+              this.imageCache.set(url, dataUrl);
+              console.log('✅ Image loaded successfully');
+              resolve(dataUrl);
+            } else {
+              console.error('Could not get canvas context');
+              resolve(null);
+            }
+          } catch (canvasError) {
+            console.error('Error processing image:', canvasError);
             resolve(null);
           }
         };
         
-        img.onerror = () => {
-          console.log('Failed to load image:', url);
+        img.onerror = (error) => {
+          console.error('Failed to load image:', url, error);
           resolve(null);
         };
         
         img.src = url;
         
-        // Timeout after 5 seconds
+        // Timeout after 10 seconds (increased for larger images)
         setTimeout(() => {
+          console.warn('Image load timeout:', url);
           resolve(null);
-        }, 5000);
+        }, 10000);
       });
     } catch (error) {
       console.error('Error loading image:', error);
       return null;
     }
+  }
+  
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   private hasPhotos(): boolean {
