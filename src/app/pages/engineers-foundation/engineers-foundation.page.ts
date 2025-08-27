@@ -129,6 +129,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
     
+    console.log('Engineers Foundation Evaluation initialized:', {
       projectId: this.projectId,
       serviceId: this.serviceId
     });
@@ -146,6 +147,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Then load any existing template data (including visual selections)
       await this.loadExistingData();
     } catch (error) {
+      console.error('Error loading template data:', error);
     }
   }
   
@@ -155,6 +157,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
+    console.log('ionViewWillEnter - page re-entered');
     
     // Dismiss any loading indicators from navigation
     try {
@@ -202,24 +205,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     try {
       this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
+      console.log('Project data loaded:', this.projectData);
     } catch (error) {
+      console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
     }
   }
   
   async loadServiceData() {
     if (!this.serviceId) {
+      alert('⚠️ DEBUG: No serviceId available for loading service data');
       return;
     }
     
+    alert(`🔍 DEBUG: Loading service data for ServiceID: ${this.serviceId}`);
     
     try {
       // Load service data from Services table
       const serviceResponse = await this.caspioService.getService(this.serviceId).toPromise();
       if (serviceResponse) {
         this.serviceData = serviceResponse;
+        console.log('Service data loaded:', this.serviceData);
+        alert(`✅ Service data loaded successfully!\n\nWeatherConditions: ${this.serviceData.WeatherConditions || '(empty)'}`);
       }
     } catch (error) {
+      console.error('Error loading service data:', error);
       // Initialize with default values if service doesn't exist yet
       this.serviceData = {
         ServiceID: this.serviceId,
@@ -292,6 +302,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Load existing Services_Rooms for this service to check which are already selected
         if (this.serviceId) {
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          console.log('Existing Services_Rooms records:', existingRooms);
           
           if (existingRooms && existingRooms.length > 0) {
             // Now we can use the RoomName field directly
@@ -300,6 +311,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Use RoomID field, NOT PK_ID - RoomID is what links to Services_Rooms_Points
               const roomId = room.RoomID;
               
+              console.log(`Loading room: ${roomName}, RoomID: ${roomId}, PK_ID: ${room.PK_ID}`);
               
               // Find matching template by RoomName
               const template = autoTemplates.find((t: any) => t.RoomName === roomName);
@@ -318,6 +330,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                 }
                 
+                console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}, Notes: ${room.Notes ? 'Yes' : 'No'}`);
                 
                 // Load existing room points for this room
                 this.loadExistingRoomPoints(roomId, roomName);
@@ -326,10 +339,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
+        console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
+        console.log('No room templates found in Services_Room_Templates');
         this.roomTemplates = [];
       }
     } catch (error: any) {
+      console.error('Error loading room templates (non-critical):', error);
       this.roomTemplates = [];
       // Don't reset roomElevationData if it already has data
       if (!this.roomElevationData || Object.keys(this.roomElevationData).length === 0) {
@@ -373,10 +389,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.fdfOptions = optionsByRoom['FDF'];
           }
           
+          console.log('Room-specific FDF options loaded:', this.roomFdfOptions);
+          console.log('Default FDF options:', this.fdfOptions);
         }
       } catch (tableError) {
+        console.log('Could not load custom FDF options, using defaults:', tableError);
       }
     } catch (error) {
+      console.error('Error loading FDF options:', error);
       // Default options on error
       this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
     }
@@ -405,6 +425,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
         this.styleOptions = Array.from(styleSet).sort();
         
+        console.log('TypeOfBuilding options:', this.typeOfBuildingOptions);
+        console.log('Style options:', this.styleOptions);
         
         // Add default options if none found in database
         if (this.typeOfBuildingOptions.length === 0) {
@@ -415,6 +437,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
     } catch (error) {
+      console.error('Error loading project dropdown options:', error);
       // Set default options on error
       this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial'];
       this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level'];
@@ -448,7 +471,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
+      console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
     } catch (error) {
+      console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
     }
   }
@@ -479,6 +504,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Point already exists, use its PointID (NOT PK_ID!)
           pointId = existingPoint.PointID || existingPoint.PK_ID;
           this.roomPointIds[pointKey] = pointId;
+          console.log(`Using existing point record with PointID: ${pointId}`);
         } else {
           // Create new Services_Rooms_Points record
           const pointData = {
@@ -486,12 +512,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             PointName: point.name
           };
           
+          console.log('Creating Services_Rooms_Points record:', pointData);
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
           
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
+            console.log(`Created point record with PointID: ${pointId}`);
           } else {
             throw new Error('Failed to create point record');
           }
@@ -511,12 +539,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (this.fileInput && this.fileInput.nativeElement) {
           this.fileInput.nativeElement.click();
         } else {
+          console.error('File input not available');
           this.showToast('File input not available', 'danger');
           this.currentRoomPointContext = null;
         }
       }, 100);
       
     } catch (error) {
+      console.error('Error in capturePhotoForPoint:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -535,6 +565,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Store the point ID for future reference
           this.roomPointIds[pointKey] = pointId;
+          console.log(`Loaded existing point: ${point.PointName} with PointID: ${pointId}`);
           
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
@@ -558,6 +589,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (photoPath) {
                     try {
                       // Use the same method as Structural section - fetch as base64 data URL
+                      console.log(`Fetching room photo from Files API: ${photoPath}`);
                       const imageData = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                       
                       if (imageData && imageData.startsWith('data:')) {
@@ -569,6 +601,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                         thumbnailUrl = photoUrl;
                       }
                     } catch (err) {
+                      console.error('Error fetching room photo:', err);
                       // Fallback to SVG on error
                       photoUrl = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
                       thumbnailUrl = photoUrl;
@@ -584,12 +617,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     filePath: photoPath  // Keep for compatibility
                   };
                 }));
+                console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
             }
           }
         }
       }
     } catch (error) {
+      console.error('Error loading room points:', error);
     }
   }
   
@@ -600,6 +635,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const photo = await this.cameraService.takePicture();
       
       if (!photo || !photo.dataUrl) {
+        console.log('No photo captured');
         return;
       }
       
@@ -650,12 +686,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 photoEntry.thumbnailUrl = imageData;
               }
             } catch (err) {
+              console.error('Error fetching uploaded image as base64:', err);
               // Keep the blob URL as fallback
             }
           }
           
+          console.log(`Photo uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
         })
         .catch((err) => {
+          console.error('Failed to upload photo:', err);
           // Remove failed photo from UI
           const index = point.photos.indexOf(photoEntry);
           if (index > -1) {
@@ -693,6 +732,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await continueAlert.present();
       
     } catch (error) {
+      console.error('Error capturing room photo:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -702,6 +742,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const { roomName, point, pointId, roomId } = this.currentRoomPointContext;
       
+      console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
       // Show non-blocking toast
       const uploadMessage = files.length > 1 
@@ -754,13 +795,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   photoEntry.thumbnailUrl = imageData;
                 }
               } catch (err) {
+                console.error('Error fetching uploaded image as base64:', err);
                 // Keep the blob URL as fallback
               }
             }
             uploadSuccessCount++;
+            console.log(`Photo ${i + 1} uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
             return response;
           })
           .catch((err) => {
+            console.error(`Failed to upload photo ${i + 1}:`, err);
             // Remove failed photo from UI
             const index = point.photos.indexOf(photoEntry);
             if (index > -1) {
@@ -812,11 +856,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Handle remaining uploads in background if single file
       if (files.length === 1) {
         Promise.all(uploadPromises).then(() => {
+          console.log('Background upload complete');
         }).catch(err => {
+          console.error('Background upload error:', err);
         });
       }
       
     } catch (error) {
+      console.error('Error handling room point files:', error);
       await this.showToast('Failed to process photos', 'danger');
     } finally {
       // Reset file input
@@ -856,8 +903,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             input.removeEventListener('change', handleChange);
             
             if (file) {
+              console.log(`Photo captured: ${file.name}, Size: ${file.size}`);
               resolve(file);
             } else {
+              console.log('No file selected');
               resolve(null);
             }
           };
@@ -869,10 +918,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           input.click();
           
         } else {
+          console.error('fileInput ViewChild is null, cannot capture photo');
           reject(new Error('File input not available'));
         }
         
       } catch (error) {
+        console.error('Error in capturePhotoNative:', error);
         reject(error);
       }
     });
@@ -904,6 +955,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
           pointId = createResponse.PointID || createResponse.PK_ID;
           this.roomPointIds[pointKey] = pointId;
+          console.log(`processRoomPointPhoto created point with PointID: ${pointId}`);
         } else {
           throw new Error('Failed to create point record');
         }
@@ -948,6 +1000,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await alert.present();
       
     } catch (error) {
+      console.error('Error processing room point photo:', error);
       await this.showToast('Failed to process photo', 'danger');
     }
   }
@@ -991,8 +1044,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
       
+      console.log(`Photo uploaded for point ${pointName}`);
       
     } catch (error) {
+      console.error('Error uploading room point photo:', error);
       throw error;
     }
   }
@@ -1007,6 +1062,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return response;  // Return response so we can get AttachID
       
     } catch (error) {
+      console.error('Error in uploadPhotoToRoomPointFromFile:', error);
       throw error;
     }
   }
@@ -1014,6 +1070,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Perform the actual room point photo upload (matching visual method)
   private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string) {
     try {
+      console.log('📦 Using two-step upload for room point photo');
       
       // Use the new two-step method that matches visual upload
       const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
@@ -1022,10 +1079,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         photo
       ).toPromise();
       
+      console.log('✅ Room point photo uploaded successfully:', response);
       
       return response;  // Return the response with AttachID
       
     } catch (error: any) {
+      console.error('❌ Failed to upload room point photo:', error);
       
       // Just show simple error toast
       await this.showToast('Failed to upload photo', 'danger');
@@ -1113,18 +1172,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Use RoomID from the response, NOT PK_ID
             const roomId = response.RoomID || response.roomId;
             if (!roomId) {
+              console.error('No RoomID in response:', response);
               throw new Error('RoomID not found in response');
             }
             this.roomRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
             this.expandedRooms[roomName] = true; // Auto-expand when selected
+            console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
           }
         } catch (err: any) {
+          console.error('Room creation error:', err);
           await this.showToast('Failed to create room', 'danger');
           this.selectedRooms[roomName] = false;
         }
       }
     } catch (error: any) {
+      console.error('Error toggling room selection:', error);
       await this.showToast('Failed to update room selection', 'danger');
     } finally {
       this.savingRooms[roomName] = false;
@@ -1157,7 +1220,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.roomElevationData[roomName].fdf = 'None';
         }
         
+        console.log(`Room ${roomName} deleted from Services_Rooms table`);
       } catch (error) {
+        console.error('Error deleting room:', error);
         await this.showToast('Failed to remove room', 'danger');
         // Don't revert UI state since user intended to delete
       }
@@ -1241,6 +1306,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       buttons.push({
         text: 'Cancel',
         handler: () => {
+          console.log('Room selection cancelled');
         }
       });
       
@@ -1252,6 +1318,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await actionSheet.present();
     } catch (error) {
+      console.error('Error showing room selection:', error);
       await this.showToast('Failed to show room selection', 'danger');
     }
   }
@@ -1349,6 +1416,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Success toast removed per user request
     } catch (error) {
+      console.error('Error adding room template:', error);
       await this.showToast('Failed to add room', 'danger');
     }
   }
@@ -1430,8 +1498,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   const pointId = response.PointID || response.PK_ID;
                   const pointKey = `${roomName}_${pointName}`;
                   this.roomPointIds[pointKey] = pointId;
+                  console.log(`Created custom point with PointID: ${pointId}`);
                 }
               } catch (error) {
+                console.error('Error creating custom point:', error);
                 await this.showToast('Failed to create point', 'danger');
                 // Remove from UI if creation failed
                 const index = this.roomElevationData[roomName].elevationPoints.findIndex(
@@ -1444,6 +1514,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
             }
             
+            console.log(`Added custom point: ${pointName} to room: ${roomName}`);
             return true;
           }
         }
@@ -1461,6 +1532,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Filter templates for TypeID = 1 (Foundation Evaluation)
       this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
       
+      console.log(`Filtered ${this.visualTemplates.length} templates for Foundation Evaluation (TypeID = 1)`);
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
@@ -1475,6 +1547,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Use the order they appear in the table, not alphabetical
       this.visualCategories = categoriesOrder;
+      console.log('Categories in original order:', this.visualCategories);
       
       // Initialize organized data structure for each category
       this.visualCategories.forEach(category => {
@@ -1530,7 +1603,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         });
       });
       
+      console.log('Visual categories loaded:', this.visualCategories);
+      console.log('Organized data:', this.organizedData);
+      console.log('Category templates:', this.categoryData);
     } catch (error) {
+      console.error('Error loading visual categories:', error);
       await this.showToast('Failed to load template categories', 'warning');
     }
   }
@@ -1556,23 +1633,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Skip loading room elevation data to prevent issues
         
+        console.log('Draft data loaded from localStorage');
       } catch (error) {
+        console.error('Error loading draft data:', error);
       }
     }
   }
   
   async loadExistingVisualSelections() {
+    console.log('=====================================');
+    console.log('📥 LOADING EXISTING VISUAL SELECTIONS');
+    console.log('=====================================');
+    console.log('   ServiceID:', this.serviceId);
     
     if (!this.serviceId) {
+      console.log('❌ No ServiceID - skipping load');
       return;
     }
     
     try {
+      console.log('⏳ Fetching from Services_Visuals table...');
       const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      console.log('📋 Existing visuals loaded:', existingVisuals);
+      console.log('   Count:', existingVisuals?.length || 0);
       
       // Mark items as selected based on existing records
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
+          console.log('🔍 Processing visual:', visual);
           
           // Find matching template by Name and Category
           if (visual.Category && visual.Name) {
@@ -1584,6 +1672,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             if (matchingTemplate) {
               const key = `${visual.Category}_${matchingTemplate.PK_ID}`;
+              console.log('✅ Found matching template, marking as selected:', key);
+              console.log('   Template PK_ID:', matchingTemplate.PK_ID);
+              console.log('   Visual Name:', visual.Name);
               this.selectedItems[key] = true;
               
               // Store the visual record ID
@@ -1592,19 +1683,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Store in tracking object for photo uploads - ALWAYS as string
               this.visualRecordIds[key] = String(visualId);
               
+              console.log('📌 Stored visual ID:', visualId, 'for key:', key, 'Type:', typeof this.visualRecordIds[key]);
+              console.log('📋 Updated selectedItems:', this.selectedItems);
             } else {
+              console.log('⚠️ No matching template found for:', visual.Name);
             }
           }
         });
       }
       
+      console.log('✅ Visual selections restored:', this.selectedItems);
+      console.log('📌 Visual record IDs:', this.visualRecordIds);
       
       // Add a small delay to ensure visual IDs are properly set
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Load existing photos for these visuals
+      console.log('📸 About to load existing photos...');
       await this.loadExistingPhotos();
+      console.log('📸 Finished loading existing photos');
     } catch (error) {
+      console.error('Error loading existing visual selections:', error);
     }
   }
   
@@ -1634,6 +1733,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const viewportTop = scrollTop;
     const viewportMiddle = scrollTop + (window.innerHeight / 2);
     
+    console.log('Scroll Debug:', {
       scrollTop,
       viewportMiddle,
       expandedSections: this.expandedSections,
@@ -1645,6 +1745,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Get all accordions in the structural section
       const allAccordions = Array.from(document.querySelectorAll('.categories-container ion-accordion'));
       
+      console.log('Found accordions:', allAccordions.length);
       
       // Find which expanded accordion we're currently viewing
       let closestAccordion: HTMLElement | null = null;
@@ -1677,6 +1778,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             const accordionBottom = accordionTop + headerRect.height + contentHeight;
             
+            console.log(`Accordion ${accordionValue}:`, {
               top: accordionTop,
               bottom: accordionBottom,
               contentHeight,
@@ -1686,6 +1788,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Check if we're viewing this accordion (viewport middle is within accordion bounds)
             if (viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom) {
               // We're in this accordion!
+              console.log(`Found! Scrolling to ${accordionValue}`);
               accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
               foundMatch = true;
               return;
@@ -1703,6 +1806,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // If we found a close accordion, scroll to it
       if (!foundMatch && closestAccordion) {
+        console.log('Using closest accordion as fallback');
         closestAccordion.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
@@ -1787,6 +1891,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Track which accordions are expanded
   onAccordionChange(event: any) {
+    console.log('Accordion changed:', event.detail.value);
     if (event.detail.value) {
       // Store the expanded accordion value
       this.expandedAccordions = Array.isArray(event.detail.value) 
@@ -1855,8 +1960,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
         
+        console.log(`Updated Notes for room ${roomName}`);
         // Don't show toast for notes to avoid interrupting user typing
       } catch (error) {
+        console.error('Error updating room notes:', error);
       }
       
       // Also save to draft
@@ -1867,6 +1974,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Handle elevation point value change
   onElevationPointChange(roomName: string, point: any) {
+    console.log(`Elevation changed for ${roomName} - ${point.name}: ${point.value}`);
     
     // Save to draft after a delay
     if (this.saveDebounceTimer) {
@@ -1884,6 +1992,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event.stopPropagation();
     }
     
+    console.log(`Taking photo for elevation point: ${roomName} - ${point.name}`);
     
     try {
       // Initialize photos array if needed
@@ -1925,12 +2034,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Update photo count
         point.photoCount = point.photos.length;
         
+        console.log(`Added ${files.length} photo(s) to ${point.name}. Total: ${point.photoCount}`);
         // Success toast removed per user request
         
         // TODO: Upload to Caspio when saving
         this.saveDraft();
       }
     } catch (error) {
+      console.error('Error taking photo for elevation point:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -1978,22 +2089,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.saveRoomPhotoCaption(photo, roomName, point);
       }
     } catch (error) {
+      console.error('Error viewing room photo:', error);
     }
   }
   
   // Save room photo caption/annotation
   async saveRoomPhotoCaption(photo: any, roomName: string, point: any) {
     try {
+      console.log('Save room photo caption:', photo.annotation, 'for', point.name, 'AttachID:', photo.attachId);
       
       // Update Services_Rooms_Points_Attach record with annotation
       if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
         await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+        console.log('Updated attachment', photo.attachId, 'with annotation:', updateData.Annotation);
       }
       
       // Don't show toast for every blur event
     } catch (error) {
+      console.error('Error saving room photo caption:', error);
       // Don't show error toast for every blur
     }
   }
@@ -2018,6 +2133,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 // Delete from Services_Rooms_Points_Attach table if attachId exists
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                  console.log('Deleted room photo attachment:', photo.attachId);
                 }
                 
                 // Remove from point's photos array
@@ -2029,7 +2145,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                 }
                 
+                console.log('Room photo deleted successfully');
               } catch (error) {
+                console.error('Error deleting room photo:', error);
                 await this.showToast('Failed to delete photo', 'danger');
               }
             }
@@ -2039,11 +2157,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await alert.present();
     } catch (error) {
+      console.error('Error in deleteRoomPhoto:', error);
     }
   }
   
   // View elevation photo in modal (legacy redirect)
   async viewElevationPhoto(photo: any) {
+    console.log('Viewing elevation photo:', photo);
     
     // Use the PhotoViewerComponent directly since we don't have category/itemId context
     if (photo && (photo.url || photo.filePath)) {
@@ -2073,7 +2193,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       
       localStorage.setItem(draftKey, JSON.stringify(draftData));
+      console.log('Draft saved at', new Date().toLocaleTimeString());
     } catch (error) {
+      console.error('Error saving draft:', error);
     }
   }
 
@@ -2107,6 +2229,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         SubmittedAt: new Date().toISOString()
       };
       
+      console.log('Submitting template data:', submitData);
       
       // For now, just simulate success
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -2122,6 +2245,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.router.navigate(['/project-detail', this.projectId]);
       
     } catch (error) {
+      console.error('Error submitting template:', error);
       await loading.dismiss();
       await this.showToast('Failed to submit evaluation', 'danger');
     }
@@ -2168,10 +2292,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Toggle item selection
   async toggleItemSelection(category: string, itemId: string) {
+    console.log('=====================================');
+    console.log('🔄 TOGGLE ITEM SELECTION CALLED');
+    console.log('=====================================');
+    console.log('   Category:', category);
+    console.log('   ItemID:', itemId);
     
     const key = `${category}_${itemId}`;
     const wasSelected = this.selectedItems[key];
     
+    console.log('   Key:', key);
+    console.log('   Was Selected:', wasSelected);
+    console.log('   Will be Selected:', !wasSelected);
     
     // Set saving state
     this.savingItems[key] = true;
@@ -2183,6 +2315,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.categoryData[category][itemId].selected = this.selectedItems[key];
     }
     
+    console.log('✅ Item toggled:', key, 'New state:', this.selectedItems[key]);
     
     try {
       // Save or remove from Services_Visuals table
@@ -2202,21 +2335,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Save visual selection to Services_Visuals table
   async saveVisualSelection(category: string, templateId: string) {
+    console.log('=====================================');
+    console.log('🔍 SAVING VISUAL TO SERVICES_VISUALS');
+    console.log('=====================================');
     
     if (!this.serviceId) {
+      console.error('❌ No ServiceID available for saving visual');
       return;
     }
     
+    console.log('📋 Input Parameters:');
+    console.log('   Category:', category);
+    console.log('   TemplateID:', templateId);
+    console.log('   ServiceID:', this.serviceId);
     
     // Find the template data first
     const template = this.visualTemplates.find(t => t.PK_ID === templateId);
     if (!template) {
+      console.error('❌ Template not found:', templateId);
       return;
     }
     
     // Check if this visual already exists
     const key = `${category}_${templateId}`;
     if (this.visualRecordIds[key]) {
+      console.log('⚠️ Visual already exists with ID:', this.visualRecordIds[key]);
+      console.log('   Skipping duplicate save');
       return;
     }
     
@@ -2229,19 +2373,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           v.Name === template.Name
         );
         if (exists) {
+          console.log('⚠️ Visual already exists in database:', exists);
           // Store the ID for future reference - ALWAYS as string
           const existingId = exists.VisualID || exists.PK_ID || exists.id;
           this.visualRecordIds[key] = String(existingId);
+          console.log('   Stored existing ID:', this.visualRecordIds[key], 'Type:', typeof this.visualRecordIds[key]);
           return;
         }
       }
     } catch (error) {
+      console.error('Error checking for existing visual:', error);
     }
     
+    console.log('📄 Template Found:', template);
     
     // Convert ServiceID to number (Caspio expects Integer type)
     const serviceIdNum = parseInt(this.serviceId, 10);
     if (isNaN(serviceIdNum)) {
+      console.error('❌ Invalid ServiceID - not a number:', this.serviceId);
       await this.showToast('Invalid Service ID', 'danger');
       return;
     }
@@ -2256,12 +2405,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       Notes: ''                    // Text(255) in Caspio - empty for now
     };
     
+    console.log('📤 DATA BEING SENT TO SERVICES_VISUALS TABLE:');
+    console.log('=====================================');
+    console.log('COLUMN MAPPING TO SERVICES_VISUALS TABLE:');
+    console.log('   ServiceID (Integer):', visualData.ServiceID, typeof visualData.ServiceID);
+    console.log('   Category (Text 255):', visualData.Category);
+    console.log('   Kind (Text 255):', visualData.Kind);
+    console.log('   Name (Text 255):', visualData.Name);
+    console.log('   Text (Text field):', visualData.Text);
+    console.log('   Notes (Text 255):', visualData.Notes);
+    console.log('=====================================');
+    console.log('📦 Full visualData object being sent:', JSON.stringify(visualData, null, 2));
+    console.log('📌 Template info for reference (not sent):', {
       TemplateID: templateId,
       Text: template.Text
     });
     
     try {
+      console.log('⏳ Calling caspioService.createServicesVisual...');
       const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+      console.log('✅ Visual saved to Services_Visuals:', response);
+      console.log('✅ Response details:', JSON.stringify(response, null, 2));
       
       // Skip debug popup for faster performance
       // await this.showVisualCreationDebug(category, templateId, response);
@@ -2269,6 +2433,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Check if response exists (even if empty, it might mean success)
       // Caspio sometimes returns empty response on successful POST
       if (response === undefined || response === null || response === '') {
+        console.log('⚠️ Empty response received - treating as success (common with Caspio)');
         // Generate a temporary ID for tracking
         const tempId = `temp_${Date.now()}`;
         const recordKey = `visual_${category}_${templateId}`;
@@ -2280,6 +2445,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.refreshVisualId(category, templateId);
         }, 1000);
         
+        console.log('✅ Visual appears to be saved (will verify)');
         return; // Exit successfully
       }
       
@@ -2291,27 +2457,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // IMPORTANT: Use VisualID, not PK_ID for Services_Visuals table
       if (Array.isArray(response) && response.length > 0) {
         visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
+        console.log('📋 Response was array, extracted ID from first item:', visualId);
+        console.log('   - VisualID:', response[0].VisualID, '(preferred)');
+        console.log('   - PK_ID:', response[0].PK_ID, '(not used if VisualID exists)');
       } else if (response && typeof response === 'object') {
         // If response has Result array (Caspio pattern)
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
           visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
+          console.log('📋 Response had Result array, extracted ID:', visualId);
+          console.log('   - VisualID:', response.Result[0].VisualID, '(preferred)');
+          console.log('   - PK_ID:', response.Result[0].PK_ID, '(not used if VisualID exists)');
         } else {
           // Direct object response
           visualId = response.VisualID || response.PK_ID || response.id;
+          console.log('📋 Response was object, extracted ID:', visualId);
+          console.log('   - VisualID:', response.VisualID, '(preferred)');
+          console.log('   - PK_ID:', response.PK_ID, '(not used if VisualID exists)');
         }
       } else {
         // Response might be the ID itself
         visualId = response;
+        console.log('📋 Response was ID directly:', visualId);
       }
       
+      console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+      console.log('🔍 Extracted VisualID:', visualId);
       
       const recordKey = `visual_${category}_${templateId}`;
       localStorage.setItem(recordKey, String(visualId));
       
       // Store in our tracking object for photo uploads
       this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
+      console.log('📌 Visual Record ID stored:', visualId, 'for key:', `${category}_${templateId}`);
       
     } catch (error: any) {
+      console.error('⚠️ Error during save (checking if actually failed):', error);
+      console.error('=====================================');
+      console.error('ERROR DETAILS:');
+      console.error('   Status:', error?.status);
+      console.error('   Status Text:', error?.statusText);
+      console.error('   Message:', error?.message);
+      console.error('   Error Body:', error?.error);
+      console.error('=====================================');
       
       // Show debug alert for the error
       const errorAlert = await this.alertController.create({
@@ -2346,6 +2533,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Check if it's a real error or just a response parsing issue
       // Status 200-299 means success even if response parsing failed
       if (error?.status >= 200 && error?.status < 300) {
+        console.log('✅ Request was successful (status 2xx) - ignoring response parsing error');
         // Treat as success
         const tempId = `temp_${Date.now()}`;
         const recordKey = `visual_${category}_${templateId}`;
@@ -2363,13 +2551,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Check for specific error types
       if (error?.status === 400) {
+        console.error('⚠️ 400 Bad Request - Check column names and data types');
+        console.error('Expected columns: ServiceID (Integer), Category (Text), Kind (Text), Name (Text), Notes (Text)');
       } else if (!error?.status) {
+        console.log('⚠️ No status code - might be a response parsing issue, checking table...');
         // Try to verify if it was actually saved
         setTimeout(async () => {
           const saved = await this.verifyVisualSaved(category, templateId);
           if (saved) {
+            console.log('✅ Verified: Visual was actually saved');
             // Success toast removed per user request
           } else {
+            console.error('❌ Verified: Visual was NOT saved');
             // Only now revert the selection
             const key = `${category}_${templateId}`;
             this.selectedItems[key] = false;
@@ -2403,8 +2596,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (recordId) {
       try {
         await this.caspioService.deleteServicesVisual(recordId).toPromise();
+        console.log('✅ Visual removed from Services_Visuals');
         localStorage.removeItem(recordKey);
       } catch (error) {
+        console.error('❌ Failed to remove visual:', error);
         // Don't show error toast for deletion failures
       }
     }
@@ -2528,6 +2723,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Upload in background
             this.uploadPhotoForVisual(visualId, currentFile, key, true)
               .then(() => {
+                console.log(`Photo ${photoCounter} uploaded`);
               })
               .catch(err => {
                 this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
@@ -2566,6 +2762,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             keepCapturing = false;
           }
         } catch (error) {
+          console.error('❌ Error capturing photo:', error);
           await this.showToast('Failed to capture photo', 'danger');
           retakePhoto = false;
           keepCapturing = false;
@@ -2574,6 +2771,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Log capture summary
+    console.log(`Photo capture session complete: ${capturedPhotos.length} photo(s)`)
   }
   
   // Camera button handler - allows multiple photo capture
@@ -2634,26 +2832,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return; // Skip the old single-photo logic below
     
     // DETAILED DEBUGGING
+    console.log('🔍 DEBUGGING FILE INPUT:');
+    console.log('1. this.fileInput exists?', !!this.fileInput);
+    console.log('2. this.fileInput object:', this.fileInput);
     
     if (this.fileInput) {
+      console.log('3. nativeElement exists?', !!this.fileInput.nativeElement);
+      console.log('4. nativeElement:', this.fileInput.nativeElement);
       
       if (this.fileInput.nativeElement) {
+        console.log('5. Element type:', this.fileInput.nativeElement.tagName);
+        console.log('6. Element id:', this.fileInput.nativeElement.id);
+        console.log('7. Element display:', window.getComputedStyle(this.fileInput.nativeElement).display);
         
         // Try to find the element directly in DOM
         const directElement = document.querySelector('input[type="file"]');
+        console.log('8. Direct DOM query found:', !!directElement);
         
         if (directElement) {
+          console.log('9. Using direct element instead');
           this.currentUploadContext = { visualId, key, category, itemId };
           (directElement as HTMLInputElement).click();
+          console.log('10. Clicked direct element');
         } else {
           // Try original way
           this.currentUploadContext = { visualId, key, category, itemId };
           this.fileInput.nativeElement.click();
+          console.log('11. Clicked via ViewChild');
         }
       } else {
+        console.error('❌ nativeElement is null/undefined');
         await this.showToast('File input not available', 'danger');
       }
     } else {
+      console.error('❌ fileInput ViewChild is null/undefined');
       await this.showToast('Camera not initialized', 'danger');
     }
   }
@@ -2680,6 +2892,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await this.showToast(uploadMessage, 'primary');
     
     try {
+      console.log(`📸 ${files.length} file(s) selected`);
       
       // Get or create visual ID
       const key = `${category}_${itemId}`;
@@ -2708,9 +2921,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const uploadPromises = fileArray.map((file, index) => 
           this.uploadPhotoForVisual(visualId, file, key, true)
             .then(() => {
+              console.log(`✅ File ${index + 1} uploaded successfully`);
               return { success: true, error: null };
             })
             .catch((error) => {
+              console.error(`❌ Failed to upload file ${index + 1}:`, error);
               return { success: false, error };
             })
         );
@@ -2777,6 +2992,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Removed change detection to improve performance
       }
     } catch (error) {
+      console.error('❌ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
     } finally {
       // Reset file input
@@ -2790,6 +3006,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // DEPRECATED - Keeping for reference
   private async capturePhoto(visualId: string, key: string) {
     try {
+      console.log('📸 Opening camera for visual:', visualId);
       
       const input = document.createElement('input');
       input.type = 'file';
@@ -2807,9 +3024,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       const file = await fileSelected;
       if (file) {
+        console.log('📸 Photo captured:', file.name);
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
+      console.error('❌ Error capturing photo:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -2817,6 +3036,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Select from gallery
   private async selectFromGallery(visualId: string, key: string) {
     try {
+      console.log('🖼️ Opening gallery for visual:', visualId);
       
       const input = document.createElement('input');
       input.type = 'file';
@@ -2834,9 +3054,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       const file = await fileSelected;
       if (file) {
+        console.log('🖼️ Image selected:', file.name);
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
+      console.error('❌ Error selecting from gallery:', error);
       await this.showToast('Failed to select image', 'danger');
     }
   }
@@ -2844,6 +3066,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Select document
   private async selectDocument(visualId: string, key: string) {
     try {
+      console.log('📄 Opening document picker for visual:', visualId);
       
       const input = document.createElement('input');
       input.type = 'file';
@@ -2860,9 +3083,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       const file = await fileSelected;
       if (file) {
+        console.log('📄 Document selected:', file.name);
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
+      console.error('❌ Error selecting document:', error);
       await this.showToast('Failed to select document', 'danger');
     }
   }
@@ -3026,6 +3251,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
     } catch (error) {
+      console.error('❌ Failed to prepare upload:', error);
       await this.showToast('Failed to prepare photo upload', 'danger');
     }
   }
@@ -3040,6 +3266,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         photo
       ).toPromise();
       
+      console.log('✅ Photo uploaded successfully:', response);
       
       // Update the temporary photo with real data
       const actualVisualId = String(this.visualRecordIds[key]);
@@ -3066,6 +3293,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // No need to restore states - the UI should remain unchanged
       
     } catch (error) {
+      console.error('❌ Failed to upload photo:', error);
       
       // Remove the failed temp photo from display
       const actualVisualId = String(this.visualRecordIds[key]);
@@ -3121,6 +3349,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Handle image loading errors
   handleImageError(event: any, photo: any) {
+    console.log('⚠️ Image failed to load:', photo.name, photo.filePath);
     // Replace with a simple inline SVG as fallback
     const target = event.target as HTMLImageElement;
     target.src = 'data:image/svg+xml;base64,' + btoa(`
@@ -3211,6 +3440,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         // Create the visual record
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        console.log('✅ Custom visual created:', response);
         
         // Use VisualID from response
         const visualId = response?.VisualID || response?.PK_ID;
@@ -3278,6 +3508,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               await this.uploadPhotoForVisual(String(visualId), files[i], key, true);
               successCount++;
             } catch (error) {
+              console.error(`Failed to upload file ${i + 1}:`, error);
               failCount++;
             }
           }
@@ -3298,10 +3529,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.changeDetectorRef.detectChanges();
         
       } catch (error) {
+        console.error('Error creating custom visual:', error);
         await loading.dismiss();
         await this.showToast('Failed to add visual', 'danger');
       }
     } catch (error) {
+      console.error('Error in createCustomVisualWithPhotos:', error);
     }
   }
   
@@ -3336,6 +3569,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       try {
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        console.log('✅ Custom visual created:', response);
         
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
@@ -3399,6 +3633,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Store the visual ID for photo uploads - use VisualID from response!
         const key = `${category}_${customItem.id}`;
         this.visualRecordIds[key] = String(response?.VisualID || response?.PK_ID || customItem.id);
+        console.log('📌 Stored VisualID for photos:', {
           key: key,
           visualId: this.visualRecordIds[key],
           responseVisualID: response?.VisualID,
@@ -3422,16 +3657,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.changeDetectorRef.detectChanges();
         
       } catch (error) {
+        console.error('Error creating custom visual:', error);
         await loading.dismiss();
         await this.showToast('Failed to add visual', 'danger');
       }
     } catch (error) {
+      console.error('Error in createCustomVisual:', error);
     }
   }
   
   // Update existing photo attachment
   async updatePhotoAttachment(attachId: string, file: File): Promise<void> {
     try {
+      console.log('🔍 updatePhotoAttachment called with:');
+      console.log('  attachId:', attachId);
+      console.log('  attachId type:', typeof attachId);
+      console.log('  file:', file.name);
       
       // Debug popup - show what we're about to do
       const debugAlert1 = await this.alertController.create({
@@ -3463,7 +3704,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // First upload the new file
       let uploadResult: any;
       try {
+        console.log('🔄 Attempting file upload...');
         uploadResult = await this.caspioService.uploadFile(file).toPromise();
+        console.log('✅ Upload result:', uploadResult);
         
         // Debug popup - show upload result
         const debugAlert2 = await this.alertController.create({
@@ -3495,6 +3738,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await debugAlert2.onDidDismiss();
         
       } catch (uploadError: any) {
+        console.error('❌ File upload failed:', uploadError);
         
         // Show detailed error popup
         const errorAlert = await this.alertController.create({
@@ -3579,7 +3823,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
       await debugAlert4.present();
       
+      console.log('✅ Photo attachment updated successfully');
     } catch (error: any) {
+      console.error('❌ Failed to update photo attachment:', error);
       
       // Debug popup - show error
       const errorAlert = await this.alertController.create({
@@ -3611,6 +3857,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
+      console.log('👁️ Viewing photo:', photo);
       
       const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = photo.name || 'Photo';
@@ -3676,6 +3923,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
     } catch (error) {
+      console.error('Error viewing photo:', error);
       await this.showToast('Failed to view photo', 'danger');
     }
   }
@@ -3718,6 +3966,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   // Success toast removed per user request
                 } catch (error) {
                   await loading.dismiss();
+                  console.error('Failed to delete photo:', error);
                   await this.showToast('Failed to delete photo', 'danger');
                 }
               }, 100);
@@ -3730,6 +3979,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await alert.present();
     } catch (error) {
+      console.error('Error in deletePhoto:', error);
       await this.showToast('Failed to delete photo', 'danger');
     }
   }
@@ -3751,6 +4001,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Only save if there's an AttachID and the caption has changed
       if (!photo.AttachID) {
+        console.warn('No AttachID for photo, cannot save caption');
         return;
       }
 
@@ -3764,6 +4015,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Success toast removed per user request
       
     } catch (error) {
+      console.error('Error saving caption:', error);
       await this.showToast('Failed to save caption', 'danger');
     }
   }
@@ -3771,6 +4023,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Verify if visual was actually saved
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
+      console.log('🔍 Verifying if visual was saved...');
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
@@ -3781,13 +4034,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
         
         if (found) {
+          console.log('✅ Visual found in table - it was saved!');
           // Also refresh the ID
           await this.refreshVisualId(category, templateId);
           return true;
         }
       }
+      console.log('❌ Visual not found in table');
       return false;
     } catch (error) {
+      console.error('Error verifying visual:', error);
       return false;
     }
   }
@@ -3840,6 +4096,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }));
       }
     } catch (e) {
+      console.error('Failed to get existing visuals:', e);
     }
     
     const existingVisualsHtml = existingVisuals
@@ -3889,12 +4146,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Refresh visual ID after save
   async refreshVisualId(category: string, templateId: string) {
     try {
+      console.log('🔄 Refreshing Visual ID for:', category, templateId);
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
+      console.log('📋 Retrieved visuals from database:', visuals);
       
       if (visuals && Array.isArray(visuals)) {
         // Find the visual we just created
         const templateName = this.categoryData[category]?.[templateId]?.name;
+        console.log('🔍 Looking for visual with Category:', category, 'and Name:', templateName);
         
         const ourVisual = visuals.find(v => 
           v.Category === category && 
@@ -3902,30 +4162,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
         
         if (ourVisual) {
+          console.log('✅ Found our visual:', ourVisual);
           const visualId = ourVisual.VisualID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
+          console.log('✅ Visual ID refreshed:', visualId, 'for key:', `${category}_${templateId}`);
         } else {
+          console.log('⚠️ Could not find visual with Category:', category, 'and Name:', templateName);
+          console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.VisualID || v.PK_ID })));
         }
       }
     } catch (error) {
+      console.error('Failed to refresh visual ID:', error);
     }
   }
   
   // Load existing photos for visuals
   async loadExistingPhotos() {
+    console.log('🔄 Loading existing photos for all visuals...');
+    console.log('Visual IDs to load:', this.visualRecordIds);
+    console.log('Current visualPhotos state:', this.visualPhotos);
     
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId); // Ensure string consistency
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
         try {
+          console.log(`📥 Fetching photos for visual ${visualId} (${key})`);
           const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+          console.log(`Found ${photos?.length || 0} photos for visual ${visualId}:`, photos);
           
           if (photos && photos.length > 0) {
             // Process photos to add preview URLs
             const processedPhotos = await Promise.all(photos.map(async (photo: any) => {
+              console.log('Processing photo:', photo);
               const photoData = {
                 ...photo,
                 name: photo.Photo || 'Photo',
@@ -3940,28 +4211,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 photoData.hasPhoto = true;
                 
                 try {
+                  console.log(`🖼️ Fetching image from Files API for: ${photo.Photo}`);
                   const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
                   
                   if (imageData && imageData.startsWith('data:')) {
+                    console.log('✅ Image data received, valid base64, length:', imageData.length);
                     photoData.url = imageData;
                     photoData.thumbnailUrl = imageData;
                   } else {
+                    console.log('⚠️ Invalid image data, using fallback');
                     // Use a simple base64 encoded SVG as fallback
                     photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
                     photoData.thumbnailUrl = photoData.url;
                   }
                 } catch (err) {
+                  console.error('❌ Error fetching image:', err);
                   // Use simple SVG fallback
                   photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
                   photoData.thumbnailUrl = photoData.url;
                 }
               } else {
+                console.log('⚠️ No Photo field or not a string:', photo.Photo);
                 // No photo exists
                 photoData.url = '';
                 photoData.thumbnailUrl = '';
                 photoData.hasPhoto = false;
               }
               
+              console.log('Photo data processed:', {
                 name: photoData.name,
                 hasUrl: !!photoData.url,
                 urlLength: photoData.url?.length,
@@ -3973,19 +4250,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // Store photos using the same ID format - ensure string consistency
             this.visualPhotos[visualId] = processedPhotos;
+            console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}, stored in visualPhotos`);
+            console.log(`Photos stored at visualPhotos[${visualId}]:`, {
               visualId,
               visualIdType: typeof visualId,
               photos: processedPhotos,
               keyForThisVisual: key
             });
           } else {
+            console.log(`No photos found for visual ${visualId}`);
           }
         } catch (error) {
+          console.error(`Failed to load photos for visual ${visualId}:`, error);
         }
       }
     }
     
     // Log final state (reduced logging)
+    console.log('Photos loaded for', Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k]?.length > 0).length, 'visuals');
   }
   
   // Create a placeholder image
@@ -4039,6 +4321,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Handle project field changes
   onProjectFieldChange(fieldName: string, value: any) {
+    console.log(`Project field changed: ${fieldName} = ${value}`);
     
     // Update the project data
     if (this.projectData) {
@@ -4055,6 +4338,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Handle service field changes
   onServiceFieldChange(fieldName: string, value: any) {
+    console.log(`Service field changed: ${fieldName} = ${value}`);
     
     // Update the service data
     this.serviceData[fieldName] = value;
@@ -4079,6 +4363,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.showSaveStatus(`${fieldName} saved`, 'success');
       },
       error: (error) => {
+        console.error(`Error saving project field ${fieldName}:`, error);
         this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
       }
     });
@@ -4087,15 +4372,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Auto-save service field to Caspio Services table  
   private autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {
+      alert(`⚠️ DEBUG: Cannot save ${fieldName} - No ServiceID!\n\nServiceID is: ${this.serviceId}`);
       return;
     }
     
-    // Log Services table updates for debugging
-      serviceId: this.serviceId,
-      field: fieldName,
-      newValue: value,
-      updateData: { [fieldName]: value }
-    });
+    // Debug popup for Services table updates
+    const debugInfo = `🔍 DEBUG: Services Table Update\n\n` +
+      `ServiceID (PK_ID): ${this.serviceId}\n` +
+      `Field: ${fieldName}\n` +
+      `New Value: ${value}\n` +
+      `Update Data: ${JSON.stringify({ [fieldName]: value })}`;
+    
+    alert(debugInfo);
     
     this.showSaveStatus(`Saving ${fieldName}...`, 'info');
     
@@ -4103,9 +4391,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
       next: (response) => {
         this.showSaveStatus(`${fieldName} saved`, 'success');
+        alert(`✅ SUCCESS: ${fieldName} updated!\n\nResponse: ${JSON.stringify(response)}`);
       },
       error: (error) => {
+        console.error(`Error saving service field ${fieldName}:`, error);
         this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+        alert(`❌ ERROR: Failed to update ${fieldName}!\n\nError: ${error.message || JSON.stringify(error)}`);
       }
     });
   }
