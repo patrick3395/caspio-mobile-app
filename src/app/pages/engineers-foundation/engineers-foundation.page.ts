@@ -2596,7 +2596,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         componentProps: {
           projectData: projectInfo,
           structuralData: structuralSystemsData,
-          elevationData: elevationPlotData
+          elevationData: elevationPlotData,
+          serviceData: this.serviceData
         },
         cssClass: 'fullscreen-modal'
       });

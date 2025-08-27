@@ -1,0 +1,394 @@
+<ion-header>
+  <ion-toolbar style="--background: #F15A27;">
+    <ion-title style="color: white;">PDF Report Preview</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="generatePDF()" fill="clear" style="color: white;">
+        <ion-icon name="download-outline" slot="start"></ion-icon>
+        Generate PDF
+      </ion-button>
+      <ion-button (click)="dismiss()" fill="clear" style="color: white;">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="pdf-preview-content">
+  <div class="pdf-container">
+    <!-- Cover Page Preview -->
+    <div class="pdf-page cover-page">
+      <div class="company-header">
+        <h1>NOBLE PROPERTY INSPECTIONS</h1>
+        <div class="company-contact">
+          <p>936-202-8013 | info@noblepropertyinspections.com</p>
+          <p>www.noblepropertyinspections.com</p>
+        </div>
+      </div>
+      
+      <div class="report-title-section">
+        <h2 class="report-title">ENGINEERS FOUNDATION</h2>
+        <h2 class="report-subtitle">EVALUATION REPORT</h2>
+      </div>
+      
+      <div class="property-photo-container" *ngIf="projectData?.primaryPhoto">
+        <img 
+          [src]="getPrimaryPhotoUrl()" 
+          alt="Property"
+          (error)="handleImageError($event)"
+          (load)="handleImageLoad($event)"
+          class="property-photo loading" />
+      </div>
+      
+      <div class="property-info-box">
+        <h3 class="property-address">{{ projectData?.address || 'Property Address' }}</h3>
+        <p class="property-location">{{ projectData?.city }}, {{ projectData?.state }} {{ projectData?.zip }}</p>
+        
+        <div class="client-info">
+          <p><strong>Client:</strong> {{ projectData?.clientName || 'Client Name' }}</p>
+          <p><strong>Inspection Date:</strong> {{ getFormattedDate(projectData?.inspectionDate) }}</p>
+        </div>
+      </div>
+      
+      <div class="inspector-footer">
+        <p class="inspector-title">Inspected By:</p>
+        <p class="inspector-name">{{ projectData?.inspectorName || 'Inspector Name' }}</p>
+        <p>License #{{ projectData?.licenseNumber || '12345' }}</p>
+        <p>{{ projectData?.inspectorEmail || 'inspector@noblepropertyinspections.com' }}</p>
+      </div>
+    </div>
+    
+    <!-- Executive Summary Page -->
+    <div class="pdf-page content-page">
+      <div class="page-header">
+        <h2>EXECUTIVE SUMMARY</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="summary-section">
+          <p>This Engineers Foundation Evaluation Report provides a comprehensive assessment of the structural foundation systems for the property listed herein.</p>
+          
+          <p>The evaluation was conducted in accordance with professional engineering standards and includes detailed observations, measurements, and recommendations.</p>
+          
+          <h3>Key Areas of Assessment:</h3>
+          <ul class="assessment-list">
+            <li>Foundation type and condition assessment</li>
+            <li>Structural systems evaluation including comments, limitations, and deficiencies</li>
+            <li>Detailed elevation plot measurements for all inspected areas</li>
+            <li>Photographic documentation of findings</li>
+            <li>Professional recommendations for maintenance or repairs</li>
+          </ul>
+          
+          <div class="summary-stats">
+            <h3>Inspection Summary:</h3>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <span class="stat-label">Areas Inspected:</span>
+                <span class="stat-value">{{ structuralData?.length || 0 }} categories</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Rooms Evaluated:</span>
+                <span class="stat-value">{{ elevationData?.length || 0 }} rooms</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Visual Findings:</span>
+                <span class="stat-value">{{ countVisualFindings() }} items</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Photos Included:</span>
+                <span class="stat-value">{{ countTotalPhotos() }} records</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Table of Contents Page -->
+    <div class="pdf-page content-page">
+      <div class="page-header">
+        <h2>TABLE OF CONTENTS</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="toc-container">
+          <div class="toc-item">
+            <span class="toc-title">1. Executive Summary</span>
+            <span class="toc-dots"></span>
+            <span class="toc-page">2</span>
+          </div>
+          <div class="toc-item">
+            <span class="toc-title">2. Project Information</span>
+            <span class="toc-dots"></span>
+            <span class="toc-page">4</span>
+          </div>
+          <div class="toc-item">
+            <span class="toc-title">3. Service Details</span>
+            <span class="toc-dots"></span>
+            <span class="toc-page">5</span>
+          </div>
+          <div class="toc-item" *ngFor="let category of structuralData; let i = index">
+            <span class="toc-title">{{ 4 + i }}. {{ category.name }}</span>
+            <span class="toc-dots"></span>
+            <span class="toc-page">{{ 6 + i }}</span>
+          </div>
+          <div class="toc-item" *ngIf="hasElevationData">
+            <span class="toc-title">{{ 4 + (structuralData?.length || 0) }}. Elevation Plot Data</span>
+            <span class="toc-dots"></span>
+            <span class="toc-page">{{ getElevationPageNumber() }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Project Information Page -->
+    <div class="pdf-page content-page">
+      <div class="page-header">
+        <h2>PROJECT INFORMATION</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="info-table">
+          <div class="info-row">
+            <div class="info-label">Project ID</div>
+            <div class="info-value">{{ projectData?.projectId || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Property Address</div>
+            <div class="info-value">{{ projectData?.fullAddress || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Client Name</div>
+            <div class="info-value">{{ projectData?.clientName || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Agent Name</div>
+            <div class="info-value">{{ projectData?.agentName || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Inspector Name</div>
+            <div class="info-value">{{ projectData?.inspectorName || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Year Built</div>
+            <div class="info-value">{{ projectData?.yearBuilt || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Square Feet</div>
+            <div class="info-value">{{ projectData?.squareFeet || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Type of Building</div>
+            <div class="info-value">{{ projectData?.typeOfBuilding || 'Single Family' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Building Style</div>
+            <div class="info-value">{{ projectData?.style || 'N/A' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Service Details Page -->
+    <div class="pdf-page content-page">
+      <div class="page-header">
+        <h2>SERVICE & INSPECTION DETAILS</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="info-table">
+          <div class="info-row">
+            <div class="info-label">Date of Inspection</div>
+            <div class="info-value">{{ getFormattedDate(serviceData?.DateOfInspection) }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Date of Request</div>
+            <div class="info-value">{{ getFormattedDate(serviceData?.DateOfRequest) }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Weather Conditions</div>
+            <div class="info-value">{{ serviceData?.WeatherConditions || 'Clear' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Outdoor Temperature</div>
+            <div class="info-value">{{ serviceData?.OutdoorTemperature || '75°F' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">In Attendance</div>
+            <div class="info-value">{{ serviceData?.InAttendance || 'Owner' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Occupancy/Furnishings</div>
+            <div class="info-value">{{ serviceData?.OccupancyFurnishings || 'Occupied/Furnished' }}</div>
+          </div>
+          <div class="info-row" *ngIf="serviceData?.FirstFoundationType">
+            <div class="info-label">Primary Foundation Type</div>
+            <div class="info-value">{{ serviceData.FirstFoundationType }}</div>
+          </div>
+          <div class="info-row" *ngIf="serviceData?.SecondFoundationType">
+            <div class="info-label">Secondary Foundation Type</div>
+            <div class="info-value">{{ serviceData.SecondFoundationType }}{{ serviceData.SecondFoundationRooms ? ' (' + serviceData.SecondFoundationRooms + ')' : '' }}</div>
+          </div>
+          <div class="info-row" *ngIf="serviceData?.OwnerOccupantInterview">
+            <div class="info-label">Owner/Occupant Interview</div>
+            <div class="info-value">{{ serviceData.OwnerOccupantInterview }}</div>
+          </div>
+        </div>
+        
+        <div class="service-notes" *ngIf="serviceData?.Notes">
+          <h3>Service Notes:</h3>
+          <p>{{ serviceData.Notes }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Structural Systems Pages -->
+    <div class="pdf-page content-page" *ngFor="let category of structuralData">
+      <div class="page-header">
+        <h2>{{ category.name | uppercase }}</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <!-- Comments Section -->
+        <div class="visual-section" *ngIf="category.comments && category.comments.length > 0">
+          <div class="section-header comments-header">
+            <h3>COMMENTS</h3>
+          </div>
+          <div class="visual-items">
+            <div class="visual-item" *ngFor="let item of category.comments">
+              <h4>{{ item.name }}</h4>
+              <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+              <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
+                <div class="photo-item" *ngFor="let photo of item.photos">
+                  <img 
+                    [src]="getPhotoUrl(photo)" 
+                    [alt]="photo.caption || 'Photo'"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Limitations Section -->
+        <div class="visual-section" *ngIf="category.limitations && category.limitations.length > 0">
+          <div class="section-header limitations-header">
+            <h3>LIMITATIONS</h3>
+          </div>
+          <div class="visual-items">
+            <div class="visual-item" *ngFor="let item of category.limitations">
+              <h4>{{ item.name }}</h4>
+              <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+              <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
+                <div class="photo-item" *ngFor="let photo of item.photos">
+                  <img 
+                    [src]="getPhotoUrl(photo)" 
+                    [alt]="photo.caption || 'Photo'"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Deficiencies Section -->
+        <div class="visual-section" *ngIf="category.deficiencies && category.deficiencies.length > 0">
+          <div class="section-header deficiencies-header">
+            <h3>DEFICIENCIES</h3>
+          </div>
+          <div class="visual-items">
+            <div class="visual-item" *ngFor="let item of category.deficiencies">
+              <h4>{{ item.name }}</h4>
+              <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+              <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
+                <div class="photo-item" *ngFor="let photo of item.photos">
+                  <img 
+                    [src]="getPhotoUrl(photo)" 
+                    [alt]="photo.caption || 'Photo'"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Elevation Plot Page -->
+    <div class="pdf-page content-page" *ngIf="elevationData && elevationData.length > 0">
+      <div class="page-header">
+        <h2>ELEVATION PLOT DATA</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="page-content">
+        <div class="room-section" *ngFor="let room of elevationData">
+          <div class="room-header">
+            <h3>{{ room.name }}</h3>
+          </div>
+          
+          <div class="room-details">
+            <div class="room-info" *ngIf="room.fdf && room.fdf !== 'None'">
+              <strong>FDF:</strong> {{ room.fdf }}
+            </div>
+            <div class="room-info" *ngIf="room.notes">
+              <strong>Notes:</strong> {{ room.notes }}
+            </div>
+          </div>
+          
+          <div class="elevation-table" *ngIf="room.points && room.points.length > 0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Point</th>
+                  <th>Measurement</th>
+                  <th>Photos</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let point of room.points">
+                  <td>{{ point.name }}</td>
+                  <td>{{ point.value ? point.value + '"' : 'N/A' }}</td>
+                  <td>
+                    <span class="photo-count" *ngIf="point.photoCount > 0">
+                      <ion-icon name="camera"></ion-icon> {{ point.photoCount }}
+                    </span>
+                    <span *ngIf="!point.photoCount || point.photoCount === 0">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="room-photos" *ngIf="room.photos && room.photos.length > 0">
+            <h4>Room Photos:</h4>
+            <div class="photo-grid">
+              <div class="photo-item" *ngFor="let photo of room.photos">
+                <img 
+                  [src]="getPhotoUrl(photo)" 
+                  [alt]="photo.caption || 'Room Photo'"
+                  (error)="handleImageError($event)"
+                  (load)="handleImageLoad($event)"
+                  class="loading" />
+                <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

@@ -1,415 +1,570 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
 .pdf-preview-content {
   --background: #f5f5f5;
+  padding: 20px;
+}
+
+.pdf-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.pdf-page {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 800px;
   
-  .pdf-page {
-    max-width: 850px;
-    margin: 0 auto;
-    background: white;
-    min-height: 100vh;
-  }
-  
-  .page {
-    padding: 40px;
-    background: white;
-    margin-bottom: 2px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    page-break-after: always;
-    min-height: 1122px; // A4 aspect ratio
+  &.cover-page {
+    padding: 0;
     position: relative;
-  }
-  
-  // Cover Page Styles
-  .cover-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
     
     .company-header {
-      margin-bottom: 30px;
+      background: #F15A27;
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
       
       h1 {
-        font-size: 24px;
-        font-weight: 700;
-        color: #F15A27;
-        margin-bottom: 8px;
+        font-size: 28px;
+        font-weight: bold;
+        margin: 0 0 15px 0;
+        letter-spacing: 1px;
       }
       
-      p {
-        margin: 4px 0;
-        color: #666;
-        font-size: 14px;
-      }
-    }
-    
-    .report-title {
-      font-size: 28px;
-      font-weight: 600;
-      margin: 40px 0;
-      color: #333;
-    }
-    
-    .property-image {
-      width: 100%;
-      max-width: 600px;
-      height: 400px;
-      margin: 30px 0;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-      
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-    }
-    
-    .property-details {
-      margin: 30px 0;
-      
-      h3 {
-        font-size: 20px;
-        font-weight: 600;
-        margin-bottom: 8px;
-      }
-      
-      p {
-        margin: 4px 0;
-        color: #555;
-      }
-      
-      .client-name {
-        font-size: 18px;
-        font-weight: 500;
-        margin-top: 12px;
-      }
-      
-      .date {
-        margin-top: 8px;
-        color: #777;
-      }
-    }
-    
-    .inspector-info {
-      position: absolute;
-      bottom: 40px;
-      text-align: center;
-      
-      p {
-        margin: 4px 0;
-        color: #666;
-        font-size: 14px;
-        
-        strong {
-          color: #333;
-          font-weight: 600;
-        }
-      }
-    }
-  }
-  
-  // Table of Contents
-  .toc-page {
-    h2 {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 40px;
-      color: #333;
-      text-align: center;
-    }
-    
-    .toc-container {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    
-    .toc-item {
-      display: flex;
-      align-items: baseline;
-      margin: 20px 0;
-      font-size: 16px;
-      
-      span:first-child {
-        flex: 0 0 auto;
-        color: #333;
-      }
-      
-      .dots {
-        flex: 1;
-        border-bottom: 1px dotted #ccc;
-        margin: 0 10px;
-        height: 1px;
-      }
-      
-      span:last-child {
-        flex: 0 0 auto;
-        color: #666;
-        font-weight: 500;
-      }
-    }
-  }
-  
-  // Content Pages
-  .content-page {
-    h2 {
-      font-size: 22px;
-      font-weight: 600;
-      color: #333;
-      border-bottom: 2px solid #F15A27;
-      padding-bottom: 10px;
-      margin-bottom: 30px;
-    }
-    
-    .section {
-      margin-bottom: 40px;
-      
-      h3 {
-        font-size: 18px;
-        font-weight: 600;
-        color: #F15A27;
-        margin-bottom: 20px;
-        background: linear-gradient(to right, #fef5f1, transparent);
-        padding: 8px 12px;
-        border-left: 4px solid #F15A27;
-      }
-      
-      &.category-header {
-        background: #f9f9f9;
-        padding: 12px;
-        border-radius: 4px;
-      }
-    }
-    
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      
-      .info-item {
-        display: flex;
-        flex-direction: column;
-        
-        label {
-          font-size: 12px;
-          color: #888;
-          text-transform: uppercase;
-          margin-bottom: 4px;
-          font-weight: 500;
-        }
-        
-        span {
-          font-size: 15px;
-          color: #333;
-          font-weight: 400;
-        }
-      }
-    }
-    
-    .subsection {
-      margin: 20px 0;
-      padding-left: 20px;
-      
-      h4 {
-        font-size: 16px;
-        font-weight: 500;
-        color: #666;
-        margin-bottom: 15px;
-        font-style: italic;
-      }
-    }
-    
-    .item-container {
-      margin-bottom: 25px;
-      border-left: 2px solid #e0e0e0;
-      padding-left: 15px;
-      
-      .item-content {
-        margin-bottom: 15px;
-        
-        .item-title {
-          font-size: 15px;
-          font-weight: 600;
-          color: #333;
-          margin-bottom: 8px;
-        }
-        
-        .item-text {
+      .company-contact {
+        p {
+          margin: 5px 0;
           font-size: 14px;
-          color: #555;
-          line-height: 1.6;
-          text-align: justify;
+          opacity: 0.95;
         }
       }
     }
     
-    .photos-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
-      margin-bottom: 20px;
+    .report-title-section {
+      text-align: center;
+      padding: 40px 20px;
       
-      .photo-item {
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        overflow: hidden;
-        background: #fafafa;
-        break-inside: avoid;
-        page-break-inside: avoid;
-        
-        img {
-          width: 100%;
-          height: 200px;
-          object-fit: cover;
-          display: block;
-          background: #f0f0f0; // Fallback color while loading
-        }
-        
-        img.loading {
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-        }
-        
-        .photo-caption {
-          padding: 8px;
-          font-size: 12px;
-          color: #666;
-          background: white;
-          border-top: 1px solid #eee;
-          text-align: center;
-        }
-      }
-    }
-    
-    // Room Container
-    .room-container {
-      margin-bottom: 30px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 20px;
-      background: #fafafa;
-      
-      .room-name {
-        font-size: 17px;
-        font-weight: 600;
+      .report-title {
+        font-size: 32px;
+        font-weight: bold;
         color: #333;
-        margin-bottom: 15px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #ddd;
+        margin: 0 0 10px 0;
       }
       
-      .room-details {
-        .detail-row {
-          margin: 10px 0;
-          display: flex;
-          gap: 10px;
-          
-          label {
-            font-weight: 600;
-            color: #666;
-            min-width: 60px;
-          }
-          
-          span {
-            color: #333;
-          }
+      .report-subtitle {
+        font-size: 24px;
+        color: #666;
+        margin: 0;
+      }
+    }
+    
+    .property-photo-container {
+      text-align: center;
+      padding: 20px;
+      
+      .property-photo {
+        max-width: 500px;
+        max-height: 300px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        
+        &.loading {
+          background: #f0f0f0;
+          min-height: 200px;
         }
       }
+    }
+    
+    .property-info-box {
+      background: #f9f9f9;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      margin: 20px 40px;
+      padding: 30px;
+      text-align: center;
       
-      .elevation-points {
+      .property-address {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+        margin: 0 0 10px 0;
+      }
+      
+      .property-location {
+        font-size: 16px;
+        color: #666;
+        margin: 0 0 20px 0;
+      }
+      
+      .client-info {
+        text-align: left;
+        border-top: 1px solid #ddd;
+        padding-top: 20px;
         margin-top: 20px;
         
-        h5 {
+        p {
+          margin: 8px 0;
           font-size: 15px;
-          font-weight: 600;
-          margin-bottom: 10px;
           color: #555;
+          
+          strong {
+            color: #333;
+            margin-right: 10px;
+          }
+        }
+      }
+    }
+    
+    .inspector-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #f5f5f5;
+      padding: 30px;
+      text-align: center;
+      border-top: 2px solid #e0e0e0;
+      
+      .inspector-title {
+        font-size: 14px;
+        color: #666;
+        margin: 0 0 8px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      
+      .inspector-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        margin: 0 0 8px 0;
+      }
+      
+      p {
+        margin: 4px 0;
+        color: #666;
+        font-size: 14px;
+      }
+    }
+  }
+  
+  &.content-page {
+    padding: 40px;
+    
+    .page-header {
+      margin-bottom: 30px;
+      
+      h2 {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        margin: 0 0 15px 0;
+      }
+      
+      .header-line {
+        height: 3px;
+        background: #F15A27;
+        border-radius: 2px;
+      }
+    }
+    
+    .page-content {
+      .summary-section {
+        p {
+          font-size: 15px;
+          line-height: 1.8;
+          color: #555;
+          margin-bottom: 20px;
+          text-align: justify;
         }
         
-        .elevation-table {
-          width: 100%;
-          border-collapse: collapse;
-          background: white;
-          border-radius: 4px;
-          overflow: hidden;
+        h3 {
+          font-size: 18px;
+          font-weight: bold;
+          color: #333;
+          margin: 30px 0 15px 0;
+        }
+        
+        .assessment-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
           
-          thead {
-            background: #f0f0f0;
+          li {
+            position: relative;
+            padding-left: 25px;
+            margin-bottom: 12px;
+            font-size: 15px;
+            color: #555;
+            line-height: 1.6;
             
-            th {
-              padding: 10px;
-              text-align: left;
-              font-weight: 600;
-              color: #333;
-              font-size: 14px;
-              border-bottom: 2px solid #ddd;
+            &::before {
+              content: '•';
+              position: absolute;
+              left: 0;
+              color: #F15A27;
+              font-size: 20px;
+              line-height: 1.2;
             }
           }
+        }
+        
+        .summary-stats {
+          background: #f9f9f9;
+          border-radius: 8px;
+          padding: 25px;
+          margin-top: 30px;
           
-          tbody {
-            tr {
-              border-bottom: 1px solid #eee;
+          h3 {
+            margin-top: 0;
+          }
+          
+          .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            
+            .stat-item {
+              display: flex;
+              justify-content: space-between;
+              padding: 10px;
+              background: white;
+              border-radius: 6px;
+              border: 1px solid #e0e0e0;
               
-              &:last-child {
-                border-bottom: none;
+              .stat-label {
+                font-weight: 600;
+                color: #666;
+                font-size: 14px;
               }
               
-              td {
-                padding: 8px 10px;
-                font-size: 14px;
-                color: #555;
+              .stat-value {
+                font-weight: bold;
+                color: #F15A27;
+                font-size: 16px;
+              }
+            }
+          }
+        }
+      }
+      
+      .toc-container {
+        .toc-item {
+          display: flex;
+          align-items: baseline;
+          margin-bottom: 15px;
+          font-size: 16px;
+          
+          .toc-title {
+            flex: 0 0 auto;
+            color: #333;
+          }
+          
+          .toc-dots {
+            flex: 1;
+            border-bottom: 2px dotted #ccc;
+            margin: 0 10px;
+            height: 0;
+            position: relative;
+            top: -5px;
+          }
+          
+          .toc-page {
+            flex: 0 0 auto;
+            color: #666;
+            font-weight: 600;
+          }
+        }
+      }
+      
+      .info-table {
+        .info-row {
+          display: flex;
+          padding: 15px;
+          border-bottom: 1px solid #e0e0e0;
+          
+          &:nth-child(even) {
+            background: #f9f9f9;
+          }
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          .info-label {
+            flex: 0 0 200px;
+            font-weight: 600;
+            color: #666;
+            font-size: 14px;
+          }
+          
+          .info-value {
+            flex: 1;
+            color: #333;
+            font-size: 15px;
+          }
+        }
+      }
+      
+      .service-notes {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border-left: 4px solid #F15A27;
+        
+        h3 {
+          font-size: 16px;
+          font-weight: bold;
+          color: #333;
+          margin: 0 0 10px 0;
+        }
+        
+        p {
+          font-size: 14px;
+          line-height: 1.6;
+          color: #555;
+          margin: 0;
+        }
+      }
+      
+      .visual-section {
+        margin-bottom: 40px;
+        
+        .section-header {
+          padding: 10px 15px;
+          margin-bottom: 20px;
+          border-radius: 6px;
+          
+          h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+          }
+          
+          &.comments-header {
+            background: #F15A27;
+            h3 { color: white; }
+          }
+          
+          &.limitations-header {
+            background: #FFC107;
+            h3 { color: #333; }
+          }
+          
+          &.deficiencies-header {
+            background: #DC3545;
+            h3 { color: white; }
+          }
+        }
+        
+        .visual-items {
+          .visual-item {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            
+            h4 {
+              font-size: 15px;
+              font-weight: 600;
+              color: #333;
+              margin: 0 0 10px 0;
+              padding-left: 20px;
+              position: relative;
+              
+              &::before {
+                content: '•';
+                position: absolute;
+                left: 0;
+                color: #F15A27;
+                font-size: 18px;
+              }
+            }
+            
+            .item-text {
+              font-size: 14px;
+              line-height: 1.6;
+              color: #555;
+              margin: 0 0 15px 20px;
+            }
+            
+            .photo-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+              gap: 15px;
+              margin-left: 20px;
+              
+              .photo-item {
+                text-align: center;
                 
-                .photo-indicator {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 4px;
-                  color: #F15A27;
+                img {
+                  width: 100%;
+                  height: 120px;
+                  object-fit: cover;
+                  border-radius: 4px;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
                   
-                  ion-icon {
-                    font-size: 16px;
+                  &.loading {
+                    background: #f0f0f0;
                   }
+                }
+                
+                .photo-caption {
+                  font-size: 11px;
+                  color: #666;
+                  margin-top: 5px;
+                  font-style: italic;
                 }
               }
             }
           }
         }
       }
+      
+      .room-section {
+        margin-bottom: 40px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        
+        .room-header {
+          background: #f5f5f5;
+          padding: 15px 20px;
+          border-bottom: 2px solid #e0e0e0;
+          
+          h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+          }
+        }
+        
+        .room-details {
+          padding: 20px;
+          
+          .room-info {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #555;
+            
+            strong {
+              color: #333;
+              margin-right: 10px;
+            }
+          }
+        }
+        
+        .elevation-table {
+          padding: 0 20px;
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            
+            thead {
+              tr {
+                background: #F15A27;
+                
+                th {
+                  padding: 10px;
+                  text-align: left;
+                  color: white;
+                  font-size: 14px;
+                  font-weight: 600;
+                }
+              }
+            }
+            
+            tbody {
+              tr {
+                border-bottom: 1px solid #e0e0e0;
+                
+                &:nth-child(even) {
+                  background: #f9f9f9;
+                }
+                
+                td {
+                  padding: 10px;
+                  font-size: 14px;
+                  color: #333;
+                  
+                  .photo-count {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    color: #F15A27;
+                    font-weight: 600;
+                    
+                    ion-icon {
+                      font-size: 16px;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        .room-photos {
+          padding: 20px;
+          
+          h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 0 0 15px 0;
+          }
+          
+          .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            
+            .photo-item {
+              text-align: center;
+              
+              img {
+                width: 100%;
+                height: 90px;
+                object-fit: cover;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                
+                &.loading {
+                  background: #f0f0f0;
+                }
+              }
+              
+              .photo-caption {
+                font-size: 10px;
+                color: #666;
+                margin-top: 3px;
+                font-style: italic;
+              }
+            }
+          }
+        }
+      }
     }
   }
-  
-  .page-footer {
-    position: absolute;
-    bottom: 20px;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 40px;
-    font-size: 12px;
-    color: #888;
-    border-top: 1px solid #eee;
-    padding-top: 10px;
-  }
 }
 
-// Shimmer animation for loading images
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-// Print styles
+// Print styles for better PDF generation
 @media print {
-  .page {
+  .pdf-page {
     page-break-after: always;
-    margin: 0;
     box-shadow: none;
+    margin-bottom: 0;
   }
   
   ion-header {
