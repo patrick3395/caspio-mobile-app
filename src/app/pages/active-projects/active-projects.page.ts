@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.118'; // Update this to match package.json version
+  appVersion = '1.4.119'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -223,13 +223,15 @@ export class ActiveProjectsPage implements OnInit {
       if (primaryPhoto.startsWith('/')) {
         const projectId = project.PK_ID;
         
-        // Check if we already have the base64 image cached
-        if (this.projectImageCache && this.projectImageCache[projectId]) {
+        // Check if projectId exists and we have the base64 image cached
+        if (projectId && this.projectImageCache && this.projectImageCache[projectId]) {
           return this.projectImageCache[projectId];
         }
         
-        // Start loading the image asynchronously
-        this.loadProjectImage(project);
+        // Start loading the image asynchronously if we have a valid project
+        if (projectId) {
+          this.loadProjectImage(project);
+        }
         
         // Return placeholder while loading
         return 'assets/img/photo-loading.svg';
@@ -252,7 +254,7 @@ export class ActiveProjectsPage implements OnInit {
     const projectId = project.PK_ID;
     const primaryPhoto = project['PrimaryPhoto'];
     
-    if (!primaryPhoto || !primaryPhoto.startsWith('/')) {
+    if (!projectId || !primaryPhoto || !primaryPhoto.startsWith('/')) {
       return;
     }
     
