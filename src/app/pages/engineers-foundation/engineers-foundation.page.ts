@@ -185,15 +185,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!this.projectId) return;
     
     try {
-      const loading = await this.loadingController.create({
-        message: 'Loading project data...'
-      });
-      await loading.present();
-      
       this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
       console.log('Project data loaded:', this.projectData);
-      
-      await loading.dismiss();
     } catch (error) {
       console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
@@ -1109,6 +1102,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.isRoomSelected(roomName)) {
       this.expandedRooms[roomName] = !this.expandedRooms[roomName];
     }
+  }
+  
+  // Handle room label click - expand/collapse if selected, do nothing if not
+  handleRoomLabelClick(roomName: string, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    // Only toggle expansion if room is already selected
+    if (this.isRoomSelected(roomName)) {
+      this.toggleRoomExpanded(roomName);
+    }
+    // If room is not selected, do nothing (don't select it)
   }
   
   // Add custom point to room

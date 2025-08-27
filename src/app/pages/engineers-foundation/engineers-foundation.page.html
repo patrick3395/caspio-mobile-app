@@ -518,7 +518,7 @@
                     (click)="$event.stopPropagation()">
                   </ion-checkbox>
                   <ion-label class="item-label" 
-                             (click)="isRoomSelected(room.RoomName) ? toggleRoomExpanded(room.RoomName) : $event.stopPropagation()"
+                             (click)="handleRoomLabelClick(room.RoomName, $event)"
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
                     <h3>{{ room.RoomName }}</h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
