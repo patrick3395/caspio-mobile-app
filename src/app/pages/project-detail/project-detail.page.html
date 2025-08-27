@@ -223,6 +223,22 @@
         
         <!-- Dynamic documents based on selected services -->
         <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group" [attr.data-row-count]="serviceDoc.documents.length + 1">
+          <!-- Always show service name, even if no documents -->
+          <div class="doc-row" *ngIf="serviceDoc.documents.length === 0">
+            <div class="doc-service" [style.grid-row]="'span 2'">
+              <div [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
+                {{ serviceDoc.serviceName }}
+                <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
+                  #{{ serviceDoc.instanceNumber }}
+                </span>
+              </div>
+            </div>
+            <div class="doc-title">
+              <span style="color: #666; font-style: italic;">No required documents</span>
+            </div>
+            <div class="doc-actions"></div>
+          </div>
+          
           <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" 
                class="doc-row" 
                [class.uploaded]="doc.uploaded"
