@@ -310,10 +310,6 @@ export class CaspioService {
     );
   }
 
-  updateService(serviceId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`, updateData);
-  }
-
   deleteService(serviceId: string): Observable<any> {
     return this.delete<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`);
   }
