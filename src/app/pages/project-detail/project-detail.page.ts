@@ -480,7 +480,7 @@ export class ProjectDetailPage implements OnInit {
             errorDebug += `   PK_ID: ${projectPkId}\n`;
             errorDebug += `   Tried to set StatusID to: 1\n`;
             
-            alert(errorDebug);
+            console.error(errorDebug);
             // Continue with service creation even if status update fails
           }
         } else {
@@ -492,7 +492,7 @@ export class ProjectDetailPage implements OnInit {
           noIdDebug += `ProjectID: ${this.project?.ProjectID}\n`;
           noIdDebug += '\nCannot update status without project ID';
           
-          alert(noIdDebug);
+          console.error(noIdDebug);
         }
       }
       
