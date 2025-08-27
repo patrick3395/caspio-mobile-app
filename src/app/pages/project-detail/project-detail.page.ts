@@ -1173,6 +1173,56 @@ export class ProjectDetailPage implements OnInit {
     }
   }
 
+  async deleteAdditionalFile(serviceId: string, additionalFile: any) {
+    // Show confirmation
+    const confirm = await this.alertController.create({
+      header: 'Delete Document',
+      message: `Are you sure you want to delete "${additionalFile.linkName}"?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger-button',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Deleting document...'
+            });
+            await loading.present();
+
+            try {
+              // Delete the attachment record
+              await this.caspioService.deleteAttachment(additionalFile.attachId).toPromise();
+              
+              // Remove from local data
+              for (const serviceDoc of this.serviceDocuments) {
+                for (const doc of serviceDoc.documents) {
+                  if (doc.additionalFiles) {
+                    const index = doc.additionalFiles.findIndex(af => af.attachId === additionalFile.attachId);
+                    if (index !== -1) {
+                      doc.additionalFiles.splice(index, 1);
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              await loading.dismiss();
+              await this.showToast('Document deleted successfully', 'success');
+            } catch (error) {
+              console.error('Error deleting document:', error);
+              await loading.dismiss();
+              await this.showToast('Failed to delete document', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    await confirm.present();
+  }
+
   async viewDocument(doc: DocumentItem) {
     // If doc has an attachId, fetch the actual file from Caspio
     if (doc.attachId) {
