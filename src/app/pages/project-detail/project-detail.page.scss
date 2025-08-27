@@ -307,22 +307,53 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .doc-content{
   padding: 12px;
   
-  .upload-btn-under {
-    margin-top: 8px;
-    margin-bottom: 4px;
-    --padding-start: 12px;
+  .sleek-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 4px;
+    margin-bottom: 0;
+    --padding-start: 8px;
     --padding-end: 12px;
-    font-size: 12px;
-    height: 32px;
+    font-size: 13px;
+    height: 28px;
+    --border-width: 0;
+    --box-shadow: none;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    
+    &:hover {
+      opacity: 1;
+    }
+    
+    ion-icon {
+      font-size: 16px;
+      margin-right: 4px;
+    }
   }
   
-  .upload-another-btn {
-    margin-top: 8px;
+  .sleek-upload-additional-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 4px;
+    margin-left: 0;
     width: fit-content;
-    --padding-start: 10px;
-    --padding-end: 10px;
-    font-size: 12px;
-    height: 30px;
+    --padding-start: 8px;
+    --padding-end: 12px;
+    font-size: 13px;
+    height: 28px;
+    --border-width: 0;
+    --box-shadow: none;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    
+    &:hover {
+      opacity: 1;
+    }
+    
+    ion-icon {
+      font-size: 16px;
+      margin-right: 4px;
+    }
   }
   
   .uploaded-doc-info {

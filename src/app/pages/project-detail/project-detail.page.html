@@ -276,9 +276,9 @@
               <ion-button 
                 *ngIf="!doc.uploaded && !isReadOnly"
                 size="small" 
-                fill="outline" 
+                fill="clear" 
                 color="primary" 
-                class="upload-btn-under"
+                class="sleek-upload-btn"
                 (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                 <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
                 Upload Document
@@ -332,12 +332,12 @@
                 <ion-button 
                   *ngIf="!isReadOnly"
                   size="small" 
-                  fill="outline" 
+                  fill="clear" 
                   color="primary" 
-                  class="upload-another-btn"
+                  class="sleek-upload-additional-btn"
                   (click)="uploadAdditionalFile(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                   <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-                  Upload
+                  Upload Another
                 </ion-button>
               </div>
             </div>
