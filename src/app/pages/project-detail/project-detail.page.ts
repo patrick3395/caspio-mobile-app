@@ -1533,8 +1533,12 @@ export class ProjectDetailPage implements OnInit {
     if (this.project && this.project['PrimaryPhoto']) {
       // If PrimaryPhoto starts with '/', it's a Caspio file
       if (this.project['PrimaryPhoto'].startsWith('/')) {
-        const account = localStorage.getItem('caspioAccount') || '';
-        const token = localStorage.getItem('caspioToken') || '';
+        const account = this.caspioService.getAccountID();
+        // Use current token from service (it's kept up to date)
+        const token = this.caspioService.getCurrentToken() || '';
+        if (!token) {
+          console.warn('No token available for photo URL - photo may not load');
+        }
         return `https://${account}.caspio.com/rest/v2/files${this.project['PrimaryPhoto']}?access_token=${token}`;
       }
       // Otherwise return as-is (could be a full URL)
@@ -1762,17 +1766,29 @@ export class ProjectDetailPage implements OnInit {
       console.log('PrimaryPhoto: File field (stores path)');
       console.log('=============================');
       
-      const account = localStorage.getItem('caspioAccount') || '';
-      const token = localStorage.getItem('caspioToken') || '';
+      // Get account from CaspioService (it extracts from environment)
+      const account = this.caspioService.getAccountID();
+      
+      // Get token through CaspioService to ensure it's valid and handle refresh if needed
+      let token: string;
+      try {
+        token = await this.caspioService.getValidToken().toPromise();
+        console.log('✅ Got valid token from CaspioService');
+      } catch (tokenError) {
+        console.error('❌ Failed to get valid token:', tokenError);
+        throw new Error('Failed to get authentication token. Please logout and login again.');
+      }
       
       // Debug: Check authentication
       console.log('🔐 Authentication Check:');
       console.log('  Account:', account || 'MISSING!');
+      console.log('  Token obtained via:', 'CaspioService.getValidToken()');
       console.log('  Token exists:', !!token);
       console.log('  Token length:', token?.length || 0);
+      console.log('  Token first 20 chars:', token ? token.substring(0, 20) + '...' : 'N/A');
       
       if (!account || !token) {
-        throw new Error('Authentication missing: Please re-login. Account: ' + account + ', Token exists: ' + !!token);
+        throw new Error(`Authentication missing: Account: ${account}, Token exists: ${!!token}. Unable to authenticate with Caspio.`);
       }
       
       // Debug: Check file
@@ -1798,6 +1814,13 @@ export class ProjectDetailPage implements OnInit {
       const filesUrl = `https://${account}.caspio.com/rest/v2/files`;
       console.log('Uploading to Files API:', filesUrl);
       
+      // Add more detailed request logging
+      console.log('📡 Making Files API Request:');
+      console.log('  URL:', filesUrl);
+      console.log('  Method: PUT');
+      console.log('  Auth header:', `Bearer ${token.substring(0, 20)}...`);
+      console.log('  File in FormData:', fileName);
+      
       const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
         headers: {
@@ -1809,6 +1832,7 @@ export class ProjectDetailPage implements OnInit {
       
       console.log('Files API response status:', uploadResponse.status);
       console.log('Files API response headers:', uploadResponse.headers);
+      console.log('Files API response statusText:', uploadResponse.statusText);
       
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
@@ -1881,9 +1905,9 @@ export class ProjectDetailPage implements OnInit {
       let debugInfo = {
         stage: 'Unknown',
         projectId: projectId,
-        account: localStorage.getItem('caspioAccount') || 'NOT SET',
-        tokenExists: !!localStorage.getItem('caspioToken'),
-        tokenLength: localStorage.getItem('caspioToken')?.length || 0,
+        account: this.caspioService.getAccountID(),
+        tokenExists: !!localStorage.getItem('caspio_token'),
+        tokenLength: localStorage.getItem('caspio_token')?.length || 0,
         fileName: '',
         filePath: '',
         errorMessage: error?.message || 'No message',
