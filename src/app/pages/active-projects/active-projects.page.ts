@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.104'; // Update this to match package.json version
+  appVersion = '1.4.105'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -209,6 +209,24 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   getProjectImage(project: Project): string {
+    // Check if project has a PrimaryPhoto
+    if (project && project['PrimaryPhoto']) {
+      const primaryPhoto = project['PrimaryPhoto'];
+      // If PrimaryPhoto starts with '/', it's a Caspio file path
+      if (primaryPhoto.startsWith('/')) {
+        const account = this.caspioService.getAccountID();
+        const token = this.caspioService.getCurrentToken();
+        if (account && token) {
+          // Return Caspio file URL with access token
+          return `https://${account}.caspio.com/rest/v2/files${primaryPhoto}?access_token=${token}`;
+        }
+      } else if (primaryPhoto.startsWith('http')) {
+        // It's already a full URL
+        return primaryPhoto;
+      }
+    }
+    
+    // Fall back to Google Street View if no PrimaryPhoto
     const address = this.formatAddress(project);
     if (!address) {
       return 'assets/img/project-placeholder.svg';

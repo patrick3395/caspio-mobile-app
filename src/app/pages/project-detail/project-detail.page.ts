@@ -1581,32 +1581,91 @@ export class ProjectDetailPage implements OnInit {
   getPropertyPhotoUrl(): string {
     // Check if project has a PrimaryPhoto
     if (this.project && this.project['PrimaryPhoto']) {
+      const primaryPhoto = this.project['PrimaryPhoto'];
+      console.log('🖼️ PrimaryPhoto value:', primaryPhoto);
+      
       // If PrimaryPhoto starts with '/', it's a Caspio file
-      if (this.project['PrimaryPhoto'].startsWith('/')) {
+      if (primaryPhoto.startsWith('/')) {
         const account = this.caspioService.getAccountID();
-        // Use current token from service (it's kept up to date)
-        const token = this.caspioService.getCurrentToken() || '';
-        if (!token) {
-          console.warn('No token available for photo URL - photo may not load');
+        const token = this.caspioService.getCurrentToken();
+        
+        console.log('📸 Building Caspio photo URL:');
+        console.log('  Account:', account);
+        console.log('  Token exists:', !!token);
+        console.log('  Photo path:', primaryPhoto);
+        
+        if (!account || !token) {
+          console.warn('Missing account or token for photo URL');
+          // Show debug toast to user
+          this.showToast(`Debug: Account=${account}, Token=${!!token}, Path=${primaryPhoto}`, 'warning');
+          // Fall back to Street View
+        } else {
+          const photoUrl = `https://${account}.caspio.com/rest/v2/files${primaryPhoto}?access_token=${token}`;
+          console.log('  Full URL:', photoUrl);
+          return photoUrl;
         }
-        return `https://${account}.caspio.com/rest/v2/files${this.project['PrimaryPhoto']}?access_token=${token}`;
+      } else if (primaryPhoto.startsWith('http')) {
+        // It's already a full URL
+        console.log('📸 Using full URL:', primaryPhoto);
+        return primaryPhoto;
+      } else {
+        console.log('⚠️ Unknown photo format:', primaryPhoto);
+        this.showToast(`Debug: Unknown photo format: ${primaryPhoto}`, 'warning');
       }
-      // Otherwise return as-is (could be a full URL)
-      return this.project['PrimaryPhoto'];
+    } else {
+      console.log('📸 No PrimaryPhoto found in project data');
     }
     
     // Fall back to Google Street View
     if (!this.project || !this.formatAddress()) {
+      console.log('📸 Using placeholder image');
       return 'assets/img/project-placeholder.svg';
     }
     const address = encodeURIComponent(this.formatAddress());
     const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-    return `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${apiKey}`;
+    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${apiKey}`;
+    console.log('📸 Using Street View:', streetViewUrl);
+    return streetViewUrl;
   }
   
   getStreetViewUrl(): string {
     // Keep for backwards compatibility
     return this.getPropertyPhotoUrl();
+  }
+  
+  onPhotoError(event: any) {
+    console.error('❌ Photo failed to load:', event.target.src);
+    const errorUrl = event.target.src;
+    
+    // Parse the URL to show debug information
+    if (errorUrl.includes('caspio.com')) {
+      const urlParts = errorUrl.split('?');
+      const baseUrl = urlParts[0];
+      const hasToken = urlParts[1] && urlParts[1].includes('access_token');
+      
+      console.error('Failed Caspio URL:');
+      console.error('  Base:', baseUrl);
+      console.error('  Has token:', hasToken);
+      
+      // Show debug toast
+      this.showToast(`Photo load failed: Check console for details. Token present: ${hasToken}`, 'danger');
+      
+      // Try to get a fresh token and reload
+      this.caspioService.getValidToken().subscribe(token => {
+        if (token) {
+          console.log('Got fresh token, triggering reload...');
+          // Force a re-render by temporarily setting project to null
+          const tempProject = this.project;
+          this.project = null;
+          setTimeout(() => {
+            this.project = tempProject;
+          }, 100);
+        }
+      });
+    }
+    
+    // Set a fallback image
+    event.target.src = 'assets/img/project-placeholder.svg';
   }
 
   getCityState(): string {
@@ -1965,9 +2024,14 @@ export class ProjectDetailPage implements OnInit {
       // Update local project data
       if (this.project) {
         this.project['PrimaryPhoto'] = filePath;
+        console.log('✅ Updated local project data with new photo path:', filePath);
       }
       
       await loading.dismiss();
+      
+      // Reload the project data to ensure we have the latest information
+      await this.loadProject();
+      console.log('✅ Reloaded project data after photo update');
       
       // Show success with details
       const successAlert = await this.alertController.create({
@@ -1975,7 +2039,8 @@ export class ProjectDetailPage implements OnInit {
         message: `Photo updated successfully!<br><br>
           <strong>Updated Record:</strong><br>
           • Project PK_ID: ${projectId}<br>
-          • PrimaryPhoto Path: ${filePath}`,
+          • PrimaryPhoto Path: ${filePath}<br><br>
+          <strong>Debug: Photo should now be visible at the top of the page</strong>`,
         buttons: ['OK']
       });
       await successAlert.present();

@@ -29,7 +29,9 @@
   <div *ngIf="project && !loading && !error" class="project-container">
     <!-- Property Photo Header -->
     <div class="street-view-header" style="position: relative;">
-      <img [src]="getPropertyPhotoUrl()" alt="Property Photo">
+      <img [src]="getPropertyPhotoUrl()" 
+           alt="Property Photo"
+           (error)="onPhotoError($event)">
       <!-- Replace Photo Button -->
       <ion-button class="replace-photo-btn" 
                   fill="solid" 
