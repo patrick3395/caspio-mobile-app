@@ -248,18 +248,28 @@
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
       gap: 15px;
       margin-top: 15px;
+      margin-bottom: 20px;
       
       .photo-item {
         border: 1px solid #ddd;
         border-radius: 4px;
         overflow: hidden;
         background: #fafafa;
+        break-inside: avoid;
+        page-break-inside: avoid;
         
         img {
           width: 100%;
           height: 200px;
           object-fit: cover;
           display: block;
+          background: #f0f0f0; // Fallback color while loading
+        }
+        
+        img.loading {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
         }
         
         .photo-caption {
@@ -381,6 +391,16 @@
     color: #888;
     border-top: 1px solid #eee;
     padding-top: 10px;
+  }
+}
+
+// Shimmer animation for loading images
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 

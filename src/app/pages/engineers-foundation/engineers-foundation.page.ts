@@ -4434,6 +4434,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const photoData = {
                 ...photo,
                 name: photo.Photo || 'Photo',
+                Photo: photo.Photo || '', // Keep the original Photo path
                 caption: photo.Annotation || '',  // Load existing caption from Annotation field
                 url: '',
                 thumbnailUrl: ''
@@ -4773,10 +4774,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async getVisualPhotos(visualId: string) {
     // Get photos for a specific visual from Services_Visuals_Attach
     const photos = this.visualPhotos[visualId] || [];
-    return photos.map((photo: any) => ({
-      url: photo.Photo || photo.url,
-      caption: photo.Annotation || ''
-    }));
+    const account = localStorage.getItem('caspioAccount') || '';
+    const token = localStorage.getItem('caspioToken') || '';
+    
+    console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
+    
+    return photos.map((photo: any) => {
+      let photoUrl = photo.Photo || photo.url || '';
+      
+      // If it's a Caspio file path (starts with /), convert to full URL
+      if (photoUrl && photoUrl.startsWith('/')) {
+        photoUrl = `https://${account}.caspio.com/rest/v2/files${photoUrl}?access_token=${token}`;
+        console.log(`Converted Caspio path to URL: ${photoUrl}`);
+      } else if (photoUrl && photoUrl.startsWith('blob:')) {
+        // Keep blob URLs as-is for local preview
+        console.log(`Keeping blob URL: ${photoUrl}`);
+      }
+      
+      return {
+        url: photoUrl,
+        caption: photo.Annotation || '',
+        attachId: photo.AttachID || photo.id || ''
+      };
+    });
   }
 
   async getRoomPhotos(roomId: string) {

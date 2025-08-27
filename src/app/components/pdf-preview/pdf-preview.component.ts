@@ -37,7 +37,12 @@ import jsPDF from 'jspdf';
           <h2 class="report-title">ENGINEERS FOUNDATION EVALUATION</h2>
           
           <div class="property-image" *ngIf="projectData?.primaryPhoto">
-            <img [src]="projectData.primaryPhoto" alt="Property" />
+            <img 
+              [src]="getPrimaryPhotoUrl()" 
+              alt="Property"
+              (error)="handleImageError($event)"
+              (load)="handleImageLoad($event)"
+              class="loading" />
           </div>
           
           <div class="property-details">
@@ -130,7 +135,12 @@ import jsPDF from 'jspdf';
                 </div>
                 <div class="photos-grid" *ngIf="comment.photos && comment.photos.length > 0">
                   <div *ngFor="let photo of comment.photos" class="photo-item">
-                    <img [src]="photo.url" [alt]="photo.caption || 'Photo'" />
+                    <img 
+                      [src]="photo.url || 'assets/img/photo-placeholder.svg'" 
+                      [alt]="photo.caption || 'Photo'"
+                      (error)="handleImageError($event)"
+                      (load)="handleImageLoad($event)"
+                      class="loading" />
                     <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                   </div>
                 </div>
@@ -147,7 +157,12 @@ import jsPDF from 'jspdf';
                 </div>
                 <div class="photos-grid" *ngIf="limitation.photos && limitation.photos.length > 0">
                   <div *ngFor="let photo of limitation.photos" class="photo-item">
-                    <img [src]="photo.url" [alt]="photo.caption || 'Photo'" />
+                    <img 
+                      [src]="photo.url || 'assets/img/photo-placeholder.svg'" 
+                      [alt]="photo.caption || 'Photo'"
+                      (error)="handleImageError($event)"
+                      (load)="handleImageLoad($event)"
+                      class="loading" />
                     <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                   </div>
                 </div>
@@ -164,7 +179,12 @@ import jsPDF from 'jspdf';
                 </div>
                 <div class="photos-grid" *ngIf="deficiency.photos && deficiency.photos.length > 0">
                   <div *ngFor="let photo of deficiency.photos" class="photo-item">
-                    <img [src]="photo.url" [alt]="photo.caption || 'Photo'" />
+                    <img 
+                      [src]="photo.url || 'assets/img/photo-placeholder.svg'" 
+                      [alt]="photo.caption || 'Photo'"
+                      (error)="handleImageError($event)"
+                      (load)="handleImageLoad($event)"
+                      class="loading" />
                     <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                   </div>
                 </div>
@@ -220,7 +240,12 @@ import jsPDF from 'jspdf';
                 
                 <div class="photos-grid" *ngIf="room.photos && room.photos.length > 0">
                   <div *ngFor="let photo of room.photos" class="photo-item">
-                    <img [src]="photo.url" [alt]="photo.caption || 'Room Photo'" />
+                    <img 
+                      [src]="photo.url || 'assets/img/photo-placeholder.svg'" 
+                      [alt]="photo.caption || 'Room Photo'"
+                      (error)="handleImageError($event)"
+                      (load)="handleImageLoad($event)"
+                      class="loading" />
                     <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                   </div>
                 </div>
@@ -253,10 +278,32 @@ export class PdfPreviewComponent implements OnInit {
 
   ngOnInit() {
     this.hasElevationData = this.elevationData && this.elevationData.length > 0;
+    console.log('PDF Preview initialized with data:', {
+      projectData: this.projectData,
+      structuralDataCount: this.structuralData?.length || 0,
+      elevationDataCount: this.elevationData?.length || 0
+    });
   }
 
   getCurrentDate(): string {
     return new Date().toLocaleDateString();
+  }
+  
+  getPrimaryPhotoUrl(): string {
+    if (!this.projectData?.primaryPhoto) {
+      return 'assets/img/project-placeholder.svg';
+    }
+    
+    const photo = this.projectData.primaryPhoto;
+    
+    // If it's a Caspio file path, convert to full URL
+    if (photo.startsWith('/')) {
+      const account = localStorage.getItem('caspioAccount') || '';
+      const token = localStorage.getItem('caspioToken') || '';
+      return `https://${account}.caspio.com/rest/v2/files${photo}?access_token=${token}`;
+    }
+    
+    return photo;
   }
 
   getElevationPageNumber(): number {
@@ -295,5 +342,17 @@ export class PdfPreviewComponent implements OnInit {
 
   dismiss() {
     this.modalController.dismiss();
+  }
+  
+  handleImageError(event: any) {
+    console.error('Image failed to load:', event.target.src);
+    // Set a placeholder image
+    event.target.src = 'assets/img/photo-placeholder.svg';
+    event.target.classList.remove('loading');
+  }
+  
+  handleImageLoad(event: any) {
+    // Remove loading class when image loads
+    event.target.classList.remove('loading');
   }
 }
