@@ -2453,22 +2453,22 @@ Time: ${debugInfo.timestamp}
         componentProps: {
           projectData: {
             // Project Information
-            address: projectData.Address || '',
-            city: projectData.City || '',
-            state: projectData.State || '',
-            zipCode: projectData.ZIP || '',
-            clientName: projectData.ClientName || '',
-            agentName: projectData.AgentName || '',
-            inspectorName: projectData.InspectorName || '',
-            yearBuilt: projectData.YearBuilt || '',
-            squareFeet: projectData.SquareFeet || '',
-            typeOfBuilding: projectData.TypeOfBuilding || '',
-            style: projectData.Style || '',
-            primaryPhoto: projectData.PrimaryPhoto || '',
+            address: projectData['Address'] || '',
+            city: projectData['City'] || '',
+            state: projectData['State'] || '',
+            zipCode: projectData['ZIP'] || '',
+            clientName: projectData['ClientName'] || '',
+            agentName: projectData['AgentName'] || '',
+            inspectorName: projectData['InspectorName'] || '',
+            yearBuilt: projectData['YearBuilt'] || '',
+            squareFeet: projectData['SquareFeet'] || '',
+            typeOfBuilding: projectData['TypeOfBuilding'] || '',
+            style: projectData['Style'] || '',
+            primaryPhoto: projectData['PrimaryPhoto'] || '',
             // Additional project fields
             projectId: this.projectId,
-            statusId: projectData.StatusID,
-            companyId: projectData.CompanyID
+            statusId: projectData['StatusID'],
+            companyId: projectData['CompanyID']
           },
           serviceData: {
             // Service Information
