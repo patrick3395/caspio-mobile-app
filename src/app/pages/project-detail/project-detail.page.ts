@@ -1755,7 +1755,13 @@ export class ProjectDetailPage implements OnInit {
     await loading.present();
 
     try {
-      // Upload photo to Caspio Files API
+      // Copy EXACT method from Structural Systems that works
+      console.log('📦 Using proven two-step upload method for Projects table');
+      console.log('====== PROJECTS TABLE ======');
+      console.log('PK_ID: Primary Key for updates');
+      console.log('PrimaryPhoto: File field (stores path)');
+      console.log('=============================');
+      
       const account = localStorage.getItem('caspioAccount') || '';
       const token = localStorage.getItem('caspioToken') || '';
       
@@ -1763,65 +1769,58 @@ export class ProjectDetailPage implements OnInit {
       const timestamp = Date.now();
       const fileName = `property_${projectId}_${timestamp}.jpg`;
       
-      // Upload to Caspio Files API using PROVEN METHOD from CLAUDE.md
+      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
+      console.log('Step 1: Uploading file to Caspio Files API...');
       const formData = new FormData();
       formData.append('file', file, fileName);
       
-      console.log('Uploading to Caspio Files API...');
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+      const filesUrl = `https://${account}.caspio.com/rest/v2/files`;
+      console.log('Uploading to Files API:', filesUrl);
+      
+      const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
+          // NO Content-Type header - let browser set it with boundary
         },
         body: formData
       });
       
-      console.log('Upload response status:', uploadResponse.status);
-      
-      // Read response text once
-      const responseText = await uploadResponse.text();
-      console.log('Upload response text:', responseText);
+      console.log('Files API response status:', uploadResponse.status);
       
       if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.status} - ${responseText}`);
+        const errorText = await uploadResponse.text();
+        console.error('Files API error:', errorText);
+        throw new Error(`Files API failed: ${uploadResponse.status} - ${errorText}`);
       }
       
-      // Parse the response
-      let uploadResult;
-      try {
-        if (!responseText) {
-          throw new Error('Empty response from server');
-        }
-        
-        uploadResult = JSON.parse(responseText);
-      } catch (e: any) {
-        console.error('Failed to parse response:', e);
-        throw new Error(`Failed to parse upload response: ${e?.message || 'Unknown error'}`);
+      // Parse Files API response
+      const uploadResult = await uploadResponse.json();
+      console.log('Files API response:', uploadResult);
+      
+      if (!uploadResult.Name) {
+        throw new Error('No file name in Files API response');
       }
       
-      // Get the file path from response
-      const photoPath = uploadResult.Name ? `/${uploadResult.Name}` : null;
-      if (!photoPath) {
-        throw new Error('No file name in upload response');
-      }
+      // STEP 2: Update Projects table with the file path
+      const filePath = `/${uploadResult.Name}`;
+      console.log('Step 2: Updating Projects table with file path:', filePath);
+      console.log('Using PK_ID:', projectId);
       
-      console.log('File uploaded successfully, path:', photoPath);
+      // Show debug info
+      await this.showToast(`Updating PK_ID: ${projectId} with path: ${filePath}`, 'info');
       
-      // Update the Projects table with the new photo path using PK_ID
-      console.log(`Updating Projects table (PK_ID: ${projectId}) with PrimaryPhoto:`, photoPath);
-      
-      // Show debug popup before update
-      await this.showToast(`Updating PK_ID: ${projectId} with path: ${photoPath}`, 'info');
-      
+      // Use the service method which handles the update properly
       const updateResponse = await this.caspioService.updateProject(projectId, {
-        PrimaryPhoto: photoPath
+        PrimaryPhoto: filePath
       }).toPromise();
       
+      console.log('✅ Successfully updated PrimaryPhoto for project:', projectId);
       console.log('Update response:', updateResponse);
       
       // Update local project data
       if (this.project) {
-        this.project['PrimaryPhoto'] = photoPath;
+        this.project['PrimaryPhoto'] = filePath;
       }
       
       await loading.dismiss();
@@ -1832,7 +1831,7 @@ export class ProjectDetailPage implements OnInit {
         message: `Photo updated successfully!<br><br>
           <strong>Updated Record:</strong><br>
           • Project PK_ID: ${projectId}<br>
-          • PrimaryPhoto Path: ${photoPath}`,
+          • PrimaryPhoto Path: ${filePath}`,
         buttons: ['OK']
       });
       await successAlert.present();
