@@ -1772,7 +1772,11 @@ export class ProjectDetailPage implements OnInit {
       // Get token through CaspioService to ensure it's valid and handle refresh if needed
       let token: string;
       try {
-        token = await this.caspioService.getValidToken().toPromise();
+        const tokenResult = await this.caspioService.getValidToken().toPromise();
+        if (!tokenResult) {
+          throw new Error('Token is null or undefined');
+        }
+        token = tokenResult;
         console.log('✅ Got valid token from CaspioService');
       } catch (tokenError) {
         console.error('❌ Failed to get valid token:', tokenError);
