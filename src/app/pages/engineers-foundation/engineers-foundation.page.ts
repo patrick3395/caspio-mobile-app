@@ -214,11 +214,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadServiceData() {
     if (!this.serviceId) {
-      alert('⚠️ DEBUG: No serviceId available for loading service data');
+      console.log('⚠️ No serviceId available for loading service data');
       return;
     }
     
-    alert(`🔍 DEBUG: Loading service data for ServiceID: ${this.serviceId}`);
+    console.log(`🔍 Loading service data for ServiceID: ${this.serviceId}`);
     
     try {
       // Load service data from Services table
@@ -226,7 +226,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (serviceResponse) {
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
-        alert(`✅ Service data loaded successfully!\n\nWeatherConditions: ${this.serviceData.WeatherConditions || '(empty)'}`);
       }
     } catch (error) {
       console.error('Error loading service data:', error);
@@ -1094,13 +1093,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Toggle room selection - create or remove from Services_Rooms
   async toggleRoomSelection(roomName: string, event?: any) {
-    // If event is passed and it's from the expand icon, ignore it
-    if (event && event.detail && event.detail.checked === undefined) {
-      return; // Not a checkbox event, ignore
+    // Only proceed if this is a real checkbox change event
+    if (!event || !event.detail || typeof event.detail.checked === 'undefined') {
+      console.log('Ignoring non-checkbox event');
+      return;
     }
     
     const wasSelected = this.selectedRooms[roomName];
-    const isSelected = !wasSelected;
+    const isSelected = event.detail.checked; // Use the event's checked value instead of toggling
     
     // If deselecting, ask for confirmation first
     if (wasSelected && !isSelected) {
@@ -1259,9 +1259,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Handle expand/collapse icon click with proper event handling
   handleRoomExpandClick(roomName: string, event: Event) {
     // Stop all propagation to prevent triggering checkbox or other handlers
-    event.stopPropagation();
-    event.preventDefault();
-    event.stopImmediatePropagation();
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
     
     // Only toggle expansion, never trigger selection
     if (this.isRoomSelected(roomName)) {
@@ -1326,29 +1328,42 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Add a room template to the list
   async addRoomTemplate(template: any) {
     try {
-      // Check for duplicates and add numbering
+      // Get the base name from the original template (never modify the original)
       const baseName = template.RoomName;
-      const existingRooms = this.roomTemplates.filter(room => 
-        room.RoomName === baseName || room.RoomName.startsWith(baseName + ' #')
-      );
       
-      // Create numbered room name if duplicates exist
+      // Check existing rooms for this base name (both numbered and unnumbered)
+      const existingWithBaseName = this.roomTemplates.filter(room => {
+        // Extract base name by removing number suffix if present
+        const roomBaseName = room.RoomName.replace(/ #\d+$/, '');
+        return roomBaseName === baseName;
+      });
+      
+      // Determine the room name with proper numbering
       let roomName = baseName;
-      if (existingRooms.length > 0) {
+      if (existingWithBaseName.length > 0) {
+        // Find existing numbers
+        const existingNumbers: number[] = [];
+        existingWithBaseName.forEach(room => {
+          if (room.RoomName === baseName) {
+            existingNumbers.push(1); // Unnumbered room counts as #1
+          } else {
+            const match = room.RoomName.match(/ #(\d+)$/);
+            if (match) {
+              existingNumbers.push(parseInt(match[1]));
+            }
+          }
+        });
+        
         // Find the next available number
         let nextNumber = 1;
-        for (let i = 1; i <= existingRooms.length + 1; i++) {
-          const testName = i === 1 ? baseName : `${baseName} #${i}`;
-          if (!this.roomTemplates.some(room => room.RoomName === testName)) {
-            roomName = testName;
-            nextNumber = i;
-            break;
-          }
+        while (existingNumbers.includes(nextNumber)) {
+          nextNumber++;
         }
-        // If it's the first duplicate, also rename the original
-        if (existingRooms.length === 1 && existingRooms[0].RoomName === baseName) {
-          // Rename the existing room to #1
-          const existingRoom = existingRooms[0];
+        
+        // If this is the second occurrence, rename the first one
+        if (existingWithBaseName.length === 1 && existingWithBaseName[0].RoomName === baseName) {
+          // Rename the existing unnumbered room to #1
+          const existingRoom = existingWithBaseName[0];
           const oldName = existingRoom.RoomName;
           existingRoom.RoomName = `${baseName} #1`;
           
@@ -1370,16 +1385,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             delete this.expandedRooms[oldName];
           }
           
-          // Set the new room to #2
-          roomName = `${baseName} #2`;
+          nextNumber = 2; // The new room will be #2
         }
+        
+        roomName = `${baseName} #${nextNumber}`;
       }
       
-      // Create a new template object with the numbered name
-      const numberedTemplate = { ...template, RoomName: roomName };
+      // Create a NEW template object (don't modify the original from allRoomTemplates)
+      const roomToAdd = { ...template, RoomName: roomName };
       
       // Add to room templates list
-      this.roomTemplates.push(numberedTemplate);
+      this.roomTemplates.push(roomToAdd);
       
       // Initialize room elevation data using the numbered room name
       if (roomName && !this.roomElevationData[roomName]) {
@@ -4372,18 +4388,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Auto-save service field to Caspio Services table  
   private autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {
-      alert(`⚠️ DEBUG: Cannot save ${fieldName} - No ServiceID!\n\nServiceID is: ${this.serviceId}`);
+      console.error(`⚠️ Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
       return;
     }
     
-    // Debug popup for Services table updates
-    const debugInfo = `🔍 DEBUG: Services Table Update\n\n` +
-      `ServiceID (PK_ID): ${this.serviceId}\n` +
-      `Field: ${fieldName}\n` +
-      `New Value: ${value}\n` +
-      `Update Data: ${JSON.stringify({ [fieldName]: value })}`;
-    
-    alert(debugInfo);
+    console.log(`🔍 Services Table Update:`, {
+      serviceId: this.serviceId,
+      field: fieldName,
+      newValue: value,
+      updateData: { [fieldName]: value }
+    });
     
     this.showSaveStatus(`Saving ${fieldName}...`, 'info');
     
@@ -4391,12 +4405,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
       next: (response) => {
         this.showSaveStatus(`${fieldName} saved`, 'success');
-        alert(`✅ SUCCESS: ${fieldName} updated!\n\nResponse: ${JSON.stringify(response)}`);
+        console.log(`✅ SUCCESS: ${fieldName} updated!`, response);
       },
       error: (error) => {
         console.error(`Error saving service field ${fieldName}:`, error);
         this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
-        alert(`❌ ERROR: Failed to update ${fieldName}!\n\nError: ${error.message || JSON.stringify(error)}`);
       }
     });
   }

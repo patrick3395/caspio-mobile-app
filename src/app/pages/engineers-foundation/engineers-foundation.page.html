@@ -15,7 +15,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.44 - Room Photo Upload Fixed</div>
+    <div class="version-header">Version 1.4.64 - Room Selection & Expand/Collapse Fixed</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -494,7 +494,7 @@
                     [checked]="isRoomSelected(room.RoomName)"
                     [disabled]="isRoomSaving(room.RoomName)"
                     (ionChange)="toggleRoomSelection(room.RoomName, $event)"
-                    (click)="$event.stopPropagation()">
+                    (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>
                   <ion-label class="item-label" 
                              (click)="handleRoomLabelClick(room.RoomName, $event)"
