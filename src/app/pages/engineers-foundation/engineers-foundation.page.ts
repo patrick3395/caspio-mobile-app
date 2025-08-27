@@ -597,8 +597,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               return true;
             }
           }
-        ],
-        backdropDismiss: false
+        ]
       });
       
       await continueAlert.present();
@@ -1106,28 +1105,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return !!this.savingRooms[roomName];
   }
   
-  // Toggle section expansion/collapse
-  toggleSection(section: string) {
-    if (!this.expandedSections[section]) {
-      this.expandedSections[section] = true;
-    } else {
-      this.expandedSections[section] = !this.expandedSections[section];
-    }
-  }
-  
-  // Handle accordion group changes
-  onAccordionChange(event: any) {
-    console.log('Accordion changed:', event.detail.value);
-  }
-  
-  // TrackBy functions for performance
-  trackByCategory(index: number, category: string): string {
-    return category;
-  }
-  
-  trackByRoomName(index: number, room: any): string {
-    return room.RoomName;
-  }
   
   // Check if room is expanded
   isRoomExpanded(roomName: string): boolean {
