@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.107'; // Update this to match package.json version
+  appVersion = '1.4.108'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -242,6 +242,43 @@ export class ActiveProjectsPage implements OnInit {
     if (project.City) parts.push(project.City);
     if (project.State) parts.push(project.State);
     return parts.join(', ');
+  }
+
+  async onProjectImageError(event: any, project: Project) {
+    const imgUrl = event.target?.src || '';
+    const primaryPhoto = project?.['PrimaryPhoto'] || '';
+    const token = this.caspioService.getCurrentToken();
+    const account = this.caspioService.getAccountID();
+    
+    const alert = await this.alertController.create({
+      header: 'Project Image Load Failed',
+      message: `
+        <strong>Project ID:</strong> ${project?.PK_ID}<br>
+        <strong>Address:</strong> ${this.formatAddress(project)}<br>
+        <strong>PrimaryPhoto:</strong> ${primaryPhoto}<br>
+        <strong>Has Token:</strong> ${token ? 'Yes' : 'No'}<br>
+        <strong>Token Length:</strong> ${token?.length || 0}<br>
+        <strong>Account:</strong> ${account}<br>
+        <strong>URL Attempted:</strong> ${imgUrl.substring(0, 100)}...
+      `,
+      buttons: [
+        {
+          text: 'Try Refresh',
+          handler: () => {
+            this.checkAuthAndLoadProjects();
+          }
+        },
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
+    });
+
+    await alert.present();
+    
+    // Set fallback image
+    event.target.src = 'assets/img/project-placeholder.svg';
   }
 
   createNewProject() {

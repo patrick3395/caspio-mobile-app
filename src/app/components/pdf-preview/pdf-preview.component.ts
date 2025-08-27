@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ModalController, LoadingController, Platform } from '@ionic/angular';
+import { IonicModule, ModalController, LoadingController, Platform, AlertController, ToastController } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
 import { CaspioService } from '../../services/caspio.service';
 import jsPDF from 'jspdf';
@@ -32,7 +32,9 @@ export class PdfPreviewComponent implements OnInit {
     private modalController: ModalController,
     private loadingController: LoadingController,
     private platform: Platform,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private alertController: AlertController,
+    private toastController: ToastController
   ) {}
 
   ngOnInit() {
@@ -927,6 +929,22 @@ export class PdfPreviewComponent implements OnInit {
       // For Caspio images with access token, fetch the image as blob first
       if (url.includes('caspio.com') && url.includes('access_token')) {
         try {
+          // Extract key parts for debug
+          const urlParts = new URL(url);
+          const pathParts = urlParts.pathname.split('/');
+          const filename = pathParts[pathParts.length - 1];
+          const hasToken = urlParts.searchParams.has('access_token');
+          const tokenValue = urlParts.searchParams.get('access_token');
+          
+          // Show debug info
+          await this.showDebugAlert('Image Load Attempt', `
+            Filename: ${filename}
+            Has Token: ${hasToken}
+            Token Length: ${tokenValue?.length || 0}
+            Account: ${this.caspioService.getAccountID()}
+            Full URL: ${url.substring(0, 100)}...
+          `);
+          
           const response = await fetch(url, {
             method: 'GET',
             mode: 'cors',
@@ -934,6 +952,17 @@ export class PdfPreviewComponent implements OnInit {
           });
           
           if (!response.ok) {
+            await this.showDebugAlert('Fetch Failed', `
+              Status: ${response.status}
+              Status Text: ${response.statusText}
+              URL: ${url.substring(0, 100)}...
+              
+              Possible causes:
+              - Token expired
+              - File doesn't exist
+              - CORS blocked
+              - Network error
+            `);
             console.error('Failed to fetch Caspio image:', response.status, response.statusText);
             return null;
           }
@@ -941,8 +970,17 @@ export class PdfPreviewComponent implements OnInit {
           const blob = await response.blob();
           const dataUrl = await this.blobToDataUrl(blob);
           this.imageCache.set(url, dataUrl);
+          
+          // Success toast
+          await this.showToast(`✅ Image loaded: ${filename}`, 'success');
           return dataUrl;
-        } catch (fetchError) {
+        } catch (fetchError: any) {
+          await this.showDebugAlert('Fetch Exception', `
+            Error: ${fetchError.message || fetchError}
+            URL: ${url.substring(0, 100)}...
+            
+            Will try fallback method...
+          `);
           console.error('Error fetching Caspio image:', fetchError);
           // Fall back to regular image loading
         }
@@ -1017,6 +1055,25 @@ export class PdfPreviewComponent implements OnInit {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  }
+  
+  private async showDebugAlert(title: string, message: string) {
+    const alert = await this.alertController.create({
+      header: `DEBUG: ${title}`,
+      message: message.replace(/\s+/g, ' ').trim(),
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+  
+  private async showToast(message: string, color: string = 'primary') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 
   private hasPhotos(): boolean {

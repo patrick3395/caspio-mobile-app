@@ -1633,7 +1633,7 @@ export class ProjectDetailPage implements OnInit {
     return this.getPropertyPhotoUrl();
   }
   
-  onPhotoError(event: any) {
+  async onPhotoError(event: any) {
     console.error('❌ Photo failed to load:', event.target.src);
     const errorUrl = event.target.src;
     
@@ -1642,26 +1642,53 @@ export class ProjectDetailPage implements OnInit {
       const urlParts = errorUrl.split('?');
       const baseUrl = urlParts[0];
       const hasToken = urlParts[1] && urlParts[1].includes('access_token');
+      const tokenValue = urlParts[1]?.split('access_token=')[1];
       
-      console.error('Failed Caspio URL:');
-      console.error('  Base:', baseUrl);
-      console.error('  Has token:', hasToken);
+      // Extract file path
+      const pathMatch = baseUrl.match(/\/files(.+)$/);
+      const filePath = pathMatch ? pathMatch[1] : 'Unknown';
       
-      // Show debug toast
-      this.showToast(`Photo load failed: Check console for details. Token present: ${hasToken}`, 'danger');
-      
-      // Try to get a fresh token and reload
-      this.caspioService.getValidToken().subscribe(token => {
-        if (token) {
-          console.log('Got fresh token, triggering reload...');
-          // Force a re-render by temporarily setting project to null
-          const tempProject = this.project;
-          this.project = null;
-          setTimeout(() => {
-            this.project = tempProject;
-          }, 100);
-        }
+      // Show detailed debug alert
+      const alert = await this.alertController.create({
+        header: 'Image Load Failed',
+        message: `
+          <strong>File Path:</strong> ${filePath}<br>
+          <strong>Has Token:</strong> ${hasToken ? 'Yes' : 'No'}<br>
+          <strong>Token Length:</strong> ${tokenValue?.length || 0}<br>
+          <strong>Account:</strong> ${this.caspioService.getAccountID()}<br>
+          <strong>Current Token:</strong> ${this.caspioService.getCurrentToken() ? 'Present' : 'Missing'}<br>
+          <strong>PrimaryPhoto Value:</strong> ${this.project?.PrimaryPhoto || 'Not set'}<br>
+          <br>
+          <strong>Full URL (first 150 chars):</strong><br>
+          ${errorUrl.substring(0, 150)}...
+        `,
+        buttons: [
+          {
+            text: 'Try Fresh Token',
+            handler: () => {
+              this.caspioService.getValidToken().subscribe(async token => {
+                if (token) {
+                  await this.showToast('Got fresh token, reloading...', 'success');
+                  // Force a re-render
+                  const tempProject = this.project;
+                  this.project = null;
+                  setTimeout(() => {
+                    this.project = tempProject;
+                  }, 100);
+                }
+              });
+            }
+          },
+          {
+            text: 'OK',
+            role: 'cancel'
+          }
+        ]
       });
+      await alert.present();
+    } else {
+      // Non-Caspio URL error
+      await this.showToast(`Image load failed: ${errorUrl.substring(0, 50)}...`, 'danger');
     }
     
     // Set a fallback image

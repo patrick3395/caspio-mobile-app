@@ -18,9 +18,11 @@
 <ion-content class="projects-content">
   <!-- LIVE UPDATE BANNER -->
   <div style="background: linear-gradient(45deg, #F15A27, #69635D); color: white; padding: 20px; text-align: center; font-weight: bold; font-size: 18px;">
-    📱 Version {{ getAppVersion() }} - Company Debug Mode
+    📱 Version {{ getAppVersion() }} - Testing Image Preview Debug Popups
     <br>
     <span style="font-size: 14px;">🔄 BUILD: {{ getCurrentTimestamp() }} | 👤 {{ getUserInfo() }}</span>
+    <br>
+    <span style="font-size: 12px; color: #FFE082;">🔍 Testing: Debug alerts for image loading failures in Project Details and Active Projects</span>
   </div>
   
   <style>
@@ -48,7 +50,7 @@
     <div *ngIf="!loading && !error" class="projects-list">
       <div class="project-item" *ngFor="let project of projects" [routerLink]="['/project', project.PK_ID]">
         <div class="project-image">
-          <img [src]="getProjectImage(project)" alt="Project">
+          <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
         </div>
         <div class="project-details">
           <div class="project-address">{{ formatAddress(project) }}</div>
