@@ -2545,16 +2545,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  async showToast(message: string, color: string = 'primary') {
-    const toast = await this.toastController.create({
-      message,
-      duration: 2000,
-      color,
-      position: 'bottom'
-    });
-    await toast.present();
-  }
-  
   // Save visual selection to Services_Visuals table
   async saveVisualSelection(category: string, templateId: string) {
     console.log('=====================================');
@@ -4642,25 +4632,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  // Calculate project information completion percentage
-  getProjectCompletion(): number {
-    if (!this.projectData) return 0;
-    
-    const requiredFields = [
-      'ClientName', 'AgentName', 'InspectorName', 'InAttendance',
-      'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style',
-      'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'
-    ];
-    
-    let completed = 0;
-    for (const field of requiredFields) {
-      if (this.projectData[field] && this.projectData[field].toString().trim() !== '') {
-        completed++;
-      }
-    }
-    
-    return Math.round((completed / requiredFields.length) * 100);
-  }
 
   // Helper methods for PDF preview
   async prepareProjectInfo() {
