@@ -1715,6 +1715,51 @@ export class ProjectDetailPage implements OnInit {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Get project ID
+    const projectId = this.project?.PK_ID || this.project?.ProjectID;
+    const projectAddress = this.project?.Address || 'Unknown';
+    
+    // Show debug popup
+    const debugAlert = await this.alertController.create({
+      header: 'Debug: Photo Upload',
+      message: `
+        <strong>Project Details:</strong><br>
+        • Project ID (PK_ID): ${this.project?.PK_ID || 'N/A'}<br>
+        • Project ID (ProjectID): ${this.project?.ProjectID || 'N/A'}<br>
+        • Using ID: ${projectId}<br>
+        • Address: ${projectAddress}<br><br>
+        <strong>File Details:</strong><br>
+        • Name: ${file.name}<br>
+        • Size: ${(file.size / 1024).toFixed(2)} KB<br>
+        • Type: ${file.type}<br>
+      `,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Upload',
+          handler: async () => {
+            await this.performPhotoUpload(file, projectId);
+          }
+        }
+      ]
+    });
+    await debugAlert.present();
+  }
+  
+  private async performPhotoUpload(file: File, projectId: any) {
+    if (!projectId) {
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'No project ID available. Cannot update photo.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
     const loading = await this.loadingController.create({
       message: 'Uploading photo...',
       spinner: 'crescent'
@@ -1728,12 +1773,13 @@ export class ProjectDetailPage implements OnInit {
       
       // Generate unique filename
       const timestamp = Date.now();
-      const fileName = `property_${this.project?.PK_ID || this.project?.ProjectID}_${timestamp}.jpg`;
+      const fileName = `property_${projectId}_${timestamp}.jpg`;
       
-      // Upload to Caspio Files API
+      // Upload to Caspio Files API using PROVEN METHOD from CLAUDE.md
       const formData = new FormData();
       formData.append('file', file, fileName);
       
+      console.log('Uploading to Caspio Files API...');
       const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
         method: 'PUT',
         headers: {
@@ -1742,18 +1788,32 @@ export class ProjectDetailPage implements OnInit {
         body: formData
       });
       
+      console.log('Upload response status:', uploadResponse.status);
+      const responseText = await uploadResponse.text();
+      console.log('Upload response text:', responseText);
+      
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload photo');
+        throw new Error(`Upload failed: ${uploadResponse.status} - ${responseText}`);
       }
       
-      const uploadResult = await uploadResponse.json();
-      const photoPath = `/${uploadResult.Name}`;
+      // Parse the response
+      let uploadResult;
+      try {
+        uploadResult = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+      
+      // Get the file path from response
+      const photoPath = uploadResult.Name ? `/${uploadResult.Name}` : null;
+      if (!photoPath) {
+        throw new Error('No file name in upload response');
+      }
+      
+      console.log('File uploaded successfully, path:', photoPath);
       
       // Update the Projects table with the new photo path
-      const projectId = this.project?.PK_ID || this.project?.ProjectID;
-      if (!projectId) {
-        throw new Error('No project ID available');
-      }
+      console.log('Updating Projects table with PrimaryPhoto:', photoPath);
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: photoPath
       }).toPromise();
@@ -1765,26 +1825,31 @@ export class ProjectDetailPage implements OnInit {
       
       await loading.dismiss();
       
-      const toast = await this.toastController.create({
-        message: 'Photo updated successfully',
-        duration: 2000,
-        color: 'success',
-        position: 'bottom'
+      // Show success with details
+      const successAlert = await this.alertController.create({
+        header: 'Success',
+        message: `Photo updated successfully!<br><br>
+          <strong>Updated Record:</strong><br>
+          • Project ID: ${projectId}<br>
+          • Photo Path: ${photoPath}`,
+        buttons: ['OK']
       });
-      await toast.present();
+      await successAlert.present();
       
       // Clear the file input
       if (this.photoInput && this.photoInput.nativeElement) {
         this.photoInput.nativeElement.value = '';
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading photo:', error);
       await loading.dismiss();
       
       const alert = await this.alertController.create({
         header: 'Upload Failed',
-        message: 'Failed to upload photo. Please try again.',
+        message: `Failed to upload photo.<br><br>
+          <strong>Error Details:</strong><br>
+          ${error.message || error}`,
         buttons: ['OK']
       });
       await alert.present();
