@@ -430,5 +430,5 @@
   </ng-template>
 </ion-modal>
 
-<!-- Hidden file input for photo replacement -->
-<input #photoInput type="file" accept="image/*" capture="environment" style="display: none" (change)="onPhotoSelected($event)">
+<!-- Hidden file input for photo replacement - no capture attribute for iOS native picker -->
+<input #photoInput type="file" accept="image/*" style="display: none" (change)="onPhotoSelected($event)">

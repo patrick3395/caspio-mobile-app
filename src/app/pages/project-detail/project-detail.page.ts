@@ -1710,8 +1710,8 @@ export class ProjectDetailPage implements OnInit {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Get project ID
-    const projectId = this.project?.PK_ID || this.project?.ProjectID;
+    // Projects table uses PK_ID as primary key for updates
+    const projectId = this.project?.PK_ID;
     const projectAddress = this.project?.Address || 'Unknown';
     
     // Show debug popup
@@ -1721,7 +1721,7 @@ export class ProjectDetailPage implements OnInit {
         <strong>Project Details:</strong><br>
         • Project ID (PK_ID): ${this.project?.PK_ID || 'N/A'}<br>
         • Project ID (ProjectID): ${this.project?.ProjectID || 'N/A'}<br>
-        • Using ID: ${projectId}<br>
+        • Using PK_ID for update: ${projectId}<br>
         • Address: ${projectAddress}<br><br>
         <strong>File Details:</strong><br>
         • Name: ${file.name}<br>
@@ -1807,8 +1807,8 @@ export class ProjectDetailPage implements OnInit {
       
       console.log('File uploaded successfully, path:', photoPath);
       
-      // Update the Projects table with the new photo path
-      console.log('Updating Projects table with PrimaryPhoto:', photoPath);
+      // Update the Projects table with the new photo path using PK_ID
+      console.log(`Updating Projects table (PK_ID: ${projectId}) with PrimaryPhoto:`, photoPath);
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: photoPath
       }).toPromise();
@@ -1825,8 +1825,8 @@ export class ProjectDetailPage implements OnInit {
         header: 'Success',
         message: `Photo updated successfully!<br><br>
           <strong>Updated Record:</strong><br>
-          • Project ID: ${projectId}<br>
-          • Photo Path: ${photoPath}`,
+          • Project PK_ID: ${projectId}<br>
+          • PrimaryPhoto Path: ${photoPath}`,
         buttons: ['OK']
       });
       await successAlert.present();
