@@ -2041,36 +2041,9 @@ Troubleshooting:
 
     // Projects table uses PK_ID as primary key for updates
     const projectId = this.project?.PK_ID;
-    const projectAddress = this.project?.Address || 'Unknown';
     
-    // Show debug popup
-    const debugAlert = await this.alertController.create({
-      header: 'Debug: Photo Upload',
-      message: `
-        <strong>Project Details:</strong><br>
-        • Project ID (PK_ID): ${this.project?.PK_ID || 'N/A'}<br>
-        • Project ID (ProjectID): ${this.project?.ProjectID || 'N/A'}<br>
-        • Using PK_ID for update: ${projectId}<br>
-        • Address: ${projectAddress}<br><br>
-        <strong>File Details:</strong><br>
-        • Name: ${file.name}<br>
-        • Size: ${(file.size / 1024).toFixed(2)} KB<br>
-        • Type: ${file.type}<br>
-      `,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Upload',
-          handler: async () => {
-            await this.performPhotoUpload(file, projectId);
-          }
-        }
-      ]
-    });
-    await debugAlert.present();
+    // Start upload immediately without confirmation
+    await this.performPhotoUpload(file, projectId);
   }
   
   private async performPhotoUpload(file: File, projectId: any) {
@@ -2141,9 +2114,7 @@ Troubleshooting:
       // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
       console.log('Step 1: Uploading file to Caspio Files API...');
       
-      // Show progress toast
-      await this.showToast(`📤 Uploading ${fileName} to Files API...`, 'info');
-      
+      // No toast - just proceed with upload
       const formData = new FormData();
       formData.append('file', file, fileName);
       
@@ -2200,9 +2171,6 @@ Troubleshooting:
       
       console.log('Files API parsed response:', uploadResult);
       
-      // Debug: Show full response structure
-      await this.showToast(`Files API Response: ${JSON.stringify(uploadResult)}`, 'info');
-      
       // Handle different possible response formats from Files API
       let uploadedFileName: string;
       
@@ -2233,9 +2201,6 @@ Troubleshooting:
       console.log('Step 2: Updating Projects table with file path:', filePath);
       console.log('Using PK_ID:', projectId);
       
-      // Show debug info
-      await this.showToast(`Updating PK_ID: ${projectId} with path: ${filePath}`, 'info');
-      
       // Use the service method which handles the update properly
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: filePath
@@ -2244,29 +2209,28 @@ Troubleshooting:
       console.log('✅ Successfully updated PrimaryPhoto for project:', projectId);
       console.log('Update response:', updateResponse);
       
-      // Update local project data
+      // Update local project data immediately
       if (this.project) {
         this.project['PrimaryPhoto'] = filePath;
         console.log('✅ Updated local project data with new photo path:', filePath);
+        
+        // Clear the cached image data to force reload
+        this.projectImageData = null;
+        this.imageLoadInProgress = false;
+        
+        // Trigger change detection to refresh the image immediately
+        this.changeDetectorRef.detectChanges();
+        
+        // Start loading the new image
+        if (filePath.startsWith('/')) {
+          this.loadProjectImageData();
+        }
       }
       
       await loading.dismiss();
       
-      // Reload the project data to ensure we have the latest information
-      await this.loadProject();
-      console.log('✅ Reloaded project data after photo update');
-      
-      // Show success with details
-      const successAlert = await this.alertController.create({
-        header: 'Success',
-        message: `Photo updated successfully!<br><br>
-          <strong>Updated Record:</strong><br>
-          • Project PK_ID: ${projectId}<br>
-          • PrimaryPhoto Path: ${filePath}<br><br>
-          <strong>Debug: Photo should now be visible at the top of the page</strong>`,
-        buttons: ['OK']
-      });
-      await successAlert.present();
+      // Show simple success toast
+      await this.showToast('Photo updated successfully', 'success');
       
       // Clear the file input
       if (this.photoInput && this.photoInput.nativeElement) {
