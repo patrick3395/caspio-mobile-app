@@ -431,84 +431,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // First photo - use file input to show iOS options (camera/gallery)
-      // Use the capturePhotoNative method that shows iOS selector
-      const file = await this.capturePhotoNative();
-      
-      if (!file) {
-        console.log('No photo selected');
-        return;
-      }
-      
-      const fileName = file.name || `room_point_${pointId}_${Date.now()}.jpg`;
-      
-      // Create preview
-      const photoUrl = URL.createObjectURL(file);
-      
-      // Add to UI immediately with uploading flag
-      if (!point.photos) {
-        point.photos = [];
-      }
-      
-      const photoEntry: any = {
-        url: photoUrl,
-        thumbnailUrl: photoUrl,
-        annotation: '',
-        uploading: true,
-        file: file,
-        attachId: null
+      // Use the EXACT same method as Structural section - set context and trigger file input
+      this.currentRoomPointContext = { 
+        roomName, 
+        point, 
+        pointId, 
+        roomId 
       };
       
-      point.photos.push(photoEntry);
-      point.photoCount = point.photos.length;
-      
-      // Upload in background
-      this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
-        .then((response) => {
-          photoEntry.uploading = false;
-          photoEntry.attachId = response?.AttachID || response?.PK_ID;
-          console.log(`Photo uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
-        })
-        .catch((err) => {
-          console.error('Failed to upload photo:', err);
-          // Remove failed photo from UI
-          const index = point.photos.indexOf(photoEntry);
-          if (index > -1) {
-            point.photos.splice(index, 1);
-            point.photoCount = point.photos.length;
-          }
-          this.showToast('Failed to upload photo', 'danger');
-        });
-      
-      await this.showToast('Photo captured', 'success');
-      
-      // Ask if they want another photo
-      const continueAlert = await this.alertController.create({
-        cssClass: 'compact-photo-selector',
-        message: 'Photo captured',
-        buttons: [
-          {
-            text: 'Done',
-            role: 'done',
-            cssClass: 'done-button'
-          },
-          {
-            text: 'Take Another Photo',
-            role: 'another',
-            cssClass: 'action-button',
-            handler: async () => {
-              // Use camera service directly for next photo
-              setTimeout(async () => {
-                await this.captureAnotherRoomPhoto(roomName, point, pointId);
-              }, 100);
-              return true;
-            }
-          }
-        ],
-        backdropDismiss: false
-      });
-      
-      await continueAlert.present();
+      // Trigger file input exactly like Structural section does for photos
+      if (this.fileInput && this.fileInput.nativeElement) {
+        this.fileInput.nativeElement.click();
+      } else {
+        console.error('File input not available');
+        await this.showToast('File input not available', 'danger');
+        this.currentRoomPointContext = null;
+      }
       
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
@@ -714,6 +652,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             photoEntry.uploading = false;
             // Store the attachment ID for annotation updates
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
+            // Store the original path for URL reconstruction later
+            if (response?.Photo) {
+              photoEntry.originalPath = response.Photo;
+            }
             uploadSuccessCount++;
             console.log(`Photo ${i + 1} uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
             return response;
@@ -2260,39 +2202,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // New method to capture photo from camera
   async capturePhotoFromCamera(category: string, itemId: string, item: any) {
-    try {
-      // Prevent any navigation
-      event?.preventDefault();
-      event?.stopPropagation();
-      
-      // First photo - use file input to show iOS options (camera/gallery)
-      const file = await this.capturePhotoNative();
-      
-      if (!file) {
-        console.log('No photo selected');
-        return;
-      }
-      
-      const fileName = file.name || `photo_${Date.now()}.jpg`;
-      
-      // Get visual ID
-      const key = `${category}_${itemId}`;
-      let visualId = this.visualRecordIds[key];
-      
-      if (!visualId) {
-        // Need to save the visual first
-        await this.saveVisualSelection(category, itemId);
-        visualId = this.visualRecordIds[key];
-      }
-      
-      if (visualId) {
-        // Upload the photo
-        await this.uploadPhotoForVisual(visualId, file, key, false);
-      }
-    } catch (error) {
-      console.error('Error capturing photo:', error);
-      await this.showToast('Failed to capture photo', 'danger');
-    }
+    // Not used anymore - we use addAnotherPhoto instead which triggers file input
+    // Keeping for backward compatibility
+    await this.addAnotherPhoto(category, itemId);
   }
   
   // Multiple photo capture session with proper confirmation
