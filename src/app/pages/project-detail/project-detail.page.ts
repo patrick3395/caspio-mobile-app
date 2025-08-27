@@ -1460,13 +1460,8 @@ export class ProjectDetailPage implements OnInit {
       event.stopPropagation();
     }
     
-    // Add debounce to prevent double-clicks
-    if (this.isNavigating) {
-      return;
-    }
-    
     if (service.serviceId) {
-      this.isNavigating = true;
+      // Remove debounce check to allow immediate navigation
       
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
@@ -1502,25 +1497,12 @@ export class ProjectDetailPage implements OnInit {
           console.log('   Route:', navigationUrl);
         }
         
-        // Navigate immediately
-        this.router.navigateByUrl(navigationUrl, { replaceUrl: false }).then(
-          (result) => {
-            if (result) {
-              console.log('Navigation successful');
-            } else {
-              console.log('Navigation returned false');
-            }
-          },
-          (error) => {
-            console.log('Navigation error:', error);
-          }
-        );
+        // Navigate immediately without any blocking
+        await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
+        console.log('Navigation triggered');
         
       } catch (error) {
         console.error('Navigation error:', error);
-      } finally {
-        // Reset navigation flag immediately
-        this.isNavigating = false;
       }
     }
   }

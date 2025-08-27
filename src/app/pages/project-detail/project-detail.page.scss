@@ -328,11 +328,11 @@ ion-button{--padding-start:4px;--padding-end:4px;font-size:11px;margin:1px;heigh
 // Templates Progress Bars
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
-.template-bar{position:relative;height:60px;background:white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;transition:all 0.3s ease;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;
+.template-bar{position:relative;height:60px;background:white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
 &:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.1);border-color:#3880ff}
 &:active{transform:translateY(0)}}
 
-.template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);transition:width 0.5s ease;opacity:0.15}
+.template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
 
 .template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
 
