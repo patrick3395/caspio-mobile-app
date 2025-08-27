@@ -1034,7 +1034,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Toggle room selection - create or remove from Services_Rooms
-  async toggleRoomSelection(roomName: string) {
+  async toggleRoomSelection(roomName: string, event?: any) {
+    // If event is passed and it's from the expand icon, ignore it
+    if (event && event.detail && event.detail.checked === undefined) {
+      return; // Not a checkbox event, ignore
+    }
+    
     const wasSelected = this.selectedRooms[roomName];
     const isSelected = !wasSelected;
     
@@ -1184,6 +1189,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.isRoomSelected(roomName)) {
       this.expandedRooms[roomName] = !this.expandedRooms[roomName];
     }
+  }
+  
+  // Handle expand/collapse icon click with proper event handling
+  handleRoomExpandClick(roomName: string, event: Event) {
+    // Stop all propagation to prevent triggering checkbox or other handlers
+    event.stopPropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    
+    // Only toggle expansion, never trigger selection
+    if (this.isRoomSelected(roomName)) {
+      this.expandedRooms[roomName] = !this.expandedRooms[roomName];
+    }
+    
+    return false; // Extra prevention of event bubbling
   }
   
   // Handle room label click - expand/collapse if selected, do nothing if not

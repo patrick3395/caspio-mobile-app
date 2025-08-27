@@ -493,7 +493,7 @@
                     slot="start" 
                     [checked]="isRoomSelected(room.RoomName)"
                     [disabled]="isRoomSaving(room.RoomName)"
-                    (ionChange)="toggleRoomSelection(room.RoomName)"
+                    (ionChange)="toggleRoomSelection(room.RoomName, $event)"
                     (click)="$event.stopPropagation()">
                   </ion-checkbox>
                   <ion-label class="item-label" 
@@ -507,7 +507,7 @@
                   <ion-icon *ngIf="isRoomSelected(room.RoomName)" 
                             slot="end"
                             [name]="isRoomExpanded(room.RoomName) ? 'chevron-up-circle' : 'chevron-down-circle'"
-                            (click)="toggleRoomExpanded(room.RoomName); $event.stopPropagation()"
+                            (click)="handleRoomExpandClick(room.RoomName, $event)"
                             style="cursor: pointer; font-size: 24px; color: var(--ion-color-medium);">
                   </ion-icon>
                 </ion-item>
