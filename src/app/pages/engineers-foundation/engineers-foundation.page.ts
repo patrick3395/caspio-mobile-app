@@ -1113,7 +1113,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Cancel',
             role: 'cancel',
             handler: () => {
-              // User cancelled - don't change anything
+              // User cancelled - revert the checkbox state
+              event.target.checked = true; // Revert the checkbox visually
+              this.selectedRooms[roomName] = true; // Keep it selected in our model
               return true;
             }
           },
@@ -1122,22 +1124,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             cssClass: 'danger-button',
             handler: async () => {
               // User confirmed - proceed with deletion
+              event.target.checked = false; // Keep unchecked
               await this.removeRoom(roomName);
               return true;
             }
           }
-        ]
+        ],
+        backdropDismiss: false // Prevent dismissing by clicking backdrop
       });
       
       await confirmAlert.present();
-      return; // Exit early - the handler will call removeRoom if confirmed
+      const { role } = await confirmAlert.onDidDismiss();
+      
+      // If dismissed by backdrop or escape (shouldn't happen with backdropDismiss: false)
+      if (role !== 'cancel' && role !== undefined) {
+        // Revert checkbox if not explicitly cancelled or confirmed
+        event.target.checked = true;
+        this.selectedRooms[roomName] = true;
+      }
+      return; // Exit early - handlers will manage the state
     }
     
-    // If selecting, proceed normally
-    this.savingRooms[roomName] = true;
-    
-    try {
-      if (isSelected) {
+    // If selecting, check if room already exists before creating
+    if (isSelected) {
+      // Check if we already have a record ID for this room
+      if (this.roomRecordIds[roomName]) {
+        console.log(`Room ${roomName} already exists with ID ${this.roomRecordIds[roomName]}, not creating duplicate`);
+        this.selectedRooms[roomName] = true;
+        this.expandedRooms[roomName] = true;
+        return; // Room already exists, just update UI state
+      }
+      
+      this.savingRooms[roomName] = true;
+      
+      try {
         // Create room in Services_Rooms
         const serviceIdNum = parseInt(this.serviceId, 10);
         
@@ -1185,12 +1205,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.showToast('Failed to create room', 'danger');
           this.selectedRooms[roomName] = false;
         }
+      } catch (error: any) {
+        console.error('Error toggling room selection:', error);
+        await this.showToast('Failed to update room selection', 'danger');
+        this.selectedRooms[roomName] = false;
+        if (event && event.target) {
+          event.target.checked = false; // Revert checkbox visually on error
+        }
+      } finally {
+        this.savingRooms[roomName] = false;
       }
-    } catch (error: any) {
-      console.error('Error toggling room selection:', error);
-      await this.showToast('Failed to update room selection', 'danger');
-    } finally {
-      this.savingRooms[roomName] = false;
     }
   }
   

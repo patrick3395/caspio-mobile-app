@@ -1468,15 +1468,6 @@ export class ProjectDetailPage implements OnInit {
     if (service.serviceId) {
       this.isNavigating = true;
       
-      // Show loading immediately for user feedback
-      const loading = await this.loadingController.create({
-        message: 'Opening template...',
-        spinner: 'crescent',
-        cssClass: 'template-loading'
-      });
-      await loading.present();
-      
-      // Navigate directly to template without alert
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
       
@@ -1498,10 +1489,7 @@ export class ProjectDetailPage implements OnInit {
         typeIdStr === '35';
         
       try {
-        // Small delay to ensure loading is visible
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Use navigateByUrl directly for more reliable navigation
+        // Determine navigation URL first
         let navigationUrl: string;
         
         if (isEngineersFoundation) {
@@ -1514,43 +1502,30 @@ export class ProjectDetailPage implements OnInit {
           console.log('   Route:', navigationUrl);
         }
         
-        // Navigate using navigateByUrl with replaceUrl for cleaner navigation
+        // Navigate immediately without loading popup blocking
         const navigationResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
         
-        if (navigationResult) {
-          console.log('Navigation successful');
-          // Dismiss loading after a short delay to prevent flicker
-          setTimeout(() => {
-            loading.dismiss().catch(() => {});
-          }, 500);
-        } else {
-          console.log('Navigation returned false, trying again...');
-          // Try one more time with a delay
-          await new Promise(resolve => setTimeout(resolve, 200));
+        if (!navigationResult) {
+          console.log('Navigation failed, trying again...');
+          // Try one more time
+          await new Promise(resolve => setTimeout(resolve, 100));
           const retryResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
           
           if (!retryResult) {
-            await loading.dismiss();
             await this.showToast('Unable to open template. Please try again.', 'warning');
-          } else {
-            setTimeout(() => {
-              loading.dismiss().catch(() => {});
-            }, 500);
           }
+        } else {
+          console.log('Navigation successful');
         }
         
       } catch (error) {
         console.error('Navigation error:', error);
-        await loading.dismiss().catch(() => {});
-        // Don't show error toast on first attempt, just reset
-        console.log('Navigation failed, please try again');
+        await this.showToast('Failed to open template. Please try again.', 'warning');
       } finally {
-        // Reset navigation flag after a delay
+        // Reset navigation flag quickly
         setTimeout(() => {
           this.isNavigating = false;
-          // Ensure loading is dismissed
-          loading.dismiss().catch(() => {});
-        }, 2000);
+        }, 500);
       }
     }
   }
