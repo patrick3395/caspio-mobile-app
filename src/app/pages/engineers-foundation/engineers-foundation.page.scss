@@ -3,6 +3,25 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// Photo upload dialog - ensure instant appearance with strong backdrop
+.photo-upload-dialog {
+  .alert-wrapper {
+    animation: none !important; // Remove animation for instant appearance
+  }
+  
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9998;
+  }
+}
+
 .version-header {
   background: #f0f0f0;
   padding: 8px 12px;

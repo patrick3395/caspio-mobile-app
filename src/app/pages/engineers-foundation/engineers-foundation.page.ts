@@ -575,9 +575,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.showToast('Failed to upload photo', 'danger');
         });
       
-      // Ask if they want another photo immediately
+      // Ask if they want another photo immediately - dialog shows instantly
       const continueAlert = await this.alertController.create({
-        cssClass: 'compact-photo-selector',
+        cssClass: 'compact-photo-selector photo-upload-dialog',
+        backdropDismiss: false,
         buttons: [
           {
             text: 'Done',
@@ -687,19 +688,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         uploadPromises.push(uploadPromise);
       }
       
-      // Wait for all uploads to complete
-      await Promise.all(uploadPromises);
-      
-      // Only show error if upload failed
-      if (uploadSuccessCount === 0) {
-        await this.showToast('Failed to upload photos', 'danger');
-      }
-      
-      // If only one photo was uploaded, offer to take more immediately
-      if (files.length === 1 && uploadSuccessCount === 1) {
-        // Show dialog immediately, no delay
-          const continueAlert = await this.alertController.create({
-            cssClass: 'compact-photo-selector',
+      // If only one photo, show dialog immediately while upload happens in background
+      if (files.length === 1) {
+        // Show dialog immediately, don't wait for upload
+        const continueAlert = await this.alertController.create({
+            cssClass: 'compact-photo-selector photo-upload-dialog',
+            backdropDismiss: false,
             buttons: [
               {
                 text: 'Done',
@@ -718,11 +712,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   return true;
                 }
               }
-            ],
-            backdropDismiss: false
+            ]
           });
           
           await continueAlert.present();
+      } else {
+        // For multiple files, wait for uploads to complete
+        await Promise.all(uploadPromises);
+        
+        if (uploadSuccessCount === 0) {
+          await this.showToast('Failed to upload photos', 'danger');
+        }
+      }
+      
+      // Handle remaining uploads in background if single file
+      if (files.length === 1) {
+        Promise.all(uploadPromises).then(() => {
+          console.log('Background upload complete');
+        }).catch(err => {
+          console.error('Background upload error:', err);
+        });
       }
       
     } catch (error) {
@@ -1095,6 +1104,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   isRoomSaving(roomName: string): boolean {
     return !!this.savingRooms[roomName];
+  }
+  
+  // Toggle section expansion/collapse
+  toggleSection(section: string) {
+    if (!this.expandedSections[section]) {
+      this.expandedSections[section] = true;
+    } else {
+      this.expandedSections[section] = !this.expandedSections[section];
+    }
+  }
+  
+  // Handle accordion group changes
+  onAccordionChange(event: any) {
+    console.log('Accordion changed:', event.detail.value);
+  }
+  
+  // TrackBy functions for performance
+  trackByCategory(index: number, category: string): string {
+    return category;
+  }
+  
+  trackByRoomName(index: number, room: any): string {
+    return room.RoomName;
   }
   
   // Check if room is expanded
