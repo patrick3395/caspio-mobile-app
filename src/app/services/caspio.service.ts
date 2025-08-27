@@ -636,6 +636,23 @@ export class CaspioService {
     );
   }
   
+  // Delete Services_Rooms_Points_Attach record
+  deleteServicesRoomsPointsAttach(attachId: string): Observable<any> {
+    console.log('🗑️ Deleting Services_Rooms_Points_Attach record');
+    console.log('  AttachID:', attachId);
+    
+    const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
+    return this.delete<any>(url).pipe(
+      tap(response => {
+        console.log('✅ Room point attachment deleted:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Error deleting room point attachment:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
     console.log('🔍 Creating Services_Visual record:', visualData);

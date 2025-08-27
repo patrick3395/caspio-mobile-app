@@ -565,15 +565,6 @@
                 
                 <!-- Elevation Points with photo capture only - more compact -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
-                  <!-- Add custom point button at top right -->
-                  <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
-                            style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
-                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
-                      Add Custom Point
-                    </button>
-                  </div>
-                  
                   <div class="elevation-points-grid">
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
                       <div class="point-header">
@@ -608,6 +599,15 @@
                         </div>
                       </div>
                     </div>
+                  </div>
+                  
+                  <!-- Add custom point button at bottom right -->
+                  <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
+                            style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
+                      Add Custom Point
+                    </button>
                   </div>
                 </div>
                 

@@ -1467,6 +1467,14 @@ export class ProjectDetailPage implements OnInit {
     if (service.serviceId) {
       this.isNavigating = true;
       
+      // Show loading immediately for user feedback
+      const loading = await this.loadingController.create({
+        message: 'Opening template...',
+        spinner: 'crescent',
+        cssClass: 'template-loading'
+      });
+      await loading.present();
+      
       // Navigate directly to template without alert
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
@@ -1514,7 +1522,11 @@ export class ProjectDetailPage implements OnInit {
         }
       } catch (error) {
         console.error('Navigation error:', error);
+        await loading.dismiss();
       } finally {
+        // Dismiss loading if still present (navigation usually dismisses it)
+        await loading.dismiss().catch(() => {});
+        
         // Reset navigation flag after a delay
         setTimeout(() => {
           this.isNavigating = false;

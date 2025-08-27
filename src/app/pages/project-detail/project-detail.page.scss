@@ -10,6 +10,29 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 
 .loading-container,.error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
 
+// Template loading popup
+::ng-deep .template-loading {
+  .loading-wrapper {
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 12px;
+    padding: 20px 30px;
+    
+    .loading-content {
+      color: white;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    
+    .loading-spinner {
+      margin-bottom: 10px;
+      
+      .spinner-crescent {
+        color: $orange;
+      }
+    }
+  }
+}
+
 // Read-only banner
 .read-only-banner {
   background: linear-gradient(135deg, #ffa726, #ff9800);
