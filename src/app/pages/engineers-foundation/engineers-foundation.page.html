@@ -140,11 +140,7 @@
                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
                       class="styled-input">
                 <option value="">Select type</option>
-                <option value="Single Family">Single Family</option>
-                <option value="Multi Family">Multi Family</option>
-                <option value="Townhouse">Townhouse</option>
-                <option value="Condominium">Condominium</option>
-                <option value="Commercial">Commercial</option>
+                <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -158,12 +154,7 @@
                       (ngModelChange)="onProjectFieldChange('Style', $event)"
                       class="styled-input">
                 <option value="">Select style</option>
-                <option value="Ranch">Ranch</option>
-                <option value="Two Story">Two Story</option>
-                <option value="Split Level">Split Level</option>
-                <option value="Colonial">Colonial</option>
-                <option value="Contemporary">Contemporary</option>
-                <option value="Traditional">Traditional</option>
+                <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -297,10 +288,6 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="no-photos-message" *ngIf="getPhotoCount(category, item.id) === 0 && !isUploadingPhotos(category, item.id)">
-                            <ion-icon name="image-outline"></ion-icon>
-                            <p>No photos yet. Tap the camera icon to add photos.</p>
-                          </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
@@ -366,10 +353,6 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="no-photos-message" *ngIf="getPhotoCount(category, item.id) === 0 && !isUploadingPhotos(category, item.id)">
-                            <ion-icon name="image-outline"></ion-icon>
-                            <p>No photos yet. Tap the camera icon to add photos.</p>
-                          </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
@@ -435,10 +418,6 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="no-photos-message" *ngIf="getPhotoCount(category, item.id) === 0 && !isUploadingPhotos(category, item.id)">
-                            <ion-icon name="image-outline"></ion-icon>
-                            <p>No photos yet. Tap the camera icon to add photos.</p>
-                          </div>
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 

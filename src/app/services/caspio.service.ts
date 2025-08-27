@@ -454,6 +454,18 @@ export class CaspioService {
     );
   }
   
+  // Get Projects_Drop for dropdown options
+  getProjectsDrop(): Observable<any[]> {
+    return this.get<any>('/tables/Projects_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+  
   // Create Services_Rooms_Points record
   createServicesRoomsPoint(data: any): Observable<any> {
     console.log('Creating Services_Rooms_Points record:', data);

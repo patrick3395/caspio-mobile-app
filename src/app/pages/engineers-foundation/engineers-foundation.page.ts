@@ -82,6 +82,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
   
+  // Project dropdown options from Projects_Drop table
+  typeOfBuildingOptions: string[] = [];
+  styleOptions: string[] = [];
+  
   // UI state
   expandedSections: { [key: string]: boolean } = {
     project: false,  // Project Details collapsed by default
@@ -135,7 +139,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadProjectData(),
         this.loadVisualCategories(),
         this.loadRoomTemplates(),
-        this.loadFDFOptions()
+        this.loadFDFOptions(),
+        this.loadProjectDropdownOptions()
       ]);
       
       // Then load any existing template data (including visual selections)
@@ -342,6 +347,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error loading FDF options:', error);
       // Default options on error
       this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+    }
+  }
+  
+  // Load project dropdown options from Projects_Drop table
+  async loadProjectDropdownOptions() {
+    try {
+      const dropdownData = await this.caspioService.getProjectsDrop().toPromise();
+      
+      if (dropdownData && dropdownData.length > 0) {
+        // Initialize arrays for each field type
+        const typeOfBuildingSet = new Set<string>();
+        const styleSet = new Set<string>();
+        
+        // Process each row
+        dropdownData.forEach((row: any) => {
+          if (row.ProjectsName === 'TypeOfBuilding' && row.Dropdown) {
+            typeOfBuildingSet.add(row.Dropdown);
+          } else if (row.ProjectsName === 'Style' && row.Dropdown) {
+            styleSet.add(row.Dropdown);
+          }
+        });
+        
+        // Convert sets to arrays (removes duplicates automatically)
+        this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
+        this.styleOptions = Array.from(styleSet).sort();
+        
+        console.log('TypeOfBuilding options:', this.typeOfBuildingOptions);
+        console.log('Style options:', this.styleOptions);
+        
+        // Add default options if none found in database
+        if (this.typeOfBuildingOptions.length === 0) {
+          this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial'];
+        }
+        if (this.styleOptions.length === 0) {
+          this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level'];
+        }
+      }
+    } catch (error) {
+      console.error('Error loading project dropdown options:', error);
+      // Set default options on error
+      this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial'];
+      this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level'];
     }
   }
   
@@ -1185,11 +1232,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }));
       
-      // Add cancel button
+      // Add cancel button with proper typing
       buttons.push({
         text: 'Cancel',
-        role: 'cancel',
-        cssClass: 'cancel-button'
+        handler: () => {
+          console.log('Room selection cancelled');
+        }
       });
       
       const actionSheet = await this.actionSheetController.create({
