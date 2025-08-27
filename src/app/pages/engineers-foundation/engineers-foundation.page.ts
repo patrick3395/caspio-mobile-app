@@ -349,7 +349,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
-      await this.showToast(`FDF updated to: ${fdfValue}`, 'success');
       console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
     } catch (error) {
       console.error('Error updating FDF:', error);
@@ -565,12 +564,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.showToast('Failed to upload photo', 'danger');
         });
       
-      await this.showToast('Photo captured', 'success');
-      
-      // Ask if they want another photo
+      // Ask if they want another photo immediately
       const continueAlert = await this.alertController.create({
         cssClass: 'compact-photo-selector',
-        message: 'Photo captured',
         buttons: [
           {
             text: 'Done',
@@ -671,22 +667,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Wait for all uploads to complete
       await Promise.all(uploadPromises);
       
-      // Show results
-      if (uploadSuccessCount > 0) {
-        const successMessage = uploadSuccessCount === files.length
-          ? `✅ All ${uploadSuccessCount} photo(s) uploaded`
-          : `✅ ${uploadSuccessCount} of ${files.length} photo(s) uploaded`;
-        await this.showToast(successMessage, 'success');
-      } else {
+      // Only show error if upload failed
+      if (uploadSuccessCount === 0) {
         await this.showToast('Failed to upload photos', 'danger');
       }
       
-      // If only one photo was uploaded, offer to take more (like visuals)
+      // If only one photo was uploaded, offer to take more immediately
       if (files.length === 1 && uploadSuccessCount === 1) {
-        setTimeout(async () => {
+        // Show dialog immediately, no delay
           const continueAlert = await this.alertController.create({
             cssClass: 'compact-photo-selector',
-            message: 'Photo uploaded',
             buttons: [
               {
                 text: 'Done',
@@ -710,7 +700,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           });
           
           await continueAlert.present();
-        }, 500);
       }
       
     } catch (error) {
@@ -932,9 +921,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log('✅ Room point photo uploaded successfully:', response);
       
-      // Just show simple success toast
-      await this.showToast(`✅ Photo saved to '${pointName}'`, 'success');
-      
       return response;  // Return the response with AttachID
       
     } catch (error: any) {
@@ -994,7 +980,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.roomRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
             this.expandedRooms[roomName] = true; // Auto-expand when selected
-            await this.showToast(`Room "${roomName}" added`, 'success');
             console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
           }
         } catch (err: any) {
@@ -1048,7 +1033,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                       this.roomElevationData[roomName].fdf = 'None';
                     }
                     
-                    await this.showToast(`Room "${roomName}" removed`, 'success');
                     console.log(`Room ${roomName} deleted from Services_Rooms table`);
                   } catch (error) {
                     console.error('Error deleting room:', error);
@@ -2250,7 +2234,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Upload in background
             this.uploadPhotoForVisual(visualId, currentFile, key, true)
               .then(() => {
-                this.showToast(`Photo ${photoCounter} uploaded`, 'success');
+                console.log(`Photo ${photoCounter} uploaded`);
               })
               .catch(err => {
                 this.showToast(`Failed to upload photo ${photoCounter}`, 'danger');
@@ -2297,12 +2281,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
     
-    // Final summary
-    if (capturedPhotos.length > 0) {
-      await this.showToast(`✅ Session complete: ${capturedPhotos.length} photo(s) uploading`, 'success');
-    } else {
-      await this.showToast('📷 No photos captured', 'warning');
-    }
+    // Log capture summary
+    console.log(`Photo capture session complete: ${capturedPhotos.length} photo(s)`)
   }
   
   // Camera button handler - allows multiple photo capture
@@ -2487,8 +2467,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // If only one photo was uploaded (likely from Take Photo), offer to take more
         if (files.length === 1 && uploadSuccessCount === 1) {
-          // Trigger the multi-photo capture loop
-          setTimeout(async () => {
+          // Trigger the multi-photo capture loop immediately
             const continueAlert = await this.alertController.create({
               cssClass: 'compact-photo-selector',
               buttons: [
@@ -2513,7 +2492,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             });
             
             await continueAlert.present();
-          }, 500); // Small delay to let the upload toast show first
         }
         
         // No need to restore states - the UI should remain unchanged
