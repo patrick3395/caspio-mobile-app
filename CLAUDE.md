@@ -39,11 +39,18 @@
 ## CRITICAL RULES - NEVER BREAK THESE
 
 ### 1. VERSION UPDATES
-**ALWAYS** update package.json version before commits:
-- Location: `/mnt/c/Users/Owner/Caspio/package.json`
-- Current: 1.3.49+
-- Format: Major.Minor.Patch
-- This tracks deployments and shows in app
+**ALWAYS** update BOTH version locations before commits:
+
+1. **package.json version:**
+   - Location: `/mnt/c/Users/Owner/Caspio/package.json`
+   - Current: 1.4.75+
+   - Format: Major.Minor.Patch
+   
+2. **Version header in Engineers Foundation page:**
+   - Location: `/mnt/c/Users/Owner/Caspio/src/app/pages/engineers-foundation/engineers-foundation.page.html`
+   - Look for: `<div class="version-header">Version X.X.XX - Company Debug Mode`
+   - Must match package.json version
+   - This displays at the top of the Engineers Foundation template
 
 ### 2. 🔒 FILE UPLOAD METHOD (PROVEN WORKING - NEVER CHANGE!)
 **⚠️ WARNING: This method is confirmed working. DO NOT MODIFY! ⚠️**

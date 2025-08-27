@@ -1794,9 +1794,9 @@ export class ProjectDetailPage implements OnInit {
         }
         
         uploadResult = JSON.parse(responseText);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to parse response:', e);
-        throw new Error(`Failed to parse upload response: ${e.message}`);
+        throw new Error(`Failed to parse upload response: ${e?.message || 'Unknown error'}`);
       }
       
       // Get the file path from response
