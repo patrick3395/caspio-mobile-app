@@ -2366,7 +2366,7 @@ Time: ${debugInfo.timestamp}
         message: 'Which service would you like to generate a PDF for?',
         inputs: this.selectedServices.map((service, index) => ({
           type: 'radio',
-          label: `${service.typeName} - ${this.formatDateForDisplay(service.dateOfInspection)}`,
+          label: `${service.typeName} - ${this.formatDate(service.dateOfInspection)}`,
           value: index,
           checked: index === 0
         })),
@@ -2406,6 +2406,12 @@ Time: ${debugInfo.timestamp}
     try {
       // Step 1: Get full project data from Projects table
       const projectData = this.project; // We already have this
+      
+      if (!projectData) {
+        await loading.dismiss();
+        await this.showToast('Project data not available', 'warning');
+        return;
+      }
       
       // Step 2: Get the specific service data from Services table
       const serviceData = await this.caspioService.getServiceById(service.serviceId).toPromise();
