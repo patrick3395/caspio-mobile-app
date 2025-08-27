@@ -1502,30 +1502,25 @@ export class ProjectDetailPage implements OnInit {
           console.log('   Route:', navigationUrl);
         }
         
-        // Navigate immediately without loading popup blocking
-        const navigationResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
-        
-        if (!navigationResult) {
-          console.log('Navigation failed, trying again...');
-          // Try one more time
-          await new Promise(resolve => setTimeout(resolve, 100));
-          const retryResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
-          
-          if (!retryResult) {
-            await this.showToast('Unable to open template. Please try again.', 'warning');
+        // Navigate immediately
+        this.router.navigateByUrl(navigationUrl, { replaceUrl: false }).then(
+          (result) => {
+            if (result) {
+              console.log('Navigation successful');
+            } else {
+              console.log('Navigation returned false');
+            }
+          },
+          (error) => {
+            console.log('Navigation error:', error);
           }
-        } else {
-          console.log('Navigation successful');
-        }
+        );
         
       } catch (error) {
         console.error('Navigation error:', error);
-        await this.showToast('Failed to open template. Please try again.', 'warning');
       } finally {
-        // Reset navigation flag quickly
-        setTimeout(() => {
-          this.isNavigating = false;
-        }, 500);
+        // Reset navigation flag immediately
+        this.isNavigating = false;
       }
     }
   }

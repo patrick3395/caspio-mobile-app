@@ -182,3 +182,15 @@ npm run build:ios-local  # Local iOS build with platform creation
 - 🔧 SCSS file size optimization (increased budget to 40KB)
 
 ## REMEMBER: INCREMENT VERSION IN PACKAGE.JSON FOR EVERY MEANINGFUL CHANGE!
+
+## 14. CURRENT WORK (December 2024 - v1.4.70):
+- **Template Navigation**: Fixed issue where template required 3 clicks to open
+- **Room Selection**: Fixed checkbox state management when canceling room deletion  
+- **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
+  - Room-specific options: Checks RoomName field for room-specific dropdowns
+  - FDF options: Falls back to rows where RoomName='FDF' for default options
+- **Replace Photo**: Added to project detail page with debug popups
+  - Updates Projects table PrimaryPhoto column
+  - Shows project ID being updated in debug popup
+- **Room Numbering**: Automatic #1, #2 numbering for duplicate room names
+- **Photo Upload**: All uploads use proven method from section 2 above
