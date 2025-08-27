@@ -240,6 +240,21 @@ ion-action-sheet {
   }
 }
 
+// PDF Viewer Modal
+.pdf-viewer-modal {
+  --width: 95%;
+  --height: 90%;
+  --max-width: 100%;
+  --max-height: 100%;
+  
+  .modal-wrapper {
+    width: var(--width);
+    height: var(--height);
+    max-width: var(--max-width);
+    max-height: var(--max-height);
+  }
+}
+
 // Compact Photo Selector Alert
 .compact-photo-selector {
   .alert-wrapper {

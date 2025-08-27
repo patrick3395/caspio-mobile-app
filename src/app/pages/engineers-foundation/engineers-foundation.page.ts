@@ -8,6 +8,7 @@ import { ToastController, LoadingController, AlertController, ActionSheetControl
 import { CameraService } from '../../services/camera.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
+import { PDFViewerModal } from '../../components/pdf-viewer-modal/pdf-viewer-modal.component';
 import jsPDF from 'jspdf';
 
 
@@ -2699,12 +2700,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       }
 
-      // Save the PDF
-      const fileName = `EFE_Report_${this.projectId}_${new Date().getTime()}.pdf`;
-      pdf.save(fileName);
-
+      // Generate PDF blob and open in viewer
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
       await loading.dismiss();
-      await this.showToast('PDF generated successfully', 'success');
+      
+      // Open PDF in a new modal viewer
+      const modal = await this.modalController.create({
+        component: PDFViewerModal,
+        componentProps: {
+          pdfUrl: pdfUrl,
+          projectId: this.projectId,
+          fileName: `EFE_Report_${this.projectId}_${new Date().getTime()}.pdf`
+        },
+        cssClass: 'pdf-viewer-modal'
+      });
+      
+      await modal.present();
       
     } catch (error) {
       console.error('Error generating PDF:', error);
