@@ -1203,13 +1203,12 @@ export class ProjectDetailPage implements OnInit {
               doc.attachId = undefined;
               doc.filename = undefined;
               doc.linkName = undefined;
-              doc.notes = undefined;
               
               await loading.dismiss();
               await this.showToast('Document deleted successfully', 'success');
               
               // Refresh the documents to ensure consistency
-              await this.loadRequiredDocuments();
+              await this.loadDocumentsForSelectedServices();
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -1649,8 +1648,16 @@ export class ProjectDetailPage implements OnInit {
           this.showToast(`Debug: Account=${account}, Token=${!!token}, Path=${primaryPhoto}`, 'warning');
           // Fall back to Street View
         } else {
-          const photoUrl = `https://${account}.caspio.com/rest/v2/files${primaryPhoto}?access_token=${token}`;
+          // Ensure proper path construction - remove double slashes
+          const cleanPath = primaryPhoto.startsWith('/') ? primaryPhoto : `/${primaryPhoto}`;
+          const photoUrl = `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
           console.log('  Full URL:', photoUrl);
+          
+          // Add debug alert for mobile debugging
+          if (!photoUrl.includes('/rest/v2/files/')) {
+            this.showToast(`Debug: Malformed URL - ${photoUrl.substring(0, 50)}...`, 'warning');
+          }
+          
           return photoUrl;
         }
       } else if (primaryPhoto.startsWith('http')) {
@@ -1698,14 +1705,23 @@ export class ProjectDetailPage implements OnInit {
       const filePath = pathMatch ? pathMatch[1] : 'Unknown';
       
       // Create debug text for copying
+      const currentToken = this.caspioService.getCurrentToken();
+      const isSameToken = tokenValue && currentToken && tokenValue.substring(0, 20) === currentToken.substring(0, 20);
+      
       const debugText = `Image Load Failed Debug Info:
 File Path: ${filePath}
 Has Token: ${hasToken ? 'Yes' : 'No'}
 Token Length: ${tokenValue?.length || 0}
 Account: ${this.caspioService.getAccountID()}
 Current Token: ${this.caspioService.getCurrentToken() ? 'Present' : 'Missing'}
+Tokens Match: ${isSameToken ? 'Yes' : 'No'}
 PrimaryPhoto Value: ${this.project?.['PrimaryPhoto'] || 'Not set'}
-Full URL: ${errorUrl}`;
+Full URL: ${errorUrl}
+
+Troubleshooting:
+- Check if file exists in Caspio Files section
+- Verify token is still valid (not expired)
+- Ensure file permissions are correct`;
 
       // Show detailed debug alert
       const alert = await this.alertController.create({
@@ -1716,7 +1732,13 @@ Full URL: ${errorUrl}`;
           <strong>Token Length:</strong> ${tokenValue?.length || 0}<br>
           <strong>Account:</strong> ${this.caspioService.getAccountID()}<br>
           <strong>Current Token:</strong> ${this.caspioService.getCurrentToken() ? 'Present' : 'Missing'}<br>
+          <strong>Tokens Match:</strong> ${isSameToken ? 'Yes' : 'No'}<br>
           <strong>PrimaryPhoto Value:</strong> ${this.project?.['PrimaryPhoto'] || 'Not set'}<br>
+          <br>
+          <strong style="color: #ff9800;">Possible Issues:</strong><br>
+          • File may not exist in Caspio<br>
+          • Token may be expired<br>
+          • File permissions issue<br>
           <br>
           <strong>Full URL (first 150 chars):</strong><br>
           ${errorUrl.substring(0, 150)}...

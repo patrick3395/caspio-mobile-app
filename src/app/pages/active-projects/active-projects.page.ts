@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.111'; // Update this to match package.json version
+  appVersion = '1.4.112'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -217,8 +217,10 @@ export class ActiveProjectsPage implements OnInit {
         const account = this.caspioService.getAccountID();
         const token = this.caspioService.getCurrentToken();
         if (account && token) {
+          // Ensure proper path construction - remove double slashes
+          const cleanPath = primaryPhoto.startsWith('/') ? primaryPhoto : `/${primaryPhoto}`;
           // Return Caspio file URL with access token
-          return `https://${account}.caspio.com/rest/v2/files${primaryPhoto}?access_token=${token}`;
+          return `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
         }
       } else if (primaryPhoto.startsWith('http')) {
         // It's already a full URL
