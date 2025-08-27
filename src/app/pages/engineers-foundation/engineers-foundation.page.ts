@@ -68,6 +68,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Room templates for elevation plot
   roomTemplates: any[] = [];
+  allRoomTemplates: any[] = []; // Store all templates for manual addition
   roomElevationData: { [roomName: string]: any } = {};
   selectedRooms: { [roomName: string]: boolean } = {};
   roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
@@ -199,6 +200,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
       
       if (allTemplates && allTemplates.length > 0) {
+        // Store all templates for manual addition
+        this.allRoomTemplates = allTemplates;
+        
         // Filter templates where Auto = 'Yes'
         const autoTemplates = allTemplates.filter((template: any) => 
           template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
@@ -1158,6 +1162,95 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.toggleRoomExpanded(roomName);
     }
     // If room is not selected, do nothing (don't select it)
+  }
+  
+  // Show room selection dialog
+  async showAddRoomDialog() {
+    try {
+      // Get all available rooms that aren't already added
+      const availableRooms = this.allRoomTemplates.filter(template => 
+        !this.roomTemplates.some(existing => existing.RoomName === template.RoomName)
+      );
+      
+      if (availableRooms.length === 0) {
+        await this.showToast('All available rooms have been added', 'info');
+        return;
+      }
+      
+      // Create buttons for each available room
+      const buttons = availableRooms.map(room => ({
+        text: room.RoomName,
+        handler: () => {
+          this.addRoomTemplate(room);
+        }
+      }));
+      
+      // Add cancel button
+      buttons.push({
+        text: 'Cancel',
+        role: 'cancel',
+        cssClass: 'cancel-button'
+      });
+      
+      const actionSheet = await this.actionSheetController.create({
+        header: 'Select Room to Add',
+        buttons: buttons,
+        cssClass: 'room-selection-sheet'
+      });
+      
+      await actionSheet.present();
+    } catch (error) {
+      console.error('Error showing room selection:', error);
+      await this.showToast('Failed to show room selection', 'danger');
+    }
+  }
+  
+  // Add a room template to the list
+  async addRoomTemplate(template: any) {
+    try {
+      // Add to room templates list
+      this.roomTemplates.push(template);
+      
+      // Initialize room elevation data
+      if (template.RoomName && !this.roomElevationData[template.RoomName]) {
+        // Extract elevation points from Point1Name, Point2Name, etc.
+        const elevationPoints: any[] = [];
+        
+        // Check for up to 20 point columns
+        for (let i = 1; i <= 20; i++) {
+          const pointColumnName = `Point${i}Name`;
+          const pointName = template[pointColumnName];
+          
+          if (pointName && pointName.trim() !== '') {
+            elevationPoints.push({
+              pointNumber: i,
+              name: pointName,
+              value: '',  // User will input the elevation value
+              photo: null,
+              photos: [],  // Initialize photos array
+              photoCount: 0
+            });
+          }
+        }
+        
+        this.roomElevationData[template.RoomName] = {
+          templateId: template.TemplateID || template.PK_ID,
+          elevationPoints: elevationPoints,
+          fdf: 'None',  // Default FDF value
+          notes: ''  // Room-specific notes
+        };
+        
+        console.log(`Initialized data for manually added room ${template.RoomName}:`, this.roomElevationData[template.RoomName]);
+      }
+      
+      // Automatically expand the elevation section to show the new room
+      this.expandedSections['elevation'] = true;
+      
+      await this.showToast(`Added ${template.RoomName} to the list`, 'success');
+    } catch (error) {
+      console.error('Error adding room template:', error);
+      await this.showToast('Failed to add room', 'danger');
+    }
   }
   
   // Add custom point to room

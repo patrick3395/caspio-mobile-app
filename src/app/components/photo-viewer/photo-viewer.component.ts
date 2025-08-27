@@ -11,7 +11,7 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
   template: `
     <ion-header>
       <ion-toolbar style="--background: #F15A27;">
-        <ion-title style="color: white;">{{ photoName }}</ion-title>
+        <ion-title style="color: white;">Photo Viewer</ion-title>
         <ion-buttons slot="start">
           <ion-button (click)="openAnnotator()" style="color: white;" *ngIf="canAnnotate">
             <ion-icon name="brush-outline" slot="icon-only"></ion-icon>
@@ -27,7 +27,7 @@ import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.comp
     </ion-header>
     <ion-content class="photo-viewer-content">
       <div class="photo-container">
-        <img [src]="photoUrl" [alt]="photoName" />
+        <img [src]="photoUrl" alt="Photo" />
       </div>
       <!-- Caption button at bottom center -->
       <div class="caption-button-container">

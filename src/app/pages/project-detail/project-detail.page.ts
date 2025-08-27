@@ -1497,40 +1497,34 @@ export class ProjectDetailPage implements OnInit {
         typeIdStr === '35';
         
       try {
+        // Use navigateByUrl directly for more reliable navigation
+        let navigationUrl: string;
+        
         if (isEngineersFoundation) {
           console.log('✅ Navigating to Engineers Foundation template');
-          console.log('   Route: /engineers-foundation/' + this.projectId + '/' + service.serviceId);
-          const result = await this.router.navigate(['/engineers-foundation', this.projectId, service.serviceId]);
-          console.log('   Navigation result:', result);
-          
-          // If navigation failed, try with navigateByUrl
-          if (!result) {
-            console.log('   Retrying with navigateByUrl...');
-            await this.router.navigateByUrl(`/engineers-foundation/${this.projectId}/${service.serviceId}`);
-          }
+          navigationUrl = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
+          console.log('   Route:', navigationUrl);
         } else {
           console.log('📝 Navigating to standard template form');
-          console.log('   Route: /template-form/' + this.projectId + '/' + service.serviceId);
-          const result = await this.router.navigate(['/template-form', this.projectId, service.serviceId]);
-          console.log('   Navigation result:', result);
-          
-          // If navigation failed, try with navigateByUrl
-          if (!result) {
-            console.log('   Retrying with navigateByUrl...');
-            await this.router.navigateByUrl(`/template-form/${this.projectId}/${service.serviceId}`);
-          }
+          navigationUrl = `/template-form/${this.projectId}/${service.serviceId}`;
+          console.log('   Route:', navigationUrl);
         }
+        
+        // Navigate using navigateByUrl which is more reliable
+        await this.router.navigateByUrl(navigationUrl);
+        
+        // The loading will be dismissed by the target page's ionViewWillEnter
+        // Don't dismiss it here to avoid flickering
+        
       } catch (error) {
         console.error('Navigation error:', error);
-        await loading.dismiss();
-      } finally {
-        // Dismiss loading if still present (navigation usually dismisses it)
         await loading.dismiss().catch(() => {});
-        
+        await this.showToast('Failed to open template', 'danger');
+      } finally {
         // Reset navigation flag after a delay
         setTimeout(() => {
           this.isNavigating = false;
-        }, 1000);
+        }, 1500);
       }
     }
   }

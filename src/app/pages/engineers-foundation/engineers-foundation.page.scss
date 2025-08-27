@@ -752,6 +752,29 @@ ion-toolbar {
   }
 }
 
+// Add Room button
+.add-room-container {
+  .add-room-button {
+    width: auto;
+    min-width: 150px;
+    
+    &:hover {
+      background: linear-gradient(135deg, var(--noble-orange-light), var(--noble-orange)) !important;
+      color: white !important;
+      border-color: var(--noble-orange) !important;
+      transform: scale(1.02);
+      
+      ion-icon {
+        color: white;
+      }
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
 .room-elevations-container {
   margin-bottom: 30px;
   
