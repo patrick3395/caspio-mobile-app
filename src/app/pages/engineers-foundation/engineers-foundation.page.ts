@@ -4977,6 +4977,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Fetch all Services_Visuals records for this service
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
+      // Check if visuals is defined and is an array
+      if (!visuals || !Array.isArray(visuals)) {
+        console.log('No visuals found for this service');
+        return;
+      }
+      
       console.log(`Found ${visuals.length} visual records`);
       
       // Clear and rebuild the visualPhotos mapping
@@ -4990,14 +4996,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Fetch attachments for this visual
           const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
           
-          console.log(`Visual ${visualId} has ${attachments.length} attachments`);
-          
-          // Store the attachments in our mapping
-          this.visualPhotos[visualId] = attachments.map((att: any) => ({
-            Photo: att.Photo,
-            Annotation: att.Annotation,
-            AttachID: att.AttachID || att.PK_ID
-          }));
+          // Check if attachments is defined and is an array
+          if (!attachments || !Array.isArray(attachments)) {
+            console.log(`Visual ${visualId} has no attachments`);
+            this.visualPhotos[visualId] = [];
+          } else {
+            console.log(`Visual ${visualId} has ${attachments.length} attachments`);
+            
+            // Store the attachments in our mapping
+            this.visualPhotos[visualId] = attachments.map((att: any) => ({
+              Photo: att.Photo,
+              Annotation: att.Annotation,
+              AttachID: att.AttachID || att.PK_ID
+            }));
+          }
           
           // Also update the visual in our organized data if it exists
           this.updateVisualInOrganizedData(visual);
