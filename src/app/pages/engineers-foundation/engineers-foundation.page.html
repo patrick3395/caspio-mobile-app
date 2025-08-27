@@ -159,13 +159,13 @@
             </div>
 
             <!-- Occupancy Furnishings -->
-            <div class="form-group" [class.filled]="projectData.OccupancyFurnishings">
+            <div class="form-group" [class.filled]="serviceData.OccupancyFurnishings">
               <label>
                 <ion-icon name="bed-outline"></ion-icon>
                 Occupancy Status
               </label>
-              <select [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
-                      (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
+              <select [(ngModel)]="serviceData.OccupancyFurnishings" name="OccupancyFurnishings"
+                      (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
                       class="styled-input">
                 <option value="">Select status</option>
                 <option value="Occupied - Furnished">Occupied - Furnished</option>
@@ -186,13 +186,13 @@
           <div class="form-grid two-col">
 
             <!-- Weather Conditions -->
-            <div class="form-group" [class.filled]="projectData.WeatherConditions">
+            <div class="form-group" [class.filled]="serviceData.WeatherConditions">
               <label>
                 <ion-icon name="cloud-outline"></ion-icon>
                 Weather Conditions
               </label>
-              <select [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
-                      (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
+              <select [(ngModel)]="serviceData.WeatherConditions" name="WeatherConditions"
+                      (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
                       class="styled-input">
                 <option value="">Select weather</option>
                 <option value="Clear">Clear</option>
@@ -206,13 +206,13 @@
             </div>
 
             <!-- Outdoor Temperature -->
-            <div class="form-group" [class.filled]="projectData.OutdoorTemperature">
+            <div class="form-group" [class.filled]="serviceData.OutdoorTemperature">
               <label>
                 <ion-icon name="thermometer-outline"></ion-icon>
                 Outdoor Temperature
               </label>
-              <input type="text" [(ngModel)]="projectData.OutdoorTemperature" name="OutdoorTemperature"
-                     (ngModelChange)="onProjectFieldChange('OutdoorTemperature', $event)"
+              <input type="text" [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
+                     (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
                      placeholder="e.g., 75°F"
                      class="styled-input">
             </div>

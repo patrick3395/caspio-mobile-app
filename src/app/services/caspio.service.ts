@@ -1073,6 +1073,17 @@ export class CaspioService {
   updateProject(projectId: string, updateData: any): Observable<any> {
     return this.put<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`, updateData);
   }
+  
+  // Service methods
+  getService(serviceId: string): Observable<any> {
+    return this.get<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`).pipe(
+      map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
+    );
+  }
+  
+  updateService(serviceId: string, updateData: any): Observable<any> {
+    return this.put<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`, updateData);
+  }
 
   // Attach (Attachments) table methods
   getAttachmentsByProject(projectId: string): Observable<any[]> {

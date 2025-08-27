@@ -32,6 +32,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   projectId: string = '';
   serviceId: string = '';
   projectData: any = null;
+  serviceData: any = {}; // Store Services table data
   currentUploadContext: any = null;
   currentRoomPointContext: any = null;  // For room photo uploads
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
@@ -157,6 +158,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
+    
+    // Dismiss any loading indicators from navigation
+    try {
+      const topLoader = await this.loadingController.getTop();
+      if (topLoader) {
+        await topLoader.dismiss();
+      }
+    } catch (error) {
+      // Ignore errors if no loading to dismiss
+    }
+    
     // Photos now use base64 data URLs like Structural section
     // No need to refresh URLs as they don't expire
   }
@@ -197,6 +209,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
+    }
+  }
+  
+  async loadServiceData() {
+    if (!this.serviceId) return;
+    
+    try {
+      // Load service data from Services table
+      const serviceResponse = await this.caspioService.getService(this.serviceId).toPromise();
+      if (serviceResponse) {
+        this.serviceData = serviceResponse;
+        console.log('Service data loaded:', this.serviceData);
+      }
+    } catch (error) {
+      console.error('Error loading service data:', error);
+      // Initialize with default values if service doesn't exist yet
+      this.serviceData = {
+        ServiceID: this.serviceId,
+        ProjectID: this.projectId,
+        TypeID: this.serviceData.TypeID || '',
+        DateOfInspection: this.serviceData.DateOfInspection || '',
+        DateOfRequest: this.serviceData.DateOfRequest || '',
+        InAttendance: this.serviceData.InAttendance || '',
+        WeatherConditions: this.serviceData.WeatherConditions || '',
+        OutdoorTemperature: this.serviceData.OutdoorTemperature || '',
+        OccupancyFurnishings: this.serviceData.OccupancyFurnishings || '',
+        FirstFoundationType: this.serviceData.FirstFoundationType || '',
+        SecondFoundationType: this.serviceData.SecondFoundationType || '',
+        SecondFoundationRooms: this.serviceData.SecondFoundationRooms || '',
+        ThirdFoundationType: this.serviceData.ThirdFoundationType || '',
+        ThirdFoundationRooms: this.serviceData.ThirdFoundationRooms || '',
+        OwnerOccupantInterview: this.serviceData.OwnerOccupantInterview || '',
+        Notes: this.serviceData.Notes || ''
+      };
     }
   }
   
@@ -1493,6 +1539,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   async loadExistingData() {
+    // Load existing service data
+    await this.loadServiceData();
+    
     // Load existing visual selections from Services_Visuals table
     await this.loadExistingVisualSelections();
     
@@ -4219,6 +4268,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.autoSaveProjectField(fieldName, value);
   }
   
+  // Handle service field changes
+  onServiceFieldChange(fieldName: string, value: any) {
+    console.log(`Service field changed: ${fieldName} = ${value}`);
+    
+    // Update the service data
+    this.serviceData[fieldName] = value;
+    
+    // Save to localStorage for persistence
+    const serviceDataKey = `serviceData_${this.serviceId}`;
+    localStorage.setItem(serviceDataKey, JSON.stringify(this.serviceData));
+    
+    // Trigger auto-save to Services table
+    this.autoSaveServiceField(fieldName, value);
+  }
+  
   // Auto-save project field to Caspio Projects table
   private autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
@@ -4232,6 +4296,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       },
       error: (error) => {
         console.error(`Error saving project field ${fieldName}:`, error);
+        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+      }
+    });
+  }
+  
+  // Auto-save service field to Caspio Services table  
+  private autoSaveServiceField(fieldName: string, value: any) {
+    if (!this.serviceId) return;
+    
+    this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    
+    // Update the Services table directly
+    this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
+      next: () => {
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      },
+      error: (error) => {
+        console.error(`Error saving service field ${fieldName}:`, error);
         this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
       }
     });

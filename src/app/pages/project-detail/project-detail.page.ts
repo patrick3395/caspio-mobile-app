@@ -1497,6 +1497,9 @@ export class ProjectDetailPage implements OnInit {
         typeIdStr === '35';
         
       try {
+        // Small delay to ensure loading is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Use navigateByUrl directly for more reliable navigation
         let navigationUrl: string;
         
@@ -1510,21 +1513,43 @@ export class ProjectDetailPage implements OnInit {
           console.log('   Route:', navigationUrl);
         }
         
-        // Navigate using navigateByUrl which is more reliable
-        await this.router.navigateByUrl(navigationUrl);
+        // Navigate using navigateByUrl with replaceUrl for cleaner navigation
+        const navigationResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
         
-        // The loading will be dismissed by the target page's ionViewWillEnter
-        // Don't dismiss it here to avoid flickering
+        if (navigationResult) {
+          console.log('Navigation successful');
+          // Dismiss loading after a short delay to prevent flicker
+          setTimeout(() => {
+            loading.dismiss().catch(() => {});
+          }, 500);
+        } else {
+          console.log('Navigation returned false, trying again...');
+          // Try one more time with a delay
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const retryResult = await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
+          
+          if (!retryResult) {
+            await loading.dismiss();
+            await this.showToast('Unable to open template. Please try again.', 'warning');
+          } else {
+            setTimeout(() => {
+              loading.dismiss().catch(() => {});
+            }, 500);
+          }
+        }
         
       } catch (error) {
         console.error('Navigation error:', error);
         await loading.dismiss().catch(() => {});
-        await this.showToast('Failed to open template', 'danger');
+        // Don't show error toast on first attempt, just reset
+        console.log('Navigation failed, please try again');
       } finally {
         // Reset navigation flag after a delay
         setTimeout(() => {
           this.isNavigating = false;
-        }, 1500);
+          // Ensure loading is dismissed
+          loading.dismiss().catch(() => {});
+        }, 2000);
       }
     }
   }
