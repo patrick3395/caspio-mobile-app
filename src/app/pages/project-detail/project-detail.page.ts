@@ -1542,15 +1542,15 @@ export class ProjectDetailPage implements OnInit {
 
   getPropertyPhotoUrl(): string {
     // Check if project has a PrimaryPhoto
-    if (this.project && this.project.PrimaryPhoto) {
+    if (this.project && this.project['PrimaryPhoto']) {
       // If PrimaryPhoto starts with '/', it's a Caspio file
-      if (this.project.PrimaryPhoto.startsWith('/')) {
+      if (this.project['PrimaryPhoto'].startsWith('/')) {
         const account = localStorage.getItem('caspioAccount') || '';
         const token = localStorage.getItem('caspioToken') || '';
-        return `https://${account}.caspio.com/rest/v2/files${this.project.PrimaryPhoto}?access_token=${token}`;
+        return `https://${account}.caspio.com/rest/v2/files${this.project['PrimaryPhoto']}?access_token=${token}`;
       }
       // Otherwise return as-is (could be a full URL)
-      return this.project.PrimaryPhoto;
+      return this.project['PrimaryPhoto'];
     }
     
     // Fall back to Google Street View
@@ -1751,13 +1751,16 @@ export class ProjectDetailPage implements OnInit {
       
       // Update the Projects table with the new photo path
       const projectId = this.project?.PK_ID || this.project?.ProjectID;
+      if (!projectId) {
+        throw new Error('No project ID available');
+      }
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: photoPath
       }).toPromise();
       
       // Update local project data
       if (this.project) {
-        this.project.PrimaryPhoto = photoPath;
+        this.project['PrimaryPhoto'] = photoPath;
       }
       
       await loading.dismiss();
