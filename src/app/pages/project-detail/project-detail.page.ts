@@ -653,6 +653,17 @@ export class ProjectDetailPage implements OnInit {
     return sameTypeServices.findIndex(s => s.instanceId === service.instanceId) + 1;
   }
 
+  getServicesForTemplates(): ServiceSelection[] {
+    // Filter out services that don't need templates
+    return this.selectedServices.filter(service => {
+      const name = service.typeName?.toLowerCase() || '';
+      // Exclude Defect Cost Report and Engineers Inspection Review
+      return !name.includes('defect cost report') && 
+             !name.includes('engineers inspection review') &&
+             !name.includes('engineer\'s inspection review');
+    });
+  }
+
   formatDateForInput(dateString: string): string {
     if (!dateString) return new Date().toISOString().split('T')[0];
     try {

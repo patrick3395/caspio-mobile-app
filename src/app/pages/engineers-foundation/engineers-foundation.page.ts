@@ -316,7 +316,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const template = autoTemplates.find((t: any) => t.RoomName === roomName);
               if (template && roomName && roomId) {
                 this.selectedRooms[roomName] = true;
-                this.expandedRooms[roomName] = true; // Auto-expand when loaded
+                this.expandedRooms[roomName] = false; // Start collapsed
                 this.roomRecordIds[roomName] = roomId;
                 
                 // Load existing FDF and Notes values if present
@@ -1151,7 +1151,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (this.roomRecordIds[roomName]) {
         console.log(`Room ${roomName} already exists with ID ${this.roomRecordIds[roomName]}, not creating duplicate`);
         this.selectedRooms[roomName] = true;
-        this.expandedRooms[roomName] = true;
+        this.expandedRooms[roomName] = false;
         return; // Room already exists, just update UI state
       }
       
@@ -1197,7 +1197,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             this.roomRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = true; // Auto-expand when selected
+            this.expandedRooms[roomName] = false; // Auto-expand when selected
             console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
           }
         } catch (err: any) {
@@ -1496,7 +1496,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           this.roomRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = true; // Auto-expand when selected
+          this.expandedRooms[roomName] = false; // Auto-expand when selected
           console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
         }
       } catch (error: any) {

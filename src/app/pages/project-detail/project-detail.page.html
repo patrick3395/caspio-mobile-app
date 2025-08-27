@@ -349,11 +349,11 @@
     </div>
 
     <!-- Templates Section -->
-    <div class="info-section" *ngIf="selectedServices.length > 0">
+    <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
       <h2 class="section-title">Templates</h2>
       
       <div class="templates-container">
-        <div *ngFor="let service of selectedServices" 
+        <div *ngFor="let service of getServicesForTemplates()" 
              class="template-bar" 
              (click)="openTemplate(service, $event)">
           
