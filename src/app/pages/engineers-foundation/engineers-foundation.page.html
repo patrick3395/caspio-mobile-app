@@ -507,7 +507,7 @@
             <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
                  [class.selected]="isRoomSelected(room.RoomName)">
               
-              <!-- Room card header with checkbox and collapse toggle -->
+              <!-- Room card header with checkbox only -->
               <div class="room-card-header">
                 <ion-item lines="none" class="checkbox-item">
                   <ion-checkbox 
@@ -516,17 +516,20 @@
                     [disabled]="isRoomSaving(room.RoomName)"
                     (ionChange)="toggleRoomSelection(room.RoomName)">
                   </ion-checkbox>
-                  <ion-label class="item-label" (click)="toggleRoomExpanded(room.RoomName)">
+                  <ion-label class="item-label">
                     <h3>{{ room.RoomName }}</h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-                  <ion-icon *ngIf="isRoomSelected(room.RoomName)" 
-                            [name]="isRoomExpanded(room.RoomName) ? 'chevron-up' : 'chevron-down'"
-                            slot="end"
-                            (click)="toggleRoomExpanded(room.RoomName)"
-                            style="cursor: pointer; font-size: 20px; color: var(--noble-gray);"></ion-icon>
                 </ion-item>
+              </div>
+              
+              <!-- Collapse/Expand button - separate from header to prevent accidental deletion -->
+              <div class="room-collapse-control" *ngIf="isRoomSelected(room.RoomName)">
+                <button class="collapse-button" (click)="toggleRoomExpanded(room.RoomName)">
+                  <ion-icon [name]="isRoomExpanded(room.RoomName) ? 'chevron-up-circle' : 'chevron-down-circle'"></ion-icon>
+                  <span>{{ isRoomExpanded(room.RoomName) ? 'Collapse' : 'Expand' }} Room Details</span>
+                </button>
               </div>
               
               <!-- Show room content only when selected and expanded -->
