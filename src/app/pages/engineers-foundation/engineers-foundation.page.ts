@@ -127,20 +127,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       serviceId: this.serviceId
     });
     
-    // Load project data
-    await this.loadProjectData();
-    
-    // Load visual categories from Services_Visuals_Templates FIRST
-    await this.loadVisualCategories();
-    
-    // Load room templates for elevation plot
-    await this.loadRoomTemplates();
-    
-    // Load FDF dropdown options
-    await this.loadFDFOptions();
-    
-    // Then load any existing template data (including visual selections)
-    await this.loadExistingData();
+    // Load all data in parallel for faster initialization
+    try {
+      await Promise.all([
+        this.loadProjectData(),
+        this.loadVisualCategories(),
+        this.loadRoomTemplates(),
+        this.loadFDFOptions()
+      ]);
+      
+      // Then load any existing template data (including visual selections)
+      await this.loadExistingData();
+    } catch (error) {
+      console.error('Error loading template data:', error);
+    }
   }
   
   ngAfterViewInit() {
@@ -959,6 +959,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async toggleRoomSelection(roomName: string) {
     const wasSelected = this.selectedRooms[roomName];
     const isSelected = !wasSelected;
+    
+    // If deselecting, ask for confirmation first
+    if (wasSelected && !isSelected) {
+      // Show confirmation dialog BEFORE changing state
+      const confirmAlert = await this.alertController.create({
+        header: 'Confirm Remove Room',
+        message: `Are you sure you want to remove "${roomName}"? This will delete all photos and data for this room.`,
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              // User cancelled - don't change anything
+              return true;
+            }
+          },
+          {
+            text: 'Remove',
+            cssClass: 'danger-button',
+            handler: async () => {
+              // User confirmed - proceed with deletion
+              await this.removeRoom(roomName);
+              return true;
+            }
+          }
+        ]
+      });
+      
+      await confirmAlert.present();
+      return; // Exit early - the handler will call removeRoom if confirmed
+    }
+    
+    // If selecting, proceed normally
     this.savingRooms[roomName] = true;
     
     try {
@@ -1011,73 +1044,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.selectedRooms[roomName] = false;
         }
         
-      } else {
-        // Confirm room deletion
-        const confirmAlert = await this.alertController.create({
-          header: 'Confirm Remove Room',
-          message: `Are you sure you want to remove "${roomName}"? This will delete all photos and data for this room.`,
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel',
-              handler: () => {
-                // Keep room selected since user cancelled
-                // The checkbox already changed, so we need to restore it
-                setTimeout(() => {
-                  this.selectedRooms[roomName] = true;
-                }, 50);
-                return true;
-              }
-            },
-            {
-              text: 'Remove',
-              cssClass: 'danger-button',
-              handler: async () => {
-                // Remove room from Services_Rooms
-                const roomId = this.roomRecordIds[roomName];
-                if (roomId) {
-                  try {
-                    // Delete the room from Services_Rooms table
-                    await this.caspioService.deleteServicesRoom(roomId).toPromise();
-                    delete this.roomRecordIds[roomName];
-                    this.selectedRooms[roomName] = false;
-                    
-                    // Don't delete the room elevation data structure, just reset it
-                    // This preserves the elevation points and configuration
-                    if (this.roomElevationData[roomName]) {
-                      // Clear photos but keep the structure
-                      if (this.roomElevationData[roomName].elevationPoints) {
-                        this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
-                          point.photos = [];
-                          point.photoCount = 0;
-                        });
-                      }
-                      // Reset FDF to default
-                      this.roomElevationData[roomName].fdf = 'None';
-                    }
-                    
-                    console.log(`Room ${roomName} deleted from Services_Rooms table`);
-                  } catch (error) {
-                    console.error('Error deleting room:', error);
-                    await this.showToast('Failed to remove room', 'danger');
-                    // Revert UI state on error
-                    this.selectedRooms[roomName] = true;
-                    this.expandedRooms[roomName] = true;
-                  }
-                }
-                return true;
-              }
-            }
-          ]
-        });
-        await confirmAlert.present();
-      }
     } catch (error: any) {
       console.error('Error toggling room selection:', error);
       await this.showToast('Failed to update room selection', 'danger');
     } finally {
       this.savingRooms[roomName] = false;
     }
+  }
+  
+  // Remove room from Services_Rooms
+  async removeRoom(roomName: string) {
+    this.savingRooms[roomName] = true;
+    const roomId = this.roomRecordIds[roomName];
+    
+    if (roomId) {
+      try {
+        // Delete the room from Services_Rooms table
+        await this.caspioService.deleteServicesRoom(roomId).toPromise();
+        delete this.roomRecordIds[roomName];
+        this.selectedRooms[roomName] = false;
+        
+        // Don't delete the room elevation data structure, just reset it
+        // This preserves the elevation points and configuration
+        if (this.roomElevationData[roomName]) {
+          // Clear photos but keep the structure
+          if (this.roomElevationData[roomName].elevationPoints) {
+            this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
+              point.photos = [];
+              point.photoCount = 0;
+            });
+          }
+          // Reset FDF to default
+          this.roomElevationData[roomName].fdf = 'None';
+        }
+        
+        console.log(`Room ${roomName} deleted from Services_Rooms table`);
+      } catch (error) {
+        console.error('Error deleting room:', error);
+        await this.showToast('Failed to remove room', 'danger');
+        // Don't revert UI state since user intended to delete
+      }
+    }
+    
+    this.savingRooms[roomName] = false;
   }
   
   isRoomSelected(roomName: string): boolean {
