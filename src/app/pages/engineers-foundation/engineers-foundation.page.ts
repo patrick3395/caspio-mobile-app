@@ -8,7 +8,7 @@ import { ToastController, LoadingController, AlertController, ActionSheetControl
 import { CameraService } from '../../services/camera.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
-import { PDFViewerModal } from '../../components/pdf-viewer-modal/pdf-viewer-modal.component';
+import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import jsPDF from 'jspdf';
 
 
@@ -2399,43 +2399,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async generatePDF() {
     const loading = await this.loadingController.create({
-      message: 'Generating PDF...',
+      message: 'Preparing preview...',
       spinner: 'crescent'
     });
     await loading.present();
 
     try {
-      // Create new PDF document
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
+      // Prepare data for the preview
+      const structuralSystemsData = await this.prepareStructuralSystemsData();
+      const elevationPlotData = await this.prepareElevationPlotData();
+      const projectInfo = await this.prepareProjectInfo();
+      
+      await loading.dismiss();
+      
+      // Open the preview modal
+      const modal = await this.modalController.create({
+        component: PdfPreviewComponent,
+        componentProps: {
+          projectData: projectInfo,
+          structuralData: structuralSystemsData,
+          elevationData: elevationPlotData
+        },
+        cssClass: 'fullscreen-modal'
       });
-
-      // PDF dimensions
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - (margin * 2);
-      let yPosition = margin;
-
-      // Helper function to add new page if needed
-      const checkNewPage = (requiredSpace: number = 20) => {
-        if (yPosition + requiredSpace > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-          return true;
-        }
-        return false;
-      };
-
-      // Helper function to add section header
-      const addSectionHeader = (title: string) => {
-        checkNewPage(30);
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(241, 90, 39); // Noble orange
-        pdf.text(title, margin, yPosition);
+      
+      await modal.present();
+      
+    } catch (error) {
+      console.error('Error preparing preview:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to prepare preview', 'danger');
+    }
+  }
+  
+  // Utility functions
+  formatDate(dateString: string): string {
         yPosition += 10;
         // Add underline
         pdf.setDrawColor(241, 90, 39);
@@ -4912,5 +4910,157 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     return Math.round((completed / requiredFields.length) * 100);
+  }
+
+  // Helper methods for PDF preview
+  async prepareProjectInfo() {
+    const primaryPhoto = this.projectData?.PrimaryPhoto || null;
+    
+    return {
+      projectId: this.projectId,
+      primaryPhoto: primaryPhoto,
+      address: this.projectData?.Address || '',
+      city: this.projectData?.City || '',
+      state: this.projectData?.State || '',
+      zip: this.projectData?.Zip || '',
+      fullAddress: `${this.projectData?.Address || ''}, ${this.projectData?.City || ''}, ${this.projectData?.State || ''} ${this.projectData?.Zip || ''}`,
+      clientName: this.projectData?.ClientName || this.projectData?.Owner || '',
+      inspectionDate: this.formatDate(this.serviceData?.DateOfInspection || new Date().toISOString()),
+      buildingType: this.formData.foundationType || 'Post-Tension',
+      weatherConditions: this.serviceData?.WeatherConditions || 'Clear',
+      temperature: this.serviceData?.Temperature || '75°F',
+      inspectorName: 'Inspector Name',
+      inspectorPhone: '936-202-8013',
+      inspectorEmail: 'info@noblepropertyinspections.com',
+      licenseNumber: '12345'
+    };
+  }
+
+  async prepareStructuralSystemsData() {
+    const result = [];
+    
+    for (const category of this.visualCategories) {
+      const categoryData = this.organizedData[category];
+      if (!categoryData) continue;
+      
+      const categoryResult: any = {
+        name: category,
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+      
+      // Process comments
+      if (categoryData.comments) {
+        for (const comment of categoryData.comments) {
+          if (this.isCommentSelected(category, comment.VisualID)) {
+            const photos = await this.getVisualPhotos(comment.VisualID);
+            categoryResult.comments.push({
+              name: comment.Name || comment.name,
+              text: comment.Text || comment.text,
+              visualId: comment.VisualID,
+              photos: photos
+            });
+          }
+        }
+      }
+      
+      // Process limitations
+      if (categoryData.limitations) {
+        for (const limitation of categoryData.limitations) {
+          if (this.isLimitationSelected(category, limitation.VisualID)) {
+            const photos = await this.getVisualPhotos(limitation.VisualID);
+            categoryResult.limitations.push({
+              name: limitation.Name || limitation.name,
+              text: limitation.Text || limitation.text,
+              visualId: limitation.VisualID,
+              photos: photos
+            });
+          }
+        }
+      }
+      
+      // Process deficiencies
+      if (categoryData.deficiencies) {
+        for (const deficiency of categoryData.deficiencies) {
+          if (this.isDeficiencySelected(category, deficiency.VisualID)) {
+            const photos = await this.getVisualPhotos(deficiency.VisualID);
+            categoryResult.deficiencies.push({
+              name: deficiency.Name || deficiency.name,
+              text: deficiency.Text || deficiency.text,
+              visualId: deficiency.VisualID,
+              photos: photos
+            });
+          }
+        }
+      }
+      
+      // Only add category if it has selected items
+      if (categoryResult.comments.length > 0 || 
+          categoryResult.limitations.length > 0 || 
+          categoryResult.deficiencies.length > 0) {
+        result.push(categoryResult);
+      }
+    }
+    
+    return result;
+  }
+
+  async prepareElevationPlotData() {
+    const result = [];
+    
+    for (const roomName of Object.keys(this.selectedRooms)) {
+      if (!this.selectedRooms[roomName]) continue;
+      
+      const roomData = this.roomElevationData[roomName];
+      if (!roomData) continue;
+      
+      const roomResult: any = {
+        name: roomName,
+        fdf: roomData.fdf,
+        notes: roomData.notes,
+        points: [],
+        photos: []
+      };
+      
+      // Process elevation points
+      if (roomData.elevationPoints) {
+        for (const point of roomData.elevationPoints) {
+          if (point.value) {
+            roomResult.points.push({
+              name: point.name,
+              value: point.value,
+              photoCount: point.photoCount || 0
+            });
+          }
+        }
+      }
+      
+      // Get room photos if any
+      const roomId = roomData.roomId;
+      if (roomId) {
+        const photos = await this.getRoomPhotos(roomId);
+        roomResult.photos = photos;
+      }
+      
+      result.push(roomResult);
+    }
+    
+    return result;
+  }
+
+  async getVisualPhotos(visualId: string) {
+    // Get photos for a specific visual from Services_Visuals_Attach
+    const photos = this.visualPhotos[visualId] || [];
+    return photos.map((photo: any) => ({
+      url: photo.Photo || photo.url,
+      caption: photo.Annotation || ''
+    }));
+  }
+
+  async getRoomPhotos(roomId: string) {
+    // Get photos for a specific room
+    // This would need to be implemented based on your photo storage
+    return [];
   }
 }
