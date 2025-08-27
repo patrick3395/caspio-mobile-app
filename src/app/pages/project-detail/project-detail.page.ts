@@ -1765,12 +1765,33 @@ export class ProjectDetailPage implements OnInit {
       const account = localStorage.getItem('caspioAccount') || '';
       const token = localStorage.getItem('caspioToken') || '';
       
+      // Debug: Check authentication
+      console.log('🔐 Authentication Check:');
+      console.log('  Account:', account || 'MISSING!');
+      console.log('  Token exists:', !!token);
+      console.log('  Token length:', token?.length || 0);
+      
+      if (!account || !token) {
+        throw new Error('Authentication missing: Please re-login. Account: ' + account + ', Token exists: ' + !!token);
+      }
+      
+      // Debug: Check file
+      console.log('📄 File Info:');
+      console.log('  Type:', file.type);
+      console.log('  Size:', file.size, 'bytes');
+      console.log('  Name:', file.name);
+      
       // Generate unique filename
       const timestamp = Date.now();
       const fileName = `property_${projectId}_${timestamp}.jpg`;
+      console.log('  New filename:', fileName);
       
       // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
       console.log('Step 1: Uploading file to Caspio Files API...');
+      
+      // Show progress toast
+      await this.showToast(`📤 Uploading ${fileName} to Files API...`, 'info');
+      
       const formData = new FormData();
       formData.append('file', file, fileName);
       
@@ -1787,11 +1808,22 @@ export class ProjectDetailPage implements OnInit {
       });
       
       console.log('Files API response status:', uploadResponse.status);
+      console.log('Files API response headers:', uploadResponse.headers);
       
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error('Files API error:', errorText);
-        throw new Error(`Files API failed: ${uploadResponse.status} - ${errorText}`);
+        
+        // More detailed error for common issues
+        if (uploadResponse.status === 401) {
+          throw new Error(`Authentication failed (401): Token may be expired. Please logout and login again.`);
+        } else if (uploadResponse.status === 403) {
+          throw new Error(`Permission denied (403): Check if Files API is enabled for your account.`);
+        } else if (uploadResponse.status === 413) {
+          throw new Error(`File too large (413): Please use a smaller image.`);
+        } else {
+          throw new Error(`Files API failed: ${uploadResponse.status} - ${errorText}`);
+        }
       }
       
       // Parse Files API response
@@ -1845,12 +1877,110 @@ export class ProjectDetailPage implements OnInit {
       console.error('Error uploading photo:', error);
       await loading.dismiss();
       
+      // Comprehensive debug popup
+      let debugInfo = {
+        stage: 'Unknown',
+        projectId: projectId,
+        account: localStorage.getItem('caspioAccount') || 'NOT SET',
+        tokenExists: !!localStorage.getItem('caspioToken'),
+        tokenLength: localStorage.getItem('caspioToken')?.length || 0,
+        fileName: '',
+        filePath: '',
+        errorMessage: error?.message || 'No message',
+        errorStatus: error?.status || 'No status',
+        errorResponse: '',
+        fullError: JSON.stringify(error, null, 2),
+        timestamp: new Date().toISOString()
+      };
+      
+      // Try to determine at which stage the error occurred
+      if (error.message?.includes('Files API')) {
+        debugInfo.stage = 'File Upload to Caspio Files';
+      } else if (error.message?.includes('Update')) {
+        debugInfo.stage = 'Updating Projects Table';
+      } else if (error.message?.includes('token')) {
+        debugInfo.stage = 'Authentication';
+      }
+      
+      // Try to parse error response if available
+      if (error.response) {
+        try {
+          debugInfo.errorResponse = await error.response.text();
+        } catch {
+          debugInfo.errorResponse = 'Could not read response';
+        }
+      }
+      
       const alert = await this.alertController.create({
-        header: 'Upload Failed',
-        message: `Failed to upload photo.<br><br>
-          <strong>Error Details:</strong><br>
-          ${error.message || error}`,
-        buttons: ['OK']
+        header: '🔴 Upload Failed - Debug Info',
+        message: `
+          <div style="font-size: 12px; text-align: left; max-height: 400px; overflow-y: auto;">
+            <strong style="color: red;">Stage:</strong> ${debugInfo.stage}<br><br>
+            
+            <strong>Project Info:</strong><br>
+            • Project ID (PK_ID): ${debugInfo.projectId}<br>
+            • Account: ${debugInfo.account}<br>
+            • Token Exists: ${debugInfo.tokenExists ? '✅ Yes' : '❌ No'}<br>
+            • Token Length: ${debugInfo.tokenLength} chars<br><br>
+            
+            <strong>Error Details:</strong><br>
+            • Message: ${debugInfo.errorMessage}<br>
+            • Status: ${debugInfo.errorStatus}<br><br>
+            
+            <strong>Full Error Object:</strong><br>
+            <pre style="background: #f0f0f0; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;">
+${debugInfo.fullError}
+            </pre>
+            
+            <strong>Response (if any):</strong><br>
+            <pre style="background: #ffe0e0; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;">
+${debugInfo.errorResponse || 'No response body'}
+            </pre>
+            
+            <strong>Time:</strong> ${debugInfo.timestamp}<br><br>
+            
+            <strong style="color: blue;">Common Issues:</strong><br>
+            • Token expired → Re-login<br>
+            • Wrong account → Check caspioAccount in storage<br>
+            • File too large → Try smaller image<br>
+            • Network issue → Check connection<br>
+            • PrimaryPhoto field type → Must be File type in Caspio
+          </div>
+        `,
+        cssClass: 'debug-alert',
+        buttons: [
+          {
+            text: 'Copy Debug Info',
+            handler: () => {
+              // Create a simple text version for copying
+              const textVersion = `
+Upload Failed - Debug Info
+==========================
+Stage: ${debugInfo.stage}
+Project ID: ${debugInfo.projectId}
+Account: ${debugInfo.account}
+Token Exists: ${debugInfo.tokenExists}
+Token Length: ${debugInfo.tokenLength}
+Error Message: ${debugInfo.errorMessage}
+Error Status: ${debugInfo.errorStatus}
+Full Error: ${debugInfo.fullError}
+Response: ${debugInfo.errorResponse}
+Time: ${debugInfo.timestamp}
+              `;
+              
+              // Try to copy to clipboard (may not work on all devices)
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(textVersion);
+                this.showToast('Debug info copied to clipboard', 'success');
+              }
+              return false; // Keep alert open
+            }
+          },
+          {
+            text: 'OK',
+            role: 'cancel'
+          }
+        ]
       });
       await alert.present();
     }
