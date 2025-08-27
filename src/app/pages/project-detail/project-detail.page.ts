@@ -1207,8 +1207,8 @@ export class ProjectDetailPage implements OnInit {
               await loading.dismiss();
               await this.showToast('Document deleted successfully', 'success');
               
-              // Refresh the documents to ensure consistency
-              await this.loadDocumentsForSelectedServices();
+              // Refresh the project to ensure consistency
+              await this.loadProject();
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
