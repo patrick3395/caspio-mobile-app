@@ -2435,9 +2435,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   async submitTemplate() {
-    // Validate required fields
+    // Validate all required Project Information fields
+    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 'InAttendance', 
+                                    'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
+    const requiredServiceFields = ['OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
+    
+    const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
+    const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
+    
+    if (missingProjectFields.length > 0 || missingServiceFields.length > 0) {
+      const allMissing = [...missingProjectFields, ...missingServiceFields];
+      await this.showToast(`Please fill in all required fields: ${allMissing.join(', ')}`, 'warning');
+      
+      // Scroll to Project Information section if there are missing fields
+      const projectSection = document.querySelector('.section-card');
+      if (projectSection) {
+        projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+    
+    // Validate other required fields
     if (!this.formData.foundationType || !this.formData.foundationCondition) {
-      await this.showToast('Please fill in all required fields', 'warning');
+      await this.showToast('Please fill in foundation type and condition', 'warning');
       return;
     }
     
@@ -2480,6 +2500,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF() {
+    // Validate all required Project Information fields before generating PDF
+    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 'InAttendance', 
+                                    'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
+    const requiredServiceFields = ['OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
+    
+    const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
+    const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
+    
+    if (missingProjectFields.length > 0 || missingServiceFields.length > 0) {
+      const allMissing = [...missingProjectFields, ...missingServiceFields];
+      await this.showToast(`Please fill in all required fields before generating PDF: ${allMissing.join(', ')}`, 'warning');
+      
+      // Scroll to Project Information section if there are missing fields
+      const projectSection = document.querySelector('.section-card');
+      if (projectSection) {
+        projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+    
     const loading = await this.loadingController.create({
       message: 'Preparing preview...',
       spinner: 'crescent'

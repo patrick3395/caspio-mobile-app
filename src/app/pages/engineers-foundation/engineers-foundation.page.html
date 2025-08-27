@@ -53,11 +53,12 @@
             <div class="form-group" [class.filled]="projectData.ClientName">
               <label>
                 <ion-icon name="person-outline"></ion-icon>
-                Client Name
+                Client Name <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.ClientName" name="ClientName"
                      (ngModelChange)="onProjectFieldChange('ClientName', $event)"
                      placeholder="Enter client name"
+                     required
                      class="styled-input">
             </div>
 
@@ -65,11 +66,12 @@
             <div class="form-group" [class.filled]="projectData.AgentName">
               <label>
                 <ion-icon name="briefcase-outline"></ion-icon>
-                Agent Name
+                Agent Name <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.AgentName" name="AgentName"
                      (ngModelChange)="onProjectFieldChange('AgentName', $event)"
                      placeholder="Enter agent name"
+                     required
                      class="styled-input">
             </div>
 
@@ -77,11 +79,12 @@
             <div class="form-group" [class.filled]="projectData.InspectorName">
               <label>
                 <ion-icon name="clipboard-outline"></ion-icon>
-                Inspector Name
+                Inspector Name <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.InspectorName" name="InspectorName"
                      (ngModelChange)="onProjectFieldChange('InspectorName', $event)"
                      placeholder="Enter inspector name"
+                     required
                      class="styled-input">
             </div>
 
@@ -89,11 +92,12 @@
             <div class="form-group full-width" [class.filled]="projectData.InAttendance">
               <label>
                 <ion-icon name="people-circle-outline"></ion-icon>
-                In Attendance
+                In Attendance <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.InAttendance" name="InAttendance"
                      (ngModelChange)="onProjectFieldChange('InAttendance', $event)"
                      placeholder="Who was present during inspection"
+                     required
                      class="styled-input">
             </div>
           </div>
@@ -111,11 +115,12 @@
             <div class="form-group" [class.filled]="projectData.YearBuilt">
               <label>
                 <ion-icon name="calendar-outline"></ion-icon>
-                Year Built
+                Year Built <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
                      (ngModelChange)="onProjectFieldChange('YearBuilt', $event)"
                      placeholder="e.g., 1985"
+                     required
                      class="styled-input">
             </div>
 
@@ -123,11 +128,12 @@
             <div class="form-group" [class.filled]="projectData.SquareFeet">
               <label>
                 <ion-icon name="resize-outline"></ion-icon>
-                Square Feet
+                Square Feet <span class="required">*</span>
               </label>
               <input type="text" [(ngModel)]="projectData.SquareFeet" name="SquareFeet"
                      (ngModelChange)="onProjectFieldChange('SquareFeet', $event)"
                      placeholder="e.g., 2500"
+                     required
                      class="styled-input">
             </div>
 
@@ -135,10 +141,11 @@
             <div class="form-group" [class.filled]="projectData.TypeOfBuilding">
               <label>
                 <ion-icon name="business-outline"></ion-icon>
-                Building Type
+                Building Type <span class="required">*</span>
               </label>
               <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
+                      required
                       class="styled-input">
                 <option value="">Select type</option>
                 <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
@@ -149,10 +156,11 @@
             <div class="form-group" [class.filled]="projectData.Style">
               <label>
                 <ion-icon name="color-palette-outline"></ion-icon>
-                Style
+                Style <span class="required">*</span>
               </label>
               <select [(ngModel)]="projectData.Style" name="Style"
                       (ngModelChange)="onProjectFieldChange('Style', $event)"
+                      required
                       class="styled-input">
                 <option value="">Select style</option>
                 <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
@@ -163,10 +171,11 @@
             <div class="form-group" [class.filled]="serviceData.OccupancyFurnishings">
               <label>
                 <ion-icon name="bed-outline"></ion-icon>
-                Occupancy Status
+                Occupancy Status <span class="required">*</span>
               </label>
               <select [(ngModel)]="serviceData.OccupancyFurnishings" name="OccupancyFurnishings"
                       (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
+                      required
                       class="styled-input">
                 <option value="">Select status</option>
                 <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
@@ -187,10 +196,11 @@
             <div class="form-group" [class.filled]="serviceData.WeatherConditions">
               <label>
                 <ion-icon name="cloud-outline"></ion-icon>
-                Weather Conditions
+                Weather Conditions <span class="required">*</span>
               </label>
               <select [(ngModel)]="serviceData.WeatherConditions" name="WeatherConditions"
                       (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
+                      required
                       class="styled-input">
                 <option value="">Select weather</option>
                 <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
@@ -201,10 +211,11 @@
             <div class="form-group" [class.filled]="serviceData.OutdoorTemperature">
               <label>
                 <ion-icon name="thermometer-outline"></ion-icon>
-                Outdoor Temperature
+                Outdoor Temperature <span class="required">*</span>
               </label>
               <select [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
                       (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
+                      required
                       class="styled-input">
                 <option value="">Select temperature</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>

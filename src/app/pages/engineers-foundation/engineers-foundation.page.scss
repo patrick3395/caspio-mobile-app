@@ -103,6 +103,12 @@ ion-toolbar {
       font-size: 18px;
       color: var(--noble-orange);
     }
+    
+    .required {
+      color: #ff4444;
+      font-size: 14px;
+      margin-left: 2px;
+    }
   }
   
   .styled-input {
@@ -156,6 +162,12 @@ ion-toolbar {
         animation: pulse 2s infinite;
       }
     }
+  }
+  
+  // Invalid state styling for required fields
+  .styled-input:required.ng-invalid.ng-touched {
+    border-color: #ff4444;
+    background: #fff5f5;
   }
 }
 
