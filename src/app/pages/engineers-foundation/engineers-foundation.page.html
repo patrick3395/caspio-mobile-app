@@ -89,16 +89,18 @@
             </div>
 
             <!-- In Attendance -->
-            <div class="form-group full-width" [class.filled]="projectData.InAttendance">
+            <div class="form-group full-width" [class.filled]="serviceData.InAttendance">
               <label>
                 <ion-icon name="people-circle-outline"></ion-icon>
                 In Attendance <span class="required">*</span>
               </label>
-              <input type="text" [(ngModel)]="projectData.InAttendance" name="InAttendance"
-                     (ngModelChange)="onProjectFieldChange('InAttendance', $event)"
-                     placeholder="Who was present during inspection"
-                     required
-                     class="styled-input">
+              <select [(ngModel)]="serviceData.InAttendance" name="InAttendance"
+                      (ngModelChange)="onServiceFieldChange('InAttendance', $event)"
+                      required
+                      class="styled-input">
+                <option value="">Select who was present</option>
+                <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
+              </select>
             </div>
           </div>
         </div>
@@ -219,6 +221,101 @@
                       class="styled-input">
                 <option value="">Select temperature</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Foundation Details -->
+        <div class="info-group">
+          <h3 class="group-title">
+            <ion-icon name="layers-outline"></ion-icon>
+            Foundation Details
+          </h3>
+          <div class="form-grid two-col">
+            
+            <!-- First Foundation Type -->
+            <div class="form-group" [class.filled]="serviceData.FirstFoundationType">
+              <label>
+                <ion-icon name="construct-outline"></ion-icon>
+                First Foundation Type
+              </label>
+              <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
+                      (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
+                      class="styled-input">
+                <option value="">Select type</option>
+                <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+            
+            <!-- Second Foundation Type -->
+            <div class="form-group" [class.filled]="serviceData.SecondFoundationType">
+              <label>
+                <ion-icon name="construct-outline"></ion-icon>
+                Second Foundation Type
+              </label>
+              <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
+                      (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
+                      class="styled-input">
+                <option value="">Select type (if applicable)</option>
+                <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+            
+            <!-- Second Foundation Rooms -->
+            <div class="form-group" [class.filled]="serviceData.SecondFoundationRooms"
+                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None'">
+              <label>
+                <ion-icon name="home-outline"></ion-icon>
+                Second Foundation Rooms
+              </label>
+              <select [(ngModel)]="serviceData.SecondFoundationRooms" name="SecondFoundationRooms"
+                      (ngModelChange)="onServiceFieldChange('SecondFoundationRooms', $event)"
+                      class="styled-input">
+                <option value="">Select rooms</option>
+                <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+            
+            <!-- Third Foundation Type -->
+            <div class="form-group" [class.filled]="serviceData.ThirdFoundationType">
+              <label>
+                <ion-icon name="construct-outline"></ion-icon>
+                Third Foundation Type
+              </label>
+              <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
+                      (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
+                      class="styled-input">
+                <option value="">Select type (if applicable)</option>
+                <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+            
+            <!-- Third Foundation Rooms -->
+            <div class="form-group" [class.filled]="serviceData.ThirdFoundationRooms"
+                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None'">
+              <label>
+                <ion-icon name="home-outline"></ion-icon>
+                Third Foundation Rooms
+              </label>
+              <select [(ngModel)]="serviceData.ThirdFoundationRooms" name="ThirdFoundationRooms"
+                      (ngModelChange)="onServiceFieldChange('ThirdFoundationRooms', $event)"
+                      class="styled-input">
+                <option value="">Select rooms</option>
+                <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
+              </select>
+            </div>
+            
+            <!-- Owner/Occupant Interview -->
+            <div class="form-group" [class.filled]="serviceData.OwnerOccupantInterview">
+              <label>
+                <ion-icon name="chatbubbles-outline"></ion-icon>
+                Owner/Occupant Interview
+              </label>
+              <select [(ngModel)]="serviceData.OwnerOccupantInterview" name="OwnerOccupantInterview"
+                      (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
+                      class="styled-input">
+                <option value="">Select status</option>
+                <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>

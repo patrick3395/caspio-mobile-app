@@ -89,6 +89,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   weatherConditionsOptions: string[] = [];
   outdoorTemperatureOptions: string[] = [];
   occupancyFurnishingsOptions: string[] = [];
+  inAttendanceOptions: string[] = [];
+  firstFoundationTypeOptions: string[] = [];
+  secondFoundationTypeOptions: string[] = [];
+  thirdFoundationTypeOptions: string[] = [];
+  secondFoundationRoomsOptions: string[] = [];
+  thirdFoundationRoomsOptions: string[] = [];
+  ownerOccupantInterviewOptions: string[] = [];
   
   // Project dropdown options from Projects_Drop table
   typeOfBuildingOptions: string[] = [];
@@ -417,6 +424,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy'];
       this.outdoorTemperatureOptions = ['60°F', '65°F', '70°F', '75°F', '80°F', '85°F', '90°F', '95°F', '100°F'];
       this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished'];
+      this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
+      this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space'];
+      this.secondFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None'];
+      this.thirdFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None'];
+      this.secondFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+      this.thirdFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+      this.ownerOccupantInterviewOptions = ['Yes', 'No', 'Not Available'];
       
       // Load from Services_Drop table
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
@@ -459,6 +473,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
           this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
           console.log('Occupancy Furnishings options:', this.occupancyFurnishingsOptions);
+        }
+        
+        // Set InAttendance options
+        if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
+          this.inAttendanceOptions = optionsByService['InAttendance'];
+          console.log('InAttendance options:', this.inAttendanceOptions);
+        }
+        
+        // Set FirstFoundationType options
+        if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
+          this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
+          console.log('FirstFoundationType options:', this.firstFoundationTypeOptions);
+        }
+        
+        // Set SecondFoundationType options
+        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
+          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+          console.log('SecondFoundationType options:', this.secondFoundationTypeOptions);
+        }
+        
+        // Set ThirdFoundationType options
+        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
+          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+          console.log('ThirdFoundationType options:', this.thirdFoundationTypeOptions);
+        }
+        
+        // Set SecondFoundationRooms options
+        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
+          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+          console.log('SecondFoundationRooms options:', this.secondFoundationRoomsOptions);
+        }
+        
+        // Set ThirdFoundationRooms options
+        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
+          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+          console.log('ThirdFoundationRooms options:', this.thirdFoundationRoomsOptions);
+        }
+        
+        // Set OwnerOccupantInterview options
+        if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
+          this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
+          console.log('OwnerOccupantInterview options:', this.ownerOccupantInterviewOptions);
         }
       }
     } catch (error) {
@@ -2436,9 +2492,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async submitTemplate() {
     // Validate all required Project Information fields
-    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 'InAttendance', 
+    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
-    const requiredServiceFields = ['OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
+    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
     
     const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
     const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
@@ -2501,9 +2557,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async generatePDF() {
     // Validate all required Project Information fields before generating PDF
-    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 'InAttendance', 
+    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
-    const requiredServiceFields = ['OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
+    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
     
     const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
     const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
