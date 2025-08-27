@@ -27,9 +27,19 @@
 
   <!-- Project details -->
   <div *ngIf="project && !loading && !error" class="project-container">
-    <!-- Street View Header -->
-    <div class="street-view-header">
-      <img [src]="getStreetViewUrl()" alt="Street View">
+    <!-- Property Photo Header -->
+    <div class="street-view-header" style="position: relative;">
+      <img [src]="getPropertyPhotoUrl()" alt="Property Photo">
+      <!-- Replace Photo Button -->
+      <ion-button class="replace-photo-btn" 
+                  fill="solid" 
+                  color="primary" 
+                  size="small"
+                  (click)="replacePhoto()"
+                  style="position: absolute; bottom: 10px; right: 10px; z-index: 10;">
+        <ion-icon name="camera" slot="start"></ion-icon>
+        Replace Photo
+      </ion-button>
     </div>
 
     <!-- Read-only indicator for non-active projects -->
@@ -419,3 +429,6 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<!-- Hidden file input for photo replacement -->
+<input #photoInput type="file" accept="image/*" capture="environment" style="display: none" (change)="onPhotoSelected($event)">

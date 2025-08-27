@@ -50,6 +50,7 @@ interface ServiceDocumentGroup {
 export class ProjectDetailPage implements OnInit {
   @ViewChild('optionalDocsModal') optionalDocsModal!: IonModal;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('photoInput') photoInput!: ElementRef<HTMLInputElement>;
 
   project: Project | null = null;
   loading = false;
@@ -1564,13 +1565,31 @@ export class ProjectDetailPage implements OnInit {
     return parts.join(', ');
   }
 
-  getStreetViewUrl(): string {
+  getPropertyPhotoUrl(): string {
+    // Check if project has a PrimaryPhoto
+    if (this.project && this.project.PrimaryPhoto) {
+      // If PrimaryPhoto starts with '/', it's a Caspio file
+      if (this.project.PrimaryPhoto.startsWith('/')) {
+        const account = localStorage.getItem('caspioAccount') || '';
+        const token = localStorage.getItem('caspioToken') || '';
+        return `https://${account}.caspio.com/rest/v2/files${this.project.PrimaryPhoto}?access_token=${token}`;
+      }
+      // Otherwise return as-is (could be a full URL)
+      return this.project.PrimaryPhoto;
+    }
+    
+    // Fall back to Google Street View
     if (!this.project || !this.formatAddress()) {
       return 'assets/img/project-placeholder.svg';
     }
     const address = encodeURIComponent(this.formatAddress());
     const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
     return `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${apiKey}`;
+  }
+  
+  getStreetViewUrl(): string {
+    // Keep for backwards compatibility
+    return this.getPropertyPhotoUrl();
   }
 
   getCityState(): string {
@@ -1708,5 +1727,89 @@ export class ProjectDetailPage implements OnInit {
     });
 
     await alert.present();
+  }
+
+  // Replace property photo functionality
+  async replacePhoto() {
+    if (this.photoInput && this.photoInput.nativeElement) {
+      this.photoInput.nativeElement.click();
+    }
+  }
+
+  async onPhotoSelected(event: any) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Uploading photo...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Upload photo to Caspio Files API
+      const account = localStorage.getItem('caspioAccount') || '';
+      const token = localStorage.getItem('caspioToken') || '';
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileName = `property_${this.project?.PK_ID || this.project?.ProjectID}_${timestamp}.jpg`;
+      
+      // Upload to Caspio Files API
+      const formData = new FormData();
+      formData.append('file', file, fileName);
+      
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload photo');
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      const photoPath = `/${uploadResult.Name}`;
+      
+      // Update the Projects table with the new photo path
+      const projectId = this.project?.PK_ID || this.project?.ProjectID;
+      const updateResponse = await this.caspioService.updateProject(projectId, {
+        PrimaryPhoto: photoPath
+      }).toPromise();
+      
+      // Update local project data
+      if (this.project) {
+        this.project.PrimaryPhoto = photoPath;
+      }
+      
+      await loading.dismiss();
+      
+      const toast = await this.toastController.create({
+        message: 'Photo updated successfully',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom'
+      });
+      await toast.present();
+      
+      // Clear the file input
+      if (this.photoInput && this.photoInput.nativeElement) {
+        this.photoInput.nativeElement.value = '';
+      }
+      
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      await loading.dismiss();
+      
+      const alert = await this.alertController.create({
+        header: 'Upload Failed',
+        message: 'Failed to upload photo. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 }
