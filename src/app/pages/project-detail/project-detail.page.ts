@@ -1626,44 +1626,34 @@ export class ProjectDetailPage implements OnInit {
     return parts.join(', ');
   }
 
+  private projectImageData: string | null = null;
+  private imageLoadInProgress = false;
+
   getPropertyPhotoUrl(): string {
     // Check if project has a PrimaryPhoto
     if (this.project && this.project['PrimaryPhoto']) {
       const primaryPhoto = this.project['PrimaryPhoto'];
       console.log('🖼️ PrimaryPhoto value:', primaryPhoto);
       
+      // If we already have the base64 data, use it
+      if (this.projectImageData) {
+        return this.projectImageData;
+      }
+      
+      // If it's already a data URL or http URL, use it directly
+      if (primaryPhoto.startsWith('data:') || primaryPhoto.startsWith('http')) {
+        return primaryPhoto;
+      }
+      
       // If PrimaryPhoto starts with '/', it's a Caspio file
       if (primaryPhoto.startsWith('/')) {
-        const account = this.caspioService.getAccountID();
-        const token = this.caspioService.getCurrentToken();
-        
-        console.log('📸 Building Caspio photo URL:');
-        console.log('  Account:', account);
-        console.log('  Token exists:', !!token);
-        console.log('  Photo path:', primaryPhoto);
-        
-        if (!account || !token) {
-          console.warn('Missing account or token for photo URL');
-          // Show debug toast to user
-          this.showToast(`Debug: Account=${account}, Token=${!!token}, Path=${primaryPhoto}`, 'warning');
-          // Fall back to Street View
-        } else {
-          // Ensure proper path construction - remove double slashes
-          const cleanPath = primaryPhoto.startsWith('/') ? primaryPhoto : `/${primaryPhoto}`;
-          const photoUrl = `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
-          console.log('  Full URL:', photoUrl);
-          
-          // Add debug alert for mobile debugging
-          if (!photoUrl.includes('/rest/v2/files/')) {
-            this.showToast(`Debug: Malformed URL - ${photoUrl.substring(0, 50)}...`, 'warning');
-          }
-          
-          return photoUrl;
+        // Start loading if not already in progress
+        if (!this.imageLoadInProgress) {
+          this.loadProjectImageData();
         }
-      } else if (primaryPhoto.startsWith('http')) {
-        // It's already a full URL
-        console.log('📸 Using full URL:', primaryPhoto);
-        return primaryPhoto;
+        
+        // Return placeholder while loading
+        return 'assets/img/photo-loading.svg';
       } else {
         console.log('⚠️ Unknown photo format:', primaryPhoto);
         this.showToast(`Debug: Unknown photo format: ${primaryPhoto}`, 'warning');
@@ -1684,6 +1674,61 @@ export class ProjectDetailPage implements OnInit {
     return streetViewUrl;
   }
   
+  async loadProjectImageData() {
+    if (!this.project || !this.project['PrimaryPhoto'] || this.imageLoadInProgress) {
+      return;
+    }
+    
+    const primaryPhoto = this.project['PrimaryPhoto'];
+    if (!primaryPhoto.startsWith('/')) {
+      return;
+    }
+    
+    this.imageLoadInProgress = true;
+    
+    try {
+      // Use the same method as Structural Systems - fetch as base64 data URL
+      console.log(`Loading project image from Files API: ${primaryPhoto}`);
+      const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
+      
+      if (imageData && imageData.startsWith('data:')) {
+        // Store the base64 data
+        this.projectImageData = imageData;
+        console.log('✅ Project image loaded successfully');
+        
+        // Trigger change detection to update the view
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('⚠️ Invalid image data received');
+        // Use fallback
+        const address = this.formatAddress();
+        if (address) {
+          const encodedAddress = encodeURIComponent(address);
+          const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+          this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${apiKey}`;
+        } else {
+          this.projectImageData = 'assets/img/project-placeholder.svg';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading project image:', error);
+      // Show user-friendly error
+      await this.showToast('Unable to load project image', 'warning');
+      
+      // Use fallback on error
+      const address = this.formatAddress();
+      if (address) {
+        const encodedAddress = encodeURIComponent(address);
+        const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+        this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${apiKey}`;
+      } else {
+        this.projectImageData = 'assets/img/project-placeholder.svg';
+      }
+    } finally {
+      this.imageLoadInProgress = false;
+    }
+  }
+
   getStreetViewUrl(): string {
     // Keep for backwards compatibility
     return this.getPropertyPhotoUrl();

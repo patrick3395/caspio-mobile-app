@@ -16,7 +16,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.117'; // Update this to match package.json version
+  appVersion = '1.4.118'; // Update this to match package.json version
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -212,19 +212,27 @@ export class ActiveProjectsPage implements OnInit {
     // Check if project has a PrimaryPhoto
     if (project && project['PrimaryPhoto']) {
       const primaryPhoto = project['PrimaryPhoto'];
-      // If PrimaryPhoto starts with '/', it's a Caspio file path
-      if (primaryPhoto.startsWith('/')) {
-        const account = this.caspioService.getAccountID();
-        const token = this.caspioService.getCurrentToken();
-        if (account && token) {
-          // Ensure proper path construction - remove double slashes
-          const cleanPath = primaryPhoto.startsWith('/') ? primaryPhoto : `/${primaryPhoto}`;
-          // Return Caspio file URL with access token
-          return `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
-        }
-      } else if (primaryPhoto.startsWith('http')) {
-        // It's already a full URL
+      
+      // If it's already a data URL or http URL, use it directly
+      if (primaryPhoto.startsWith('data:') || primaryPhoto.startsWith('http')) {
         return primaryPhoto;
+      }
+      
+      // If PrimaryPhoto starts with '/', it's a Caspio file path
+      // We need to fetch it using the Files API and store the result
+      if (primaryPhoto.startsWith('/')) {
+        const projectId = project.PK_ID;
+        
+        // Check if we already have the base64 image cached
+        if (this.projectImageCache && this.projectImageCache[projectId]) {
+          return this.projectImageCache[projectId];
+        }
+        
+        // Start loading the image asynchronously
+        this.loadProjectImage(project);
+        
+        // Return placeholder while loading
+        return 'assets/img/photo-loading.svg';
       }
     }
     
@@ -236,6 +244,59 @@ export class ActiveProjectsPage implements OnInit {
     const encodedAddress = encodeURIComponent(address);
     const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
     return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+  }
+  
+  private projectImageCache: { [projectId: string]: string } = {};
+  
+  async loadProjectImage(project: Project) {
+    const projectId = project.PK_ID;
+    const primaryPhoto = project['PrimaryPhoto'];
+    
+    if (!primaryPhoto || !primaryPhoto.startsWith('/')) {
+      return;
+    }
+    
+    // If already loading or loaded, skip
+    if (this.projectImageCache[projectId]) {
+      return;
+    }
+    
+    try {
+      // Use the same method as Structural Systems - fetch as base64 data URL
+      console.log(`Loading project image from Files API: ${primaryPhoto}`);
+      const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
+      
+      if (imageData && imageData.startsWith('data:')) {
+        // Store in cache
+        this.projectImageCache[projectId] = imageData;
+        
+        // Trigger change detection to update the view
+        // The template will re-evaluate getProjectImage and use the cached value
+        console.log(`✅ Project image loaded for ${projectId}`);
+      } else {
+        console.log('⚠️ Invalid image data for project', projectId);
+        // Use fallback
+        const address = this.formatAddress(project);
+        if (address) {
+          const encodedAddress = encodeURIComponent(address);
+          const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+          this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+        } else {
+          this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading project image:', error);
+      // Use fallback on error
+      const address = this.formatAddress(project);
+      if (address) {
+        const encodedAddress = encodeURIComponent(address);
+        const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
+        this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+      } else {
+        this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
+      }
+    }
   }
 
   formatAddress(project: Project): string {
