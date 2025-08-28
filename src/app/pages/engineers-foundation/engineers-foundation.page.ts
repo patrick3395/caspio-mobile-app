@@ -587,13 +587,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load dropdown options for visual templates from Services_Visuals_Drop table
   async loadVisualDropdownOptions() {
     try {
+      console.log('Loading visual dropdown options from Services_Visuals_Drop...');
       const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+      
+      console.log('Services_Visuals_Drop data received:', dropdownData);
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
         dropdownData.forEach((row: any) => {
-          const templateId = row.TemplateID;
+          const templateId = String(row.TemplateID); // Convert to string for consistency
           const dropdownValue = row.Dropdown;
+          
+          console.log(`Processing dropdown row: TemplateID=${templateId}, Dropdown=${dropdownValue}`);
           
           if (templateId && dropdownValue) {
             if (!this.visualDropdownOptions[templateId]) {
@@ -607,6 +612,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         });
         
         console.log('Visual dropdown options loaded:', this.visualDropdownOptions);
+        console.log('Template IDs with options:', Object.keys(this.visualDropdownOptions));
+      } else {
+        console.log('No dropdown data found in Services_Visuals_Drop');
       }
     } catch (error) {
       console.log('Could not load visual dropdown options:', error);
@@ -1884,7 +1892,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             category: template.Category,
             answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
             required: template.Required || false,
-            templateId: template.PK_ID, // Store for dropdown loading
+            templateId: String(template.PK_ID), // Store as string for dropdown loading consistency
             selectedOptions: [] // For multi-select (AnswerType 2)
           };
           
@@ -2846,6 +2854,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } finally {
       this.savingItems[key] = false;
     }
+  }
+  
+  // Check if an option is selected for a multi-select item
+  isOptionSelected(item: any, option: string): boolean {
+    if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
+      return false;
+    }
+    return item.selectedOptions.includes(option);
+  }
+  
+  // Handle toggling an option in multi-select
+  async onOptionToggle(category: string, item: any, option: string, event: any) {
+    // Initialize selectedOptions if not present
+    if (!item.selectedOptions) {
+      item.selectedOptions = [];
+    }
+    
+    if (event.detail.checked) {
+      // Add option if not already present
+      if (!item.selectedOptions.includes(option)) {
+        item.selectedOptions.push(option);
+      }
+    } else {
+      // Remove option
+      const index = item.selectedOptions.indexOf(option);
+      if (index > -1) {
+        item.selectedOptions.splice(index, 1);
+      }
+    }
+    
+    // Update the text field and save
+    await this.onMultiSelectChange(category, item);
   }
   
   // Save visual selection to Services_Visuals table

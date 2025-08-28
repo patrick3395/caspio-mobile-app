@@ -375,6 +375,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
+                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -391,29 +392,33 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Multi-select questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 2">
-                        <ion-label class="item-label">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.selectedOptions" 
-                          placeholder="Select options"
-                          interface="popover"
-                          multiple="true"
-                          (ionChange)="onMultiSelectChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option *ngFor="let option of visualDropdownOptions[item.templateId]" [value]="option">
-                            {{ option }}
-                          </ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                      <!-- Multi-select questions - show checkboxes for each option -->
+                      <div class="multi-select-container" *ngIf="item.answerType === 2">
+                        <ion-item lines="none" class="checkbox-item">
+                          <ion-label class="item-label">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          </ion-label>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        </ion-item>
+                        <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                            <ion-checkbox 
+                              slot="start"
+                              [checked]="isOptionSelected(item, option)"
+                              (ionChange)="onOptionToggle(category, item, option, $event)"
+                              [disabled]="isItemSaving(category, item.id)">
+                            </ion-checkbox>
+                            <ion-label>{{ option }}</ion-label>
+                          </ion-item>
+                        </div>
+                        <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
+                          <p>No options available for this item</p>
+                        </div>
+                      </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
@@ -433,8 +438,8 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id)">
+                      <!-- Image preview section below the item (only for text questions) -->
+                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -491,6 +496,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
+                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -507,29 +513,33 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Multi-select questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 2">
-                        <ion-label class="item-label">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.selectedOptions" 
-                          placeholder="Select options"
-                          interface="popover"
-                          multiple="true"
-                          (ionChange)="onMultiSelectChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option *ngFor="let option of visualDropdownOptions[item.templateId]" [value]="option">
-                            {{ option }}
-                          </ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                      <!-- Multi-select questions - show checkboxes for each option -->
+                      <div class="multi-select-container" *ngIf="item.answerType === 2">
+                        <ion-item lines="none" class="checkbox-item">
+                          <ion-label class="item-label">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          </ion-label>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        </ion-item>
+                        <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                            <ion-checkbox 
+                              slot="start"
+                              [checked]="isOptionSelected(item, option)"
+                              (ionChange)="onOptionToggle(category, item, option, $event)"
+                              [disabled]="isItemSaving(category, item.id)">
+                            </ion-checkbox>
+                            <ion-label>{{ option }}</ion-label>
+                          </ion-item>
+                        </div>
+                        <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
+                          <p>No options available for this item</p>
+                        </div>
+                      </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
@@ -549,8 +559,8 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id)">
+                      <!-- Image preview section below the item (only for text questions) -->
+                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -607,6 +617,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
+                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -623,29 +634,33 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Multi-select questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 2">
-                        <ion-label class="item-label">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.selectedOptions" 
-                          placeholder="Select options"
-                          interface="popover"
-                          multiple="true"
-                          (ionChange)="onMultiSelectChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option *ngFor="let option of visualDropdownOptions[item.templateId]" [value]="option">
-                            {{ option }}
-                          </ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                      <!-- Multi-select questions - show checkboxes for each option -->
+                      <div class="multi-select-container" *ngIf="item.answerType === 2">
+                        <ion-item lines="none" class="checkbox-item">
+                          <ion-label class="item-label">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          </ion-label>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        </ion-item>
+                        <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                            <ion-checkbox 
+                              slot="start"
+                              [checked]="isOptionSelected(item, option)"
+                              (ionChange)="onOptionToggle(category, item, option, $event)"
+                              [disabled]="isItemSaving(category, item.id)">
+                            </ion-checkbox>
+                            <ion-label>{{ option }}</ion-label>
+                          </ion-item>
+                        </div>
+                        <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
+                          <p>No options available for this item</p>
+                        </div>
+                      </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
@@ -665,8 +680,8 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id)">
+                      <!-- Image preview section below the item (only for text questions) -->
+                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
