@@ -358,7 +358,10 @@
           <div class="subsection-card">
             <div class="subsection-header" (click)="toggleSubsection('general')">
               <span class="subsection-title">General (Service_EFE Data)</span>
-              <span class="completion-badge">{{getGeneralCompletion()}}%</span>
+              <span class="completion-badge" 
+                    [class.complete]="getGeneralCompletion() === 100"
+                    [class.partial]="getGeneralCompletion() > 0 && getGeneralCompletion() < 100"
+                    [class.empty]="getGeneralCompletion() === 0">{{getGeneralCompletion()}}%</span>
               <ion-icon [name]="expandedSubsections['general'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
             </div>
             
@@ -636,7 +639,10 @@
           <div class="subsection-card">
             <div class="subsection-header" (click)="toggleSubsection('foundation')">
               <span class="subsection-title">Foundation</span>
-              <span class="completion-badge">{{sectionProgress['foundation']}}%</span>
+              <span class="completion-badge"
+                    [class.complete]="sectionProgress['foundation'] === 100"
+                    [class.partial]="sectionProgress['foundation'] > 0 && sectionProgress['foundation'] < 100"
+                    [class.empty]="sectionProgress['foundation'] === 0">{{sectionProgress['foundation']}}%</span>
               <ion-icon [name]="expandedSubsections['foundation'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
             </div>
             

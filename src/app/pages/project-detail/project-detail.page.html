@@ -380,7 +380,12 @@
             </div>
             
             <div class="template-status">
-              <span class="template-percentage">{{ getTemplateProgress(service) }}%</span>
+              <span class="template-percentage"
+                    [class.complete]="getTemplateProgress(service) === 100"
+                    [class.high]="getTemplateProgress(service) >= 75 && getTemplateProgress(service) < 100"
+                    [class.medium]="getTemplateProgress(service) >= 50 && getTemplateProgress(service) < 75"
+                    [class.low]="getTemplateProgress(service) > 0 && getTemplateProgress(service) < 50"
+                    [class.empty]="getTemplateProgress(service) === 0">{{ getTemplateProgress(service) }}%</span>
             </div>
           </div>
         </div>
