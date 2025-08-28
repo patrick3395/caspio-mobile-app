@@ -240,7 +240,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.70):
+## 15. CURRENT WORK (December 2024 - v1.4.163):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -251,5 +251,6 @@ ps aux | grep omnara
   - Shows project ID being updated in debug popup
 - **Room Numbering**: Automatic #1, #2 numbering for duplicate room names
 - **Photo Upload**: All uploads use proven method from section 2 above
+- **PDF Viewer TEST Header**: Added red TEST banner to document viewer component (v1.4.163) to verify correct component is being edited for mobile app deployment
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD

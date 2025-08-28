@@ -22,6 +22,9 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       </ion-toolbar>
     </ion-header>
     <ion-content class="document-viewer-content">
+      <div style="background: red; color: white; padding: 10px; text-align: center; font-size: 24px; font-weight: bold;">
+        TEST - PDF VIEWER v1.4.163
+      </div>
       <div class="viewer-container" *ngIf="!isImage">
         <iframe [src]="sanitizedUrl" frameborder="0"></iframe>
       </div>
