@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
+import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 
 interface FileItem {
   FileID: number;
@@ -31,7 +32,8 @@ export class HelpGuidePage implements OnInit {
   error = '';
 
   constructor(
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
@@ -77,7 +79,7 @@ export class HelpGuidePage implements OnInit {
         // Convert map to array of sections
         this.fileSections = Array.from(groupedFiles.entries()).map(([typeId, files]) => ({
           typeId,
-          typeName: typeMap.get(typeId) || `Type ${typeId}`,
+          typeName: typeId === 0 ? 'General' : (typeMap.get(typeId) || `Type ${typeId}`),
           files: files.sort((a, b) => (a.Order || 0) - (b.Order || 0))
         }));
 
@@ -126,11 +128,25 @@ export class HelpGuidePage implements OnInit {
     return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
   }
 
-  openFile(filePath: string) {
-    const url = this.getFileUrl(filePath);
+  async openFile(file: FileItem) {
+    const url = this.getFileUrl(file.FileFile);
     if (url) {
-      window.open(url, '_blank');
+      const modal = await this.modalController.create({
+        component: DocumentViewerComponent,
+        componentProps: {
+          fileUrl: url,
+          fileName: file.Description || this.getFileName(file.FileFile),
+          fileType: this.getFileExtension(file.FileFile)
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      await modal.present();
     }
+  }
+
+  getFileName(filePath: string): string {
+    const parts = filePath.split('/');
+    return parts[parts.length - 1] || 'Document';
   }
 
   async doRefresh(event: any) {

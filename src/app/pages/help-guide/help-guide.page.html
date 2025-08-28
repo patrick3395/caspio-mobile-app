@@ -29,47 +29,50 @@
     <div *ngFor="let section of fileSections" class="file-section">
       <h2 class="section-title">{{ section.typeName }}</h2>
       
-      <ion-card *ngFor="let file of section.files" class="file-card">
-        <ion-card-content>
-          <div class="file-content">
-            <!-- File Preview -->
-            <div class="file-preview">
-              <div *ngIf="isImageFile(file.FileFile)" class="image-preview">
-                <img [src]="getFileUrl(file.FileFile)" 
-                     [alt]="file.Description"
-                     (click)="openFile(file.FileFile)"
-                     loading="lazy">
-              </div>
-              
-              <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview" (click)="openFile(file.FileFile)">
+      <!-- Table Layout -->
+      <div class="files-table">
+        <ion-grid fixed>
+          <ion-row *ngFor="let file of section.files" class="file-row">
+            <!-- Description Column -->
+            <ion-col size="8" size-md="9" class="description-col">
+              <div class="file-description">
                 <ion-icon name="document-text-outline" class="file-icon"></ion-icon>
-                <span class="file-type">PDF</span>
+                <span>{{ file.Description }}</span>
               </div>
-              
-              <div *ngIf="!isImageFile(file.FileFile) && !isPdfFile(file.FileFile)" 
-                   class="generic-preview" 
-                   (click)="openFile(file.FileFile)">
-                <ion-icon name="document-outline" class="file-icon"></ion-icon>
-                <span class="file-type">{{ getFileExtension(file.FileFile) }}</span>
-              </div>
-            </div>
+            </ion-col>
             
-            <!-- File Description -->
-            <div class="file-info">
-              <h3 class="file-description">{{ file.Description }}</h3>
-              <div class="file-actions">
-                <ion-button (click)="openFile(file.FileFile)" 
-                           fill="outline" 
-                           size="small"
-                           color="primary">
-                  <ion-icon slot="start" name="open-outline"></ion-icon>
-                  Open File
-                </ion-button>
+            <!-- Preview Column -->
+            <ion-col size="4" size-md="3" class="preview-col">
+              <div class="preview-container" (click)="openFile(file)">
+                <!-- Image Preview -->
+                <div *ngIf="isImageFile(file.FileFile)" class="image-preview">
+                  <img [src]="getFileUrl(file.FileFile)" 
+                       [alt]="file.Description"
+                       loading="lazy">
+                </div>
+                
+                <!-- PDF Preview -->
+                <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview">
+                  <ion-icon name="document-text" class="preview-icon"></ion-icon>
+                  <span class="file-type">PDF</span>
+                </div>
+                
+                <!-- Generic File Preview -->
+                <div *ngIf="!isImageFile(file.FileFile) && !isPdfFile(file.FileFile)" 
+                     class="generic-preview">
+                  <ion-icon name="document" class="preview-icon"></ion-icon>
+                  <span class="file-type">{{ getFileExtension(file.FileFile) }}</span>
+                </div>
+                
+                <div class="preview-overlay">
+                  <ion-icon name="eye-outline"></ion-icon>
+                  <span>View</span>
+                </div>
               </div>
-            </div>
-          </div>
-        </ion-card-content>
-      </ion-card>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </div>
     </div>
 
     <!-- Empty State -->
