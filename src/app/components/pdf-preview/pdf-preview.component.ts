@@ -917,64 +917,50 @@ export class PdfPreviewComponent implements OnInit {
     
     let yPos = 50;
     const maxY = pageHeight - 30;
-    let roomIndex = 1;
     
-    // Professional Summary Header
-    pdf.setFillColor(44, 62, 80);
-    pdf.rect(margin, yPos, contentWidth, 30, 'F');
-    
-    // Summary statistics in header
-    pdf.setFont('helvetica', 'bold');
+    // Add description
+    pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(11);
-    pdf.setTextColor(255, 255, 255);
+    pdf.setTextColor(73, 80, 87);
+    pdf.text('Foundation elevation measurements and observations', margin, yPos);
+    yPos += 15;
     
-    const totalPoints = this.elevationData.reduce((sum, room) => 
-      sum + (room.points?.length || 0), 0);
+    // Divider line
+    pdf.setDrawColor(241, 90, 39);
+    pdf.setLineWidth(2);
+    pdf.line(margin, yPos, margin + contentWidth, yPos);
+    yPos += 15;
+    
+    // Summary statistics with icons
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(51, 51, 51);
+    
+    // Building icon placeholder
+    pdf.text(`🏢`, margin, yPos);
+    pdf.text(`${this.elevationData.length}`, margin + 12, yPos);
+    pdf.text(`Rooms Evaluated`, margin + 20, yPos);
+    yPos += 8;
+    
+    // Chart icon placeholder  
+    pdf.text(`📊`, margin, yPos);
+    const totalPoints = this.elevationData.reduce((sum, room) => sum + (room.points?.length || 0), 0);
+    pdf.text(`${totalPoints}`, margin + 12, yPos);
+    pdf.text(`Measurements Taken`, margin + 20, yPos);
+    yPos += 8;
+    
+    // Camera icon placeholder
+    pdf.text(`📷`, margin, yPos);
     const totalPhotos = this.getTotalElevationPhotos();
+    pdf.text(`${totalPhotos}`, margin + 12, yPos);
+    pdf.text(`Photos Documented`, margin + 20, yPos);
+    yPos += 15;
     
-    const stats = [
-      { label: 'ROOMS', value: this.elevationData.length },
-      { label: 'MEASUREMENT POINTS', value: totalPoints },
-      { label: 'PHOTOS DOCUMENTED', value: totalPhotos }
-    ];
-    
-    const statWidth = contentWidth / 3;
-    stats.forEach((stat, index) => {
-      const xCenter = margin + (index * statWidth) + (statWidth / 2);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.text(stat.label, xCenter, yPos + 10, { align: 'center' });
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text(stat.value.toString(), xCenter, yPos + 20, { align: 'center' });
-    });
-    
-    yPos += 40;
-    
-    // Process each room as a complete boxed unit
+    // Process each room with clean card layout like Structural Systems
+    let roomNumber = 1;
     for (const room of this.elevationData) {
-      // Calculate room box height based on content (pre-calculate for accurate box drawing)
-      let estimatedHeight = 20; // Header
-      if (room.fdf && room.fdf !== 'None') estimatedHeight += 25; // FDF section
-      if (room.notes) {
-        const noteLines = pdf.splitTextToSize(room.notes, contentWidth - 30);
-        estimatedHeight += noteLines.length * 5 + 15;
-      }
-      if (room.points?.length > 0) {
-        estimatedHeight += 15; // Measurement points header
-        estimatedHeight += 25; // Table header
-        estimatedHeight += room.points.length * 10; // Table rows
-        estimatedHeight += 5; // Table bottom padding
-      }
-      // Add space for photos if present
-      const pointsWithPhotos = room.points?.filter((p: any) => p.photos?.length > 0) || [];
-      if (pointsWithPhotos.length > 0) {
-        estimatedHeight += 100; // Photo section
-      }
-      estimatedHeight += 10; // Bottom padding
-      
-      // Check if we need a new page for the entire room
-      if (yPos + estimatedHeight > maxY) {
+      // Check if we need a new page
+      if (yPos > maxY - 80) {
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
@@ -982,255 +968,148 @@ export class PdfPreviewComponent implements OnInit {
         yPos = 50;
       }
       
-      // Store the starting position for the box
-      const roomBoxStart = yPos;
-      const roomContentStart = yPos + 18; // After header
-      
-      // First, draw the white background for the entire room box
-      pdf.setFillColor(255, 255, 255);
-      pdf.rect(margin, roomBoxStart, contentWidth, estimatedHeight, 'F');
-      
-      // Then draw the header bar on top
-      pdf.setFillColor(241, 90, 39);
-      pdf.rect(margin, yPos, contentWidth, 18, 'F');
-      
-      // Room number circle with border
-      pdf.setFillColor(255, 255, 255);
-      pdf.circle(margin + 10, yPos + 9, 5, 'F');
-      pdf.setDrawColor(255, 255, 255);
-      pdf.setLineWidth(0.5);
-      pdf.circle(margin + 10, yPos + 9, 5, 'S');
-      
-      pdf.setFillColor(241, 90, 39);
-      pdf.setTextColor(241, 90, 39);
-      pdf.setFont('helvetica', 'bold');
+      // Room number indicator
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.text(roomIndex.toString(), margin + 10, yPos + 11, { align: 'center' });
+      pdf.setTextColor(102, 102, 102);
+      pdf.text(`#${roomNumber}`, margin, yPos);
+      yPos += 8;
       
-      // Room name in header
-      pdf.setTextColor(255, 255, 255);
+      // Room name as main title (larger, bold)
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text(room.name.toUpperCase(), margin + 25, yPos + 11);
+      pdf.setFontSize(16);
+      pdf.setTextColor(51, 51, 51);
+      pdf.text(room.name, margin, yPos);
+      yPos += 10;
       
-      // Point count indicator on the right
-      if (room.points?.length > 0) {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-        pdf.text(`${room.points.length} POINTS`, margin + contentWidth - 30, yPos + 11, { align: 'right' });
-      }
+      // Room metadata
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(102, 102, 102);
+      pdf.text(`${room.points?.length || 0} points`, margin, yPos);
+      yPos += 8;
       
-      yPos += 23;
-      roomIndex++;
       
-      // White content area inside the box
-      const contentStart = yPos;
-      
-      // FDF Input Data Section
+      // FDF value if present
       if (room.fdf && room.fdf !== 'None') {
-        pdf.setFillColor(248, 249, 250);
-        pdf.rect(margin + 10, yPos, contentWidth - 20, 18, 'F');
-        pdf.setDrawColor(233, 236, 239);
-        pdf.setLineWidth(0.3);
-        pdf.rect(margin + 10, yPos, contentWidth - 20, 18, 'S');
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.setTextColor(102, 102, 102);
-        pdf.text('FLOOR DIFFERENTIAL FACTOR:', margin + 15, yPos + 7);
-        
-        // FDF value in a badge
-        pdf.setFillColor(76, 175, 80);
-        const fdfValueWidth = pdf.getTextWidth(room.fdf) + 12;
-        pdf.roundedRect(margin + 95, yPos + 4, fdfValueWidth, 10, 2, 2, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.setTextColor(255, 255, 255);
-        pdf.text(room.fdf, margin + 101, yPos + 9);
-        
-        yPos += 23;
-      }
-      
-      // Notes Section (if present)
-      if (room.notes) {
-        pdf.setDrawColor(233, 236, 239);
-        pdf.setLineWidth(0.3);
-        pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
-        yPos += 5;
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.setTextColor(102, 102, 102);
-        pdf.text('NOTES:', margin + 15, yPos + 3);
-        
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(73, 80, 87);
-        const notes = pdf.splitTextToSize(room.notes, contentWidth - 30);
-        pdf.text(notes, margin + 15, yPos + 8);
-        yPos += notes.length * 5 + 10;
+        pdf.setFontSize(10);
+        pdf.setTextColor(102, 102, 102);
+        pdf.text('Floor Differential Factor: ', margin, yPos);
+        pdf.setTextColor(76, 175, 80);
+        pdf.text(room.fdf, margin + 65, yPos);
+        yPos += 8;
       }
       
-      // Points/Measurements Section
+      // Display measurement points
       if (room.points && room.points.length > 0) {
-        // Divider line
-        pdf.setDrawColor(233, 236, 239);
-        pdf.setLineWidth(0.3);
-        pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
-        yPos += 5;
-        
-        // Section label
-        pdf.setFillColor(248, 249, 250);
-        pdf.rect(margin + 10, yPos, contentWidth - 20, 10, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.setTextColor(44, 62, 80);
-        pdf.text('MEASUREMENT POINTS', margin + 15, yPos + 6);
-        yPos += 15;
-        
-        // Create cleaner table for points
-        const tableData = room.points.map((point: any) => {
-          const photoCount = point.photos ? point.photos.length : 0;
-          const value = point.value ? `${point.value}"` : '--';
-          const photos = photoCount > 0 ? `${photoCount}` : '--';
-          return [point.name, value, photos];
-        });
-        
-        (pdf as any).autoTable({
-          startY: yPos,
-          head: [['Point Location', 'Elevation', 'Photos']],
-          body: tableData,
-          theme: 'plain',
-          headStyles: {
-            fillColor: [44, 62, 80],
-            textColor: 255,
-            fontSize: 9,
-            fontStyle: 'bold',
-            halign: 'center',
-            cellPadding: 3
-          },
-          styles: {
-            fontSize: 9,
-            cellPadding: 3,
-            lineColor: [233, 236, 239],
-            lineWidth: 0.5
-          },
-          columnStyles: {
-            0: { cellWidth: 65, halign: 'left' },
-            1: { cellWidth: 35, halign: 'center', fontStyle: 'bold', textColor: [241, 90, 39] },
-            2: { cellWidth: 30, halign: 'center' }
-          },
-          alternateRowStyles: {
-            fillColor: [250, 251, 252]
-          },
-          margin: { left: margin + 10, right: margin + 10 },
-          tableWidth: contentWidth - 20
-        });
-        
-        yPos = (pdf as any).lastAutoTable.finalY + 10;
-        
-        // Photos Section - Combined for all points with photos
-        const pointsWithPhotos = room.points.filter((p: any) => p.photos?.length > 0);
-        if (pointsWithPhotos.length > 0) {
-          // Divider line before photos
-          pdf.setDrawColor(233, 236, 239);
-          pdf.setLineWidth(0.3);
-          pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
-          yPos += 5;
+        // Create a simple list of measurements
+        for (const point of room.points) {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(9);
+          pdf.setTextColor(102, 102, 102);
+          const value = point.value ? `${point.value}"` : 'N/A';
+          pdf.text(`${point.name}: `, margin + 5, yPos);
+          pdf.setTextColor(51, 51, 51);
+          pdf.text(value, margin + 50, yPos);
           
-          // Photos section header
-          pdf.setFillColor(248, 249, 250);
-          pdf.rect(margin + 10, yPos, contentWidth - 20, 10, 'F');
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(10);
-          pdf.setTextColor(44, 62, 80);
-          pdf.text('PHOTO DOCUMENTATION', margin + 15, yPos + 6);
-          yPos += 15;
-            
-          // Display photos in a professional grid
-          const photoWidth = 40;
-          const photoHeight = 30;
-          const photosPerRow = 3;
-          const photoGap = 10;
-          let photoCount = 0;
-          const maxPhotosToShow = 6; // Limit total photos shown per room
-          
-          for (const point of pointsWithPhotos) {
-            if (photoCount >= maxPhotosToShow) break;
-            
-            for (const photo of point.photos.slice(0, Math.min(2, maxPhotosToShow - photoCount))) {
-              const col = photoCount % photosPerRow;
-              const xPos = margin + 15 + (col * (photoWidth + photoGap));
-              
-              if (col === 0 && photoCount > 0) {
-                yPos += photoHeight + 12;
-              }
-              
-              try {
-                const imgUrl = this.getPhotoUrl(photo);
-                const imgData = await this.loadImage(imgUrl);
-                if (imgData) {
-                  // Photo with border
-                  pdf.setDrawColor(233, 236, 239);
-                  pdf.setLineWidth(0.5);
-                  pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-                  pdf.addImage(imgData, 'JPEG', xPos + 1, yPos + 1, photoWidth - 2, photoHeight - 2);
-                  
-                  // Point label under photo
-                  pdf.setFont('helvetica', 'normal');
-                  pdf.setFontSize(7);
-                  pdf.setTextColor(102, 102, 102);
-                  const label = point.name.substring(0, 15) + (point.name.length > 15 ? '...' : '');
-                  pdf.text(label, xPos + (photoWidth / 2), yPos + photoHeight + 3, { align: 'center' });
-                  
-                  // Annotation if available
-                  if (photo.annotation) {
-                    pdf.setFont('helvetica', 'italic');
-                    pdf.setFontSize(6);
-                    const annotation = photo.annotation.substring(0, 18) + (photo.annotation.length > 18 ? '...' : '');
-                    pdf.text(annotation, xPos + (photoWidth / 2), yPos + photoHeight + 7, { align: 'center' });
-                  }
-                }
-              } catch (error) {
-                // Placeholder for missing photo
-                pdf.setFillColor(248, 249, 250);
-                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
-                pdf.setDrawColor(233, 236, 239);
-                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-                pdf.setTextColor(180, 180, 180);
-                pdf.setFont('helvetica', 'italic');
-                pdf.setFontSize(8);
-                pdf.text('Image not available', xPos + (photoWidth / 2), yPos + (photoHeight / 2), { align: 'center' });
-              }
-              
-              photoCount++;
-            }
+          // Add photo count if present
+          if (point.photos && point.photos.length > 0) {
+            pdf.setTextColor(102, 102, 102);
+            pdf.text(`📷 ${point.photos.length}`, margin + 80, yPos);
           }
-          
-          if (photoCount > 0) {
-            yPos += photoHeight + 15;
-          }
+          yPos += 6;
         }
       }
       
-      // Add bottom padding inside the box
-      yPos += 10;
+      // Notes if present
+      if (room.notes) {
+        yPos += 3;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(102, 102, 102);
+        const noteLines = pdf.splitTextToSize(room.notes, contentWidth - 10);
+        pdf.text(noteLines, margin + 5, yPos);
+        yPos += noteLines.length * 5;
+      }
       
-      // Calculate actual room box end position
-      const actualRoomHeight = yPos - roomBoxStart;
+      // Display photos if any points have them
+      const pointsWithPhotos = room.points?.filter((p: any) => p.photos?.length > 0) || [];
+      if (pointsWithPhotos.length > 0) {
+        yPos += 10;
+        
+        // Display photos in the same style as Structural Systems
+        const photoWidth = 60;
+        const photoHeight = 45;
+        const photosPerRow = 3;
+        const spacing = (contentWidth - (photosPerRow * photoWidth)) / (photosPerRow - 1);
+        let photoIndex = 0;
+        
+        for (const point of pointsWithPhotos) {
+          for (const photo of point.photos) {
+            if (photoIndex >= 6) break; // Limit photos per room
+            
+            const col = photoIndex % photosPerRow;
+            const xPos = margin + (col * (photoWidth + spacing));
+            
+            if (col === 0 && photoIndex > 0) {
+              yPos += photoHeight + 12;
+              
+              // Check for page break
+              if (yPos > maxY - photoHeight) {
+                pdf.addPage();
+                pageNum++;
+                this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
+                this.addPageFooter(pdf, pageNum);
+                yPos = 50;
+              }
+            }
+            
+            try {
+              const imgUrl = this.getPhotoUrl(photo);
+              const imgData = await this.loadImage(imgUrl);
+              
+              if (imgData) {
+                // Add the annotated arrow if present
+                if (photo.annotation) {
+                  // Draw red arrow overlay (simulated)
+                  pdf.setDrawColor(255, 0, 0);
+                  pdf.setLineWidth(2);
+                  // This would need actual annotation coordinates
+                }
+                
+                // Add the image
+                pdf.addImage(imgData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+                
+                // Add border
+                pdf.setDrawColor(180, 180, 180);
+                pdf.setLineWidth(0.5);
+                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+              }
+            } catch (error) {
+              // Placeholder
+              pdf.setFillColor(240, 240, 240);
+              pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
+              pdf.setDrawColor(180, 180, 180);
+              pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+              pdf.setFont('helvetica', 'italic');
+              pdf.setFontSize(9);
+              pdf.setTextColor(150, 150, 150);
+              pdf.text('Image not available', xPos + photoWidth/2, yPos + photoHeight/2, { align: 'center' });
+            }
+            
+            photoIndex++;
+          }
+        }
+        
+        if (photoIndex > 0) {
+          yPos += photoHeight + 5;
+        }
+      }
       
-      // Draw the main room box border
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(1);
-      pdf.rect(margin, roomBoxStart, contentWidth, actualRoomHeight, 'S');
-      
-      // Add shadow effect
-      pdf.setDrawColor(240, 240, 240);
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPos + 1, margin + contentWidth, yPos + 1);
-      pdf.line(margin + contentWidth + 1, roomBoxStart, margin + contentWidth + 1, yPos + 1);
-      
-      // Spacing between room boxes
-      yPos += 15;
+      // Add spacing between rooms
+      yPos += 20;
+      roomNumber++;
     }
     
     return pageNum;
