@@ -183,6 +183,25 @@ export class PdfPreviewComponent implements OnInit {
     return this.structuralData?.length ? 6 + Math.ceil(this.structuralData.length / 2) : 6;
   }
 
+  getTotalMeasurements(): number {
+    if (!this.elevationData) return 0;
+    return this.elevationData.reduce((total, room) => {
+      const pointCount = room.points ? room.points.filter((p: any) => p.value).length : 0;
+      return total + pointCount;
+    }, 0);
+  }
+
+  getTotalElevationPhotos(): number {
+    if (!this.elevationData) return 0;
+    return this.elevationData.reduce((total, room) => {
+      const roomPhotos = room.photos ? room.photos.length : 0;
+      const pointPhotos = room.points ? room.points.reduce((sum: number, point: any) => {
+        return sum + (point.photoCount || 0);
+      }, 0) : 0;
+      return total + roomPhotos + pointPhotos;
+    }, 0);
+  }
+
   async generatePDF() {
     const loading = await this.loadingController.create({
       message: 'Generating comprehensive PDF report...',

@@ -335,65 +335,124 @@
       </div>
     </div>
     
-    <!-- Elevation Plot Page -->
-    <div class="pdf-page content-page" *ngIf="elevationData && elevationData.length > 0">
+    <!-- Elevation Plot Pages -->
+    <div class="pdf-page content-page elevation-plot-page" *ngIf="elevationData && elevationData.length > 0">
       <div class="page-header">
         <h2>ELEVATION PLOT DATA</h2>
         <div class="header-line"></div>
+        <p class="section-subtitle">Foundation elevation measurements and observations</p>
       </div>
       
       <div class="page-content">
-        <div class="room-section" *ngFor="let room of elevationData">
-          <div class="room-header">
-            <h3>{{ room.name }}</h3>
-          </div>
-          
-          <div class="room-details">
-            <div class="room-info" *ngIf="room.fdf && room.fdf !== 'None'">
-              <strong>FDF:</strong> {{ room.fdf }}
+        <div class="elevation-summary" *ngIf="elevationData.length > 0">
+          <div class="summary-stats">
+            <div class="stat">
+              <span class="stat-label">Total Rooms:</span>
+              <span class="stat-value">{{ elevationData.length }}</span>
             </div>
-            <div class="room-info" *ngIf="room.notes">
-              <strong>Notes:</strong> {{ room.notes }}
+            <div class="stat">
+              <span class="stat-label">Total Measurements:</span>
+              <span class="stat-value">{{ getTotalMeasurements() }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Photos Documented:</span>
+              <span class="stat-value">{{ getTotalElevationPhotos() }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="room-elevation-section" *ngFor="let room of elevationData; let i = index">
+          <div class="room-elevation-header">
+            <div class="room-number">Room {{ i + 1 }}</div>
+            <h3 class="room-name">{{ room.name }}</h3>
+            <div class="room-badge" *ngIf="room.fdf && room.fdf !== 'None'">
+              FDF: {{ room.fdf }}
             </div>
           </div>
           
-          <div class="elevation-table" *ngIf="room.points && room.points.length > 0">
-            <table>
-              <thead>
-                <tr>
-                  <th>Point</th>
-                  <th>Measurement</th>
-                  <th>Photos</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let point of room.points">
-                  <td>{{ point.name }}</td>
-                  <td>{{ point.value ? point.value + '"' : 'N/A' }}</td>
-                  <td>
-                    <span class="photo-count" *ngIf="point.photoCount > 0">
-                      <ion-icon name="camera"></ion-icon> {{ point.photoCount }}
-                    </span>
-                    <span *ngIf="!point.photoCount || point.photoCount === 0">-</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Room Notes Section -->
+          <div class="room-notes-section" *ngIf="room.notes">
+            <div class="notes-label">
+              <ion-icon name="document-text-outline"></ion-icon>
+              Room Notes
+            </div>
+            <div class="notes-content">{{ room.notes }}</div>
           </div>
           
-          <div class="room-photos" *ngIf="room.photos && room.photos.length > 0">
-            <h4>Room Photos:</h4>
-            <div class="photo-grid">
-              <div class="photo-item" *ngFor="let photo of room.photos">
-                <img 
-                  [src]="getPhotoUrl(photo)" 
-                  [alt]="photo.caption || 'Room Photo'"
-                  (error)="handleImageError($event)"
-                  (load)="handleImageLoad($event)"
-                  class="loading" />
-                <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
+          <!-- Elevation Measurements Section -->
+          <div class="measurements-section" *ngIf="room.points && room.points.length > 0">
+            <h4 class="measurements-title">
+              <ion-icon name="analytics-outline"></ion-icon>
+              Elevation Measurements
+            </h4>
+            
+            <div class="measurements-grid">
+              <div class="measurement-card" *ngFor="let point of room.points">
+                <div class="measurement-header">
+                  <span class="point-name">{{ point.name }}</span>
+                  <span class="point-value" [class.has-value]="point.value">
+                    {{ point.value ? point.value + '"' : '--' }}
+                  </span>
+                </div>
+                
+                <!-- Point-specific photos if available -->
+                <div class="point-photos" *ngIf="point.photos && point.photos.length > 0">
+                  <div class="point-photo-grid">
+                    <div class="point-photo-item" *ngFor="let photo of point.photos">
+                      <img 
+                        [src]="getPhotoUrl(photo)" 
+                        [alt]="'Photo for ' + point.name"
+                        (error)="handleImageError($event)"
+                        (load)="handleImageLoad($event)"
+                        class="loading" />
+                      <p class="point-photo-caption" *ngIf="photo.caption">
+                        {{ photo.caption }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Photo indicator if photos exist but aren't displayed inline -->
+                <div class="photo-indicator" *ngIf="!point.photos && point.photoCount > 0">
+                  <ion-icon name="camera"></ion-icon>
+                  <span>{{ point.photoCount }} photo{{ point.photoCount > 1 ? 's' : '' }}</span>
+                </div>
               </div>
             </div>
+          </div>
+          
+          <!-- Room Photos Section -->
+          <div class="room-photos-section" *ngIf="room.photos && room.photos.length > 0">
+            <h4 class="photos-title">
+              <ion-icon name="images-outline"></ion-icon>
+              Room Documentation Photos
+            </h4>
+            <div class="room-photo-grid">
+              <div class="room-photo-item" *ngFor="let photo of room.photos">
+                <div class="photo-wrapper">
+                  <img 
+                    [src]="getPhotoUrl(photo)" 
+                    [alt]="photo.caption || 'Room Photo'"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <div class="photo-info" *ngIf="photo.pointName || photo.caption">
+                    <span class="photo-point" *ngIf="photo.pointName">
+                      {{ photo.pointName }}{{ photo.pointValue ? ': ' + photo.pointValue + '"' : '' }}
+                    </span>
+                    <span class="photo-annotation" *ngIf="photo.caption">
+                      {{ photo.caption }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- No data message -->
+          <div class="no-data-message" *ngIf="(!room.points || room.points.length === 0) && (!room.photos || room.photos.length === 0)">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>No elevation data recorded for this room</span>
           </div>
         </div>
       </div>
