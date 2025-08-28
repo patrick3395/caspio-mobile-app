@@ -918,46 +918,24 @@ export class PdfPreviewComponent implements OnInit {
     let yPos = 50;
     const maxY = pageHeight - 30;
     
-    // Add description
+    // ============ TEST HEADER - REMOVE THIS ============
+    pdf.setFillColor(255, 0, 0);
+    pdf.rect(margin, yPos, contentWidth, 20, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('TEST - ELEVATION PLOT SECTION UPDATED', margin + contentWidth/2, yPos + 12, { align: 'center' });
+    yPos += 30;
+    // ============ END TEST HEADER ============
+    
+    // Add description exactly like Structural Systems
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(11);
     pdf.setTextColor(73, 80, 87);
     pdf.text('Foundation elevation measurements and observations', margin, yPos);
-    yPos += 15;
+    yPos += 20;
     
-    // Divider line
-    pdf.setDrawColor(241, 90, 39);
-    pdf.setLineWidth(2);
-    pdf.line(margin, yPos, margin + contentWidth, yPos);
-    yPos += 15;
-    
-    // Summary statistics with icons
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(51, 51, 51);
-    
-    // Building icon placeholder
-    pdf.text(`🏢`, margin, yPos);
-    pdf.text(`${this.elevationData.length}`, margin + 12, yPos);
-    pdf.text(`Rooms Evaluated`, margin + 20, yPos);
-    yPos += 8;
-    
-    // Chart icon placeholder  
-    pdf.text(`📊`, margin, yPos);
-    const totalPoints = this.elevationData.reduce((sum, room) => sum + (room.points?.length || 0), 0);
-    pdf.text(`${totalPoints}`, margin + 12, yPos);
-    pdf.text(`Measurements Taken`, margin + 20, yPos);
-    yPos += 8;
-    
-    // Camera icon placeholder
-    pdf.text(`📷`, margin, yPos);
-    const totalPhotos = this.getTotalElevationPhotos();
-    pdf.text(`${totalPhotos}`, margin + 12, yPos);
-    pdf.text(`Photos Documented`, margin + 20, yPos);
-    yPos += 15;
-    
-    // Process each room with clean card layout like Structural Systems
-    let roomNumber = 1;
+    // Process each room exactly like Structural Systems items
     for (const room of this.elevationData) {
       // Check if we need a new page
       if (yPos > maxY - 80) {
@@ -968,77 +946,58 @@ export class PdfPreviewComponent implements OnInit {
         yPos = 50;
       }
       
-      // Room number indicator
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(102, 102, 102);
-      pdf.text(`#${roomNumber}`, margin, yPos);
-      yPos += 8;
-      
-      // Room name as main title (larger, bold)
+      // Room card with gray background header - EXACTLY like Structural Systems
+      pdf.setFillColor(248, 249, 250);
+      pdf.rect(margin - 2, yPos - 5, contentWidth + 4, 8, 'F');
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
+      pdf.setFontSize(11);
       pdf.setTextColor(51, 51, 51);
-      pdf.text(room.name, margin, yPos);
-      yPos += 10;
-      
-      // Room metadata
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(102, 102, 102);
-      pdf.text(`${room.points?.length || 0} points`, margin, yPos);
+      pdf.text(`${room.name}`, margin + 2, yPos);
       yPos += 8;
       
       
-      // FDF value if present
+      // Build description text combining all room data
+      let descriptionText = '';
+      
+      // Add FDF if present
       if (room.fdf && room.fdf !== 'None') {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(102, 102, 102);
-        pdf.text('Floor Differential Factor: ', margin, yPos);
-        pdf.setTextColor(76, 175, 80);
-        pdf.text(room.fdf, margin + 65, yPos);
-        yPos += 8;
+        descriptionText += `Floor Differential Factor: ${room.fdf}\n`;
       }
       
-      // Display measurement points
+      // Add measurement points summary
       if (room.points && room.points.length > 0) {
-        // Create a simple list of measurements
+        descriptionText += `Elevation measurements taken at ${room.points.length} points:\n`;
         for (const point of room.points) {
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(9);
-          pdf.setTextColor(102, 102, 102);
           const value = point.value ? `${point.value}"` : 'N/A';
-          pdf.text(`${point.name}: `, margin + 5, yPos);
-          pdf.setTextColor(51, 51, 51);
-          pdf.text(value, margin + 50, yPos);
-          
-          // Add photo count if present
+          descriptionText += `  • ${point.name}: ${value}`;
           if (point.photos && point.photos.length > 0) {
-            pdf.setTextColor(102, 102, 102);
-            pdf.text(`📷 ${point.photos.length}`, margin + 80, yPos);
+            descriptionText += ` (${point.photos.length} photos)`;
           }
-          yPos += 6;
+          descriptionText += '\n';
         }
       }
       
-      // Notes if present
+      // Add notes if present
       if (room.notes) {
-        yPos += 3;
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(102, 102, 102);
-        const noteLines = pdf.splitTextToSize(room.notes, contentWidth - 10);
-        pdf.text(noteLines, margin + 5, yPos);
-        yPos += noteLines.length * 5;
+        descriptionText += `\nNotes: ${room.notes}`;
       }
       
-      // Display photos if any points have them
+      // Display the description text with proper formatting - EXACTLY like Structural Systems
+      if (descriptionText) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(73, 80, 87);
+        const lines = pdf.splitTextToSize(descriptionText.trim(), contentWidth - 10);
+        pdf.text(lines, margin + 5, yPos);
+        yPos += lines.length * 4 + 4;
+      }
+      
+      // Enhanced photo display - EXACTLY like Structural Systems
       const pointsWithPhotos = room.points?.filter((p: any) => p.photos?.length > 0) || [];
       if (pointsWithPhotos.length > 0) {
-        yPos += 10;
+        yPos += 3;
         
-        // Display photos in the same style as Structural Systems
+        // Larger, clearer photos for professional look - MATCHING Structural Systems
         const photoWidth = 60;
         const photoHeight = 45;
         const photosPerRow = 3;
@@ -1046,9 +1005,8 @@ export class PdfPreviewComponent implements OnInit {
         let photoIndex = 0;
         
         for (const point of pointsWithPhotos) {
-          for (const photo of point.photos) {
-            if (photoIndex >= 6) break; // Limit photos per room
-            
+          for (let i = 0; i < point.photos.length && photoIndex < 6; i++) {
+            const photo = point.photos[i];
             const col = photoIndex % photosPerRow;
             const xPos = margin + (col * (photoWidth + spacing));
             
@@ -1067,16 +1025,13 @@ export class PdfPreviewComponent implements OnInit {
             
             try {
               const imgUrl = this.getPhotoUrl(photo);
+              console.log(`Loading photo ${photoIndex + 1} for ${room.name}`);
               const imgData = await this.loadImage(imgUrl);
               
               if (imgData) {
-                // Add the annotated arrow if present
-                if (photo.annotation) {
-                  // Draw red arrow overlay (simulated)
-                  pdf.setDrawColor(255, 0, 0);
-                  pdf.setLineWidth(2);
-                  // This would need actual annotation coordinates
-                }
+                // Add shadow effect
+                pdf.setFillColor(200, 200, 200);
+                pdf.rect(xPos + 1, yPos + 1, photoWidth, photoHeight, 'F');
                 
                 // Add the image
                 pdf.addImage(imgData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
@@ -1085,17 +1040,37 @@ export class PdfPreviewComponent implements OnInit {
                 pdf.setDrawColor(180, 180, 180);
                 pdf.setLineWidth(0.5);
                 pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+                
+                // Add photo caption bar at bottom - like Structural Systems
+                if (photo.caption || point.name) {
+                  pdf.setFillColor(0, 0, 0, 0.7);
+                  pdf.rect(xPos, yPos + photoHeight - 8, photoWidth, 8, 'F');
+                  pdf.setFont('helvetica', 'normal');
+                  pdf.setFontSize(8);
+                  pdf.setTextColor(255, 255, 255);
+                  const caption = photo.caption ? 
+                    `Photo ${photoIndex + 1}: ${photo.caption.substring(0, 25)}${photo.caption.length > 25 ? '...' : ''}` :
+                    `Photo ${photoIndex + 1}: ${point.name}`;
+                  pdf.text(caption, xPos + 2, yPos + photoHeight - 2);
+                }
+              } else {
+                // Show placeholder for missing images
+                pdf.setFillColor(240, 240, 240);
+                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
+                pdf.setDrawColor(180, 180, 180);
+                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
+                pdf.setFont('helvetica', 'italic');
+                pdf.setFontSize(9);
+                pdf.setTextColor(150, 150, 150);
+                pdf.text('Image not available', xPos + photoWidth/2, yPos + photoHeight/2, { align: 'center' });
               }
             } catch (error) {
-              // Placeholder
+              console.error('Error loading photo:', error);
+              // Add placeholder
               pdf.setFillColor(240, 240, 240);
               pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
               pdf.setDrawColor(180, 180, 180);
               pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-              pdf.setFont('helvetica', 'italic');
-              pdf.setFontSize(9);
-              pdf.setTextColor(150, 150, 150);
-              pdf.text('Image not available', xPos + photoWidth/2, yPos + photoHeight/2, { align: 'center' });
             }
             
             photoIndex++;
@@ -1103,13 +1078,17 @@ export class PdfPreviewComponent implements OnInit {
         }
         
         if (photoIndex > 0) {
-          yPos += photoHeight + 5;
+          yPos += photoHeight + 15;
         }
       }
       
+      // Add separator line between items - like Structural Systems
+      pdf.setDrawColor(220, 220, 220);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, yPos - 5, margin + contentWidth, yPos - 5);
+      
       // Add spacing between rooms
-      yPos += 20;
-      roomNumber++;
+      yPos += 10;
     }
     
     return pageNum;
