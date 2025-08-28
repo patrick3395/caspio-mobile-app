@@ -154,13 +154,19 @@ export class PdfPreviewComponent implements OnInit {
       type: typeof photoPath 
     });
     
-    // Already a full URL
+    // Data URL (base64)
+    if (typeof photoPath === 'string' && photoPath.startsWith('data:')) {
+      console.log('Using base64 data URL');
+      return photoPath;
+    }
+    
+    // Already a full URL or blob URL
     if (typeof photoPath === 'string' && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
       console.log('Using full URL:', photoPath);
       return photoPath;
     }
     
-    // Caspio file path
+    // Caspio file path (shouldn't happen anymore since we convert to base64, but keep as fallback)
     if (typeof photoPath === 'string' && photoPath.startsWith('/')) {
       const account = this.caspioService.getAccountID();
       const token = this.caspioService.getCurrentToken() || '';

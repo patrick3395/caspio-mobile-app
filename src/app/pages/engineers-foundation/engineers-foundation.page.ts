@@ -5083,29 +5083,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async getVisualPhotos(visualId: string) {
     // Get photos for a specific visual from Services_Visuals_Attach
     const photos = this.visualPhotos[visualId] || [];
-    const account = this.caspioService.getAccountID();
-    const token = this.caspioService.getCurrentToken() || '';
     
     console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
     
-    return photos.map((photo: any) => {
+    // Convert all photos to base64 for PDF compatibility
+    const processedPhotos = [];
+    
+    for (const photo of photos) {
       let photoUrl = photo.Photo || photo.url || '';
+      let finalUrl = photoUrl;
       
-      // If it's a Caspio file path (starts with /), convert to full URL
+      // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
-        photoUrl = `https://${account}.caspio.com/rest/v2/files${photoUrl}?access_token=${token}`;
-        console.log(`Converted Caspio path to URL: ${photoUrl}`);
-      } else if (photoUrl && photoUrl.startsWith('blob:')) {
-        // Keep blob URLs as-is for local preview
-        console.log(`Keeping blob URL: ${photoUrl}`);
+        try {
+          console.log(`Converting Caspio path to base64: ${photoUrl}`);
+          const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+          
+          if (base64Data && base64Data.startsWith('data:')) {
+            finalUrl = base64Data;
+            console.log(`✅ Photo converted to base64 for visual ${visualId}`);
+          } else {
+            console.error(`Failed to convert photo to base64: ${photoUrl}`);
+            finalUrl = 'assets/img/photo-placeholder.svg';
+          }
+        } catch (error) {
+          console.error(`Error converting photo for visual ${visualId}:`, error);
+          finalUrl = 'assets/img/photo-placeholder.svg';
+        }
+      } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
+        // Keep blob and data URLs as-is
+        console.log(`Keeping existing URL format: ${photoUrl.substring(0, 50)}...`);
+        finalUrl = photoUrl;
       }
       
-      return {
-        url: photoUrl,
+      processedPhotos.push({
+        url: finalUrl,
         caption: photo.Annotation || '',
         attachId: photo.AttachID || photo.id || ''
-      };
-    });
+      });
+    }
+    
+    return processedPhotos;
   }
 
   async getRoomPhotos(roomId: string) {
@@ -5137,16 +5155,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return [];
       }
       
-      // Format photos for display
-      const account = this.caspioService.getAccountID();
-      const token = this.caspioService.getCurrentToken() || '';
+      // Format photos for display and convert to base64 for PDF
+      const processedPhotos = [];
       
-      return attachments.map((attach: any) => {
+      for (const attach of attachments) {
         let photoUrl = attach.Photo || '';
+        let finalUrl = photoUrl;
         
-        // Convert Caspio file paths to full URLs
+        // Convert Caspio file paths to base64
         if (photoUrl && photoUrl.startsWith('/')) {
-          photoUrl = `https://${account}.caspio.com/rest/v2/files${photoUrl}?access_token=${token}`;
+          try {
+            console.log(`Converting room photo to base64: ${photoUrl}`);
+            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+            
+            if (base64Data && base64Data.startsWith('data:')) {
+              finalUrl = base64Data;
+              console.log(`✅ Room photo converted to base64`);
+            } else {
+              console.error(`Failed to convert room photo to base64: ${photoUrl}`);
+              finalUrl = 'assets/img/photo-placeholder.svg';
+            }
+          } catch (error) {
+            console.error(`Error converting room photo:`, error);
+            finalUrl = 'assets/img/photo-placeholder.svg';
+          }
+        } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
+          // Keep blob and data URLs as-is
+          finalUrl = photoUrl;
         }
         
         // Find the corresponding point for this attachment
@@ -5154,14 +5189,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           (p.PointID === attach.PointID) || (p.PK_ID === attach.PointID)
         );
         
-        return {
-          url: photoUrl,
+        processedPhotos.push({
+          url: finalUrl,
           caption: attach.Annotation || (point ? `${point.PointName}: ${point.PointValue}` : ''),
           pointName: point?.PointName || '',
           pointValue: point?.PointValue || '',
           attachId: attach.AttachID || attach.PK_ID
-        };
-      });
+        });
+      }
+      
+      return processedPhotos;
       
     } catch (error) {
       console.error(`Error fetching room photos for ${roomId}:`, error);
