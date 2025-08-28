@@ -202,7 +202,7 @@ export class ProjectDetailPage implements OnInit {
       this.existingAttachments = existingAttachments || [];
       
       // Update documents
-      this.loadDocumentsForServices();
+      this.updateDocumentsList();
       
       // Load PrimaryPhoto if needed (async, don't wait)
       if (this.project?.['PrimaryPhoto'] && this.project['PrimaryPhoto'].startsWith('/')) {
