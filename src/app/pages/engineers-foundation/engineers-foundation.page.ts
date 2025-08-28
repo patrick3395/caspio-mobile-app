@@ -4897,11 +4897,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async prepareStructuralSystemsData() {
+    console.log('=== PREPARING STRUCTURAL SYSTEMS DATA FOR PDF ===');
+    console.log('Selected items:', this.selectedItems);
+    console.log('Visual record IDs:', this.visualRecordIds);
+    console.log('Organized data:', this.organizedData);
+    
     const result = [];
     
     for (const category of this.visualCategories) {
       const categoryData = this.organizedData[category];
       if (!categoryData) continue;
+      
+      console.log(`Processing category: ${category}`, categoryData);
       
       const categoryResult: any = {
         name: category,
@@ -4917,14 +4924,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Process comments - collect promises
       if (categoryData.comments) {
         categoryData.comments.forEach((comment: any, index: number) => {
-          if (this.isCommentSelected(category, comment.VisualID)) {
-            photoFetches.push(this.getVisualPhotos(comment.VisualID));
+          // Use comment.id which is the template PK_ID
+          const visualId = comment.id || comment.VisualID;
+          const isSelected = this.isCommentSelected(category, visualId);
+          console.log(`Comment "${comment.name}" (${visualId}) selected: ${isSelected}`);
+          if (isSelected) {
+            // Get the actual visual record ID for photo fetching
+            const recordKey = `${category}_${visualId}`;
+            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
+            
+            photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'comments',
               item: {
                 name: comment.Name || comment.name,
                 text: comment.Text || comment.text,
-                visualId: comment.VisualID
+                visualId: actualVisualId
               },
               index: photoFetches.length - 1
             });
@@ -4935,14 +4950,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Process limitations - collect promises
       if (categoryData.limitations) {
         categoryData.limitations.forEach((limitation: any, index: number) => {
-          if (this.isLimitationSelected(category, limitation.VisualID)) {
-            photoFetches.push(this.getVisualPhotos(limitation.VisualID));
+          // Use limitation.id which is the template PK_ID
+          const visualId = limitation.id || limitation.VisualID;
+          if (this.isLimitationSelected(category, visualId)) {
+            // Get the actual visual record ID for photo fetching
+            const recordKey = `${category}_${visualId}`;
+            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
+            
+            photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'limitations',
               item: {
                 name: limitation.Name || limitation.name,
                 text: limitation.Text || limitation.text,
-                visualId: limitation.VisualID
+                visualId: actualVisualId
               },
               index: photoFetches.length - 1
             });
@@ -4953,14 +4974,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Process deficiencies - collect promises
       if (categoryData.deficiencies) {
         categoryData.deficiencies.forEach((deficiency: any, index: number) => {
-          if (this.isDeficiencySelected(category, deficiency.VisualID)) {
-            photoFetches.push(this.getVisualPhotos(deficiency.VisualID));
+          // Use deficiency.id which is the template PK_ID
+          const visualId = deficiency.id || deficiency.VisualID;
+          if (this.isDeficiencySelected(category, visualId)) {
+            // Get the actual visual record ID for photo fetching
+            const recordKey = `${category}_${visualId}`;
+            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
+            
+            photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'deficiencies',
               item: {
                 name: deficiency.Name || deficiency.name,
                 text: deficiency.Text || deficiency.text,
-                visualId: deficiency.VisualID
+                visualId: actualVisualId
               },
               index: photoFetches.length - 1
             });
@@ -4983,7 +5010,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           categoryResult.limitations.length > 0 || 
           categoryResult.deficiencies.length > 0) {
         result.push(categoryResult);
+        console.log(`Added category ${category} with:`, {
+          comments: categoryResult.comments.length,
+          limitations: categoryResult.limitations.length,
+          deficiencies: categoryResult.deficiencies.length
+        });
       }
+    }
+    
+    // Show debug info about what's being included in PDF
+    const totalItems = result.reduce((sum, cat) => 
+      sum + cat.comments.length + cat.limitations.length + cat.deficiencies.length, 0);
+    
+    console.log('=== STRUCTURAL SYSTEMS DATA PREPARED ===');
+    console.log(`Total categories: ${result.length}`);
+    console.log(`Total visual items: ${totalItems}`);
+    console.log('Result:', result);
+    
+    // Show user what's being included
+    if (totalItems === 0) {
+      await this.showToast('No structural visuals selected for PDF', 'warning');
+    } else {
+      await this.showToast(`Including ${totalItems} structural visuals in PDF`, 'info');
     }
     
     return result;
