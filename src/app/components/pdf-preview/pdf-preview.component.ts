@@ -286,7 +286,7 @@ export class PdfPreviewComponent implements OnInit {
       if (this.elevationData && this.elevationData.length > 0) {
         pdf.addPage();
         pageNum++;
-        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight);
+        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
       }
 
       // Appendix: Photo Gallery
@@ -925,7 +925,7 @@ export class PdfPreviewComponent implements OnInit {
     pdf.setTextColor(51, 51, 51);
   }
 
-  private async addElevationPlotSection(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number, pageHeight: number) {
+  private async addElevationPlotSection(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number, pageHeight: number, pageWidth: number = 215.9) {
     this.addPageHeader(pdf, 'ELEVATION PLOT DATA', margin);
     this.addPageFooter(pdf, pageNum);
     
