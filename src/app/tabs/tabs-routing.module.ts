@@ -16,8 +16,8 @@ const routes: Routes = [
         loadChildren: () => import('../pages/all-projects/all-projects.module').then(m => m.AllProjectsPageModule)
       },
       {
-        path: 'search',
-        loadChildren: () => import('../home/home.module').then(m => m.HomePageModule)
+        path: 'help-guide',
+        loadChildren: () => import('../pages/help-guide/help-guide.module').then(m => m.HelpGuidePageModule)
       },
       {
         path: 'settings',

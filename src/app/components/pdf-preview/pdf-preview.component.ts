@@ -236,63 +236,26 @@ export class PdfPreviewComponent implements OnInit {
 
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
-
-      // ============ MASSIVE TEST TO PROVE WE'RE EDITING RIGHT FILE v1.4.158 ============
-      // CREATE A COMPLETELY DIFFERENT PDF THAT JUST SAYS TEST
-      
-      // Make FIRST page completely different
-      pdf.setFillColor(255, 0, 0);
-      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(72);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('TEST PDF', pageWidth / 2, pageHeight / 2 - 20, { align: 'center' });
-      pdf.setFontSize(36);
-      pdf.text('VERSION 1.4.158', pageWidth / 2, pageHeight / 2 + 20, { align: 'center' });
-      pdf.setFontSize(24);
-      pdf.text('THIS PROVES CORRECT FILE', pageWidth / 2, pageHeight / 2 + 40, { align: 'center' });
-      
-      // Skip all normal generation and just add one more test page
-      pdf.addPage();
-      pdf.setFillColor(0, 255, 0);  // Green page
-      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(48);
-      pdf.text('PAGE 2 - GREEN TEST', pageWidth / 2, pageHeight / 2, { align: 'center' });
-      
-      // Add original red background function for use
-      const addRedBackground = () => {
-        pdf.setFillColor(255, 0, 0);
-        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      };
-      
-      // COMMENT OUT ALL NORMAL PDF GENERATION FOR NOW
-      if (false) {  // Disable normal generation temporarily
       
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
       
       // Page 2: Executive Summary
       pdf.addPage();
-      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addExecutiveSummary(pdf, margin, contentWidth, pageNum);
 
       // Page 3: Table of Contents
       pdf.addPage();
-      addRedBackground(); // RED BACKGROUND
       pageNum++;
       this.addTableOfContents(pdf, margin, contentWidth, pageNum);
 
       // Page 4-5: Project Information & Service Details
       pdf.addPage();
-      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addProjectInformation(pdf, margin, contentWidth, pageNum);
 
       pdf.addPage();
-      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addServiceDetails(pdf, margin, contentWidth, pageNum);
 
@@ -300,7 +263,6 @@ export class PdfPreviewComponent implements OnInit {
       if (this.structuralData && this.structuralData.length > 0) {
         for (const category of this.structuralData) {
           pdf.addPage();
-          addRedBackground(); // RED BACKGROUND
           pageNum++;
           await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
         }
@@ -309,7 +271,6 @@ export class PdfPreviewComponent implements OnInit {
       // Elevation Plot Data
       if (this.elevationData && this.elevationData.length > 0) {
         pdf.addPage();
-        addRedBackground(); // RED BACKGROUND
         pageNum++;
         await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
       }
@@ -317,12 +278,9 @@ export class PdfPreviewComponent implements OnInit {
       // Appendix: Photo Gallery
       if (this.hasPhotos()) {
         pdf.addPage();
-        addRedBackground(); // RED BACKGROUND
         pageNum++;
         await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }
-      
-      } // END OF if (false) - re-enable by changing to if (true)
 
       // Generate filename with project details
       const projectId = this.projectData?.projectId || 'draft';
@@ -356,18 +314,6 @@ export class PdfPreviewComponent implements OnInit {
   }
 
   private async addCoverPage(pdf: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
-    // ============ MASSIVE WHITE TEST BANNER v1.4.156 ============
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(20, 60, pageWidth - 40, 80, 'F');
-    pdf.setTextColor(255, 0, 0);
-    pdf.setFontSize(36);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('TEST PDF v1.4.156', pageWidth / 2, 90, { align: 'center' });
-    pdf.setFontSize(20);
-    pdf.text('RED BACKGROUND CONFIRMS', pageWidth / 2, 110, { align: 'center' });
-    pdf.text('CORRECT FILE BEING EDITED', pageWidth / 2, 125, { align: 'center' });
-    // ============ END TEST BANNER ============
-    
     // Company branding header
     pdf.setFillColor(241, 90, 39); // Orange brand color
     pdf.rect(0, 0, pageWidth, 40, 'F');

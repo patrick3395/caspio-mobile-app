@@ -1865,4 +1865,36 @@ export class CaspioService {
       })
     );
   }
+
+  // Files table methods
+  getFiles(): Observable<any[]> {
+    return this.get<any>('/tables/Files/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Failed to get files:', error);
+        return of([]);
+      })
+    );
+  }
+
+  getFilesByType(typeId: number): Observable<any[]> {
+    return this.get<any>(`/tables/Files/records?q.where=TypeID=${typeId}`).pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Failed to get files by type:', error);
+        return of([]);
+      })
+    );
+  }
+
+  // Types table methods
+  getTypes(): Observable<any[]> {
+    return this.get<any>('/tables/Types/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Failed to get types:', error);
+        return of([]);
+      })
+    );
+  }
 }
