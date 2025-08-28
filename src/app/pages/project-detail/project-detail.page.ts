@@ -2024,17 +2024,26 @@ Troubleshooting:
     // For Engineers Foundation Evaluation, we average the sections
     
     if (service.typeName === 'Engineers Foundation Evaluation') {
-      // These would be calculated from actual data in production
-      // For now, using example values that would come from the template form
-      const projectInfoProgress = 100;  // Example: Project Information section
-      const structuralSystemsProgress = 0;  // Example: Structural Systems section  
-      const elevationPlotProgress = 100;  // Example: Elevation Plot section
+      // Get stored progress values from localStorage (if available)
+      // These are set when user fills out the template form
+      const storageKey = `template_progress_${this.projectId}_${service.serviceId}`;
+      const storedProgress = localStorage.getItem(storageKey);
       
-      // Calculate average of all sections
-      const sections = [projectInfoProgress, structuralSystemsProgress, elevationPlotProgress];
-      const average = Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
+      if (storedProgress) {
+        const progress = JSON.parse(storedProgress);
+        const projectProgress = progress.project || 0;
+        const structuralProgress = progress.structural || 0;
+        const elevationProgress = progress.elevation || 0;
+        
+        // Calculate average of all three sections
+        const sections = [projectProgress, structuralProgress, elevationProgress];
+        const average = Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
+        
+        return average;
+      }
       
-      return average; // Returns 67% for 100%, 0%, 100%
+      // Default: if no stored progress, return 0
+      return 0;
     }
     
     // Default progress values for other service types

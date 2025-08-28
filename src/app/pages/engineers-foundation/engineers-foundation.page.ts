@@ -176,16 +176,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
     
-    // Dismiss any loading indicators from navigation
-    try {
-      const topLoader = await this.loadingController.getTop();
-      if (topLoader) {
-        await topLoader.dismiss();
-      }
-    } catch (error) {
-      // Ignore errors if no loading to dismiss
-    }
-    
     // Photos now use base64 data URLs like Structural section
     // No need to refresh URLs as they don't expire
   }
@@ -4762,6 +4752,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const projectDataKey = `projectData_${this.projectId}`;
     localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
     
+    // Update progress tracking
+    this.updateProgressTracking();
+    
     // Trigger auto-save to Projects table
     this.autoSaveProjectField(fieldName, value);
   }
@@ -4777,11 +4770,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const serviceDataKey = `serviceData_${this.serviceId}`;
     localStorage.setItem(serviceDataKey, JSON.stringify(this.serviceData));
     
+    // Update progress tracking
+    this.updateProgressTracking();
+    
     // Trigger auto-save to Services table
     this.autoSaveServiceField(fieldName, value);
   }
   
   // Auto-save project field to Caspio Projects table
+  private updateProgressTracking() {
+    // Calculate and save progress for each section
+    const projectProgress = this.getProjectCompletion();
+    const structuralProgress = this.getSectionCompletion('structural');
+    const elevationProgress = this.getSectionCompletion('elevation');
+    
+    // Save to localStorage for the project detail page to read
+    const storageKey = `template_progress_${this.projectId}_${this.serviceId}`;
+    const progressData = {
+      project: projectProgress,
+      structural: structuralProgress,
+      elevation: elevationProgress,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem(storageKey, JSON.stringify(progressData));
+    console.log('Progress updated:', progressData);
+  }
+  
   private autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
     

@@ -28,7 +28,7 @@
     <div class="section-card">
       <div class="section-header" data-section="project" (click)="toggleSection('project')">
         <div class="section-info">
-          <div class="section-title">
+          <div class="section-title" [class.complete]="getProjectCompletion() === 100">
             <ion-icon name="information-circle-outline"></ion-icon>
             Project Information
           </div>
@@ -327,7 +327,7 @@
     <div class="section-card">
       <div class="section-header" data-section="structural" (click)="toggleSection('structural')">
         <div class="section-info">
-          <div class="section-title">
+          <div class="section-title" [class.complete]="getSectionCompletion('structural') === 100">
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
@@ -566,7 +566,7 @@
     <div class="section-card">
       <div class="section-header" data-section="elevation" (click)="toggleSection('elevation')">
         <div class="section-info">
-          <div class="section-title">
+          <div class="section-title" [class.complete]="getSectionCompletion('elevation') === 100">
             <ion-icon name="analytics-outline"></ion-icon>
             Elevation Plot
           </div>

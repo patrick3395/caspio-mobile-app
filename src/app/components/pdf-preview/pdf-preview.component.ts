@@ -237,37 +237,39 @@ export class PdfPreviewComponent implements OnInit {
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
 
+      // ============ MASSIVE RED BACKGROUND FOR ENTIRE PDF v1.4.156 ============
+      // This proves we're editing the right file
+      const addRedBackground = () => {
+        pdf.setFillColor(255, 0, 0);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      };
+      
+      // Add red background to first page
+      addRedBackground();
+      
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
       
-      // ============ MASSIVE RED TEST BANNER v1.4.154 - ON PAGE 1 AFTER COVER ============
-      pdf.setFillColor(255, 0, 0);
-      pdf.rect(0, 100, pageWidth, 60, 'F');
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(28);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text('🚨 PDF TEST v1.4.154 🚨', pageWidth/2, 125, { align: 'center' });
-      pdf.setFontSize(16);
-      pdf.text('ELEVATION PLOT REDESIGNED TO MATCH STRUCTURAL', pageWidth/2, 145, { align: 'center' });
-      pdf.setTextColor(51, 51, 51);
-      // ============ END TEST BANNER ============
-      
       // Page 2: Executive Summary
       pdf.addPage();
+      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addExecutiveSummary(pdf, margin, contentWidth, pageNum);
 
       // Page 3: Table of Contents
       pdf.addPage();
+      addRedBackground(); // RED BACKGROUND
       pageNum++;
       this.addTableOfContents(pdf, margin, contentWidth, pageNum);
 
       // Page 4-5: Project Information & Service Details
       pdf.addPage();
+      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addProjectInformation(pdf, margin, contentWidth, pageNum);
 
       pdf.addPage();
+      addRedBackground(); // RED BACKGROUND
       pageNum++;
       await this.addServiceDetails(pdf, margin, contentWidth, pageNum);
 
@@ -275,6 +277,7 @@ export class PdfPreviewComponent implements OnInit {
       if (this.structuralData && this.structuralData.length > 0) {
         for (const category of this.structuralData) {
           pdf.addPage();
+          addRedBackground(); // RED BACKGROUND
           pageNum++;
           await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
         }
@@ -283,6 +286,7 @@ export class PdfPreviewComponent implements OnInit {
       // Elevation Plot Data
       if (this.elevationData && this.elevationData.length > 0) {
         pdf.addPage();
+        addRedBackground(); // RED BACKGROUND
         pageNum++;
         await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
       }
@@ -290,6 +294,7 @@ export class PdfPreviewComponent implements OnInit {
       // Appendix: Photo Gallery
       if (this.hasPhotos()) {
         pdf.addPage();
+        addRedBackground(); // RED BACKGROUND
         pageNum++;
         await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }
@@ -326,19 +331,31 @@ export class PdfPreviewComponent implements OnInit {
   }
 
   private async addCoverPage(pdf: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
-    // ============ TEST BANNER REPLACING NORMAL HEADER v1.4.154 ============
-    pdf.setFillColor(255, 0, 0); // RED for testing
-    pdf.rect(0, 0, pageWidth, 50, 'F');
+    // ============ MASSIVE WHITE TEST BANNER v1.4.156 ============
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(20, 60, pageWidth - 40, 80, 'F');
+    pdf.setTextColor(255, 0, 0);
+    pdf.setFontSize(36);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('TEST PDF v1.4.156', pageWidth / 2, 90, { align: 'center' });
+    pdf.setFontSize(20);
+    pdf.text('RED BACKGROUND CONFIRMS', pageWidth / 2, 110, { align: 'center' });
+    pdf.text('CORRECT FILE BEING EDITED', pageWidth / 2, 125, { align: 'center' });
+    // ============ END TEST BANNER ============
+    
+    // Company branding header
+    pdf.setFillColor(241, 90, 39); // Orange brand color
+    pdf.rect(0, 0, pageWidth, 40, 'F');
     
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(20);
+    pdf.setFontSize(24);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('🚨 TEST PDF VERSION 1.4.154 🚨', pageWidth / 2, 15, { align: 'center' });
+    pdf.text('NOBLE PROPERTY INSPECTIONS', pageWidth / 2, 15, { align: 'center' });
     
-    pdf.setFontSize(14);
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('ELEVATION PLOT SECTION COMPLETELY REDESIGNED', pageWidth / 2, 30, { align: 'center' });
-    pdf.text('This red banner confirms PDF updates are working', pageWidth / 2, 42, { align: 'center' });
+    pdf.text('Professional Engineering Foundation Evaluation', pageWidth / 2, 25, { align: 'center' });
+    pdf.text('936-202-8013 | info@noblepropertyinspections.com', pageWidth / 2, 32, { align: 'center' });
     
     // Report title
     pdf.setTextColor(51, 51, 51);
@@ -930,18 +947,12 @@ export class PdfPreviewComponent implements OnInit {
     let yPos = 50;
     const maxY = pageHeight - 30;
     
-    // ============ MASSIVE DEBUG BANNER v1.4.154 ============
-    pdf.setFillColor(255, 0, 0);
-    pdf.rect(0, yPos - 10, pageWidth, 60, 'F');
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(28);
-    pdf.setTextColor(255, 255, 255);
-    pdf.text('\ud83d\udea8 ELEVATION PLOT REDESIGNED \ud83d\udea8', pageWidth/2, yPos + 15, { align: 'center' });
-    pdf.setFontSize(16);
-    pdf.text('VERSION 1.4.154 - MATCHING STRUCTURAL SYSTEMS', pageWidth/2, yPos + 35, { align: 'center' });
-    pdf.setTextColor(51, 51, 51);
-    yPos += 70;
-    // ============ END DEBUG BANNER ============
+    // Section header description
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(73, 80, 87);
+    pdf.text('Foundation elevation measurements and observations', margin, yPos);
+    yPos += 10;
     
     // MAIN ELEVATION MEASUREMENTS SECTION - styled like Structural Systems Comments section
     pdf.setFont('helvetica', 'bold');
