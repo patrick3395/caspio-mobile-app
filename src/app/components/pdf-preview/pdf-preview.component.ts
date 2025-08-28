@@ -953,8 +953,28 @@ export class PdfPreviewComponent implements OnInit {
     
     // Process each room as a complete boxed unit
     for (const room of this.elevationData) {
+      // Calculate room box height based on content (pre-calculate for accurate box drawing)
+      let estimatedHeight = 20; // Header
+      if (room.fdf && room.fdf !== 'None') estimatedHeight += 25; // FDF section
+      if (room.notes) {
+        const noteLines = pdf.splitTextToSize(room.notes, contentWidth - 30);
+        estimatedHeight += noteLines.length * 5 + 15;
+      }
+      if (room.points?.length > 0) {
+        estimatedHeight += 15; // Measurement points header
+        estimatedHeight += 25; // Table header
+        estimatedHeight += room.points.length * 10; // Table rows
+        estimatedHeight += 5; // Table bottom padding
+      }
+      // Add space for photos if present
+      const pointsWithPhotos = room.points?.filter((p: any) => p.photos?.length > 0) || [];
+      if (pointsWithPhotos.length > 0) {
+        estimatedHeight += 100; // Photo section
+      }
+      estimatedHeight += 10; // Bottom padding
+      
       // Check if we need a new page for the entire room
-      if (yPos > maxY - 100) {
+      if (yPos + estimatedHeight > maxY) {
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
@@ -962,89 +982,110 @@ export class PdfPreviewComponent implements OnInit {
         yPos = 50;
       }
       
-      // Calculate room box height based on content
-      let estimatedHeight = 25; // Header
-      if (room.fdf && room.fdf !== 'None') estimatedHeight += 20; // FDF section
-      if (room.notes) estimatedHeight += pdf.splitTextToSize(room.notes, contentWidth - 20).length * 4 + 15;
-      if (room.points?.length > 0) estimatedHeight += 40 + (room.points.length * 8); // Points table
-      if (room.points?.some((p: any) => p.photos?.length > 0)) estimatedHeight += 80; // Photo section
-      
-      // Room container box
+      // Store the starting position for the box
       const roomBoxStart = yPos;
+      const roomContentStart = yPos + 18; // After header
       
-      // Draw room box background
+      // First, draw the white background for the entire room box
       pdf.setFillColor(255, 255, 255);
-      pdf.rect(margin, yPos, contentWidth, estimatedHeight, 'F');
+      pdf.rect(margin, roomBoxStart, contentWidth, estimatedHeight, 'F');
       
-      // Room header bar
+      // Then draw the header bar on top
       pdf.setFillColor(241, 90, 39);
-      pdf.rect(margin, yPos, contentWidth, 15, 'F');
+      pdf.rect(margin, yPos, contentWidth, 18, 'F');
       
-      // Room number circle
+      // Room number circle with border
       pdf.setFillColor(255, 255, 255);
-      pdf.circle(margin + 10, yPos + 7.5, 5, 'F');
+      pdf.circle(margin + 10, yPos + 9, 5, 'F');
+      pdf.setDrawColor(255, 255, 255);
+      pdf.setLineWidth(0.5);
+      pdf.circle(margin + 10, yPos + 9, 5, 'S');
+      
       pdf.setFillColor(241, 90, 39);
       pdf.setTextColor(241, 90, 39);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
-      pdf.text(roomIndex.toString(), margin + 10, yPos + 9, { align: 'center' });
+      pdf.text(roomIndex.toString(), margin + 10, yPos + 11, { align: 'center' });
       
       // Room name in header
       pdf.setTextColor(255, 255, 255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(12);
-      pdf.text(room.name.toUpperCase(), margin + 25, yPos + 9);
+      pdf.text(room.name.toUpperCase(), margin + 25, yPos + 11);
       
-      yPos += 20;
+      // Point count indicator on the right
+      if (room.points?.length > 0) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.text(`${room.points.length} POINTS`, margin + contentWidth - 30, yPos + 11, { align: 'right' });
+      }
+      
+      yPos += 23;
       roomIndex++;
+      
+      // White content area inside the box
+      const contentStart = yPos;
       
       // FDF Input Data Section
       if (room.fdf && room.fdf !== 'None') {
         pdf.setFillColor(248, 249, 250);
-        pdf.rect(margin + 5, yPos, contentWidth - 10, 15, 'F');
+        pdf.rect(margin + 10, yPos, contentWidth - 20, 18, 'F');
         pdf.setDrawColor(233, 236, 239);
-        pdf.rect(margin + 5, yPos, contentWidth - 10, 15, 'S');
+        pdf.setLineWidth(0.3);
+        pdf.rect(margin + 10, yPos, contentWidth - 20, 18, 'S');
         
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(10);
         pdf.setTextColor(102, 102, 102);
-        pdf.text('FLOOR DIFFERENTIAL FACTOR:', margin + 10, yPos + 6);
+        pdf.text('FLOOR DIFFERENTIAL FACTOR:', margin + 15, yPos + 7);
         
+        // FDF value in a badge
         pdf.setFillColor(76, 175, 80);
-        const fdfValueWidth = pdf.getTextWidth(room.fdf) + 10;
-        pdf.roundedRect(margin + 85, yPos + 3, fdfValueWidth, 8, 2, 2, 'F');
+        const fdfValueWidth = pdf.getTextWidth(room.fdf) + 12;
+        pdf.roundedRect(margin + 95, yPos + 4, fdfValueWidth, 10, 2, 2, 'F');
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(9);
         pdf.setTextColor(255, 255, 255);
-        pdf.text(room.fdf, margin + 90, yPos + 7);
+        pdf.text(room.fdf, margin + 101, yPos + 9);
         
-        yPos += 20;
+        yPos += 23;
       }
       
       // Notes Section (if present)
       if (room.notes) {
+        pdf.setDrawColor(233, 236, 239);
+        pdf.setLineWidth(0.3);
+        pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
+        yPos += 5;
+        
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(9);
         pdf.setTextColor(102, 102, 102);
-        pdf.text('NOTES:', margin + 10, yPos + 5);
+        pdf.text('NOTES:', margin + 15, yPos + 3);
         
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(73, 80, 87);
-        const notes = pdf.splitTextToSize(room.notes, contentWidth - 20);
-        pdf.text(notes, margin + 15, yPos + 10);
-        yPos += notes.length * 4 + 10;
+        const notes = pdf.splitTextToSize(room.notes, contentWidth - 30);
+        pdf.text(notes, margin + 15, yPos + 8);
+        yPos += notes.length * 5 + 10;
       }
       
       // Points/Measurements Section
       if (room.points && room.points.length > 0) {
+        // Divider line
+        pdf.setDrawColor(233, 236, 239);
+        pdf.setLineWidth(0.3);
+        pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
+        yPos += 5;
+        
         // Section label
         pdf.setFillColor(248, 249, 250);
-        pdf.rect(margin + 5, yPos, contentWidth - 10, 8, 'F');
+        pdf.rect(margin + 10, yPos, contentWidth - 20, 10, 'F');
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(10);
         pdf.setTextColor(44, 62, 80);
-        pdf.text('MEASUREMENT POINTS', margin + 10, yPos + 5);
-        yPos += 12;
+        pdf.text('MEASUREMENT POINTS', margin + 15, yPos + 6);
+        yPos += 15;
         
         // Create cleaner table for points
         const tableData = room.points.map((point: any) => {
@@ -1074,15 +1115,15 @@ export class PdfPreviewComponent implements OnInit {
             lineWidth: 0.5
           },
           columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 40, halign: 'center', fontStyle: 'bold', textColor: [241, 90, 39] },
+            0: { cellWidth: 65, halign: 'left' },
+            1: { cellWidth: 35, halign: 'center', fontStyle: 'bold', textColor: [241, 90, 39] },
             2: { cellWidth: 30, halign: 'center' }
           },
           alternateRowStyles: {
             fillColor: [250, 251, 252]
           },
-          margin: { left: margin + 5, right: margin + 5 },
-          tableWidth: contentWidth - 10
+          margin: { left: margin + 10, right: margin + 10 },
+          tableWidth: contentWidth - 20
         });
         
         yPos = (pdf as any).lastAutoTable.finalY + 10;
@@ -1090,20 +1131,26 @@ export class PdfPreviewComponent implements OnInit {
         // Photos Section - Combined for all points with photos
         const pointsWithPhotos = room.points.filter((p: any) => p.photos?.length > 0);
         if (pointsWithPhotos.length > 0) {
+          // Divider line before photos
+          pdf.setDrawColor(233, 236, 239);
+          pdf.setLineWidth(0.3);
+          pdf.line(margin + 10, yPos, margin + contentWidth - 10, yPos);
+          yPos += 5;
+          
           // Photos section header
           pdf.setFillColor(248, 249, 250);
-          pdf.rect(margin + 5, yPos, contentWidth - 10, 8, 'F');
+          pdf.rect(margin + 10, yPos, contentWidth - 20, 10, 'F');
           pdf.setFont('helvetica', 'bold');
           pdf.setFontSize(10);
           pdf.setTextColor(44, 62, 80);
-          pdf.text('PHOTO DOCUMENTATION', margin + 10, yPos + 5);
-          yPos += 12;
+          pdf.text('PHOTO DOCUMENTATION', margin + 15, yPos + 6);
+          yPos += 15;
             
           // Display photos in a professional grid
-          const photoWidth = 45;
-          const photoHeight = 35;
+          const photoWidth = 40;
+          const photoHeight = 30;
           const photosPerRow = 3;
-          const photoGap = 8;
+          const photoGap = 10;
           let photoCount = 0;
           const maxPhotosToShow = 6; // Limit total photos shown per room
           
@@ -1112,7 +1159,7 @@ export class PdfPreviewComponent implements OnInit {
             
             for (const photo of point.photos.slice(0, Math.min(2, maxPhotosToShow - photoCount))) {
               const col = photoCount % photosPerRow;
-              const xPos = margin + 10 + (col * (photoWidth + photoGap));
+              const xPos = margin + 15 + (col * (photoWidth + photoGap));
               
               if (col === 0 && photoCount > 0) {
                 yPos += photoHeight + 12;
@@ -1130,17 +1177,17 @@ export class PdfPreviewComponent implements OnInit {
                   
                   // Point label under photo
                   pdf.setFont('helvetica', 'normal');
-                  pdf.setFontSize(8);
+                  pdf.setFontSize(7);
                   pdf.setTextColor(102, 102, 102);
-                  const label = point.name.substring(0, 12) + (point.name.length > 12 ? '...' : '');
-                  pdf.text(label, xPos + (photoWidth / 2), yPos + photoHeight + 4, { align: 'center' });
+                  const label = point.name.substring(0, 15) + (point.name.length > 15 ? '...' : '');
+                  pdf.text(label, xPos + (photoWidth / 2), yPos + photoHeight + 3, { align: 'center' });
                   
                   // Annotation if available
                   if (photo.annotation) {
                     pdf.setFont('helvetica', 'italic');
-                    pdf.setFontSize(7);
-                    const annotation = photo.annotation.substring(0, 15) + (photo.annotation.length > 15 ? '...' : '');
-                    pdf.text(annotation, xPos + (photoWidth / 2), yPos + photoHeight + 8, { align: 'center' });
+                    pdf.setFontSize(6);
+                    const annotation = photo.annotation.substring(0, 18) + (photo.annotation.length > 18 ? '...' : '');
+                    pdf.text(annotation, xPos + (photoWidth / 2), yPos + photoHeight + 7, { align: 'center' });
                   }
                 }
               } catch (error) {
@@ -1165,20 +1212,25 @@ export class PdfPreviewComponent implements OnInit {
         }
       }
       
-      // Draw final room box border
-      const roomBoxEnd = yPos;
+      // Add bottom padding inside the box
+      yPos += 10;
+      
+      // Calculate actual room box end position
+      const actualRoomHeight = yPos - roomBoxStart;
+      
+      // Draw the main room box border
       pdf.setDrawColor(200, 200, 200);
       pdf.setLineWidth(1);
-      pdf.rect(margin, roomBoxStart, contentWidth, roomBoxEnd - roomBoxStart, 'S');
+      pdf.rect(margin, roomBoxStart, contentWidth, actualRoomHeight, 'S');
       
-      // Add professional shadow effect (simulated with a lighter border)
+      // Add shadow effect
       pdf.setDrawColor(240, 240, 240);
       pdf.setLineWidth(0.5);
-      pdf.line(margin, roomBoxEnd + 1, margin + contentWidth, roomBoxEnd + 1);
-      pdf.line(margin + contentWidth + 1, roomBoxStart, margin + contentWidth + 1, roomBoxEnd + 1);
+      pdf.line(margin, yPos + 1, margin + contentWidth, yPos + 1);
+      pdf.line(margin + contentWidth + 1, roomBoxStart, margin + contentWidth + 1, yPos + 1);
       
       // Spacing between room boxes
-      yPos += 25;
+      yPos += 15;
     }
     
     return pageNum;
