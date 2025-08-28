@@ -30,13 +30,14 @@
         <h2 class="report-subtitle">INSPECTION REPORT</h2>
       </div>
       
-      <div class="property-photo-container" *ngIf="projectData?.primaryPhoto">
+      <div class="property-photo-container">
         <img 
           [src]="getPrimaryPhotoUrl()" 
           alt="Property"
           (error)="handleImageError($event)"
           (load)="handleImageLoad($event)"
-          class="property-photo loading" />
+          [class.loading]="primaryPhotoLoading"
+          class="property-photo" />
       </div>
       
       <div class="property-info-box">

@@ -4829,7 +4829,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Helper methods for PDF preview
   async prepareProjectInfo() {
-    const primaryPhoto = this.projectData?.PrimaryPhoto || null;
+    // Get the primary photo - handle if it's already loaded as base64 or is a file path
+    let primaryPhoto = this.projectData?.PrimaryPhoto || null;
+    
+    // Log what we're getting from the project
+    console.log('PrepareProjectInfo - PrimaryPhoto value:', primaryPhoto);
+    console.log('PrepareProjectInfo - Full projectData:', this.projectData);
+    
+    // If primaryPhoto is a Caspio file path, pass it as-is (PDF component will load it)
+    // If it's already base64 or a URL, pass it as-is
     
     // Combine all the actual form data from projectData and serviceData
     return {

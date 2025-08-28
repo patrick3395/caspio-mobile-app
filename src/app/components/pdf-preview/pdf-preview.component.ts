@@ -27,6 +27,8 @@ export class PdfPreviewComponent implements OnInit {
   
   hasElevationData = false;
   imageCache: Map<string, string> = new Map();
+  primaryPhotoData: string | null = null;
+  primaryPhotoLoading: boolean = false;
 
   constructor(
     private modalController: ModalController,
@@ -45,6 +47,48 @@ export class PdfPreviewComponent implements OnInit {
       elevationDataCount: this.elevationData?.length || 0,
       serviceData: this.serviceData
     });
+    
+    // Load primary photo if it's a Caspio file
+    this.loadPrimaryPhotoIfNeeded();
+  }
+  
+  async loadPrimaryPhotoIfNeeded() {
+    if (!this.projectData?.primaryPhoto) {
+      console.log('No primary photo to load');
+      return;
+    }
+    
+    const primaryPhoto = this.projectData.primaryPhoto;
+    console.log('Primary photo value:', primaryPhoto);
+    
+    // If it's a Caspio file path (starts with /), load it as base64
+    if (typeof primaryPhoto === 'string' && primaryPhoto.startsWith('/')) {
+      this.primaryPhotoLoading = true;
+      try {
+        console.log('Loading primary photo from Caspio Files API:', primaryPhoto);
+        const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
+        
+        if (imageData && imageData.startsWith('data:')) {
+          this.primaryPhotoData = imageData;
+          console.log('✅ Primary photo loaded successfully as base64');
+        } else {
+          console.error('Failed to load primary photo - invalid data received');
+        }
+      } catch (error) {
+        console.error('Error loading primary photo:', error);
+        // Fall back to placeholder
+        this.primaryPhotoData = 'assets/img/project-placeholder.svg';
+      } finally {
+        this.primaryPhotoLoading = false;
+      }
+    } else if (typeof primaryPhoto === 'string' && (primaryPhoto.startsWith('data:') || primaryPhoto.startsWith('http'))) {
+      // Already a usable URL or data URL
+      this.primaryPhotoData = primaryPhoto;
+      console.log('Primary photo is already a valid URL/data URL');
+    } else {
+      console.log('Primary photo format not recognized:', primaryPhoto);
+      this.primaryPhotoData = 'assets/img/project-placeholder.svg';
+    }
   }
 
   getCurrentDate(): string {
@@ -70,21 +114,18 @@ export class PdfPreviewComponent implements OnInit {
   }
   
   getPrimaryPhotoUrl(): string {
-    if (!this.projectData?.primaryPhoto) {
-      return 'assets/img/project-placeholder.svg';
+    // If we have loaded base64 data, use it
+    if (this.primaryPhotoData) {
+      return this.primaryPhotoData;
     }
     
-    const photo = this.projectData.primaryPhoto;
-    
-    if (photo.startsWith('/')) {
-      const account = this.caspioService.getAccountID();
-      const token = this.caspioService.getCurrentToken() || '';
-      const photoUrl = `https://${account}.caspio.com/rest/v2/files${photo}?access_token=${token}`;
-      console.log('Primary photo URL:', photoUrl);
-      return photoUrl;
+    // If photo is still loading, return loading placeholder
+    if (this.primaryPhotoLoading) {
+      return 'assets/img/photo-loading.svg';
     }
     
-    return photo;
+    // Default placeholder if no photo
+    return 'assets/img/project-placeholder.svg';
   }
 
   getAttachmentUrl(photoPath: string): string {
@@ -1339,11 +1380,17 @@ export class PdfPreviewComponent implements OnInit {
   
   handleImageError(event: any) {
     console.error('Image failed to load:', event.target.src);
-    event.target.src = 'assets/img/photo-placeholder.svg';
+    // Don't replace if it's already the placeholder
+    if (!event.target.src.includes('project-placeholder.svg')) {
+      event.target.src = 'assets/img/project-placeholder.svg';
+    }
     event.target.classList.remove('loading');
+    this.primaryPhotoLoading = false;
   }
   
   handleImageLoad(event: any) {
     event.target.classList.remove('loading');
+    this.primaryPhotoLoading = false;
+    console.log('Primary photo loaded successfully');
   }
 }
