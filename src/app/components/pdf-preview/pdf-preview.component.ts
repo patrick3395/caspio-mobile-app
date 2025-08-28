@@ -206,11 +206,8 @@ export class PdfPreviewComponent implements OnInit {
   }
 
   async generatePDF() {
-    // CRITICAL TEST - Show version to prove we're in the right file
-    await this.showToast('PDF Generator v1.4.160 - TEST VERSION', 'warning');
-    
     const loading = await this.loadingController.create({
-      message: 'Generating PDF v1.4.160 TEST...',
+      message: 'Generating comprehensive PDF report...',
       cssClass: 'custom-loading'
     });
     await loading.present();
@@ -240,44 +237,25 @@ export class PdfPreviewComponent implements OnInit {
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
       
-      // ===== ADD TEST WATERMARK TO EVERY PAGE =====
-      const addTestWatermark = () => {
-        pdf.setTextColor(255, 0, 0);
-        pdf.setFontSize(72);
-        pdf.setFont('helvetica', 'bold');
-        // Diagonal text
-        pdf.text('v1.4.160 TEST', pageWidth / 2, pageHeight / 2, { 
-          align: 'center',
-          angle: 45
-        });
-        // Reset color
-        pdf.setTextColor(0, 0, 0);
-      };
-      
-      // Page 1: Professional Cover Page with WATERMARK
+      // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
-      addTestWatermark();
       
       // Page 2: Executive Summary
       pdf.addPage();
-      addTestWatermark();
       pageNum++;
       await this.addExecutiveSummary(pdf, margin, contentWidth, pageNum);
 
       // Page 3: Table of Contents
       pdf.addPage();
-      addTestWatermark();
       pageNum++;
       this.addTableOfContents(pdf, margin, contentWidth, pageNum);
 
       // Page 4-5: Project Information & Service Details
       pdf.addPage();
-      addTestWatermark();
       pageNum++;
       await this.addProjectInformation(pdf, margin, contentWidth, pageNum);
 
       pdf.addPage();
-      addTestWatermark();
       pageNum++;
       await this.addServiceDetails(pdf, margin, contentWidth, pageNum);
 
@@ -285,7 +263,6 @@ export class PdfPreviewComponent implements OnInit {
       if (this.structuralData && this.structuralData.length > 0) {
         for (const category of this.structuralData) {
           pdf.addPage();
-          addTestWatermark();
           pageNum++;
           await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
         }
@@ -294,7 +271,6 @@ export class PdfPreviewComponent implements OnInit {
       // Elevation Plot Data
       if (this.elevationData && this.elevationData.length > 0) {
         pdf.addPage();
-        addTestWatermark();
         pageNum++;
         await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
       }
@@ -302,7 +278,6 @@ export class PdfPreviewComponent implements OnInit {
       // Appendix: Photo Gallery
       if (this.hasPhotos()) {
         pdf.addPage();
-        addTestWatermark();
         pageNum++;
         await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }

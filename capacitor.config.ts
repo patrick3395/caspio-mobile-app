@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
       channel: 'Caspio Mobile App',
       autoUpdateMethod: 'background',  // Enable background updates
       maxVersions: 2,  // Keep 2 versions for rollback capability
-      disableDeploy: false,  // ENABLED - Live Updates active
+      disableDeploy: true,  // DISABLED - Use local builds only (was preventing PDF changes)
       strategy: 'differential'  // Use differential updates to minimize download size
     }
   }
