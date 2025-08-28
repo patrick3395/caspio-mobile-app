@@ -852,14 +852,40 @@
               </div>
               
               <div class="doc-content">
-                <!-- Show filename if uploaded -->
-                <div class="uploaded-file-info" *ngIf="documentStatus['supportDocument']">
-                  <div class="file-name">
-                    <ion-icon name="attach-outline"></ion-icon>
-                    <span>{{documentNames['supportDocument'] || 'Document uploaded'}}</span>
+                <!-- Document Preview -->
+                <div class="document-preview-section" *ngIf="documentStatus['supportDocument']">
+                  <div class="document-preview-container" (click)="viewDocument('supportDocument')">
+                    <!-- PDF Preview -->
+                    <div class="pdf-preview" *ngIf="isDocumentPDF('supportDocument')">
+                      <ion-icon name="document-text" class="pdf-icon"></ion-icon>
+                      <div class="pdf-info">
+                        <span class="pdf-label">PDF Document</span>
+                        <span class="pdf-name">{{getDocumentShortName('supportDocument')}}</span>
+                      </div>
+                    </div>
+                    <!-- Image Preview -->
+                    <div class="image-preview" *ngIf="isDocumentImage('supportDocument')">
+                      <img [src]="documentPreviewUrls['supportDocument'] || 'assets/img/photo-placeholder.svg'" 
+                           [alt]="documentNames['supportDocument']" 
+                           (error)="handleDocumentPreviewError($event, 'supportDocument')">
+                    </div>
+                    <!-- Word/Other Document Preview -->
+                    <div class="doc-preview" *ngIf="isDocumentOther('supportDocument')">
+                      <ion-icon name="document-attach" class="doc-icon"></ion-icon>
+                      <div class="doc-info">
+                        <span class="doc-label">Document</span>
+                        <span class="doc-name">{{getDocumentShortName('supportDocument')}}</span>
+                      </div>
+                    </div>
+                    <!-- Click to view overlay -->
+                    <div class="preview-overlay">
+                      <ion-icon name="eye-outline"></ion-icon>
+                      <span>Click to view</span>
+                    </div>
                   </div>
                   <div class="file-meta">
-                    Uploaded: {{documentDates['supportDocument'] || 'Recently'}}
+                    {{documentNames['supportDocument'] || 'Document uploaded'}}<br>
+                    <small>Uploaded: {{documentDates['supportDocument'] || 'Recently'}}</small>
                   </div>
                 </div>
                 
@@ -879,9 +905,6 @@
                 
                 <!-- Actions for uploaded document -->
                 <div class="doc-actions" *ngIf="documentStatus['supportDocument']">
-                  <button class="action-btn view" (click)="viewDocument('supportDocument')">
-                    <ion-icon name="eye-outline"></ion-icon> View
-                  </button>
                   <button class="action-btn replace" (click)="replaceDocument('supportDocument')">
                     <ion-icon name="swap-horizontal-outline"></ion-icon> Replace
                   </button>

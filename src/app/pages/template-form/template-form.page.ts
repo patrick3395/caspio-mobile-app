@@ -1,10 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
+import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { Subject, timer } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
@@ -49,6 +50,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   documentNames: { [key: string]: string } = {};
   documentDates: { [key: string]: string } = {};
   documentAttachIds: { [key: string]: number } = {};
+  documentPreviewUrls: { [key: string]: string } = {};
   additionalDocuments: any[] = [];
   
   expandedSections: { [key: number | string]: boolean } = {
@@ -127,7 +129,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private caspioService: CaspioService,
-    private serviceEfeService: ServiceEfeService
+    private serviceEfeService: ServiceEfeService,
+    private modalController: ModalController,
+    private toastController: ToastController
   ) {
     // Initialize auto-save with 1 second debounce (same as local server)
     this.autoSaveSubject.pipe(
@@ -557,6 +561,16 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     }
   }
   
+  async showToast(message: string, type: 'info' | 'success' | 'error') {
+    const toast = await this.toastController.create({
+      message: message,
+      duration: type === 'error' ? 3000 : 2000,
+      position: 'top',
+      color: type === 'error' ? 'danger' : type === 'success' ? 'success' : 'medium'
+    });
+    await toast.present();
+  }
+  
   // Check if a field has value (for CSS classes)
   hasValue(fieldName: string): boolean {
     return this.fieldStates[fieldName] || false;
@@ -627,6 +641,15 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     // Store the file for later upload if needed
     this.selectedFiles[docType] = file;
     
+    // Create preview URL for images
+    if (this.isDocumentImage(docType)) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.documentPreviewUrls[docType] = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    
     // If we have a project ID, try to upload to Caspio
     if (this.projectId) {
       this.showSaveStatus(`Uploading ${linkTitle}...`, 'info');
@@ -676,14 +699,96 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     }
   }
 
-  viewDocument(docType: string) {
+  async viewDocument(docType: string) {
     const attachId = this.documentAttachIds[docType];
-    if (attachId) {
-      // TODO: Implement document viewing
-      console.log(`View document ${docType} with AttachID: ${attachId}`);
-    } else if (this.documentNames[docType]?.startsWith('http')) {
-      window.open(this.documentNames[docType], '_blank');
+    const fileName = this.documentNames[docType];
+    const fileUrl = this.documentPreviewUrls[docType];
+    
+    // If we have a stored file object, create a URL from it
+    if (this.selectedFiles[docType]) {
+      const file = this.selectedFiles[docType];
+      const reader = new FileReader();
+      reader.onload = async (e: any) => {
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: e.target.result,
+            fileName: fileName || file!.name,
+            fileType: file!.type
+          }
+        });
+        await modal.present();
+      };
+      reader.readAsDataURL(file);
+    } else if (attachId) {
+      // Try to fetch from Caspio
+      try {
+        const attachment = await this.caspioService.getAttachmentDetails(attachId.toString()).toPromise();
+        if (attachment && attachment.Attachment) {
+          const modal = await this.modalController.create({
+            component: DocumentViewerComponent,
+            componentProps: {
+              fileUrl: attachment.Attachment,
+              fileName: fileName || 'Document',
+              fileType: this.getFileTypeFromName(fileName || '')
+            }
+          });
+          await modal.present();
+        }
+      } catch (error) {
+        console.error('Failed to load document:', error);
+        await this.showToast('Unable to load document', 'error');
+      }
+    } else if (fileName?.startsWith('http')) {
+      window.open(fileName, '_blank');
     }
+  }
+  
+  // Helper methods for document preview
+  isDocumentPDF(docType: string): boolean {
+    const fileName = this.documentNames[docType] || '';
+    return fileName.toLowerCase().endsWith('.pdf');
+  }
+  
+  isDocumentImage(docType: string): boolean {
+    const fileName = this.documentNames[docType] || '';
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'];
+    return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+  }
+  
+  isDocumentOther(docType: string): boolean {
+    return !this.isDocumentPDF(docType) && !this.isDocumentImage(docType);
+  }
+  
+  getDocumentShortName(docType: string): string {
+    const fileName = this.documentNames[docType] || 'Document';
+    // Remove the title prefix if present (e.g., "Support Document - filename.pdf" => "filename.pdf")
+    const parts = fileName.split(' - ');
+    const shortName = parts.length > 1 ? parts[parts.length - 1] : fileName;
+    // Truncate if too long
+    if (shortName.length > 30) {
+      return shortName.substring(0, 27) + '...';
+    }
+    return shortName;
+  }
+  
+  getFileTypeFromName(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    const mimeTypes: { [key: string]: string } = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif'
+    };
+    return mimeTypes[extension] || 'application/octet-stream';
+  }
+  
+  handleDocumentPreviewError(event: any, docType: string) {
+    console.error('Document preview failed to load:', docType);
+    event.target.src = 'assets/img/photo-placeholder.svg';
   }
 
   replaceDocument(docType: string) {

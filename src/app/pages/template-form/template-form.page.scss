@@ -287,6 +287,126 @@ ion-toolbar{--background:var(--noble-orange)}
   .doc-content {
     padding: 12px;
     
+    .document-preview-section {
+      margin-bottom: 12px;
+      
+      .document-preview-container {
+        position: relative;
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          border-color: var(--noble-orange);
+          box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
+          
+          .preview-overlay {
+            opacity: 1;
+          }
+        }
+        
+        .pdf-preview, .doc-preview {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          padding: 20px;
+          
+          .pdf-icon, .doc-icon {
+            font-size: 64px;
+            color: var(--noble-orange);
+          }
+          
+          .pdf-info, .doc-info {
+            text-align: center;
+            
+            .pdf-label, .doc-label {
+              display: block;
+              font-size: 12px;
+              color: #6c757d;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            
+            .pdf-name, .doc-name {
+              display: block;
+              font-size: 14px;
+              color: #212529;
+              font-weight: 500;
+              max-width: 200px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+          }
+        }
+        
+        .image-preview {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          
+          img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+          }
+        }
+        
+        .preview-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          
+          ion-icon {
+            font-size: 32px;
+            color: white;
+          }
+          
+          span {
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+          }
+        }
+      }
+      
+      .file-meta {
+        margin-top: 8px;
+        padding: 8px;
+        background: #fff8f5;
+        border-left: 3px solid var(--noble-orange);
+        font-size: 13px;
+        color: #495057;
+        line-height: 1.4;
+        
+        small {
+          color: #6c757d;
+          font-size: 11px;
+        }
+      }
+    }
+    
     .uploaded-file-info {
       background: #fff8f5;
       border: 1px solid var(--noble-orange);
