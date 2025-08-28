@@ -222,18 +222,17 @@ export class NewProjectPage implements OnInit {
         );
         
         if (stateRecord) {
-          this.formData.state = stateRecord.StateID; // Store as number
+          // Set state as number to match ion-select value binding
+          this.formData.state = stateRecord.StateID;
           console.log('✅ State matched:', state, '-> StateID:', stateRecord.StateID);
           console.log('✅ State dropdown will show:', stateRecord.State);
           console.log('✅ Form state field updated to:', this.formData.state, 'Type:', typeof this.formData.state);
           
-          // Force Angular to update the select element
+          // Manually trigger change detection to update the ion-select
           setTimeout(() => {
-            const stateSelect = document.querySelector('ion-select[name="state"]') as any;
-            if (stateSelect) {
-              stateSelect.value = this.formData.state;
-            }
-          }, 100);
+            // Force Angular to detect the change
+            (this as any).formData = { ...this.formData };
+          }, 50);
         } else {
           console.log('⚠️ State not found in database:', state);
           console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));

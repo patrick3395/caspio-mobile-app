@@ -128,7 +128,7 @@ export class ProjectDetailPage implements OnInit {
       this.caspioService.authenticate().subscribe({
         next: () => {
           console.log('✅ DEBUG: Authentication successful');
-          this.fetchProject();
+          this.fetchProjectOptimized();
         },
         error: (error) => {
           this.error = 'Authentication failed';
@@ -142,7 +142,81 @@ export class ProjectDetailPage implements OnInit {
       });
     } else {
       console.log('🔍 DEBUG: Already authenticated, fetching project...');
-      this.fetchProject();
+      this.fetchProjectOptimized();
+    }
+  }
+
+  async fetchProjectOptimized() {
+    this.loading = true;
+    this.error = '';
+    
+    try {
+      // First get the project data to determine the actual ProjectID
+      const projectData = await this.projectsService.getProjectById(this.projectId).toPromise();
+      this.project = projectData || null;
+      
+      const actualProjectId = projectData?.ProjectID || this.projectId;
+      this.isReadOnly = projectData?.StatusID === 2 && 
+                       this.route.snapshot.queryParams['mode'] !== 'add-service';
+      
+      // Now load everything else in parallel
+      const [offers, types, services, attachTemplates, existingAttachments] = await Promise.all([
+        // Get offers for company
+        this.caspioService.getOffersByCompany('1').toPromise(),
+        // Get service types
+        this.caspioService.getServiceTypes().toPromise(),
+        // Get existing services for this project
+        this.caspioService.getServicesByProject(actualProjectId).toPromise(),
+        // Get attach templates
+        this.caspioService.getAttachTemplates().toPromise(),
+        // Get existing attachments
+        this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
+      ]);
+      
+      // Process offers and types
+      this.availableOffers = (offers || []).map((offer: any) => {
+        const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
+        return {
+          ...offer,
+          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service'
+        };
+      });
+      
+      // Process existing services
+      this.selectedServices = (services || []).map((service: any) => {
+        const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
+        return {
+          instanceId: `${service.PK_ID || service.ServiceID}_${Date.now()}_${Math.random()}`,
+          serviceId: service.PK_ID || service.ServiceID,
+          offersId: offer?.OffersID || offer?.PK_ID || '',
+          typeId: service.TypeID,
+          typeName: offer?.TypeName || 'Unknown Service',
+          dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString()
+        };
+      });
+      
+      // Process attach templates
+      this.attachTemplates = attachTemplates || [];
+      
+      // Process existing attachments
+      this.existingAttachments = existingAttachments || [];
+      
+      // Update documents
+      this.loadDocumentsForServices();
+      
+      // Load PrimaryPhoto if needed (async, don't wait)
+      if (this.project?.['PrimaryPhoto'] && this.project['PrimaryPhoto'].startsWith('/')) {
+        this.loadProjectImageData();
+      }
+      
+      this.loading = false;
+      this.loadingServices = false;
+      
+    } catch (error) {
+      console.error('Error loading project:', error);
+      this.error = 'Failed to load project';
+      this.loading = false;
+      this.loadingServices = false;
     }
   }
 
