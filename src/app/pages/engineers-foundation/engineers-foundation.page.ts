@@ -5046,6 +5046,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const roomData = this.roomElevationData[roomName];
       if (!roomData) continue;
       
+      const roomId = roomData.roomId || this.roomRecordIds[roomName];
+      
       const roomResult: any = {
         name: roomName,
         fdf: roomData.fdf,
@@ -5054,24 +5056,91 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         photos: []
       };
       
-      // Process elevation points
-      if (roomData.elevationPoints) {
-        for (const point of roomData.elevationPoints) {
-          if (point.value) {
-            roomResult.points.push({
-              name: point.name,
-              value: point.value,
-              photoCount: point.photoCount || 0
-            });
-          }
-        }
-      }
-      
-      // Get room photos if any
-      const roomId = roomData.roomId;
+      // Fetch actual points from Services_Rooms_Points table
       if (roomId) {
-        const photos = await this.getRoomPhotos(roomId);
-        roomResult.photos = photos;
+        console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);
+        
+        try {
+          // Get all points for this room from the database
+          const dbPoints = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+          console.log(`Found ${dbPoints?.length || 0} points in database for room ${roomName}`);
+          
+          // Process each point and get its attachments
+          for (const dbPoint of (dbPoints || [])) {
+            const pointId = dbPoint.PointID || dbPoint.PK_ID;
+            const pointName = dbPoint.PointName;
+            
+            // Find the matching point in local data to get the value
+            const localPoint = roomData.elevationPoints?.find((p: any) => p.name === pointName);
+            const pointValue = localPoint?.value || '';
+            
+            const pointData: any = {
+              name: pointName,
+              value: pointValue,
+              pointId: pointId,
+              photos: []
+            };
+            
+            // Fetch attachments for this specific point
+            if (pointId) {
+              console.log(`Fetching attachments for point ${pointName} (PointID: ${pointId})`);
+              const attachments = await this.caspioService.getServicesRoomsAttachments(pointId).toPromise();
+              console.log(`Found ${attachments?.length || 0} attachments for point ${pointName}`);
+              
+              // Process each attachment and convert to base64 for PDF
+              for (const attachment of (attachments || [])) {
+                let photoUrl = attachment.Photo || '';
+                let finalUrl = photoUrl;
+                
+                // Convert Caspio file paths to base64
+                if (photoUrl && photoUrl.startsWith('/')) {
+                  try {
+                    console.log(`Converting attachment photo to base64: ${photoUrl}`);
+                    const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+                    
+                    if (base64Data && base64Data.startsWith('data:')) {
+                      finalUrl = base64Data;
+                      console.log(`Successfully converted photo to base64 for point ${pointName}`);
+                    }
+                  } catch (error) {
+                    console.error(`Failed to convert photo for point ${pointName}:`, error);
+                    // Keep original URL as fallback
+                  }
+                }
+                
+                pointData.photos.push({
+                  url: finalUrl,
+                  annotation: attachment.Annotation || '',
+                  attachId: attachment.AttachID || attachment.PK_ID
+                });
+              }
+            }
+            
+            // Only add point if it has a value or photos
+            if (pointValue || pointData.photos.length > 0) {
+              roomResult.points.push(pointData);
+            }
+          }
+          
+          // Also include local points that might not be in database yet
+          if (roomData.elevationPoints) {
+            for (const localPoint of roomData.elevationPoints) {
+              // Check if we already processed this point from database
+              const existingPoint = roomResult.points.find((p: any) => p.name === localPoint.name);
+              
+              if (!existingPoint && localPoint.value) {
+                // This is a local point not yet saved to database
+                roomResult.points.push({
+                  name: localPoint.name,
+                  value: localPoint.value,
+                  photos: localPoint.photos || []
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching elevation data for room ${roomName}:`, error);
+        }
       }
       
       result.push(roomResult);

@@ -405,8 +405,8 @@
                         (error)="handleImageError($event)"
                         (load)="handleImageLoad($event)"
                         class="loading" />
-                      <p class="point-photo-caption" *ngIf="photo.caption">
-                        {{ photo.caption }}
+                      <p class="point-photo-caption" *ngIf="photo.annotation">
+                        {{ photo.annotation }}
                       </p>
                     </div>
                   </div>

@@ -196,7 +196,9 @@ export class PdfPreviewComponent implements OnInit {
     return this.elevationData.reduce((total, room) => {
       const roomPhotos = room.photos ? room.photos.length : 0;
       const pointPhotos = room.points ? room.points.reduce((sum: number, point: any) => {
-        return sum + (point.photoCount || 0);
+        // Count actual photos array if available, otherwise use photoCount
+        const photoCount = point.photos ? point.photos.length : (point.photoCount || 0);
+        return sum + photoCount;
       }, 0) : 0;
       return total + roomPhotos + pointPhotos;
     }, 0);
@@ -958,11 +960,14 @@ export class PdfPreviewComponent implements OnInit {
       if (room.points && room.points.length > 0) {
         yPos += 5;
         
-        const tableData = room.points.map((point: any) => [
-          point.name,
-          point.value ? `${point.value}"` : 'N/A',
-          point.photoCount > 0 ? `${point.photoCount} photo(s)` : '-'
-        ]);
+        const tableData = room.points.map((point: any) => {
+          const photoCount = point.photos ? point.photos.length : (point.photoCount || 0);
+          return [
+            point.name,
+            point.value ? `${point.value}"` : 'N/A',
+            photoCount > 0 ? `${photoCount} photo(s)` : '-'
+          ];
+        });
         
         (pdf as any).autoTable({
           startY: yPos,
@@ -987,9 +992,66 @@ export class PdfPreviewComponent implements OnInit {
         });
         
         yPos = (pdf as any).lastAutoTable.finalY + 5;
+        
+        // Add point photos if available
+        for (const point of room.points) {
+          if (point.photos && point.photos.length > 0) {
+            // Check if we need a new page
+            if (yPos > maxY - 40) {
+              pdf.addPage();
+              pageNum++;
+              this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
+              this.addPageFooter(pdf, pageNum);
+              yPos = 50;
+            }
+            
+            // Point photo header
+            pdf.setFont('helvetica', 'italic');
+            pdf.setFontSize(9);
+            pdf.text(`${point.name} Photos:`, margin + 10, yPos);
+            yPos += 5;
+            
+            // Display point photos
+            const photoWidth = 30;
+            const photoHeight = 22;
+            const photosPerRow = 4;
+            let photoIndex = 0;
+            
+            for (const photo of point.photos.slice(0, 4)) { // Limit to 4 photos per point
+              const col = photoIndex % photosPerRow;
+              const xPos = margin + 10 + (col * (photoWidth + 5));
+              
+              if (col === 0 && photoIndex > 0) {
+                yPos += photoHeight + 5;
+              }
+              
+              try {
+                const imgUrl = this.getPhotoUrl(photo);
+                const imgData = await this.loadImage(imgUrl);
+                if (imgData) {
+                  pdf.addImage(imgData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+                  
+                  // Add annotation if available
+                  if (photo.annotation) {
+                    pdf.setFontSize(7);
+                    pdf.setFont('helvetica', 'normal');
+                    const annotation = photo.annotation.substring(0, 20) + (photo.annotation.length > 20 ? '...' : '');
+                    pdf.text(annotation, xPos, yPos + photoHeight + 2);
+                  }
+                }
+              } catch (error) {
+                console.log('Point photo not available');
+              }
+              
+              photoIndex++;
+            }
+            
+            yPos += photoHeight + 10;
+          }
+        }
       }
       
-      // Room photos
+      // Room photos (if any exist separately from point photos)
       if (room.photos && room.photos.length > 0) {
         yPos += 5;
         const photoWidth = 35;
