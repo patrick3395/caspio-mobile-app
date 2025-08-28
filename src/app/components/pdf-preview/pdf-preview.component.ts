@@ -237,17 +237,17 @@ export class PdfPreviewComponent implements OnInit {
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
 
-      // ============ MASSIVE RED TEST BANNER v1.4.151 ============
+      // ============ MASSIVE RED TEST BANNER v1.4.153 ============
       pdf.setFillColor(255, 0, 0);
       pdf.rect(0, 20, pageWidth, 80, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(32);
       pdf.setTextColor(255, 255, 255);
-      pdf.text('TEST PDF UPDATED', pageWidth/2, 50, { align: 'center' });
+      pdf.text('PDF UPDATED v1.4.153', pageWidth/2, 50, { align: 'center' });
       pdf.setFontSize(20);
-      pdf.text('VERSION 1.4.151', pageWidth/2, 70, { align: 'center' });
+      pdf.text('ELEVATION PLOT REDESIGNED', pageWidth/2, 70, { align: 'center' });
       pdf.setFontSize(14);
-      pdf.text('This banner confirms PDF code is being updated', pageWidth/2, 85, { align: 'center' });
+      pdf.text('Elevation Plot now matches Structural Systems styling', pageWidth/2, 85, { align: 'center' });
       pdf.setTextColor(51, 51, 51);
       // ============ END TEST BANNER ============
 
@@ -932,30 +932,32 @@ export class PdfPreviewComponent implements OnInit {
     let yPos = 50;
     const maxY = pageHeight - 30;
     
-    // ============ GIANT TEST HEADER - REMOVE THIS ============
-    // HUGE RED BOX
+    // ============ MASSIVE DEBUG BANNER v1.4.153 ============
     pdf.setFillColor(255, 0, 0);
-    pdf.rect(0, yPos - 10, pageWidth, 50, 'F');
+    pdf.rect(0, yPos - 10, pageWidth, 60, 'F');
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(24);
+    pdf.setFontSize(28);
     pdf.setTextColor(255, 255, 255);
-    pdf.text('🚨 TEST - ELEVATION PLOT UPDATED 🚨', pageWidth/2, yPos + 10, { align: 'center' });
+    pdf.text('\ud83d\udea8 ELEVATION PLOT REDESIGNED \ud83d\udea8', pageWidth/2, yPos + 15, { align: 'center' });
+    pdf.setFontSize(16);
+    pdf.text('VERSION 1.4.153 - MATCHING STRUCTURAL SYSTEMS', pageWidth/2, yPos + 35, { align: 'center' });
+    pdf.setTextColor(51, 51, 51);
+    yPos += 70;
+    // ============ END DEBUG BANNER ============
+    
+    // MAIN ELEVATION MEASUREMENTS SECTION - styled like Structural Systems Comments section
+    pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
-    pdf.text('Version 1.4.151 - If you see this, the update worked!', pageWidth/2, yPos + 25, { align: 'center' });
-    yPos += 60;
-    // ============ END GIANT TEST HEADER ============
+    pdf.setFillColor(241, 90, 39);  // Orange like Comments header
+    pdf.rect(margin - 2, yPos - 5, contentWidth + 4, 8, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('ELEVATION MEASUREMENTS', margin, yPos);
+    pdf.setTextColor(51, 51, 51);
+    yPos += 12;
     
-    // Add description exactly like Structural Systems
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(11);
-    pdf.setTextColor(73, 80, 87);
-    pdf.text('Foundation elevation measurements and observations', margin, yPos);
-    yPos += 20;
-    
-    // Process each room exactly like Structural Systems items
+    // Process each room as a visual item - EXACTLY like structural systems
     for (const room of this.elevationData) {
-      // Check if we need a new page
-      if (yPos > maxY - 80) {
+      if (yPos > maxY - 40) {
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
@@ -963,152 +965,76 @@ export class PdfPreviewComponent implements OnInit {
         yPos = 50;
       }
       
-      // Room card with gray background header - EXACTLY like Structural Systems
-      pdf.setFillColor(248, 249, 250);
-      pdf.rect(margin - 2, yPos - 5, contentWidth + 4, 8, 'F');
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(11);
-      pdf.setTextColor(51, 51, 51);
-      pdf.text(`${room.name}`, margin + 2, yPos);
-      yPos += 8;
+      // Create a visual item object to pass to the enhanced visual item method
+      const roomItem = {
+        name: room.name,
+        text: this.buildRoomDescriptionText(room),
+        photos: this.getAllRoomPhotos(room)
+      };
       
-      
-      // Build description text combining all room data
-      let descriptionText = '';
-      
-      // Add FDF if present
-      if (room.fdf && room.fdf !== 'None') {
-        descriptionText += `Floor Differential Factor: ${room.fdf}\n`;
-      }
-      
-      // Add measurement points summary
-      if (room.points && room.points.length > 0) {
-        descriptionText += `Elevation measurements taken at ${room.points.length} points:\n`;
-        for (const point of room.points) {
-          const value = point.value ? `${point.value}"` : 'N/A';
-          descriptionText += `  • ${point.name}: ${value}`;
-          if (point.photos && point.photos.length > 0) {
-            descriptionText += ` (${point.photos.length} photos)`;
-          }
-          descriptionText += '\n';
-        }
-      }
-      
-      // Add notes if present
-      if (room.notes) {
-        descriptionText += `\nNotes: ${room.notes}`;
-      }
-      
-      // Display the description text with proper formatting - EXACTLY like Structural Systems
-      if (descriptionText) {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(73, 80, 87);
-        const lines = pdf.splitTextToSize(descriptionText.trim(), contentWidth - 10);
-        pdf.text(lines, margin + 5, yPos);
-        yPos += lines.length * 4 + 4;
-      }
-      
-      // Enhanced photo display - EXACTLY like Structural Systems
-      const pointsWithPhotos = room.points?.filter((p: any) => p.photos?.length > 0) || [];
-      if (pointsWithPhotos.length > 0) {
-        yPos += 3;
-        
-        // Larger, clearer photos for professional look - MATCHING Structural Systems
-        const photoWidth = 60;
-        const photoHeight = 45;
-        const photosPerRow = 3;
-        const spacing = (contentWidth - (photosPerRow * photoWidth)) / (photosPerRow - 1);
-        let photoIndex = 0;
-        
-        for (const point of pointsWithPhotos) {
-          for (let i = 0; i < point.photos.length && photoIndex < 6; i++) {
-            const photo = point.photos[i];
-            const col = photoIndex % photosPerRow;
-            const xPos = margin + (col * (photoWidth + spacing));
-            
-            if (col === 0 && photoIndex > 0) {
-              yPos += photoHeight + 12;
-              
-              // Check for page break
-              if (yPos > maxY - photoHeight) {
-                pdf.addPage();
-                pageNum++;
-                this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
-                this.addPageFooter(pdf, pageNum);
-                yPos = 50;
-              }
-            }
-            
-            try {
-              const imgUrl = this.getPhotoUrl(photo);
-              console.log(`Loading photo ${photoIndex + 1} for ${room.name}`);
-              const imgData = await this.loadImage(imgUrl);
-              
-              if (imgData) {
-                // Add shadow effect
-                pdf.setFillColor(200, 200, 200);
-                pdf.rect(xPos + 1, yPos + 1, photoWidth, photoHeight, 'F');
-                
-                // Add the image
-                pdf.addImage(imgData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
-                
-                // Add border
-                pdf.setDrawColor(180, 180, 180);
-                pdf.setLineWidth(0.5);
-                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-                
-                // Add photo caption bar at bottom - like Structural Systems
-                if (photo.caption || point.name) {
-                  pdf.setFillColor(0, 0, 0, 0.7);
-                  pdf.rect(xPos, yPos + photoHeight - 8, photoWidth, 8, 'F');
-                  pdf.setFont('helvetica', 'normal');
-                  pdf.setFontSize(8);
-                  pdf.setTextColor(255, 255, 255);
-                  const caption = photo.caption ? 
-                    `Photo ${photoIndex + 1}: ${photo.caption.substring(0, 25)}${photo.caption.length > 25 ? '...' : ''}` :
-                    `Photo ${photoIndex + 1}: ${point.name}`;
-                  pdf.text(caption, xPos + 2, yPos + photoHeight - 2);
-                }
-              } else {
-                // Show placeholder for missing images
-                pdf.setFillColor(240, 240, 240);
-                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
-                pdf.setDrawColor(180, 180, 180);
-                pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-                pdf.setFont('helvetica', 'italic');
-                pdf.setFontSize(9);
-                pdf.setTextColor(150, 150, 150);
-                pdf.text('Image not available', xPos + photoWidth/2, yPos + photoHeight/2, { align: 'center' });
-              }
-            } catch (error) {
-              console.error('Error loading photo:', error);
-              // Add placeholder
-              pdf.setFillColor(240, 240, 240);
-              pdf.rect(xPos, yPos, photoWidth, photoHeight, 'F');
-              pdf.setDrawColor(180, 180, 180);
-              pdf.rect(xPos, yPos, photoWidth, photoHeight, 'S');
-            }
-            
-            photoIndex++;
-          }
-        }
-        
-        if (photoIndex > 0) {
-          yPos += photoHeight + 15;
-        }
-      }
-      
-      // Add separator line between items - like Structural Systems
-      pdf.setDrawColor(220, 220, 220);
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, yPos - 5, margin + contentWidth, yPos - 5);
-      
-      // Add spacing between rooms
-      yPos += 10;
+      yPos = await this.addEnhancedVisualItem(pdf, roomItem, margin, contentWidth, yPos, maxY);
     }
     
     return pageNum;
+  }
+  
+  private buildRoomDescriptionText(room: any): string {
+    let text = '';
+    
+    // Add FDF if present
+    if (room.fdf && room.fdf !== 'None') {
+      text += `Floor Differential Factor: ${room.fdf}\n`;
+    }
+    
+    // Add measurement points
+    if (room.points && room.points.length > 0) {
+      text += `Measurements taken at ${room.points.length} points:\n`;
+      room.points.forEach((point: any) => {
+        const value = point.value ? `${point.value}"` : 'Pending';
+        text += `• ${point.name}: ${value}`;
+        if (point.photos && point.photos.length > 0) {
+          text += ` (${point.photos.length} photo${point.photos.length > 1 ? 's' : ''})`;
+        }
+        text += '\n';
+      });
+    }
+    
+    // Add notes if present
+    if (room.notes && room.notes.trim()) {
+      text += `\nNotes: ${room.notes}`;
+    }
+    
+    return text.trim();
+  }
+  
+  private getAllRoomPhotos(room: any): any[] {
+    const allPhotos: any[] = [];
+    
+    // Collect all photos from all points in the room
+    if (room.points) {
+      room.points.forEach((point: any) => {
+        if (point.photos && point.photos.length > 0) {
+          point.photos.forEach((photo: any) => {
+            allPhotos.push({
+              ...photo,
+              caption: photo.caption || `${point.name} - ${point.value ? point.value + '"' : 'N/A'}`
+            });
+          });
+        }
+      });
+    }
+    
+    // Add any room-level photos
+    if (room.photos) {
+      room.photos.forEach((photo: any) => {
+        allPhotos.push({
+          ...photo,
+          caption: photo.caption || `${room.name} - Room Photo`
+        });
+      });
+    }
+    
+    return allPhotos;
   }
 
   private async addPhotoGallery(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number, pageHeight: number) {
