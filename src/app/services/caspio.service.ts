@@ -450,6 +450,18 @@ export class CaspioService {
     );
   }
   
+  // Get Services_Visuals_Drop for dropdown options
+  getServicesVisualsDrop(): Observable<any[]> {
+    return this.get<any>('/tables/Services_Visuals_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+  
   // Get Services_Drop for dropdown options (Weather Conditions, Temperature, etc.)
   getServicesDrop(): Observable<any[]> {
     return this.get<any>('/tables/Services_Drop/records').pipe(

@@ -65,6 +65,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
   
+  // Dropdown options for AnswerType 2 from Services_Visuals_Drop
+  visualDropdownOptions: { [templateId: string]: string[] } = {};
+  
   // Form data for the template
   formData: any = {
     // Additional fields to be added based on requirements
@@ -158,7 +161,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadRoomTemplates(),
         this.loadFDFOptions(),
         this.loadProjectDropdownOptions(),
-        this.loadServicesDropdownOptions()
+        this.loadServicesDropdownOptions(),
+        this.loadVisualDropdownOptions()
       ]);
       
       // Then load any existing template data (including visual selections)
@@ -577,6 +581,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error loading FDF options:', error);
       // Default options on error
       this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+    }
+  }
+  
+  // Load dropdown options for visual templates from Services_Visuals_Drop table
+  async loadVisualDropdownOptions() {
+    try {
+      const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+      
+      if (dropdownData && dropdownData.length > 0) {
+        // Group dropdown options by TemplateID
+        dropdownData.forEach((row: any) => {
+          const templateId = row.TemplateID;
+          const dropdownValue = row.Dropdown;
+          
+          if (templateId && dropdownValue) {
+            if (!this.visualDropdownOptions[templateId]) {
+              this.visualDropdownOptions[templateId] = [];
+            }
+            // Add unique dropdown values for this template
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+              this.visualDropdownOptions[templateId].push(dropdownValue);
+            }
+          }
+        });
+        
+        console.log('Visual dropdown options loaded:', this.visualDropdownOptions);
+      }
+    } catch (error) {
+      console.log('Could not load visual dropdown options:', error);
+      // Continue without dropdown options - they're optional
     }
   }
   
@@ -1847,7 +1881,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             name: template.Name,
             text: template.Text || '',
             kind: template.Kind, // Changed from Type to Kind
-            category: template.Category
+            category: template.Category,
+            answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
+            required: template.Required || false,
+            templateId: template.PK_ID // Store for dropdown loading
           };
           
           // Initialize selection state
@@ -3048,30 +3085,81 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return this.savingItems[`${category}_${itemId}`] || false;
   }
   
-  // Show full text in sleek editor modal
+  // Show full text in sleek editor modal - now handles different AnswerTypes
   async showFullText(item: any) {
-    const alert = await this.alertController.create({
-      header: 'View Details',
-      cssClass: 'text-editor-modal',
-      inputs: [
-        {
-          name: 'title',
-          type: 'text',
-          placeholder: 'Title',
-          value: item.name || '',
-          cssClass: 'editor-title-input'
-        },
-        {
+    // Build inputs based on AnswerType
+    const inputs: any[] = [
+      {
+        name: 'title',
+        type: 'text',
+        placeholder: 'Title' + (item.required ? ' *' : ''),
+        value: item.name || '',
+        cssClass: 'editor-title-input'
+      }
+    ];
+    
+    // Add appropriate input based on AnswerType
+    if (item.answerType === 1) {
+      // Yes/No toggle
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'Yes',
+        value: 'Yes',
+        checked: item.text === 'Yes'
+      });
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'No',
+        value: 'No',
+        checked: item.text === 'No'
+      });
+    } else if (item.answerType === 2) {
+      // Dropdown from Services_Visuals_Drop
+      const options = this.visualDropdownOptions[item.templateId] || [];
+      if (options.length > 0) {
+        // Add each option as a radio button
+        options.forEach(option => {
+          inputs.push({
+            name: 'description',
+            type: 'radio',
+            label: option,
+            value: option,
+            checked: item.text === option
+          });
+        });
+      } else {
+        // Fallback to text if no options available
+        inputs.push({
           name: 'description',
           type: 'textarea',
-          placeholder: 'Description',
+          placeholder: 'Description' + (item.required ? ' *' : ''),
           value: item.text || '',
           cssClass: 'editor-text-input',
           attributes: {
             rows: 8
           }
+        });
+      }
+    } else {
+      // Default text input (AnswerType 0 or undefined)
+      inputs.push({
+        name: 'description',
+        type: 'textarea',
+        placeholder: 'Description' + (item.required ? ' *' : ''),
+        value: item.text || '',
+        cssClass: 'editor-text-input',
+        attributes: {
+          rows: 8
         }
-      ],
+      });
+    }
+    
+    const alert = await this.alertController.create({
+      header: 'View Details' + (item.required ? ' (Required)' : ''),
+      cssClass: 'text-editor-modal',
+      inputs: inputs,
       buttons: [
         {
           text: 'Cancel',
@@ -3082,6 +3170,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           text: 'Save',
           cssClass: 'editor-save-btn',
           handler: (data) => {
+            // Validate required fields
+            if (item.required && (!data.title || !data.description)) {
+              this.showToast('Please fill in all required fields', 'warning');
+              return false;
+            }
+            
             // Update the item with new values
             if (data.title !== item.name || data.description !== item.text) {
               item.name = data.title;

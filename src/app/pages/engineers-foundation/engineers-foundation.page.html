@@ -376,7 +376,12 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>{{ item.name }}</h3>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 1">[Yes/No]</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 2">[Select]</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
@@ -441,7 +446,12 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>{{ item.name }}</h3>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 1">[Yes/No]</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 2">[Select]</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
@@ -506,7 +516,12 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>{{ item.name }}</h3>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 1">[Yes/No]</span>
+                            <span class="answer-type-badge" *ngIf="item.answerType === 2">[Select]</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
