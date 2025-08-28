@@ -44,16 +44,17 @@
         <p class="property-location">{{ projectData?.city }}, {{ projectData?.state }} {{ projectData?.zip }}</p>
         
         <div class="client-info">
-          <p><strong>Client:</strong> {{ projectData?.clientName || 'Client Name' }}</p>
+          <p><strong>Client:</strong> {{ projectData?.clientName || 'N/A' }}</p>
+          <p><strong>Agent:</strong> {{ projectData?.agentName || 'N/A' }}</p>
           <p><strong>Inspection Date:</strong> {{ getFormattedDate(projectData?.inspectionDate) }}</p>
         </div>
       </div>
       
       <div class="inspector-footer">
         <p class="inspector-title">Inspected By:</p>
-        <p class="inspector-name">{{ projectData?.inspectorName || 'Inspector Name' }}</p>
-        <p>License #{{ projectData?.licenseNumber || '12345' }}</p>
-        <p>{{ projectData?.inspectorEmail || 'inspector@noblepropertyinspections.com' }}</p>
+        <p class="inspector-name">{{ projectData?.inspectorName || 'N/A' }}</p>
+        <p>{{ projectData?.companyName || 'Noble Property Inspections' }}</p>
+        <p>{{ projectData?.inspectorEmail || 'info@noblepropertyinspections.com' }}</p>
       </div>
     </div>
     
@@ -202,39 +203,39 @@
         <div class="info-table">
           <div class="info-row">
             <div class="info-label">Date of Inspection</div>
-            <div class="info-value">{{ getFormattedDate(serviceData?.DateOfInspection) }}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Date of Request</div>
-            <div class="info-value">{{ getFormattedDate(serviceData?.DateOfRequest) }}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Weather Conditions</div>
-            <div class="info-value">{{ serviceData?.WeatherConditions || 'Clear' }}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Outdoor Temperature</div>
-            <div class="info-value">{{ serviceData?.OutdoorTemperature || '75°F' }}</div>
+            <div class="info-value">{{ getFormattedDate(projectData?.inspectionDate) }}</div>
           </div>
           <div class="info-row">
             <div class="info-label">In Attendance</div>
-            <div class="info-value">{{ serviceData?.InAttendance || 'Owner' }}</div>
+            <div class="info-value">{{ projectData?.inAttendance || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Weather Conditions</div>
+            <div class="info-value">{{ projectData?.weatherConditions || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Outdoor Temperature</div>
+            <div class="info-value">{{ projectData?.outdoorTemperature || 'N/A' }}</div>
           </div>
           <div class="info-row">
             <div class="info-label">Occupancy/Furnishings</div>
-            <div class="info-value">{{ serviceData?.OccupancyFurnishings || 'Occupied/Furnished' }}</div>
+            <div class="info-value">{{ projectData?.occupancyFurnishings || 'N/A' }}</div>
           </div>
-          <div class="info-row" *ngIf="serviceData?.FirstFoundationType">
+          <div class="info-row" *ngIf="projectData?.firstFoundationType">
             <div class="info-label">Primary Foundation Type</div>
-            <div class="info-value">{{ serviceData.FirstFoundationType }}</div>
+            <div class="info-value">{{ projectData.firstFoundationType }}</div>
           </div>
-          <div class="info-row" *ngIf="serviceData?.SecondFoundationType">
+          <div class="info-row" *ngIf="projectData?.secondFoundationType">
             <div class="info-label">Secondary Foundation Type</div>
-            <div class="info-value">{{ serviceData.SecondFoundationType }}{{ serviceData.SecondFoundationRooms ? ' (' + serviceData.SecondFoundationRooms + ')' : '' }}</div>
+            <div class="info-value">{{ projectData.secondFoundationType }}{{ projectData.secondFoundationRooms ? ' (' + projectData.secondFoundationRooms + ')' : '' }}</div>
           </div>
-          <div class="info-row" *ngIf="serviceData?.OwnerOccupantInterview">
+          <div class="info-row" *ngIf="projectData?.thirdFoundationType">
+            <div class="info-label">Third Foundation Type</div>
+            <div class="info-value">{{ projectData.thirdFoundationType }}{{ projectData.thirdFoundationRooms ? ' (' + projectData.thirdFoundationRooms + ')' : '' }}</div>
+          </div>
+          <div class="info-row" *ngIf="projectData?.ownerOccupantInterview">
             <div class="info-label">Owner/Occupant Interview</div>
-            <div class="info-value">{{ serviceData.OwnerOccupantInterview }}</div>
+            <div class="info-value">{{ projectData.ownerOccupantInterview }}</div>
           </div>
         </div>
         

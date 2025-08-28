@@ -2654,17 +2654,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   getProjectCompletion(): number {
-    // Calculate project details completion percentage
-    const requiredFields = ['foundationType', 'foundationCondition'];
+    // Calculate project details completion percentage for required fields only
+    
+    // Required fields from projectData
+    const requiredProjectFields = [
+      'ClientName',
+      'AgentName', 
+      'InspectorName',
+      'YearBuilt',
+      'SquareFeet',
+      'TypeOfBuilding',
+      'Style'
+    ];
+    
+    // Required fields from serviceData
+    const requiredServiceFields = [
+      'InAttendance',
+      'OccupancyFurnishings',
+      'WeatherConditions',
+      'OutdoorTemperature'
+    ];
+    
+    let totalRequired = requiredProjectFields.length + requiredServiceFields.length;
     let completed = 0;
     
-    requiredFields.forEach(field => {
-      if (this.formData[field] && this.formData[field] !== '') {
+    // Check projectData required fields
+    requiredProjectFields.forEach(field => {
+      if (this.projectData[field] && this.projectData[field] !== '') {
         completed++;
       }
     });
     
-    return Math.round((completed / requiredFields.length) * 100);
+    // Check serviceData required fields
+    requiredServiceFields.forEach(field => {
+      if (this.serviceData[field] && this.serviceData[field] !== '') {
+        completed++;
+      }
+    });
+    
+    return Math.round((completed / totalRequired) * 100);
   }
   
   // Toggle item selection
@@ -4803,23 +4831,58 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async prepareProjectInfo() {
     const primaryPhoto = this.projectData?.PrimaryPhoto || null;
     
+    // Combine all the actual form data from projectData and serviceData
     return {
+      // Project identifiers
       projectId: this.projectId,
+      serviceId: this.serviceId,
       primaryPhoto: primaryPhoto,
+      
+      // Property address
       address: this.projectData?.Address || '',
       city: this.projectData?.City || '',
       state: this.projectData?.State || '',
       zip: this.projectData?.Zip || '',
       fullAddress: `${this.projectData?.Address || ''}, ${this.projectData?.City || ''}, ${this.projectData?.State || ''} ${this.projectData?.Zip || ''}`,
+      
+      // People & Roles (from actual form inputs)
       clientName: this.projectData?.ClientName || this.projectData?.Owner || '',
+      agentName: this.projectData?.AgentName || '',
+      inspectorName: this.projectData?.InspectorName || '',
+      inAttendance: this.serviceData?.InAttendance || '',
+      
+      // Property Details (from actual form inputs)
+      yearBuilt: this.projectData?.YearBuilt || '',
+      squareFeet: this.projectData?.SquareFeet || '',
+      typeOfBuilding: this.projectData?.TypeOfBuilding || '',
+      style: this.projectData?.Style || '',
+      occupancyFurnishings: this.serviceData?.OccupancyFurnishings || '',
+      
+      // Environmental Conditions (from actual form inputs)
+      weatherConditions: this.serviceData?.WeatherConditions || '',
+      outdoorTemperature: this.serviceData?.OutdoorTemperature || '',
+      
+      // Foundation Details (from actual form inputs)
+      firstFoundationType: this.serviceData?.FirstFoundationType || '',
+      secondFoundationType: this.serviceData?.SecondFoundationType || '',
+      secondFoundationRooms: this.serviceData?.SecondFoundationRooms || '',
+      thirdFoundationType: this.serviceData?.ThirdFoundationType || '',
+      thirdFoundationRooms: this.serviceData?.ThirdFoundationRooms || '',
+      
+      // Additional Information
+      ownerOccupantInterview: this.serviceData?.OwnerOccupantInterview || '',
+      
+      // Inspection Details
       inspectionDate: this.formatDate(this.serviceData?.DateOfInspection || new Date().toISOString()),
-      buildingType: this.formData.foundationType || 'Post-Tension',
-      weatherConditions: this.serviceData?.WeatherConditions || 'Clear',
-      temperature: this.serviceData?.Temperature || '75°F',
-      inspectorName: 'Inspector Name',
+      
+      // Company information (keep these as defaults for now)
       inspectorPhone: '936-202-8013',
       inspectorEmail: 'info@noblepropertyinspections.com',
-      licenseNumber: '12345'
+      companyName: 'Noble Property Inspections',
+      
+      // All raw data for debugging
+      projectData: this.projectData,
+      serviceData: this.serviceData
     };
   }
 
@@ -4965,9 +5028,64 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async getRoomPhotos(roomId: string) {
-    // Get photos for a specific room
-    // This would need to be implemented based on your photo storage
-    return [];
+    // Get photos for a specific room from Services_Rooms_Points and Services_Rooms_Points_Attach
+    try {
+      console.log(`📸 Fetching photos for room ${roomId}`);
+      
+      // First get all points for this room
+      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      
+      if (!points || points.length === 0) {
+        console.log(`No points found for room ${roomId}`);
+        return [];
+      }
+      
+      // Get all point IDs
+      const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
+      
+      if (pointIds.length === 0) {
+        console.log(`No valid point IDs found for room ${roomId}`);
+        return [];
+      }
+      
+      // Fetch all attachments for these points
+      const attachments = await this.caspioService.getServicesRoomsAttachments(pointIds).toPromise();
+      
+      if (!attachments || attachments.length === 0) {
+        console.log(`No attachments found for room ${roomId} points`);
+        return [];
+      }
+      
+      // Format photos for display
+      const account = this.caspioService.getAccountID();
+      const token = this.caspioService.getCurrentToken() || '';
+      
+      return attachments.map((attach: any) => {
+        let photoUrl = attach.Photo || '';
+        
+        // Convert Caspio file paths to full URLs
+        if (photoUrl && photoUrl.startsWith('/')) {
+          photoUrl = `https://${account}.caspio.com/rest/v2/files${photoUrl}?access_token=${token}`;
+        }
+        
+        // Find the corresponding point for this attachment
+        const point = points.find((p: any) => 
+          (p.PointID === attach.PointID) || (p.PK_ID === attach.PointID)
+        );
+        
+        return {
+          url: photoUrl,
+          caption: attach.Annotation || (point ? `${point.PointName}: ${point.PointValue}` : ''),
+          pointName: point?.PointName || '',
+          pointValue: point?.PointValue || '',
+          attachId: attach.AttachID || attach.PK_ID
+        };
+      });
+      
+    } catch (error) {
+      console.error(`Error fetching room photos for ${roomId}:`, error);
+      return [];
+    }
   }
 
   async fetchAllVisualsFromDatabase() {
