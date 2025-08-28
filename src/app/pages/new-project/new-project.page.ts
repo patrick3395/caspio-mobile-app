@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController } from '@ionic/angular';
@@ -34,6 +34,7 @@ export class NewProjectPage implements OnInit {
 
   availableServices: any[] = [];
   states: any[] = []; // Will be loaded from Caspio
+  stateAbbreviationMapping: { [key: string]: string } = {}; // Will be populated in loadStates
   stateAbbreviations: { [key: string]: string } = {
     'TX': 'Texas',
     'GA': 'Georgia',
@@ -50,7 +51,8 @@ export class NewProjectPage implements OnInit {
     private projectsService: ProjectsService,
     private serviceEfeService: ServiceEfeService,
     private loadingController: LoadingController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -72,19 +74,33 @@ export class NewProjectPage implements OnInit {
       this.states = statesData || [];
       console.log('✅ States loaded from Caspio:', this.states);
       
+      // Create a mapping of state abbreviations to full names
+      this.stateAbbreviationMapping = {
+        'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+        'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+        'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+        'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+        'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+        'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+        'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+        'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+        'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+        'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
+      };
+      
       // Don't set a default state - user must select
     } catch (error) {
       console.error('Error loading states:', error);
       // Fallback to hardcoded states if loading fails
       this.states = [
-        { StateID: 1, State: 'TX', StateAbbreviation: 'TX' },
-        { StateID: 2, State: 'GA', StateAbbreviation: 'GA' },
-        { StateID: 3, State: 'FL', StateAbbreviation: 'FL' },
-        { StateID: 4, State: 'CO', StateAbbreviation: 'CO' },
-        { StateID: 6, State: 'CA', StateAbbreviation: 'CA' },
-        { StateID: 7, State: 'AZ', StateAbbreviation: 'AZ' },
-        { StateID: 8, State: 'SC', StateAbbreviation: 'SC' },
-        { StateID: 9, State: 'TN', StateAbbreviation: 'TN' }
+        { StateID: 1, State: 'Texas' },
+        { StateID: 2, State: 'Georgia' },
+        { StateID: 3, State: 'Florida' },
+        { StateID: 4, State: 'Colorado' },
+        { StateID: 6, State: 'California' },
+        { StateID: 7, State: 'Arizona' },
+        { StateID: 8, State: 'South Carolina' },
+        { StateID: 9, State: 'Tennessee' }
       ];
     }
   }
@@ -211,30 +227,47 @@ export class NewProjectPage implements OnInit {
       
       // Find the StateID for the state abbreviation from Google Places
       if (state) {
-        console.log('🔍 Google Places returned state:', state);
+        console.log('🔍 Google Places returned state abbreviation:', state);
+        
+        // Convert abbreviation to full state name
+        const fullStateName = this.stateAbbreviationMapping[state.toUpperCase()];
+        console.log('🔍 Converted to full state name:', fullStateName);
         console.log('🔍 Available states in dropdown:', this.states);
         
         // Google Places returns abbreviation (e.g., "CA", "TX")
-        const stateRecord = this.states.find(s => 
-          s.State === state || 
-          s.StateAbbreviation === state ||
-          s.State === state.toUpperCase()
-        );
+        // We need to match it with the full state name in the States table
+        const stateRecord = this.states.find(s => {
+          // Try multiple matching strategies
+          return s.State === fullStateName || // Match full name (e.g., "Texas")
+                 s.State === state || // Match abbreviation if State column has abbreviations
+                 s.StateAbbreviation === state || // Match if there's a StateAbbreviation column
+                 s.State?.toUpperCase() === state.toUpperCase() || // Case-insensitive abbreviation match
+                 s.State?.toUpperCase() === fullStateName?.toUpperCase(); // Case-insensitive full name match
+        });
         
         if (stateRecord) {
           // Set state as number to match ion-select value binding
           this.formData.state = stateRecord.StateID;
-          console.log('✅ State matched:', state, '-> StateID:', stateRecord.StateID);
+          console.log('✅ State matched:', fullStateName || state, '-> StateID:', stateRecord.StateID);
           console.log('✅ State dropdown will show:', stateRecord.State);
           console.log('✅ Form state field updated to:', this.formData.state, 'Type:', typeof this.formData.state);
           
-          // Manually trigger change detection to update the ion-select
+          // Force Angular change detection for ion-select
+          // Use ChangeDetectorRef to ensure the ion-select updates
+          this.changeDetectorRef.detectChanges();
+          
+          // Also try to manually update the ion-select element
           setTimeout(() => {
-            // Force Angular to detect the change
-            (this as any).formData = { ...this.formData };
-          }, 50);
+            const stateSelect = document.querySelector('ion-select[name="state"]') as any;
+            if (stateSelect) {
+              stateSelect.value = this.formData.state;
+              console.log('✅ Forced ion-select update to:', this.formData.state);
+              // Trigger Angular's change detection again
+              this.changeDetectorRef.detectChanges();
+            }
+          }, 100);
         } else {
-          console.log('⚠️ State not found in database:', state);
+          console.log('⚠️ State not found in database:', state, '/', fullStateName);
           console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));
         }
       }
