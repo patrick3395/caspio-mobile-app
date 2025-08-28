@@ -6,14 +6,8 @@ import { IonModal, ToastController, AlertController, LoadingController, ModalCon
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: any;
-  }
-}
+import { PdfGeneratorService } from '../../services/pdf-generator.service';
+// jsPDF and jspdf-autotable are now lazy-loaded via PdfGeneratorService
 
 interface ServiceSelection {
   instanceId: string;
@@ -97,7 +91,8 @@ export class ProjectDetailPage implements OnInit {
     private alertController: AlertController,
     private loadingController: LoadingController,
     private modalController: ModalController,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private pdfGenerator: PdfGeneratorService
   ) {}
 
   ngOnInit() {

@@ -3,13 +3,10 @@ import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, Platform, AlertController, ToastController } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
 import { CaspioService } from '../../services/caspio.service';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: any;
-  }
-}
+// jsPDF is now lazy-loaded when needed
+
+// Type definition for jsPDF to avoid TypeScript errors
+type jsPDF = any;
 
 @Component({
   selector: 'app-pdf-preview',
@@ -188,11 +185,20 @@ export class PdfPreviewComponent implements OnInit {
     await loading.present();
 
     try {
+      // Lazy load jsPDF library
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default || jsPDFModule;
+      
+      // Also load jspdf-autotable for table support
+      await import('jspdf-autotable');
+      
+      loading.message = 'Generating comprehensive PDF report...';
+      
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'letter'
-      });
+      }) as any;
 
       let pageNum = 1;
       const pageWidth = pdf.internal.pageSize.getWidth();

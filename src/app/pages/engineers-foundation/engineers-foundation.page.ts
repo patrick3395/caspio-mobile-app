@@ -9,7 +9,8 @@ import { CameraService } from '../../services/camera.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
-import jsPDF from 'jspdf';
+import { PdfGeneratorService } from '../../services/pdf-generator.service';
+// jsPDF is now lazy-loaded via PdfGeneratorService
 
 
 interface ServicesVisualRecord {
@@ -135,7 +136,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
     private cameraService: CameraService,
-    private platform: Platform
+    private platform: Platform,
+    private pdfGenerator: PdfGeneratorService
   ) {}
 
   async ngOnInit() {
@@ -4908,50 +4910,73 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         deficiencies: []
       };
       
-      // Process comments
+      // Collect all photo fetch promises for parallel execution
+      const photoFetches: Promise<any>[] = [];
+      const photoMappings: { type: string, item: any, index: number }[] = [];
+      
+      // Process comments - collect promises
       if (categoryData.comments) {
-        for (const comment of categoryData.comments) {
+        categoryData.comments.forEach((comment: any, index: number) => {
           if (this.isCommentSelected(category, comment.VisualID)) {
-            const photos = await this.getVisualPhotos(comment.VisualID);
-            categoryResult.comments.push({
-              name: comment.Name || comment.name,
-              text: comment.Text || comment.text,
-              visualId: comment.VisualID,
-              photos: photos
+            photoFetches.push(this.getVisualPhotos(comment.VisualID));
+            photoMappings.push({
+              type: 'comments',
+              item: {
+                name: comment.Name || comment.name,
+                text: comment.Text || comment.text,
+                visualId: comment.VisualID
+              },
+              index: photoFetches.length - 1
             });
           }
-        }
+        });
       }
       
-      // Process limitations
+      // Process limitations - collect promises
       if (categoryData.limitations) {
-        for (const limitation of categoryData.limitations) {
+        categoryData.limitations.forEach((limitation: any, index: number) => {
           if (this.isLimitationSelected(category, limitation.VisualID)) {
-            const photos = await this.getVisualPhotos(limitation.VisualID);
-            categoryResult.limitations.push({
-              name: limitation.Name || limitation.name,
-              text: limitation.Text || limitation.text,
-              visualId: limitation.VisualID,
-              photos: photos
+            photoFetches.push(this.getVisualPhotos(limitation.VisualID));
+            photoMappings.push({
+              type: 'limitations',
+              item: {
+                name: limitation.Name || limitation.name,
+                text: limitation.Text || limitation.text,
+                visualId: limitation.VisualID
+              },
+              index: photoFetches.length - 1
             });
           }
-        }
+        });
       }
       
-      // Process deficiencies
+      // Process deficiencies - collect promises
       if (categoryData.deficiencies) {
-        for (const deficiency of categoryData.deficiencies) {
+        categoryData.deficiencies.forEach((deficiency: any, index: number) => {
           if (this.isDeficiencySelected(category, deficiency.VisualID)) {
-            const photos = await this.getVisualPhotos(deficiency.VisualID);
-            categoryResult.deficiencies.push({
-              name: deficiency.Name || deficiency.name,
-              text: deficiency.Text || deficiency.text,
-              visualId: deficiency.VisualID,
-              photos: photos
+            photoFetches.push(this.getVisualPhotos(deficiency.VisualID));
+            photoMappings.push({
+              type: 'deficiencies',
+              item: {
+                name: deficiency.Name || deficiency.name,
+                text: deficiency.Text || deficiency.text,
+                visualId: deficiency.VisualID
+              },
+              index: photoFetches.length - 1
             });
           }
-        }
+        });
       }
+      
+      // Fetch all photos in parallel
+      const allPhotos = await Promise.all(photoFetches);
+      
+      // Map photos back to their items
+      photoMappings.forEach(mapping => {
+        const photos = allPhotos[mapping.index];
+        const itemWithPhotos = { ...mapping.item, photos };
+        categoryResult[mapping.type].push(itemWithPhotos);
+      });
       
       // Only add category if it has selected items
       if (categoryResult.comments.length > 0 || 
