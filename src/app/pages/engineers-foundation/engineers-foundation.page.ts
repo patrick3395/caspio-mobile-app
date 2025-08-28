@@ -1876,7 +1876,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Organize templates by Type
         categoryTemplates.forEach(template => {
-          const templateData = {
+          const templateData: any = {
             id: template.PK_ID,
             name: template.Name,
             text: template.Text || '',
@@ -1884,7 +1884,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             category: template.Category,
             answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
             required: template.Required || false,
-            templateId: template.PK_ID // Store for dropdown loading
+            templateId: template.PK_ID, // Store for dropdown loading
+            selectedOptions: [] // For multi-select (AnswerType 2)
           };
           
           // Initialize selection state
@@ -1995,6 +1996,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               
               // Store in tracking object for photo uploads - ALWAYS as string
               this.visualRecordIds[key] = String(visualId);
+              
+              // Update the text and selectedOptions in organizedData based on AnswerType
+              const updateItemData = (items: any[]) => {
+                const item = items.find(i => i.id === matchingTemplate.PK_ID);
+                if (item) {
+                  item.text = visual.Text || '';
+                  
+                  // For multi-select, parse comma-delimited text into array
+                  if (item.answerType === 2 && visual.Text) {
+                    item.selectedOptions = visual.Text.split(',').map((s: string) => s.trim());
+                  }
+                }
+              };
+              
+              // Update in the appropriate section
+              if (this.organizedData[visual.Category]) {
+                updateItemData(this.organizedData[visual.Category].comments);
+                updateItemData(this.organizedData[visual.Category].limitations);
+                updateItemData(this.organizedData[visual.Category].deficiencies);
+              }
               
               console.log('📌 Stored visual ID:', visualId, 'for key:', key, 'Type:', typeof this.visualRecordIds[key]);
               console.log('📋 Updated selectedItems:', this.selectedItems);
@@ -2773,6 +2794,56 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     } finally {
       // Clear saving state
+      this.savingItems[key] = false;
+    }
+  }
+  
+  // Handle Yes/No answer change
+  async onAnswerChange(category: string, item: any) {
+    console.log('Yes/No answer changed:', category, item.name, item.text);
+    
+    const key = `${category}_${item.id}`;
+    this.savingItems[key] = true;
+    
+    try {
+      // If answer is Yes or No, save to Services_Visuals
+      if (item.text === 'Yes' || item.text === 'No') {
+        // Mark as selected and save
+        this.selectedItems[key] = true;
+        await this.saveVisualSelection(category, item.id);
+      } else if (item.text === '') {
+        // If cleared, remove from Services_Visuals
+        this.selectedItems[key] = false;
+        await this.removeVisualSelection(category, item.id);
+      }
+    } finally {
+      this.savingItems[key] = false;
+    }
+  }
+  
+  // Handle multi-select change
+  async onMultiSelectChange(category: string, item: any) {
+    console.log('Multi-select changed:', category, item.name, item.selectedOptions);
+    
+    const key = `${category}_${item.id}`;
+    this.savingItems[key] = true;
+    
+    try {
+      // Convert array to comma-delimited string
+      const selectedText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
+      item.text = selectedText;
+      
+      // If any options are selected, save to Services_Visuals
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        // Mark as selected and save
+        this.selectedItems[key] = true;
+        await this.saveVisualSelection(category, item.id);
+      } else {
+        // If no options selected, remove from Services_Visuals
+        this.selectedItems[key] = false;
+        await this.removeVisualSelection(category, item.id);
+      }
+    } finally {
       this.savingItems[key] = false;
     }
   }
