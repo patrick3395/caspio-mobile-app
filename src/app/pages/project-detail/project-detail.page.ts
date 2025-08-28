@@ -1891,13 +1891,41 @@ Troubleshooting:
     */
   }
 
+  getCityStateZip(): string {
+    if (!this.project) return 'Not specified';
+    
+    // Build the City, State Zip string
+    let result = '';
+    
+    // Add City
+    if (this.project.City) {
+      result = this.project.City;
+    }
+    
+    // Add State (with comma if city exists)
+    if (this.project.State) {
+      if (result) {
+        result += ', ' + this.project.State;
+      } else {
+        result = this.project.State;
+      }
+    }
+    
+    // Add Zip (with space if city or state exists)
+    if (this.project.Zip) {
+      if (result) {
+        result += ' ' + this.project.Zip;
+      } else {
+        result = this.project.Zip;
+      }
+    }
+    
+    return result || 'Not specified';
+  }
+  
+  // Keeping old method for backwards compatibility if used elsewhere
   getCityState(): string {
-    if (!this.project) return '';
-    const parts = [];
-    if (this.project.City) parts.push(this.project.City);
-    if (this.project.State) parts.push(this.project.State);
-    if (this.project.Zip) parts.push(this.project.Zip);
-    return parts.join(', ');
+    return this.getCityStateZip();
   }
 
   formatDate(date: any): string {

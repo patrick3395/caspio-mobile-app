@@ -2593,6 +2593,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await loading.dismiss();
       
+      // Debug: Log what we're sending to PDF preview
+      console.log('🔴 PDF PREVIEW DATA BEING SENT:');
+      console.log('Project Info:', projectInfo);
+      console.log('Structural Data:', structuralSystemsData);
+      console.log('Elevation Data:', elevationPlotData);
+      console.log('Service Data:', this.serviceData);
+      
+      // Show debug alert
+      await this.showToast(`PDF Preview: Sending ${Object.keys(projectInfo).length} project fields`, 'info');
+      
       // Open the preview modal
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
