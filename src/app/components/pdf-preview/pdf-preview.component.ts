@@ -237,6 +237,20 @@ export class PdfPreviewComponent implements OnInit {
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
 
+      // ============ MASSIVE RED TEST BANNER v1.4.151 ============
+      pdf.setFillColor(255, 0, 0);
+      pdf.rect(0, 20, pageWidth, 80, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(32);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('TEST PDF UPDATED', pageWidth/2, 50, { align: 'center' });
+      pdf.setFontSize(20);
+      pdf.text('VERSION 1.4.151', pageWidth/2, 70, { align: 'center' });
+      pdf.setFontSize(14);
+      pdf.text('This banner confirms PDF code is being updated', pageWidth/2, 85, { align: 'center' });
+      pdf.setTextColor(51, 51, 51);
+      // ============ END TEST BANNER ============
+
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
       
@@ -918,15 +932,18 @@ export class PdfPreviewComponent implements OnInit {
     let yPos = 50;
     const maxY = pageHeight - 30;
     
-    // ============ TEST HEADER - REMOVE THIS ============
+    // ============ GIANT TEST HEADER - REMOVE THIS ============
+    // HUGE RED BOX
     pdf.setFillColor(255, 0, 0);
-    pdf.rect(margin, yPos, contentWidth, 20, 'F');
+    pdf.rect(0, yPos - 10, pageWidth, 50, 'F');
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
+    pdf.setFontSize(24);
     pdf.setTextColor(255, 255, 255);
-    pdf.text('TEST - ELEVATION PLOT SECTION UPDATED', margin + contentWidth/2, yPos + 12, { align: 'center' });
-    yPos += 30;
-    // ============ END TEST HEADER ============
+    pdf.text('🚨 TEST - ELEVATION PLOT UPDATED 🚨', pageWidth/2, yPos + 10, { align: 'center' });
+    pdf.setFontSize(14);
+    pdf.text('Version 1.4.151 - If you see this, the update worked!', pageWidth/2, yPos + 25, { align: 'center' });
+    yPos += 60;
+    // ============ END GIANT TEST HEADER ============
     
     // Add description exactly like Structural Systems
     pdf.setFont('helvetica', 'normal');
