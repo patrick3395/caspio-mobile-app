@@ -237,15 +237,38 @@ export class PdfPreviewComponent implements OnInit {
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
 
-      // ============ MASSIVE RED BACKGROUND FOR ENTIRE PDF v1.4.156 ============
-      // This proves we're editing the right file
+      // ============ MASSIVE TEST TO PROVE WE'RE EDITING RIGHT FILE v1.4.158 ============
+      // CREATE A COMPLETELY DIFFERENT PDF THAT JUST SAYS TEST
+      
+      // Make FIRST page completely different
+      pdf.setFillColor(255, 0, 0);
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(72);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('TEST PDF', pageWidth / 2, pageHeight / 2 - 20, { align: 'center' });
+      pdf.setFontSize(36);
+      pdf.text('VERSION 1.4.158', pageWidth / 2, pageHeight / 2 + 20, { align: 'center' });
+      pdf.setFontSize(24);
+      pdf.text('THIS PROVES CORRECT FILE', pageWidth / 2, pageHeight / 2 + 40, { align: 'center' });
+      
+      // Skip all normal generation and just add one more test page
+      pdf.addPage();
+      pdf.setFillColor(0, 255, 0);  // Green page
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(48);
+      pdf.text('PAGE 2 - GREEN TEST', pageWidth / 2, pageHeight / 2, { align: 'center' });
+      
+      // Add original red background function for use
       const addRedBackground = () => {
         pdf.setFillColor(255, 0, 0);
         pdf.rect(0, 0, pageWidth, pageHeight, 'F');
       };
       
-      // Add red background to first page
-      addRedBackground();
+      // COMMENT OUT ALL NORMAL PDF GENERATION FOR NOW
+      if (false) {  // Disable normal generation temporarily
       
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
@@ -298,6 +321,8 @@ export class PdfPreviewComponent implements OnInit {
         pageNum++;
         await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }
+      
+      } // END OF if (false) - re-enable by changing to if (true)
 
       // Generate filename with project details
       const projectId = this.projectData?.projectId || 'draft';
