@@ -723,14 +723,14 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     } else if (attachId) {
       // Try to fetch from Caspio
       try {
-        const attachment = await this.caspioService.getAttachmentDetails(attachId.toString()).toPromise();
+        const attachment = await this.caspioService.getAttachmentWithImage(attachId.toString()).toPromise();
         if (attachment && attachment.Attachment) {
           const modal = await this.modalController.create({
             component: DocumentViewerComponent,
             componentProps: {
               fileUrl: attachment.Attachment,
-              fileName: fileName || 'Document',
-              fileType: this.getFileTypeFromName(fileName || '')
+              fileName: fileName || attachment.Title || 'Document',
+              fileType: this.getFileTypeFromName(fileName || attachment.Link || '')
             }
           });
           await modal.present();

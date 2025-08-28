@@ -252,5 +252,6 @@ ps aux | grep omnara
 - **Room Numbering**: Automatic #1, #2 numbering for duplicate room names
 - **Photo Upload**: All uploads use proven method from section 2 above
 - **PDF Viewer TEST Header**: Added red TEST banner to document viewer component (v1.4.163) to verify correct component is being edited for mobile app deployment
+- **Support Documents Preview**: Added document preview with thumbnails for PDFs, images, and documents. Click-to-view functionality opens in modal viewer. Fixed build error by using getAttachmentWithImage instead of non-existent getAttachmentDetails
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
