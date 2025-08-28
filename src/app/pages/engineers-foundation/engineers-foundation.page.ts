@@ -2178,6 +2178,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  onRoomAccordionChange(event: any) {
+    console.log('Room accordion changed:', event.detail.value);
+    const roomName = event.detail.value;
+    
+    if (roomName && !this.isRoomSelected(roomName)) {
+      // Auto-select room when accordion is expanded
+      this.toggleRoomSelection(roomName, { detail: { checked: true } });
+    }
+  }
+  
   // Ensure accordion values are synced without causing UI flicker
   private restoreAccordionState() {
     // Simply ensure accordion values are set if needed
