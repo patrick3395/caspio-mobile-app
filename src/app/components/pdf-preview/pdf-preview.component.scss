@@ -6,42 +6,48 @@
 .pdf-preview-content {
   --background: #f5f5f5;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .pdf-container {
-  max-width: 900px;
+  max-width: 850px;
   margin: 0 auto;
 }
 
+// Base PDF page styling
 .pdf-page {
   background: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 30px;
-  border-radius: 8px;
-  overflow: hidden;
-  min-height: 800px;
+  border-radius: 4px;
+  overflow: visible; // Changed from hidden to prevent content cutoff
+  position: relative;
   
+  // Cover page specific styling
   &.cover-page {
     padding: 0;
-    position: relative;
+    min-height: 900px; // Increased to prevent footer overlap
+    display: flex;
+    flex-direction: column;
     
     .company-header {
       background: #F15A27;
       color: white;
-      padding: 40px 20px;
+      padding: 30px 20px;
       text-align: center;
       
       h1 {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
-        margin: 0 0 15px 0;
-        letter-spacing: 1px;
+        margin: 0 0 10px 0;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
       }
       
       .company-contact {
         p {
-          margin: 5px 0;
-          font-size: 14px;
+          margin: 3px 0;
+          font-size: 13px;
           opacity: 0.95;
         }
       }
@@ -49,147 +55,161 @@
     
     .report-title-section {
       text-align: center;
-      padding: 40px 20px;
+      padding: 30px 20px;
       
       .report-title {
-        font-size: 32px;
+        font-size: 28px;
         font-weight: bold;
         color: #333;
-        margin: 0 0 10px 0;
+        margin: 0 0 8px 0;
+        text-transform: uppercase;
       }
       
       .report-subtitle {
-        font-size: 24px;
+        font-size: 20px;
         color: #666;
         margin: 0;
+        font-weight: 500;
       }
     }
     
     .property-photo-container {
       text-align: center;
-      padding: 20px;
+      padding: 15px 20px;
+      flex: 1; // Take available space
+      display: flex;
+      align-items: center;
+      justify-content: center;
       
       .property-photo {
-        max-width: 500px;
-        max-height: 300px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        max-width: 400px;
+        max-height: 250px;
+        width: auto;
+        height: auto;
+        border-radius: 4px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        object-fit: contain;
         
         &.loading {
           background: #f0f0f0;
-          min-height: 200px;
+          min-height: 180px;
+          min-width: 320px;
         }
       }
     }
     
     .property-info-box {
-      background: #f9f9f9;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      margin: 20px 40px;
-      padding: 30px;
-      text-align: center;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      margin: 20px 30px;
+      padding: 20px;
+      text-align: left; // Changed from center for better readability
       
       .property-address {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
         color: #333;
-        margin: 0 0 10px 0;
+        margin: 0 0 5px 0;
       }
       
       .property-location {
-        font-size: 16px;
+        font-size: 14px;
         color: #666;
-        margin: 0 0 20px 0;
+        margin: 0 0 15px 0;
       }
       
       .client-info {
-        text-align: left;
-        border-top: 1px solid #ddd;
-        padding-top: 20px;
-        margin-top: 20px;
+        border-top: 1px solid #dee2e6;
+        padding-top: 15px;
+        margin-top: 15px;
         
         p {
-          margin: 8px 0;
-          font-size: 15px;
+          margin: 5px 0;
+          font-size: 14px;
           color: #555;
           
           strong {
             color: #333;
-            margin-right: 10px;
+            display: inline-block;
+            min-width: 120px;
           }
         }
       }
     }
     
     .inspector-footer {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      // Removed absolute positioning - now flows naturally
       background: #f5f5f5;
-      padding: 30px;
+      padding: 20px 30px;
       text-align: center;
-      border-top: 2px solid #e0e0e0;
+      border-top: 1px solid #dee2e6;
+      margin-top: auto; // Push to bottom with flexbox
       
       .inspector-title {
-        font-size: 14px;
+        font-size: 12px;
         color: #666;
-        margin: 0 0 8px 0;
+        margin: 0 0 5px 0;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
       }
       
       .inspector-name {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: bold;
         color: #333;
-        margin: 0 0 8px 0;
+        margin: 0 0 5px 0;
       }
       
       p {
-        margin: 4px 0;
+        margin: 3px 0;
         color: #666;
-        font-size: 14px;
+        font-size: 13px;
       }
     }
   }
   
+  // Content page styling
   &.content-page {
-    padding: 40px;
+    padding: 30px;
+    min-height: auto; // Let content determine height
     
     .page-header {
-      margin-bottom: 30px;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #F15A27;
       
       h2 {
-        font-size: 24px;
+        font-size: 20px;
         font-weight: bold;
         color: #333;
-        margin: 0 0 15px 0;
+        margin: 0;
+        text-transform: uppercase;
       }
       
       .header-line {
-        height: 3px;
-        background: #F15A27;
-        border-radius: 2px;
+        display: none; // Remove redundant line since we have border
       }
     }
     
     .page-content {
+      // Summary section
       .summary-section {
         p {
-          font-size: 15px;
-          line-height: 1.8;
+          font-size: 14px;
+          line-height: 1.7;
           color: #555;
-          margin-bottom: 20px;
+          margin-bottom: 15px;
           text-align: justify;
         }
         
         h3 {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: bold;
           color: #333;
-          margin: 30px 0 15px 0;
+          margin: 20px 0 10px 0;
+          border-bottom: 1px solid #e0e0e0;
+          padding-bottom: 5px;
         }
         
         .assessment-list {
@@ -199,99 +219,121 @@
           
           li {
             position: relative;
-            padding-left: 25px;
-            margin-bottom: 12px;
-            font-size: 15px;
+            padding-left: 20px;
+            margin-bottom: 8px;
+            font-size: 14px;
             color: #555;
-            line-height: 1.6;
+            line-height: 1.5;
             
             &::before {
-              content: '•';
+              content: '▪';
               position: absolute;
               left: 0;
               color: #F15A27;
-              font-size: 20px;
-              line-height: 1.2;
+              font-size: 14px;
             }
           }
         }
         
         .summary-stats {
-          background: #f9f9f9;
-          border-radius: 8px;
-          padding: 25px;
-          margin-top: 30px;
+          background: #f8f9fa;
+          border-radius: 4px;
+          padding: 20px;
+          margin-top: 20px;
+          border: 1px solid #dee2e6;
           
           h3 {
             margin-top: 0;
+            border: none;
+            padding: 0;
           }
           
           .stat-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+            
+            @media (max-width: 600px) {
+              grid-template-columns: 1fr;
+            }
             
             .stat-item {
               display: flex;
               justify-content: space-between;
-              padding: 10px;
+              align-items: center;
+              padding: 8px 12px;
               background: white;
-              border-radius: 6px;
-              border: 1px solid #e0e0e0;
+              border-radius: 4px;
+              border: 1px solid #dee2e6;
               
               .stat-label {
-                font-weight: 600;
+                font-weight: 500;
                 color: #666;
-                font-size: 14px;
+                font-size: 13px;
               }
               
               .stat-value {
                 font-weight: bold;
                 color: #F15A27;
-                font-size: 16px;
+                font-size: 14px;
+                white-space: nowrap;
               }
             }
           }
         }
       }
       
+      // Table of Contents
       .toc-container {
         .toc-item {
           display: flex;
           align-items: baseline;
-          margin-bottom: 15px;
-          font-size: 16px;
+          margin-bottom: 12px;
+          font-size: 14px;
+          page-break-inside: avoid;
           
           .toc-title {
-            flex: 0 0 auto;
+            flex: 0 1 auto;
             color: #333;
+            max-width: 70%;
+            padding-right: 10px;
           }
           
           .toc-dots {
-            flex: 1;
-            border-bottom: 2px dotted #ccc;
-            margin: 0 10px;
-            height: 0;
-            position: relative;
-            top: -5px;
+            flex: 1 1 auto;
+            border-bottom: 1px dotted #999;
+            margin: 0 5px;
+            min-width: 20px;
+            height: 1px;
+            align-self: end;
+            margin-bottom: 3px;
           }
           
           .toc-page {
             flex: 0 0 auto;
             color: #666;
             font-weight: 600;
+            padding-left: 5px;
           }
         }
       }
       
+      // Information tables
       .info-table {
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        overflow: hidden;
+        
         .info-row {
           display: flex;
-          padding: 15px;
-          border-bottom: 1px solid #e0e0e0;
+          padding: 12px 15px;
+          border-bottom: 1px solid #dee2e6;
+          min-height: 40px;
+          align-items: center;
           
           &:nth-child(even) {
-            background: #f9f9f9;
+            background: #f8f9fa;
           }
           
           &:last-child {
@@ -299,55 +341,62 @@
           }
           
           .info-label {
-            flex: 0 0 200px;
+            flex: 0 0 180px;
             font-weight: 600;
             color: #666;
-            font-size: 14px;
+            font-size: 13px;
+            word-wrap: break-word;
           }
           
           .info-value {
             flex: 1;
             color: #333;
-            font-size: 15px;
+            font-size: 14px;
+            word-wrap: break-word;
+            padding-left: 10px;
           }
         }
       }
       
       .service-notes {
-        margin-top: 30px;
-        padding: 20px;
-        background: #f9f9f9;
-        border-radius: 8px;
-        border-left: 4px solid #F15A27;
+        margin-top: 25px;
+        padding: 15px;
+        background: #fff9e6;
+        border-radius: 4px;
+        border-left: 3px solid #F15A27;
         
         h3 {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: bold;
           color: #333;
-          margin: 0 0 10px 0;
+          margin: 0 0 8px 0;
         }
         
         p {
-          font-size: 14px;
-          line-height: 1.6;
+          font-size: 13px;
+          line-height: 1.5;
           color: #555;
           margin: 0;
+          word-wrap: break-word;
         }
       }
       
+      // Visual sections (Comments, Limitations, Deficiencies)
       .visual-section {
-        margin-bottom: 40px;
+        margin-bottom: 30px;
+        page-break-inside: avoid;
         
         .section-header {
-          padding: 10px 15px;
-          margin-bottom: 20px;
-          border-radius: 6px;
+          padding: 8px 12px;
+          margin-bottom: 15px;
+          border-radius: 4px;
           
           h3 {
             margin: 0;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
           }
           
           &.comments-header {
@@ -368,50 +417,54 @@
         
         .visual-items {
           .visual-item {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 6px;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            page-break-inside: avoid;
             
             h4 {
-              font-size: 15px;
+              font-size: 14px;
               font-weight: 600;
               color: #333;
-              margin: 0 0 10px 0;
-              padding-left: 20px;
+              margin: 0 0 8px 0;
+              padding-left: 15px;
               position: relative;
               
               &::before {
-                content: '•';
+                content: '▸';
                 position: absolute;
                 left: 0;
                 color: #F15A27;
-                font-size: 18px;
+                font-size: 14px;
               }
             }
             
             .item-text {
-              font-size: 14px;
-              line-height: 1.6;
+              font-size: 13px;
+              line-height: 1.5;
               color: #555;
-              margin: 0 0 15px 20px;
+              margin: 0 0 10px 15px;
+              word-wrap: break-word;
             }
             
             .photo-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-              gap: 15px;
-              margin-left: 20px;
+              grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+              gap: 10px;
+              margin-left: 15px;
+              margin-top: 10px;
               
               .photo-item {
                 text-align: center;
                 
                 img {
                   width: 100%;
-                  height: 120px;
+                  height: 90px;
                   object-fit: cover;
-                  border-radius: 4px;
-                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+                  border-radius: 3px;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
                   
                   &.loading {
                     background: #f0f0f0;
@@ -419,10 +472,11 @@
                 }
                 
                 .photo-caption {
-                  font-size: 11px;
+                  font-size: 10px;
                   color: #666;
-                  margin-top: 5px;
+                  margin-top: 3px;
                   font-style: italic;
+                  word-wrap: break-word;
                 }
               }
             }
@@ -430,83 +484,90 @@
         }
       }
       
+      // Room elevation sections
       .room-section {
-        margin-bottom: 40px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
+        margin-bottom: 30px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
         overflow: hidden;
+        page-break-inside: avoid;
         
         .room-header {
           background: #f5f5f5;
-          padding: 15px 20px;
-          border-bottom: 2px solid #e0e0e0;
+          padding: 12px 15px;
+          border-bottom: 1px solid #dee2e6;
           
           h3 {
             margin: 0;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #333;
           }
         }
         
         .room-details {
-          padding: 20px;
+          padding: 15px;
           
           .room-info {
-            margin-bottom: 10px;
-            font-size: 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
             color: #555;
             
             strong {
               color: #333;
-              margin-right: 10px;
+              display: inline-block;
+              min-width: 60px;
             }
           }
         }
         
         .elevation-table {
-          padding: 0 20px;
+          padding: 0 15px 15px;
+          overflow-x: auto;
           
           table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 13px;
             
             thead {
               tr {
                 background: #F15A27;
                 
                 th {
-                  padding: 10px;
+                  padding: 8px 10px;
                   text-align: left;
                   color: white;
-                  font-size: 14px;
+                  font-size: 12px;
                   font-weight: 600;
+                  white-space: nowrap;
                 }
               }
             }
             
             tbody {
               tr {
-                border-bottom: 1px solid #e0e0e0;
+                border-bottom: 1px solid #dee2e6;
                 
                 &:nth-child(even) {
-                  background: #f9f9f9;
+                  background: #f8f9fa;
                 }
                 
                 td {
-                  padding: 10px;
-                  font-size: 14px;
+                  padding: 8px 10px;
+                  font-size: 12px;
                   color: #333;
                   
                   .photo-count {
-                    display: flex;
+                    display: inline-flex;
                     align-items: center;
-                    gap: 5px;
+                    gap: 3px;
                     color: #F15A27;
                     font-weight: 600;
+                    font-size: 12px;
                     
                     ion-icon {
-                      font-size: 16px;
+                      font-size: 14px;
                     }
                   }
                 }
@@ -516,29 +577,30 @@
         }
         
         .room-photos {
-          padding: 20px;
+          padding: 15px;
+          border-top: 1px solid #dee2e6;
           
           h4 {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: #333;
-            margin: 0 0 15px 0;
+            margin: 0 0 10px 0;
           }
           
           .photo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
             
             .photo-item {
               text-align: center;
               
               img {
                 width: 100%;
-                height: 90px;
+                height: 75px;
                 object-fit: cover;
-                border-radius: 4px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                border-radius: 3px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
                 
                 &.loading {
                   background: #f0f0f0;
@@ -546,10 +608,11 @@
               }
               
               .photo-caption {
-                font-size: 10px;
+                font-size: 9px;
                 color: #666;
-                margin-top: 3px;
+                margin-top: 2px;
                 font-style: italic;
+                word-wrap: break-word;
               }
             }
           }
@@ -561,13 +624,37 @@
 
 // Print styles for better PDF generation
 @media print {
+  .pdf-preview-content {
+    padding: 0;
+    background: white;
+  }
+  
+  .pdf-container {
+    max-width: 100%;
+  }
+  
   .pdf-page {
     page-break-after: always;
     box-shadow: none;
     margin-bottom: 0;
+    border-radius: 0;
+    
+    &:last-child {
+      page-break-after: auto;
+    }
   }
   
   ion-header {
     display: none;
+  }
+  
+  // Ensure tables don't break across pages
+  table {
+    page-break-inside: avoid;
+  }
+  
+  // Ensure images don't break across pages
+  img {
+    page-break-inside: avoid;
   }
 }

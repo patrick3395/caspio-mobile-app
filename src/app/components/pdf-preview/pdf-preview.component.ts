@@ -39,26 +39,12 @@ export class PdfPreviewComponent implements OnInit {
 
   ngOnInit() {
     this.hasElevationData = this.elevationData && this.elevationData.length > 0;
-    
-    console.log('🔴🔴🔴 PDF PREVIEW COMPONENT INITIALIZED 🔴🔴🔴');
-    console.log('Full Project Data:', this.projectData);
-    console.log('Project Data Keys:', Object.keys(this.projectData || {}));
-    console.log('Service Data:', this.serviceData);
-    console.log('Service Data Keys:', Object.keys(this.serviceData || {}));
-    console.log('Structural Data Count:', this.structuralData?.length || 0);
-    console.log('Elevation Data Count:', this.elevationData?.length || 0);
-    
-    // Alert to show what data we have
-    if (this.projectData) {
-      const message = `
-        PDF Preview Loaded:
-        - Client: ${this.projectData.clientName || 'MISSING'}
-        - Address: ${this.projectData.address || 'MISSING'}
-        - Inspector: ${this.projectData.inspectorName || 'MISSING'}
-        - Weather: ${this.projectData.weatherConditions || 'MISSING'}
-      `;
-      console.log(message);
-    }
+    console.log('PDF Preview initialized with data:', {
+      projectData: this.projectData,
+      structuralDataCount: this.structuralData?.length || 0,
+      elevationDataCount: this.elevationData?.length || 0,
+      serviceData: this.serviceData
+    });
   }
 
   getCurrentDate(): string {
