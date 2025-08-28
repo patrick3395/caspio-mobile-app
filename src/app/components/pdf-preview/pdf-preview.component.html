@@ -15,8 +15,8 @@
 
 <ion-content class="pdf-preview-content">
   <!-- TEST HEADER BANNER -->
-  <div style="background: red; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; position: sticky; top: 0; z-index: 999;">
-    TEST - PDF PREVIEW v1.4.166
+  <div style="background: red; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold;">
+    TEST - PDF PREVIEW v1.4.167
   </div>
   
   <div class="pdf-container">
@@ -340,6 +340,19 @@
       </div>
     </div>
     
+    <!-- Elevation Plot Section Separator Page -->
+    <div class="pdf-page content-page" *ngIf="elevationData && elevationData.length > 0">
+      <div class="page-header">
+        <h2>ELEVATION PLOT</h2>
+        <div class="header-line"></div>
+      </div>
+      <div class="page-content">
+        <div class="section-separator">
+          <p class="separator-description">Foundation elevation measurements and observations for {{ elevationData.length }} rooms</p>
+        </div>
+      </div>
+    </div>
+    
     <!-- Elevation Plot Pages - One page per room to match Structural Systems format -->
     <div class="pdf-page content-page" *ngFor="let room of elevationData; let i = index">
       <div class="page-header">
@@ -356,7 +369,7 @@
           <div class="visual-items">
             <div class="visual-item">
               <div class="visual-item-header">
-                <h4 class="visual-name">Foundation Type</h4>
+                <h4 class="visual-name">Flooring Difference Factor</h4>
               </div>
               <p class="visual-text">{{ room.fdf }}</p>
             </div>
@@ -365,9 +378,6 @@
         
         <!-- Elevation Points Section -->
         <div class="visual-section" *ngIf="room.points && room.points.length > 0">
-          <div class="section-header limitations-header">
-            <h3>ELEVATION MEASUREMENTS</h3>
-          </div>
           <div class="visual-items">
             <div class="visual-item" *ngFor="let point of room.points">
               <div class="visual-item-header">
