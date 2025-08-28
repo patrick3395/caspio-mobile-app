@@ -30,6 +30,7 @@ export class HelpGuidePage implements OnInit {
   fileSections: FileSection[] = [];
   loading = false;
   error = '';
+  fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
 
   constructor(
     private caspioService: CaspioService,
@@ -43,6 +44,7 @@ export class HelpGuidePage implements OnInit {
   async loadFiles() {
     this.loading = true;
     this.error = '';
+    this.fileUrls.clear(); // Clear cache
 
     try {
       // Get all files from the Files table
@@ -82,6 +84,20 @@ export class HelpGuidePage implements OnInit {
           typeName: typeId === 0 ? 'General' : (typeMap.get(typeId) || `Type ${typeId}`),
           files: files.sort((a, b) => (a.Order || 0) - (b.Order || 0))
         }));
+        
+        // Pre-load all image URLs
+        for (const section of this.fileSections) {
+          for (const file of section.files) {
+            if (file.FileFile) {
+              // Pre-fetch URLs in background
+              this.getFileUrl(file.FileFile).then(url => {
+                console.log(`Pre-loaded URL for ${file.Description}`);
+              }).catch(err => {
+                console.error(`Failed to pre-load ${file.FileFile}:`, err);
+              });
+            }
+          }
+        }
 
         // Sort sections by TypeID
         this.fileSections.sort((a, b) => a.typeId - b.typeId);
@@ -94,23 +110,49 @@ export class HelpGuidePage implements OnInit {
     }
   }
 
-  getFileUrl(filePath: string): string {
+  async getFileUrl(filePath: string): Promise<string> {
     if (!filePath) return '';
     
-    // If it's already a full URL, return as is
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    // Check cache first
+    if (this.fileUrls.has(filePath)) {
+      return this.fileUrls.get(filePath) || '';
+    }
+    
+    // If it's already a full URL or data URL, return as is
+    if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
       return filePath;
     }
     
-    // Otherwise construct Caspio file URL
-    const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
-    const token = localStorage.getItem('caspio_token');
-    
-    // Remove leading slash if present
-    const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-    
-    // Construct the Caspio Files API URL
-    return `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
+    try {
+      // For images, convert to base64 data URL like structural systems does
+      if (this.isImageFile(filePath)) {
+        console.log(`Converting image to base64: ${filePath}`);
+        const base64Data = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+        
+        if (base64Data && base64Data.startsWith('data:')) {
+          this.fileUrls.set(filePath, base64Data);
+          return base64Data;
+        }
+      }
+      
+      // For non-images (PDFs, docs), construct direct file URL
+      const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
+      const token = localStorage.getItem('caspio_token');
+      const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+      const url = `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
+      
+      this.fileUrls.set(filePath, url);
+      return url;
+      
+    } catch (error) {
+      console.error('Error getting file URL:', error);
+      return '';
+    }
+  }
+  
+  // Synchronous version for template binding
+  getCachedFileUrl(filePath: string): string {
+    return this.fileUrls.get(filePath) || '';
   }
 
   isImageFile(filePath: string): boolean {
@@ -129,14 +171,15 @@ export class HelpGuidePage implements OnInit {
   }
 
   async openFile(file: FileItem) {
-    const url = this.getFileUrl(file.FileFile);
+    const url = await this.getFileUrl(file.FileFile);
     if (url) {
       const modal = await this.modalController.create({
         component: DocumentViewerComponent,
         componentProps: {
           fileUrl: url,
           fileName: file.Description || this.getFileName(file.FileFile),
-          fileType: this.getFileExtension(file.FileFile)
+          fileType: this.getFileExtension(file.FileFile),
+          filePath: file.FileFile
         },
         cssClass: 'fullscreen-modal'
       });

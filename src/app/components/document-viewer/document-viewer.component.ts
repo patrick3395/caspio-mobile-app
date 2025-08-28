@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -26,7 +26,9 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
         <iframe [src]="sanitizedUrl" frameborder="0"></iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
-        <img [src]="fileUrl" [alt]="fileName" />
+        <img [src]="displayUrl || fileUrl" 
+             [alt]="fileName" 
+             (error)="handleImageError($event)" />
       </div>
     </ion-content>
   `,
@@ -62,13 +64,15 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
     }
   `]
 })
-export class DocumentViewerComponent {
+export class DocumentViewerComponent implements OnInit {
   @Input() fileUrl!: string;
   @Input() fileName!: string;
   @Input() fileType!: string;
+  @Input() filePath?: string; // Original file path
   
   sanitizedUrl: SafeResourceUrl | null = null;
   isImage = false;
+  displayUrl: string = '';
 
   constructor(
     private modalController: ModalController,
@@ -76,27 +80,75 @@ export class DocumentViewerComponent {
   ) {}
 
   ngOnInit() {
+    console.log('DocumentViewer initialized with:', {
+      fileUrl: this.fileUrl,
+      fileName: this.fileName,
+      fileType: this.fileType,
+      filePath: this.filePath
+    });
+    
     // Check if it's an image
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'];
     const lowerName = (this.fileName || '').toLowerCase();
-    this.isImage = imageExtensions.some(ext => lowerName.endsWith(ext));
+    const lowerPath = (this.filePath || this.fileName || '').toLowerCase();
     
-    if (!this.isImage) {
-      // For PDFs and other documents, use iframe with Google Docs viewer as fallback
-      if (this.fileUrl.toLowerCase().includes('.pdf')) {
-        // Try direct PDF viewing first, with Google Docs as fallback
+    // Check both filename and filepath for extension
+    this.isImage = imageExtensions.some(ext => lowerName.endsWith(ext) || lowerPath.endsWith(ext));
+    
+    if (this.isImage) {
+      // For images, use the URL directly (should be base64 data URL)
+      this.displayUrl = this.fileUrl;
+      console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
+    } else {
+      // For PDFs and documents
+      if (this.fileUrl.toLowerCase().includes('.pdf') || lowerPath.includes('.pdf')) {
+        // For PDFs, try direct viewing
         this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+        console.log('Displaying PDF with direct URL');
       } else {
-        // For other documents, use Google Docs viewer
-        const encodedUrl = encodeURIComponent(this.fileUrl);
-        const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
-        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(viewerUrl);
+        // For other documents, use Google Docs viewer if not a data URL
+        if (this.fileUrl.startsWith('data:')) {
+          // Can't use Google Docs viewer with data URLs
+          this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+        } else {
+          const encodedUrl = encodeURIComponent(this.fileUrl);
+          const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+          this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(viewerUrl);
+          console.log('Using Google Docs viewer');
+        }
       }
     }
   }
 
   openInNewTab() {
-    window.open(this.fileUrl, '_blank');
+    // For data URLs, create a blob and open it
+    if (this.fileUrl.startsWith('data:')) {
+      const base64Data = this.fileUrl.split(',')[1];
+      const mimeType = this.fileUrl.split(':')[1].split(';')[0];
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      window.open(blobUrl, '_blank');
+      
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+    } else {
+      window.open(this.fileUrl, '_blank');
+    }
+  }
+
+  handleImageError(event: any) {
+    console.error('Image failed to load:', this.fileUrl);
+    // Set a placeholder image
+    event.target.src = 'assets/img/photo-placeholder.svg';
   }
 
   dismiss() {

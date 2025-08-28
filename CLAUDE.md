@@ -209,7 +209,38 @@ npm run build:ios-local  # Local iOS build with platform creation
 
 ## REMEMBER: INCREMENT VERSION IN PACKAGE.JSON FOR EVERY MEANINGFUL CHANGE!
 
-## 14. CURRENT WORK (December 2024 - v1.4.70):
+## 14. OMNARA INTEGRATION SETUP:
+**OMNARA API KEY AND COMMANDS FOR MOBILE ACCESS**
+
+### Omnara API Key (Updated Dec 2024):
+```
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMjdkNGNlNi02OWJjLTQxOGMtYmU0NC0wZDIyOWFkZDViZjciLCJpYXQiOjE3NTY0MTEzMjB9.7zs-JQwE7-WbTjYQp2LNN-O2uBAMj5IIerXGiMtVZsyX24heNACzkEl14_Ejg1skDCxgyxfakUM7TwZg23xYgA
+```
+
+### Commands to Start Omnara Session:
+
+**WORKING COMMAND - Start Omnara session (connects to phone app):**
+```bash
+./omnara_env/bin/omnara --api-key "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMjdkNGNlNi02OWJjLTQxOGMtYmU0NC0wZDIyOWFkZDViZjciLCJpYXQiOjE3NTY0MTEzMjB9.7zs-JQwE7-WbTjYQp2LNN-O2uBAMj5IIerXGiMtVZsyX24heNACzkEl14_Ejg1skDCxgyxfakUM7TwZg23xYgA"
+```
+This creates an interactive Claude Code session that alerts your Omnara phone app and allows control from your phone.
+
+3. **Check Omnara server status:**
+```bash
+ps aux | grep omnara
+```
+
+4. **Install/Update Omnara if needed:**
+```bash
+./omnara_env/bin/pip install --upgrade omnara
+```
+
+### Server Details:
+- **Local Port**: 6662 (http://localhost:6662)
+- **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
+- **Mobile Access**: Use tunnel URL provided in server output
+
+## 15. CURRENT WORK (December 2024 - v1.4.70):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -220,3 +251,5 @@ npm run build:ios-local  # Local iOS build with platform creation
   - Shows project ID being updated in debug popup
 - **Room Numbering**: Automatic #1, #2 numbering for duplicate room names
 - **Photo Upload**: All uploads use proven method from section 2 above
+- whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
+- whenever a new claude session is started in this project read CLAUDE.MD
