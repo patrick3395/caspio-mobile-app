@@ -1374,14 +1374,16 @@ export class CaspioService {
     
     try {
       // Check if file is an image and compress if needed
-      let fileToUpload = file;
+      let fileToUpload: File | Blob = file;
       if (file.type && file.type.startsWith('image/')) {
         console.log('Compressing image before upload...');
-        fileToUpload = await this.imageCompression.compressImage(file, {
+        const compressedBlob = await this.imageCompression.compressImage(file, {
           maxSizeMB: 1.5,
           maxWidthOrHeight: 1920,
           useWebWorker: true
         });
+        // Convert Blob back to File to maintain the name property
+        fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type });
         console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(fileToUpload.size / 1024).toFixed(1)}KB`);
       }
       

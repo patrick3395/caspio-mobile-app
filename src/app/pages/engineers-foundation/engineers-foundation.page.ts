@@ -953,7 +953,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Convert base64 to File
       const fileName = `room_point_${pointId}_${Date.now()}.jpg`;
-      const file = this.cameraService.base64ToFile(photo.dataUrl, fileName);
+      const file = await this.cameraService.base64ToFile(photo.dataUrl, fileName);
       
       if (!file) {
         await this.showToast('Failed to process photo', 'danger');
