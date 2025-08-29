@@ -6,14 +6,12 @@ ion-toolbar {
 // Ensure proper scrolling
 ion-content {
   --overflow: scroll !important;
-  height: 100%;
   
   ::ng-deep .inner-scroll {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow-y: auto !important;
-    overflow-x: hidden;
+    display: block;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
   }
 }
@@ -49,11 +47,16 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 120px; // Reasonable buffer at bottom
+  padding-bottom: 60px; // Small buffer for last element
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  min-height: 100%; // Let content determine height
+  min-height: 100%;
   max-width: 1400px;
   margin: 0 auto;
+  
+  // Add extra space only when all sections are expanded
+  &.all-expanded {
+    padding-bottom: 120px;
+  }
 }
 
 .save-status {
