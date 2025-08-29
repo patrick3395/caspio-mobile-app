@@ -7,6 +7,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
+import { CacheService } from '../../services/cache.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
@@ -143,7 +144,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
     private platform: Platform,
-    private pdfGenerator: PdfGeneratorService
+    private pdfGenerator: PdfGeneratorService,
+    private cache: CacheService
   ) {}
 
   async ngOnInit() {
@@ -2810,18 +2812,54 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const loading = await this.loadingController.create({
-      message: 'Preparing report data...',
+      message: 'Preparing report data...<br><small>0%</small>',
       spinner: 'crescent'
     });
     await loading.present();
 
     try {
-      // Prepare all data BEFORE opening the modal
-      const [structuralSystemsData, elevationPlotData, projectInfo] = await Promise.all([
-        this.prepareStructuralSystemsData(),
-        this.prepareElevationPlotData(), 
-        this.prepareProjectInfo()
-      ]);
+      // Update progress indicator
+      const updateProgress = async (percent: number, message: string) => {
+        await loading.dismiss();
+        const newLoading = await this.loadingController.create({
+          message: `${message}<br><small>${percent}%</small>`,
+          spinner: 'crescent'
+        });
+        await newLoading.present();
+        return newLoading;
+      };
+      
+      // Check if we have cached PDF data (valid for 5 minutes)
+      const cacheKey = this.cache.getApiCacheKey('pdf_data', { 
+        serviceId: this.serviceId,
+        timestamp: Math.floor(Date.now() / 300000) // 5-minute blocks
+      });
+      
+      let structuralSystemsData, elevationPlotData, projectInfo;
+      const cachedData = this.cache.get(cacheKey);
+      
+      if (cachedData) {
+        console.log('📦 Using cached PDF data');
+        ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
+        await updateProgress(100, 'Loading cached data...');
+      } else {
+        // Prepare all data BEFORE opening the modal
+        await updateProgress(10, 'Loading project information...');
+        projectInfo = await this.prepareProjectInfo();
+        
+        await updateProgress(30, 'Loading structural systems...');
+        structuralSystemsData = await this.prepareStructuralSystemsData();
+        
+        await updateProgress(60, 'Loading elevation data...');
+        elevationPlotData = await this.prepareElevationPlotData();
+        
+        // Cache the prepared data
+        this.cache.set(cacheKey, {
+          structuralSystemsData,
+          elevationPlotData,
+          projectInfo
+        }, this.cache.CACHE_TIMES.MEDIUM);
+      }
       
       // Preload primary photo if it exists to avoid blank page
       if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
@@ -5454,12 +5492,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async prepareElevationPlotData() {
     const result = [];
     
-    for (const roomName of Object.keys(this.selectedRooms)) {
-      if (!this.selectedRooms[roomName]) continue;
-      
+    // Collect all rooms to process
+    const roomsToProcess = Object.keys(this.selectedRooms).filter(roomName => 
+      this.selectedRooms[roomName] && this.roomElevationData[roomName]
+    );
+    
+    // Process all rooms in parallel
+    const roomPromises = roomsToProcess.map(async (roomName) => {
       const roomData = this.roomElevationData[roomName];
-      if (!roomData) continue;
-      
       const roomId = roomData.roomId || this.roomRecordIds[roomName];
       
       const roomResult: any = {
@@ -5479,7 +5519,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const dbPoints = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
           console.log(`Found ${dbPoints?.length || 0} points in database for room ${roomName}`);
           
-          // Process each point and get its attachments
+          // Collect all attachment fetches and image conversions
+          const pointPromises = [];
+          const pointDataMap = new Map();
+          
+          // First, fetch all attachments in parallel
           for (const dbPoint of (dbPoints || [])) {
             const pointId = dbPoint.PointID || dbPoint.PK_ID;
             const pointName = dbPoint.PointName;
@@ -5495,43 +5539,87 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               photos: []
             };
             
+            pointDataMap.set(pointId, pointData);
+            
             // Fetch attachments for this specific point
             if (pointId) {
-              console.log(`Fetching attachments for point ${pointName} (PointID: ${pointId})`);
-              const attachments = await this.caspioService.getServicesRoomsAttachments(pointId).toPromise();
-              console.log(`Found ${attachments?.length || 0} attachments for point ${pointName}`);
+              pointPromises.push(
+                this.caspioService.getServicesRoomsAttachments(pointId).toPromise()
+                  .then(attachments => ({ pointId, attachments }))
+                  .catch(error => {
+                    console.error(`Failed to fetch attachments for point ${pointName}:`, error);
+                    return { pointId, attachments: [] };
+                  })
+              );
+            }
+          }
+          
+          // Wait for all attachment fetches
+          const allAttachmentResults = await Promise.all(pointPromises);
+          
+          // Now collect all image conversion promises
+          const imagePromises = [];
+          const imageMapping = [];
+          
+          for (const { pointId, attachments } of allAttachmentResults) {
+            const pointData = pointDataMap.get(pointId);
+            if (!pointData) continue;
+            
+            for (const attachment of (attachments || [])) {
+              let photoUrl = attachment.Photo || '';
               
-              // Process each attachment and convert to base64 for PDF
-              for (const attachment of (attachments || [])) {
-                let photoUrl = attachment.Photo || '';
-                let finalUrl = photoUrl;
+              // Convert Caspio file paths to base64
+              if (photoUrl && photoUrl.startsWith('/')) {
+                const mappingIndex = imagePromises.length;
+                imageMapping.push({
+                  pointData,
+                  attachment,
+                  mappingIndex
+                });
                 
-                // Convert Caspio file paths to base64
-                if (photoUrl && photoUrl.startsWith('/')) {
-                  try {
-                    console.log(`Converting attachment photo to base64: ${photoUrl}`);
-                    const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-                    
-                    if (base64Data && base64Data.startsWith('data:')) {
-                      finalUrl = base64Data;
-                      console.log(`Successfully converted photo to base64 for point ${pointName}`);
-                    }
-                  } catch (error) {
-                    console.error(`Failed to convert photo for point ${pointName}:`, error);
-                    // Keep original URL as fallback
-                  }
-                }
-                
+                imagePromises.push(
+                  this.caspioService.getImageFromFilesAPI(photoUrl).toPromise()
+                    .then(base64Data => {
+                      if (base64Data && base64Data.startsWith('data:')) {
+                        return base64Data;
+                      }
+                      return photoUrl; // Fallback to original
+                    })
+                    .catch(error => {
+                      console.error(`Failed to convert photo:`, error);
+                      return photoUrl; // Fallback to original
+                    })
+                );
+              } else {
+                // Non-Caspio URLs can be added directly
                 pointData.photos.push({
-                  url: finalUrl,
+                  url: photoUrl,
                   annotation: attachment.Annotation || '',
                   attachId: attachment.AttachID || attachment.PK_ID
                 });
               }
             }
+          }
+          
+          // Convert all images in parallel
+          if (imagePromises.length > 0) {
+            console.log(`Converting ${imagePromises.length} images for room ${roomName}...`);
+            const convertedImages = await Promise.all(imagePromises);
             
-            // Only add point if it has a value or photos
-            if (pointValue || pointData.photos.length > 0) {
+            // Map converted images back to their points
+            for (const mapping of imageMapping) {
+              const convertedUrl = convertedImages[mapping.mappingIndex];
+              mapping.pointData.photos.push({
+                url: convertedUrl,
+                annotation: mapping.attachment.Annotation || '',
+                attachId: mapping.attachment.AttachID || mapping.attachment.PK_ID
+              });
+            }
+          }
+          
+          // Add all points to room result
+          for (const pointData of pointDataMap.values()) {
+            if (pointData.value || pointData.photos.length > 0) {
               roomResult.points.push(pointData);
             }
           }
@@ -5557,9 +5645,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      result.push(roomResult);
+      return roomResult;
+    });
+    
+    // Wait for all rooms to be processed in parallel
+    const allRoomResults = await Promise.all(roomPromises);
+    
+    // Add all non-empty room results
+    for (const roomResult of allRoomResults) {
+      if (roomResult && (roomResult.points.length > 0 || roomResult.fdf || roomResult.notes)) {
+        result.push(roomResult);
+      }
     }
     
+    console.log(`Prepared elevation data for ${result.length} rooms`);
     return result;
   }
 

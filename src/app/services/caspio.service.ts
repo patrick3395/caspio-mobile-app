@@ -991,6 +991,14 @@ export class CaspioService {
   }
   
   getImageFromFilesAPI(filePath: string): Observable<string> {
+    // Check cache first
+    const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      console.log(`📦 Returning cached image for ${filePath}`);
+      return of(cached);
+    }
+    
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
@@ -1016,7 +1024,11 @@ export class CaspioService {
         // Convert blob to base64 data URL
         const reader = new FileReader();
         reader.onloadend = () => {
-          observer.next(reader.result as string);
+          const result = reader.result as string;
+          // Cache the base64 image for 15 minutes
+          this.cache.set(cacheKey, result, this.cache.CACHE_TIMES.LONG, true);
+          console.log(`📦 Cached image for ${filePath}`);
+          observer.next(result);
           observer.complete();
         };
         reader.onerror = () => {
