@@ -1292,6 +1292,520 @@ ion-content {
     }
   }
   
+  // Elevation Plot Checkbox Version Styles
+  .room-selection {
+    margin-bottom: 20px;
+    
+    .room-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--noble-gray);
+      margin-bottom: 15px;
+    }
+    
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 10px;
+      
+      .room-checkbox {
+        --background: white;
+        --border-radius: 8px;
+        --border-color: #e0e0e0;
+        --border-width: 1px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px;
+        margin: 0;
+        
+        &:hover {
+          border-color: var(--noble-orange);
+          background: rgba(241, 90, 39, 0.05);
+        }
+        
+        ion-checkbox {
+          --size: 20px;
+          --checkbox-background-checked: var(--noble-orange);
+          margin-right: 10px;
+        }
+        
+        ion-label {
+          font-size: 14px;
+          
+          .point-count {
+            color: #666;
+            font-size: 12px;
+            margin-left: 5px;
+          }
+        }
+      }
+    }
+  }
+  
+  .selected-rooms {
+    margin-top: 30px;
+    
+    .selected-rooms-header {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--noble-gray);
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--noble-orange);
+    }
+    
+    .room-details {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      
+      .room-details-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        
+        .room-name {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--noble-gray);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          ion-icon {
+            color: var(--noble-orange);
+            font-size: 20px;
+          }
+        }
+        
+        .remove-room-btn {
+          background: none;
+          border: none;
+          color: #dc3545;
+          cursor: pointer;
+          padding: 5px 10px;
+          border-radius: 5px;
+          transition: all 0.3s ease;
+          
+          &:hover {
+            background: rgba(220, 53, 69, 0.1);
+          }
+          
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+      }
+      
+      .fdf-input-section {
+        margin-bottom: 25px;
+        
+        .fdf-input-container {
+          .fdf-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            margin-bottom: 10px;
+            
+            ion-icon {
+              color: var(--noble-orange);
+              font-size: 16px;
+            }
+          }
+          
+          .fdf-select {
+            width: 100%;
+            max-width: 300px;
+            --padding-start: 12px;
+            --padding-end: 12px;
+            --padding-top: 8px;
+            --padding-bottom: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+          }
+          
+          .fdf-help-text {
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+          }
+        }
+      }
+      
+      .elevation-points-section {
+        margin-bottom: 25px;
+        
+        .points-section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+          
+          .points-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            
+            ion-icon {
+              color: var(--noble-orange);
+              font-size: 18px;
+            }
+          }
+          
+          .add-point-btn {
+            background: linear-gradient(135deg, var(--noble-orange), #ff6b3d);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s ease;
+            
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
+            }
+            
+            ion-icon {
+              font-size: 16px;
+            }
+          }
+        }
+        
+        .elevation-points-list {
+          .point-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            
+            .point-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              
+              .point-info {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex: 1;
+                
+                .point-number {
+                  font-weight: 600;
+                  color: var(--noble-orange);
+                  font-size: 14px;
+                }
+                
+                .point-name {
+                  font-size: 14px;
+                  color: var(--noble-gray);
+                  font-weight: 500;
+                }
+                
+                .photo-indicator {
+                  display: flex;
+                  align-items: center;
+                  gap: 4px;
+                  background: white;
+                  padding: 2px 8px;
+                  border-radius: 12px;
+                  font-size: 12px;
+                  color: #666;
+                  border: 1px solid #e0e0e0;
+                  
+                  ion-icon {
+                    font-size: 14px;
+                  }
+                }
+              }
+              
+              .point-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                
+                .elevation-input {
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  
+                  .elevation-value {
+                    width: 80px;
+                    padding: 6px 8px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    text-align: right;
+                    
+                    &:focus {
+                      outline: none;
+                      border-color: var(--noble-orange);
+                    }
+                  }
+                  
+                  .elevation-unit {
+                    font-size: 12px;
+                    color: #666;
+                  }
+                }
+                
+                .camera-button {
+                  background: var(--noble-orange);
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  padding: 6px 10px;
+                  cursor: pointer;
+                  position: relative;
+                  transition: all 0.3s ease;
+                  
+                  &:hover {
+                    background: #ff6b3d;
+                  }
+                  
+                  ion-icon {
+                    font-size: 18px;
+                  }
+                  
+                  .photo-count-badge {
+                    position: absolute;
+                    top: -5px;
+                    right: -5px;
+                    background: #dc3545;
+                    color: white;
+                    font-size: 10px;
+                    padding: 2px 5px;
+                    border-radius: 10px;
+                    min-width: 16px;
+                    text-align: center;
+                  }
+                }
+                
+                .delete-point-btn {
+                  background: none;
+                  border: none;
+                  color: #dc3545;
+                  cursor: pointer;
+                  padding: 5px;
+                  transition: all 0.3s ease;
+                  
+                  &:hover {
+                    color: #c82333;
+                  }
+                  
+                  ion-icon {
+                    font-size: 20px;
+                  }
+                }
+              }
+            }
+            
+            .photo-previews {
+              display: flex;
+              gap: 10px;
+              margin-top: 12px;
+              flex-wrap: wrap;
+              
+              .photo-preview {
+                position: relative;
+                width: 80px;
+                height: 80px;
+                
+                img {
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  border: 2px solid transparent;
+                  transition: all 0.3s ease;
+                  
+                  &:hover {
+                    border-color: var(--noble-orange);
+                  }
+                }
+                
+                .delete-photo-btn {
+                  position: absolute;
+                  top: -5px;
+                  right: -5px;
+                  background: #dc3545;
+                  color: white;
+                  border: none;
+                  border-radius: 50%;
+                  width: 20px;
+                  height: 20px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  cursor: pointer;
+                  
+                  ion-icon {
+                    font-size: 12px;
+                  }
+                }
+                
+                .photo-caption {
+                  position: absolute;
+                  bottom: 0;
+                  left: 0;
+                  right: 0;
+                  background: rgba(0,0,0,0.7);
+                  color: white;
+                  font-size: 10px;
+                  padding: 2px 4px;
+                  border: none;
+                  border-radius: 0 0 6px 6px;
+                }
+              }
+            }
+          }
+        }
+        
+        .no-points-message {
+          text-align: center;
+          padding: 30px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          color: #666;
+          
+          ion-icon {
+            font-size: 48px;
+            color: #ccc;
+            margin-bottom: 10px;
+          }
+          
+          p {
+            margin: 0;
+            font-size: 14px;
+          }
+        }
+      }
+      
+      .room-notes-section {
+        margin-bottom: 20px;
+        
+        .notes-label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--noble-gray);
+          margin-bottom: 10px;
+          
+          ion-icon {
+            color: var(--noble-orange);
+            font-size: 16px;
+          }
+        }
+        
+        .notes-textarea {
+          width: 100%;
+          --padding-start: 12px;
+          --padding-end: 12px;
+          --padding-top: 10px;
+          --padding-bottom: 10px;
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          font-size: 14px;
+          background: white;
+          
+          &:focus {
+            --border-color: var(--noble-orange);
+          }
+        }
+      }
+      
+      .room-summary {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-around;
+        
+        .summary-item {
+          text-align: center;
+          
+          .summary-label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          
+          .summary-value {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--noble-gray);
+            
+            &.warning {
+              color: #dc3545;
+            }
+          }
+        }
+      }
+      
+      .save-status-inline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+        color: var(--noble-orange);
+        font-size: 14px;
+        
+        ion-spinner {
+          --color: var(--noble-orange);
+        }
+      }
+    }
+  }
+  
+  .no-selected-rooms {
+    text-align: center;
+    padding: 40px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-top: 20px;
+    
+    ion-icon {
+      font-size: 48px;
+      color: #ccc;
+      margin-bottom: 10px;
+    }
+    
+    p {
+      color: #666;
+      font-size: 14px;
+      margin: 0;
+    }
+  }
+  
   .no-rooms-message {
     text-align: center;
     padding: 30px;

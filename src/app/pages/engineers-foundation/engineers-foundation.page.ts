@@ -698,6 +698,94 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Handle elevation value change for a point
+  async onElevationChange(roomName: string, point: any) {
+    try {
+      // Save the elevation value to the database
+      const pointKey = `${roomName}_${point.name}`;
+      const pointId = this.roomPointIds[pointKey];
+      
+      if (pointId) {
+        const updateData = {
+          Elevation: point.elevation || 0
+        };
+        
+        await this.caspioService.updateServicesRoomsPoint(pointId, updateData).toPromise();
+        console.log(`Updated elevation for ${point.name} to ${point.elevation}`);
+      }
+    } catch (error) {
+      console.error('Error updating elevation:', error);
+      await this.showToast('Failed to update elevation', 'danger');
+    }
+  }
+  
+  // Delete an elevation point
+  async deleteElevationPoint(roomName: string, point: any) {
+    const alert = await this.alertController.create({
+      header: 'Delete Point',
+      message: `Are you sure you want to delete "${point.name}"? This will also delete all associated photos.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              // Delete from database if it exists
+              const pointKey = `${roomName}_${point.name}`;
+              const pointId = this.roomPointIds[pointKey];
+              
+              if (pointId) {
+                await this.caspioService.deleteServicesRoomsPoint(pointId).toPromise();
+                delete this.roomPointIds[pointKey];
+              }
+              
+              // Remove from local data
+              if (this.roomElevationData[roomName]?.elevationPoints) {
+                const index = this.roomElevationData[roomName].elevationPoints.findIndex(
+                  (p: any) => p.name === point.name
+                );
+                if (index > -1) {
+                  this.roomElevationData[roomName].elevationPoints.splice(index, 1);
+                }
+              }
+              
+              await this.showToast('Point deleted', 'success');
+            } catch (error) {
+              console.error('Error deleting point:', error);
+              await this.showToast('Failed to delete point', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  // Calculate maximum elevation differential for a room
+  getRoomMaxDifferential(roomName: string): number | null {
+    const roomData = this.roomElevationData[roomName];
+    if (!roomData || !roomData.elevationPoints || roomData.elevationPoints.length === 0) {
+      return null;
+    }
+    
+    const elevations = roomData.elevationPoints
+      .map((p: any) => p.elevation)
+      .filter((e: any) => e !== null && e !== undefined && !isNaN(e));
+    
+    if (elevations.length === 0) {
+      return null;
+    }
+    
+    const max = Math.max(...elevations);
+    const min = Math.min(...elevations);
+    return max - min;
+  }
+  
   // Capture photo for room elevation point - using EXACT visual method
   async capturePhotoForPoint(roomName: string, point: any, event?: Event) {
     if (event) {
