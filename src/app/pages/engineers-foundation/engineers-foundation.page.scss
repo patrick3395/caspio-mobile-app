@@ -11,9 +11,8 @@ ion-content {
   ::ng-deep .inner-scroll {
     display: flex;
     flex-direction: column;
-    height: auto !important;
-    min-height: 100%;
-    overflow-y: visible !important;
+    height: 100%;
+    overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
   }
@@ -50,12 +49,11 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 200px; // Extra space at bottom for scrolling
+  padding-bottom: 120px; // Reasonable buffer at bottom
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  min-height: calc(100vh + 500px); // Ensure enough height for all content
+  min-height: 100%; // Let content determine height
   max-width: 1400px;
   margin: 0 auto;
-  margin-bottom: 100px; // Additional bottom margin
 }
 
 .save-status {

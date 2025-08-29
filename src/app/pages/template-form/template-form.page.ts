@@ -232,6 +232,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (!this.projectId) return;
     
     try {
+      console.log('Loading documents for project:', this.projectId);
+      
       // Load documents with TypeID = 3 for this project
       const attachments = await this.caspioService.getAttachmentsByProjectAndType(this.projectId, 3).toPromise();
       
@@ -242,36 +244,56 @@ export class TemplateFormPage implements OnInit, OnDestroy {
           const link = attachment.Link || '';
           const fileName = attachment.Attachment || '';
           
+          console.log('Processing attachment:', { link, fileName, AttachID: attachment.AttachID });
+          
           // Determine document type based on Link field
           let docType = '';
-          if (link.includes('Support Document')) {
+          if (link.toLowerCase().includes('support')) {
             docType = 'supportDocument';
-          } else if (link.includes('Home Inspection')) {
+          } else if (link.toLowerCase().includes('home') || link.toLowerCase().includes('inspection')) {
             docType = 'homeInspectionReport';
-          } else if (link.includes('Engineer')) {
+          } else if (link.toLowerCase().includes('engineer') || link.toLowerCase().includes('evaluation')) {
             docType = 'engineersEvaluationReport';
           }
+          
+          console.log('Determined docType:', docType);
           
           if (docType) {
             this.documentStatus[docType] = true;
             this.documentNames[docType] = link;
             this.documentAttachIds[docType] = attachment.AttachID;
             
+            // Store the actual file path for later use
+            this.documentPreviewUrls[docType] = fileName; // Store the file path temporarily
+            
             // Generate preview URL for images
             if (fileName && this.isImageFile(fileName)) {
+              console.log('Loading image preview for:', docType, fileName);
               try {
                 const base64Data = await this.caspioService.getImageFromFilesAPI(fileName).toPromise();
                 if (base64Data) {
                   this.documentPreviewUrls[docType] = base64Data;
+                  console.log('Image preview loaded for:', docType);
                 }
               } catch (error) {
-                console.error('Error loading preview for', docType, error);
+                console.error('Error loading image preview for', docType, error);
               }
+            } else if (fileName) {
+              // For PDFs and other documents, just mark as having a file
+              console.log('Document is not an image, marking as available:', docType, fileName);
             }
           }
         }
         
         console.log('Document status after loading:', this.documentStatus);
+        console.log('Document names:', this.documentNames);
+        console.log('Document attach IDs:', this.documentAttachIds);
+        
+        // Show debug info on mobile
+        await this.showToast(`Loaded ${attachments.length} document(s)`, 'info');
+      } else {
+        console.log('No existing documents found for project:', this.projectId);
+        await this.showToast('No documents found for this project', 'info');
       }
     } catch (error) {
       console.error('Error loading existing documents:', error);
@@ -762,7 +784,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   async viewDocument(docType: string) {
     const attachId = this.documentAttachIds[docType];
     const fileName = this.documentNames[docType];
-    const fileUrl = this.documentPreviewUrls[docType];
+    
+    console.log('Viewing document:', { docType, attachId, fileName });
     
     // Show loading
     const loading = await this.loadingController.create({
@@ -772,7 +795,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     await loading.present();
     
     try {
-      // If we have a stored file object, create a URL from it
+      // If we have a stored file object from recent upload, use it
       if (this.selectedFiles[docType]) {
         const file = this.selectedFiles[docType];
         const reader = new FileReader();
@@ -790,62 +813,74 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         };
         reader.readAsDataURL(file);
       } else if (attachId) {
-        // Try to fetch from Caspio
+        // Fetch from Caspio
         try {
-          // First get the attachment record to get the file path
+          // Get the attachment record
           const attachment = await this.caspioService.getAttachment(attachId.toString()).toPromise();
+          console.log('Attachment record:', attachment);
           
           if (attachment && attachment.Attachment) {
             const filePath = attachment.Attachment;
+            console.log('File path:', filePath);
             
-            // If it's a PDF, fetch it directly
-            if (this.isDocumentPDF(docType)) {
+            // Determine file type
+            const isPDF = filePath.toLowerCase().endsWith('.pdf');
+            const isImage = this.isImageFile(filePath);
+            
+            if (isPDF) {
+              console.log('Loading PDF from Files API...');
               const pdfData = await this.caspioService.getPDFFromFilesAPI(filePath).toPromise();
               await loading.dismiss();
               
               if (pdfData) {
+                console.log('PDF data loaded, opening viewer...');
                 const modal = await this.modalController.create({
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: pdfData,
-                    fileName: fileName || attachment.Title || 'Document',
+                    fileName: fileName || 'Document.pdf',
                     fileType: 'application/pdf'
                   }
                 });
                 await modal.present();
+              } else {
+                await this.showToast('Failed to load PDF', 'error');
               }
-            } else if (this.isDocumentImage(docType)) {
-              // For images, get base64 data
+            } else if (isImage) {
+              console.log('Loading image from Files API...');
               const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
               await loading.dismiss();
               
               if (imageData) {
+                console.log('Image data loaded, opening viewer...');
                 const modal = await this.modalController.create({
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: imageData,
-                    fileName: fileName || attachment.Title || 'Document',
-                    fileType: this.getFileTypeFromName(fileName || attachment.Link || '')
+                    fileName: fileName || 'Image',
+                    fileType: this.getFileTypeFromName(filePath)
                   }
                 });
                 await modal.present();
+              } else {
+                await this.showToast('Failed to load image', 'error');
               }
             } else {
               await loading.dismiss();
-              await this.showToast('Unsupported document type', 'warning');
+              await this.showToast(`Document type not supported: ${filePath}`, 'warning');
             }
+          } else {
+            await loading.dismiss();
+            await this.showToast('Document path not found in database', 'error');
           }
         } catch (error) {
           await loading.dismiss();
           console.error('Failed to load document:', error);
-          await this.showToast('Unable to load document', 'error');
+          await this.showToast(`Error: ${(error as any).message || 'Unable to load document'}`, 'error');
         }
-      } else if (fileName?.startsWith('http')) {
-        await loading.dismiss();
-        window.open(fileName, '_blank');
       } else {
         await loading.dismiss();
-        await this.showToast('Document not available', 'warning');
+        await this.showToast('No document to view', 'warning');
       }
     } catch (error) {
       await loading.dismiss();
