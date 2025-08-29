@@ -22,10 +22,15 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       </ion-toolbar>
     </ion-header>
     <ion-content class="document-viewer-content">
-      <div class="viewer-container" *ngIf="!isImage">
+      <div class="viewer-container" *ngIf="!isImage && !isPDF">
         <iframe [src]="sanitizedUrl" 
                 frameborder="0"
                 [attr.data-file-type]="fileType"></iframe>
+      </div>
+      <div class="pdf-container" *ngIf="isPDF">
+        <iframe [src]="sanitizedUrl" 
+                frameborder="0"
+                type="application/pdf"></iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -45,6 +50,17 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       align-items: center;
       justify-content: center;
       overflow: hidden;
+    }
+    .pdf-container {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .pdf-container iframe {
+      width: 100%;
+      min-height: 100%;
+      border: none;
     }
     iframe {
       width: 100%;
@@ -76,6 +92,7 @@ export class DocumentViewerComponent implements OnInit {
   
   sanitizedUrl: SafeResourceUrl | null = null;
   isImage = false;
+  isPDF = false;
   displayUrl: string = '';
 
   constructor(
@@ -98,33 +115,26 @@ export class DocumentViewerComponent implements OnInit {
     
     // Check both filename and filepath for extension
     this.isImage = imageExtensions.some(ext => lowerName.endsWith(ext) || lowerPath.endsWith(ext));
+    this.isPDF = lowerPath.includes('.pdf') || this.fileUrl.toLowerCase().includes('.pdf');
     
     if (this.isImage) {
       // For images, use the URL directly (should be base64 data URL)
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
+    } else if (this.isPDF) {
+      // For PDFs, use the URL directly without parameters for better mobile support
+      this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+      console.log('Displaying PDF in scrollable container');
     } else {
-      // For PDFs and documents
-      if (this.fileUrl.toLowerCase().includes('.pdf') || lowerPath.includes('.pdf')) {
-        // For PDFs, add zoom parameter to fit page
-        let pdfUrl = this.fileUrl;
-        // Add PDF open parameters if it's not a data URL
-        if (!pdfUrl.startsWith('data:')) {
-          pdfUrl = pdfUrl + '#view=FitH&toolbar=0&navpanes=0';
-        }
-        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
-        console.log('Displaying PDF with fit-to-width parameters');
+      // For other documents, use Google Docs viewer if not a data URL
+      if (this.fileUrl.startsWith('data:')) {
+        // Can't use Google Docs viewer with data URLs
+        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
       } else {
-        // For other documents, use Google Docs viewer if not a data URL
-        if (this.fileUrl.startsWith('data:')) {
-          // Can't use Google Docs viewer with data URLs
-          this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-        } else {
-          const encodedUrl = encodeURIComponent(this.fileUrl);
-          const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
-          this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(viewerUrl);
-          console.log('Using Google Docs viewer');
-        }
+        const encodedUrl = encodeURIComponent(this.fileUrl);
+        const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(viewerUrl);
+        console.log('Using Google Docs viewer');
       }
     }
   }

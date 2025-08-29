@@ -54,21 +54,8 @@
                 
                 <!-- PDF Preview -->
                 <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview">
-                  <!-- Show actual PDF thumbnail -->
-                  <object *ngIf="getCachedFileUrl(file.FileFile)" 
-                          [data]="getCachedFileUrl(file.FileFile)" 
-                          type="application/pdf"
-                          class="pdf-thumbnail-object">
-                    <!-- Fallback if PDF can't be displayed -->
-                    <div class="pdf-fallback">
-                      <ion-icon name="document-text" class="pdf-doc-icon"></ion-icon>
-                      <span class="file-name">{{ getFileName(file.FileFile) }}</span>
-                    </div>
-                  </object>
-                  <!-- Show icon while loading -->
-                  <div *ngIf="!getCachedFileUrl(file.FileFile)" class="pdf-loading">
-                    <ion-spinner name="crescent" color="primary"></ion-spinner>
-                  </div>
+                  <ion-icon name="document-text" class="preview-icon"></ion-icon>
+                  <span class="file-type">PDF</span>
                 </div>
                 
                 <!-- Generic File Preview -->
