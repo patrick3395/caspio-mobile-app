@@ -45,8 +45,14 @@ export class PdfPreviewComponent implements OnInit {
       serviceData: this.serviceData
     });
     
-    // Load primary photo if it's a Caspio file
-    this.loadPrimaryPhotoIfNeeded();
+    // Check if primary photo was preloaded
+    if (this.projectData?.primaryPhotoBase64) {
+      this.primaryPhotoData = this.projectData.primaryPhotoBase64;
+      console.log('Using preloaded primary photo');
+    } else {
+      // Load primary photo if it's a Caspio file
+      this.loadPrimaryPhotoIfNeeded();
+    }
   }
   
   async loadPrimaryPhotoIfNeeded() {
@@ -207,7 +213,7 @@ export class PdfPreviewComponent implements OnInit {
 
   async generatePDF() {
     const loading = await this.loadingController.create({
-      message: 'Generating comprehensive PDF report...',
+      message: 'Generating PDF...',
       cssClass: 'custom-loading'
     });
     await loading.present();
@@ -219,8 +225,6 @@ export class PdfPreviewComponent implements OnInit {
       
       // Also load jspdf-autotable for table support
       await import('jspdf-autotable');
-      
-      loading.message = 'Generating comprehensive PDF report...';
       
       const pdf = new jsPDF({
         orientation: 'portrait',

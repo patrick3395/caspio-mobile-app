@@ -879,7 +879,7 @@
           </div>
           
           <!-- Add Room button - always show at bottom -->
-          <div class="add-room-container" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
+          <div class="add-room-container" style="margin-top: 20px; margin-bottom: 10px; text-align: center;">
             <button class="add-room-button" (click)="showAddRoomDialog()" 
                     style="background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 2px dashed #999; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.3s ease;">
               <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px;"></ion-icon>
@@ -906,6 +906,6 @@
     <ion-icon name="arrow-up"></ion-icon>
   </button>
   
-  <!-- Bottom spacer to prevent content cut-off -->
-  <div style="height: 50px;"></div>
+  <!-- Dynamic bottom spacer based on last visible section -->
+  <div [style.height.px]="getBottomSpacerHeight()"></div>
 </ion-content>

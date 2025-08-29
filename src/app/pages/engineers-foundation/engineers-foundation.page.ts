@@ -2184,6 +2184,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  getBottomSpacerHeight(): number {
+    // Check if any section is expanded
+    const hasExpandedSection = Object.values(this.expandedSections).some(expanded => expanded);
+    
+    if (!hasExpandedSection) {
+      // If no sections are expanded, minimal spacing
+      return 20;
+    }
+    
+    // Check which section is last expanded
+    const sectionOrder = ['project', 'grading', 'structural', 'elevationPlot'];
+    let lastExpandedSection = '';
+    
+    for (let i = sectionOrder.length - 1; i >= 0; i--) {
+      if (this.expandedSections[sectionOrder[i]]) {
+        lastExpandedSection = sectionOrder[i];
+        break;
+      }
+    }
+    
+    // Adjust spacing based on the last expanded section
+    switch (lastExpandedSection) {
+      case 'elevationPlot':
+        // Elevation plot has Add Room button with its own margin
+        return 20;
+      case 'structural':
+      case 'grading':
+      case 'project':
+        // Regular sections need more spacing
+        return 50;
+      default:
+        return 30;
+    }
+  }
+
   scrollToCurrentSectionTop() {
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     const viewportTop = scrollTop;
@@ -2759,25 +2794,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const loading = await this.loadingController.create({
-      message: 'Loading inspection data from database...',
+      message: 'Preparing report data...',
       spinner: 'crescent'
     });
     await loading.present();
 
     try {
-      // Update loading message
-      loading.message = 'Preparing PDF preview...';
-      
-      // Prepare data for the preview - use existing data when possible
+      // Prepare all data BEFORE opening the modal
       const [structuralSystemsData, elevationPlotData, projectInfo] = await Promise.all([
         this.prepareStructuralSystemsData(),
         this.prepareElevationPlotData(), 
         this.prepareProjectInfo()
       ]);
       
+      // Preload primary photo if it exists to avoid blank page
+      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
+        try {
+          const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
+          if (imageData && imageData.startsWith('data:')) {
+            projectInfo.primaryPhotoBase64 = imageData;
+          }
+        } catch (error) {
+          console.error('Error preloading primary photo:', error);
+        }
+      }
+      
       await loading.dismiss();
       
-      // Open the preview modal
+      // Now open the modal with all data ready
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
         componentProps: {
@@ -5373,11 +5417,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log(`Total visual items: ${totalItems}`);
     console.log('Result:', result);
     
-    // Show user what's being included
+    // Don't show toast messages - just log for debugging
     if (totalItems === 0) {
-      await this.showToast('No structural visuals selected for PDF', 'warning');
+      console.log('No structural visuals selected for PDF');
     } else {
-      await this.showToast(`Including ${totalItems} structural visuals in PDF`, 'info');
+      console.log(`Including ${totalItems} structural visuals in PDF`);
     }
     
     return result;

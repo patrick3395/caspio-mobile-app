@@ -216,8 +216,10 @@ ion-content {
     transform: translateY(-2px);
   }
   
-  // Structural Systems specific styles - limit text to 2 lines
+  // Structural Systems specific styles
   &.structural-section {
+    margin-bottom: 8px; // Reduce margin for structural section
+    
     .visual-item-container {
       .item-label {
         .item-text {
@@ -226,10 +228,12 @@ ion-content {
           -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
-          line-height: 1.3;
-          max-height: 2.6em; // 2 lines * 1.3 line-height - prevents third line from showing
+          line-height: 1.2;
+          max-height: 2.4em; // Exactly 2 lines * 1.2 line-height
           font-size: 13px;
           color: #666;
+          margin: 0;
+          padding: 0;
         }
       }
     }
