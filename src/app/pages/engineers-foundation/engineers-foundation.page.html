@@ -748,107 +748,142 @@
       </div>
 
       <div class="section-content" [class.expanded]="expandedSections['elevation']">
-        <!-- Room Checkboxes Section -->
-        <div class="room-checkboxes-container" *ngIf="roomTemplates.length > 0">
-          <div class="room-item" *ngFor="let room of roomTemplates; trackBy: trackByRoomName">
-            <ion-item lines="none">
-              <ion-checkbox 
-                [(ngModel)]="room.selected" 
-                (ionChange)="onRoomSelectionChange(room)"
-                slot="start">
-              </ion-checkbox>
-              <ion-label>
-                <h3>{{ room.RoomName }}</h3>
-                <p *ngIf="room.PointCount">{{ room.PointCount }} measurement points</p>
-              </ion-label>
-            </ion-item>
+        
+        <!-- Room Templates Available - v1.4.65 EXACT -->
+        <div class="room-templates-header" *ngIf="availableRoomTemplates && availableRoomTemplates.length > 0">
+          <h3 class="subsection-title">Select Rooms to Evaluate</h3>
+        </div>
+        
+        <!-- Room Checkboxes Grid - v1.4.65 EXACT GRID LAYOUT -->
+        <div class="room-checkboxes-grid" *ngIf="availableRoomTemplates && availableRoomTemplates.length > 0">
+          <label class="room-checkbox" *ngFor="let template of availableRoomTemplates">
+            <input type="checkbox" 
+                   [checked]="isRoomSelected(template.RoomName)"
+                   (change)="toggleRoomSelection(template.RoomName, $event)">
+            <span class="room-name">{{ template.RoomName }}</span>
+            <span class="point-count" *ngIf="template.PointCount">({{ template.PointCount }} points)</span>
+          </label>
+        </div>
+        
+        <!-- Selected Rooms Section - v1.4.65 EXACT -->
+        <div class="selected-rooms-section" *ngIf="getSelectedRooms().length > 0">
+          <h3 class="subsection-title">Room Elevation Data</h3>
+          
+          <!-- Room Data Container - v1.4.65 EXACT STRUCTURE -->
+          <div class="room-data-container" *ngFor="let room of getSelectedRooms()">
+            <div class="room-header">
+              <h4 class="room-title">{{ room.RoomName }}</h4>
+              <button class="remove-room-btn" (click)="removeRoom(room.RoomName)">
+                <ion-icon name="close-circle"></ion-icon>
+              </button>
+            </div>
             
-            <!-- Room Details - Only shown when selected -->
-            <div class="room-content" *ngIf="room.selected || isRoomSelected(room.RoomName)">
-              <!-- FDF Dropdown -->
-              <div class="fdf-container">
-                <label>Floor Differential Factor (FDF):</label>
-                <ion-select 
-                  [(ngModel)]="roomElevationData[room.RoomName].fdf" 
-                  placeholder="Select FDF"
-                  interface="popover"
-                  (ionChange)="onFDFChange(room.RoomName)">
-                  <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
-                    {{ option }}
-                  </ion-select-option>
-                </ion-select>
+            <!-- FDF Selection - v1.4.65 EXACT SELECT ELEMENT -->
+            <div class="fdf-selection">
+              <label class="fdf-label">Floor Differential Factor (FDF):</label>
+              <select class="fdf-dropdown" 
+                      [(ngModel)]="roomElevationData[room.RoomName].fdf"
+                      (change)="onFDFChange(room.RoomName)">
+                <option value="">Select FDF</option>
+                <option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
+                  {{ option }}
+                </option>
+              </select>
+            </div>
+            
+            <!-- Elevation Points Section - v1.4.65 EXACT -->
+            <div class="elevation-points-section">
+              <div class="points-header">
+                <label class="points-label">Elevation Points:</label>
+                <button class="add-point-btn" (click)="addElevationPoint(room.RoomName)">
+                  <ion-icon name="add-circle"></ion-icon>
+                  Add Point
+                </button>
               </div>
               
-              <!-- Elevation Points -->
-              <div class="points-container">
-                <div class="points-header">
-                  <label>Elevation Points:</label>
-                  <button class="add-point-button" (click)="addCustomPoint(room.RoomName)">
-                    <ion-icon name="add-circle-outline"></ion-icon>
-                    Add Point
+              <!-- Points Grid - v1.4.65 EXACT LAYOUT -->
+              <div class="elevation-points-grid" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
+                <div class="elevation-point-row" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; let i = index">
+                  <span class="point-index">{{ i + 1 }}.</span>
+                  <span class="point-label">{{ point.name }}</span>
+                  <input type="number" 
+                         class="elevation-value-input"
+                         [(ngModel)]="point.elevation"
+                         (blur)="onElevationChange(room.RoomName, point)"
+                         placeholder="0.00"
+                         step="0.01">
+                  <span class="elevation-unit">in</span>
+                  
+                  <!-- Photo Button - v1.4.65 EXACT -->
+                  <button class="point-photo-btn" (click)="capturePhotoForPoint(room.RoomName, point, $event)">
+                    <ion-icon name="camera"></ion-icon>
+                    <span class="photo-count" *ngIf="point.photoCount > 0">{{ point.photoCount }}</span>
+                  </button>
+                  
+                  <!-- Delete Button - v1.4.65 EXACT -->
+                  <button class="point-delete-btn" (click)="deleteElevationPoint(room.RoomName, point)">
+                    <ion-icon name="trash"></ion-icon>
                   </button>
                 </div>
-                
-                <div class="points-list" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
-                  <div class="elevation-point" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; let i = index">
-                    <span class="point-name">{{ i + 1 }}. {{ point.name }}</span>
-                    <input 
-                      type="number" 
-                      [(ngModel)]="point.elevation" 
-                      (blur)="onElevationChange(room.RoomName, point)"
-                      placeholder="0.00"
-                      step="0.01"
-                      class="elevation-input">
-                    <span class="elevation-unit">in</span>
-                    <button class="photo-button" (click)="capturePhotoForPoint(room.RoomName, point, $event)">
-                      <ion-icon name="camera-outline"></ion-icon>
-                      <span *ngIf="point.photoCount > 0" class="photo-badge">{{ point.photoCount }}</span>
-                    </button>
-                    <button class="delete-button" (click)="deleteElevationPoint(room.RoomName, point)">
-                      <ion-icon name="trash-outline"></ion-icon>
-                    </button>
-                    
-                    <!-- Simple photo thumbnails -->
-                    <div class="point-photos" *ngIf="point.photos && point.photos.length > 0">
-                      <img *ngFor="let photo of point.photos" 
-                           [src]="photo.thumbnailUrl || photo.url" 
+              </div>
+              
+              <!-- No Points Message - v1.4.65 EXACT -->
+              <div class="no-points-message" *ngIf="!roomElevationData[room.RoomName]?.elevationPoints || roomElevationData[room.RoomName].elevationPoints.length === 0">
+                <p>No elevation points added yet. Click "Add Point" to begin.</p>
+              </div>
+              
+              <!-- Photo Previews - v1.4.65 EXACT -->
+              <div class="point-photos-grid" *ngIf="roomElevationData[room.RoomName]?.elevationPoints">
+                <div *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                  <div class="photo-preview-row" *ngIf="point.photos && point.photos.length > 0">
+                    <span class="photo-point-label">{{ point.name }} Photos:</span>
+                    <div class="photo-thumbnails">
+                      <img *ngFor="let photo of point.photos"
+                           [src]="photo.thumbnailUrl || photo.url"
                            (click)="viewRoomPhoto(photo, room.RoomName, point)"
-                           class="photo-thumb">
+                           class="photo-thumbnail"
+                           alt="Point photo">
                     </div>
                   </div>
                 </div>
-                
-                <div class="no-points" *ngIf="!roomElevationData[room.RoomName]?.elevationPoints || roomElevationData[room.RoomName].elevationPoints.length === 0">
-                  No points yet. Click "Add Point" to add elevation measurements.
-                </div>
               </div>
-              
-              <!-- Notes -->
-              <div class="notes-container">
-                <label>Notes:</label>
-                <ion-textarea 
-                  [(ngModel)]="roomElevationData[room.RoomName].notes" 
-                  rows="3"
-                  placeholder="Add notes for {{ room.RoomName }}..."
-                  (ionBlur)="onRoomNotesChange(room.RoomName)">
-                </ion-textarea>
-              </div>
+            </div>
+            
+            <!-- Room Notes - v1.4.65 EXACT TEXTAREA -->
+            <div class="room-notes-section">
+              <label class="notes-label">Room Notes:</label>
+              <textarea class="room-notes-textarea"
+                        [(ngModel)]="roomElevationData[room.RoomName].notes"
+                        (blur)="onRoomNotesChange(room.RoomName)"
+                        placeholder="Enter notes for {{ room.RoomName }}..."
+                        rows="3"></textarea>
+            </div>
+            
+            <!-- Max Differential Display - v1.4.65 EXACT -->
+            <div class="max-differential-display" *ngIf="getRoomMaxDifferential(room.RoomName) !== null">
+              <span class="differential-label">Maximum Differential:</span>
+              <span class="differential-value" [class.warning]="(getRoomMaxDifferential(room.RoomName) || 0) > 1.0">
+                {{ getRoomMaxDifferential(room.RoomName) | number:'1.2-2' }} inches
+              </span>
             </div>
           </div>
         </div>
         
-        <!-- Add Room Button -->
-        <div class="add-room-section">
-          <button class="add-room-btn" (click)="showAddRoomDialog()">
+        <!-- Add Custom Room Button - v1.4.65 EXACT -->
+        <div class="add-custom-room-section">
+          <button class="add-custom-room-btn" (click)="showAddRoomDialog()">
             <ion-icon name="add-circle-outline"></ion-icon>
-            Add Room
+            Add Custom Room
           </button>
         </div>
         
-        <!-- No Rooms Message -->
-        <div class="no-rooms-message" *ngIf="roomTemplates.length === 0">
-          <p>No room templates available. Click "Add Room" to select from available templates.</p>
+        <!-- Empty State - v1.4.65 EXACT -->
+        <div class="empty-state-message" *ngIf="!availableRoomTemplates || availableRoomTemplates.length === 0">
+          <ion-icon name="home-outline" class="empty-icon"></ion-icon>
+          <p>No room templates available.</p>
+          <p>Click "Add Custom Room" to create a new room for evaluation.</p>
         </div>
+        
       </div>
     </div>
 

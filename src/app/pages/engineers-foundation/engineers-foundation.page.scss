@@ -1292,284 +1292,495 @@ ion-content {
     }
   }
   
-  // Elevation Plot Simplified v1.4.65 Styles
-  .room-checkboxes-container {
-    .room-item {
-      margin-bottom: 15px;
+  // Elevation Plot Styles - RESTORED FROM v1.4.65 EXACTLY
+  .room-templates-header {
+    margin-bottom: 15px;
+    
+    .subsection-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #ff6b35;
+    }
+  }
+  
+  // Room Checkboxes Grid - v1.4.65 EXACT GRID LAYOUT
+  .room-checkboxes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    
+    .room-checkbox {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
       
-      ion-item {
-        --background: white;
-        --border-radius: 8px;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 10px;
+      &:hover {
+        background: #fff5f2;
+        border-color: #ff6b35;
+      }
+      
+      input[type="checkbox"] {
+        margin-right: 8px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+      
+      .room-name {
+        font-weight: 500;
+        color: #333;
+        flex: 1;
+      }
+      
+      .point-count {
+        font-size: 0.85em;
+        color: #666;
+        margin-left: 5px;
+      }
+    }
+  }
+  
+  // Selected Rooms Section - v1.4.65 EXACT
+  .selected-rooms-section {
+    margin-top: 25px;
+    
+    .subsection-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 15px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #ff6b35;
+    }
+  }
+  
+  // Room Data Container - v1.4.65 EXACT STYLING
+  .room-data-container {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e0e0e0;
+      
+      .room-title {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+      }
+      
+      .remove-room-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s;
         
-        ion-checkbox {
-          --size: 20px;
-          --checkbox-background-checked: var(--noble-orange);
-          margin-right: 12px;
+        ion-icon {
+          font-size: 1.5em;
         }
         
-        ion-label {
-          h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--noble-gray);
-            margin: 0 0 4px 0;
+        &:hover {
+          color: #c82333;
+        }
+      }
+    }
+    
+    // FDF Selection - v1.4.65 EXACT STYLING
+    .fdf-selection {
+      margin-bottom: 25px;
+      
+      .fdf-label {
+        display: block;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 0.95em;
+      }
+      
+      .fdf-dropdown {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        background: white;
+        font-size: 1em;
+        color: #333;
+        cursor: pointer;
+        transition: border-color 0.2s;
+        
+        &:focus {
+          outline: none;
+          border-color: #ff6b35;
+        }
+        
+        &:hover {
+          border-color: #ff6b35;
+        }
+      }
+    }
+    
+    // Elevation Points Section - v1.4.65 EXACT
+    .elevation-points-section {
+      margin-bottom: 25px;
+      
+      .points-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        
+        .points-label {
+          font-weight: 600;
+          color: #333;
+          font-size: 0.95em;
+        }
+        
+        .add-point-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 15px;
+          background: #ff6b35;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 0.9em;
+          font-weight: 500;
+          transition: background 0.2s;
+          
+          ion-icon {
+            font-size: 1.2em;
           }
           
-          p {
-            font-size: 12px;
-            color: #666;
-            margin: 0;
+          &:hover {
+            background: #e55a28;
+          }
+          
+          &:active {
+            transform: scale(0.98);
           }
         }
       }
       
-      .room-content {
-        background: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 15px;
-        margin-left: 32px;
-        margin-bottom: 10px;
+      // Points Grid - v1.4.65 EXACT LAYOUT
+      .elevation-points-grid {
+        background: #f9f9f9;
+        border-radius: 5px;
+        padding: 10px;
         
-        .fdf-container {
-          margin-bottom: 20px;
+        .elevation-point-row {
+          display: grid;
+          grid-template-columns: 30px 1fr 100px 30px 40px 40px;
+          gap: 10px;
+          align-items: center;
+          padding: 12px;
+          background: white;
+          border: 1px solid #e0e0e0;
+          border-radius: 5px;
+          margin-bottom: 10px;
           
-          label {
-            display: block;
-            font-size: 14px;
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          .point-index {
             font-weight: 600;
-            color: var(--noble-gray);
-            margin-bottom: 8px;
+            color: #666;
+            text-align: center;
           }
           
-          ion-select {
+          .point-label {
+            font-weight: 500;
+            color: #333;
+          }
+          
+          .elevation-value-input {
             width: 100%;
-            max-width: 300px;
-            --padding-start: 10px;
-            --padding-end: 10px;
-            --padding-top: 8px;
-            --padding-bottom: 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            background: white;
-          }
-        }
-        
-        .points-container {
-          margin-bottom: 20px;
-          
-          .points-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 1em;
             
-            label {
-              font-size: 14px;
-              font-weight: 600;
-              color: var(--noble-gray);
+            &:focus {
+              outline: none;
+              border-color: #ff6b35;
             }
+          }
+          
+          .elevation-unit {
+            color: #666;
+            font-size: 0.9em;
+            text-align: center;
+          }
+          
+          .point-photo-btn,
+          .point-delete-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.2s;
             
-            .add-point-button {
-              background: var(--noble-orange);
+            ion-icon {
+              font-size: 1.3em;
+            }
+          }
+          
+          .point-photo-btn {
+            background: #f0f0f0;
+            color: #333;
+            
+            .photo-count {
+              position: absolute;
+              top: -5px;
+              right: -5px;
+              background: #ff6b35;
               color: white;
-              border: none;
-              border-radius: 6px;
-              padding: 6px 12px;
-              font-size: 13px;
-              font-weight: 600;
-              cursor: pointer;
+              border-radius: 50%;
+              width: 18px;
+              height: 18px;
               display: flex;
               align-items: center;
-              gap: 5px;
+              justify-content: center;
+              font-size: 0.7em;
+              font-weight: bold;
+            }
+            
+            &:hover {
+              background: #ff6b35;
+              color: white;
+            }
+          }
+          
+          .point-delete-btn {
+            background: #fee;
+            color: #dc3545;
+            
+            &:hover {
+              background: #dc3545;
+              color: white;
+            }
+          }
+        }
+      }
+      
+      // No Points Message - v1.4.65 EXACT
+      .no-points-message {
+        padding: 25px;
+        text-align: center;
+        background: #f9f9f9;
+        border: 2px dashed #ddd;
+        border-radius: 5px;
+        
+        p {
+          margin: 0;
+          color: #666;
+          font-size: 0.95em;
+        }
+      }
+      
+      // Photo Previews Grid - v1.4.65 EXACT
+      .point-photos-grid {
+        margin-top: 15px;
+        
+        .photo-preview-row {
+          margin-bottom: 15px;
+          padding: 10px;
+          background: #f9f9f9;
+          border-radius: 5px;
+          
+          .photo-point-label {
+            display: block;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+          }
+          
+          .photo-thumbnails {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            
+            .photo-thumbnail {
+              width: 60px;
+              height: 60px;
+              object-fit: cover;
+              border-radius: 4px;
+              cursor: pointer;
+              border: 2px solid #ddd;
+              transition: all 0.2s;
               
               &:hover {
-                background: #ff6b3d;
-              }
-              
-              ion-icon {
-                font-size: 16px;
+                border-color: #ff6b35;
+                transform: scale(1.05);
               }
             }
-          }
-          
-          .points-list {
-            .elevation-point {
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              padding: 10px;
-              background: white;
-              border: 1px solid #e0e0e0;
-              border-radius: 6px;
-              margin-bottom: 10px;
-              
-              .point-name {
-                flex: 1;
-                font-size: 14px;
-                color: var(--noble-gray);
-              }
-              
-              .elevation-input {
-                width: 70px;
-                padding: 5px 8px;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                text-align: right;
-                font-size: 14px;
-                
-                &:focus {
-                  outline: none;
-                  border-color: var(--noble-orange);
-                }
-              }
-              
-              .elevation-unit {
-                font-size: 12px;
-                color: #666;
-              }
-              
-              .photo-button,
-              .delete-button {
-                background: none;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                padding: 5px 8px;
-                cursor: pointer;
-                position: relative;
-                
-                &:hover {
-                  background: #f0f0f0;
-                }
-                
-                ion-icon {
-                  font-size: 18px;
-                  color: var(--noble-gray);
-                }
-              }
-              
-              .photo-button {
-                .photo-badge {
-                  position: absolute;
-                  top: -5px;
-                  right: -5px;
-                  background: var(--noble-orange);
-                  color: white;
-                  font-size: 10px;
-                  padding: 2px 5px;
-                  border-radius: 10px;
-                  min-width: 16px;
-                  text-align: center;
-                }
-              }
-              
-              .delete-button {
-                ion-icon {
-                  color: #dc3545;
-                }
-              }
-              
-              .point-photos {
-                display: flex;
-                gap: 5px;
-                margin-top: 10px;
-                width: 100%;
-                
-                .photo-thumb {
-                  width: 50px;
-                  height: 50px;
-                  object-fit: cover;
-                  border-radius: 4px;
-                  cursor: pointer;
-                  border: 1px solid #e0e0e0;
-                  
-                  &:hover {
-                    border-color: var(--noble-orange);
-                  }
-                }
-              }
-            }
-          }
-          
-          .no-points {
-            padding: 20px;
-            text-align: center;
-            color: #666;
-            font-size: 13px;
-            background: white;
-            border: 1px dashed #e0e0e0;
-            border-radius: 6px;
           }
         }
+      }
+    }
+    
+    // Room Notes Section - v1.4.65 EXACT
+    .room-notes-section {
+      margin-bottom: 20px;
+      
+      .notes-label {
+        display: block;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 0.95em;
+      }
+      
+      .room-notes-textarea {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        background: white;
+        font-size: 0.95em;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 80px;
+        transition: border-color 0.2s;
         
-        .notes-container {
-          label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--noble-gray);
-            margin-bottom: 8px;
-          }
-          
-          ion-textarea {
-            --padding-start: 10px;
-            --padding-end: 10px;
-            --padding-top: 8px;
-            --padding-bottom: 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            background: white;
-            font-size: 14px;
-          }
+        &:focus {
+          outline: none;
+          border-color: #ff6b35;
+        }
+        
+        &::placeholder {
+          color: #999;
+        }
+      }
+    }
+    
+    // Max Differential Display - v1.4.65 EXACT
+    .max-differential-display {
+      padding: 12px;
+      background: #f0f8ff;
+      border: 1px solid #b8daff;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .differential-label {
+        font-weight: 600;
+        color: #004085;
+        font-size: 0.95em;
+      }
+      
+      .differential-value {
+        font-weight: 600;
+        color: #004085;
+        font-size: 1.1em;
+        
+        &.warning {
+          color: #dc3545;
+          background: #fee;
+          padding: 2px 8px;
+          border-radius: 3px;
         }
       }
     }
   }
   
-  .add-room-section {
-    margin: 20px 0;
+  // Add Custom Room Section - v1.4.65 EXACT
+  .add-custom-room-section {
+    margin-top: 25px;
     text-align: center;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
     
-    .add-room-btn {
-      background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
-      border: 2px dashed #999;
-      padding: 12px 24px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      color: #666;
+    .add-custom-room-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      transition: all 0.3s ease;
-      
-      &:hover {
-        background: linear-gradient(135deg, #fff, #f0f0f0);
-        border-color: var(--noble-orange);
-        color: var(--noble-orange);
-      }
+      padding: 12px 24px;
+      background: #ff6b35;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      font-weight: 500;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(255,107,53,0.3);
       
       ion-icon {
-        font-size: 18px;
+        font-size: 1.3em;
+      }
+      
+      &:hover {
+        background: #e55a28;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(255,107,53,0.4);
+      }
+      
+      &:active {
+        transform: translateY(0);
       }
     }
   }
   
-  .no-rooms-message {
+  // Empty State Message - v1.4.65 EXACT
+  .empty-state-message {
+    padding: 40px;
     text-align: center;
-    padding: 30px;
-    color: #999;
+    background: #f9f9f9;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
     
-    ion-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
+    .empty-icon {
+      font-size: 3em;
+      color: #ccc;
+      margin-bottom: 15px;
     }
     
     p {
-      font-size: 14px;
+      margin: 5px 0;
+      color: #666;
+      font-size: 0.95em;
+      
+      &:first-of-type {
+        font-weight: 600;
+        color: #333;
+        font-size: 1em;
+      }
     }
   }
 }

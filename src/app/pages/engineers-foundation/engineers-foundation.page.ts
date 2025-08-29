@@ -75,6 +75,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Room templates for elevation plot
   roomTemplates: any[] = [];
+  availableRoomTemplates: any[] = []; // v1.4.65 - Available room templates
   allRoomTemplates: any[] = []; // Store all templates for manual addition
   roomElevationData: { [roomName: string]: any } = {};
   selectedRooms: { [roomName: string]: boolean } = {};
@@ -276,6 +277,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
         
         this.roomTemplates = autoTemplates;
+        this.availableRoomTemplates = [...autoTemplates]; // v1.4.65 - populate available templates
         
         // Initialize room elevation data for each template (but don't create in Services_Rooms yet)
         autoTemplates.forEach((template: any) => {
@@ -1847,6 +1849,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Add custom point to room
+  // v1.4.65 compatibility - addElevationPoint alias
+  async addElevationPoint(roomName: string) {
+    return this.addCustomPoint(roomName);
+  }
+
   async addCustomPoint(roomName: string) {
     const alert = await this.alertController.create({
       header: 'Add Custom Point',
