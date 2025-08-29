@@ -482,8 +482,8 @@ export class ProjectDetailPage implements OnInit {
         });
       });
       
-      // Initial debug to see if we're even entering the update logic
-      alert(`DEBUG - Add Service Check:\n\nMode: ${currentMode}\nProject exists: ${!!this.project}\nShould update status: ${currentMode === 'add-service' && !!this.project}`);
+      // Log debug info without showing alert
+      console.log(`Add Service Check - Mode: ${currentMode}, Project exists: ${!!this.project}, Should update status: ${currentMode === 'add-service' && !!this.project}`);
       
       if (currentMode === 'add-service' && this.project) {
         // Debug: Show all project IDs and current status
@@ -498,7 +498,7 @@ export class ProjectDetailPage implements OnInit {
         debugInfo += `   Will use PK_ID for WHERE: ${this.project.PK_ID}\n`;
         debugInfo += `   Will update StatusID to: 1 (integer)\n\n`;
         
-        alert(debugInfo);
+        console.log(debugInfo);
         
         // Update project status to Active (StatusID = 1) when adding service to completed project
         const projectPkId = this.project.PK_ID;
@@ -524,7 +524,7 @@ export class ProjectDetailPage implements OnInit {
             apiDebug += '4. WHERE CLAUSE:\n';
             apiDebug += `   Using ProjectID=${projectId} to find record\n`;
             
-            alert(apiDebug);
+            console.log(apiDebug);
             
             await this.caspioService.put<any>(updateUrl, updateData).toPromise();
             

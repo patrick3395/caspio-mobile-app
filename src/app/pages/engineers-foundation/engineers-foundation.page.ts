@@ -5237,6 +5237,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       projectId: this.projectId,
       serviceId: this.serviceId,
       primaryPhoto: primaryPhoto,
+      primaryPhotoBase64: null as string | null, // Will be populated if preloaded
       
       // Property address
       address: this.projectData?.Address || '',
