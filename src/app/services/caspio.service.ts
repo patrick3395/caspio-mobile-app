@@ -4,6 +4,8 @@ import { Observable, BehaviorSubject, throwError, from, of } from 'rxjs';
 import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
+import { CacheService } from './cache.service';
+import { OfflineService } from './offline.service';
 
 export interface CaspioToken {
   access_token: string;
@@ -26,7 +28,9 @@ export class CaspioService {
 
   constructor(
     private http: HttpClient,
-    private imageCompression: ImageCompressionService
+    private imageCompression: ImageCompressionService,
+    private cache: CacheService,
+    private offline: OfflineService
   ) {
     this.loadStoredToken();
   }

@@ -4,6 +4,8 @@ import { Observable, from, throwError, timer, of } from 'rxjs';
 import { map, switchMap, catchError, retry, tap } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { CacheService } from './cache.service';
+import { OfflineService } from './offline.service';
 
 export interface Project {
   PK_ID?: string;
@@ -62,14 +64,36 @@ export class ProjectsService {
 
   constructor(
     private caspioService: CaspioService,
-    private http: HttpClient
+    private http: HttpClient,
+    private cache: CacheService,
+    private offline: OfflineService
   ) {}
 
   getProjectTableDefinition(): Observable<any> {
     return this.caspioService.get('/tables/Projects/definition');
   }
 
+  /**
+   * Clear all project-related cache entries
+   */
+  clearProjectCache(): void {
+    // Clear all project cache keys
+    this.cache.clear(this.cache.getApiCacheKey('projects_active', {}));
+    this.cache.clear(this.cache.getApiCacheKey('projects_active', { companyId: 1 }));
+    console.log('🗑️ Cleared project cache');
+  }
+
   getActiveProjects(companyId?: number): Observable<Project[]> {
+    // Build cache key
+    const cacheKey = this.cache.getApiCacheKey('projects_active', { companyId });
+    
+    // Check cache first
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      console.log('📦 Returning cached active projects');
+      return of(cached);
+    }
+    
     // Build the where clause
     let whereClause = 'StatusID%3D1';
     if (companyId) {
@@ -78,7 +102,12 @@ export class ProjectsService {
     
     // Fetch projects with StatusID = 1 (Active) and optionally filter by CompanyID
     return this.caspioService.get<any>(`/tables/Projects/records?q.where=${whereClause}`).pipe(
-      map(response => response.Result || [])
+      map(response => response.Result || []),
+      tap(projects => {
+        // Cache the results for 5 minutes
+        this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
+        console.log(`📦 Cached ${projects.length} active projects`);
+      })
     );
   }
 
@@ -291,6 +320,9 @@ export class ProjectsService {
               // If we got the project directly from the response, use it
               if (createdProjectId && createdProject) {
                 console.log('🎯 Using project from response with ID:', createdProjectId);
+                // Clear cache so the new project appears immediately
+                this.clearProjectCache();
+                
                 return of({
                   success: true,
                   message: 'Project created',

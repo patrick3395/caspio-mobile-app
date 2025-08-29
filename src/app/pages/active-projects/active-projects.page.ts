@@ -13,10 +13,16 @@ import { AlertController } from '@ionic/angular';
 })
 export class ActiveProjectsPage implements OnInit {
   projects: Project[] = [];
+  displayedProjects: Project[] = []; // Projects currently shown
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.203'; // Update this to match package.json version
+  appVersion = '1.4.204'; // Update this to match package.json version
+  
+  // Lazy loading configuration
+  private readonly INITIAL_LOAD = 20; // Initial number of projects to show
+  private readonly LOAD_MORE = 10; // Number of projects to load on scroll
+  private currentIndex = 0;
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -127,6 +133,7 @@ export class ActiveProjectsPage implements OnInit {
         this.projectsService.getActiveProjects(companyId).subscribe({
           next: (projects) => {
             this.projects = projects;
+            this.initializeLazyLoading();
             this.loading = false;
             console.log(`Active projects loaded for CompanyID ${companyId}:`, projects);
           },
@@ -183,6 +190,7 @@ export class ActiveProjectsPage implements OnInit {
     this.projectsService.getActiveProjects(companyId).subscribe({
       next: (projects) => {
         this.projects = projects;
+        this.initializeLazyLoading();
         this.loading = false;
         this.error = '';
         console.log(`Projects loaded directly for CompanyID ${companyId}:`, projects);
@@ -549,5 +557,45 @@ URL Attempted: ${imgUrl}`;
     });
 
     await alert.present();
+  }
+
+  /**
+   * Initialize lazy loading for projects list
+   */
+  initializeLazyLoading(): void {
+    this.currentIndex = 0;
+    this.displayedProjects = this.projects.slice(0, this.INITIAL_LOAD);
+    this.currentIndex = this.displayedProjects.length;
+  }
+
+  /**
+   * Load more projects when scrolling
+   */
+  loadMoreProjects(event?: any): void {
+    setTimeout(() => {
+      const nextBatch = this.projects.slice(
+        this.currentIndex, 
+        this.currentIndex + this.LOAD_MORE
+      );
+      
+      this.displayedProjects = [...this.displayedProjects, ...nextBatch];
+      this.currentIndex += nextBatch.length;
+      
+      if (event && event.target) {
+        event.target.complete();
+        
+        // Disable infinite scroll if all projects are loaded
+        if (this.currentIndex >= this.projects.length) {
+          event.target.disabled = true;
+        }
+      }
+    }, 100); // Small delay for smooth scrolling
+  }
+
+  /**
+   * Check if more projects can be loaded
+   */
+  hasMoreProjects(): boolean {
+    return this.currentIndex < this.projects.length;
   }
 }

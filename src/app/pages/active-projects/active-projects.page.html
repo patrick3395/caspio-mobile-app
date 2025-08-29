@@ -48,7 +48,7 @@
 
     <!-- Projects list -->
     <div *ngIf="!loading && !error" class="projects-list">
-      <div class="project-item" *ngFor="let project of projects" [routerLink]="['/project', project.PK_ID]">
+      <div class="project-item" *ngFor="let project of displayedProjects" [routerLink]="['/project', project.PK_ID]">
         <div class="project-image">
           <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
         </div>
@@ -64,4 +64,12 @@
       </div>
     </div>
   </div>
+  
+  <!-- Infinite scroll for lazy loading -->
+  <ion-infinite-scroll threshold="100px" (ionInfinite)="loadMoreProjects($event)" *ngIf="hasMoreProjects()">
+    <ion-infinite-scroll-content
+      loadingSpinner="bubbles"
+      loadingText="Loading more projects...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
 </ion-content>
