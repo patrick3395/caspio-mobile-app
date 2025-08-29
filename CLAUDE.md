@@ -240,7 +240,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.165):
+## 15. CURRENT WORK (December 2024 - v1.4.176):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -254,11 +254,11 @@ ps aux | grep omnara
 - **PDF Viewer TEST Header**: Added red TEST banner to document viewer component (v1.4.163) to verify correct component is being edited for mobile app deployment
 - **Support Documents Preview**: Added document preview with thumbnails for PDFs, images, and documents. Click-to-view functionality opens in modal viewer. Fixed build error by using getAttachmentWithImage instead of non-existent getAttachmentDetails
 - **PDF Preview TEST Header**: Added red TEST banner to the Engineers Foundation PDF preview component (v1.4.164) - the one that generates the actual PDF report with all visual data and elevation plots
-- **Elevation Plot Redesign**: Completely redesigned Elevation Plot section to match Structural Systems format (v1.4.165)
-  - Each room is now displayed as an accordion box like visual categories
-  - Sections within each room: Inputs (FDF), Points (with photos), and Notes
-  - Consistent styling with type-headers and visual-item-containers
-  - Photo previews match the Structural Systems image preview format
-  - Camera button styling matches the orange theme throughout
+- **Elevation Plot Section REVERTED** (v1.4.176): Reverted back to v1.4.65 checkbox-based design
+  - Removed accordion-style room layout
+  - Restored checkbox selection for rooms
+  - Selected rooms show details below checkboxes
+  - Each selected room displays FDF input, elevation points, and notes
+  - Simpler, flatter UI structure for better usability
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
