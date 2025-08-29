@@ -54,17 +54,12 @@
                 
                 <!-- PDF Preview -->
                 <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview">
-                  <!-- Show thumbnail if available -->
-                  <img *ngIf="getPdfThumbnail(file.FileFile)" 
-                       [src]="getPdfThumbnail(file.FileFile)" 
-                       [alt]="file.Description"
-                       class="pdf-thumbnail"
-                       loading="lazy"
-                       (error)="handlePdfThumbnailError($event, file.FileFile)">
-                  <!-- Fallback to icon if no thumbnail -->
-                  <div *ngIf="!getPdfThumbnail(file.FileFile)" class="pdf-icon-container">
-                    <ion-icon name="document-text" class="preview-icon"></ion-icon>
-                    <span class="file-type">PDF</span>
+                  <div class="pdf-preview-content">
+                    <ion-icon name="document-text" class="pdf-doc-icon"></ion-icon>
+                    <div class="pdf-info">
+                      <span class="file-type">PDF</span>
+                      <span class="file-name">{{ getFileName(file.FileFile) }}</span>
+                    </div>
                   </div>
                 </div>
                 

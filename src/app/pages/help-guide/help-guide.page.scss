@@ -159,24 +159,48 @@ ion-content {
   }
 
   .pdf-preview {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #fff;
+    border: 1px solid #e0e0e0;
     position: relative;
     
-    .pdf-thumbnail {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 8px;
-    }
-    
-    .pdf-icon-container {
+    .pdf-preview-content {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       width: 100%;
       height: 100%;
-      color: white;
+      padding: 10px;
+      
+      .pdf-doc-icon {
+        font-size: 32px;
+        color: #dc3545;
+        margin-bottom: 8px;
+      }
+      
+      .pdf-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        
+        .file-type {
+          font-size: 12px;
+          font-weight: 600;
+          color: #dc3545;
+          text-transform: uppercase;
+        }
+        
+        .file-name {
+          font-size: 10px;
+          color: #666;
+          margin-top: 4px;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
     }
   }
 

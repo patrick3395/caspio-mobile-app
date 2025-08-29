@@ -31,7 +31,6 @@ export class HelpGuidePage implements OnInit {
   loading = false;
   error = '';
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
-  pdfThumbnails: Map<string, string> = new Map(); // Cache for PDF thumbnails
 
   constructor(
     private caspioService: CaspioService,
@@ -86,18 +85,13 @@ export class HelpGuidePage implements OnInit {
           files: files.sort((a, b) => (a.Order || 0) - (b.Order || 0))
         }));
         
-        // Pre-load all image URLs and generate PDF thumbnails
+        // Pre-load all file URLs for faster display
         for (const section of this.fileSections) {
           for (const file of section.files) {
             if (file.FileFile) {
               // Pre-fetch URLs in background
               this.getFileUrl(file.FileFile).then(url => {
                 console.log(`Pre-loaded URL for ${file.Description}`);
-                
-                // Generate PDF thumbnail if it's a PDF
-                if (this.isPdfFile(file.FileFile)) {
-                  this.generatePdfThumbnail(file.FileFile);
-                }
               }).catch(err => {
                 console.error(`Failed to pre-load ${file.FileFile}:`, err);
               });
@@ -130,18 +124,17 @@ export class HelpGuidePage implements OnInit {
     }
     
     try {
-      // For images, convert to base64 data URL like structural systems does
-      if (this.isImageFile(filePath)) {
-        console.log(`Converting image to base64: ${filePath}`);
-        const base64Data = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-        
-        if (base64Data && base64Data.startsWith('data:')) {
-          this.fileUrls.set(filePath, base64Data);
-          return base64Data;
-        }
+      // For ALL files (images, PDFs, etc), convert to base64 data URL
+      // This ensures we have the actual file content for previews
+      console.log(`Converting file to base64: ${filePath}`);
+      const base64Data = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+      
+      if (base64Data && base64Data.startsWith('data:')) {
+        this.fileUrls.set(filePath, base64Data);
+        return base64Data;
       }
       
-      // For non-images (PDFs, docs), construct direct file URL
+      // Fallback to direct URL if base64 conversion fails
       const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
       const token = localStorage.getItem('caspio_token');
       const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
@@ -201,72 +194,5 @@ export class HelpGuidePage implements OnInit {
   async doRefresh(event: any) {
     await this.loadFiles();
     event.target.complete();
-  }
-
-  // PDF thumbnail methods
-  getPdfThumbnail(filePath: string): string {
-    return this.pdfThumbnails.get(filePath) || '';
-  }
-
-  async generatePdfThumbnail(filePath: string): Promise<void> {
-    try {
-      // For now, we'll just use a placeholder for PDFs
-      // In a production app, you'd use a library like pdf.js to generate actual thumbnails
-      // But for mobile compatibility, we'll use a simple approach
-      
-      // Check if we already have a thumbnail
-      if (this.pdfThumbnails.has(filePath)) {
-        return;
-      }
-
-      // Get the PDF URL
-      const url = await this.getFileUrl(filePath);
-      if (!url) return;
-
-      // For PDFs, we'll create a simple preview with the first page
-      // Since we're in a mobile app, we'll use a placeholder approach
-      // You could enhance this with pdf.js or server-side thumbnail generation
-      
-      // Create a simple canvas-based thumbnail placeholder
-      const canvas = document.createElement('canvas');
-      canvas.width = 150;
-      canvas.height = 200;
-      const ctx = canvas.getContext('2d');
-      
-      if (ctx) {
-        // Draw a white background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw a border
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw PDF icon
-        ctx.fillStyle = '#ff6b35';
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('PDF', canvas.width / 2, canvas.height / 2);
-        
-        // Draw filename
-        const fileName = this.getFileName(filePath);
-        ctx.fillStyle = '#666';
-        ctx.font = '12px Arial';
-        ctx.fillText(fileName.substring(0, 15) + (fileName.length > 15 ? '...' : ''), 
-                     canvas.width / 2, canvas.height - 20);
-        
-        // Convert to data URL
-        const dataUrl = canvas.toDataURL('image/png');
-        this.pdfThumbnails.set(filePath, dataUrl);
-      }
-    } catch (error) {
-      console.error('Error generating PDF thumbnail:', error);
-    }
-  }
-
-  handlePdfThumbnailError(event: any, filePath: string): void {
-    // Fallback to generating a placeholder thumbnail
-    this.generatePdfThumbnail(filePath);
   }
 }
