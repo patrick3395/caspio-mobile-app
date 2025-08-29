@@ -102,10 +102,11 @@
 
   <!-- Onboarding Tab Content -->
   <div *ngIf="selectedTab === 'onboarding'" class="onboarding-container">
+    <!-- First Video -->
     <div class="video-section">
-      <h2 class="onboarding-title">Introduction to Noble Partnership</h2>
+      <h2 class="onboarding-title">1. Introduction to Noble Partnership</h2>
       <div class="video-wrapper">
-        <div class="video-thumbnail" (click)="openYouTubeVideo()">
+        <div class="video-thumbnail" (click)="openYouTubeVideo('QshYGopHdqc')">
           <img src="https://img.youtube.com/vi/QshYGopHdqc/maxresdefault.jpg" 
                alt="Introduction to Noble Partnership"
                (error)="handleThumbnailError($event)">
@@ -116,6 +117,24 @@
       </div>
       <div class="video-description">
         <p>Watch this video to learn about the Noble Partnership and how to use the inspection app effectively.</p>
+      </div>
+    </div>
+
+    <!-- Second Video -->
+    <div class="video-section">
+      <h2 class="onboarding-title">2. High Level Onboarding Process</h2>
+      <div class="video-wrapper">
+        <div class="video-thumbnail" (click)="openYouTubeVideo('0IW44h_8m2I')">
+          <img src="https://img.youtube.com/vi/0IW44h_8m2I/maxresdefault.jpg" 
+               alt="High Level Onboarding Process"
+               (error)="handleThumbnailError($event)">
+          <div class="play-button">
+            <ion-icon name="play-circle"></ion-icon>
+          </div>
+        </div>
+      </div>
+      <div class="video-description">
+        <p>Learn about the high-level onboarding process and best practices for getting started.</p>
       </div>
     </div>
   </div>

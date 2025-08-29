@@ -216,6 +216,23 @@ ion-content {
     transform: translateY(-2px);
   }
   
+  // Structural Systems specific styles - limit text to 2 lines
+  &.structural-section {
+    .visual-item-container {
+      .item-label {
+        .item-text {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.4;
+          max-height: 2.8em; // 2 lines * 1.4 line-height
+        }
+      }
+    }
+  }
+  
   .section-header {
     padding: 20px 24px;
     background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
@@ -931,6 +948,7 @@ ion-content {
           }
         }
       }
+      
       
       .room-collapse-control {
         background: #f0f0f0;

@@ -9,10 +9,13 @@ ion-content {
   
   ion-segment-button {
     --indicator-color: #F15A27;
-    --color-checked: #F15A27;
+    --color: #666;
+    --color-checked: white;
+    --background-checked: #F15A27;
     font-weight: 500;
     text-transform: none;
     font-size: 14px;
+    border-radius: 0;
   }
 }
 
@@ -302,6 +305,11 @@ ion-content {
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .onboarding-title {

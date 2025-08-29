@@ -198,9 +198,15 @@ export class HelpGuidePage implements OnInit {
     event.target.complete();
   }
 
-  openYouTubeVideo() {
+  openYouTubeVideo(videoId: string) {
     // Open YouTube video in browser or YouTube app
-    window.open('https://youtu.be/QshYGopHdqc?si=fT6qjRzaS4uTa7ur', '_system');
+    const videoUrls: { [key: string]: string } = {
+      'QshYGopHdqc': 'https://youtu.be/QshYGopHdqc?si=fT6qjRzaS4uTa7ur',
+      '0IW44h_8m2I': 'https://youtu.be/0IW44h_8m2I?si=Hhj8zXqItjogkQkq'
+    };
+    
+    const url = videoUrls[videoId] || `https://youtu.be/${videoId}`;
+    window.open(url, '_system');
   }
 
   handleThumbnailError(event: any) {
