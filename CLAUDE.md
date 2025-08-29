@@ -240,7 +240,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.180):
+## 15. CURRENT WORK (December 2024 - v1.4.181):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -254,16 +254,15 @@ ps aux | grep omnara
 - **PDF Viewer TEST Header**: Added red TEST banner to document viewer component (v1.4.163) to verify correct component is being edited for mobile app deployment
 - **Support Documents Preview**: Added document preview with thumbnails for PDFs, images, and documents. Click-to-view functionality opens in modal viewer. Fixed build error by using getAttachmentWithImage instead of non-existent getAttachmentDetails
 - **PDF Preview TEST Header**: Added red TEST banner to the Engineers Foundation PDF preview component (v1.4.164) - the one that generates the actual PDF report with all visual data and elevation plots
-- **Elevation Plot Section FULLY RESTORED** (v1.4.178): Complete v1.4.65 checkbox-based implementation
-  - Full checkbox selection interface for rooms with grid layout
-  - Comprehensive room details section with all inputs and controls
-  - Elevation points with individual elevation inputs (inches)
-  - Photo capture and preview for each elevation point
-  - Point deletion and custom point addition
-  - Room summary with calculations (max differential)
-  - Complete SCSS styling matching v1.4.65 design
-  - All TypeScript methods restored (onElevationChange, deleteElevationPoint, getRoomMaxDifferential)
-  - Room notes section with full textarea
-  - Save status indicators and proper error handling
+- **Elevation Plot Section PROPERLY RESTORED** (v1.4.181): Exact v1.4.65 simple checkbox design
+  - Simple checkbox list of rooms
+  - When room selected, shows FDF dropdown and elevation points
+  - Clean elevation points with input field, photo button, delete button
+  - Add Point button to add custom elevation points
+  - Notes textarea for each room
+  - Simplified, clean layout exactly matching v1.4.65
+  - Removed complex nested structures and excessive styling
+  - Photo thumbnails shown inline with points
+  - Much cleaner, simpler interface as originally designed
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
