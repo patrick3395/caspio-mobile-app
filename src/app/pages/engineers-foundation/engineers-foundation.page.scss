@@ -3,6 +3,20 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// Ensure proper scrolling
+ion-content {
+  --overflow: scroll !important;
+  
+  ::ng-deep .inner-scroll {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+  }
+}
+
 // Photo upload dialog - ensure instant appearance with strong backdrop
 .photo-upload-dialog {
   .alert-wrapper {
@@ -34,6 +48,7 @@ ion-toolbar {
 
 .template-container {
   padding: 24px;
+  padding-bottom: 150px; // Extra space at bottom for scrolling
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
   min-height: 100vh;
   max-width: 1400px;

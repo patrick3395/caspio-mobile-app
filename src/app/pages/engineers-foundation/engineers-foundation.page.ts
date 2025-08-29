@@ -2651,13 +2651,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Fetch all visual records and attachments from the database
-      await this.fetchAllVisualsFromDatabase();
+      // Update loading message
+      loading.message = 'Preparing PDF preview...';
       
-      // Prepare data for the preview
-      const structuralSystemsData = await this.prepareStructuralSystemsData();
-      const elevationPlotData = await this.prepareElevationPlotData();
-      const projectInfo = await this.prepareProjectInfo();
+      // Prepare data for the preview - use existing data when possible
+      const [structuralSystemsData, elevationPlotData, projectInfo] = await Promise.all([
+        this.prepareStructuralSystemsData(),
+        this.prepareElevationPlotData(), 
+        this.prepareProjectInfo()
+      ]);
       
       await loading.dismiss();
       
@@ -5385,10 +5387,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
     
-    // Convert all photos to base64 for PDF compatibility
-    const processedPhotos = [];
+    // Return cached photos if already processed
+    const cacheKey = `processed_${visualId}`;
+    if (this[cacheKey]) {
+      return this[cacheKey];
+    }
     
-    for (const photo of photos) {
+    // Convert all photos to base64 for PDF compatibility - in parallel
+    const photoPromises = photos.map(async (photo) => {
       let photoUrl = photo.Photo || photo.url || '';
       let finalUrl = photoUrl;
       
@@ -5415,12 +5421,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         finalUrl = photoUrl;
       }
       
-      processedPhotos.push({
+      return {
         url: finalUrl,
         caption: photo.Annotation || '',
         attachId: photo.AttachID || photo.id || ''
-      });
-    }
+      };
+    });
+    
+    // Wait for all photo processing to complete in parallel
+    const processedPhotos = await Promise.all(photoPromises);
+    
+    // Cache the processed photos
+    this[cacheKey] = processedPhotos;
     
     return processedPhotos;
   }
@@ -5523,13 +5535,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Clear and rebuild the visualPhotos mapping
       this.visualPhotos = {};
       
-      // For each visual, fetch its attachments
-      for (const visual of visuals) {
-        const visualId = visual.VisualID;
-        
-        if (visualId) {
-          // Fetch attachments for this visual
-          const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
+      // Fetch all attachments in parallel for better performance
+      const attachmentPromises = visuals
+        .filter(visual => visual.VisualID)
+        .map(visual => 
+          this.caspioService.getServiceVisualsAttachByVisualId(visual.VisualID).toPromise()
+            .then(attachments => ({ visualId: visual.VisualID, attachments }))
+            .catch(error => {
+              console.error(`Error fetching attachments for visual ${visual.VisualID}:`, error);
+              return { visualId: visual.VisualID, attachments: [] };
+            })
+        );
+      
+      const attachmentResults = await Promise.all(attachmentPromises);
+      
+      // Process the results
+      for (const result of attachmentResults) {
+        const { visualId, attachments } = result;
           
           // Check if attachments is defined and is an array
           if (!attachments || !Array.isArray(attachments)) {
