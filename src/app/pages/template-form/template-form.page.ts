@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
@@ -131,7 +131,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     private caspioService: CaspioService,
     private serviceEfeService: ServiceEfeService,
     private modalController: ModalController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private loadingController: LoadingController
   ) {
     // Initialize auto-save with 1 second debounce (same as local server)
     this.autoSaveSubject.pipe(
@@ -218,10 +219,69 @@ export class TemplateFormPage implements OnInit, OnDestroy {
           }
         }
       }
+      
+      // Load existing documents from Attach table
+      await this.loadExistingDocuments();
     } catch (error) {
       console.error('Error initializing Service_EFE:', error);
       this.showSaveStatus('Failed to initialize service record', 'error');
     }
+  }
+  
+  async loadExistingDocuments() {
+    if (!this.projectId) return;
+    
+    try {
+      // Load documents with TypeID = 3 for this project
+      const attachments = await this.caspioService.getAttachmentsByProjectAndType(this.projectId, 3).toPromise();
+      
+      if (attachments && attachments.length > 0) {
+        console.log('Found existing documents:', attachments);
+        
+        for (const attachment of attachments) {
+          const link = attachment.Link || '';
+          const fileName = attachment.Attachment || '';
+          
+          // Determine document type based on Link field
+          let docType = '';
+          if (link.includes('Support Document')) {
+            docType = 'supportDocument';
+          } else if (link.includes('Home Inspection')) {
+            docType = 'homeInspectionReport';
+          } else if (link.includes('Engineer')) {
+            docType = 'engineersEvaluationReport';
+          }
+          
+          if (docType) {
+            this.documentStatus[docType] = true;
+            this.documentNames[docType] = link;
+            this.documentAttachIds[docType] = attachment.AttachID;
+            
+            // Generate preview URL for images
+            if (fileName && this.isImageFile(fileName)) {
+              try {
+                const base64Data = await this.caspioService.getImageFromFilesAPI(fileName).toPromise();
+                if (base64Data) {
+                  this.documentPreviewUrls[docType] = base64Data;
+                }
+              } catch (error) {
+                console.error('Error loading preview for', docType, error);
+              }
+            }
+          }
+        }
+        
+        console.log('Document status after loading:', this.documentStatus);
+      }
+    } catch (error) {
+      console.error('Error loading existing documents:', error);
+    }
+  }
+  
+  isImageFile(fileName: string): boolean {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    const ext = fileName.toLowerCase();
+    return imageExtensions.some(extension => ext.endsWith(extension));
   }
   
   loadExistingData(record: any) {
@@ -561,12 +621,12 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     }
   }
   
-  async showToast(message: string, type: 'info' | 'success' | 'error') {
+  async showToast(message: string, type: 'info' | 'success' | 'error' | 'warning') {
     const toast = await this.toastController.create({
       message: message,
       duration: type === 'error' ? 3000 : 2000,
       position: 'top',
-      color: type === 'error' ? 'danger' : type === 'success' ? 'success' : 'medium'
+      color: type === 'error' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'medium'
     });
     await toast.present();
   }
@@ -704,43 +764,93 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     const fileName = this.documentNames[docType];
     const fileUrl = this.documentPreviewUrls[docType];
     
-    // If we have a stored file object, create a URL from it
-    if (this.selectedFiles[docType]) {
-      const file = this.selectedFiles[docType];
-      const reader = new FileReader();
-      reader.onload = async (e: any) => {
-        const modal = await this.modalController.create({
-          component: DocumentViewerComponent,
-          componentProps: {
-            fileUrl: e.target.result,
-            fileName: fileName || file!.name,
-            fileType: file!.type
-          }
-        });
-        await modal.present();
-      };
-      reader.readAsDataURL(file);
-    } else if (attachId) {
-      // Try to fetch from Caspio
-      try {
-        const attachment = await this.caspioService.getAttachmentWithImage(attachId.toString()).toPromise();
-        if (attachment && attachment.Attachment) {
+    // Show loading
+    const loading = await this.loadingController.create({
+      message: 'Loading document...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+    
+    try {
+      // If we have a stored file object, create a URL from it
+      if (this.selectedFiles[docType]) {
+        const file = this.selectedFiles[docType];
+        const reader = new FileReader();
+        reader.onload = async (e: any) => {
+          await loading.dismiss();
           const modal = await this.modalController.create({
             component: DocumentViewerComponent,
             componentProps: {
-              fileUrl: attachment.Attachment,
-              fileName: fileName || attachment.Title || 'Document',
-              fileType: this.getFileTypeFromName(fileName || attachment.Link || '')
+              fileUrl: e.target.result,
+              fileName: fileName || file!.name,
+              fileType: file!.type
             }
           });
           await modal.present();
+        };
+        reader.readAsDataURL(file);
+      } else if (attachId) {
+        // Try to fetch from Caspio
+        try {
+          // First get the attachment record to get the file path
+          const attachment = await this.caspioService.getAttachment(attachId.toString()).toPromise();
+          
+          if (attachment && attachment.Attachment) {
+            const filePath = attachment.Attachment;
+            
+            // If it's a PDF, fetch it directly
+            if (this.isDocumentPDF(docType)) {
+              const pdfData = await this.caspioService.getPDFFromFilesAPI(filePath).toPromise();
+              await loading.dismiss();
+              
+              if (pdfData) {
+                const modal = await this.modalController.create({
+                  component: DocumentViewerComponent,
+                  componentProps: {
+                    fileUrl: pdfData,
+                    fileName: fileName || attachment.Title || 'Document',
+                    fileType: 'application/pdf'
+                  }
+                });
+                await modal.present();
+              }
+            } else if (this.isDocumentImage(docType)) {
+              // For images, get base64 data
+              const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+              await loading.dismiss();
+              
+              if (imageData) {
+                const modal = await this.modalController.create({
+                  component: DocumentViewerComponent,
+                  componentProps: {
+                    fileUrl: imageData,
+                    fileName: fileName || attachment.Title || 'Document',
+                    fileType: this.getFileTypeFromName(fileName || attachment.Link || '')
+                  }
+                });
+                await modal.present();
+              }
+            } else {
+              await loading.dismiss();
+              await this.showToast('Unsupported document type', 'warning');
+            }
+          }
+        } catch (error) {
+          await loading.dismiss();
+          console.error('Failed to load document:', error);
+          await this.showToast('Unable to load document', 'error');
         }
-      } catch (error) {
-        console.error('Failed to load document:', error);
-        await this.showToast('Unable to load document', 'error');
+      } else if (fileName?.startsWith('http')) {
+        await loading.dismiss();
+        window.open(fileName, '_blank');
+      } else {
+        await loading.dismiss();
+        await this.showToast('Document not available', 'warning');
       }
-    } else if (fileName?.startsWith('http')) {
-      window.open(fileName, '_blank');
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Error viewing document:', error);
+      await this.showToast('Error viewing document', 'error');
     }
   }
   

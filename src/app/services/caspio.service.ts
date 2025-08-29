@@ -897,6 +897,61 @@ export class CaspioService {
   }
   
   // Get image from Caspio Files API
+  // Get attachments by project ID and type ID
+  getAttachmentsByProjectAndType(projectId: string, typeId: number): Observable<any[]> {
+    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}%20AND%20TypeID=${typeId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+  
+  // Get single attachment by ID
+  getAttachment(attachId: string): Observable<any> {
+    return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
+      map(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return null;
+      })
+    );
+  }
+  
+  // Get PDF from Files API
+  getPDFFromFilesAPI(filePath: string): Observable<string> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    return new Observable(observer => {
+      // Clean the file path
+      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      
+      // Fetch from Files API
+      fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.blob();
+      })
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          observer.next(reader.result as string);
+          observer.complete();
+        };
+        reader.onerror = () => observer.error(reader.error);
+        reader.readAsDataURL(blob);
+      })
+      .catch(error => {
+        console.error('Error fetching PDF:', error);
+        observer.error(error);
+      });
+    });
+  }
+  
   getImageFromFilesAPI(filePath: string): Observable<string> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
