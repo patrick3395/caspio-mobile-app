@@ -1484,6 +1484,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return !!this.savingRooms[roomName];
   }
   
+  // Get list of selected rooms
+  getSelectedRooms(): any[] {
+    return this.roomTemplates.filter(room => 
+      room.selected || this.selectedRooms[room.RoomName]
+    );
+  }
+  
+  // Handle room selection change from checkbox
+  async onRoomSelectionChange(room: any) {
+    // Update the selected state in our tracking object
+    if (room.selected) {
+      this.selectedRooms[room.RoomName] = true;
+      // Create room in database if needed
+      await this.toggleRoomSelection(room.RoomName, { detail: { checked: true } });
+    } else {
+      // Call toggleRoomSelection which handles deselection confirmation
+      await this.toggleRoomSelection(room.RoomName, { detail: { checked: false } });
+    }
+  }
   
   // Check if room is expanded
   isRoomExpanded(roomName: string): boolean {
