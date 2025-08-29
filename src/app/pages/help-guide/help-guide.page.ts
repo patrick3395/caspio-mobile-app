@@ -269,3 +269,4 @@ export class HelpGuidePage implements OnInit {
     // Fallback to generating a placeholder thumbnail
     this.generatePdfThumbnail(filePath);
   }
+}

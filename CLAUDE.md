@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.183)
+## CURRENT APP STATE (as of December 2024 - v1.4.185)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -240,7 +240,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.183):
+## 15. CURRENT WORK (December 2024 - v1.4.185):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -267,5 +267,13 @@ ps aux | grep omnara
   - ALL styles restored exactly from v1.4.65 with precise spacing and colors
   - availableRoomTemplates property added for compatibility
   - addElevationPoint method alias added for v1.4.65 compatibility
+- **Support Tab PDF Previews** (v1.4.185): Added PDF thumbnail generation
+  - Third tab (Help Guide) shows Files table documents
+  - Canvas-based PDF thumbnail generation with filename
+  - Thumbnail caching in pdfThumbnails Map
+  - Images converted to base64 for offline viewing
+  - DocumentViewerComponent handles PDF viewing with iframe
+  - Applied same viewing logic as Elevation Plot photos
+  - Pre-loads all file URLs and generates thumbnails on page load
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
