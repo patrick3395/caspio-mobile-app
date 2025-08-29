@@ -2811,22 +2811,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
-    const loading = await this.loadingController.create({
+    // Dismiss any existing loading indicators first
+    try {
+      const existingLoader = await this.loadingController.getTop();
+      if (existingLoader) {
+        await existingLoader.dismiss();
+      }
+    } catch (e) {
+      // Ignore if no loader exists
+    }
+    
+    let currentLoading = await this.loadingController.create({
       message: 'Preparing report data...<br><small>0%</small>',
       spinner: 'crescent'
     });
-    await loading.present();
+    await currentLoading.present();
 
     try {
       // Update progress indicator
       const updateProgress = async (percent: number, message: string) => {
-        await loading.dismiss();
-        const newLoading = await this.loadingController.create({
+        // Dismiss the current loading
+        if (currentLoading) {
+          await currentLoading.dismiss();
+        }
+        // Create and show new loading
+        currentLoading = await this.loadingController.create({
           message: `${message}<br><small>${percent}%</small>`,
           spinner: 'crescent'
         });
-        await newLoading.present();
-        return newLoading;
+        await currentLoading.present();
       };
       
       // Check if we have cached PDF data (valid for 5 minutes)
@@ -2864,6 +2877,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Preload primary photo if it exists to avoid blank page
       if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
         try {
+          await updateProgress(90, 'Loading primary photo...');
           const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             projectInfo.primaryPhotoBase64 = imageData;
@@ -2873,7 +2887,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      await loading.dismiss();
+      // Dismiss the current loading indicator
+      if (currentLoading) {
+        await currentLoading.dismiss();
+      }
       
       // Now open the modal with all data ready
       const modal = await this.modalController.create({
@@ -2891,7 +2908,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
     } catch (error) {
       console.error('Error preparing preview:', error);
-      await loading.dismiss();
+      // Dismiss the current loading indicator if it exists
+      if (currentLoading) {
+        await currentLoading.dismiss();
+      }
       await this.showToast('Failed to prepare preview', 'danger');
     }
   }
