@@ -7,6 +7,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
+import { ImageCompressionService } from '../../services/image-compression.service';
 // jsPDF and jspdf-autotable are now lazy-loaded via PdfGeneratorService
 
 interface ServiceSelection {
@@ -92,7 +93,8 @@ export class ProjectDetailPage implements OnInit {
     private loadingController: LoadingController,
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
-    private pdfGenerator: PdfGeneratorService
+    private pdfGenerator: PdfGeneratorService,
+    private imageCompression: ImageCompressionService
   ) {}
 
   ngOnInit() {
@@ -2224,12 +2226,21 @@ Troubleshooting:
       const fileName = `property_${projectId}_${timestamp}.jpg`;
       console.log('  New filename:', fileName);
       
-      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
-      console.log('Step 1: Uploading file to Caspio Files API...');
+      // STEP 1: Compress the image before upload
+      console.log('Step 1: Compressing image before upload...');
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 1.5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      });
+      console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(compressedFile.size / 1024).toFixed(1)}KB`);
+      
+      // STEP 2: Upload compressed file to Caspio Files API (PROVEN WORKING)
+      console.log('Step 2: Uploading compressed file to Caspio Files API...');
       
       // No toast - just proceed with upload
       const formData = new FormData();
-      formData.append('file', file, fileName);
+      formData.append('file', compressedFile, fileName);
       
       const filesUrl = `https://${account}.caspio.com/rest/v2/files`;
       console.log('Uploading to Files API:', filesUrl);

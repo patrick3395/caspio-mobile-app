@@ -1,13 +1,17 @@
 import { Injectable } from '@angular/core';
 import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera';
 import { Platform } from '@ionic/angular';
+import { ImageCompressionService } from './image-compression.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CameraService {
 
-  constructor(private platform: Platform) { }
+  constructor(
+    private platform: Platform,
+    private imageCompression: ImageCompressionService
+  ) { }
 
   async takePicture(): Promise<Photo | null> {
     try {
@@ -63,8 +67,8 @@ export class CameraService {
     }
   }
 
-  // Convert base64 to File object for upload
-  base64ToFile(base64Data: string, fileName: string): File {
+  // Convert base64 to File object for upload WITH COMPRESSION
+  async base64ToFile(base64Data: string, fileName: string): Promise<File> {
     // Remove data URL prefix if present
     const base64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
     
@@ -79,8 +83,11 @@ export class CameraService {
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'image/jpeg' });
     
-    // Convert blob to File
-    return new File([blob], fileName, { type: 'image/jpeg' });
+    // Compress the blob before converting to File
+    const compressedBlob = await this.imageCompression.compressImage(blob);
+    
+    // Convert compressed blob to File
+    return new File([compressedBlob], fileName, { type: 'image/jpeg' });
   }
 
   // Check if running on mobile device

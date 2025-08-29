@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
+import { ImageCompressionService } from '../../services/image-compression.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
@@ -140,6 +141,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
     private cameraService: CameraService,
+    private imageCompression: ImageCompressionService,
     private platform: Platform,
     private pdfGenerator: PdfGeneratorService
   ) {}
@@ -1322,13 +1324,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await fetch(base64Image);
       const blob = await response.blob();
       
+      // COMPRESS the image before upload
+      const compressedBlob = await this.imageCompression.compressImage(blob, {
+        maxSizeMB: 1.5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      });
+      
       // Generate filename
       const timestamp = new Date().getTime();
       const fileName = `room_point_${pointId}_${timestamp}.jpg`;
       
       // Upload to Caspio Files API
       const formData = new FormData();
-      formData.append('file', blob, fileName);
+      formData.append('file', compressedBlob, fileName);
       
       const token = await this.caspioService.getValidToken().toPromise();
       const account = this.caspioService.getAccountID();
@@ -1367,8 +1376,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const pointIdNum = parseInt(pointId, 10);
       
+      // COMPRESS the file before upload
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 1.5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      }) as File;
+      
       // Directly proceed with upload and return the response
-      const response = await this.performRoomPointPhotoUpload(pointIdNum, file, pointName);
+      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName);
       return response;  // Return response so we can get AttachID
       
     } catch (error) {
@@ -3503,7 +3519,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Convert base64 to File object
           const fileName = `photo_${Date.now()}.jpg`;
-          currentFile = this.cameraService.base64ToFile(photo.dataUrl || '', fileName);
+          currentFile = await this.cameraService.base64ToFile(photo.dataUrl || '', fileName);
           
           if (!currentFile) {
             await this.showToast('Failed to process photo', 'danger');
@@ -3920,6 +3936,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.visualAccordionGroup.value = this.expandedAccordions;
       }
     }
+    
+    // COMPRESS the photo before upload
+    const compressedPhoto = await this.imageCompression.compressImage(photo, {
+      maxSizeMB: 1.5,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true
+    }) as File;
     
     // Use the ID from visualRecordIds to ensure consistency
     const actualVisualId = this.visualRecordIds[key] || visualId;

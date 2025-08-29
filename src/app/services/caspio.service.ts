@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError, from, of } from 'rxjs';
 import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { ImageCompressionService } from './image-compression.service';
 
 export interface CaspioToken {
   access_token: string;
@@ -23,7 +24,10 @@ export class CaspioService {
   private tokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpirationTimer: any;
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private imageCompression: ImageCompressionService
+  ) {
     this.loadStoredToken();
   }
 
@@ -1369,10 +1373,22 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      // Step 1: Upload new file to Caspio Files API
-      console.log('Replacing attachment: uploading new file to Files API...');
+      // Check if file is an image and compress if needed
+      let fileToUpload = file;
+      if (file.type && file.type.startsWith('image/')) {
+        console.log('Compressing image before upload...');
+        fileToUpload = await this.imageCompression.compressImage(file, {
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true
+        });
+        console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(fileToUpload.size / 1024).toFixed(1)}KB`);
+      }
+      
+      // Step 1: Upload file to Caspio Files API
+      console.log('Replacing attachment: uploading file to Files API...');
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      formData.append('file', fileToUpload, file.name);
       
       const filesUrl = `${API_BASE_URL}/files`;
       const uploadResponse = await fetch(filesUrl, {

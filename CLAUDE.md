@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.185)
+## CURRENT APP STATE (as of December 2024 - v1.4.203)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -39,6 +39,7 @@
 - **iOS Build**: Proper permissions (NSPhotoLibraryUsageDescription, NSCameraUsageDescription)
 - **Appflow Deployment**: Auto-adds iOS platform if missing, sets build numbers
 - **Angular Build Budgets**: Increased to 40KB for component styles to accommodate Engineers Foundation page
+- **Image Compression**: Automatic compression for all photo uploads to optimize cellular data usage
 
 ### 📦 Key Components:
 - **PhotoAnnotatorComponent**: Canvas-based annotation with touch support
@@ -49,6 +50,7 @@
 - **Services_Visuals**: Uses VisualID (NOT PK_ID) for foreign key
 - **Services_Visuals_Attach**: VisualID links to photos
 - **Response Format**: Always use `?response=rows` to get created records
+- **ImageCompressionService**: Compresses images to max 1.5MB with 1920px max dimension
 
 ## CRITICAL RULES - NEVER BREAK THESE
 
