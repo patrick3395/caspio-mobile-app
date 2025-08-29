@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.179 - Fixed build errors</div>
+    <div class="version-header">Version 1.4.180 - Fixed null check error</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -928,7 +928,7 @@
               </div>
               <div class="summary-item" *ngIf="getRoomMaxDifferential(room.RoomName) !== null">
                 <span class="summary-label">Max Differential:</span>
-                <span class="summary-value" [class.warning]="getRoomMaxDifferential(room.RoomName) > 1.0">
+                <span class="summary-value" [class.warning]="(getRoomMaxDifferential(room.RoomName) || 0) > 1.0">
                   {{ getRoomMaxDifferential(room.RoomName) | number:'1.2-2' }} inches
                 </span>
               </div>
