@@ -22,11 +22,10 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       </ion-toolbar>
     </ion-header>
     <ion-content class="document-viewer-content">
-      <div style="background: red; color: white; padding: 10px; text-align: center; font-size: 24px; font-weight: bold;">
-        TEST - PDF VIEWER v1.4.163
-      </div>
       <div class="viewer-container" *ngIf="!isImage">
-        <iframe [src]="sanitizedUrl" frameborder="0"></iframe>
+        <iframe [src]="sanitizedUrl" 
+                frameborder="0"
+                [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -45,11 +44,13 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
     iframe {
       width: 100%;
       height: 100%;
       border: none;
+      transform-origin: top left;
     }
     .image-container {
       width: 100%;
@@ -105,9 +106,14 @@ export class DocumentViewerComponent implements OnInit {
     } else {
       // For PDFs and documents
       if (this.fileUrl.toLowerCase().includes('.pdf') || lowerPath.includes('.pdf')) {
-        // For PDFs, try direct viewing
-        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-        console.log('Displaying PDF with direct URL');
+        // For PDFs, add zoom parameter to fit page
+        let pdfUrl = this.fileUrl;
+        // Add PDF open parameters if it's not a data URL
+        if (!pdfUrl.startsWith('data:')) {
+          pdfUrl = pdfUrl + '#view=FitH&toolbar=0&navpanes=0';
+        }
+        this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
+        console.log('Displaying PDF with fit-to-width parameters');
       } else {
         // For other documents, use Google Docs viewer if not a data URL
         if (this.fileUrl.startsWith('data:')) {
