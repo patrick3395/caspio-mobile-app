@@ -507,6 +507,36 @@ export class CaspioService {
     );
   }
   
+  // Update Services_Rooms_Points record
+  updateServicesRoomsPoint(pointId: string, data: any): Observable<any> {
+    console.log('Updating Services_Rooms_Points record:', pointId, data);
+    const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
+    return this.put<any>(url, data).pipe(
+      tap(response => {
+        console.log('Services_Rooms_Points updated:', response);
+      }),
+      catchError(error => {
+        console.error('Services_Rooms_Points update error:', error);
+        throw error;
+      })
+    );
+  }
+  
+  // Delete Services_Rooms_Points record
+  deleteServicesRoomsPoint(pointId: string): Observable<any> {
+    console.log('Deleting Services_Rooms_Points record:', pointId);
+    const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
+    return this.delete<any>(url).pipe(
+      tap(response => {
+        console.log('Services_Rooms_Points deleted:', response);
+      }),
+      catchError(error => {
+        console.error('Services_Rooms_Points deletion error:', error);
+        throw error;
+      })
+    );
+  }
+  
   // Create Services_Rooms_Points_Attach record with file using two-step Files API method
   createServicesRoomsPointsAttachWithFile(pointId: number, annotation: string, file: File): Observable<any> {
     console.log('📦 Two-step upload for Services_Rooms_Points_Attach using Files API');
