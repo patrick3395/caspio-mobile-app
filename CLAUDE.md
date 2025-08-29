@@ -240,7 +240,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.185):
+## 15. CURRENT WORK (December 2024 - v1.4.196):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -275,5 +275,11 @@ ps aux | grep omnara
   - DocumentViewerComponent handles PDF viewing with iframe
   - Applied same viewing logic as Elevation Plot photos
   - Pre-loads all file URLs and generates thumbnails on page load
+- **UI Aesthetics Fixes** (v1.4.196): Fixed template page appearance issues
+  - Added 30px bottom margin to Add Room button in Elevation Plot section
+  - Fixed text truncation in Structural Systems to exactly 2 lines (no third line visible)
+  - Styled floating back-to-top button with orange theme (#f15a27), positioned on right
+  - Added 50px bottom spacer to prevent content cutoff
+  - Button is circular with white arrow icon, hover effects, and shadow
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD

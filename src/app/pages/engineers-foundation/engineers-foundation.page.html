@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.182 - SCSS file size optimized</div>
+    <div class="version-header">Version 1.4.186 - UI Aesthetics Fixed</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -879,7 +879,7 @@
           </div>
           
           <!-- Add Room button - always show at bottom -->
-          <div class="add-room-container" style="margin-top: 20px; text-align: center;">
+          <div class="add-room-container" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
             <button class="add-room-button" (click)="showAddRoomDialog()" 
                     style="background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 2px dashed #999; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.3s ease;">
               <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px;"></ion-icon>
@@ -905,4 +905,7 @@
   <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
     <ion-icon name="arrow-up"></ion-icon>
   </button>
+  
+  <!-- Bottom spacer to prevent content cut-off -->
+  <div style="height: 50px;"></div>
 </ion-content>
