@@ -1,31 +1,46 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Help Guide</ion-title>
+    <ion-title>Support</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content>
-  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
-    <ion-refresher-content></ion-refresher-content>
-  </ion-refresher>
+  <!-- Tab Segment -->
+  <ion-segment [(ngModel)]="selectedTab" mode="ios" class="help-tabs">
+    <ion-segment-button value="help">
+      <ion-label>Help</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="onboarding">
+      <ion-label>Onboarding</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="reports">
+      <ion-label>Sample Reports</ion-label>
+    </ion-segment-button>
+  </ion-segment>
 
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading help guide...</p>
-  </div>
+  <!-- Help Tab Content -->
+  <div *ngIf="selectedTab === 'help'">
+    <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+      <ion-refresher-content></ion-refresher-content>
+    </ion-refresher>
 
-  <!-- Error State -->
-  <div *ngIf="error && !loading" class="error-container">
-    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
-    <p>{{ error }}</p>
-    <ion-button (click)="loadFiles()" fill="outline" size="small">
-      Retry
-    </ion-button>
-  </div>
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading help guide...</p>
+    </div>
 
-  <!-- File Sections -->
-  <div *ngIf="!loading && !error" class="sections-container">
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="error-container">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <p>{{ error }}</p>
+      <ion-button (click)="loadFiles()" fill="outline" size="small">
+        Retry
+      </ion-button>
+    </div>
+
+    <!-- File Sections -->
+    <div *ngIf="!loading && !error" class="sections-container">
     <div *ngFor="let section of fileSections" class="file-section">
       <h2 class="section-title">{{ section.typeName }}</h2>
       
@@ -54,14 +69,8 @@
                 
                 <!-- PDF Preview -->
                 <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview">
-                  <embed *ngIf="getCachedFileUrl(file.FileFile)" 
-                         [src]="getCachedFileUrl(file.FileFile)" 
-                         type="application/pdf"
-                         class="pdf-thumbnail-embed">
-                  <!-- Fallback while loading -->
-                  <div *ngIf="!getCachedFileUrl(file.FileFile)" class="pdf-loading">
-                    <ion-spinner name="crescent" color="light"></ion-spinner>
-                  </div>
+                  <ion-icon name="document-text" class="preview-icon"></ion-icon>
+                  <span class="file-type">PDF</span>
                 </div>
                 
                 <!-- Generic File Preview -->
@@ -82,11 +91,41 @@
       </div>
     </div>
 
-    <!-- Empty State -->
-    <div *ngIf="fileSections.length === 0" class="empty-state">
-      <ion-icon name="folder-open-outline" class="empty-icon"></ion-icon>
-      <h3>No Help Files Available</h3>
-      <p>Help guide files will appear here once they are uploaded.</p>
+      <!-- Empty State -->
+      <div *ngIf="fileSections.length === 0" class="empty-state">
+        <ion-icon name="folder-open-outline" class="empty-icon"></ion-icon>
+        <h3>No Help Files Available</h3>
+        <p>Help guide files will appear here once they are uploaded.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding Tab Content -->
+  <div *ngIf="selectedTab === 'onboarding'" class="onboarding-container">
+    <div class="video-section">
+      <h2 class="onboarding-title">Introduction to Noble Partnership</h2>
+      <div class="video-wrapper">
+        <div class="video-thumbnail" (click)="openYouTubeVideo()">
+          <img src="https://img.youtube.com/vi/QshYGopHdqc/maxresdefault.jpg" 
+               alt="Introduction to Noble Partnership"
+               (error)="handleThumbnailError($event)">
+          <div class="play-button">
+            <ion-icon name="play-circle"></ion-icon>
+          </div>
+        </div>
+      </div>
+      <div class="video-description">
+        <p>Watch this video to learn about the Noble Partnership and how to use the inspection app effectively.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sample Reports Tab Content -->
+  <div *ngIf="selectedTab === 'reports'" class="reports-container">
+    <div class="empty-state">
+      <ion-icon name="document-text-outline" class="empty-icon"></ion-icon>
+      <h3>Sample Reports Coming Soon</h3>
+      <p>Sample inspection reports will be available here.</p>
     </div>
   </div>
 </ion-content>

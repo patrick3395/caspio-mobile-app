@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
@@ -24,13 +25,14 @@ interface FileSection {
   templateUrl: './help-guide.page.html',
   styleUrls: ['./help-guide.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, FormsModule]
 })
 export class HelpGuidePage implements OnInit {
   fileSections: FileSection[] = [];
   loading = false;
   error = '';
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
+  selectedTab = 'help'; // Default to help tab
 
   constructor(
     private caspioService: CaspioService,
@@ -194,5 +196,15 @@ export class HelpGuidePage implements OnInit {
   async doRefresh(event: any) {
     await this.loadFiles();
     event.target.complete();
+  }
+
+  openYouTubeVideo() {
+    // Open YouTube video in browser or YouTube app
+    window.open('https://youtu.be/QshYGopHdqc?si=fT6qjRzaS4uTa7ur', '_system');
+  }
+
+  handleThumbnailError(event: any) {
+    // Fallback thumbnail if YouTube thumbnail fails to load
+    event.target.src = 'assets/img/video-placeholder.png';
   }
 }
