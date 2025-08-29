@@ -5389,8 +5389,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Return cached photos if already processed
     const cacheKey = `processed_${visualId}`;
-    if (this[cacheKey]) {
-      return this[cacheKey];
+    if ((this as any)[cacheKey]) {
+      return (this as any)[cacheKey];
     }
     
     // Convert all photos to base64 for PDF compatibility - in parallel
@@ -5432,7 +5432,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const processedPhotos = await Promise.all(photoPromises);
     
     // Cache the processed photos
-    this[cacheKey] = processedPhotos;
+    (this as any)[cacheKey] = processedPhotos;
     
     return processedPhotos;
   }
@@ -5552,23 +5552,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Process the results
       for (const result of attachmentResults) {
         const { visualId, attachments } = result;
+        
+        // Check if attachments is defined and is an array
+        if (!attachments || !Array.isArray(attachments)) {
+          console.log(`Visual ${visualId} has no attachments`);
+          this.visualPhotos[visualId] = [];
+        } else {
+          console.log(`Visual ${visualId} has ${attachments.length} attachments`);
           
-          // Check if attachments is defined and is an array
-          if (!attachments || !Array.isArray(attachments)) {
-            console.log(`Visual ${visualId} has no attachments`);
-            this.visualPhotos[visualId] = [];
-          } else {
-            console.log(`Visual ${visualId} has ${attachments.length} attachments`);
-            
-            // Store the attachments in our mapping
-            this.visualPhotos[visualId] = attachments.map((att: any) => ({
-              Photo: att.Photo,
-              Annotation: att.Annotation,
-              AttachID: att.AttachID || att.PK_ID
-            }));
-          }
-          
-          // Also update the visual in our organized data if it exists
+          // Store the attachments in our mapping
+          this.visualPhotos[visualId] = attachments.map((att: any) => ({
+            Photo: att.Photo,
+            Annotation: att.Annotation,
+            AttachID: att.AttachID || att.PK_ID
+          }));
+        }
+      }
+      
+      // Also update visuals in organized data if needed
+      for (const visual of visuals) {
+        if (visual.VisualID) {
           this.updateVisualInOrganizedData(visual);
         }
       }
@@ -5622,8 +5625,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // If not found in organized data but exists in database, mark it as selected
     if (!found && visual.VisualID) {
       const key = `${category}-${kind}-${visual.VisualID}`;
-      this.selectedItems[key] = true;
-      console.log(`Marked as selected from database: ${key}`);
+      if (this.selectedItems) {
+        this.selectedItems[key] = true;
+        console.log(`Marked as selected from database: ${key}`);
+      }
     }
   }
 }
