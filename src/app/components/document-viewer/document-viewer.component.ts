@@ -28,9 +28,10 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <iframe [src]="sanitizedUrl" 
-                frameborder="0"
-                type="application/pdf"></iframe>
+        <embed [src]="sanitizedUrl" 
+               type="application/pdf"
+               width="100%"
+               height="100%" />
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -54,13 +55,14 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
     .pdf-container {
       width: 100%;
       height: 100%;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
+      position: relative;
     }
-    .pdf-container iframe {
+    .pdf-container embed {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      min-height: 100%;
-      border: none;
+      height: 100%;
     }
     iframe {
       width: 100%;
@@ -122,9 +124,15 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, use the URL directly without parameters for better mobile support
-      this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-      console.log('Displaying PDF in scrollable container');
+      // For PDFs, try to add viewer parameters for better fit
+      let pdfUrl = this.fileUrl;
+      // For data URLs, we can't add parameters
+      if (!pdfUrl.startsWith('data:')) {
+        // Add parameters to fit the PDF to the viewer
+        pdfUrl = pdfUrl + '#view=FitH&zoom=page-fit';
+      }
+      this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
+      console.log('Displaying PDF with fit parameters');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
