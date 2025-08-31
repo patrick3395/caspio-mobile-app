@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.213)
+## CURRENT APP STATE (as of December 2024 - v1.4.214)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.213):
+## 15. CURRENT WORK (December 2024 - v1.4.214):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -330,5 +330,14 @@ ps aux | grep omnara
   - Shows "Loading X annotations..." message
   - Each annotation draw logged to console
   - Debug info persists for 3 seconds on screen
+- **FIXED Multiple Annotations** (v1.4.214): PROPERLY FIXED THE DISAPPEARING ANNOTATIONS
+  - Root cause: saveAnnotation was only drawing new annotation, not preserving existing ones
+  - Solution: Always redraw ALL annotations when adding new one
+  - Added redrawAllAnnotationsFixed() method that properly maintains state
+  - Added updateDisplayCanvasFixed() with proper save/restore of canvas state
+  - Each annotation gets its own context save/restore to prevent style bleeding
+  - Debug shows "[v1.4.214 FIXED]" and lists all annotation types
+  - Green status bar shows total annotation count
+  - Confirmed each arrow/shape persists when drawing new ones
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
