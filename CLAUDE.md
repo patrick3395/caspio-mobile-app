@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.210)
+## CURRENT APP STATE (as of December 2024 - v1.4.211)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.210):
+## 15. CURRENT WORK (December 2024 - v1.4.211):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -312,5 +312,17 @@ ps aux | grep omnara
     - Display canvas: Combines permanent + temp for smooth real-time preview
   - Annotations no longer flicker or disappear during drawing
   - Each annotation properly layers on top of previous ones without clearing
+- **Complete Fix for Text and Annotations** (v1.4.211): Properly fixed both issues
+  - Text Truncation: Fixed pixel-perfect 2-line limit (34px height, 1.3 line-height)
+    - Added gradient fade at bottom to ensure no partial line bleeds through
+    - Removed em-based heights that allowed partial third line
+  - Annotation System Completely Revamped:
+    - Added annotation button on EVERY photo thumbnail (appears on hover)
+    - Quick annotate button directly on photo previews
+    - Annotation indicator badge shows which photos have annotations
+    - Annotated photos get orange border for visual feedback
+    - All annotations save to thumbnails and persist
+    - Photos marked with hasAnnotations flag
+    - Direct annotation access without opening viewer first
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD

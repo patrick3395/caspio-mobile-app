@@ -4021,7 +4021,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         url: objectUrl,
         thumbnailUrl: objectUrl,
         isObjectUrl: true,
-        uploading: true // Flag to show it's uploading
+        uploading: true, // Flag to show it's uploading
+        hasAnnotations: false,
+        annotations: null
       };
       
       // Add immediately for instant feedback
@@ -4734,6 +4736,81 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Quick annotate - open annotator directly
+  async quickAnnotate(photo: any, category: string, itemId: string) {
+    try {
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const photoName = photo.name || 'Photo';
+      
+      // Parse existing annotations if available
+      let existingAnnotations = [];
+      if (photo.annotations) {
+        try {
+          existingAnnotations = typeof photo.annotations === 'string' 
+            ? JSON.parse(photo.annotations) 
+            : photo.annotations;
+        } catch (e) {
+          console.log('Failed to parse annotations:', e);
+        }
+      }
+      
+      // Open annotation modal directly
+      const modal = await this.modalController.create({
+        component: PhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: imageUrl,
+          existingAnnotations: existingAnnotations,
+          photoData: photo
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      
+      if (data && data.annotatedBlob) {
+        // Update the photo with annotations
+        const key = `${category}_${itemId}`;
+        const visualId = this.visualRecordIds[key];
+        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
+        
+        if (photo.AttachID || photo.id) {
+          try {
+            // Update the existing attachment with annotations
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, data.annotationsData);
+            
+            // Update the local photo data
+            const photoIndex = this.visualPhotos[visualId]?.findIndex(
+              (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
+            );
+            
+            if (photoIndex !== -1 && this.visualPhotos[visualId]) {
+              // Update the photo URL with the new blob
+              const newUrl = URL.createObjectURL(data.annotatedBlob);
+              this.visualPhotos[visualId][photoIndex].url = newUrl;
+              this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+              // Store annotations in the photo object
+              if (data.annotationsData) {
+                this.visualPhotos[visualId][photoIndex].annotations = data.annotationsData;
+              }
+            }
+            
+            // Trigger change detection
+            this.changeDetectorRef.detectChanges();
+            
+            await this.showToast('Annotations saved', 'success');
+          } catch (error) {
+            await this.showToast('Failed to save annotations', 'danger');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in quickAnnotate:', error);
+      await this.showToast('Failed to open annotator', 'danger');
+    }
+  }
+  
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
@@ -4790,6 +4867,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const newUrl = URL.createObjectURL(data.annotatedBlob);
               this.visualPhotos[visualId][photoIndex].url = newUrl;
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               // Store annotations in the photo object
               if (data.annotationsData) {
                 this.visualPhotos[visualId][photoIndex].annotations = data.annotationsData;

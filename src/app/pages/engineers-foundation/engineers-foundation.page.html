@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.210 - Fixed text visibility and annotation layering</div>
+    <div class="version-header">Version 1.4.211 - Text truncation fixed, annotations on all photos</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -446,14 +446,22 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
+                            <!-- Annotation indicator -->
+                            <div class="annotation-indicator" *ngIf="photo.hasAnnotations">
+                              <ion-icon name="brush"></ion-icon>
+                            </div>
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
+                            <!-- Quick annotation button -->
+                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
+                              <ion-icon name="brush-outline"></ion-icon>
+                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
@@ -567,14 +575,22 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
+                            <!-- Annotation indicator -->
+                            <div class="annotation-indicator" *ngIf="photo.hasAnnotations">
+                              <ion-icon name="brush"></ion-icon>
+                            </div>
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
+                            <!-- Quick annotation button -->
+                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
+                              <ion-icon name="brush-outline"></ion-icon>
+                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
@@ -688,14 +704,22 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
+                            <!-- Annotation indicator -->
+                            <div class="annotation-indicator" *ngIf="photo.hasAnnotations">
+                              <ion-icon name="brush"></ion-icon>
+                            </div>
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
+                            <!-- Quick annotation button -->
+                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
+                              <ion-icon name="brush-outline"></ion-icon>
+                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
