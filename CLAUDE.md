@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.203)
+## CURRENT APP STATE (as of December 2024 - v1.4.208)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.196):
+## 15. CURRENT WORK (December 2024 - v1.4.208):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -283,5 +283,16 @@ ps aux | grep omnara
   - Styled floating back-to-top button with orange theme (#f15a27), positioned on right
   - Added 50px bottom spacer to prevent content cutoff
   - Button is circular with white arrow icon, hover effects, and shadow
+- **White Space Fix** (v1.4.207): Fixed excessive white space in Engineers Foundation template
+  - Removed min-height: 100% from template-container and ion-content inner-scroll
+  - Reduced padding-bottom from 60px to 24px on template-container
+  - Removed dynamic bottom spacer that was adding 20-50px extra space
+  - Changed max-height from 5000px to none for natural content expansion
+  - Template now dynamically adjusts height based on expanded sections only
+- **Text Truncation Fix** (v1.4.208): Fixed Structural Systems text preview showing partial third line
+  - Added fixed height of 31.2px to item-label container (exactly 2 lines: 13px font * 1.2 line-height * 2)
+  - Set overflow: hidden on parent container to clip any overflow
+  - Changed max-height from 2.4em to 31.2px for precise pixel control
+  - Text now shows exactly 2 lines with ellipsis, no partial third line visible
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD

@@ -10,7 +10,7 @@ ion-content {
   ::ng-deep .inner-scroll {
     display: block;
     height: auto;
-    min-height: 100%;
+    // Remove min-height to prevent forcing full viewport
     overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
   }
@@ -47,16 +47,11 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 60px; // Small buffer for last element
+  padding-bottom: 24px; // Minimal bottom padding
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  min-height: 100%;
+  // Remove min-height to allow natural content height
   max-width: 1400px;
   margin: 0 auto;
-  
-  // Add extra space only when all sections are expanded
-  &.all-expanded {
-    padding-bottom: 120px;
-  }
 }
 
 .save-status {
@@ -222,6 +217,9 @@ ion-content {
     
     .visual-item-container {
       .item-label {
+        height: 31.2px; // Fixed height for exactly 2 lines (13px * 1.2 * 2)
+        overflow: hidden; // Hide any overflow content
+        
         .item-text {
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -229,7 +227,7 @@ ion-content {
           overflow: hidden;
           text-overflow: ellipsis;
           line-height: 1.2;
-          max-height: 2.4em; // Exactly 2 lines * 1.2 line-height
+          max-height: 31.2px; // Exactly 2 lines (13px * 1.2 * 2)
           font-size: 13px;
           color: #666;
           margin: 0;
@@ -332,7 +330,7 @@ ion-content {
     will-change: max-height, opacity;
     
     &.expanded {
-      max-height: 5000px; // Large enough for content
+      max-height: none; // Allow natural height for content
       opacity: 1;
     }
     
