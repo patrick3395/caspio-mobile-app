@@ -4541,8 +4541,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Update existing photo attachment
-  async updatePhotoAttachment(attachId: string, file: File): Promise<void> {
+  // Update existing photo attachment with optional annotations
+  async updatePhotoAttachment(attachId: string, file: File, annotations?: any[]): Promise<void> {
     try {
       console.log('🔍 updatePhotoAttachment called with:');
       console.log('  attachId:', attachId);
@@ -4646,10 +4646,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('File upload failed - no Name returned');
       }
       
-      // Update the attachment record with new file path
-      const updateData = {
+      // Update the attachment record with new file path and annotations
+      const updateData: any = {
         Photo: `/${uploadResult.Name}`
       };
+      
+      // Add annotations if provided
+      if (annotations && annotations.length > 0) {
+        updateData.Annotation = JSON.stringify(annotations);
+      }
       
       // Debug popup - show update request
       const debugAlert3 = await this.alertController.create({
@@ -4785,6 +4790,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const newUrl = URL.createObjectURL(data.annotatedBlob);
               this.visualPhotos[visualId][photoIndex].url = newUrl;
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              // Store annotations in the photo object
+              if (data.annotationsData) {
+                this.visualPhotos[visualId][photoIndex].annotations = data.annotationsData;
+              }
             }
             
             // Success toast removed per user request

@@ -91,13 +91,17 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
         
         <!-- Action Buttons -->
         <div class="toolbar-actions">
+          <button (click)="toggleDeleteMode()" [class.active]="deleteMode" class="action-btn delete" title="Delete Mode">
+            <ion-icon name="close-circle-outline"></ion-icon>
+            <span class="btn-label">{{ deleteMode ? 'Deleting' : 'Delete' }}</span>
+          </button>
           <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo" title="Undo Last">
             <ion-icon name="arrow-undo-outline"></ion-icon>
-            <span class="btn-label">Back</span>
+            <span class="btn-label">Undo</span>
           </button>
           <button (click)="clearAnnotations()" class="action-btn clear" title="Clear All">
             <ion-icon name="trash-outline"></ion-icon>
-            <span class="btn-label">Clear</span>
+            <span class="btn-label">Clear All</span>
           </button>
         </div>
       </div>
@@ -392,6 +396,26 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
       color: #EF476F;
     }
     
+    .action-btn.delete:hover:not(.active) {
+      background: rgba(255, 152, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+    }
+    
+    .action-btn.delete:hover:not(.active) .btn-label,
+    .action-btn.delete:hover:not(.active) ion-icon {
+      color: #FF9800;
+    }
+    
+    .action-btn.delete.active {
+      background: rgba(255, 152, 0, 0.2);
+      border: 2px solid #FF9800;
+    }
+    
+    .action-btn.delete.active .btn-label,
+    .action-btn.delete.active ion-icon {
+      color: #FF9800;
+    }
+    
     .action-btn:disabled {
       opacity: 0.3;
       cursor: not-allowed;
@@ -433,6 +457,19 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     
     #annotationCanvas[data-tool="pen"] {
       cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="%23667eea"/></svg>') 10 10, crosshair;
+    }
+    
+    #annotationCanvas.delete-mode {
+      cursor: pointer;
+    }
+    
+    .annotation-highlight {
+      position: absolute;
+      border: 2px dashed #FF9800;
+      background: rgba(255, 152, 0, 0.1);
+      pointer-events: none;
+      z-index: 3;
+      border-radius: 4px;
     }
     
     .text-input-overlay {
@@ -500,6 +537,8 @@ export class PhotoAnnotatorComponent implements OnInit {
   photoCaption = '';
   
   canUndo = false;
+  deleteMode = false;
+  hoveredAnnotation: any = null;
   
   // Dropdown states
   showToolsDropdown = false;
@@ -627,6 +666,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   
   saveAnnotation(type: string, data: any) {
     const annotation = {
+      id: Date.now() + Math.random(), // Unique ID for each annotation
       type,
       data,
       color: this.currentColor,
@@ -636,6 +676,100 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.annotationObjects.push(annotation);
     this.canUndo = true;
     console.log('📝 Annotation saved:', type, 'Total annotations:', this.annotationObjects.length);
+  }
+  
+  toggleDeleteMode() {
+    this.deleteMode = !this.deleteMode;
+    if (this.deleteMode) {
+      // Exit drawing mode when entering delete mode
+      this.isDrawing = false;
+      this.showTextInput = false;
+      // Close all dropdowns
+      this.showToolsDropdown = false;
+      this.showColorDropdown = false;
+      this.showSizeDropdown = false;
+    }
+  }
+  
+  getAnnotationBounds(annotation: any): {x: number, y: number, width: number, height: number} | null {
+    switch (annotation.type) {
+      case 'pen':
+        if (annotation.data.length > 0) {
+          let minX = annotation.data[0].x;
+          let maxX = annotation.data[0].x;
+          let minY = annotation.data[0].y;
+          let maxY = annotation.data[0].y;
+          for (const point of annotation.data) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+          }
+          return {
+            x: minX - 10,
+            y: minY - 10,
+            width: maxX - minX + 20,
+            height: maxY - minY + 20
+          };
+        }
+        break;
+      case 'arrow':
+        return {
+          x: Math.min(annotation.data.startX, annotation.data.endX) - 10,
+          y: Math.min(annotation.data.startY, annotation.data.endY) - 10,
+          width: Math.abs(annotation.data.endX - annotation.data.startX) + 20,
+          height: Math.abs(annotation.data.endY - annotation.data.startY) + 20
+        };
+      case 'rectangle':
+        return {
+          x: annotation.data.x - 10,
+          y: annotation.data.y - 10,
+          width: annotation.data.width + 20,
+          height: annotation.data.height + 20
+        };
+      case 'circle':
+        return {
+          x: annotation.data.centerX - annotation.data.radius - 10,
+          y: annotation.data.centerY - annotation.data.radius - 10,
+          width: annotation.data.radius * 2 + 20,
+          height: annotation.data.radius * 2 + 20
+        };
+      case 'text':
+        // Approximate text bounds
+        const textWidth = annotation.data.text.length * 10;
+        const textHeight = annotation.strokeWidth * 5;
+        return {
+          x: annotation.data.x - 10,
+          y: annotation.data.y - textHeight - 10,
+          width: textWidth + 20,
+          height: textHeight + 20
+        };
+    }
+    return null;
+  }
+  
+  findAnnotationAtPoint(x: number, y: number): any {
+    // Check annotations in reverse order (top to bottom)
+    for (let i = this.annotationObjects.length - 1; i >= 0; i--) {
+      const annotation = this.annotationObjects[i];
+      const bounds = this.getAnnotationBounds(annotation);
+      if (bounds && 
+          x >= bounds.x && x <= bounds.x + bounds.width &&
+          y >= bounds.y && y <= bounds.y + bounds.height) {
+        return annotation;
+      }
+    }
+    return null;
+  }
+  
+  deleteAnnotation(annotation: any) {
+    const index = this.annotationObjects.findIndex(a => a.id === annotation.id);
+    if (index > -1) {
+      this.annotationObjects.splice(index, 1);
+      this.redrawAllAnnotations();
+      this.canUndo = this.annotationObjects.length > 0;
+      console.log('🗑️ Deleted annotation:', annotation.type);
+    }
   }
   
   redrawAllAnnotations() {
@@ -694,6 +828,15 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   startDrawing(event: MouseEvent) {
+    // Handle delete mode
+    if (this.deleteMode) {
+      const annotation = this.findAnnotationAtPoint(event.offsetX, event.offsetY);
+      if (annotation) {
+        this.deleteAnnotation(annotation);
+      }
+      return;
+    }
+    
     if (this.currentTool === 'text') {
       this.showTextInput = true;
       this.textPosition = {
@@ -722,6 +865,28 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   draw(event: MouseEvent) {
+    // Handle delete mode hover
+    if (this.deleteMode && !this.isDrawing) {
+      const annotation = this.findAnnotationAtPoint(event.offsetX, event.offsetY);
+      if (annotation !== this.hoveredAnnotation) {
+        this.hoveredAnnotation = annotation;
+        this.redrawAllAnnotations();
+        
+        // Draw highlight for hovered annotation
+        if (annotation) {
+          const bounds = this.getAnnotationBounds(annotation);
+          if (bounds) {
+            this.annotationCtx.strokeStyle = '#FF9800';
+            this.annotationCtx.lineWidth = 2;
+            this.annotationCtx.setLineDash([5, 5]);
+            this.annotationCtx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            this.annotationCtx.setLineDash([]);
+          }
+        }
+      }
+      return;
+    }
+    
     if (!this.isDrawing) return;
     
     const currentX = event.offsetX;
@@ -968,7 +1133,12 @@ export class PhotoAnnotatorComponent implements OnInit {
       if (blob) {
         this.annotatedImage.emit(blob);
         this.annotationsData.emit(this.annotationObjects);
-        this.dismiss(blob);
+        // Pass both blob and annotations data
+        this.dismiss({
+          annotatedBlob: blob,
+          annotationsData: this.annotationObjects,
+          caption: this.photoCaption
+        });
       }
     }, 'image/jpeg', 0.9);
   }

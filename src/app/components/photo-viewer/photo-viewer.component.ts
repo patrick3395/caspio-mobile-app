@@ -122,6 +122,7 @@ export class PhotoViewerComponent {
   @Input() categoryKey: string = '';
   @Input() photoData: any = null;
   @Input() photoCaption: string = '';
+  @Input() existingAnnotations: any[] = [];
 
   constructor(
     private modalController: ModalController,
@@ -129,11 +130,13 @@ export class PhotoViewerComponent {
   ) {}
 
   async openAnnotator() {
-    // Open the annotation modal
+    // Open the annotation modal with existing annotations
     const annotationModal = await this.modalController.create({
       component: PhotoAnnotatorComponent,
       componentProps: {
-        imageUrl: this.photoUrl
+        imageUrl: this.photoUrl,
+        existingAnnotations: this.existingAnnotations || [],
+        photoData: this.photoData
       },
       cssClass: 'fullscreen-modal'
     });
@@ -141,15 +144,25 @@ export class PhotoViewerComponent {
     await annotationModal.present();
     const { data } = await annotationModal.onDidDismiss();
     
-    if (data && data instanceof Blob) {
-      // Update the photo URL to show the new annotated version
-      this.photoUrl = URL.createObjectURL(data);
-      
-      // Return the annotated blob to parent along with photo data
-      this.modalController.dismiss({
-        annotatedBlob: data,
-        photoData: this.photoData
-      });
+    if (data) {
+      if (data.annotatedBlob) {
+        // Update the photo URL to show the new annotated version
+        this.photoUrl = URL.createObjectURL(data.annotatedBlob);
+        
+        // Return the annotated blob and annotations data to parent
+        this.modalController.dismiss({
+          annotatedBlob: data.annotatedBlob,
+          annotationsData: data.annotationsData,
+          photoData: this.photoData
+        });
+      } else if (data instanceof Blob) {
+        // Legacy support
+        this.photoUrl = URL.createObjectURL(data);
+        this.modalController.dismiss({
+          annotatedBlob: data,
+          photoData: this.photoData
+        });
+      }
     }
   }
 

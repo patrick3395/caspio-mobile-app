@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.208)
+## CURRENT APP STATE (as of December 2024 - v1.4.209)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.208):
+## 15. CURRENT WORK (December 2024 - v1.4.209):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -294,5 +294,14 @@ ps aux | grep omnara
   - Set overflow: hidden on parent container to clip any overflow
   - Changed max-height from 2.4em to 31.2px for precise pixel control
   - Text now shows exactly 2 lines with ellipsis, no partial third line visible
+- **Enhanced Photo Annotations** (v1.4.209): Comprehensive annotation system improvements
+  - Fixed issue where multiple annotations were being overwritten (each annotation now has unique ID)
+  - Added delete mode to remove individual annotations with visual hover feedback
+  - Annotations persist to database via Services_Visuals_Attach.Annotation field
+  - Annotations reload when reopening photos for continued editing
+  - Support for pen, arrow, rectangle, circle, and text annotations
+  - All annotations stack properly without overwriting each other
+  - Delete button with orange highlight shows which annotation will be deleted
+  - Undo button removes last annotation, Clear All removes all annotations
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
