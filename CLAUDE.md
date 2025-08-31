@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.209)
+## CURRENT APP STATE (as of December 2024 - v1.4.210)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.209):
+## 15. CURRENT WORK (December 2024 - v1.4.210):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -303,5 +303,14 @@ ps aux | grep omnara
   - All annotations stack properly without overwriting each other
   - Delete button with orange highlight shows which annotation will be deleted
   - Undo button removes last annotation, Clear All removes all annotations
+- **Critical Fixes** (v1.4.210): Fixed text visibility and annotation layering issues
+  - Fixed Structural Systems text visibility - removed fixed height that was hiding item names
+  - Name (h3) and text (p) now both display properly with 2-line text truncation
+  - Implemented proper 3-canvas layering system for annotations (like Spectora):
+    - Permanent canvas: Stores all completed annotations
+    - Temp canvas: Shows current drawing in progress
+    - Display canvas: Combines permanent + temp for smooth real-time preview
+  - Annotations no longer flicker or disappear during drawing
+  - Each annotation properly layers on top of previous ones without clearing
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD

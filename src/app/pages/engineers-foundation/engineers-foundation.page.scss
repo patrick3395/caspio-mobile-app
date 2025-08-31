@@ -217,8 +217,14 @@ ion-content {
     
     .visual-item-container {
       .item-label {
-        height: 31.2px; // Fixed height for exactly 2 lines (13px * 1.2 * 2)
-        overflow: hidden; // Hide any overflow content
+        // Remove fixed height to show both name and text
+        
+        h3 {
+          margin: 0 0 4px 0; // Small margin between name and text
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+        }
         
         .item-text {
           display: -webkit-box;
@@ -226,8 +232,8 @@ ion-content {
           -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
-          line-height: 1.2;
-          max-height: 31.2px; // Exactly 2 lines (13px * 1.2 * 2)
+          line-height: 1.4; // Slightly more line height for readability
+          max-height: 2.8em; // 2 lines * 1.4 line-height
           font-size: 13px;
           color: #666;
           margin: 0;

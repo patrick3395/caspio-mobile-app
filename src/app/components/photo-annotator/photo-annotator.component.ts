@@ -525,6 +525,8 @@ export class PhotoAnnotatorComponent implements OnInit {
   private currentPath: any[] = [];
   private tempCanvas!: HTMLCanvasElement;
   private tempCtx!: CanvasRenderingContext2D;
+  private permanentCanvas!: HTMLCanvasElement;
+  private permanentCtx!: CanvasRenderingContext2D;
   
   currentTool: 'pen' | 'arrow' | 'rectangle' | 'circle' | 'text' = 'pen';
   currentColor = '#FF0000';
@@ -563,9 +565,13 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.imageCtx = imageCanvas.getContext('2d')!;
     this.annotationCtx = annotationCanvas.getContext('2d')!;
     
-    // Create temp canvas for preview
+    // Create temp canvas for preview (shows current drawing)
     this.tempCanvas = document.createElement('canvas');
     this.tempCtx = this.tempCanvas.getContext('2d')!;
+    
+    // Create permanent canvas for saved annotations
+    this.permanentCanvas = document.createElement('canvas');
+    this.permanentCtx = this.permanentCanvas.getContext('2d')!;
     
     // Load the image
     const img = new Image();
@@ -601,6 +607,8 @@ export class PhotoAnnotatorComponent implements OnInit {
       annotationCanvas.height = height;
       this.tempCanvas.width = width;
       this.tempCanvas.height = height;
+      this.permanentCanvas.width = width;
+      this.permanentCanvas.height = height;
       
       // Draw the image
       this.imageCtx.drawImage(img, 0, 0, width, height);
@@ -674,6 +682,13 @@ export class PhotoAnnotatorComponent implements OnInit {
       timestamp: Date.now()
     };
     this.annotationObjects.push(annotation);
+    
+    // Draw the new annotation to permanent canvas
+    this.drawAnnotationToContext(annotation, this.permanentCtx);
+    
+    // Update display
+    this.updateDisplayCanvas();
+    
     this.canUndo = true;
     console.log('📝 Annotation saved:', type, 'Total annotations:', this.annotationObjects.length);
   }
@@ -773,58 +788,74 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   redrawAllAnnotations() {
-    const canvas = this.annotationCanvas.nativeElement;
-    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear the permanent canvas
+    this.permanentCtx.clearRect(0, 0, this.permanentCanvas.width, this.permanentCanvas.height);
     
     console.log('🔄 Redrawing all annotations. Count:', this.annotationObjects.length);
     
+    // Draw all saved annotations to permanent canvas
     for (const annotation of this.annotationObjects) {
-      this.annotationCtx.strokeStyle = annotation.color;
-      this.annotationCtx.lineWidth = annotation.strokeWidth;
-      this.annotationCtx.lineCap = 'round';
-      this.annotationCtx.fillStyle = annotation.color;
-      
-      switch (annotation.type) {
-        case 'pen':
-          if (annotation.data.length > 0) {
-            this.annotationCtx.beginPath();
-            this.annotationCtx.moveTo(annotation.data[0].x, annotation.data[0].y);
-            for (let i = 1; i < annotation.data.length; i++) {
-              this.annotationCtx.lineTo(annotation.data[i].x, annotation.data[i].y);
-            }
-            this.annotationCtx.stroke();
-            this.annotationCtx.closePath();
-          }
-          break;
-        case 'arrow':
-          this.drawArrow(annotation.data.startX, annotation.data.startY, annotation.data.endX, annotation.data.endY);
-          break;
-        case 'rectangle':
-          this.annotationCtx.strokeRect(
-            annotation.data.x,
-            annotation.data.y,
-            annotation.data.width,
-            annotation.data.height
-          );
-          break;
-        case 'circle':
-          this.annotationCtx.beginPath();
-          this.annotationCtx.arc(
-            annotation.data.centerX,
-            annotation.data.centerY,
-            annotation.data.radius,
-            0,
-            2 * Math.PI
-          );
-          this.annotationCtx.stroke();
-          this.annotationCtx.closePath();
-          break;
-        case 'text':
-          this.annotationCtx.font = `${annotation.strokeWidth * 5}px Arial`;
-          this.annotationCtx.fillText(annotation.data.text, annotation.data.x, annotation.data.y);
-          break;
-      }
+      this.drawAnnotationToContext(annotation, this.permanentCtx);
     }
+    
+    // Copy permanent canvas to display canvas
+    this.updateDisplayCanvas();
+  }
+  
+  drawAnnotationToContext(annotation: any, ctx: CanvasRenderingContext2D) {
+    ctx.strokeStyle = annotation.color;
+    ctx.lineWidth = annotation.strokeWidth;
+    ctx.lineCap = 'round';
+    ctx.fillStyle = annotation.color;
+    
+    switch (annotation.type) {
+      case 'pen':
+        if (annotation.data.length > 0) {
+          ctx.beginPath();
+          ctx.moveTo(annotation.data[0].x, annotation.data[0].y);
+          for (let i = 1; i < annotation.data.length; i++) {
+            ctx.lineTo(annotation.data[i].x, annotation.data[i].y);
+          }
+          ctx.stroke();
+          ctx.closePath();
+        }
+        break;
+      case 'arrow':
+        this.drawArrowToContext(ctx, annotation.data.startX, annotation.data.startY, annotation.data.endX, annotation.data.endY);
+        break;
+      case 'rectangle':
+        ctx.strokeRect(
+          annotation.data.x,
+          annotation.data.y,
+          annotation.data.width,
+          annotation.data.height
+        );
+        break;
+      case 'circle':
+        ctx.beginPath();
+        ctx.arc(
+          annotation.data.centerX,
+          annotation.data.centerY,
+          annotation.data.radius,
+          0,
+          2 * Math.PI
+        );
+        ctx.stroke();
+        ctx.closePath();
+        break;
+      case 'text':
+        ctx.font = `${annotation.strokeWidth * 5}px Arial`;
+        ctx.fillText(annotation.data.text, annotation.data.x, annotation.data.y);
+        break;
+    }
+  }
+  
+  updateDisplayCanvas() {
+    const canvas = this.annotationCanvas.nativeElement;
+    // Clear display canvas
+    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw permanent annotations
+    this.annotationCtx.drawImage(this.permanentCanvas, 0, 0);
   }
   
   startDrawing(event: MouseEvent) {
@@ -853,13 +884,17 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.startX = event.offsetX;
     this.startY = event.offsetY;
     
-    this.annotationCtx.strokeStyle = this.currentColor;
-    this.annotationCtx.lineWidth = this.strokeWidth;
-    this.annotationCtx.lineCap = 'round';
+    // Clear temp canvas for new drawing
+    this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
+    
+    // Set styles on temp canvas
+    this.tempCtx.strokeStyle = this.currentColor;
+    this.tempCtx.lineWidth = this.strokeWidth;
+    this.tempCtx.lineCap = 'round';
     
     if (this.currentTool === 'pen') {
-      this.annotationCtx.beginPath();
-      this.annotationCtx.moveTo(this.startX, this.startY);
+      this.tempCtx.beginPath();
+      this.tempCtx.moveTo(this.startX, this.startY);
       this.currentPath = [{ x: this.startX, y: this.startY }];
     }
   }
@@ -893,36 +928,40 @@ export class PhotoAnnotatorComponent implements OnInit {
     const currentY = event.offsetY;
     
     if (this.currentTool === 'pen') {
-      // For pen tool, draw directly
-      this.annotationCtx.lineTo(currentX, currentY);
-      this.annotationCtx.stroke();
+      // For pen tool, draw on temp canvas and display
+      this.tempCtx.lineTo(currentX, currentY);
+      this.tempCtx.stroke();
       this.currentPath.push({ x: currentX, y: currentY });
+      
+      // Update display
+      this.updateDisplayCanvas();
+      this.annotationCtx.drawImage(this.tempCanvas, 0, 0);
     } else if (this.currentTool !== 'text') {
-      // For shapes, use a preview approach
-      const canvas = this.annotationCanvas.nativeElement;
+      // For shapes, draw preview on temp canvas
       
-      // Clear canvas
-      this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Redraw all saved annotations
-      this.redrawAllAnnotations();
+      // Clear temp canvas
+      this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
       
       // Set styles for preview
-      this.annotationCtx.strokeStyle = this.currentColor;
-      this.annotationCtx.lineWidth = this.strokeWidth;
-      this.annotationCtx.lineCap = 'round';
+      this.tempCtx.strokeStyle = this.currentColor;
+      this.tempCtx.lineWidth = this.strokeWidth;
+      this.tempCtx.lineCap = 'round';
       
-      // Draw preview of current shape
+      // Draw preview of current shape on temp canvas
       if (this.currentTool === 'arrow') {
-        this.drawArrow(this.startX, this.startY, currentX, currentY);
+        this.drawArrowToContext(this.tempCtx, this.startX, this.startY, currentX, currentY);
       } else if (this.currentTool === 'rectangle') {
-        this.annotationCtx.strokeRect(this.startX, this.startY, currentX - this.startX, currentY - this.startY);
+        this.tempCtx.strokeRect(this.startX, this.startY, currentX - this.startX, currentY - this.startY);
       } else if (this.currentTool === 'circle') {
         const radius = Math.sqrt(Math.pow(currentX - this.startX, 2) + Math.pow(currentY - this.startY, 2));
-        this.annotationCtx.beginPath();
-        this.annotationCtx.arc(this.startX, this.startY, radius, 0, 2 * Math.PI);
-        this.annotationCtx.stroke();
+        this.tempCtx.beginPath();
+        this.tempCtx.arc(this.startX, this.startY, radius, 0, 2 * Math.PI);
+        this.tempCtx.stroke();
       }
+      
+      // Update display with permanent + temp
+      this.updateDisplayCanvas();
+      this.annotationCtx.drawImage(this.tempCanvas, 0, 0);
     }
   }
   
@@ -934,6 +973,9 @@ export class PhotoAnnotatorComponent implements OnInit {
     const endY = event.offsetY;
     
     console.log('🛑 Stop drawing:', this.currentTool);
+    
+    // Clear temp canvas
+    this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
     
     // Save annotation as object
     if (this.currentTool === 'pen' && this.currentPath.length > 0) {
@@ -973,7 +1015,7 @@ export class PhotoAnnotatorComponent implements OnInit {
       }
     }
     
-    // Redraw to ensure everything is clean
+    // Add new annotation to permanent canvas and update display
     this.redrawAllAnnotations();
   }
   
@@ -1005,7 +1047,10 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   drawArrow(fromX: number, fromY: number, toX: number, toY: number) {
-    const ctx = this.annotationCtx;
+    this.drawArrowToContext(this.annotationCtx, fromX, fromY, toX, toY);
+  }
+  
+  drawArrowToContext(ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number) {
     const headLength = 15;
     const angle = Math.atan2(toY - fromY, toX - fromX);
     
@@ -1070,8 +1115,11 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   clearAnnotations() {
+    // Clear all canvases
     const canvas = this.annotationCanvas.nativeElement;
     this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    this.permanentCtx.clearRect(0, 0, this.permanentCanvas.width, this.permanentCanvas.height);
+    this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
     this.annotationObjects = [];
     this.canUndo = false;
   }
