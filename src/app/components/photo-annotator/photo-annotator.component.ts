@@ -552,12 +552,26 @@ export class PhotoAnnotatorComponent implements OnInit {
     private alertController: AlertController
   ) {}
   
-  ngOnInit() {
+  async ngOnInit() {
+    // Show debug alert with version
+    const debugAlert = await this.alertController.create({
+      header: 'Annotation Debug v1.4.213',
+      message: `Canvas is initializing. Watch for debug messages on screen.`,
+      buttons: ['OK']
+    });
+    await debugAlert.present();
+    setTimeout(() => debugAlert.dismiss(), 2000);
+    
     setTimeout(() => this.initializeCanvas(), 100);
   }
   
   async initializeCanvas() {
-    if (!this.imageCanvas || !this.annotationCanvas) return;
+    console.log('🎨 [v1.4.213] Initializing annotation canvas...');
+    
+    if (!this.imageCanvas || !this.annotationCanvas) {
+      console.error('❌ Canvas elements not found!');
+      return;
+    }
     
     const imageCanvas = this.imageCanvas.nativeElement;
     const annotationCanvas = this.annotationCanvas.nativeElement;
@@ -572,6 +586,8 @@ export class PhotoAnnotatorComponent implements OnInit {
     // Create permanent canvas for saved annotations
     this.permanentCanvas = document.createElement('canvas');
     this.permanentCtx = this.permanentCanvas.getContext('2d')!;
+    
+    console.log('✅ All canvases created successfully');
     
     // Load the image
     const img = new Image();
@@ -615,13 +631,25 @@ export class PhotoAnnotatorComponent implements OnInit {
       
       // Load existing annotations if any
       if (this.existingAnnotations && this.existingAnnotations.length > 0) {
-        console.log('📥 Loading existing annotations:', this.existingAnnotations);
+        console.log('📥 [v1.4.213] Loading existing annotations:', this.existingAnnotations);
+        console.log('Canvas dimensions:', width, 'x', height);
         this.annotationObjects = [...this.existingAnnotations];
+        
+        // DEBUG: Show immediate visual feedback
+        this.showDebugMessage(`Loading ${this.existingAnnotations.length} annotations...`);
+        
         // Ensure canvases are ready before drawing
         setTimeout(() => {
+          console.log('🎨 Redrawing annotations after delay...');
           this.redrawAllAnnotations();
           this.canUndo = true;
-        }, 100);
+          
+          // DEBUG: Verify annotations are visible
+          this.verifyAnnotationsVisible();
+        }, 200);
+      } else {
+        console.log('📭 No existing annotations to load');
+        this.showDebugMessage('No existing annotations');
       }
     };
   }
@@ -687,6 +715,9 @@ export class PhotoAnnotatorComponent implements OnInit {
     };
     this.annotationObjects.push(annotation);
     
+    console.log('💾 [v1.4.213] Saving annotation:', type, 'Color:', this.currentColor);
+    console.log('Annotation data:', data);
+    
     // Draw the new annotation to permanent canvas
     this.drawAnnotationToContext(annotation, this.permanentCtx);
     
@@ -694,7 +725,10 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.updateDisplayCanvas();
     
     this.canUndo = true;
-    console.log('📝 Annotation saved:', type, 'Total annotations:', this.annotationObjects.length);
+    console.log('📝 Total annotations now:', this.annotationObjects.length);
+    
+    // Show debug message
+    this.showDebugMessage(`Saved ${type} annotation (Total: ${this.annotationObjects.length})`);
   }
   
   toggleDeleteMode() {
@@ -795,15 +829,28 @@ export class PhotoAnnotatorComponent implements OnInit {
     // Clear the permanent canvas
     this.permanentCtx.clearRect(0, 0, this.permanentCanvas.width, this.permanentCanvas.height);
     
-    console.log('🔄 Redrawing all annotations. Count:', this.annotationObjects.length);
+    console.log('🔄 [v1.4.213] Redrawing all annotations. Count:', this.annotationObjects.length);
+    console.log('Permanent canvas size:', this.permanentCanvas.width, 'x', this.permanentCanvas.height);
+    
+    // Draw a debug border on permanent canvas
+    this.permanentCtx.strokeStyle = '#00FF00';
+    this.permanentCtx.lineWidth = 2;
+    this.permanentCtx.strokeRect(0, 0, this.permanentCanvas.width, this.permanentCanvas.height);
     
     // Draw all saved annotations to permanent canvas
-    for (const annotation of this.annotationObjects) {
+    for (let i = 0; i < this.annotationObjects.length; i++) {
+      const annotation = this.annotationObjects[i];
+      console.log(`Drawing annotation ${i + 1}/${this.annotationObjects.length}:`, annotation.type);
       this.drawAnnotationToContext(annotation, this.permanentCtx);
     }
     
     // Copy permanent canvas to display canvas
     this.updateDisplayCanvas();
+    
+    // DEBUG: Draw annotation count on canvas
+    this.annotationCtx.fillStyle = '#FF0000';
+    this.annotationCtx.font = 'bold 16px Arial';
+    this.annotationCtx.fillText(`[v1.4.213] Annotations: ${this.annotationObjects.length}`, 10, 20);
   }
   
   drawAnnotationToContext(annotation: any, ctx: CanvasRenderingContext2D) {
@@ -856,10 +903,18 @@ export class PhotoAnnotatorComponent implements OnInit {
   
   updateDisplayCanvas() {
     const canvas = this.annotationCanvas.nativeElement;
+    console.log('🖼️ [v1.4.213] Updating display canvas');
+    
     // Clear display canvas
     this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
     // Draw permanent annotations
     this.annotationCtx.drawImage(this.permanentCanvas, 0, 0);
+    
+    // DEBUG: Draw version indicator
+    this.annotationCtx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    this.annotationCtx.font = '12px Arial';
+    this.annotationCtx.fillText('v1.4.213', canvas.width - 60, canvas.height - 10);
   }
   
   startDrawing(event: MouseEvent) {
@@ -1206,5 +1261,96 @@ export class PhotoAnnotatorComponent implements OnInit {
   
   dismiss(data?: any) {
     this.modalController.dismiss(data);
+  }
+  
+  // DEBUG METHODS FOR v1.4.213
+  private showDebugMessage(message: string) {
+    // Show debug message on canvas
+    const canvas = this.annotationCanvas?.nativeElement;
+    if (canvas && this.annotationCtx) {
+      const prevFillStyle = this.annotationCtx.fillStyle;
+      this.annotationCtx.fillStyle = 'rgba(255, 165, 0, 0.8)';
+      this.annotationCtx.fillRect(10, 30, 300, 30);
+      this.annotationCtx.fillStyle = '#000000';
+      this.annotationCtx.font = 'bold 14px Arial';
+      this.annotationCtx.fillText(`DEBUG: ${message}`, 15, 50);
+      this.annotationCtx.fillStyle = prevFillStyle;
+      
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        if (this.annotationCtx && canvas) {
+          this.updateDisplayCanvas();
+        }
+      }, 3000);
+    }
+    console.log(`🐛 DEBUG: ${message}`);
+  }
+  
+  private verifyAnnotationsVisible() {
+    const canvas = this.annotationCanvas?.nativeElement;
+    if (!canvas) {
+      console.error('❌ No annotation canvas found!');
+      return;
+    }
+    
+    // Check if anything is drawn on the canvas
+    const imageData = this.annotationCtx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    let hasContent = false;
+    
+    // Check if there are any non-transparent pixels
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] > 0) { // Alpha channel
+        hasContent = true;
+        break;
+      }
+    }
+    
+    console.log(`🔍 [v1.4.213] Canvas has content: ${hasContent}`);
+    console.log(`📊 Canvas size: ${canvas.width}x${canvas.height}`);
+    console.log(`📝 Annotation objects: ${this.annotationObjects.length}`);
+    
+    if (!hasContent && this.annotationObjects.length > 0) {
+      console.error('⚠️ Annotations exist but canvas is empty! Attempting re-draw...');
+      // Try a simpler direct draw approach
+      this.forceRedrawAnnotations();
+    }
+  }
+  
+  private forceRedrawAnnotations() {
+    console.log('🔧 [v1.4.213] Force redrawing annotations directly to display canvas...');
+    
+    const canvas = this.annotationCanvas?.nativeElement;
+    if (!canvas || !this.annotationCtx) return;
+    
+    // Clear and draw directly to display canvas
+    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw debug grid
+    this.annotationCtx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+    this.annotationCtx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 50) {
+      this.annotationCtx.beginPath();
+      this.annotationCtx.moveTo(x, 0);
+      this.annotationCtx.lineTo(x, canvas.height);
+      this.annotationCtx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 50) {
+      this.annotationCtx.beginPath();
+      this.annotationCtx.moveTo(0, y);
+      this.annotationCtx.lineTo(canvas.width, y);
+      this.annotationCtx.stroke();
+    }
+    
+    // Draw annotations directly
+    for (const annotation of this.annotationObjects) {
+      console.log(`🖌️ Force drawing: ${annotation.type}`);
+      this.drawAnnotationToContext(annotation, this.annotationCtx);
+    }
+    
+    // Add debug text
+    this.annotationCtx.fillStyle = '#FF0000';
+    this.annotationCtx.font = 'bold 20px Arial';
+    this.annotationCtx.fillText(`[v1.4.213] Force Draw: ${this.annotationObjects.length} annotations`, 10, 40);
   }
 }

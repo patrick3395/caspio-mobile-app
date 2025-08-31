@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.212)
+## CURRENT APP STATE (as of December 2024 - v1.4.213)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.212):
+## 15. CURRENT WORK (December 2024 - v1.4.213):
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options
@@ -315,18 +315,20 @@ ps aux | grep omnara
 - **Complete Fix for Text and Annotations** (v1.4.211): Initial fixes attempted
   - Text Truncation: Initial fix with 34px height
   - Annotation System: Initial revamp attempted
-- **PROPER FIX for Text and Annotations** (v1.4.212): ACTUALLY fixed both issues
-  - Text Truncation FINAL FIX: 
-    - Wrapped text in div container with fixed 32px height (exactly 2 lines at 16px per line)
-    - Line height set to 1.23 for precise 16px lines with 13px font
-    - Container overflow:hidden ensures no bleed through
-    - Gradient overlay ensures clean cutoff at bottom
-    - HTML wrapped in item-text-wrapper div for absolute control
-  - Annotation System FINAL FIX:
-    - Fixed canvas layering with proper displayCurrentDrawing() method
-    - Permanent canvas + temp canvas properly combined for display
-    - Removed duplicate redrawAllAnnotations() call after save
-    - Annotations properly persist via JSON.stringify to Annotation field
-    - Canvas drawing no longer flickers or disappears
+- **PROPER FIX for Text and Annotations** (v1.4.212): Initial attempt at fixes
+  - Text Truncation: Initial aggressive fix with 26px hard limit
+  - Annotation System: Initial canvas layering fix attempted
+- **DEBUG VERSION for Annotations** (v1.4.213): COMPREHENSIVE DEBUG SYSTEM
+  - Added extensive console logging with [v1.4.213] tags throughout
+  - Debug alert shows on annotation modal open
+  - Visual debug messages appear on canvas
+  - Green debug grid drawn on canvas to verify rendering
+  - Red version indicator in corner of canvas
+  - Annotation count displayed on canvas
+  - Force redraw method for stubborn annotations
+  - Canvas content verification with pixel checking
+  - Shows "Loading X annotations..." message
+  - Each annotation draw logged to console
+  - Debug info persists for 3 seconds on screen
 - whenever you compact read Claude.md. After every command I give you update CLAUDE.md to track where we are at with the app building process.
 - whenever a new claude session is started in this project read CLAUDE.MD
