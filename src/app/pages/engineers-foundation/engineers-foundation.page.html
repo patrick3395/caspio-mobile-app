@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.211 - Text truncation fixed, annotations on all photos</div>
+    <div class="version-header">Version 1.4.212 - FIXED: Text truncation and annotation persistence</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -375,7 +375,9 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          <div class="item-text-wrapper" *ngIf="item.text">
+                            <p class="item-text">{{ item.text }}</p>
+                          </div>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -400,7 +402,9 @@
                               {{ item.name }}
                               <span class="required-indicator" *ngIf="item.required">*</span>
                             </h3>
-                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                            <div class="item-text-wrapper" *ngIf="item.text">
+                              <p class="item-text">{{ item.text }}</p>
+                            </div>
                           </ion-label>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>
@@ -504,7 +508,9 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          <div class="item-text-wrapper" *ngIf="item.text">
+                            <p class="item-text">{{ item.text }}</p>
+                          </div>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -529,7 +535,9 @@
                               {{ item.name }}
                               <span class="required-indicator" *ngIf="item.required">*</span>
                             </h3>
-                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                            <div class="item-text-wrapper" *ngIf="item.text">
+                              <p class="item-text">{{ item.text }}</p>
+                            </div>
                           </ion-label>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>
@@ -633,7 +641,9 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                          <div class="item-text-wrapper" *ngIf="item.text">
+                            <p class="item-text">{{ item.text }}</p>
+                          </div>
                         </ion-label>
                         <ion-select 
                           [(ngModel)]="item.text" 
@@ -658,7 +668,9 @@
                               {{ item.name }}
                               <span class="required-indicator" *ngIf="item.required">*</span>
                             </h3>
-                            <p class="item-text" *ngIf="item.text">{{ item.text }}</p>
+                            <div class="item-text-wrapper" *ngIf="item.text">
+                              <p class="item-text">{{ item.text }}</p>
+                            </div>
                           </ion-label>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>

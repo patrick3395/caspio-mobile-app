@@ -217,7 +217,8 @@ ion-content {
     
     .visual-item-container {
       .item-label {
-        // Remove fixed height to show both name and text
+        // Container for the text with strict height control
+        position: relative;
         
         h3 {
           margin: 0 0 4px 0; // Small margin between name and text
@@ -226,32 +227,57 @@ ion-content {
           color: #333;
         }
         
-        .item-text {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.3; // Precise line height
-          font-size: 13px;
-          color: #666;
-          margin: 0;
-          padding: 0;
-          // Use fixed pixel height to prevent any partial line showing
-          max-height: 34px; // Exactly 2 lines at 13px * 1.3 line-height = 16.9px per line, rounded to 34px total
-          // Add container to clip any overflow
+        // Wrapper div to control exact height - AGGRESSIVE FIX
+        .item-text-wrapper {
           position: relative;
+          height: 26px !important; // HARD LIMIT: exactly 2 lines (13px * 2)
+          max-height: 26px !important;
+          overflow: hidden !important; // ABSOLUTELY NO OVERFLOW
+          display: block !important;
           
-          // Ensure no bleed-through
+          .item-text {
+            display: block !important; // Force block display
+            line-height: 1 !important; // Exactly 13px per line
+            font-size: 13px !important;
+            color: #666;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 26px !important; // Exact 2 lines
+            max-height: 26px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis;
+            // Remove webkit-box to avoid any issues
+            word-wrap: break-word;
+          }
+          
+          // Aggressive masking overlay
           &::after {
             content: '';
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 4px;
-            background: linear-gradient(to bottom, transparent, white);
+            height: 13px; // Half line height to ensure coverage
+            background: white; // Solid white to cut off any bleed
+            pointer-events: none;
+            z-index: 1;
           }
+        }
+        
+        // For items without wrapper, apply same rules
+        .item-text:not(.wrapped) {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.23;
+          font-size: 13px;
+          color: #666;
+          margin: 0;
+          padding: 0;
+          max-height: 32px;
+          position: relative;
         }
       }
     }

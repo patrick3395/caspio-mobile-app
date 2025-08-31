@@ -615,9 +615,13 @@ export class PhotoAnnotatorComponent implements OnInit {
       
       // Load existing annotations if any
       if (this.existingAnnotations && this.existingAnnotations.length > 0) {
+        console.log('📥 Loading existing annotations:', this.existingAnnotations);
         this.annotationObjects = [...this.existingAnnotations];
-        this.redrawAllAnnotations();
-        this.canUndo = true;
+        // Ensure canvases are ready before drawing
+        setTimeout(() => {
+          this.redrawAllAnnotations();
+          this.canUndo = true;
+        }, 100);
       }
     };
   }
@@ -928,18 +932,17 @@ export class PhotoAnnotatorComponent implements OnInit {
     const currentY = event.offsetY;
     
     if (this.currentTool === 'pen') {
-      // For pen tool, draw on temp canvas and display
+      // For pen tool, continue drawing on temp canvas
       this.tempCtx.lineTo(currentX, currentY);
       this.tempCtx.stroke();
       this.currentPath.push({ x: currentX, y: currentY });
       
-      // Update display
-      this.updateDisplayCanvas();
-      this.annotationCtx.drawImage(this.tempCanvas, 0, 0);
+      // Display = permanent + temp (current drawing)
+      this.displayCurrentDrawing();
     } else if (this.currentTool !== 'text') {
       // For shapes, draw preview on temp canvas
       
-      // Clear temp canvas
+      // Clear temp canvas for redrawing the preview
       this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
       
       // Set styles for preview
@@ -959,10 +962,20 @@ export class PhotoAnnotatorComponent implements OnInit {
         this.tempCtx.stroke();
       }
       
-      // Update display with permanent + temp
-      this.updateDisplayCanvas();
-      this.annotationCtx.drawImage(this.tempCanvas, 0, 0);
+      // Display = permanent + temp (current preview)
+      this.displayCurrentDrawing();
     }
+  }
+  
+  // New method to properly display permanent + temp canvases
+  displayCurrentDrawing() {
+    const canvas = this.annotationCanvas.nativeElement;
+    // Clear display canvas
+    this.annotationCtx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw permanent annotations first
+    this.annotationCtx.drawImage(this.permanentCanvas, 0, 0);
+    // Draw current temp drawing on top
+    this.annotationCtx.drawImage(this.tempCanvas, 0, 0);
   }
   
   stopDrawing(event: MouseEvent) {
@@ -1015,8 +1028,8 @@ export class PhotoAnnotatorComponent implements OnInit {
       }
     }
     
-    // Add new annotation to permanent canvas and update display
-    this.redrawAllAnnotations();
+    // Display is already updated by saveAnnotation, just ensure temp canvas is cleared from display
+    this.updateDisplayCanvas();
   }
   
   handleTouch(event: TouchEvent) {
