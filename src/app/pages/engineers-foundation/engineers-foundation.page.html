@@ -937,8 +937,8 @@
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">
 
-  <!-- Minimal bottom spacer for content breathing room -->
-  <div class="dynamic-bottom-spacer"></div>
+  <!-- Dynamic bottom spacer only added when content grows -->
+  <div class="dynamic-bottom-spacer" *ngIf="hasContentLoaded"></div>
   
   <!-- Floating Back to Top Button -->
   <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">

@@ -78,6 +78,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Room templates for elevation plot
   roomTemplates: any[] = [];
   availableRoomTemplates: any[] = []; // v1.4.65 - Available room templates
+  hasContentLoaded = false; // Track when content has loaded to show bottom spacer
   allRoomTemplates: any[] = []; // Store all templates for manual addition
   roomElevationData: { [roomName: string]: any } = {};
   selectedRooms: { [roomName: string]: boolean } = {};
@@ -184,6 +185,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
+    
+    // Set content loaded flag after a short delay to allow initial render
+    setTimeout(() => {
+      this.hasContentLoaded = true;
+    }, 500);
     
     // Photos now use base64 data URLs like Structural section
     // No need to refresh URLs as they don't expire

@@ -11,38 +11,39 @@ ion-content {
   display: flex;
   flex-direction: column;
   
-  // Single controlled bottom padding
-  --padding-bottom: 40px; // Reduced from 100px - single source of truth
+  // Minimal bottom padding for dynamic content
+  --padding-bottom: 20px; // Further reduced for initial load
+  --padding-top: 0; // Remove any default top padding
   
   ::ng-deep .inner-scroll {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 100%;
+    min-height: auto; // Changed from 100% to auto for initial load
     overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
-    // Removed redundant padding-bottom
+    padding-top: 0; // Ensure no top padding
   }
 }
 
 // Dynamic bottom spacer - minimal and content-aware
 .dynamic-bottom-spacer {
-  min-height: 30px; // Reduced from 80px
+  min-height: 15px; // Further reduced for initial load
   width: 100%;
   background: transparent;
   flex-shrink: 0; // Prevent compression
   
   // More conservative responsive adjustments
   @media (max-height: 700px) {
-    min-height: 20px;
+    min-height: 10px;
   }
   
   @media (max-height: 600px) {
-    min-height: 15px;
+    min-height: 5px;
   }
   
   @media (min-height: 900px) {
-    min-height: 40px;
+    min-height: 20px;
   }
 }
 
@@ -77,15 +78,16 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 40px; // Reduced from 100px
+  padding-bottom: 24px; // Match top padding for consistency
+  padding-top: 16px; // Reduce top padding for initial load
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
   // Flexbox for proper content distribution
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 0 auto; // Don't shrink, grow as needed
   max-width: 1400px;
   margin: 0 auto;
-  // Removed redundant margin-bottom
+  min-height: fit-content; // Only as tall as content requires
 }
 
 .save-status {
