@@ -7,12 +7,16 @@ ion-toolbar {
 ion-content {
   --overflow: scroll !important;
   
+  // Force the ion-content to use full available height
+  --padding-bottom: 100px; // Add internal bottom padding to ion-content
+  
   ::ng-deep .inner-scroll {
     display: block;
     height: auto;
     // Remove min-height to prevent forcing full viewport
     overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+    padding-bottom: 80px !important; // Force bottom padding on scroll container
   }
 }
 
@@ -68,11 +72,12 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 0; // No bottom padding - handled by spacer
+  padding-bottom: 100px; // Generous bottom padding
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
   // Remove min-height to allow natural content height
   max-width: 1400px;
   margin: 0 auto;
+  margin-bottom: 50px; // Additional margin at bottom
 }
 
 .save-status {
