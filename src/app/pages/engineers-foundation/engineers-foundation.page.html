@@ -937,6 +937,9 @@
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">
 
+  <!-- Dynamic bottom spacer to prevent white space -->
+  <div class="dynamic-bottom-spacer" style="height: 80px; width: 100%;"></div>
+  
   <!-- Floating Back to Top Button -->
   <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
     <ion-icon name="arrow-up"></ion-icon>

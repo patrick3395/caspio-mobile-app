@@ -16,6 +16,27 @@ ion-content {
   }
 }
 
+// Dynamic bottom spacer to prevent white space cutoff
+.dynamic-bottom-spacer {
+  height: 80px;
+  width: 100%;
+  background: transparent;
+  flex-shrink: 0; // Prevent compression
+  
+  // Adjust height based on viewport size
+  @media (max-height: 700px) {
+    height: 60px;
+  }
+  
+  @media (max-height: 600px) {
+    height: 50px;
+  }
+  
+  @media (min-height: 900px) {
+    height: 100px;
+  }
+}
+
 // Photo upload dialog - ensure instant appearance with strong backdrop
 .photo-upload-dialog {
   .alert-wrapper {
@@ -47,7 +68,7 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 24px; // Minimal bottom padding
+  padding-bottom: 0; // No bottom padding - handled by spacer
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
   // Remove min-height to allow natural content height
   max-width: 1400px;
