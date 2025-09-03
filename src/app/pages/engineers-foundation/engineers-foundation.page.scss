@@ -3,41 +3,46 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
-// Ensure proper scrolling
+// Ensure proper scrolling with flexbox layout
 ion-content {
   --overflow: scroll !important;
   
-  // Force the ion-content to use full available height
-  --padding-bottom: 100px; // Add internal bottom padding to ion-content
+  // Use flexbox for proper content distribution
+  display: flex;
+  flex-direction: column;
+  
+  // Single controlled bottom padding
+  --padding-bottom: 40px; // Reduced from 100px - single source of truth
   
   ::ng-deep .inner-scroll {
-    display: block;
-    height: auto;
-    // Remove min-height to prevent forcing full viewport
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 100%;
     overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
-    padding-bottom: 80px !important; // Force bottom padding on scroll container
+    // Removed redundant padding-bottom
   }
 }
 
-// Dynamic bottom spacer to prevent white space cutoff
+// Dynamic bottom spacer - minimal and content-aware
 .dynamic-bottom-spacer {
-  height: 80px;
+  min-height: 30px; // Reduced from 80px
   width: 100%;
   background: transparent;
   flex-shrink: 0; // Prevent compression
   
-  // Adjust height based on viewport size
+  // More conservative responsive adjustments
   @media (max-height: 700px) {
-    height: 60px;
+    min-height: 20px;
   }
   
   @media (max-height: 600px) {
-    height: 50px;
+    min-height: 15px;
   }
   
   @media (min-height: 900px) {
-    height: 100px;
+    min-height: 40px;
   }
 }
 
@@ -72,12 +77,15 @@ ion-content {
 
 .template-container {
   padding: 24px;
-  padding-bottom: 100px; // Generous bottom padding
+  padding-bottom: 40px; // Reduced from 100px
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  // Remove min-height to allow natural content height
+  // Flexbox for proper content distribution
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   max-width: 1400px;
   margin: 0 auto;
-  margin-bottom: 50px; // Additional margin at bottom
+  // Removed redundant margin-bottom
 }
 
 .save-status {

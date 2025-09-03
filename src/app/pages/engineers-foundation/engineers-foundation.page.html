@@ -915,16 +915,13 @@
           </div>
           
           <!-- Add Room button - always show at bottom -->
-          <div class="add-room-container" style="margin-top: 20px; margin-bottom: 80px; text-align: center;">
+          <div class="add-room-container" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
             <button class="add-room-button" (click)="showAddRoomDialog()" 
                     style="background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 2px dashed #999; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.3s ease;">
               <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px;"></ion-icon>
               Add Room
             </button>
           </div>
-          
-          <!-- Dynamic spacer specifically for Elevation Plot section -->
-          <div class="elevation-section-spacer" style="height: 60px; width: 100%; clear: both;"></div>
         </div>
       </div>
     </div>
@@ -940,8 +937,8 @@
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">
 
-  <!-- Dynamic bottom spacer to prevent white space -->
-  <div class="dynamic-bottom-spacer" style="height: 80px; width: 100%;"></div>
+  <!-- Minimal bottom spacer for content breathing room -->
+  <div class="dynamic-bottom-spacer"></div>
   
   <!-- Floating Back to Top Button -->
   <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
