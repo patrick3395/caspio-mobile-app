@@ -9,7 +9,8 @@ import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
 import { CacheService } from '../../services/cache.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
-import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
+// import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
+import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -3969,7 +3970,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Annotate photo before upload
   async annotatePhoto(photo: File): Promise<File> {
     const modal = await this.modalController.create({
-      component: PhotoAnnotatorComponent,
+      component: FabricPhotoAnnotatorComponent,
       componentProps: {
         imageFile: photo
       },
@@ -3979,9 +3980,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await modal.present();
     const { data } = await modal.onDidDismiss();
     
-    if (data && data instanceof Blob) {
-      // Convert blob to File with same name
-      return new File([data], photo.name, { type: 'image/jpeg' });
+    if (data) {
+      // Handle new Fabric.js annotator response
+      if (data.blob) {
+        // Convert blob to File with same name
+        return new File([data.blob], photo.name, { type: 'image/jpeg' });
+      } else if (data instanceof Blob) {
+        // Fallback for old annotator
+        return new File([data], photo.name, { type: 'image/jpeg' });
+      }
     }
     
     // Return original photo if annotation was cancelled
@@ -4762,7 +4769,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Open annotation modal directly
       const modal = await this.modalController.create({
-        component: PhotoAnnotatorComponent,
+        component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: imageUrl,
           existingAnnotations: existingAnnotations,
@@ -4774,16 +4781,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await modal.present();
       const { data } = await modal.onDidDismiss();
       
-      if (data && data.annotatedBlob) {
-        // Update the photo with annotations
-        const key = `${category}_${itemId}`;
-        const visualId = this.visualRecordIds[key];
-        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
+      if (data) {
+        // Handle new Fabric.js annotator response
+        const annotatedBlob = data.blob || data.annotatedBlob;
+        const annotationsData = data.annotationData || data.annotationsData;
         
-        if (photo.AttachID || photo.id) {
-          try {
-            // Update the existing attachment with annotations
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, data.annotationsData);
+        if (annotatedBlob) {
+          // Update the photo with annotations
+          const key = `${category}_${itemId}`;
+          const visualId = this.visualRecordIds[key];
+          const annotatedFile = new File([annotatedBlob], photoName, { type: 'image/jpeg' });
+          
+          if (photo.AttachID || photo.id) {
+            try {
+              // Update the existing attachment with annotations
+              await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -4797,8 +4809,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               // Store annotations in the photo object
-              if (data.annotationsData) {
-                this.visualPhotos[visualId][photoIndex].annotations = data.annotationsData;
+              if (annotationsData) {
+                this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
               }
             }
             
@@ -4875,8 +4887,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               // Store annotations in the photo object
-              if (data.annotationsData) {
-                this.visualPhotos[visualId][photoIndex].annotations = data.annotationsData;
+              if (annotationsData) {
+                this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
               }
             }
             
