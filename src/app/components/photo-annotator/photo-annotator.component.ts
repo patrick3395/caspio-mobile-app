@@ -522,6 +522,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   private startX = 0;
   private startY = 0;
   private annotationObjects: any[] = [];
+  private canvasInitialized = false;
   private currentPath: any[] = [];
   private tempCanvas!: HTMLCanvasElement;
   private tempCtx!: CanvasRenderingContext2D;
@@ -555,7 +556,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   async ngOnInit() {
     // Show debug alert with version
     const debugAlert = await this.alertController.create({
-      header: 'Annotation Debug v1.4.219',
+      header: 'Annotation Debug v1.4.221',
       message: `FIXED: Multi-annotation support. All drawings will persist.`,
       buttons: ['OK']
     });
@@ -566,7 +567,14 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   async initializeCanvas() {
-    console.log('🎨 [v1.4.219] Initializing annotation canvas with TRULY FIXED multi-draw support...');
+    console.log('🎨 [v1.4.221] Initializing annotation canvas with TRULY FIXED multi-draw support...');
+    console.log(`📊 [v1.4.221] annotationObjects at init: exists=${!!this.annotationObjects}, length=${this.annotationObjects?.length || 0}`);
+    
+    // Prevent re-initialization that would lose annotations
+    if (this.canvasInitialized && this.annotationObjects.length > 0) {
+      console.log('⚠️ [v1.4.221] Canvas already initialized with annotations, skipping re-init');
+      return;
+    }
     
     if (!this.imageCanvas || !this.annotationCanvas) {
       console.error('❌ Canvas elements not found!');
@@ -587,7 +595,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.permanentCanvas = document.createElement('canvas');
     this.permanentCtx = this.permanentCanvas.getContext('2d')!;
     
-    console.log('✅ [v1.4.220] All canvases created - using VERIFIED persistence');
+    console.log('✅ [v1.4.221] All canvases created - using VERIFIED persistence');
     
     // Load the image
     const img = new Image();
@@ -629,28 +637,39 @@ export class PhotoAnnotatorComponent implements OnInit {
       // Draw the image
       this.imageCtx.drawImage(img, 0, 0, width, height);
       
-      // Load existing annotations if any
-      if (this.existingAnnotations && this.existingAnnotations.length > 0) {
-        console.log('📥 [v1.4.219] Loading existing annotations:', this.existingAnnotations);
+      // Load existing annotations if any - but ONLY on first load
+      // CRITICAL FIX: Don't overwrite annotationObjects if we already have annotations
+      if (this.existingAnnotations && this.existingAnnotations.length > 0 && this.annotationObjects.length === 0) {
+        console.log('📥 [v1.4.221] Loading existing annotations:', this.existingAnnotations);
         console.log('Canvas dimensions:', width, 'x', height);
         this.annotationObjects = [...this.existingAnnotations];
         
         // DEBUG: Show immediate visual feedback
-        this.showDebugMessage(`[v1.4.219] Loading ${this.existingAnnotations.length} annotations...`);
+        this.showDebugMessage(`[v1.4.221] Loading ${this.existingAnnotations.length} annotations...`);
         
         // Ensure canvases are ready before drawing
         setTimeout(() => {
-          console.log('🎨 [v1.4.219] Redrawing existing annotations...');
+          console.log('🎨 [v1.4.221] Redrawing existing annotations...');
           this.redrawAllAnnotationsFixed();
           this.canUndo = true;
           
           // DEBUG: Verify annotations are visible
           this.verifyAnnotationsVisible();
         }, 200);
+      } else if (this.annotationObjects.length > 0) {
+        // If we already have annotations, just redraw them
+        console.log('🔄 [v1.4.221] Preserving existing annotations:', this.annotationObjects.length);
+        setTimeout(() => {
+          this.redrawAllAnnotationsFixed();
+        }, 200);
       } else {
-        console.log('📭 [v1.4.219] No existing annotations to load');
-        this.showDebugMessage('[v1.4.219] Ready to annotate');
+        console.log('📭 [v1.4.221] No existing annotations to load');
+        this.showDebugMessage('[v1.4.221] Ready to annotate');
       }
+      
+      // Mark canvas as initialized
+      this.canvasInitialized = true;
+      console.log('✅ [v1.4.221] Canvas initialization complete');
     };
   }
   
@@ -705,6 +724,14 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   saveAnnotation(type: string, data: any) {
+    console.log(`🚨 [v1.4.221] saveAnnotation called for type: ${type}`);
+    console.log(`🚨 [v1.4.221] annotationObjects exists: ${!!this.annotationObjects}`);
+    
+    if (!this.annotationObjects) {
+      console.error('❌ [v1.4.221] CRITICAL ERROR: annotationObjects is undefined!');
+      this.annotationObjects = [];
+    }
+    
     const annotation = {
       id: Date.now() + Math.random(), // Unique ID for each annotation
       type,
@@ -714,12 +741,12 @@ export class PhotoAnnotatorComponent implements OnInit {
       timestamp: Date.now()
     };
     
-    console.log('💾 [v1.4.220] BEFORE save - existing annotations:', this.annotationObjects.length);
+    console.log('💾 [v1.4.221] BEFORE save - existing annotations:', this.annotationObjects.length);
     
     // Add to array
     this.annotationObjects.push(annotation);
     
-    console.log('💾 [v1.4.220] AFTER save - total annotations:', this.annotationObjects.length);
+    console.log('💾 [v1.4.221] AFTER save - total annotations:', this.annotationObjects.length);
     console.log('All annotations:', this.annotationObjects.map(a => ({ type: a.type, id: a.id })));
     
     // CRITICAL FIX: Clear temp canvas after saving
@@ -732,7 +759,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.canUndo = true;
     
     // Show debug message with more detail
-    this.showDebugMessage(`[v1.4.220] Saved ${type} | Total: ${this.annotationObjects.length} | Array: ${this.annotationObjects.map(a => a.type).join(', ')}`);
+    this.showDebugMessage(`[v1.4.221] Saved ${type} | Total: ${this.annotationObjects.length} | Array: ${this.annotationObjects.map(a => a.type).join(', ')}`);
   }
   
   toggleDeleteMode() {
@@ -835,13 +862,13 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   redrawAllAnnotationsFixed() {
-    // v1.4.220 - TRULY FIXED METHOD - properly maintains all annotations
-    console.log('🔄 [v1.4.220] TRULY FIXED redraw - maintaining all annotations');
+    // v1.4.221 - TRULY FIXED METHOD - properly maintains all annotations
+    console.log('🔄 [v1.4.221] TRULY FIXED redraw - maintaining all annotations');
     console.log('Total annotations in array:', this.annotationObjects.length);
     console.log('Annotations:', JSON.stringify(this.annotationObjects.map(a => ({ type: a.type, id: a.id }))));
     
     if (!this.permanentCanvas || !this.permanentCtx) {
-      console.error('❌ [v1.4.220] Permanent canvas not initialized!');
+      console.error('❌ [v1.4.221] Permanent canvas not initialized!');
       return;
     }
     
@@ -851,7 +878,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     // Draw ALL annotations to permanent canvas
     for (let i = 0; i < this.annotationObjects.length; i++) {
       const annotation = this.annotationObjects[i];
-      console.log(`[v1.4.220] Drawing annotation ${i + 1}/${this.annotationObjects.length}: ${annotation.type} with color ${annotation.color}`);
+      console.log(`[v1.4.221] Drawing annotation ${i + 1}/${this.annotationObjects.length}: ${annotation.type} with color ${annotation.color}`);
       
       // Save state before each annotation
       this.permanentCtx.save();
@@ -869,7 +896,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     // Verify permanent canvas has content
     const imageData = this.permanentCtx.getImageData(0, 0, this.permanentCanvas.width, this.permanentCanvas.height);
     const hasContent = imageData.data.some((v, i) => i % 4 !== 3 && v !== 0);
-    console.log(`✅ [v1.4.220] Permanent canvas has content: ${hasContent}`);
+    console.log(`✅ [v1.4.221] Permanent canvas has content: ${hasContent}`);
   }
   
   drawAnnotationToContext(annotation: any, ctx: CanvasRenderingContext2D) {
@@ -927,7 +954,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   
   updateDisplayCanvasFixed() {
     const canvas = this.annotationCanvas.nativeElement;
-    console.log('🖼️ [v1.4.220] TRULY FIXED display update - preserving all content');
+    console.log('🖼️ [v1.4.221] TRULY FIXED display update - preserving all content');
     
     // Save current state
     this.annotationCtx.save();
@@ -946,6 +973,8 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   startDrawing(event: MouseEvent) {
+    console.log(`🖱️ [v1.4.221] Start drawing - tool: ${this.currentTool}, annotations: ${this.annotationObjects.length}`);
+    
     // Handle delete mode
     if (this.deleteMode) {
       const annotation = this.findAnnotationAtPoint(event.offsetX, event.offsetY);
@@ -1053,7 +1082,7 @@ export class PhotoAnnotatorComponent implements OnInit {
   // FIXED method to properly display permanent + temp canvases
   displayCurrentDrawing() {
     const canvas = this.annotationCanvas.nativeElement;
-    console.log('🎨 [v1.4.220] Display current drawing - preserving all');
+    console.log('🎨 [v1.4.221] Display current drawing - preserving all');
     
     // Save state
     this.annotationCtx.save();
@@ -1081,7 +1110,8 @@ export class PhotoAnnotatorComponent implements OnInit {
     const endX = event.offsetX;
     const endY = event.offsetY;
     
-    console.log('🛑 Stop drawing:', this.currentTool);
+    console.log('🛑 [v1.4.221] Stop drawing:', this.currentTool);
+    console.log(`📊 [v1.4.221] Current annotations before save: ${this.annotationObjects.length}`);
     
     // Clear temp canvas
     this.tempCtx.clearRect(0, 0, this.tempCanvas.width, this.tempCanvas.height);
@@ -1304,7 +1334,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     this.modalController.dismiss(data);
   }
   
-  // DEBUG METHODS FOR v1.4.220
+  // DEBUG METHODS FOR v1.4.221
   private showDebugMessage(message: string) {
     // Just log to console - don't draw on canvas to avoid interference
     console.log(`🐛 DEBUG: ${message}`);
@@ -1316,21 +1346,30 @@ export class PhotoAnnotatorComponent implements OnInit {
   }
   
   private drawDebugOverlays() {
+    if (!this.annotationCanvas?.nativeElement || !this.annotationCtx) {
+      console.error('❌ [v1.4.221] Cannot draw debug overlays - canvas not ready');
+      return;
+    }
+    
     const canvas = this.annotationCanvas.nativeElement;
+    
+    // Debug: Check if annotationObjects exists
+    const annotationCount = this.annotationObjects ? this.annotationObjects.length : 0;
+    console.log(`🔍 [v1.4.221] Drawing debug overlays - annotationObjects exists: ${!!this.annotationObjects}, count: ${annotationCount}`);
     
     // Draw version indicator in bottom-right
     this.annotationCtx.fillStyle = 'rgba(255, 0, 0, 0.9)';
     this.annotationCtx.fillRect(canvas.width - 150, canvas.height - 35, 145, 30);
     this.annotationCtx.fillStyle = '#FFFFFF';
     this.annotationCtx.font = 'bold 14px Arial';
-    this.annotationCtx.fillText('[v1.4.220 FIXED]', canvas.width - 145, canvas.height - 15);
+    this.annotationCtx.fillText('[v1.4.221 FIXED]', canvas.width - 145, canvas.height - 15);
     
     // Draw annotation count in top-left
     this.annotationCtx.fillStyle = 'rgba(0, 128, 0, 0.9)';
     this.annotationCtx.fillRect(10, 10, 250, 35);
     this.annotationCtx.fillStyle = '#FFFFFF';
     this.annotationCtx.font = 'bold 14px Arial';
-    this.annotationCtx.fillText(`[v1.4.220] Total: ${this.annotationObjects.length} annotations`, 15, 30);
+    this.annotationCtx.fillText(`[v1.4.221] Total: ${annotationCount} annotations`, 15, 30);
   }
   
   private verifyAnnotationsVisible() {

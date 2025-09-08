@@ -1,10 +1,10 @@
-# Photo Annotation Test Plan - v1.4.220
+# Photo Annotation Test Plan - v1.4.221
 
 ## Test Objectives
 Verify that multiple annotations can be drawn and ALL persist when drawing new shapes.
 
 ## Version Indicator
-Look for red box in bottom-right corner showing "[v1.4.220 FIXED]"
+Look for red box in bottom-right corner showing "[v1.4.221 FIXED]"
 Look for green box in top-left showing total annotation count
 
 ## Test Steps
@@ -48,9 +48,9 @@ Look for green box in top-left showing total annotation count
 
 ## Debug Console Checks
 Open browser console and verify:
-- "[v1.4.220] BEFORE save - existing annotations: X"
-- "[v1.4.220] AFTER save - total annotations: X+1"
-- "[v1.4.220] Drawing annotation X/Y"
+- "[v1.4.221] BEFORE save - existing annotations: X"
+- "[v1.4.221] AFTER save - total annotations: X+1"
+- "[v1.4.221] Drawing annotation X/Y"
 - "Permanent canvas has content: true"
 
 ## Common Failure Patterns
@@ -63,5 +63,5 @@ Open browser console and verify:
 ✅ All shapes remain visible when drawing new ones
 ✅ Annotation array grows with each shape
 ✅ Permanent canvas maintains all content
-✅ Version shows v1.4.220
+✅ Version shows v1.4.221
 ✅ Debug overlays persist after all operations

@@ -391,3 +391,4 @@ Follow this systematic approach:
 - User trust lost: Immeasurable
 
 A user describing a bug for the third time isn't thinking "this AI is trying hard" - they're thinking "why am I wasting time with this incompetent tool?"
+- When I say, "That worked clean up". Make sure to clean up the cload from added bloat, old code, files we do not need etc...
