@@ -751,6 +751,21 @@ export class CaspioService {
     );
   }
   
+  // Update Services_Visuals record
+  updateServicesVisual(visualId: string, visualData: any): Observable<any> {
+    console.log('📝 Updating Services_Visual record:', visualId, visualData);
+    const url = `/tables/Services_Visuals/records?q.where=VisualID=${visualId}`;
+    return this.put<any>(url, visualData).pipe(
+      tap(response => {
+        console.log('✅ Services_Visual updated:', response);
+      }),
+      catchError(error => {
+        console.error('❌ Failed to update Services_Visual:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
   getServiceById(serviceId: string): Observable<any> {
     return this.get<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => {

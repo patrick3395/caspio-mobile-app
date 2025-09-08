@@ -58,7 +58,7 @@ import * as fabric from 'fabric';
         
         <!-- Debug Info -->
         <div class="debug-info">
-          <span class="version-badge">v1.4.236</span>
+          <span class="version-badge">v1.4.237</span>
         </div>
       </div>
       
@@ -195,8 +195,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('🎨 [v1.4.236 FABRIC] Initializing Fabric.js photo annotator');
-    console.log('📥 [v1.4.236 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('🎨 [v1.4.237 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('📥 [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
   }
   
   ngAfterViewInit() {
@@ -269,12 +269,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             : Object.keys(this.existingAnnotations).length > 0;
             
           if (hasAnnotations) {
-            console.log('📋 [v1.4.236 FABRIC] Found existing annotations to load:', this.existingAnnotations);
+            console.log('📋 [v1.4.237 FABRIC] Found existing annotations to load:', this.existingAnnotations);
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
         
-        console.log('✅ [v1.4.236 FABRIC] Canvas initialized with image');
+        console.log('✅ [v1.4.237 FABRIC] Canvas initialized with image');
       });
     }
     
@@ -684,9 +684,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       originalBlob = this.imageFile;
     }
     
-    console.log(`💾 [v1.4.236 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
-    console.log('📤 [v1.4.236 FABRIC] Annotation data being saved:', annotationData);
-    console.log('📎 [v1.4.236 FABRIC] Has original file:', !!originalBlob);
+    console.log(`💾 [v1.4.237 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
+    console.log('📤 [v1.4.237 FABRIC] Annotation data being saved:', annotationData);
+    console.log('📎 [v1.4.237 FABRIC] Has original file:', !!originalBlob);
     
     this.modalController.dismiss({
       annotatedBlob: blob,  // Use same property name as old annotator for compatibility

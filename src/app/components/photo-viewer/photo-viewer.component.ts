@@ -133,12 +133,9 @@ export class PhotoViewerComponent {
     // Get existing annotations from photoData if available
     const annotations = this.photoData?.annotations || this.photoData?.annotationsData || this.existingAnnotations || [];
     
-    // Check if we have an original image path to use instead of the annotated one
-    const originalImageUrl = this.photoData?.originalFilePath 
-      ? await this.getImageUrl(this.photoData.originalFilePath)
-      : null;
-    
-    const imageToAnnotate = originalImageUrl || this.photoUrl;
+    // ALWAYS use the main Photo field for editing (it should be the original)
+    // The Photo field should never be replaced with annotated version
+    const imageToAnnotate = this.photoUrl; // This should be the original from Photo field
     
     console.log('📝 [PhotoViewer] Opening annotator with:');
     console.log('  - photoData:', this.photoData);

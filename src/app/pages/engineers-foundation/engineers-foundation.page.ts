@@ -3092,22 +3092,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.savingItems[key] = true;
     
     try {
-      // Store the answer in the answer field, preserve original text
-      const previousAnswer = item.answer;
+      // Check if visual already exists
+      const existingVisualId = this.visualRecordIds[key];
       
-      // If answer is Yes or No, save to Services_Visuals
       if (item.answer === 'Yes' || item.answer === 'No') {
-        // Update the text field with the answer for saving to database
-        item.text = item.answer;
-        // Mark as selected and save
-        this.selectedItems[key] = true;
-        await this.saveVisualSelection(category, item.id);
+        if (existingVisualId) {
+          // Update existing record - only update the Answers field
+          console.log('Updating existing visual with new answer:', item.answer);
+          const updateData = {
+            Answers: item.answer
+          };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          console.log('✅ Updated Services_Visuals Answers field');
+        } else {
+          // Create new record with answer in Answers field
+          console.log('Creating new visual with answer:', item.answer);
+          // Preserve original text, store answer separately
+          item.text = item.originalText || item.text;
+          // Mark as selected
+          this.selectedItems[key] = true;
+          // Save will now include the Answers field
+          await this.saveVisualSelection(category, item.id);
+        }
       } else if (item.answer === '') {
-        // If cleared, restore original text and remove from Services_Visuals
+        // If cleared and record exists, update to remove answer
+        if (existingVisualId) {
+          console.log('Clearing answer from existing visual');
+          const updateData = {
+            Answers: ''
+          };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          // Don't remove the record, just clear the answer
+        }
+        // Clear selection state
         item.text = item.originalText;
-        this.selectedItems[key] = false;
-        await this.removeVisualSelection(category, item.id);
       }
+    } catch (error) {
+      console.error('Error handling answer change:', error);
+      await this.showToast('Failed to save answer', 'danger');
     } finally {
       this.savingItems[key] = false;
     }
@@ -3121,20 +3143,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.savingItems[key] = true;
     
     try {
-      // Convert array to comma-delimited string
-      const selectedText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
-      item.text = selectedText;
+      // Check if visual already exists
+      const existingVisualId = this.visualRecordIds[key];
       
-      // If any options are selected, save to Services_Visuals
+      // Convert array to comma-delimited string for Answers field
+      const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
+      
       if (item.selectedOptions && item.selectedOptions.length > 0) {
-        // Mark as selected and save
-        this.selectedItems[key] = true;
-        await this.saveVisualSelection(category, item.id);
+        if (existingVisualId) {
+          // Update existing record - only update the Answers field
+          console.log('Updating existing visual with new selections:', answersText);
+          const updateData = {
+            Answers: answersText
+          };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          console.log('✅ Updated Services_Visuals Answers field with selections');
+        } else {
+          // Create new record with selections in Answers field
+          console.log('Creating new visual with selections:', answersText);
+          // Preserve original text, don't overwrite with selections
+          item.text = item.originalText || item.text;
+          // Mark as selected
+          this.selectedItems[key] = true;
+          // Save will now include the Answers field
+          await this.saveVisualSelection(category, item.id);
+        }
       } else {
-        // If no options selected, remove from Services_Visuals
-        this.selectedItems[key] = false;
-        await this.removeVisualSelection(category, item.id);
+        // If no options selected and record exists, clear the answers
+        if (existingVisualId) {
+          console.log('Clearing selections from existing visual');
+          const updateData = {
+            Answers: ''
+          };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          // Don't remove the record, just clear the answers
+        }
+        // Clear selection state
+        item.text = item.originalText || '';
       }
+    } catch (error) {
+      console.error('Error handling multi-select change:', error);
+      await this.showToast('Failed to save selections', 'danger');
     } finally {
       this.savingItems[key] = false;
     }
@@ -4770,14 +4819,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('File upload failed - no Name returned');
       }
       
-      // Update the attachment record with new file path and annotations
-      const updateData: any = {
-        Photo: `/${uploadResult.Name}`
-      };
+      // Update the attachment record - ONLY update Drawings field, NOT Photo field
+      const updateData: any = {};
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // Prepare the drawings data with annotations and original file path
+        // Prepare the drawings data with annotations and annotated file path
         let drawingsObj = annotations;
         
         // If annotations is already a string, parse it
@@ -4789,14 +4836,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // Add original file path if available
+        // Add annotated file path (for display purposes)
+        drawingsObj.annotatedFilePath = `/${uploadResult.Name}`;
+        
+        // Add original file path if this is the first annotation
         if (originalFilePath) {
           drawingsObj.originalFilePath = originalFilePath;
         }
         
         // Store the complete data in Drawings field
         updateData.Drawings = JSON.stringify(drawingsObj);
-        console.log('📝 Storing in Drawings field:', updateData.Drawings);
+        console.log('📝 Storing in Drawings field (Photo field unchanged):', updateData.Drawings);
       }
       
       // Debug popup - show update request
