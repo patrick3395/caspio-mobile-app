@@ -1,6 +1,6 @@
 {
   "name": "ionic-app-base",
-  "version": "1.4.225",
+  "version": "1.4.226",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
@@ -37,6 +37,7 @@
     "@capacitor/live-updates": "^0.4.0",
     "@ionic/angular": "^8.0.0",
     "browser-image-compression": "^2.0.2",
+    "fabric": "^6.7.1",
     "ionicons": "^7.0.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.0",
