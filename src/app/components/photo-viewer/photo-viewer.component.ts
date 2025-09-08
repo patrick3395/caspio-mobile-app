@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
-import { PhotoAnnotatorComponent } from '../photo-annotator/photo-annotator.component';
+import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-photo-annotator.component';
 
 @Component({
   selector: 'app-photo-viewer',
@@ -132,7 +132,7 @@ export class PhotoViewerComponent {
   async openAnnotator() {
     // Open the annotation modal with existing annotations
     const annotationModal = await this.modalController.create({
-      component: PhotoAnnotatorComponent,
+      component: FabricPhotoAnnotatorComponent,
       componentProps: {
         imageUrl: this.photoUrl,
         existingAnnotations: this.existingAnnotations || [],
