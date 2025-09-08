@@ -3086,154 +3086,276 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Handle Yes/No answer change
   async onAnswerChange(category: string, item: any) {
-    console.log('Yes/No answer changed:', category, item.name, item.answer);
-    
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
     
-    // Show debug popup at start
-    const debugAlert = await this.alertController.create({
-      header: 'AnswerType 1 Debug - START',
-      message: `
-        <div style="text-align: left; font-family: monospace; font-size: 12px;">
-          <strong style="color: blue;">🔍 ANSWER CHANGE TRIGGERED</strong><br><br>
-          
-          <strong>Category:</strong> ${category}<br>
-          <strong>Item Name:</strong> ${item.name}<br>
-          <strong>Item ID:</strong> ${item.id}<br>
-          <strong>Answer Selected:</strong> <span style="color: green; font-weight: bold;">${item.answer || 'NONE'}</span><br>
-          <strong>Key:</strong> ${key}<br><br>
-          
-          <strong>Current State:</strong><br>
-          • Existing Visual ID: ${this.visualRecordIds[key] || 'NONE - Will Create New'}<br>
-          • Is Selected: ${this.selectedItems[key] ? 'YES' : 'NO'}<br>
-          • Original Text: ${item.originalText || 'Not stored'}<br>
-          • Current Text: ${item.text || 'Empty'}<br><br>
-          
-          <strong>Service Info:</strong><br>
-          • Service ID: ${this.serviceId || 'MISSING!'}<br>
-          • Project ID: ${this.projectId}<br><br>
-          
-          <strong style="color: red;">ACTION TO TAKE:</strong><br>
-          ${this.visualRecordIds[key] ? 
-            '✓ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
-            '➕ CREATE new Services_Visuals record'}<br>
-        </div>
-      `,
-      buttons: ['Continue'],
-      cssClass: 'wide-alert'
-    });
-    await debugAlert.present();
-    await debugAlert.onDidDismiss();
-    
     try {
-      // Check if visual already exists
       const existingVisualId = this.visualRecordIds[key];
       
       if (item.answer === 'Yes' || item.answer === 'No') {
         if (existingVisualId) {
           // Update existing record - only update the Answers field
-          console.log('Updating existing visual with new answer:', item.answer);
-          const updateData = {
-            Answers: item.answer
-          };
-          
-          try {
-            await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
-            console.log('✅ Updated Services_Visuals Answers field');
-            
-            // Show success debug
-            const successAlert = await this.alertController.create({
-              header: 'UPDATE SUCCESS',
-              message: `
-                <div style="font-family: monospace; font-size: 12px;">
-                  <strong style="color: green;">✅ SUCCESSFULLY UPDATED</strong><br><br>
-                  Visual ID: ${existingVisualId}<br>
-                  Answer: ${item.answer}<br>
-                </div>
-              `,
-              buttons: ['OK']
-            });
-            await successAlert.present();
-          } catch (updateError: any) {
-            const errorAlert = await this.alertController.create({
-              header: 'UPDATE FAILED',
-              message: `
-                <div style="font-family: monospace; font-size: 12px;">
-                  <strong style="color: red;">❌ UPDATE ERROR</strong><br><br>
-                  ${updateError?.message || updateError}<br>
-                </div>
-              `,
-              buttons: ['OK']
-            });
-            await errorAlert.present();
-            throw updateError;
-          }
+          const updateData = { Answers: item.answer };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
         } else {
           // Create new record with answer in Answers field
-          console.log('Creating new visual with answer:', item.answer);
-          
-          // Store answer in item for saveVisualSelection to use
           item.answerToSave = item.answer;
-          
-          // Preserve original text, store answer separately
           item.text = item.originalText || item.text;
-          // Mark as selected
           this.selectedItems[key] = true;
-          
-          // Show creation debug
-          const createAlert = await this.alertController.create({
-            header: 'CREATING NEW RECORD',
-            message: `
-              <div style="font-family: monospace; font-size: 12px;">
-                <strong style="color: blue;">➕ CREATING Services_Visuals</strong><br><br>
-                
-                <strong>Data to Send:</strong><br>
-                • ServiceID: ${this.serviceId}<br>
-                • Category: ${category}<br>
-                • Name: ${item.name}<br>
-                • Text: ${item.text}<br>
-                • Answer: ${item.answer}<br>
-                • Kind: ${item.kind || 'Comment'}<br><br>
-                
-                Calling saveVisualSelection...
-              </div>
-            `,
-            buttons: ['Continue']
-          });
-          await createAlert.present();
-          await createAlert.onDidDismiss();
-          
-          // Save will now include the Answers field
           await this.saveVisualSelection(category, item.id);
-          
-          // Check if it was created
-          const newVisualId = this.visualRecordIds[key];
-          const resultAlert = await this.alertController.create({
-            header: newVisualId ? 'CREATION SUCCESS' : 'CREATION FAILED',
-            message: `
-              <div style="font-family: monospace; font-size: 12px;">
-                ${newVisualId ? 
-                  '<strong style="color: green;">✅ RECORD CREATED</strong><br><br>New Visual ID: ' + newVisualId :
-                  '<strong style="color: red;">❌ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
-              </div>
-            `,
-            buttons: ['OK']
-          });
-          await resultAlert.present();
         }
       } else if (item.answer === '') {
         // If cleared and record exists, update to remove answer
         if (existingVisualId) {
-          console.log('Clearing answer from existing visual');
-          const updateData = {
-            Answers: ''
-          };
+          const updateData = { Answers: '' };
           await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
-          // Don't remove the record, just clear the answer
         }
-        // Clear selection state
         item.text = item.originalText;
+      }
+    } catch (error) {
+      console.error('Error handling answer change:', error);
+      await this.showToast('Failed to save answer', 'danger');
+    } finally {
+      this.savingItems[key] = false;
+    }
+  }
+  
+  // Handle multi-select change
+  async onMultiSelectChange(category: string, item: any) {
+    const key = `${category}_${item.id}`;
+    this.savingItems[key] = true;
+    const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
+    
+    try {
+      const existingVisualId = this.visualRecordIds[key];
+      
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        if (existingVisualId) {
+          // Update existing record - only update the Answers field
+          const updateData = { Answers: answersText };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        } else {
+          // Create new record with selections in Answers field
+          item.answerToSave = answersText;
+          item.text = item.originalText || item.text;
+          this.selectedItems[key] = true;
+          await this.saveVisualSelection(category, item.id);
+        }
+      } else {
+        // If no options selected and record exists, clear the answers
+        if (existingVisualId) {
+          const updateData = { Answers: '' };
+          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        }
+        item.text = item.originalText || '';
+      }
+    } catch (error) {
+      console.error('Error handling multi-select change:', error);
+      await this.showToast('Failed to save selections', 'danger');
+    } finally {
+      this.savingItems[key] = false;
+    }
+  }
+  
+  // Check if an option is selected for a multi-select item
+  isOptionSelected(item: any, option: string): boolean {
+    if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
+      return false;
+    }
+    return item.selectedOptions.includes(option);
+  }
+  
+  // Handle toggling an option in multi-select
+  async onOptionToggle(category: string, item: any, option: string, event: any) {
+    // Initialize selectedOptions if not present
+    if (!item.selectedOptions) {
+      item.selectedOptions = [];
+    }
+    
+    if (event.detail.checked) {
+      // Add option if not already present
+      if (!item.selectedOptions.includes(option)) {
+        item.selectedOptions.push(option);
+      }
+    } else {
+      // Remove option
+      const index = item.selectedOptions.indexOf(option);
+      if (index > -1) {
+        item.selectedOptions.splice(index, 1);
+      }
+    }
+    
+    // Update the text field and save
+    await this.onMultiSelectChange(category, item);
+  }
+  
+  // Save visual selection to Services_Visuals table
+  async saveVisualSelection(category: string, templateId: string) {
+    if (!this.serviceId) {
+      console.error('No ServiceID available for saving visual');
+      return;
+    }
+    
+    // Find the template data first
+    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
+    if (!template) {
+      console.error('Template not found:', templateId);
+      return;
+    }
+    
+    // Check if this visual already exists
+    const key = `${category}_${templateId}`;
+    if (this.visualRecordIds[key]) {
+      return;
+    }
+    
+    // Also check if it exists in the database but wasn't loaded yet
+    try {
+      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      if (existingVisuals) {
+        const exists = existingVisuals.find((v: any) => 
+          v.Category === category && 
+          v.Name === template.Name
+        );
+        if (exists) {
+          const existingId = exists.VisualID || exists.PK_ID || exists.id;
+          this.visualRecordIds[key] = String(existingId);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for existing visual:', error);
+    }
+    
+    // Convert ServiceID to number (Caspio expects Integer type)
+    const serviceIdNum = parseInt(this.serviceId, 10);
+    if (isNaN(serviceIdNum)) {
+      console.error('Invalid ServiceID - not a number:', this.serviceId);
+      await this.showToast('Invalid Service ID', 'danger');
+      return;
+    }
+    
+    // Get the item data to access answerType and answers
+    let answers = '';
+    let textValue = template.Text || '';
+    
+    // Find the item in organizedData to get current values
+    const findItem = (items: any[]) => items.find(i => i.id === templateId);
+    let item = null;
+    
+    if (this.organizedData[category]) {
+      item = findItem(this.organizedData[category].comments) ||
+             findItem(this.organizedData[category].limitations) ||
+             findItem(this.organizedData[category].deficiencies);
+    }
+    
+    if (item) {
+      // Check if we have answerToSave (set by onAnswerChange or onMultiSelectChange)
+      if (item.answerToSave) {
+        answers = item.answerToSave;
+        textValue = item.originalText || template.Text || '';
+      }
+      // For AnswerType 1 (Yes/No), store the answer in Answers field
+      else if (item.answerType === 1 && item.answer) {
+        answers = item.answer;
+        textValue = item.originalText || template.Text || '';
+      }
+      // For AnswerType 2 (multi-select), store comma-delimited answers
+      else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
+        answers = item.selectedOptions.join(', ');
+        textValue = item.originalText || template.Text || '';
+      }
+      // For AnswerType 0 or undefined (text), use the text field as is
+      else {
+        textValue = item.text || template.Text || '';
+      }
+    }
+    
+    // ONLY include the columns that exist in Services_Visuals table
+    const visualData: ServicesVisualRecord = {
+      ServiceID: serviceIdNum,
+      Category: category || '',
+      Kind: template.Kind || '',
+      Name: template.Name || '',
+      Text: textValue,
+      Notes: ''
+    };
+    
+    // Add Answers field if there are answers to store
+    if (answers) {
+      visualData.Answers = answers;
+    }
+    
+    try {
+      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+      
+      // Handle response to get the Visual ID
+      let visualId: any;
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
+        } else {
+          visualId = response.VisualID || response.PK_ID || response.id;
+        }
+      } else {
+        visualId = response;
+      }
+      
+      // Store the visual ID for future reference
+      const recordKey = `visual_${category}_${templateId}`;
+      localStorage.setItem(recordKey, String(visualId));
+      this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
+      
+    } catch (error: any) {
+      console.error('Error saving visual:', error);
+      await this.showToast('Failed to save visual', 'danger');
+    }
+  }
+  
+  // Remove visual selection from Services_Visuals table
+  async removeVisualSelection(category: string, templateId: string) {
+    // Check if we have a stored record ID
+    const recordKey = `visual_${category}_${templateId}`;
+    const recordId = localStorage.getItem(recordKey);
+    
+    if (recordId) {
+      try {
+        await this.caspioService.deleteServicesVisual(recordId).toPromise();
+        localStorage.removeItem(recordKey);
+      } catch (error) {
+        console.error('Failed to remove visual:', error);
+      }
+    }
+  }
+  
+  // Check if item is selected
+  isItemSelected(category: string, itemId: string): boolean {
+    return this.selectedItems[`${category}_${itemId}`] || false;
+  }
+
+  // Helper methods for PDF generation - check selection by visual ID
+  isCommentSelected(category: string, visualId: string): boolean {
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  isLimitationSelected(category: string, visualId: string): boolean {
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  isDeficiencySelected(category: string, visualId: string): boolean {
+    const key = `${category}_${visualId}`;
+    return this.selectedItems[key] || false;
+  }
+
+  // Get photo count for a visual ID
+  getVisualPhotoCount(visualId: string): number {
+    const photos = this.visualPhotos[visualId] || [];
+    return photos.length;
+  }
       }
     } catch (error: any) {
       console.error('Error handling answer change:', error);
@@ -3620,29 +3742,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       visualData.Answers = answers;
     }
     
-    console.log('📤 DATA BEING SENT TO SERVICES_VISUALS TABLE:');
-    console.log('=====================================');
-    console.log('COLUMN MAPPING TO SERVICES_VISUALS TABLE:');
-    console.log('   ServiceID (Integer):', visualData.ServiceID, typeof visualData.ServiceID);
-    console.log('   Category (Text 255):', visualData.Category);
-    console.log('   Kind (Text 255):', visualData.Kind);
-    console.log('   Name (Text 255):', visualData.Name);
-    console.log('   Text (Text field):', visualData.Text);
-    console.log('   Notes (Text 255):', visualData.Notes);
-    if (visualData.Answers) {
-      console.log('   Answers (Text):', visualData.Answers);
-    }
-    console.log('   AnswerType (from template):', item?.answerType || 0);
-    console.log('=====================================');
-    console.log('📦 Full visualData object being sent:', JSON.stringify(visualData, null, 2));
-    console.log('📌 Template info for reference (not sent):', {
-      TemplateID: templateId,
-      Text: template.Text
-    });
     
-    // Show debug popup with the data being sent
-    const debugAlert = await this.alertController.create({
-      header: 'Creating Services_Visuals Record',
+    try {
+      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
       message: `
         <div style="text-align: left; font-family: monospace; font-size: 12px;">
           <strong style="color: blue;">📤 SENDING TO SERVICES_VISUALS TABLE</strong><br><br>
@@ -4609,9 +4711,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         visualIdNum, 
         '', // Annotation field stays blank
-        photo,
+        originalPhoto || photo,
         drawingsData, // Pass the annotation JSON to Drawings field
-        originalPhoto || undefined // Pass original photo for future reference
+        undefined // Pass original photo for future reference
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);
