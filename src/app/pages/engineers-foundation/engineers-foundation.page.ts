@@ -4797,29 +4797,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Update the existing attachment with annotations
               await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData);
             
-            // Update the local photo data
-            const photoIndex = this.visualPhotos[visualId]?.findIndex(
-              (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
-            );
-            
-            if (photoIndex !== -1 && this.visualPhotos[visualId]) {
-              // Update the photo URL with the new blob
-              const newUrl = URL.createObjectURL(data.annotatedBlob);
-              this.visualPhotos[visualId][photoIndex].url = newUrl;
-              this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
-              this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
-              // Store annotations in the photo object
-              if (annotationsData) {
-                this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
+              // Update the local photo data
+              const photoIndex = this.visualPhotos[visualId]?.findIndex(
+                (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
+              );
+              
+              if (photoIndex !== -1 && this.visualPhotos[visualId]) {
+                // Update the photo URL with the new blob
+                const newUrl = URL.createObjectURL(data.annotatedBlob);
+                this.visualPhotos[visualId][photoIndex].url = newUrl;
+                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+                this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+                // Store annotations in the photo object
+                if (annotationsData) {
+                  this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
+                }
               }
+              
+              // Trigger change detection
+              this.changeDetectorRef.detectChanges();
+              
+              await this.showToast('Annotations saved', 'success');
+            } catch (error) {
+              await this.showToast('Failed to save annotations', 'danger');
             }
-            
-            // Trigger change detection
-            this.changeDetectorRef.detectChanges();
-            
-            await this.showToast('Annotations saved', 'success');
-          } catch (error) {
-            await this.showToast('Failed to save annotations', 'danger');
           }
         }
       }
@@ -4867,13 +4868,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } else if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
+        const annotationsData = data.annotationData || data.annotationsData;
         
         if (photo.AttachID || photo.id) {
           // Removed loading screen to allow debug popups to be visible
           
           try {
             // Update the existing attachment
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile);
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -5000,10 +5002,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Verify if visual was actually saved - v1.4.224
+  // Verify if visual was actually saved - v1.4.225 - FORCE REBUILD
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
-      console.log('[v1.4.224] Verifying if visual was saved...');
+      console.log('[v1.4.225] Verifying if visual was saved - REBUILD FORCED...');
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
