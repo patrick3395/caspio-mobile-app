@@ -205,7 +205,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     if (this.imageUrl || this.imageFile) {
       const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
       
-      fabric.Image.fromURL(imageUrl, (img: fabric.Image) => {
+      fabric.Image.fromURL(imageUrl).then((img: fabric.Image) => {
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
@@ -223,7 +223,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
         img.evented = false;
         
         // Add image as background
-        this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas));
+        this.canvas.backgroundImage = img;
+        this.canvas.renderAll();
         
         // Load existing annotations if any
         if (this.existingAnnotations && this.existingAnnotations.length > 0) {
@@ -235,8 +236,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     }
     
     // Set up drawing brush
-    this.canvas.freeDrawingBrush.width = this.strokeWidth;
-    this.canvas.freeDrawingBrush.color = this.currentColor;
+    if (this.canvas.freeDrawingBrush) {
+      this.canvas.freeDrawingBrush.width = this.strokeWidth;
+      this.canvas.freeDrawingBrush.color = this.currentColor;
+    }
     
     // Add event listeners for custom tools
     this.setupEventListeners();
@@ -257,7 +260,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     let tempArrowHead1: fabric.Line | null = null;
     let tempArrowHead2: fabric.Line | null = null;
     
-    this.canvas.on('mouse:down', (options: fabric.IEvent) => {
+    this.canvas.on('mouse:down', (options: fabric.TEvent) => {
       if (this.currentTool === 'arrow') {
         isDrawingArrow = true;
         const pointer = this.canvas.getPointer(options.e);
@@ -303,7 +306,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
       }
     });
     
-    this.canvas.on('mouse:move', (options: fabric.IEvent) => {
+    this.canvas.on('mouse:move', (options: fabric.TEvent) => {
       if (isDrawingArrow) {
         const pointer = this.canvas.getPointer(options.e);
         
@@ -376,7 +379,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
       }
     });
     
-    this.canvas.on('mouse:up', (options: fabric.IEvent) => {
+    this.canvas.on('mouse:up', (options: fabric.TEvent) => {
       if (isDrawingArrow) {
         isDrawingArrow = false;
         
@@ -442,8 +445,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     if (tool === 'pen') {
       this.canvas.isDrawingMode = true;
       this.canvas.selection = false;
-      this.canvas.freeDrawingBrush.color = this.currentColor;
-      this.canvas.freeDrawingBrush.width = this.strokeWidth;
+      if (this.canvas.freeDrawingBrush) {
+        this.canvas.freeDrawingBrush.color = this.currentColor;
+        this.canvas.freeDrawingBrush.width = this.strokeWidth;
+      }
     } else if (tool === 'select') {
       this.canvas.isDrawingMode = false;
       this.canvas.selection = true;
@@ -458,7 +463,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
   changeColor() {
     this.colorIndex = (this.colorIndex + 1) % this.colors.length;
     this.currentColor = this.colors[this.colorIndex];
-    this.canvas.freeDrawingBrush.color = this.currentColor;
+    if (this.canvas.freeDrawingBrush) {
+      this.canvas.freeDrawingBrush.color = this.currentColor;
+    }
     console.log(`🎨 [v1.4.224 FABRIC] Color changed to: ${this.currentColor}`);
   }
   
@@ -509,7 +516,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     // Export the canvas as image
     const dataUrl = this.canvas.toDataURL({
       format: 'jpeg',
-      quality: 0.9
+      quality: 0.9,
+      multiplier: 1
     });
     
     // Convert to blob
