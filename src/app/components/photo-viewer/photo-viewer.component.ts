@@ -130,12 +130,16 @@ export class PhotoViewerComponent {
   ) {}
 
   async openAnnotator() {
+    // Get existing annotations from photoData if available
+    const annotations = this.photoData?.annotations || this.existingAnnotations || [];
+    console.log('📝 Opening annotator with existing annotations:', annotations);
+    
     // Open the annotation modal with existing annotations
     const annotationModal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
         imageUrl: this.photoUrl,
-        existingAnnotations: this.existingAnnotations || [],
+        existingAnnotations: annotations,
         photoData: this.photoData
       },
       cssClass: 'fullscreen-modal'

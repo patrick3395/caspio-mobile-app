@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
@@ -74,7 +74,7 @@ import * as fabric from 'fabric';
         
         <!-- Debug Info -->
         <div class="debug-info">
-          <span class="version-badge">v1.4.229 FABRIC</span>
+          <span class="version-badge">v1.4.230 FABRIC</span>
           <span class="annotation-count">Annotations: {{ getAnnotationCount() }}</span>
         </div>
       </div>
@@ -161,7 +161,7 @@ import * as fabric from 'fabric';
     }
   `]
 })
-export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
+export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('fabricCanvas', { static: false }) canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvasContainer', { static: false }) canvasContainer!: ElementRef<HTMLDivElement>;
   
@@ -182,11 +182,32 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
   ) {}
   
   ngOnInit() {
-    console.log('🎨 [v1.4.229 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('🎨 [v1.4.230 FABRIC] Initializing Fabric.js photo annotator');
   }
   
   ngAfterViewInit() {
     setTimeout(() => this.initializeFabricCanvas(), 100);
+    
+    // Add keyboard listener for delete key
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
+  }
+  
+  ngOnDestroy() {
+    // Clean up keyboard listener
+    document.removeEventListener('keydown', this.handleKeyDown.bind(this));
+  }
+  
+  private handleKeyDown(event: KeyboardEvent) {
+    // Delete selected object when Delete or Backspace is pressed
+    if ((event.key === 'Delete' || event.key === 'Backspace') && this.canvas) {
+      const activeObject = this.canvas.getActiveObject();
+      if (activeObject && !(activeObject instanceof fabric.Image)) {
+        this.canvas.remove(activeObject);
+        this.canvas.discardActiveObject();
+        this.canvas.renderAll();
+        console.log('🗑️ Deleted selected annotation');
+      }
+    }
   }
   
   async initializeFabricCanvas() {
@@ -401,7 +422,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
       }
       this.isDrawing = false;
       
-      console.log(`📊 [v1.4.229 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
+      console.log(`📊 [v1.4.230 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
     });
   }
   
@@ -457,7 +478,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
       this.canvas.selection = false;
     }
     
-    console.log(`🔧 [v1.4.229 FABRIC] Tool selected: ${tool}`);
+    console.log(`🔧 [v1.4.230 FABRIC] Tool selected: ${tool}`);
   }
   
   changeColor() {
@@ -466,7 +487,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     if (this.canvas.freeDrawingBrush) {
       this.canvas.freeDrawingBrush.color = this.currentColor;
     }
-    console.log(`🎨 [v1.4.229 FABRIC] Color changed to: ${this.currentColor}`);
+    console.log(`🎨 [v1.4.230 FABRIC] Color changed to: ${this.currentColor}`);
   }
   
   undo() {
@@ -476,7 +497,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
       const lastObject = objects[objects.length - 1];
       if (!(lastObject instanceof fabric.Image)) {
         this.canvas.remove(lastObject);
-        console.log(`↩️ [v1.4.229 FABRIC] Undo - removed last annotation`);
+        console.log(`↩️ [v1.4.230 FABRIC] Undo - removed last annotation`);
       }
     }
   }
@@ -489,16 +510,23 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
         this.canvas.remove(obj);
       }
     });
-    console.log(`🗑️ [v1.4.229 FABRIC] Cleared all annotations`);
+    this.canvas.renderAll();
+    console.log(`🗑️ [v1.4.230 FABRIC] Cleared all annotations`);
   }
   
   deleteSelected() {
+    // Delete the currently selected object
     const activeObject = this.canvas.getActiveObject();
     if (activeObject && !(activeObject instanceof fabric.Image)) {
       this.canvas.remove(activeObject);
-      console.log(`❌ [v1.4.229 FABRIC] Deleted selected object`);
+      this.canvas.discardActiveObject();
+      this.canvas.renderAll();
+      console.log('🗑️ [v1.4.230 FABRIC] Deleted selected annotation');
+    } else {
+      console.log('⚠️ [v1.4.230 FABRIC] No annotation selected to delete');
     }
   }
+  
   
   getAnnotationCount(): number {
     // Count all objects except the background image
@@ -506,10 +534,85 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     return objects.filter((obj: fabric.Object) => !(obj instanceof fabric.Image)).length;
   }
   
-  private loadExistingAnnotations() {
-    // This would load existing annotations from the input
-    // Format would need to be adapted based on your data structure
-    console.log(`📥 [v1.4.229 FABRIC] Loading ${this.existingAnnotations?.length} existing annotations`);
+  private async loadExistingAnnotations() {
+    console.log(`📥 [v1.4.230 FABRIC] Loading existing annotations...`, this.existingAnnotations);
+    
+    if (!this.existingAnnotations || !this.canvas) {
+      console.log('No annotations to load or canvas not ready');
+      return;
+    }
+    
+    try {
+      // Check if existingAnnotations is a JSON object with fabric data
+      if (this.existingAnnotations && typeof this.existingAnnotations === 'object') {
+        // If it's already a parsed object with 'objects' property (Fabric.js format)
+        if ('objects' in this.existingAnnotations) {
+          const fabricData = this.existingAnnotations as any;
+          
+          // Get the background image first (to preserve it)
+          const backgroundImage = this.canvas.backgroundImage;
+          
+          // Load the annotations (but filter out any images to avoid duplicates)
+          const annotationObjects = fabricData.objects?.filter((obj: any) => 
+            obj.type !== 'image'
+          ) || [];
+          
+          // Add each annotation object to the canvas
+          // In fabric v6, we need to use loadFromJSON or manually create objects
+          for (const objData of annotationObjects) {
+            try {
+              // Create the appropriate fabric object based on type
+              let obj: fabric.Object | null = null;
+              
+              switch(objData.type) {
+                case 'path':
+                  obj = new fabric.Path(objData.path, objData);
+                  break;
+                case 'line':
+                  obj = new fabric.Line(objData.points || [objData.x1, objData.y1, objData.x2, objData.y2], objData);
+                  break;
+                case 'rect':
+                  obj = new fabric.Rect(objData);
+                  break;
+                case 'circle':
+                  obj = new fabric.Circle(objData);
+                  break;
+                case 'text':
+                  obj = new fabric.Text(objData.text || '', objData);
+                  break;
+                case 'polyline':
+                  obj = new fabric.Polyline(objData.points || [], objData);
+                  break;
+                default:
+                  console.warn('Unknown object type:', objData.type);
+              }
+              
+              if (obj) {
+                this.canvas.add(obj);
+              }
+            } catch (e) {
+              console.error('Error creating object:', e, objData);
+            }
+          }
+          this.canvas.renderAll();
+          
+          console.log(`✅ Loaded ${annotationObjects.length} annotations from Fabric data`);
+        }
+        // If it's a string, try to parse it
+        else if (typeof this.existingAnnotations === 'string') {
+          try {
+            const parsed = JSON.parse(this.existingAnnotations as string);
+            this.existingAnnotations = parsed;
+            // Recursively call with parsed data
+            await this.loadExistingAnnotations();
+          } catch (e) {
+            console.error('Failed to parse annotation string:', e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing annotations:', error);
+    }
   }
   
   async save() {
@@ -526,7 +629,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
     // Also export the annotation data for future editing
     const annotationData = this.canvas.toJSON();
     
-    console.log(`💾 [v1.4.229 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
+    console.log(`💾 [v1.4.230 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
     
     this.modalController.dismiss({
       annotatedBlob: blob,  // Use same property name as old annotator for compatibility
