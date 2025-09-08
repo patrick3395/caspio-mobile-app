@@ -611,7 +611,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const templateId = String(row.TemplateID); // Convert to string for consistency
           const dropdownValue = row.Dropdown;
           
-          console.log(`Processing dropdown row: TemplateID=${templateId}, Dropdown=${dropdownValue}`);
+          console.log(`Processing dropdown row: TemplateID=${templateId}, Dropdown=${dropdownValue}, Full Row:`, row);
           
           if (templateId && dropdownValue) {
             if (!this.visualDropdownOptions[templateId]) {
@@ -626,6 +626,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         console.log('Visual dropdown options loaded:', this.visualDropdownOptions);
         console.log('Template IDs with options:', Object.keys(this.visualDropdownOptions));
+        
+        // Log details about what dropdown options are available for each TemplateID
+        Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
+          console.log(`TemplateID ${templateId} has ${(options as string[]).length} options:`, options);
+        });
       } else {
         console.log('No dropdown data found in Services_Visuals_Drop');
       }
@@ -2023,15 +2028,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Organize templates by Type
         categoryTemplates.forEach(template => {
+          // Log template details for AnswerType 2 items
+          if (template.AnswerType === 2) {
+            console.log(`Template with AnswerType 2: Name="${template.Name}", TemplateID=${template.TemplateID}, PK_ID=${template.PK_ID}`);
+          }
+          
           const templateData: any = {
             id: template.PK_ID,
             name: template.Name,
             text: template.Text || '',
+            originalText: template.Text || '', // Preserve original text for display
+            answer: '', // Separate field for Yes/No answer
             kind: template.Kind, // Changed from Type to Kind
             category: template.Category,
             answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
             required: template.Required || false,
-            templateId: String(template.PK_ID), // Store as string for dropdown loading consistency
+            templateId: String(template.TemplateID || template.PK_ID), // Use TemplateID field to match Services_Visuals_Drop, fallback to PK_ID
             selectedOptions: [] // For multi-select (AnswerType 2)
           };
           
@@ -2149,6 +2161,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 const item = items.find(i => i.id === matchingTemplate.PK_ID);
                 if (item) {
                   item.text = visual.Text || '';
+                  
+                  // For Yes/No questions, set the answer field
+                  if (item.answerType === 1 && (visual.Text === 'Yes' || visual.Text === 'No')) {
+                    item.answer = visual.Text;
+                    // Keep original text for display
+                    // item.originalText is already set from template
+                  }
                   
                   // For multi-select, parse comma-delimited text into array
                   if (item.answerType === 2 && visual.Text) {
@@ -3049,19 +3068,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Handle Yes/No answer change
   async onAnswerChange(category: string, item: any) {
-    console.log('Yes/No answer changed:', category, item.name, item.text);
+    console.log('Yes/No answer changed:', category, item.name, item.answer);
     
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
     
     try {
+      // Store the answer in the answer field, preserve original text
+      const previousAnswer = item.answer;
+      
       // If answer is Yes or No, save to Services_Visuals
-      if (item.text === 'Yes' || item.text === 'No') {
+      if (item.answer === 'Yes' || item.answer === 'No') {
+        // Update the text field with the answer for saving to database
+        item.text = item.answer;
         // Mark as selected and save
         this.selectedItems[key] = true;
         await this.saveVisualSelection(category, item.id);
-      } else if (item.text === '') {
-        // If cleared, remove from Services_Visuals
+      } else if (item.answer === '') {
+        // If cleared, restore original text and remove from Services_Visuals
+        item.text = item.originalText;
         this.selectedItems[key] = false;
         await this.removeVisualSelection(category, item.id);
       }
@@ -3967,8 +3992,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Annotate photo before upload
-  async annotatePhoto(photo: File): Promise<File> {
+  // Annotate photo before upload - returns object with file and annotation data
+  async annotatePhoto(photo: File): Promise<{ file: File, annotationData?: any, originalFile?: File }> {
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
@@ -3980,23 +4005,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await modal.present();
     const { data } = await modal.onDidDismiss();
     
-    if (data) {
-      // Handle new Fabric.js annotator response
-      if (data.blob) {
-        // Convert blob to File with same name
-        return new File([data.blob], photo.name, { type: 'image/jpeg' });
-      } else if (data instanceof Blob) {
-        // Fallback for old annotator
-        return new File([data], photo.name, { type: 'image/jpeg' });
-      }
+    if (data && data.blob) {
+      // Handle new Fabric.js annotator response with annotation data
+      const annotatedFile = new File([data.blob], photo.name, { type: 'image/jpeg' });
+      return {
+        file: annotatedFile,
+        annotationData: data.annotationData || data.annotationsData, // Get the Fabric.js JSON
+        originalFile: photo // Keep reference to original for future re-editing
+      };
     }
     
     // Return original photo if annotation was cancelled
-    return photo;
+    return { file: photo, annotationData: null, originalFile: photo };
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
-  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false) {
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
     
@@ -4128,7 +4152,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false);
+              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, annotationData, originalPhoto);
             }
           }
         ]
@@ -4137,7 +4161,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true);
+        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, annotationData, originalPhoto);
       }
       
     } catch (error) {
@@ -4147,13 +4171,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false) {
+  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
     try {
+      // Prepare the Drawings field data (annotation JSON)
+      const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
+      
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         visualIdNum, 
-        '', // Annotation blank for now as requested
-        photo
+        '', // Annotation field stays blank
+        photo,
+        drawingsData, // Pass the annotation JSON to Drawings field
+        originalPhoto // Pass original photo for future reference
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);
@@ -5184,6 +5213,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 name: photo.Photo || 'Photo',
                 Photo: photo.Photo || '', // Keep the original Photo path
                 caption: photo.Annotation || '',  // Load existing caption from Annotation field
+                annotations: photo.Annotation || null,  // CRITICAL: Load annotations for the annotator
+                hasAnnotations: !!photo.Annotation,
                 url: '',
                 thumbnailUrl: ''
               };
@@ -5969,11 +6000,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.log(`Visual ${visualId} has ${attachments.length} attachments`);
           
           // Store the attachments in our mapping
-          this.visualPhotos[visualId] = attachments.map((att: any) => ({
-            Photo: att.Photo,
-            Annotation: att.Annotation,
-            AttachID: att.AttachID || att.PK_ID
-          }));
+          this.visualPhotos[visualId] = attachments.map((att: any) => {
+            // Parse Drawings field if it contains annotation JSON
+            let annotationData = null;
+            let originalFilePath = null;
+            
+            if (att.Drawings) {
+              try {
+                const drawingsData = JSON.parse(att.Drawings);
+                annotationData = drawingsData;
+                originalFilePath = drawingsData.originalFilePath || null;
+                console.log(`📝 Loaded annotation data for AttachID ${att.AttachID}:`, annotationData);
+              } catch (e) {
+                console.log(`⚠️ Could not parse Drawings field for AttachID ${att.AttachID}`);
+              }
+            }
+            
+            return {
+              Photo: att.Photo,
+              Annotation: att.Annotation,
+              Drawings: att.Drawings,  // Store raw Drawings field
+              annotations: annotationData,  // Store parsed annotation JSON
+              annotationsData: annotationData,  // Also store as annotationsData for compatibility
+              originalFilePath: originalFilePath,  // Store path to original image if available
+              hasAnnotations: !!annotationData,
+              AttachID: att.AttachID || att.PK_ID
+            };
+          });
         }
       }
       

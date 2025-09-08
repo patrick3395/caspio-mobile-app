@@ -10,62 +10,46 @@ import * as fabric from 'fabric';
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
-        <ion-title style="color: white; font-weight: 600;">Annotate Photo</ion-title>
-        <ion-buttons slot="end">
+      <ion-toolbar style="--background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <ion-buttons slot="start">
           <ion-button (click)="dismiss()" style="color: white;">
-            <ion-icon name="close"></ion-icon>
+            <ion-icon name="arrow-back-outline" style="font-size: 24px;"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title style="color: white; font-weight: 500; text-align: center;">Photo Editor</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="save()" style="color: white;">
+            <ion-icon name="checkmark-outline" style="font-size: 28px; font-weight: bold;"></ion-icon>
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
     
     <ion-content>
-      <div class="annotation-toolbar">
-        <ion-segment [(ngModel)]="currentTool" (ionChange)="selectTool($event)">
-          <ion-segment-button value="select">
-            <ion-icon name="hand-left-outline"></ion-icon>
-            <ion-label>Select</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="pen">
-            <ion-icon name="brush-outline"></ion-icon>
-            <ion-label>Draw</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="arrow">
-            <ion-icon name="arrow-forward-outline"></ion-icon>
-            <ion-label>Arrow</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="rectangle">
-            <ion-icon name="square-outline"></ion-icon>
-            <ion-label>Rectangle</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="circle">
-            <ion-icon name="ellipse-outline"></ion-icon>
-            <ion-label>Circle</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="text">
-            <ion-icon name="text-outline"></ion-icon>
-            <ion-label>Text</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-
-        <div class="annotation-controls">
-          <ion-button fill="clear" (click)="changeColor()">
+      <div class="annotation-tools-container">
+        <div class="main-tools">
+          <button class="tool-btn color-btn" (click)="changeColor()">
             <ion-icon name="color-palette-outline"></ion-icon>
-            <div class="color-preview" [style.background]="currentColor"></div>
-          </ion-button>
-          
-          <ion-button fill="clear" (click)="undo()">
-            <ion-icon name="arrow-undo-outline"></ion-icon>
-          </ion-button>
-          
-          <ion-button fill="clear" (click)="clearAll()">
+            <div class="color-indicator" [style.background]="currentColor"></div>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'arrow'" (click)="setTool('arrow')">
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'rectangle'" (click)="setTool('rectangle')">
+            <ion-icon name="square-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')">
+            <ion-icon name="text-outline"></ion-icon>
+          </button>
+        </div>
+        
+        <div class="bottom-tools">
+          <button class="tool-btn" (click)="undo()">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" (click)="clearAll()">
             <ion-icon name="trash-outline"></ion-icon>
-          </ion-button>
-          
-          <ion-button fill="clear" (click)="deleteSelected()">
-            <ion-icon name="close-circle-outline"></ion-icon>
-          </ion-button>
+          </button>
         </div>
       </div>
       
@@ -74,54 +58,97 @@ import * as fabric from 'fabric';
         
         <!-- Debug Info -->
         <div class="debug-info">
-          <span class="version-badge">v1.4.230 FABRIC</span>
-          <span class="annotation-count">Annotations: {{ getAnnotationCount() }}</span>
+          <span class="version-badge">v1.4.234</span>
         </div>
       </div>
       
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button (click)="save()" color="success">
-          <ion-icon name="checkmark"></ion-icon>
-        </ion-fab-button>
-      </ion-fab>
     </ion-content>
   `,
   styles: [`
-    .annotation-toolbar {
-      padding: 10px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ddd;
+    .annotation-tools-container {
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     
-    .annotation-controls {
+    .main-tools {
       display: flex;
-      gap: 10px;
-      margin-top: 10px;
-      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
     }
     
-    .color-preview {
-      width: 20px;
-      height: 20px;
+    .bottom-tools {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    
+    .tool-btn {
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 12px;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    
+    .tool-btn:hover {
+      background: rgba(255,255,255,0.35);
+      transform: scale(1.05);
+    }
+    
+    .tool-btn.active {
+      background: rgba(255,255,255,0.5);
+      border-color: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .tool-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .tool-btn ion-icon {
+      font-size: 24px;
+    }
+    
+    .color-btn {
+      position: relative;
+    }
+    
+    .color-indicator {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      border: 2px solid #333;
-      margin-left: 5px;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
     .canvas-container {
       position: relative;
       width: 100%;
-      height: calc(100% - 120px);
+      height: calc(100% - 150px);
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #e0e0e0;
+      background: #f5f5f5;
       overflow: auto;
     }
     
     canvas {
-      border: 1px solid #ccc;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border: 2px solid #ddd;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background: white;
     }
     
     .debug-info {
@@ -141,24 +168,6 @@ import * as fabric from 'fabric';
       font-weight: bold;
       font-size: 12px;
     }
-    
-    .annotation-count {
-      background: #00aa00;
-      color: white;
-      padding: 5px 10px;
-      border-radius: 4px;
-      font-weight: bold;
-      font-size: 12px;
-    }
-    
-    ion-segment {
-      --background: white;
-    }
-    
-    ion-segment-button {
-      --indicator-color: #F15A27;
-      --color-checked: #F15A27;
-    }
   `]
 })
 export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -170,7 +179,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   @Input() existingAnnotations?: any[] = [];
   
   private canvas!: fabric.Canvas;
-  currentTool = 'select';
+  currentTool = 'arrow';
   currentColor = '#FF0000';
   private strokeWidth = 3;
   private isDrawing = false;
@@ -182,7 +191,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('🎨 [v1.4.230 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('🎨 [v1.4.234 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('📥 [v1.4.234 FABRIC] Existing annotations:', this.existingAnnotations);
   }
   
   ngAfterViewInit() {
@@ -255,12 +265,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             : Object.keys(this.existingAnnotations).length > 0;
             
           if (hasAnnotations) {
-            console.log('📋 [v1.4.230 FABRIC] Found existing annotations to load');
+            console.log('📋 [v1.4.234 FABRIC] Found existing annotations to load:`, this.existingAnnotations);
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
         
-        console.log('✅ [v1.4.228 FABRIC] Canvas initialized with image');
+        console.log('✅ [v1.4.234 FABRIC] Canvas initialized with image');
       });
     }
     
@@ -430,7 +440,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
       this.isDrawing = false;
       
-      console.log(`📊 [v1.4.230 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
+      console.log(`📊 [v1.4.233 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
     });
   }
   
@@ -466,27 +476,19 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     return new fabric.Group([line, arrowHead1, arrowHead2]);
   }
   
-  selectTool(event: any) {
-    const tool = event.detail.value;
+  setTool(tool: string) {
     this.currentTool = tool;
     
-    // Update canvas mode based on tool
-    if (tool === 'pen') {
-      this.canvas.isDrawingMode = true;
-      this.canvas.selection = false;
-      if (this.canvas.freeDrawingBrush) {
-        this.canvas.freeDrawingBrush.color = this.currentColor;
-        this.canvas.freeDrawingBrush.width = this.strokeWidth;
-      }
-    } else if (tool === 'select') {
-      this.canvas.isDrawingMode = false;
-      this.canvas.selection = true;
-    } else {
-      this.canvas.isDrawingMode = false;
-      this.canvas.selection = false;
-    }
+    // Always disable drawing mode and selection for our simplified tools
+    this.canvas.isDrawingMode = false;
+    this.canvas.selection = false;
     
-    console.log(`🔧 [v1.4.230 FABRIC] Tool selected: ${tool}`);
+    console.log(`🔧 [v1.4.233 FABRIC] Tool selected: ${tool}`);
+  }
+  
+  selectTool(event: any) {
+    const tool = event.detail.value;
+    this.setTool(tool);
   }
   
   changeColor() {
@@ -495,7 +497,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (this.canvas.freeDrawingBrush) {
       this.canvas.freeDrawingBrush.color = this.currentColor;
     }
-    console.log(`🎨 [v1.4.230 FABRIC] Color changed to: ${this.currentColor}`);
+    console.log(`🎨 [v1.4.233 FABRIC] Color changed to: ${this.currentColor}`);
   }
   
   undo() {
@@ -505,7 +507,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       const lastObject = objects[objects.length - 1];
       if (!(lastObject instanceof fabric.Image)) {
         this.canvas.remove(lastObject);
-        console.log(`↩️ [v1.4.230 FABRIC] Undo - removed last annotation`);
+        console.log(`↩️ [v1.4.233 FABRIC] Undo - removed last annotation`);
       }
     }
   }
@@ -519,36 +521,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
     });
     this.canvas.renderAll();
-    console.log(`🗑️ [v1.4.230 FABRIC] Cleared all annotations`);
+    console.log(`🗑️ [v1.4.233 FABRIC] Cleared all annotations`);
   }
   
-  deleteSelected() {
-    // Delete the currently selected object
-    const activeObject = this.canvas.getActiveObject();
-    console.log('🔍 [v1.4.230 FABRIC] Delete attempt:');
-    console.log('  - Active object:', activeObject);
-    console.log('  - Object type:', activeObject?.type);
-    console.log('  - Is Image?:', activeObject instanceof fabric.Image);
-    console.log('  - Total objects on canvas:', this.canvas.getObjects().length);
-    
-    if (activeObject && !(activeObject instanceof fabric.Image)) {
-      this.canvas.remove(activeObject);
-      this.canvas.discardActiveObject();
-      this.canvas.renderAll();
-      console.log('✅ [v1.4.230 FABRIC] Successfully deleted annotation');
-      console.log(`  - Remaining objects: ${this.canvas.getObjects().length}`);
-    } else if (activeObject instanceof fabric.Image) {
-      console.log('⚠️ [v1.4.230 FABRIC] Cannot delete background image');
-    } else {
-      console.log('⚠️ [v1.4.230 FABRIC] No annotation selected to delete');
-      // List all objects on canvas for debugging
-      console.log('  - Canvas objects:', this.canvas.getObjects().map(o => ({
-        type: o.type,
-        selectable: o.selectable,
-        evented: o.evented
-      })));
-    }
-  }
+  // Removed deleteSelected() method as we no longer have a select tool
   
   
   getAnnotationCount(): number {
@@ -558,7 +534,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   private async loadExistingAnnotations() {
-    console.log(`📥 [v1.4.230 FABRIC] Loading existing annotations...`, this.existingAnnotations);
+    console.log(`📥 [v1.4.233 FABRIC] Loading existing annotations...`);
+    console.log('[v1.4.233] Raw annotation data:', this.existingAnnotations);
+    console.log('[v1.4.233] Type of annotation data:', typeof this.existingAnnotations);
     
     if (!this.existingAnnotations || !this.canvas) {
       console.log('No annotations to load or canvas not ready');
@@ -668,12 +646,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         
         this.canvas.renderAll();
         
-        // Make sure selection is enabled so user can delete annotations
-        this.canvas.selection = true;
-        this.currentTool = 'select';
+        // Keep default arrow tool
+        this.currentTool = 'arrow';
         
-        console.log(`✅ [v1.4.230 FABRIC] Successfully loaded ${annotationObjects.length} annotations`);
-        console.log('🔧 [v1.4.230 FABRIC] Set tool to SELECT mode for editing');
+        console.log(`✅ [v1.4.233 FABRIC] Successfully loaded ${annotationObjects.length} annotations`);
+        console.log('[v1.4.233] Canvas now has', this.canvas.getObjects().length, 'total objects');
       } else {
         console.log('⚠️ No valid Fabric.js data found in annotations');
       }
@@ -696,7 +673,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     // Also export the annotation data for future editing
     const annotationData = this.canvas.toJSON();
     
-    console.log(`💾 [v1.4.230 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
+    console.log(`💾 [v1.4.233 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
+    console.log('📤 [v1.4.233 FABRIC] Annotation data being saved:', annotationData);
     
     this.modalController.dismiss({
       annotatedBlob: blob,  // Use same property name as old annotator for compatibility

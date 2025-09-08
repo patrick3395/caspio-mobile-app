@@ -132,10 +132,20 @@ export class PhotoViewerComponent {
   async openAnnotator() {
     // Get existing annotations from photoData if available
     const annotations = this.photoData?.annotations || this.photoData?.annotationsData || this.existingAnnotations || [];
+    
+    // Check if we have an original image path to use instead of the annotated one
+    const originalImageUrl = this.photoData?.originalFilePath 
+      ? await this.getImageUrl(this.photoData.originalFilePath)
+      : null;
+    
+    const imageToAnnotate = originalImageUrl || this.photoUrl;
+    
     console.log('📝 [PhotoViewer] Opening annotator with:');
     console.log('  - photoData:', this.photoData);
     console.log('  - annotations from photoData:', this.photoData?.annotations);
     console.log('  - annotationsData from photoData:', this.photoData?.annotationsData);
+    console.log('  - originalFilePath:', this.photoData?.originalFilePath);
+    console.log('  - Using image URL:', imageToAnnotate);
     console.log('  - existingAnnotations prop:', this.existingAnnotations);
     console.log('  - Final annotations to pass:', annotations);
     
@@ -143,9 +153,10 @@ export class PhotoViewerComponent {
     const annotationModal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
-        imageUrl: this.photoUrl,
+        imageUrl: imageToAnnotate,  // Use original image if available
         existingAnnotations: annotations,
-        photoData: this.photoData
+        photoData: this.photoData,
+        isReEdit: !!originalImageUrl  // Flag to indicate we're re-editing
       },
       cssClass: 'fullscreen-modal'
     });
@@ -221,5 +232,18 @@ export class PhotoViewerComponent {
 
   dismiss() {
     this.modalController.dismiss();
+  }
+  
+  // Helper method to construct the full image URL from Caspio file path
+  private async getImageUrl(filePath: string): Promise<string> {
+    // If it's already a full URL, return it
+    if (filePath.startsWith('http')) {
+      return filePath;
+    }
+    
+    // Construct Caspio file URL
+    // You may need to adjust this based on your Caspio configuration
+    const baseUrl = 'https://c7esh782.caspio.com/dp/95678000'; // Update with your actual Caspio base URL
+    return `${baseUrl}/files${filePath}`;
   }
 }

@@ -368,31 +368,32 @@
                   </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
-                      <!-- Yes/No questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 1">
-                        <ion-label class="item-label">
-                          <h3>
+                      <!-- Yes/No questions - vertical layout with dropdown below -->
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header">
+                          <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <div class="item-text-wrapper" *ngIf="item.text">
-                            <p class="item-text">{{ item.text }}</p>
-                          </div>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.text" 
-                          placeholder="Select"
-                          interface="popover"
-                          (ionChange)="onAnswerChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option value="">None</ion-select-option>
-                          <ion-select-option value="Yes">Yes</ion-select-option>
-                          <ion-select-option value="No">No</ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                        </div>
+                        <div class="item-text-wrapper" *ngIf="item.originalText">
+                          <p class="item-text">{{ item.originalText }}</p>
+                        </div>
+                        <div class="dropdown-container">
+                          <ion-select 
+                            [(ngModel)]="item.answer" 
+                            placeholder="Select an answer"
+                            interface="popover"
+                            (ionChange)="onAnswerChange(category, item)"
+                            [disabled]="isItemSaving(category, item.id)"
+                            class="answer-select-dropdown">
+                            <ion-select-option value="">None</ion-select-option>
+                            <ion-select-option value="Yes">Yes</ion-select-option>
+                            <ion-select-option value="No">No</ion-select-option>
+                          </ion-select>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+                        </div>
+                      </div>
                       
                       <!-- Multi-select questions - show checkboxes for each option -->
                       <div class="multi-select-container" *ngIf="item.answerType === 2">
@@ -501,31 +502,32 @@
                   </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].limitations">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
-                      <!-- Yes/No questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 1">
-                        <ion-label class="item-label">
-                          <h3>
+                      <!-- Yes/No questions - vertical layout with dropdown below -->
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header">
+                          <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <div class="item-text-wrapper" *ngIf="item.text">
-                            <p class="item-text">{{ item.text }}</p>
-                          </div>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.text" 
-                          placeholder="Select"
-                          interface="popover"
-                          (ionChange)="onAnswerChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option value="">None</ion-select-option>
-                          <ion-select-option value="Yes">Yes</ion-select-option>
-                          <ion-select-option value="No">No</ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                        </div>
+                        <div class="item-text-wrapper" *ngIf="item.originalText">
+                          <p class="item-text">{{ item.originalText }}</p>
+                        </div>
+                        <div class="dropdown-container">
+                          <ion-select 
+                            [(ngModel)]="item.answer" 
+                            placeholder="Select an answer"
+                            interface="popover"
+                            (ionChange)="onAnswerChange(category, item)"
+                            [disabled]="isItemSaving(category, item.id)"
+                            class="answer-select-dropdown">
+                            <ion-select-option value="">None</ion-select-option>
+                            <ion-select-option value="Yes">Yes</ion-select-option>
+                            <ion-select-option value="No">No</ion-select-option>
+                          </ion-select>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+                        </div>
+                      </div>
                       
                       <!-- Multi-select questions - show checkboxes for each option -->
                       <div class="multi-select-container" *ngIf="item.answerType === 2">
@@ -634,31 +636,32 @@
                   </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
-                      <!-- Yes/No questions - no checkbox, direct dropdown -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="item.answerType === 1">
-                        <ion-label class="item-label">
-                          <h3>
+                      <!-- Yes/No questions - vertical layout with dropdown below -->
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header">
+                          <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <div class="item-text-wrapper" *ngIf="item.text">
-                            <p class="item-text">{{ item.text }}</p>
-                          </div>
-                        </ion-label>
-                        <ion-select 
-                          [(ngModel)]="item.text" 
-                          placeholder="Select"
-                          interface="popover"
-                          (ionChange)="onAnswerChange(category, item)"
-                          [disabled]="isItemSaving(category, item.id)"
-                          slot="end"
-                          class="answer-select">
-                          <ion-select-option value="">None</ion-select-option>
-                          <ion-select-option value="Yes">Yes</ion-select-option>
-                          <ion-select-option value="No">No</ion-select-option>
-                        </ion-select>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
-                      </ion-item>
+                        </div>
+                        <div class="item-text-wrapper" *ngIf="item.originalText">
+                          <p class="item-text">{{ item.originalText }}</p>
+                        </div>
+                        <div class="dropdown-container">
+                          <ion-select 
+                            [(ngModel)]="item.answer" 
+                            placeholder="Select an answer"
+                            interface="popover"
+                            (ionChange)="onAnswerChange(category, item)"
+                            [disabled]="isItemSaving(category, item.id)"
+                            class="answer-select-dropdown">
+                            <ion-select-option value="">None</ion-select-option>
+                            <ion-select-option value="Yes">Yes</ion-select-option>
+                            <ion-select-option value="No">No</ion-select-option>
+                          </ion-select>
+                          <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+                        </div>
+                      </div>
                       
                       <!-- Multi-select questions - show checkboxes for each option -->
                       <div class="multi-select-container" *ngIf="item.answerType === 2">

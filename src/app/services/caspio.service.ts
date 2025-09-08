@@ -1044,12 +1044,12 @@ export class CaspioService {
   }
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
-  createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File): Observable<any> {
+  createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
     console.log('📦 Two-step upload for Services_Visuals_Attach using Files API');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadVisualsAttachWithFilesAPI(visualId, annotation, file)
+      this.uploadVisualsAttachWithFilesAPI(visualId, annotation, file, drawings, originalFile)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -1061,13 +1061,14 @@ export class CaspioService {
   }
 
   // New method using PROVEN Files API approach for Services_Visuals_Attach
-  private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File) {
+  private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File) {
     console.log('📦 Services_Visuals_Attach upload using PROVEN Files API method');
     console.log('====== TABLE STRUCTURE ======');
     console.log('AttachID: Autonumber (Primary Key)');
     console.log('VisualID: Integer (Foreign Key)');
     console.log('Photo: File (stores path)');
     console.log('Annotation: Text(255)');
+    console.log('Drawings: Text (stores annotation JSON)');
     console.log('=============================');
     
     const accessToken = this.tokenSubject.value;
@@ -1077,10 +1078,36 @@ export class CaspioService {
     console.log('  VisualID:', visualId, '(type:', typeof visualId, ')');
     console.log('  Annotation:', annotation || '(empty)');
     console.log('  File:', file.name, 'Size:', file.size);
+    console.log('  Has Drawings:', !!drawings);
+    console.log('  Has Original File:', !!originalFile);
     
     try {
-      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
-      console.log('Step 1: Uploading file to Caspio Files API...');
+      let originalFilePath = '';
+      
+      // STEP 1A: If we have an original file (before annotation), upload it first
+      if (originalFile && drawings) {
+        console.log('Step 1A: Uploading original (un-annotated) file to Caspio Files API...');
+        const originalFormData = new FormData();
+        const originalFileName = `original_${originalFile.name}`;
+        originalFormData.append('file', originalFile, originalFileName);
+        
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+        
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+          console.log('✅ Original file uploaded:', originalFilePath);
+        }
+      }
+      
+      // STEP 1B: Upload annotated file to Caspio Files API (PROVEN WORKING)
+      console.log('Step 1B: Uploading annotated file to Caspio Files API...');
       const formData = new FormData();
       formData.append('file', file, file.name);
       
@@ -1116,12 +1143,33 @@ export class CaspioService {
       console.log('  - VisualID (Integer):', parseInt(visualId.toString()));
       console.log('  - Annotation (Text):', annotation || file.name);
       console.log('  - Photo (File path):', filePath);
+      console.log('  - Drawings (Text):', drawings ? 'Annotation JSON data present' : 'No annotations');
       
-      const recordData = {
+      const recordData: any = {
         VisualID: parseInt(visualId.toString()),
         Annotation: annotation || '',  // Keep blank if no annotation provided
         Photo: filePath  // Include the file path in initial creation
       };
+      
+      // Add Drawings field if annotation data is provided
+      if (drawings) {
+        recordData.Drawings = drawings;
+        
+        // If we have an original file path, store it in the annotation JSON
+        if (originalFilePath) {
+          try {
+            const drawingsObj = JSON.parse(drawings);
+            drawingsObj.originalFilePath = originalFilePath;
+            recordData.Drawings = JSON.stringify(drawingsObj);
+          } catch (e) {
+            // If drawings isn't valid JSON, create a new object
+            recordData.Drawings = JSON.stringify({
+              annotations: drawings,
+              originalFilePath: originalFilePath
+            });
+          }
+        }
+      }
       
       console.log('Creating Services_Visuals_Attach record with data:', JSON.stringify(recordData));
       
