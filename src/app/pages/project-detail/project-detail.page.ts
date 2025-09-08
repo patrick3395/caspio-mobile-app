@@ -1965,6 +1965,18 @@ Troubleshooting:
   getCityStateZip(): string {
     if (!this.project) return 'Not specified';
     
+    // State ID to abbreviation mapping
+    const stateIDToAbbreviation: { [key: number]: string } = {
+      1: 'TX',    // Texas
+      2: 'GA',    // Georgia
+      3: 'FL',    // Florida
+      4: 'CO',    // Colorado
+      6: 'CA',    // California
+      7: 'AZ',    // Arizona
+      8: 'SC',    // South Carolina
+      9: 'TN'     // Tennessee
+    };
+    
     // Build the City, State Zip string
     let result = '';
     
@@ -1974,11 +1986,17 @@ Troubleshooting:
     }
     
     // Add State (with comma if city exists)
-    if (this.project.State) {
+    // First check if State field exists, otherwise use StateID
+    let stateAbbr = this.project.State;
+    if (!stateAbbr && this.project.StateID) {
+      stateAbbr = stateIDToAbbreviation[this.project.StateID];
+    }
+    
+    if (stateAbbr) {
       if (result) {
-        result += ', ' + this.project.State;
+        result += ', ' + stateAbbr;
       } else {
-        result = this.project.State;
+        result = stateAbbr;
       }
     }
     

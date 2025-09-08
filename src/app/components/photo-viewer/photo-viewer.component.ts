@@ -179,7 +179,9 @@ export class PhotoViewerComponent {
         this.modalController.dismiss({
           annotatedBlob: data.annotatedBlob,
           annotationsData: data.annotationsData || data.annotationData,
-          photoData: this.photoData
+          annotationData: data.annotationsData || data.annotationData,  // Include both for compatibility
+          photoData: this.photoData,
+          originalBlob: data.originalBlob  // Pass through original if available
         });
       } else if (data instanceof Blob) {
         // Legacy support

@@ -23,6 +23,7 @@ interface ServicesVisualRecord {
   Name: string;
   Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
+  Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
 }
 
 @Component({
@@ -2160,18 +2161,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const updateItemData = (items: any[]) => {
                 const item = items.find(i => i.id === matchingTemplate.PK_ID);
                 if (item) {
-                  item.text = visual.Text || '';
+                  // Check if Answers field exists (for AnswerType 1 and 2)
+                  const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== '';
                   
-                  // For Yes/No questions, set the answer field
-                  if (item.answerType === 1 && (visual.Text === 'Yes' || visual.Text === 'No')) {
-                    item.answer = visual.Text;
-                    // Keep original text for display
-                    // item.originalText is already set from template
+                  // For Yes/No questions (AnswerType 1)
+                  if (item.answerType === 1) {
+                    if (hasAnswersField) {
+                      // Use Answers field for the answer
+                      item.answer = visual.Answers;
+                      item.text = visual.Text || item.originalText || ''; // Preserve original text
+                    } else if (visual.Text === 'Yes' || visual.Text === 'No') {
+                      // Fallback to old method if Answers field not populated
+                      item.answer = visual.Text;
+                      item.text = item.originalText || '';
+                    }
                   }
-                  
-                  // For multi-select, parse comma-delimited text into array
-                  if (item.answerType === 2 && visual.Text) {
-                    item.selectedOptions = visual.Text.split(',').map((s: string) => s.trim());
+                  // For multi-select questions (AnswerType 2)
+                  else if (item.answerType === 2) {
+                    if (hasAnswersField) {
+                      // Parse comma-delimited answers
+                      item.selectedOptions = visual.Answers.split(',').map((s: string) => s.trim());
+                      item.text = visual.Text || item.originalText || ''; // Preserve original text
+                    } else if (visual.Text) {
+                      // Fallback to old method if Answers field not populated
+                      item.selectedOptions = visual.Text.split(',').map((s: string) => s.trim());
+                    }
+                  }
+                  // For text questions (AnswerType 0 or undefined)
+                  else {
+                    item.text = visual.Text || '';
                   }
                 }
               };
@@ -3216,15 +3234,51 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
+    // Get the item data to access answerType and answers
+    let answers = '';
+    let textValue = template.Text || '';
+    
+    // Find the item in organizedData to get current values
+    const findItem = (items: any[]) => items.find(i => i.id === templateId);
+    let item = null;
+    
+    if (this.organizedData[category]) {
+      item = findItem(this.organizedData[category].comments) ||
+             findItem(this.organizedData[category].limitations) ||
+             findItem(this.organizedData[category].deficiencies);
+    }
+    
+    if (item) {
+      // For AnswerType 1 (Yes/No), store the answer in Answers field
+      if (item.answerType === 1 && item.answer) {
+        answers = item.answer; // Will be 'Yes' or 'No'
+        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
+      }
+      // For AnswerType 2 (multi-select), store comma-delimited answers
+      else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
+        answers = item.selectedOptions.join(', ');
+        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
+      }
+      // For AnswerType 0 or undefined (text), use the text field as is
+      else {
+        textValue = item.text || template.Text || '';
+      }
+    }
+    
     // ONLY include the columns that exist in Services_Visuals table
     const visualData: ServicesVisualRecord = {
       ServiceID: serviceIdNum,  // Integer type in Caspio
       Category: category || '',   // Text(255) in Caspio
       Kind: template.Kind || '',  // Text(255) in Caspio - was Type, now Kind
       Name: template.Name || '',  // Text(255) in Caspio
-      Text: template.Text || '',   // Text field in Caspio - the full text content
+      Text: textValue,   // Text field in Caspio - the full text content
       Notes: ''                    // Text(255) in Caspio - empty for now
     };
+    
+    // Add Answers field if there are answers to store
+    if (answers) {
+      visualData.Answers = answers;
+    }
     
     console.log('📤 DATA BEING SENT TO SERVICES_VISUALS TABLE:');
     console.log('=====================================');
@@ -3235,6 +3289,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('   Name (Text 255):', visualData.Name);
     console.log('   Text (Text field):', visualData.Text);
     console.log('   Notes (Text 255):', visualData.Notes);
+    if (visualData.Answers) {
+      console.log('   Answers (Text):', visualData.Answers);
+    }
+    console.log('   AnswerType (from template):', item?.answerType || 0);
     console.log('=====================================');
     console.log('📦 Full visualData object being sent:', JSON.stringify(visualData, null, 2));
     console.log('📌 Template info for reference (not sent):', {
@@ -4586,12 +4644,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Update existing photo attachment with optional annotations
-  async updatePhotoAttachment(attachId: string, file: File, annotations?: any[]): Promise<void> {
+  async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
       console.log('🔍 updatePhotoAttachment called with:');
       console.log('  attachId:', attachId);
       console.log('  attachId type:', typeof attachId);
       console.log('  file:', file.name);
+      console.log('  annotations:', annotations);
+      console.log('  has originalFile:', !!originalFile);
       
       // Debug popup - show what we're about to do
       const debugAlert1 = await this.alertController.create({
@@ -4620,10 +4680,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await debugAlert1.present();
       await debugAlert1.onDidDismiss();
       
-      // First upload the new file
+      // First upload the original file if provided (for future re-editing)
+      let originalFilePath = '';
+      if (originalFile && annotations) {
+        try {
+          console.log('📤 Uploading original (un-annotated) file...');
+          const originalFileName = `original_${originalFile.name}`;
+          const originalFormData = new FormData();
+          originalFormData.append('file', originalFile, originalFileName);
+          
+          const originalUploadResult = await this.caspioService.uploadFile(originalFile, originalFileName).toPromise();
+          if (originalUploadResult?.Name) {
+            originalFilePath = `/${originalUploadResult.Name}`;
+            console.log('✅ Original file uploaded:', originalFilePath);
+          }
+        } catch (err) {
+          console.error('Failed to upload original file:', err);
+          // Continue even if original upload fails
+        }
+      }
+      
+      // Now upload the annotated file
       let uploadResult: any;
       try {
-        console.log('🔄 Attempting file upload...');
+        console.log('🔄 Attempting annotated file upload...');
         uploadResult = await this.caspioService.uploadFile(file).toPromise();
         console.log('✅ Upload result:', uploadResult);
         
@@ -4695,9 +4775,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         Photo: `/${uploadResult.Name}`
       };
       
-      // Add annotations if provided
-      if (annotations && annotations.length > 0) {
-        updateData.Annotation = JSON.stringify(annotations);
+      // Add annotations to Drawings field if provided
+      if (annotations) {
+        // Prepare the drawings data with annotations and original file path
+        let drawingsObj = annotations;
+        
+        // If annotations is already a string, parse it
+        if (typeof annotations === 'string') {
+          try {
+            drawingsObj = JSON.parse(annotations);
+          } catch (e) {
+            drawingsObj = { annotations: annotations };
+          }
+        }
+        
+        // Add original file path if available
+        if (originalFilePath) {
+          drawingsObj.originalFilePath = originalFilePath;
+        }
+        
+        // Store the complete data in Drawings field
+        updateData.Drawings = JSON.stringify(drawingsObj);
+        console.log('📝 Storing in Drawings field:', updateData.Drawings);
       }
       
       // Debug popup - show update request
@@ -4823,8 +4922,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           if (photo.AttachID || photo.id) {
             try {
+              // Get the original file if provided
+              let originalFile = null;
+              if (data.originalBlob) {
+                originalFile = data.originalBlob instanceof File 
+                  ? data.originalBlob 
+                  : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
+              }
+              
               // Update the existing attachment with annotations
-              await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData);
+              await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile);
             
               // Update the local photo data
               const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -4899,12 +5006,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
         const annotationsData = data.annotationData || data.annotationsData;
         
+        // Get the original file if provided
+        let originalFile = null;
+        if (data.originalBlob) {
+          originalFile = data.originalBlob instanceof File 
+            ? data.originalBlob 
+            : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
+        }
+        
         if (photo.AttachID || photo.id) {
           // Removed loading screen to allow debug popups to be visible
           
           try {
-            // Update the existing attachment
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData);
+            // Update the existing attachment with annotations and original
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(

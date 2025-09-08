@@ -10,7 +10,7 @@ import * as fabric from 'fabric';
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <ion-toolbar style="--background: #F15A27;">
         <ion-buttons slot="start">
           <ion-button (click)="dismiss()" style="color: white;">
             <ion-icon name="arrow-back-outline" style="font-size: 24px;"></ion-icon>
@@ -58,7 +58,7 @@ import * as fabric from 'fabric';
         
         <!-- Debug Info -->
         <div class="debug-info">
-          <span class="version-badge">v1.4.234</span>
+          <span class="version-badge">v1.4.236</span>
         </div>
       </div>
       
@@ -67,7 +67,7 @@ import * as fabric from 'fabric';
   styles: [`
     .annotation-tools-container {
       padding: 16px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #F15A27;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     
@@ -85,29 +85,32 @@ import * as fabric from 'fabric';
     }
     
     .tool-btn {
-      background: rgba(255,255,255,0.2);
-      border: 2px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.9);
+      border: 2px solid rgba(255,255,255,1);
       border-radius: 12px;
       width: 50px;
       height: 50px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: #F15A27;
       cursor: pointer;
       transition: all 0.3s;
       position: relative;
     }
     
     .tool-btn:hover {
-      background: rgba(255,255,255,0.35);
+      background: white;
       transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
     
     .tool-btn.active {
-      background: rgba(255,255,255,0.5);
-      border-color: white;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      background: white;
+      border-color: #d44a1a;
+      border-width: 3px;
+      box-shadow: 0 4px 12px rgba(241,90,39,0.4);
+      color: #d44a1a;
     }
     
     .tool-btn:disabled {
@@ -130,7 +133,7 @@ import * as fabric from 'fabric';
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      border: 2px solid white;
+      border: 2px solid #F15A27;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
@@ -177,6 +180,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   @Input() imageUrl?: string;
   @Input() imageFile?: File;
   @Input() existingAnnotations?: any[] = [];
+  @Input() isReEdit?: boolean = false;
   
   private canvas!: fabric.Canvas;
   currentTool = 'arrow';
@@ -191,8 +195,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('🎨 [v1.4.234 FABRIC] Initializing Fabric.js photo annotator');
-    console.log('📥 [v1.4.234 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('🎨 [v1.4.236 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('📥 [v1.4.236 FABRIC] Existing annotations:', this.existingAnnotations);
   }
   
   ngAfterViewInit() {
@@ -265,12 +269,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             : Object.keys(this.existingAnnotations).length > 0;
             
           if (hasAnnotations) {
-            console.log('📋 [v1.4.234 FABRIC] Found existing annotations to load:', this.existingAnnotations);
+            console.log('📋 [v1.4.236 FABRIC] Found existing annotations to load:', this.existingAnnotations);
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
         
-        console.log('✅ [v1.4.234 FABRIC] Canvas initialized with image');
+        console.log('✅ [v1.4.236 FABRIC] Canvas initialized with image');
       });
     }
     
@@ -673,8 +677,16 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     // Also export the annotation data for future editing
     const annotationData = this.canvas.toJSON();
     
-    console.log(`💾 [v1.4.233 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
-    console.log('📤 [v1.4.233 FABRIC] Annotation data being saved:', annotationData);
+    // Get the original image blob if this is a re-edit and we used URL
+    let originalBlob = null;
+    if (!this.isReEdit && this.imageFile) {
+      // If this is the first annotation, use the input file as original
+      originalBlob = this.imageFile;
+    }
+    
+    console.log(`💾 [v1.4.236 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
+    console.log('📤 [v1.4.236 FABRIC] Annotation data being saved:', annotationData);
+    console.log('📎 [v1.4.236 FABRIC] Has original file:', !!originalBlob);
     
     this.modalController.dismiss({
       annotatedBlob: blob,  // Use same property name as old annotator for compatibility
@@ -682,7 +694,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       dataUrl,
       annotationData,
       annotationsData: annotationData,  // Also provide with 's' for compatibility
-      annotationCount: this.getAnnotationCount()
+      annotationCount: this.getAnnotationCount(),
+      originalBlob: originalBlob  // Include original file for first-time annotations
     });
   }
   

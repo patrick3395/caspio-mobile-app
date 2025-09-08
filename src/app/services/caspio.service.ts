@@ -881,15 +881,16 @@ export class CaspioService {
   }
   
   // Upload file to Caspio Files API
-  uploadFile(file: File): Observable<any> {
+  uploadFile(file: File, customFileName?: string): Observable<any> {
     const token = this.getCurrentToken();
     if (!token) {
       return throwError(() => new Error('No authentication token available'));
     }
     
-    console.log('📤 Uploading file to Files API:', file.name);
+    const fileName = customFileName || file.name;
+    console.log('📤 Uploading file to Files API:', fileName);
     const formData = new FormData();
-    formData.append('file', file, file.name);
+    formData.append('file', file, fileName);
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     return new Observable(observer => {
