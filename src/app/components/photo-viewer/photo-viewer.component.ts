@@ -131,8 +131,13 @@ export class PhotoViewerComponent {
 
   async openAnnotator() {
     // Get existing annotations from photoData if available
-    const annotations = this.photoData?.annotations || this.existingAnnotations || [];
-    console.log('📝 Opening annotator with existing annotations:', annotations);
+    const annotations = this.photoData?.annotations || this.photoData?.annotationsData || this.existingAnnotations || [];
+    console.log('📝 [PhotoViewer] Opening annotator with:');
+    console.log('  - photoData:', this.photoData);
+    console.log('  - annotations from photoData:', this.photoData?.annotations);
+    console.log('  - annotationsData from photoData:', this.photoData?.annotationsData);
+    console.log('  - existingAnnotations prop:', this.existingAnnotations);
+    console.log('  - Final annotations to pass:', annotations);
     
     // Open the annotation modal with existing annotations
     const annotationModal = await this.modalController.create({
@@ -153,10 +158,16 @@ export class PhotoViewerComponent {
         // Update the photo URL to show the new annotated version
         this.photoUrl = URL.createObjectURL(data.annotatedBlob);
         
+        // Store annotations back in photoData for persistence
+        if (this.photoData) {
+          this.photoData.annotations = data.annotationData || data.annotationsData;
+          console.log('💾 [PhotoViewer] Stored annotations in photoData:', this.photoData.annotations);
+        }
+        
         // Return the annotated blob and annotations data to parent
         this.modalController.dismiss({
           annotatedBlob: data.annotatedBlob,
-          annotationsData: data.annotationsData,
+          annotationsData: data.annotationsData || data.annotationData,
           photoData: this.photoData
         });
       } else if (data instanceof Blob) {

@@ -248,8 +248,16 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.canvas.renderAll();
         
         // Load existing annotations if any
-        if (this.existingAnnotations && this.existingAnnotations.length > 0) {
-          this.loadExistingAnnotations();
+        if (this.existingAnnotations) {
+          // Check if it's an array with length or an object with properties
+          const hasAnnotations = Array.isArray(this.existingAnnotations) 
+            ? this.existingAnnotations.length > 0
+            : Object.keys(this.existingAnnotations).length > 0;
+            
+          if (hasAnnotations) {
+            console.log('📋 [v1.4.230 FABRIC] Found existing annotations to load');
+            setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
+          }
         }
         
         console.log('✅ [v1.4.228 FABRIC] Canvas initialized with image');
@@ -517,13 +525,28 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   deleteSelected() {
     // Delete the currently selected object
     const activeObject = this.canvas.getActiveObject();
+    console.log('🔍 [v1.4.230 FABRIC] Delete attempt:');
+    console.log('  - Active object:', activeObject);
+    console.log('  - Object type:', activeObject?.type);
+    console.log('  - Is Image?:', activeObject instanceof fabric.Image);
+    console.log('  - Total objects on canvas:', this.canvas.getObjects().length);
+    
     if (activeObject && !(activeObject instanceof fabric.Image)) {
       this.canvas.remove(activeObject);
       this.canvas.discardActiveObject();
       this.canvas.renderAll();
-      console.log('🗑️ [v1.4.230 FABRIC] Deleted selected annotation');
+      console.log('✅ [v1.4.230 FABRIC] Successfully deleted annotation');
+      console.log(`  - Remaining objects: ${this.canvas.getObjects().length}`);
+    } else if (activeObject instanceof fabric.Image) {
+      console.log('⚠️ [v1.4.230 FABRIC] Cannot delete background image');
     } else {
       console.log('⚠️ [v1.4.230 FABRIC] No annotation selected to delete');
+      // List all objects on canvas for debugging
+      console.log('  - Canvas objects:', this.canvas.getObjects().map(o => ({
+        type: o.type,
+        selectable: o.selectable,
+        evented: o.evented
+      })));
     }
   }
   
@@ -543,75 +566,119 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     }
     
     try {
-      // Check if existingAnnotations is a JSON object with fabric data
-      if (this.existingAnnotations && typeof this.existingAnnotations === 'object') {
-        // If it's already a parsed object with 'objects' property (Fabric.js format)
-        if ('objects' in this.existingAnnotations) {
-          const fabricData = this.existingAnnotations as any;
-          
-          // Get the background image first (to preserve it)
-          const backgroundImage = this.canvas.backgroundImage;
-          
-          // Load the annotations (but filter out any images to avoid duplicates)
-          const annotationObjects = fabricData.objects?.filter((obj: any) => 
-            obj.type !== 'image'
-          ) || [];
-          
-          // Add each annotation object to the canvas
-          // In fabric v6, we need to use loadFromJSON or manually create objects
-          for (const objData of annotationObjects) {
-            try {
-              // Create the appropriate fabric object based on type
-              let obj: fabric.Object | null = null;
-              
-              switch(objData.type) {
-                case 'path':
-                  obj = new fabric.Path(objData.path, objData);
-                  break;
-                case 'line':
-                  obj = new fabric.Line(objData.points || [objData.x1, objData.y1, objData.x2, objData.y2], objData);
-                  break;
-                case 'rect':
-                  obj = new fabric.Rect(objData);
-                  break;
-                case 'circle':
-                  obj = new fabric.Circle(objData);
-                  break;
-                case 'text':
-                  obj = new fabric.Text(objData.text || '', objData);
-                  break;
-                case 'polyline':
-                  obj = new fabric.Polyline(objData.points || [], objData);
-                  break;
-                default:
-                  console.warn('Unknown object type:', objData.type);
-              }
-              
-              if (obj) {
-                this.canvas.add(obj);
-              }
-            } catch (e) {
-              console.error('Error creating object:', e, objData);
-            }
-          }
-          this.canvas.renderAll();
-          
-          console.log(`✅ Loaded ${annotationObjects.length} annotations from Fabric data`);
-        }
-        // If it's a string, try to parse it
-        else if (typeof this.existingAnnotations === 'string') {
-          try {
-            const parsed = JSON.parse(this.existingAnnotations as string);
-            this.existingAnnotations = parsed;
-            // Recursively call with parsed data
-            await this.loadExistingAnnotations();
-          } catch (e) {
-            console.error('Failed to parse annotation string:', e);
-          }
+      let dataToLoad = this.existingAnnotations;
+      
+      // If it's a string, parse it first
+      if (typeof dataToLoad === 'string') {
+        try {
+          dataToLoad = JSON.parse(dataToLoad);
+          console.log('📄 Parsed annotation string to object');
+        } catch (e) {
+          console.error('Failed to parse annotation string:', e);
+          return;
         }
       }
+      
+      // Check if it's a Fabric.js JSON object with 'objects' property
+      if (dataToLoad && typeof dataToLoad === 'object' && 'objects' in dataToLoad) {
+        const fabricData = dataToLoad as any;
+        
+        // Load the annotations (but filter out any images to avoid duplicates)
+        const annotationObjects = fabricData.objects?.filter((obj: any) => 
+          obj.type !== 'image' && obj.type !== 'Image'
+        ) || [];
+        
+        console.log(`🔍 Found ${annotationObjects.length} annotation objects to load`);
+        
+        // Add each annotation object to the canvas
+        for (const objData of annotationObjects) {
+          try {
+            let obj: fabric.Object | null = null;
+            
+            // Ensure the object will be selectable
+            const objectOptions = {
+              ...objData,
+              selectable: true,
+              evented: true,
+              hasControls: true,
+              hasBorders: true
+            };
+            
+            switch(objData.type) {
+              case 'path':
+                obj = new fabric.Path(objData.path, objectOptions);
+                break;
+              case 'line':
+                const points = objData.points || [objData.x1 || 0, objData.y1 || 0, objData.x2 || 100, objData.y2 || 100];
+                obj = new fabric.Line(points, objectOptions);
+                break;
+              case 'rect':
+                obj = new fabric.Rect(objectOptions);
+                break;
+              case 'circle':
+                obj = new fabric.Circle(objectOptions);
+                break;
+              case 'text':
+                obj = new fabric.Text(objData.text || '', objectOptions);
+                break;
+              case 'polyline':
+                obj = new fabric.Polyline(objData.points || [], objectOptions);
+                break;
+              case 'group':
+                // Handle grouped objects (like arrows which are line + polylines)
+                const groupObjects: fabric.Object[] = [];
+                for (const childData of (objData.objects || [])) {
+                  let childObj: fabric.Object | null = null;
+                  const childOptions = { ...childData, selectable: true, evented: true };
+                  
+                  if (childData.type === 'line') {
+                    childObj = new fabric.Line(childData.points || [0, 0, 100, 100], childOptions);
+                  } else if (childData.type === 'polyline') {
+                    childObj = new fabric.Polyline(childData.points || [], childOptions);
+                  } else if (childData.type === 'path') {
+                    childObj = new fabric.Path(childData.path, childOptions);
+                  }
+                  
+                  if (childObj) {
+                    groupObjects.push(childObj);
+                  }
+                }
+                if (groupObjects.length > 0) {
+                  obj = new fabric.Group(groupObjects, objectOptions);
+                }
+                break;
+              default:
+                console.warn('Unknown object type:', objData.type);
+            }
+            
+            if (obj) {
+              // Make sure the object is selectable and can be deleted
+              obj.selectable = true;
+              obj.evented = true;
+              obj.hasControls = true;
+              obj.hasBorders = true;
+              
+              this.canvas.add(obj);
+              console.log(`➕ Added ${objData.type} object to canvas`);
+            }
+          } catch (e) {
+            console.error('Error creating object:', e, objData);
+          }
+        }
+        
+        this.canvas.renderAll();
+        
+        // Make sure selection is enabled so user can delete annotations
+        this.canvas.selection = true;
+        this.currentTool = 'select';
+        
+        console.log(`✅ [v1.4.230 FABRIC] Successfully loaded ${annotationObjects.length} annotations`);
+        console.log('🔧 [v1.4.230 FABRIC] Set tool to SELECT mode for editing');
+      } else {
+        console.log('⚠️ No valid Fabric.js data found in annotations');
+      }
     } catch (error) {
-      console.error('Error loading existing annotations:', error);
+      console.error('❌ Error loading existing annotations:', error);
     }
   }
   
