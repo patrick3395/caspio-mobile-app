@@ -4182,7 +4182,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         '', // Annotation field stays blank
         photo,
         drawingsData, // Pass the annotation JSON to Drawings field
-        originalPhoto // Pass original photo for future reference
+        originalPhoto || undefined // Pass original photo for future reference
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);

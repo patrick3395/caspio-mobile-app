@@ -265,7 +265,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             : Object.keys(this.existingAnnotations).length > 0;
             
           if (hasAnnotations) {
-            console.log('📋 [v1.4.234 FABRIC] Found existing annotations to load:`, this.existingAnnotations);
+            console.log('📋 [v1.4.234 FABRIC] Found existing annotations to load:', this.existingAnnotations);
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
