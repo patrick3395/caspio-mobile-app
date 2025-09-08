@@ -5000,10 +5000,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Verify if visual was actually saved
+  // Verify if visual was actually saved - v1.4.224
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
-      console.log('🔍 Verifying if visual was saved...');
+      console.log('[v1.4.224] Verifying if visual was saved...');
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
