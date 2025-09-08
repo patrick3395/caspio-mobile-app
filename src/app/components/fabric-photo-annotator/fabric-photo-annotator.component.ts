@@ -2,7 +2,7 @@ import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
-import { fabric } from 'fabric';
+import * as fabric from 'fabric';
 
 @Component({
   selector: 'app-fabric-photo-annotator',
@@ -477,7 +477,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
   clearAll() {
     // Remove all objects except the background image
     const objects = this.canvas.getObjects();
-    objects.forEach(obj => {
+    objects.forEach((obj: fabric.Object) => {
       if (!(obj instanceof fabric.Image)) {
         this.canvas.remove(obj);
       }
@@ -496,7 +496,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit {
   getAnnotationCount(): number {
     // Count all objects except the background image
     const objects = this.canvas?.getObjects() || [];
-    return objects.filter(obj => !(obj instanceof fabric.Image)).length;
+    return objects.filter((obj: fabric.Object) => !(obj instanceof fabric.Image)).length;
   }
   
   private loadExistingAnnotations() {

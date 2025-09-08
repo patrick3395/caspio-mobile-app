@@ -1,6 +1,6 @@
 {
   "name": "ionic-app-base",
-  "version": "1.4.226",
+  "version": "1.4.227",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
@@ -58,6 +58,7 @@
     "@ionic/angular-toolkit": "^12.0.0",
     "@types/fabric": "^5.3.10",
     "@types/jasmine": "~5.1.0",
+    "@types/jsdom": "^21.1.7",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.16.0",
