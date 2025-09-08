@@ -153,7 +153,7 @@ export class PhotoViewerComponent {
         imageUrl: imageToAnnotate,  // Use original image if available
         existingAnnotations: annotations,
         photoData: this.photoData,
-        isReEdit: !!originalImageUrl  // Flag to indicate we're re-editing
+        isReEdit: !!this.photoData?.originalFilePath  // Flag to indicate we're re-editing
       },
       cssClass: 'fullscreen-modal'
     });
