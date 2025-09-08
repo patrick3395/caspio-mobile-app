@@ -93,7 +93,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   
   .table-header{
     display:grid;
-    grid-template-columns:minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(100px, 1fr);
+    grid-template-columns:2fr 1.5fr 1fr;
     background:$light-gray;
     font-weight:600;
     font-size:13px;
@@ -122,7 +122,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   
   .table-row{
     display:grid;
-    grid-template-columns:minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(100px, 1fr);
+    grid-template-columns:2fr 1.5fr 1fr;
     align-items:center;
     min-height:50px;
     
@@ -270,7 +270,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .doc-header,.template-header{display:grid;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
 >div{padding:12px;display:flex;align-items:center}}
 
-.doc-header{grid-template-columns:minmax(150px, 30%) minmax(250px, 70%);
+.doc-header{grid-template-columns:30% 70%;
 >div:first-child{font-weight:700}}
 .template-header{grid-template-columns:2fr 1fr 1fr}
 
@@ -416,10 +416,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 }
 &.uploaded .doc-title span:first-child{color:#28a745;font-weight:500}}
-.doc-header{display:grid;grid-template-columns:minmax(150px, 30%) minmax(250px, 70%);background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
+.doc-header{display:grid;grid-template-columns:30% 70%;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
 >div{padding:12px}
 >div:nth-child(1){padding-left:12px}}
-.service-doc-group{position:relative;display:grid;grid-template-columns:minmax(150px, 30%) minmax(250px, 70%);grid-auto-rows:minmax(48px,auto);
+.service-doc-group{position:relative;display:grid;grid-template-columns:30% 70%;grid-auto-rows:minmax(48px,auto);
 &:not(:last-child){border-bottom:2px solid #dee2e6}
 .doc-row{display:contents}
 .doc-service{grid-column:1;border-left:3px solid #007bff;padding-left:12px;background:#f8f9fa;font-weight:600;display:flex;align-items:center;justify-content:flex-start}

@@ -180,7 +180,8 @@ export class ProjectDetailPage implements OnInit {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         return {
           ...offer,
-          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service'
+          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
+          TypeShort: type?.TypeShort || ''
         };
       });
       
@@ -286,7 +287,8 @@ export class ProjectDetailPage implements OnInit {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         const result = {
           ...offer,
-          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service'
+          TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
+          TypeShort: type?.TypeShort || ''
         };
         console.log('🔍 DEBUG: Processed offer:', result);
         return result;

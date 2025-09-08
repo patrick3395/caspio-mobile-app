@@ -106,7 +106,7 @@
           </ion-checkbox>
           <label (click)="toggleServiceByLabel(offer)"
                  style="cursor: pointer">
-            {{ offer.TypeName || offer.Service_Name || offer.Description }}
+            {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
           </label>
         </div>
       </div>

@@ -242,7 +242,22 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.214):
+## 15. CURRENT WORK (December 2024 - v1.4.242):
+- **Annotation Persistence CRITICALLY FIXED** (v1.4.242): MAJOR FIX to preserve original images
+  - PROBLEM IDENTIFIED: Photo field was being replaced with flattened annotated image
+  - ROOT CAUSE: updatePhotoAttachment was uploading annotated files to Caspio
+  - SOLUTION IMPLEMENTED: 
+    • Completely removed file upload from updatePhotoAttachment method
+    • Now ONLY updates Drawings field with annotation JSON
+    • Photo field remains untouched, preserving original image
+    • No annotated files uploaded to Caspio Files API
+    • Annotations stored purely as JSON data in Drawings field
+  - BENEFITS:
+    • Original images preserved for unlimited re-editing
+    • Annotations load as editable Fabric.js objects, not flattened pixels
+    • Storage efficiency - no duplicate annotated images
+    • Clean separation of concerns: Photo=original, Drawings=annotations
+  - DEBUG: Added detailed debug popups showing exactly what's being updated
 - **Template Navigation**: Fixed issue where template required 3 clicks to open
 - **Room Selection**: Fixed checkbox state management when canceling room deletion  
 - **FDF Dropdown**: Using Services_Rooms_Drop table with Dropdown column for FDF options

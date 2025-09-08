@@ -3091,6 +3091,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
     
+    // Show debug popup at start
+    const debugAlert = await this.alertController.create({
+      header: 'AnswerType 1 Debug - START',
+      message: `
+        <div style="text-align: left; font-family: monospace; font-size: 12px;">
+          <strong style="color: blue;">🔍 ANSWER CHANGE TRIGGERED</strong><br><br>
+          
+          <strong>Category:</strong> ${category}<br>
+          <strong>Item Name:</strong> ${item.name}<br>
+          <strong>Item ID:</strong> ${item.id}<br>
+          <strong>Answer Selected:</strong> <span style="color: green; font-weight: bold;">${item.answer || 'NONE'}</span><br>
+          <strong>Key:</strong> ${key}<br><br>
+          
+          <strong>Current State:</strong><br>
+          • Existing Visual ID: ${this.visualRecordIds[key] || 'NONE - Will Create New'}<br>
+          • Is Selected: ${this.selectedItems[key] ? 'YES' : 'NO'}<br>
+          • Original Text: ${item.originalText || 'Not stored'}<br>
+          • Current Text: ${item.text || 'Empty'}<br><br>
+          
+          <strong>Service Info:</strong><br>
+          • Service ID: ${this.serviceId || 'MISSING!'}<br>
+          • Project ID: ${this.projectId}<br><br>
+          
+          <strong style="color: red;">ACTION TO TAKE:</strong><br>
+          ${this.visualRecordIds[key] ? 
+            '✓ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
+            '➕ CREATE new Services_Visuals record'}<br>
+        </div>
+      `,
+      buttons: ['Continue'],
+      cssClass: 'wide-alert'
+    });
+    await debugAlert.present();
+    await debugAlert.onDidDismiss();
+    
     try {
       // Check if visual already exists
       const existingVisualId = this.visualRecordIds[key];
@@ -3102,17 +3137,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const updateData = {
             Answers: item.answer
           };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
-          console.log('✅ Updated Services_Visuals Answers field');
+          
+          try {
+            await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+            console.log('✅ Updated Services_Visuals Answers field');
+            
+            // Show success debug
+            const successAlert = await this.alertController.create({
+              header: 'UPDATE SUCCESS',
+              message: `
+                <div style="font-family: monospace; font-size: 12px;">
+                  <strong style="color: green;">✅ SUCCESSFULLY UPDATED</strong><br><br>
+                  Visual ID: ${existingVisualId}<br>
+                  Answer: ${item.answer}<br>
+                </div>
+              `,
+              buttons: ['OK']
+            });
+            await successAlert.present();
+          } catch (updateError: any) {
+            const errorAlert = await this.alertController.create({
+              header: 'UPDATE FAILED',
+              message: `
+                <div style="font-family: monospace; font-size: 12px;">
+                  <strong style="color: red;">❌ UPDATE ERROR</strong><br><br>
+                  ${updateError?.message || updateError}<br>
+                </div>
+              `,
+              buttons: ['OK']
+            });
+            await errorAlert.present();
+            throw updateError;
+          }
         } else {
           // Create new record with answer in Answers field
           console.log('Creating new visual with answer:', item.answer);
+          
+          // Store answer in item for saveVisualSelection to use
+          item.answerToSave = item.answer;
+          
           // Preserve original text, store answer separately
           item.text = item.originalText || item.text;
           // Mark as selected
           this.selectedItems[key] = true;
+          
+          // Show creation debug
+          const createAlert = await this.alertController.create({
+            header: 'CREATING NEW RECORD',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                <strong style="color: blue;">➕ CREATING Services_Visuals</strong><br><br>
+                
+                <strong>Data to Send:</strong><br>
+                • ServiceID: ${this.serviceId}<br>
+                • Category: ${category}<br>
+                • Name: ${item.name}<br>
+                • Text: ${item.text}<br>
+                • Answer: ${item.answer}<br>
+                • Kind: ${item.kind || 'Comment'}<br><br>
+                
+                Calling saveVisualSelection...
+              </div>
+            `,
+            buttons: ['Continue']
+          });
+          await createAlert.present();
+          await createAlert.onDidDismiss();
+          
           // Save will now include the Answers field
           await this.saveVisualSelection(category, item.id);
+          
+          // Check if it was created
+          const newVisualId = this.visualRecordIds[key];
+          const resultAlert = await this.alertController.create({
+            header: newVisualId ? 'CREATION SUCCESS' : 'CREATION FAILED',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                ${newVisualId ? 
+                  '<strong style="color: green;">✅ RECORD CREATED</strong><br><br>New Visual ID: ' + newVisualId :
+                  '<strong style="color: red;">❌ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await resultAlert.present();
         }
       } else if (item.answer === '') {
         // If cleared and record exists, update to remove answer
@@ -3127,8 +3235,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Clear selection state
         item.text = item.originalText;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling answer change:', error);
+      
+      // Show error debug
+      const errorAlert = await this.alertController.create({
+        header: 'ANSWER CHANGE ERROR',
+        message: `
+          <div style="font-family: monospace; font-size: 12px;">
+            <strong style="color: red;">❌ ERROR OCCURRED</strong><br><br>
+            
+            <strong>Error:</strong><br>
+            ${error?.message || error}<br><br>
+            
+            <strong>Stack:</strong><br>
+            <div style="max-height: 200px; overflow-y: auto; background: #ffe0e0; padding: 5px;">
+              ${error?.stack || 'No stack trace'}
+            </div>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+      
       await this.showToast('Failed to save answer', 'danger');
     } finally {
       this.savingItems[key] = false;
@@ -3142,12 +3271,51 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
     
+    // Convert array to comma-delimited string for Answers field
+    const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
+    
+    // Show debug popup at start
+    const debugAlert = await this.alertController.create({
+      header: 'AnswerType 2 Debug - START',
+      message: `
+        <div style="text-align: left; font-family: monospace; font-size: 12px;">
+          <strong style="color: blue;">🔍 MULTI-SELECT CHANGE TRIGGERED</strong><br><br>
+          
+          <strong>Category:</strong> ${category}<br>
+          <strong>Item Name:</strong> ${item.name}<br>
+          <strong>Item ID:</strong> ${item.id}<br>
+          <strong>Selected Options:</strong> <span style="color: green; font-weight: bold;">${item.selectedOptions?.join(', ') || 'NONE'}</span><br>
+          <strong>Answers Text:</strong> ${answersText || 'EMPTY'}<br>
+          <strong>Key:</strong> ${key}<br><br>
+          
+          <strong>Current State:</strong><br>
+          • Existing Visual ID: ${this.visualRecordIds[key] || 'NONE - Will Create New'}<br>
+          • Is Selected: ${this.selectedItems[key] ? 'YES' : 'NO'}<br>
+          • Original Text: ${item.originalText || 'Not stored'}<br>
+          • Current Text: ${item.text || 'Empty'}<br><br>
+          
+          <strong>Service Info:</strong><br>
+          • Service ID: ${this.serviceId || 'MISSING!'}<br>
+          • Project ID: ${this.projectId}<br><br>
+          
+          <strong>Dropdown Options Available:</strong><br>
+          ${item.dropdownOptions ? item.dropdownOptions.join(', ') : 'No options loaded'}<br><br>
+          
+          <strong style="color: red;">ACTION TO TAKE:</strong><br>
+          ${this.visualRecordIds[key] ? 
+            '✓ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
+            (answersText ? '➕ CREATE new Services_Visuals record' : '⚠️ No action - no selections')}<br>
+        </div>
+      `,
+      buttons: ['Continue'],
+      cssClass: 'wide-alert'
+    });
+    await debugAlert.present();
+    await debugAlert.onDidDismiss();
+    
     try {
       // Check if visual already exists
       const existingVisualId = this.visualRecordIds[key];
-      
-      // Convert array to comma-delimited string for Answers field
-      const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
       
       if (item.selectedOptions && item.selectedOptions.length > 0) {
         if (existingVisualId) {
@@ -3156,17 +3324,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const updateData = {
             Answers: answersText
           };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
-          console.log('✅ Updated Services_Visuals Answers field with selections');
+          
+          try {
+            await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+            console.log('✅ Updated Services_Visuals Answers field with selections');
+            
+            // Show success debug
+            const successAlert = await this.alertController.create({
+              header: 'UPDATE SUCCESS',
+              message: `
+                <div style="font-family: monospace; font-size: 12px;">
+                  <strong style="color: green;">✅ SUCCESSFULLY UPDATED</strong><br><br>
+                  Visual ID: ${existingVisualId}<br>
+                  Answers: ${answersText}<br>
+                </div>
+              `,
+              buttons: ['OK']
+            });
+            await successAlert.present();
+          } catch (updateError: any) {
+            const errorAlert = await this.alertController.create({
+              header: 'UPDATE FAILED',
+              message: `
+                <div style="font-family: monospace; font-size: 12px;">
+                  <strong style="color: red;">❌ UPDATE ERROR</strong><br><br>
+                  ${updateError?.message || updateError}<br>
+                </div>
+              `,
+              buttons: ['OK']
+            });
+            await errorAlert.present();
+            throw updateError;
+          }
         } else {
           // Create new record with selections in Answers field
           console.log('Creating new visual with selections:', answersText);
+          
+          // Store answers in item for saveVisualSelection to use
+          item.answerToSave = answersText;
+          
           // Preserve original text, don't overwrite with selections
           item.text = item.originalText || item.text;
           // Mark as selected
           this.selectedItems[key] = true;
+          
+          // Show creation debug
+          const createAlert = await this.alertController.create({
+            header: 'CREATING NEW RECORD',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                <strong style="color: blue;">➕ CREATING Services_Visuals</strong><br><br>
+                
+                <strong>Data to Send:</strong><br>
+                • ServiceID: ${this.serviceId}<br>
+                • Category: ${category}<br>
+                • Name: ${item.name}<br>
+                • Text: ${item.text}<br>
+                • Answers: ${answersText}<br>
+                • Kind: ${item.kind || 'Comment'}<br><br>
+                
+                Calling saveVisualSelection...
+              </div>
+            `,
+            buttons: ['Continue']
+          });
+          await createAlert.present();
+          await createAlert.onDidDismiss();
+          
           // Save will now include the Answers field
           await this.saveVisualSelection(category, item.id);
+          
+          // Check if it was created
+          const newVisualId = this.visualRecordIds[key];
+          const resultAlert = await this.alertController.create({
+            header: newVisualId ? 'CREATION SUCCESS' : 'CREATION FAILED',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                ${newVisualId ? 
+                  '<strong style="color: green;">✅ RECORD CREATED</strong><br><br>New Visual ID: ' + newVisualId :
+                  '<strong style="color: red;">❌ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await resultAlert.present();
         }
       } else {
         // If no options selected and record exists, clear the answers
@@ -3176,13 +3417,57 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             Answers: ''
           };
           await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          
+          const clearAlert = await this.alertController.create({
+            header: 'CLEARED ANSWERS',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                Cleared answers from Visual ID: ${existingVisualId}
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await clearAlert.present();
           // Don't remove the record, just clear the answers
+        } else {
+          const noActionAlert = await this.alertController.create({
+            header: 'NO ACTION TAKEN',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                No selections and no existing record.<br>
+                Nothing to save or update.
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await noActionAlert.present();
         }
         // Clear selection state
         item.text = item.originalText || '';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling multi-select change:', error);
+      
+      // Show error debug
+      const errorAlert = await this.alertController.create({
+        header: 'MULTI-SELECT ERROR',
+        message: `
+          <div style="font-family: monospace; font-size: 12px;">
+            <strong style="color: red;">❌ ERROR OCCURRED</strong><br><br>
+            
+            <strong>Error:</strong><br>
+            ${error?.message || error}<br><br>
+            
+            <strong>Stack:</strong><br>
+            <div style="max-height: 200px; overflow-y: auto; background: #ffe0e0; padding: 5px;">
+              ${error?.stack || 'No stack trace'}
+            </div>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+      
       await this.showToast('Failed to save selections', 'danger');
     } finally {
       this.savingItems[key] = false;
@@ -3298,8 +3583,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     if (item) {
+      // Check if we have answerToSave (set by onAnswerChange or onMultiSelectChange)
+      if (item.answerToSave) {
+        answers = item.answerToSave;
+        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
+        console.log('📝 Using answerToSave:', answers);
+      }
       // For AnswerType 1 (Yes/No), store the answer in Answers field
-      if (item.answerType === 1 && item.answer) {
+      else if (item.answerType === 1 && item.answer) {
         answers = item.answer; // Will be 'Yes' or 'No'
         textValue = item.originalText || template.Text || ''; // Keep original text in Text field
       }
@@ -3348,6 +3639,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       TemplateID: templateId,
       Text: template.Text
     });
+    
+    // Show debug popup with the data being sent
+    const debugAlert = await this.alertController.create({
+      header: 'Creating Services_Visuals Record',
+      message: `
+        <div style="text-align: left; font-family: monospace; font-size: 12px;">
+          <strong style="color: blue;">📤 SENDING TO SERVICES_VISUALS TABLE</strong><br><br>
+          
+          <strong>Data Fields:</strong><br>
+          • ServiceID: ${visualData.ServiceID}<br>
+          • Category: ${visualData.Category}<br>
+          • Kind: ${visualData.Kind}<br>
+          • Name: ${visualData.Name}<br>
+          • Text: ${visualData.Text ? visualData.Text.substring(0, 100) + '...' : 'Empty'}<br>
+          • Notes: ${visualData.Notes || 'Empty'}<br>
+          • Answers: <span style="color: green; font-weight: bold;">${visualData.Answers || 'None'}</span><br><br>
+          
+          <strong>Template Info:</strong><br>
+          • Template ID: ${templateId}<br>
+          • Answer Type: ${item?.answerType !== undefined ? item.answerType : 'Not set'}<br>
+          • Has Answer: ${answers ? 'YES' : 'NO'}<br><br>
+          
+          <strong>API Endpoint:</strong><br>
+          POST /tables/Services_Visuals/records
+        </div>
+      `,
+      buttons: ['Send Request'],
+      cssClass: 'wide-alert'
+    });
+    await debugAlert.present();
+    await debugAlert.onDidDismiss();
     
     try {
       console.log('⏳ Calling caspioService.createServicesVisual...');
@@ -4707,21 +5029,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         header: 'Photo Update Debug - Step 1',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: blue;">📤 ATTEMPTING TO UPDATE PHOTO</strong><br><br>
+            <strong style="color: blue;">📤 UPDATING ANNOTATIONS ONLY</strong><br><br>
             
             <strong>Attachment ID:</strong> ${attachId}<br>
             <strong>Attachment ID Type:</strong> ${typeof attachId}<br>
-            <strong>Attachment ID Length:</strong> ${attachId?.length || 0}<br>
-            <strong>File Name:</strong> ${file.name}<br>
-            <strong>File Size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
-            <strong>File Type:</strong> ${file.type}<br><br>
+            <strong>Attachment ID Length:</strong> ${attachId?.length || 0}<br><br>
             
-            <strong>Process:</strong><br>
-            1. Upload new file to Files API<br>
-            2. Update Services_Visuals_Attach record<br>
-            3. Replace Photo field with new path<br><br>
+            <strong style="color: green;">Process:</strong><br>
+            1. ✅ Keep original Photo field unchanged<br>
+            2. ✅ Update only Drawings field with annotations<br>
+            3. ❌ NO file upload needed (preserving original)<br><br>
             
-            <strong style="color: orange;">Next: Uploading file to Caspio Files API...</strong>
+            <strong style="color: orange;">Next: Updating Drawings field only...</strong>
           </div>
         `,
         buttons: ['Continue']
@@ -4729,102 +5048,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await debugAlert1.present();
       await debugAlert1.onDidDismiss();
       
-      // First upload the original file if provided (for future re-editing)
-      let originalFilePath = '';
-      if (originalFile && annotations) {
-        try {
-          console.log('📤 Uploading original (un-annotated) file...');
-          const originalFileName = `original_${originalFile.name}`;
-          const originalFormData = new FormData();
-          originalFormData.append('file', originalFile, originalFileName);
-          
-          const originalUploadResult = await this.caspioService.uploadFile(originalFile, originalFileName).toPromise();
-          if (originalUploadResult?.Name) {
-            originalFilePath = `/${originalUploadResult.Name}`;
-            console.log('✅ Original file uploaded:', originalFilePath);
-          }
-        } catch (err) {
-          console.error('Failed to upload original file:', err);
-          // Continue even if original upload fails
-        }
-      }
-      
-      // Now upload the annotated file
-      let uploadResult: any;
-      try {
-        console.log('🔄 Attempting annotated file upload...');
-        uploadResult = await this.caspioService.uploadFile(file).toPromise();
-        console.log('✅ Upload result:', uploadResult);
-        
-        // Debug popup - show upload result
-        const debugAlert2 = await this.alertController.create({
-          header: 'Photo Update Debug - Step 2',
-          message: `
-            <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: green;">✅ FILE UPLOADED SUCCESSFULLY</strong><br><br>
-              
-              <strong>Upload Result:</strong><br>
-              <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">
-                ${JSON.stringify(uploadResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-              </div><br>
-              
-              <strong>File Name from API:</strong> ${uploadResult?.Name || 'NOT FOUND'}<br>
-              <strong>Alternative names checked:</strong><br>
-              • result.Name: ${uploadResult?.Name || 'undefined'}<br>
-              • result.name: ${uploadResult?.name || 'undefined'}<br>
-              • result.FileName: ${uploadResult?.FileName || 'undefined'}<br>
-              • result.fileName: ${uploadResult?.fileName || 'undefined'}<br><br>
-              
-              <strong>File Path to Store:</strong> /${uploadResult?.Name || 'unknown'}<br><br>
-              
-              <strong style="color: orange;">Next: Updating attachment record...</strong>
-            </div>
-          `,
-          buttons: ['Continue']
-        });
-        await debugAlert2.present();
-        await debugAlert2.onDidDismiss();
-        
-      } catch (uploadError: any) {
-        console.error('❌ File upload failed:', uploadError);
-        
-        // Show detailed error popup
-        const errorAlert = await this.alertController.create({
-          header: 'Photo Update Debug - Upload Error',
-          message: `
-            <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: red;">❌ FILE UPLOAD FAILED</strong><br><br>
-              
-              <strong>Error Message:</strong> ${uploadError?.message || 'Unknown error'}<br><br>
-              
-              <strong>Error Details:</strong><br>
-              <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
-                ${JSON.stringify(uploadError, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-              </div><br>
-              
-              <strong>File attempted:</strong> ${file.name}<br>
-              <strong>File size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
-              <strong>File type:</strong> ${file.type}<br><br>
-              
-              <strong style="color: orange;">Check console for more details</strong>
-            </div>
-          `,
-          buttons: ['OK']
-        });
-        await errorAlert.present();
-        throw uploadError;
-      }
-      
-      if (!uploadResult || !uploadResult.Name) {
-        throw new Error('File upload failed - no Name returned');
-      }
+      // IMPORTANT: We do NOT upload the annotated file anymore!
+      // We only save the annotation JSON data to the Drawings field
+      // The Photo field must remain pointing to the original image
       
       // Update the attachment record - ONLY update Drawings field, NOT Photo field
       const updateData: any = {};
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // Prepare the drawings data with annotations and annotated file path
+        // Prepare the drawings data with annotations
         let drawingsObj = annotations;
         
         // If annotations is already a string, parse it
@@ -4836,28 +5069,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // Add annotated file path (for display purposes)
-        drawingsObj.annotatedFilePath = `/${uploadResult.Name}`;
-        
-        // Add original file path if this is the first annotation
-        if (originalFilePath) {
-          drawingsObj.originalFilePath = originalFilePath;
-        }
-        
-        // Store the complete data in Drawings field
+        // Store ONLY the annotation data in Drawings field
+        // Do NOT include any file paths since we're not uploading files
         updateData.Drawings = JSON.stringify(drawingsObj);
-        console.log('📝 Storing in Drawings field (Photo field unchanged):', updateData.Drawings);
+        console.log('📝 Storing ONLY annotations in Drawings field (NO file uploads):', updateData.Drawings);
       }
       
       // Debug popup - show update request
-      const debugAlert3 = await this.alertController.create({
-        header: 'Photo Update Debug - Step 3',
+      const debugAlert2 = await this.alertController.create({
+        header: 'Photo Update Debug - Step 2',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: blue;">📝 UPDATING ATTACHMENT RECORD</strong><br><br>
+            <strong style="color: blue;">📝 UPDATING DRAWINGS FIELD ONLY</strong><br><br>
             
             <strong>Table:</strong> Services_Visuals_Attach<br>
             <strong>Where:</strong> AttachID = ${attachId}<br><br>
+            
+            <strong style="color: green;">IMPORTANT:</strong><br>
+            • Photo field: NOT being updated (preserving original)<br>
+            • Drawings field: Updating with annotation JSON<br><br>
             
             <strong>Update Data:</strong><br>
             <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
@@ -4872,29 +5102,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         `,
         buttons: ['Send Update']
       });
-      await debugAlert3.present();
-      await debugAlert3.onDidDismiss();
+      await debugAlert2.present();
+      await debugAlert2.onDidDismiss();
       
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
       
       // Debug popup - show update result
-      const debugAlert4 = await this.alertController.create({
+      const debugAlert3 = await this.alertController.create({
         header: 'Photo Update Debug - Complete',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: green;">✅ UPDATE COMPLETE</strong><br><br>
+            <strong style="color: green;">✅ ANNOTATIONS SAVED</strong><br><br>
+            
+            <strong>What was updated:</strong><br>
+            • ✅ Drawings field: Annotation JSON saved<br>
+            • ✅ Photo field: Original image preserved<br><br>
             
             <strong>Update Response:</strong><br>
             <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
               ${JSON.stringify(updateResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
             </div><br>
             
-            <strong>Photo attachment updated successfully!</strong>
+            <strong>Annotations saved successfully!</strong><br>
+            <strong style="color: green;">Original image preserved for re-editing!</strong>
           </div>
         `,
         buttons: ['OK']
       });
-      await debugAlert4.present();
+      await debugAlert3.present();
       
       console.log('✅ Photo attachment updated successfully');
     } catch (error: any) {
