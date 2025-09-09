@@ -67,11 +67,8 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [pageViewMode]="'infinite-scroll'"
           [scrollMode]="1"
           [showBorders]="false"
-          [renderInteractiveForms]="false"
-          [enablePinchOnMobile]="true"
           [minZoom]="0.1"
           [maxZoom]="10"
-          [wheelAction]="'scroll'"
           (pdfLoaded)="onPdfLoaded($event)"
           (pageRendered)="onPageRendered($event)"
           [showFindHighlightAll]="false"
@@ -501,8 +498,7 @@ export class DocumentViewerComponent implements OnInit {
       this.pdfViewerService.find(this.searchTerm, {
         highlightAll: true,
         matchCase: false,
-        wholeWords: false,
-        ignoreAccents: true
+        wholeWords: false
       });
     } else {
       // Clear search if empty
