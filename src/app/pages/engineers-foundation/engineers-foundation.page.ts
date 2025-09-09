@@ -6546,7 +6546,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  updateVisualInOrganizedData(visual: any) {
+  private updateVisualInOrganizedData(visual: any) {
     const category = visual.Category;
     const kind = visual.Kind?.toLowerCase();
     
@@ -6593,4 +6593,5 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log(`Marked as selected from database: ${key}`);
       }
     }
-  }}
+  }
+}
