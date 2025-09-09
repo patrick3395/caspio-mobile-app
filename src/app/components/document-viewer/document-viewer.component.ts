@@ -615,23 +615,27 @@ export class DocumentViewerComponent implements OnInit {
 
   toggleSidebar() {
     this.sidebarVisible = !this.sidebarVisible;
-    // Force update the PDF viewer sidebar
-    setTimeout(() => {
-      this.pdfViewerService.updateSidebarVisibility(this.sidebarVisible);
-    }, 50);
+    // The sidebar visibility is controlled by the binding [sidebarVisible]
+    // No need to manually update via service
   }
 
   zoomIn() {
     if (this.currentZoom < 300) {
       this.currentZoom = Math.min(300, this.currentZoom + 25);
-      this.pdfViewerService.zoomTo(this.currentZoom / 100);
+      // Use the service's currentZoom property
+      if (this.pdfViewerService) {
+        (this.pdfViewerService as any).currentZoom = this.currentZoom / 100;
+      }
     }
   }
 
   zoomOut() {
     if (this.currentZoom > 25) {
       this.currentZoom = Math.max(25, this.currentZoom - 25);
-      this.pdfViewerService.zoomTo(this.currentZoom / 100);
+      // Use the service's currentZoom property
+      if (this.pdfViewerService) {
+        (this.pdfViewerService as any).currentZoom = this.currentZoom / 100;
+      }
     }
   }
 
