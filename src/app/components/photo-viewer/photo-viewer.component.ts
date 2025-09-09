@@ -126,7 +126,7 @@ export class PhotoViewerComponent implements OnInit {
   
   // Keep track of original image URL separately from display URL
   private originalPhotoUrl: string = '';
-  private displayPhotoUrl: string = '';  // What we show (may be annotated)
+  displayPhotoUrl: string = '';  // What we show (may be annotated) - public for template access
 
   constructor(
     private modalController: ModalController,
