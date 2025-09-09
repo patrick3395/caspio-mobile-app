@@ -241,13 +241,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadTypeInfo(typeId: string) {
     try {
+      console.log(`🔍 Loading type info for TypeID: ${typeId}`);
       const typeData = await this.caspioService.getType(typeId).toPromise();
+      console.log('Type data response:', typeData);
+      
       if (typeData?.TypeShort) {
         this.typeShort = typeData.TypeShort;
-        console.log('Type information loaded:', this.typeShort);
+        console.log(`✅ Type information loaded successfully: "${this.typeShort}"`);
+      } else {
+        console.warn('⚠️ TypeShort not found in type data:', typeData);
       }
     } catch (error) {
-      console.error('Error loading type info:', error);
+      console.error('❌ Error loading type info:', error);
       // Keep default value if load fails
     }
   }
@@ -266,11 +271,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (serviceResponse) {
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
+        console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
         
         // Load type information using TypeID from service data
         if (this.serviceData?.TypeID) {
+          console.log(`📋 Found TypeID in service data: ${this.serviceData.TypeID}`);
           await this.loadTypeInfo(this.serviceData.TypeID);
+        } else {
+          console.warn('⚠️ No TypeID found in service data');
+          console.log('Available fields in service data:', Object.keys(this.serviceData || {}));
         }
+      } else {
+        console.warn('⚠️ No service response received');
       }
     } catch (error) {
       console.error('Error loading service data:', error);
@@ -5291,6 +5303,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('  annotations:', annotations);
       console.log('  has originalFile:', !!originalFile);
       
+      // CRITICAL: Check if attachId is valid
+      if (!attachId || attachId === 'undefined' || attachId === 'null') {
+        console.error('❌ Invalid AttachID:', attachId);
+        throw new Error('Cannot update photo: Invalid AttachID');
+      }
+      
       // Update annotations without debug popups
       
       // IMPORTANT: We do NOT upload the annotated file anymore!
@@ -5832,6 +5850,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 annotations: annotationData,  // CRITICAL: Load from Drawings field, not Annotation
                 annotationsData: annotationData,  // Also store with 's' for compatibility
                 hasAnnotations: !!annotationData,
+                // CRITICAL: Preserve AttachID for updates - this is what was missing!
+                AttachID: photo.AttachID || photo.PK_ID || photo.id,
+                id: photo.AttachID || photo.PK_ID || photo.id, // Also store as 'id' for compatibility
                 // CRITICAL: Set to undefined, not empty string, so template can fall back properly
                 url: undefined,
                 thumbnailUrl: undefined,

@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.303 - Fixed iOS picker to show all photo options</div>
+    <div class="version-header">Version 1.4.305 - Camera icon only shows after visual selection</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -427,6 +427,7 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
+                                *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
                                 title="Take photo">
                           <ion-icon name="camera"></ion-icon>
@@ -555,6 +556,7 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
+                                *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
                                 title="Take photo">
                           <ion-icon name="camera"></ion-icon>
@@ -683,6 +685,7 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
+                                *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
                                 title="Take photo">
                           <ion-icon name="camera"></ion-icon>

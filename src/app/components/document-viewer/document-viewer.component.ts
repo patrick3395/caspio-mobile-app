@@ -93,12 +93,13 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'multiple'"
-          [scrollMode]="3"
+          [pageViewMode]="'infinite-scroll'"
+          [scrollMode]="0"
           [showBorders]="true"
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
+          [removePageBorders]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pageRendered)="onPageRendered($event)"
           (pagesLoaded)="onPagesLoaded($event)"
@@ -211,19 +212,30 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     
     ::ng-deep #viewerContainer {
       overflow-y: auto !important;
-      overflow-x: hidden !important;
+      overflow-x: auto !important;
       -webkit-overflow-scrolling: touch !important;
       flex: 1;
       width: 100% !important;
-      padding: 8px 0 !important;
+      padding: 8px 4px !important;
       background: #2d2d2d !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
     }
     
     ::ng-deep .page {
-      margin: 8px auto !important;
-      max-width: 100% !important;
+      margin: 8px auto 16px auto !important;
+      max-width: calc(100% - 16px) !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
       border: 1px solid #444 !important;
+      page-break-after: always !important;
+      break-after: page !important;
+    }
+    
+    ::ng-deep .pdfViewer {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
     }
     
     /* Modern PDF Viewer Styling */
@@ -596,15 +608,27 @@ export class DocumentViewerComponent implements OnInit {
       this.totalPages = event.pagesCount;
       console.log('Total pages:', this.totalPages);
       
-      // Force render all pages for infinite scroll
+      // Force render all pages immediately for infinite scroll
       setTimeout(() => {
-        // Trigger a small scroll to force all pages to render
+        // Get the viewer container
         const viewerContainer = document.getElementById('viewerContainer');
         if (viewerContainer) {
-          viewerContainer.scrollTop = 1;
-          viewerContainer.scrollTop = 0;
+          // Scroll to bottom to trigger loading of all pages
+          viewerContainer.scrollTop = viewerContainer.scrollHeight;
+          // Then scroll back to top
+          setTimeout(() => {
+            viewerContainer.scrollTop = 0;
+          }, 200);
         }
-      }, 100);
+        
+        // Also trigger the PDF viewer to render all pages
+        const pdfViewer = (window as any).PDFViewerApplication;
+        if (pdfViewer && pdfViewer.pdfViewer) {
+          pdfViewer.pdfViewer.currentScaleValue = 'page-width';
+          pdfViewer.pdfViewer.scrollMode = 0; // Vertical scrolling
+          pdfViewer.pdfViewer.spreadMode = 0; // No spread
+        }
+      }, 300);
     }
   }
 
@@ -621,17 +645,32 @@ export class DocumentViewerComponent implements OnInit {
 
   onPagesLoaded(event: any) {
     console.log('All pages loaded:', event);
-    // Force re-render for infinite scroll mode
+    // Ensure all pages are rendered in infinite scroll mode
     setTimeout(() => {
       const viewerContainer = document.getElementById('viewerContainer');
-      if (viewerContainer) {
-        // Trigger scroll to render all pages in infinite scroll mode
-        viewerContainer.scrollTop = 10;
-        setTimeout(() => {
-          viewerContainer.scrollTop = 0;
-        }, 50);
+      const pdfViewer = (window as any).PDFViewerApplication;
+      
+      if (pdfViewer && pdfViewer.pdfViewer) {
+        // Set infinite scroll mode programmatically
+        pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
+        pdfViewer.pdfViewer.spreadMode = 0; // NONE
+        
+        // Force render all visible pages
+        pdfViewer.pdfViewer.update();
       }
-    }, 200);
+      
+      if (viewerContainer) {
+        // Quick scroll to trigger all page rendering
+        const scrollHeight = viewerContainer.scrollHeight;
+        viewerContainer.scrollTop = scrollHeight / 2;
+        setTimeout(() => {
+          viewerContainer.scrollTop = scrollHeight;
+          setTimeout(() => {
+            viewerContainer.scrollTop = 0;
+          }, 100);
+        }, 100);
+      }
+    }, 400);
   }
 
   toggleSidebar() {
