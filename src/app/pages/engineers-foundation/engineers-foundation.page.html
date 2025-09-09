@@ -843,6 +843,73 @@
                   </ion-item>
                 </div>
                 
+                <!-- FDF Photos Section -->
+                <div class="fdf-photos-container" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
+                  <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <!-- Top Photo -->
+                    <button (click)="takeFDFPhoto(room.RoomName, 'Top')" 
+                            class="fdf-photo-button"
+                            style="flex: 1; min-width: 80px; padding: 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                      <ion-icon name="camera-outline" style="margin-right: 4px;"></ion-icon>
+                      Top
+                      <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="color: #4CAF50; margin-left: 4px;">✓</span>
+                    </button>
+                    
+                    <!-- Bottom Photo -->
+                    <button (click)="takeFDFPhoto(room.RoomName, 'Bottom')" 
+                            class="fdf-photo-button"
+                            style="flex: 1; min-width: 80px; padding: 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                      <ion-icon name="camera-outline" style="margin-right: 4px;"></ion-icon>
+                      Bottom
+                      <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="color: #4CAF50; margin-left: 4px;">✓</span>
+                    </button>
+                    
+                    <!-- Threshold Photo -->
+                    <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
+                            class="fdf-photo-button"
+                            style="flex: 1; min-width: 80px; padding: 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                      <ion-icon name="camera-outline" style="margin-right: 4px;"></ion-icon>
+                      Threshold
+                      <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="color: #4CAF50; margin-left: 4px;">✓</span>
+                    </button>
+                  </div>
+                  
+                  <!-- Photo thumbnails if they exist -->
+                  <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos" style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                    <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" style="position: relative;">
+                      <img [src]="roomElevationData[room.RoomName].fdfPhotos.topUrl" 
+                           style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;"
+                           (click)="viewFDFPhoto(room.RoomName, 'Top')"
+                           alt="Top">
+                      <button (click)="deleteFDFPhoto(room.RoomName, 'Top', $event)" 
+                              style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">
+                        ×
+                      </button>
+                    </div>
+                    <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" style="position: relative;">
+                      <img [src]="roomElevationData[room.RoomName].fdfPhotos.bottomUrl" 
+                           style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;"
+                           (click)="viewFDFPhoto(room.RoomName, 'Bottom')"
+                           alt="Bottom">
+                      <button (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event)" 
+                              style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">
+                        ×
+                      </button>
+                    </div>
+                    <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" style="position: relative;">
+                      <img [src]="roomElevationData[room.RoomName].fdfPhotos.thresholdUrl" 
+                           style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;"
+                           (click)="viewFDFPhoto(room.RoomName, 'Threshold')"
+                           alt="Threshold">
+                      <button (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event)" 
+                              style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
                 <!-- Measurements Section -->
                 <div class="room-section-delimiter" style="margin-top: 15px;">
                   <span class="delimiter-label">Measurements</span>

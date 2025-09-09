@@ -13,6 +13,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
 
@@ -394,6 +395,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (room.Notes) {
                     this.roomElevationData[roomName].notes = room.Notes;
                   }
+                  
+                  // Load FDF photos if they exist
+                  const fdfPhotos: any = {};
+                  if (room.FDFPhotoTop) {
+                    fdfPhotos.top = true;
+                    // Generate URL for display
+                    const token = await this.caspioService.getValidToken();
+                    const account = this.caspioService.getAccountID();
+                    fdfPhotos.topUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoTop}?access_token=${token}`;
+                  }
+                  if (room.FDFPhotoBottom) {
+                    fdfPhotos.bottom = true;
+                    const token = await this.caspioService.getValidToken();
+                    const account = this.caspioService.getAccountID();
+                    fdfPhotos.bottomUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoBottom}?access_token=${token}`;
+                  }
+                  if (room.FDFPhotoThreshold) {
+                    fdfPhotos.threshold = true;
+                    const token = await this.caspioService.getValidToken();
+                    const account = this.caspioService.getAccountID();
+                    fdfPhotos.thresholdUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoThreshold}?access_token=${token}`;
+                  }
+                  
+                  if (Object.keys(fdfPhotos).length > 0) {
+                    this.roomElevationData[roomName].fdfPhotos = fdfPhotos;
+                  }
                 }
                 
                 console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}, Notes: ${room.Notes ? 'Yes' : 'No'}`);
@@ -710,6 +737,142 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
     }
+  }
+  
+  // Handle taking FDF photos (Top, Bottom, Threshold)
+  async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    const roomId = this.roomRecordIds[roomName];
+    if (!roomId) {
+      await this.showToast('Please save the room first', 'warning');
+      return;
+    }
+    
+    try {
+      // Use Camera plugin to take photo
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera
+      });
+      
+      if (image.dataUrl) {
+        // Convert base64 to blob
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        
+        // Create file from blob
+        const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
+        const file = new File([blob], fileName, { type: 'image/jpeg' });
+        
+        // Upload to Caspio Files API
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file, fileName);
+        
+        const token = await this.caspioService.getValidToken();
+        const account = this.caspioService.getAccountID();
+        
+        const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: uploadFormData
+        });
+        
+        const uploadResult = await uploadResponse.json();
+        const filePath = `/${uploadResult.Name}`;
+        
+        // Update the appropriate column in Services_Rooms
+        const columnName = `FDFPhoto${photoType}`;
+        const updateData: any = {};
+        updateData[columnName] = filePath;
+        
+        const query = `RoomID=${roomId}`;
+        await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+        
+        // Store the photo URL in local state for display
+        if (!this.roomElevationData[roomName].fdfPhotos) {
+          this.roomElevationData[roomName].fdfPhotos = {};
+        }
+        
+        const photoKey = photoType.toLowerCase();
+        this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+        this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = image.dataUrl;
+        
+        await this.showToast(`${photoType} photo saved`, 'success');
+      }
+    } catch (error) {
+      console.error(`Error taking FDF ${photoType} photo:`, error);
+      await this.showToast(`Failed to save ${photoType} photo`, 'danger');
+    }
+  }
+  
+  // View FDF photo in modal
+  async viewFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    const photoKey = photoType.toLowerCase();
+    const photoUrl = this.roomElevationData[roomName]?.fdfPhotos?.[`${photoKey}Url`];
+    
+    if (photoUrl) {
+      const modal = await this.modalController.create({
+        component: PhotoViewerComponent,
+        componentProps: {
+          photos: [{ url: photoUrl, caption: `FDF ${photoType} - ${roomName}` }],
+          initialIndex: 0
+        },
+        cssClass: 'photo-viewer-modal'
+      });
+      
+      await modal.present();
+    }
+  }
+  
+  // Delete FDF photo
+  async deleteFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', event: Event) {
+    event.stopPropagation();
+    
+    const alert = await this.alertController.create({
+      header: 'Delete Photo',
+      message: `Are you sure you want to delete the ${photoType} photo?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const roomId = this.roomRecordIds[roomName];
+              if (roomId) {
+                // Clear the photo column in Services_Rooms
+                const columnName = `FDFPhoto${photoType}`;
+                const updateData: any = {};
+                updateData[columnName] = null;
+                
+                const query = `RoomID=${roomId}`;
+                await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+              }
+              
+              // Clear from local state
+              const photoKey = photoType.toLowerCase();
+              if (this.roomElevationData[roomName]?.fdfPhotos) {
+                delete this.roomElevationData[roomName].fdfPhotos[photoKey];
+                delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+              }
+              
+              await this.showToast(`${photoType} photo deleted`, 'success');
+            } catch (error) {
+              console.error(`Error deleting FDF ${photoType} photo:`, error);
+              await this.showToast(`Failed to delete ${photoType} photo`, 'danger');
+            }
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
   }
   
   // Handle elevation value change for a point

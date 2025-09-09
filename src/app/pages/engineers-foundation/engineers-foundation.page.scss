@@ -3,6 +3,22 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// FDF Photo Buttons
+.fdf-photo-button {
+  &:hover {
+    background: #f0f0f0 !important;
+    border-color: #999 !important;
+  }
+  
+  &:active {
+    background: #e0e0e0 !important;
+  }
+  
+  ion-icon {
+    vertical-align: middle;
+  }
+}
+
 // GLOBAL TEXT TRUNCATION FIX - Ensures all item text shows exactly 2 lines
 .item-text {
   font-size: 13px !important;

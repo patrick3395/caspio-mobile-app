@@ -28,6 +28,9 @@ import * as fabric from 'fabric';
     <ion-content>
       <div class="annotation-tools-container">
         <div class="main-tools">
+          <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select">
+            <ion-icon name="hand-left-outline"></ion-icon>
+          </button>
           <button class="tool-btn color-btn" (click)="changeColor()">
             <ion-icon name="color-palette-outline"></ion-icon>
             <div class="color-indicator" [style.background]="currentColor"></div>
@@ -483,11 +486,36 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   setTool(tool: string) {
     this.currentTool = tool;
     
-    // Always disable drawing mode and selection for our simplified tools
-    this.canvas.isDrawingMode = false;
-    this.canvas.selection = false;
+    // Enable or disable selection based on tool
+    if (tool === 'select') {
+      // Enable selection mode for editing existing annotations
+      this.canvas.isDrawingMode = false;
+      this.canvas.selection = true;
+      
+      // Make all objects selectable
+      this.canvas.getObjects().forEach(obj => {
+        if (!(obj instanceof fabric.Image)) {  // Don't make background image selectable
+          obj.set({
+            selectable: true,
+            evented: true,
+            hasControls: true,
+            hasBorders: true
+          });
+        }
+      });
+      this.canvas.renderAll();
+      console.log(`✋ [v1.4.252] Selection mode enabled - ${this.canvas.getObjects().length} objects selectable`);
+    } else {
+      // Disable selection for drawing tools
+      this.canvas.isDrawingMode = false;
+      this.canvas.selection = false;
+      
+      // Deselect any active object
+      this.canvas.discardActiveObject();
+      this.canvas.renderAll();
+    }
     
-    console.log(`🔧 [v1.4.233 FABRIC] Tool selected: ${tool}`);
+    console.log(`🔧 [v1.4.252] Tool selected: ${tool}`);
   }
   
   selectTool(event: any) {
@@ -613,27 +641,36 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             });
           }
           
-          // Ensure all objects are selectable and editable
-          this.canvas.getObjects().forEach(obj => {
-            obj.set({
-              selectable: true,
-              evented: true,
-              hasControls: true,
-              hasBorders: true,
-              lockMovementX: false,
-              lockMovementY: false,
-              lockRotation: false,
-              lockScalingX: false,
-              lockScalingY: false
+          // Wait for background image to be set, then enable selection
+          setTimeout(() => {
+            // Ensure all objects are selectable and editable
+            this.canvas.getObjects().forEach(obj => {
+              if (!(obj instanceof fabric.Image)) {  // Don't make background selectable
+                obj.set({
+                  selectable: true,
+                  evented: true,
+                  hasControls: true,
+                  hasBorders: true,
+                  lockMovementX: false,
+                  lockMovementY: false,
+                  lockRotation: false,
+                  lockScalingX: false,
+                  lockScalingY: false
+                });
+              }
             });
-          });
-          
-          this.canvas.renderAll();
-          console.log(`✅ [v1.4.248] All ${this.canvas.getObjects().length} objects are now editable`);
+            
+            // Set selection mode as default when annotations exist
+            this.currentTool = 'select';
+            this.canvas.selection = true;
+            this.canvas.renderAll();
+            console.log(`✅ [v1.4.252] All ${this.canvas.getObjects().length} objects are now editable in selection mode`);
+          }, 500);  // Give time for background image to load
         });
         
-        // Keep default arrow tool
-        this.currentTool = 'arrow';
+        // Set to select tool so user can edit annotations
+        this.currentTool = 'select';
+        this.setTool('select');  // Properly enable selection mode
         
         console.log(`✅ [v1.4.233 FABRIC] Successfully loaded ${annotationObjects.length} annotations`);
         console.log('[v1.4.233] Canvas now has', this.canvas.getObjects().length, 'total objects');

@@ -28,9 +28,13 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <embed [src]="sanitizedUrl" 
-               type="application/pdf"
-               class="pdf-embed" />
+        <object [data]="sanitizedUrl" 
+                type="application/pdf"
+                class="pdf-object">
+          <embed [src]="sanitizedUrl" 
+                 type="application/pdf"
+                 class="pdf-embed" />
+        </object>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -57,11 +61,19 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       background: #525659;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+    .pdf-object {
+      width: 100%;
+      min-height: 100%;
+      height: 150vh; /* Allow for scrolling through multiple pages */
+      border: none;
+      display: block;
     }
     .pdf-embed {
       width: 100%;
       min-height: 100%;
-      height: auto;
+      height: 150vh; /* Fallback for embed */
       border: none;
       display: block;
     }
@@ -92,11 +104,13 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       .pdf-container {
         -webkit-overflow-scrolling: touch;
         overflow: auto;
+        height: 100%;
       }
+      .pdf-object,
       .pdf-embed {
         width: 100%;
         min-height: 100vh;
-        height: auto;
+        height: 200vh; /* Ensure enough height for multiple pages on iOS */
       }
     }
   `]
