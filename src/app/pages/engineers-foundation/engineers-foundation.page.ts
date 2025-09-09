@@ -3060,8 +3060,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  // Prevent touch event bubbling
+  preventTouch(event: TouchEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  // New handler for PDF button click
+  async handlePDFClick(event: Event) {
+    console.log('[v1.4.331] PDF button clicked via handlePDFClick');
+    
+    // Prevent all default behaviors immediately
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
+    // Disable the button immediately to prevent double clicks
+    const button = event.currentTarget as HTMLButtonElement;
+    if (button) {
+      button.disabled = true;
+      button.style.opacity = '0.6';
+    }
+    
+    // Small delay to ensure no navigation occurs
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Call the actual PDF generation
+    await this.generatePDF(event);
+    
+    // Re-enable button after generation completes
+    if (button) {
+      button.disabled = false;
+      button.style.opacity = '1';
+    }
+  }
+
   async generatePDF(event?: Event) {
-    console.log('[v1.4.330] PDF button clicked - first click fix');
+    console.log('[v1.4.331] generatePDF called - enhanced first click fix');
     
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3078,14 +3113,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.330] Preventing form submission');
+        console.log('[v1.4.331] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
     
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.330] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.331] PDF generation already in progress, ignoring click');
       return;
     }
     
@@ -3101,47 +3136,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`[v1.4.317] PDF generation attempt #${this.pdfGenerationAttempts}`);
+    console.log(`[v1.4.331] PDF generation attempt #${this.pdfGenerationAttempts}`);
     
     try {
-      // CRITICAL FIX: On first attempt, ensure we're not triggering any navigation
-      if (this.pdfGenerationAttempts === 1) {
-        console.log('[v1.4.330] First attempt - preventing any navigation or reload');
-        
-        // Store current URL to detect any navigation attempts
-        const currentUrl = window.location.href;
-        
-        // Add a small delay to let any errant navigation attempts surface
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Check if URL changed (which would indicate navigation/reload)
-        if (window.location.href !== currentUrl) {
-          console.error('[v1.4.330] Navigation detected on first click! Blocking and retrying.');
-          window.history.back(); // Undo any navigation
+      // CRITICAL FIX: Ensure we have our IDs before proceeding
+      if (!this.serviceId || !this.projectId) {
+        console.error('[v1.4.331] Missing service/project ID, attempting recovery');
+        // Try to recover IDs from route if possible
+        const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
+        const routeProjectId = this.route.snapshot.paramMap.get('projectId');
+        if (routeServiceId && routeProjectId) {
+          this.serviceId = routeServiceId;
+          this.projectId = routeProjectId;
+          console.log('[v1.4.331] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+        } else {
           this.isPDFGenerating = false;
-          // Retry the PDF generation
-          setTimeout(() => this.generatePDF(), 100);
-          return;
-        }
-        
-        // Double-check that we still have our IDs
-        if (!this.serviceId || !this.projectId) {
-          console.error('[v1.4.330] Lost service/project ID, reinitializing');
-          // Try to recover IDs from route if possible
-          const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
-          const routeProjectId = this.route.snapshot.paramMap.get('projectId');
-          if (routeServiceId && routeProjectId) {
-            this.serviceId = routeServiceId;
-            this.projectId = routeProjectId;
-            console.log('[v1.4.330] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
-          } else {
-            this.isPDFGenerating = false;
-            if (pdfButton) {
-              pdfButton.style.pointerEvents = 'auto';
-              pdfButton.style.opacity = '1';
-            }
-            return;
+          if (pdfButton) {
+            pdfButton.style.pointerEvents = 'auto';
+            pdfButton.style.opacity = '1';
           }
+          return;
         }
       }
       
@@ -3195,7 +3209,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         // Load all data in parallel for maximum speed
-        console.log('[v1.4.330] Loading PDF data (first time) - with navigation protection...');
+        console.log('[v1.4.331] Loading PDF data...');
         const startTime = Date.now();
         
         try {
@@ -3203,7 +3217,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Execute all data fetching in parallel with individual error handling
           const [projectData, structuralData, elevationData] = await Promise.all([
             this.prepareProjectInfo().catch(err => {
-              console.error('[v1.4.326] Error in prepareProjectInfo:', err);
+              console.error('[v1.4.331] Error in prepareProjectInfo:', err);
               // Return minimal valid data structure
               return {
                 projectId: this.projectId,
@@ -3215,11 +3229,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               };
             }),
             this.prepareStructuralSystemsData().catch(err => {
-              console.error('[v1.4.326] Error in prepareStructuralSystemsData:', err);
+              console.error('[v1.4.331] Error in prepareStructuralSystemsData:', err);
               return []; // Return empty array instead of failing
             }),
             this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.326] Error in prepareElevationPlotData:', err);
+              console.error('[v1.4.331] Error in prepareElevationPlotData:', err);
               return []; // Return empty array instead of failing
             })
           ]);
@@ -3228,7 +3242,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
           
-          console.log(`[v1.4.326] All data loaded in ${Date.now() - startTime}ms`);
+          console.log(`[v1.4.331] All data loaded in ${Date.now() - startTime}ms`);
           
           // Cache the prepared data
           this.cache.set(cacheKey, {
@@ -3237,7 +3251,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
         } catch (dataError) {
-          console.error('[v1.4.330] Fatal error loading PDF data:', dataError);
+          console.error('[v1.4.331] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
           projectInfo = {
             projectId: this.projectId,
@@ -3345,7 +3359,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('[v1.4.330] Outer error in generatePDF:', error);
+    console.error('[v1.4.331] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
     
     // Re-enable the PDF button
@@ -3357,7 +3371,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await this.showToast(`Failed to generate PDF: ${errorMessage}`, 'danger');
-  }
+    }
   }
   
   // Utility functions
@@ -5629,9 +5643,9 @@ Has Annotations: ${!!annotations}`;
         
         // Handle different annotation formats
         if (annotations === null || annotations === undefined) {
-          // Skip null/undefined
-          drawingsData = '';
-          console.log('  → Null/undefined, using empty string');
+          // Skip null/undefined - DON'T send empty string
+          console.log('  → Null/undefined, skipping Drawings field');
+          // Don't set drawingsData at all - let it remain undefined
         } else if (typeof annotations === 'string') {
           // Already a string - validate and clean it
           drawingsData = annotations;
@@ -5666,11 +5680,31 @@ Has Annotations: ${!!annotations}`;
               console.log('  ⚠️ Object contains blob URL in backgroundImage');
             }
             
-            drawingsData = JSON.stringify(annotations);
-            console.log('  → Stringified object, result length:', drawingsData.length);
+            // CRITICAL: Use JSON.stringify with replacer to handle circular refs
+            drawingsData = JSON.stringify(annotations, (key, value) => {
+              // Skip any function properties
+              if (typeof value === 'function') {
+                return undefined;
+              }
+              // Skip any DOM elements
+              if (value instanceof HTMLElement) {
+                return undefined;
+              }
+              // Handle undefined values
+              if (value === undefined) {
+                return null;
+              }
+              return value;
+            });
+            console.log('  → Stringified object with replacer, result length:', drawingsData.length);
           } catch (e) {
             console.error('  ❌ Failed to stringify:', e);
-            drawingsData = '';
+            // Try to create a simple representation
+            try {
+              drawingsData = JSON.stringify({ error: 'Could not serialize', type: typeof annotations });
+            } catch (e2) {
+              drawingsData = '';
+            }
           }
         } else {
           // Other type - convert to string
@@ -5793,7 +5827,32 @@ Original File: ${originalFile?.name || 'None'}`;
         console.warn('⚠️ No data to update - updateData is empty');
         // If there's no data to update, just return success
         console.log('✅ No changes needed, skipping update');
+        await this.showToast('No changes to save', 'info');
         return;
+      }
+      
+      // CRITICAL: Ensure Drawings field is properly formatted
+      if (updateData.Drawings !== undefined) {
+        // Make absolutely sure it's a string
+        if (typeof updateData.Drawings !== 'string') {
+          console.error('❌ CRITICAL: Drawings field is not a string!');
+          console.error('  Type:', typeof updateData.Drawings);
+          console.error('  Value:', updateData.Drawings);
+          // Convert to string as last resort
+          try {
+            updateData.Drawings = JSON.stringify(updateData.Drawings);
+            console.log('  Converted to string');
+          } catch (e) {
+            console.error('  Failed to convert:', e);
+            delete updateData.Drawings; // Remove the field if we can't convert it
+          }
+        }
+        
+        // Check for extremely long strings that might cause issues
+        if (updateData.Drawings && updateData.Drawings.length > 50000) {
+          console.warn('⚠️ WARNING: Drawings field is very long:', updateData.Drawings.length, 'characters');
+          console.warn('  This might cause issues with Caspio');
+        }
       }
       
       // FINAL DATA VALIDATION before sending

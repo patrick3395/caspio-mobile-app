@@ -1725,15 +1725,29 @@ export class CaspioService {
                 }
               }
               
-              // Use URL.createObjectURL EXACTLY like the example - this is the key!
-              const objectUrl = URL.createObjectURL(blob);
-              console.log('✅ Created object URL for image display:', objectUrl);
-              console.log('  - Object URL starts with:', objectUrl.substring(0, 50));
-              
-              // Return the record with the object URL as the Attachment
-              record.Attachment = objectUrl;
-              observer.next(record);
-              observer.complete();
+              // For PDFs, convert to base64 data URL instead of blob URL
+              // ngx-extended-pdf-viewer doesn't work well with blob URLs
+              if (mimeType === 'application/pdf') {
+                console.log('📄 PDF detected, converting to base64 for viewer compatibility');
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  const base64data = reader.result as string;
+                  console.log('✅ Converted PDF to base64 data URL');
+                  console.log('  - Data URL starts with:', base64data.substring(0, 50));
+                  record.Attachment = base64data;
+                  observer.next(record);
+                  observer.complete();
+                };
+                reader.readAsDataURL(blob);
+              } else {
+                // For images and other files, use object URL as before
+                const objectUrl = URL.createObjectURL(blob);
+                console.log('✅ Created object URL for image display:', objectUrl);
+                console.log('  - Object URL starts with:', objectUrl.substring(0, 50));
+                record.Attachment = objectUrl;
+                observer.next(record);
+                observer.complete();
+              }
               
             } catch (error) {
               console.error('❌ File fetch failed:', error);
@@ -1755,12 +1769,36 @@ export class CaspioService {
                   });
                   
                   if (inspResponse.ok) {
-                    const blob = await inspResponse.blob();
-                    const objectUrl = URL.createObjectURL(blob);
+                    let blob = await inspResponse.blob();
                     console.log('✅ Success with /Inspections prefix');
-                    record.Attachment = objectUrl;
-                    observer.next(record);
-                    observer.complete();
+                    
+                    // Detect MIME type if not set
+                    let mimeType = blob.type;
+                    if (!mimeType || mimeType === 'application/octet-stream') {
+                      const filename = record.Link || record.Attachment || '';
+                      if (filename.toLowerCase().endsWith('.pdf')) {
+                        mimeType = 'application/pdf';
+                        blob = new Blob([blob], { type: mimeType });
+                      }
+                    }
+                    
+                    // For PDFs, convert to base64
+                    if (mimeType === 'application/pdf') {
+                      console.log('📄 PDF detected in /Inspections path, converting to base64');
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        const base64data = reader.result as string;
+                        record.Attachment = base64data;
+                        observer.next(record);
+                        observer.complete();
+                      };
+                      reader.readAsDataURL(blob);
+                    } else {
+                      const objectUrl = URL.createObjectURL(blob);
+                      record.Attachment = objectUrl;
+                      observer.next(record);
+                      observer.complete();
+                    }
                     return;
                   }
                 } catch (inspError) {

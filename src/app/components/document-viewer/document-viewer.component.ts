@@ -655,7 +655,17 @@ export class DocumentViewerComponent implements OnInit {
     
     // Check both filename and filepath for extension
     this.isImage = imageExtensions.some(ext => lowerName.endsWith(ext) || lowerPath.endsWith(ext));
-    this.isPDF = lowerPath.includes('.pdf') || this.fileUrl.toLowerCase().includes('.pdf');
+    this.isPDF = lowerPath.includes('.pdf') || 
+                 this.fileUrl.toLowerCase().includes('.pdf') ||
+                 this.fileUrl.toLowerCase().includes('application/pdf');
+    
+    console.log('Document detection:', {
+      isImage: this.isImage,
+      isPDF: this.isPDF,
+      fileName: this.fileName,
+      filePath: this.filePath,
+      urlStartsWith: this.fileUrl?.substring(0, 50)
+    });
     
     if (this.isImage) {
       // For images, use the URL directly (should be base64 data URL)
@@ -675,12 +685,14 @@ export class DocumentViewerComponent implements OnInit {
       console.log('PDF source set, URL type:', this.fileUrl.startsWith('data:') ? 'base64 data URL' : 'regular URL');
       
       // Set a timeout to show PDF even if event doesn't fire
+      // Increased timeout to give PDF viewer more time to process base64 data
       setTimeout(() => {
         if (!this.pdfLoaded && this.isPDF) {
-          console.log('PDF load event did not fire after 3 seconds, forcing display');
+          console.log('PDF load event did not fire after 10 seconds, forcing display');
+          console.log('PDF source type:', this.pdfSource.substring(0, 50));
           this.pdfLoaded = true;
         }
-      }, 3000);
+      }, 10000);
       
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
@@ -881,17 +893,28 @@ export class DocumentViewerComponent implements OnInit {
 
   onPdfLoadingStarts(event: any) {
     console.log('PDF loading started:', event);
+    console.log('PDF source length:', this.pdfSource?.length);
+    console.log('PDF source type:', typeof this.pdfSource);
+    if (typeof this.pdfSource === 'string') {
+      console.log('PDF source begins with:', this.pdfSource.substring(0, 100));
+    }
     this.pdfLoaded = false;
   }
   
   onPdfLoadingFailed(event: any) {
     console.error('PDF loading failed:', event);
+    console.error('PDF failure details:', {
+      error: event?.error,
+      message: event?.message,
+      source: this.pdfSource?.substring(0, 100)
+    });
     this.pdfLoaded = true; // Hide loading indicator even on failure
     
-    // Show error message to user
+    // Show more detailed error message to user
+    const errorMessage = event?.message || 'Failed to load the PDF. The file may be corrupted or too large.';
     this.alertController.create({
       header: 'PDF Loading Error',
-      message: 'Failed to load the PDF. The file may be corrupted or too large.',
+      message: `${errorMessage}\n\nDebug: Source type is ${this.pdfSource?.startsWith('data:') ? 'base64' : 'unknown'}`,
       buttons: ['OK']
     }).then(alert => alert.present());
   }

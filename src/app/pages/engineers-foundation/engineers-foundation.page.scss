@@ -3,6 +3,26 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// PDF Header Button
+.pdf-header-button {
+  background: transparent;
+  border: none;
+  color: var(--ion-color-primary-contrast);
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  
+  ion-icon {
+    font-size: 20px;
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+}
+
 // FDF Photo Buttons
 .fdf-photo-button {
   &:hover {
