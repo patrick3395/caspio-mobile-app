@@ -3152,15 +3152,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         cssClass: 'fullscreen-modal'
       });
       
-      // Listen for the modal to be ready
-      modal.onDidPresent().then(() => {
-        console.log('Modal did present - dismissing loading');
-        // Dismiss loading when modal is shown
-        loading.dismiss().catch(() => console.log('Loading already dismissed'));
-      });
-      
-      // Present the modal (loading will be dismissed via the onWillPresent handler)
+      // Present the modal first
       await modal.present();
+      
+      // Then dismiss the loading after modal is presented
+      setTimeout(() => {
+        console.log('Dismissing loading after modal present');
+        loading.dismiss().catch(() => console.log('Loading already dismissed'));
+      }, 500);
       
       // Additional safety: ensure loading is dismissed after modal is shown
       setTimeout(() => {
