@@ -785,7 +785,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     try {
       // Compress the image if needed
-      const compressedFile = await this.imageCompressionService.compressImage(file);
+      const compressedFile = await this.imageCompression.compressImage(file);
       
       // Upload to Caspio Files API
       const uploadFormData = new FormData();
