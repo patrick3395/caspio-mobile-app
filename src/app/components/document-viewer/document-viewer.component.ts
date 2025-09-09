@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -9,6 +9,7 @@ import { FormsModule } from '@angular/forms';
   selector: 'app-document-viewer',
   standalone: true,
   imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule, FormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <ion-header>
       <ion-toolbar style="--background: #F15A27; padding: 0 8px; padding-top: var(--ion-safe-area-top);">
@@ -87,7 +88,6 @@ import { FormsModule } from '@angular/forms';
           <p>Loading PDF...</p>
         </div>
         <ngx-extended-pdf-viewer 
-          *ngIf="pdfSource"
           [src]="pdfSource"
           [height]="'100%'"
           [mobileFriendlyZoom]="'page-width'"
@@ -115,6 +115,8 @@ import { FormsModule } from '@angular/forms';
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
+          [renderText]="true"
+          [useOnlyCssZoom]="false"
           [enableDragAndDrop]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pdfLoadingStarts)="onPdfLoadingStarts($event)"
@@ -662,19 +664,23 @@ export class DocumentViewerComponent implements OnInit {
     } else if (this.isPDF) {
       // For PDFs, prepare the source for ngx-extended-pdf-viewer
       console.log('Preparing PDF source...');
+      console.log('File URL length:', this.fileUrl?.length);
+      console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
+      
+      // Initialize the loading state
+      this.pdfLoaded = false;
       
       // Use the file URL directly - the PDF viewer handles both data URLs and regular URLs
       this.pdfSource = this.fileUrl;
       console.log('PDF source set, URL type:', this.fileUrl.startsWith('data:') ? 'base64 data URL' : 'regular URL');
       
-      // Pre-initialize the PDF viewer - set a timeout to show PDF even if event doesn't fire
-      this.pdfLoaded = false;
+      // Set a timeout to show PDF even if event doesn't fire
       setTimeout(() => {
         if (!this.pdfLoaded && this.isPDF) {
-          console.log('PDF load event did not fire, forcing display');
+          console.log('PDF load event did not fire after 3 seconds, forcing display');
           this.pdfLoaded = true;
         }
-      }, 5000);
+      }, 3000);
       
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {

@@ -871,10 +871,11 @@ export class CaspioService {
   
   // Update Services_Visuals_Attach record
   updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
-    console.log('📝 Updating Services_Visuals_Attach record');
+    console.log('📝 [v1.4.329] Updating Services_Visuals_Attach record');
     console.log('  AttachID:', attachId);
     console.log('  AttachID type:', typeof attachId);
     console.log('  Update data:', data);
+    console.log('  Update data keys:', Object.keys(data));
     
     // CRITICAL: Ensure AttachID is a number for Caspio API
     const attachIdNum = typeof attachId === 'string' ? parseInt(attachId, 10) : attachId;
@@ -883,24 +884,77 @@ export class CaspioService {
       return throwError(() => new Error(`Invalid AttachID: ${attachId} is not a valid number`));
     }
     
-    const endpoint = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
-    console.log('  Endpoint:', endpoint);
-    console.log('  AttachID as number:', attachIdNum);
-    
-    return this.put<any>(endpoint, data).pipe(
-      tap(response => {
-        console.log('✅ Update successful:', response);
-      }),
-      catchError(error => {
-        console.error('❌ Update failed:', error);
-        console.error('  Status:', error.status);
-        console.error('  Message:', error.message);
-        console.error('  Body:', error.error);
-        console.error('  AttachID used:', attachIdNum);
-        console.error('  Data sent:', JSON.stringify(data));
-        return throwError(error);
+    // v1.4.329 FIX: Use raw fetch like CREATE does, not Angular HttpClient
+    // This prevents double JSON.stringify of the Drawings field
+    return new Observable(observer => {
+      const accessToken = this.getCurrentToken();
+      if (!accessToken) {
+        observer.error(new Error('No authentication token available'));
+        return;
+      }
+      
+      const API_BASE_URL = environment.caspio.apiBaseUrl;
+      const endpoint = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
+      const fullUrl = `${API_BASE_URL}${endpoint}`;
+      
+      console.log('  [v1.4.329] Using raw fetch for UPDATE (like CREATE does)');
+      console.log('  Full URL:', fullUrl);
+      console.log('  Data being sent:', JSON.stringify(data, null, 2));
+      
+      // Use fetch directly like the CREATE operation does
+      fetch(fullUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)  // Single stringify, just like CREATE
       })
-    );
+      .then(async response => {
+        const responseText = await response.text();
+        console.log(`  Update response status: ${response.status}`);
+        console.log(`  Update response text: ${responseText}`);
+        
+        if (!response.ok) {
+          // Parse error response
+          let errorData: any = {};
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (e) {
+            errorData = { message: responseText };
+          }
+          
+          console.error('❌ Update failed:', errorData);
+          console.error('  Status:', response.status);
+          console.error('  AttachID used:', attachIdNum);
+          console.error('  Data sent:', JSON.stringify(data));
+          
+          const error: any = new Error(errorData.Message || errorData.message || 'Update failed');
+          error.status = response.status;
+          error.error = errorData;
+          throw error;
+        }
+        
+        // Success - parse response if it's JSON
+        let result = {};
+        if (responseText) {
+          try {
+            result = JSON.parse(responseText);
+          } catch (e) {
+            // Response might be empty for successful updates
+            result = { success: true };
+          }
+        }
+        
+        console.log('✅ Update successful:', result);
+        observer.next(result);
+        observer.complete();
+      })
+      .catch(error => {
+        console.error('❌ Update request failed:', error);
+        observer.error(error);
+      });
+    });
   }
   
   // Delete Services_Visuals_Attach record

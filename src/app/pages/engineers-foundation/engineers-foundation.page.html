@@ -5,7 +5,7 @@
     </ion-buttons>
     <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="generatePDF($event)" type="button">
+      <ion-button (click)="generatePDF($event)" type="button" fill="clear">
         <ion-icon name="document-text-outline"></ion-icon>
         <span style="margin-left: 5px;">PDF</span>
       </ion-button>
@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.328 - Fixed compilation errors</div>
+    <div class="version-header">Version 1.4.330 - Fixed PDF first click navigation issue</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 

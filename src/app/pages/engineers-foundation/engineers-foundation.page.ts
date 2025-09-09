@@ -3061,9 +3061,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.317] PDF button clicked - comprehensive fix');
+    console.log('[v1.4.330] PDF button clicked - first click fix');
     
-    // Aggressive event prevention to stop any navigation
+    // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -3073,11 +3073,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (event instanceof TouchEvent) {
         event.preventDefault();
       }
+      
+      // Prevent any form submission if button is inside a form
+      const target = event.target as HTMLElement;
+      const form = target.closest('form');
+      if (form) {
+        console.log('[v1.4.330] Preventing form submission');
+        form.onsubmit = (e) => { e.preventDefault(); return false; };
+      }
     }
     
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.317] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.330] PDF generation already in progress, ignoring click');
       return;
     }
     
@@ -3096,20 +3104,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log(`[v1.4.317] PDF generation attempt #${this.pdfGenerationAttempts}`);
     
     try {
-      // Add a longer delay for first attempt to ensure page is stable
+      // CRITICAL FIX: On first attempt, ensure we're not triggering any navigation
       if (this.pdfGenerationAttempts === 1) {
-        console.log('[v1.4.326] First attempt - waiting for page stability and preventing reload');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('[v1.4.330] First attempt - preventing any navigation or reload');
         
-        // Double-check that we're still on the page and haven't navigated away
-        if (!this.serviceId || !this.projectId) {
-          console.error('[v1.4.326] Lost service/project ID, aborting PDF generation');
+        // Store current URL to detect any navigation attempts
+        const currentUrl = window.location.href;
+        
+        // Add a small delay to let any errant navigation attempts surface
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check if URL changed (which would indicate navigation/reload)
+        if (window.location.href !== currentUrl) {
+          console.error('[v1.4.330] Navigation detected on first click! Blocking and retrying.');
+          window.history.back(); // Undo any navigation
           this.isPDFGenerating = false;
-          if (pdfButton) {
-            pdfButton.style.pointerEvents = 'auto';
-            pdfButton.style.opacity = '1';
-          }
+          // Retry the PDF generation
+          setTimeout(() => this.generatePDF(), 100);
           return;
+        }
+        
+        // Double-check that we still have our IDs
+        if (!this.serviceId || !this.projectId) {
+          console.error('[v1.4.330] Lost service/project ID, reinitializing');
+          // Try to recover IDs from route if possible
+          const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
+          const routeProjectId = this.route.snapshot.paramMap.get('projectId');
+          if (routeServiceId && routeProjectId) {
+            this.serviceId = routeServiceId;
+            this.projectId = routeProjectId;
+            console.log('[v1.4.330] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+          } else {
+            this.isPDFGenerating = false;
+            if (pdfButton) {
+              pdfButton.style.pointerEvents = 'auto';
+              pdfButton.style.opacity = '1';
+            }
+            return;
+          }
         }
       }
       
@@ -3131,8 +3163,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
       
-      // Reset the generation flag before returning
+      // Reset the generation flag and button state before returning
       this.isPDFGenerating = false;
+      if (pdfButton) {
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+      }
       return;
     }
     
@@ -3159,7 +3195,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         // Load all data in parallel for maximum speed
-        console.log('[v1.4.326] Loading PDF data (first time) - with error protection...');
+        console.log('[v1.4.330] Loading PDF data (first time) - with navigation protection...');
         const startTime = Date.now();
         
         try {
@@ -3201,7 +3237,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
         } catch (dataError) {
-          console.error('[v1.4.326] Fatal error loading PDF data:', dataError);
+          console.error('[v1.4.330] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
           projectInfo = {
             projectId: this.projectId,
@@ -3250,21 +3286,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Present the modal with error handling
       try {
         await modal.present();
-        console.log('[v1.4.326] Modal presented successfully');
+        console.log('[v1.4.330] Modal presented successfully on attempt #' + this.pdfGenerationAttempts);
         
         // Dismiss loading after modal is presented
         // Add a small delay to ensure smooth transition
         setTimeout(async () => {
           try {
             await loading.dismiss();
-            console.log('[v1.4.326] Loading dismissed after modal presentation');
+            console.log('[v1.4.330] Loading dismissed after modal presentation');
           } catch (dismissError) {
             console.log('[v1.4.326] Loading already dismissed');
           }
         }, 300);
         
       } catch (modalError) {
-        console.error('[v1.4.326] Error presenting modal:', modalError);
+        console.error('[v1.4.330] Error presenting modal:', modalError);
         // Try to dismiss loading on error
         try {
           await loading.dismiss();
@@ -3282,10 +3318,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Reset the generation flag after successful modal presentation
       this.isPDFGenerating = false;
-      console.log('[v1.4.326] PDF generation completed successfully');
+      console.log('[v1.4.330] PDF generation completed successfully on attempt #' + this.pdfGenerationAttempts);
       
     } catch (error) {
-      console.error('[v1.4.326] Error preparing preview:', error);
+      console.error('[v1.4.330] Error preparing preview:', error);
       
       // Reset the generation flag on error
       this.isPDFGenerating = false;
@@ -3309,7 +3345,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('[v1.4.326] Outer error in generatePDF:', error);
+    console.error('[v1.4.330] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
     
     // Re-enable the PDF button
