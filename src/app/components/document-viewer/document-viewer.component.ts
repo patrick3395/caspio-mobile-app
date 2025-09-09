@@ -87,6 +87,7 @@ import { FormsModule } from '@angular/forms';
           <p>Loading PDF...</p>
         </div>
         <ngx-extended-pdf-viewer 
+          *ngIf="pdfSource"
           [src]="pdfSource"
           [height]="'100%'"
           [mobileFriendlyZoom]="'page-width'"
@@ -115,7 +116,11 @@ import { FormsModule } from '@angular/forms';
           [maxZoom]="10"
           [textLayer]="true"
           [enableDragAndDrop]="false"
+          [renderText]="true"
+          [useOnlyCssZoom]="false"
           (pdfLoaded)="onPdfLoaded($event)"
+          (pdfLoadingStarts)="onPdfLoadingStarts($event)"
+          (pdfLoadingFailed)="onPdfLoadingFailed($event)"
           (pageRendered)="onPageRendered($event)"
           (pagesLoaded)="onPagesLoaded($event)"
           (thumbnailsLoaded)="onThumbnailsLoaded($event)"
@@ -661,17 +666,39 @@ export class DocumentViewerComponent implements OnInit {
       console.log('Preparing PDF source...');
       
       if (this.fileUrl.startsWith('data:')) {
-        // For base64 data URLs, pass directly - the viewer handles it efficiently
-        this.pdfSource = this.fileUrl;
-        console.log('Using base64 data URL directly for better performance');
+        // For base64 data URLs, convert to blob for better performance
+        try {
+          const base64Data = this.fileUrl.split(',')[1];
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          
+          const byteArray = new Uint8Array(byteNumbers);
+          this.pdfSource = byteArray;
+          console.log('Converted base64 to Uint8Array for PDF viewer');
+        } catch (error) {
+          console.error('Error converting base64 to Uint8Array:', error);
+          // Fallback to using the data URL directly
+          this.pdfSource = this.fileUrl;
+        }
       } else {
         // For regular URLs, use them directly
         this.pdfSource = this.fileUrl;
         console.log('Using direct URL for PDF');
       }
       
-      // Pre-initialize the PDF viewer
+      // Pre-initialize the PDF viewer - set a timeout to show PDF even if event doesn't fire
       this.pdfLoaded = false;
+      setTimeout(() => {
+        if (!this.pdfLoaded && this.isPDF) {
+          console.log('PDF load event did not fire, forcing display');
+          this.pdfLoaded = true;
+        }
+      }, 3000);
+      
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
@@ -869,15 +896,45 @@ export class DocumentViewerComponent implements OnInit {
     }
   }
 
+  onPdfLoadingStarts(event: any) {
+    console.log('PDF loading started:', event);
+    this.pdfLoaded = false;
+  }
+  
+  onPdfLoadingFailed(event: any) {
+    console.error('PDF loading failed:', event);
+    this.pdfLoaded = true; // Hide loading indicator even on failure
+    
+    // Show error message to user
+    this.alertController.create({
+      header: 'PDF Loading Error',
+      message: 'Failed to load the PDF. The file may be corrupted or too large.',
+      buttons: ['OK']
+    }).then(alert => alert.present());
+  }
+
   onPdfLoaded(event: any) {
-    console.log('PDF loaded:', event);
+    console.log('PDF loaded event fired:', event);
     this.pdfLoaded = true;
-    if (event && event.pagesCount) {
-      this.totalPages = event.pagesCount;
-      console.log('Total pages:', this.totalPages);
+    
+    if (event) {
+      if (event.pagesCount) {
+        this.totalPages = event.pagesCount;
+        console.log('Total pages:', this.totalPages);
+      }
       
       // Setup event delegation for thumbnail clicks
       this.setupThumbnailEventDelegation();
+      
+      // Ensure the PDF viewer is properly initialized
+      setTimeout(() => {
+        const pdfApp = (window as any).PDFViewerApplication;
+        if (pdfApp && pdfApp.pdfViewer) {
+          console.log('PDF viewer initialized successfully');
+          // Force a render update
+          pdfApp.pdfViewer.update();
+        }
+      }, 100);
     }
   }
   

@@ -171,9 +171,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       serviceId: this.serviceId
     });
     
-    // Show debug alert with IDs
-    const debugMessage = `Debug Info:\n\nServiceID: ${this.serviceId || 'NOT SET'}\nProjectID: ${this.projectId || 'NOT SET'}\n\nWaiting to load TypeID from service...`;
-    await this.showDebugAlert('Template Loading', debugMessage);
+    // Debug logging removed - v1.4.316
     
     // Load all data in parallel for faster initialization
     try {
@@ -260,15 +258,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Force change detection to update the view
         this.changeDetectorRef.detectChanges();
         
-        // Show debug alert to confirm TypeShort is set
-        const debugMessage = `TypeShort Successfully Loaded:\n\nTypeID: ${typeId}\nTypeShort: ${this.typeShort}\n\nThe header should now show: ${this.typeShort}`;
-        await this.showDebugAlert('TypeShort Loaded', debugMessage);
+        // TypeShort loaded successfully
       } else {
         console.warn('⚠️ TypeShort not found in type data:', typeData);
         
-        // Show what we actually got back
-        const debugMessage = `TypeShort NOT Found:\n\nTypeID: ${typeId}\nResponse: ${JSON.stringify(typeData)}\n\nUsing default: Foundation Evaluation`;
-        await this.showDebugAlert('TypeShort Missing', debugMessage);
+        // TypeShort not found in response
       }
     } catch (error: any) {
       console.error('❌ Error loading type info:', error);
@@ -283,9 +277,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } else {
         errorDetails = JSON.stringify(error, null, 2);
       }
-      
-      const debugMessage = `Error Loading Type:\n\nTypeID: ${typeId}\n\nError Details:\n${errorDetails}\n\nStatus: ${error?.status || 'Unknown'}\nStatusText: ${error?.statusText || 'Unknown'}\n\nUsing default: Foundation Evaluation`;
-      await this.showDebugAlert('Type Load Error', debugMessage);
+      // Error loading type - using default
     }
   }
   
@@ -305,9 +297,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('Service data loaded:', this.serviceData);
         console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
         
-        // Show debug alert with TypeID info
-        const debugMessage = `Debug Info After Service Load:\n\nServiceID: ${this.serviceId}\nTypeID from Service: ${this.serviceData?.TypeID || 'NOT FOUND'}\n\nAll fields in service data:\n${Object.keys(this.serviceData || {}).join(', ')}`;
-        await this.showDebugAlert('TypeID Check', debugMessage);
+        // TypeID loaded from service data
         
         // Load type information using TypeID from service data
         if (this.serviceData?.TypeID) {
@@ -3071,30 +3061,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF(event?: Event) {
-    // Prevent any default button behavior that might cause page reload
+    console.log('[v1.4.317] PDF button clicked - comprehensive fix');
+    
+    // Aggressive event prevention to stop any navigation
     if (event) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      
+      // Additional prevention for touch events
+      if (event instanceof TouchEvent) {
+        event.preventDefault();
+      }
     }
     
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('PDF generation already in progress, ignoring click');
+      console.log('[v1.4.317] PDF generation already in progress, ignoring click');
       return;
+    }
+    
+    // Set flag immediately to prevent any double clicks
+    this.isPDFGenerating = true;
+    
+    // Disable the PDF button visually
+    const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+    if (pdfButton) {
+      pdfButton.style.pointerEvents = 'none';
+      pdfButton.style.opacity = '0.6';
     }
     
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`PDF generation attempt #${this.pdfGenerationAttempts}`);
-    
-    // Set flag to prevent multiple clicks
-    this.isPDFGenerating = true;
+    console.log(`[v1.4.317] PDF generation attempt #${this.pdfGenerationAttempts}`);
     
     try {
-      // Small delay to ensure event handling is complete on first click
+      // Add a longer delay for first attempt to ensure page is stable
       if (this.pdfGenerationAttempts === 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('[v1.4.317] First attempt - waiting for page stability');
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
       // Validate all required Project Information fields before generating PDF
@@ -3180,7 +3185,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Create the modal first but don't present it yet
+      // Create the modal with animation disabled for first attempt to prevent conflicts
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
         componentProps: {
@@ -3189,44 +3194,81 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           elevationData: elevationPlotData,
           serviceData: this.serviceData
         },
-        cssClass: 'fullscreen-modal'
+        cssClass: 'fullscreen-modal',
+        animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt
+        mode: 'ios', // Force iOS mode for consistency
+        backdropDismiss: false // Prevent accidental dismissal
       });
       
-      // Present the modal first
-      await modal.present();
+      // Wait a moment before presenting to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Then dismiss the loading after modal is presented
-      setTimeout(() => {
-        console.log('Dismissing loading after modal present');
-        loading.dismiss().catch(() => console.log('Loading already dismissed'));
-      }, 500);
+      // Present the modal with error handling
+      try {
+        await modal.present();
+        console.log('[v1.4.317] Modal presented successfully');
+      } catch (modalError) {
+        console.error('[v1.4.317] Error presenting modal:', modalError);
+        throw modalError;
+      }
       
-      // Additional safety: ensure loading is dismissed after modal is shown
-      setTimeout(() => {
-        loading.dismiss().catch(() => {});
-      }, 500);
+      // Wait for modal to be fully presented before dismissing loading
+      await modal.onDidPresent();
+      console.log('[v1.4.317] Modal fully presented, dismissing loading');
+      
+      try {
+        await loading.dismiss();
+      } catch (dismissError) {
+        console.log('[v1.4.317] Loading already dismissed');
+      }
+      
+      // Re-enable the PDF button
+      if (pdfButton) {
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+      }
       
       // Reset the generation flag after successful modal presentation
       this.isPDFGenerating = false;
+      console.log('[v1.4.317] PDF generation completed successfully');
       
     } catch (error) {
-      console.error('Error preparing preview:', error);
+      console.error('[v1.4.317] Error preparing preview:', error);
       
       // Reset the generation flag on error
       this.isPDFGenerating = false;
       
+      // Re-enable the PDF button
+      const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+      if (pdfButton) {
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+      }
+      
       try {
         await loading.dismiss();
       } catch (e) {
-        console.log('Loading already dismissed');
+        console.log('[v1.4.317] Loading already dismissed');
       }
-      await this.showToast('Failed to prepare preview', 'danger');
+      
+      // Show more detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.showToast(`Failed to prepare preview: ${errorMessage}`, 'danger');
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('Error in generatePDF:', error);
+    console.error('[v1.4.317] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
-    await this.showToast('Failed to generate PDF', 'danger');
+    
+    // Re-enable the PDF button
+    const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+    if (pdfButton) {
+      pdfButton.style.pointerEvents = 'auto';
+      pdfButton.style.opacity = '1';
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await this.showToast(`Failed to generate PDF: ${errorMessage}`, 'danger');
   }
   }
   
@@ -5489,41 +5531,83 @@ Has Annotations: ${!!annotations}`;
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // CRITICAL FIX: Caspio Drawings field is TEXT type, not JSON
-        // We need to send a plain string, not an object
+        // CRITICAL FIX v1.4.315: Caspio Drawings field is TEXT type
+        // The issue is that Caspio expects a simple string, not nested JSON
         let drawingsData = '';
         
+        console.log('🔍 [v1.4.315] Processing annotations for Drawings field:');
+        console.log('  Input type:', typeof annotations);
+        console.log('  Input value:', annotations);
+        
         // Handle different annotation formats
-        if (typeof annotations === 'string') {
-          // If it's already a string, use it directly
+        if (annotations === null || annotations === undefined) {
+          // Skip null/undefined
+          drawingsData = '';
+          console.log('  → Null/undefined, using empty string');
+        } else if (typeof annotations === 'string') {
+          // Already a string
           drawingsData = annotations;
-          console.log('📝 Annotations already a string');
-        } else if (annotations && typeof annotations === 'object') {
-          // If it's an object, stringify it
+          console.log('  → Already a string, length:', drawingsData.length);
+          
+          // Validate it's not causing issues
+          try {
+            // Try to parse to check if it's valid JSON string
+            if (drawingsData.startsWith('{') || drawingsData.startsWith('[')) {
+              JSON.parse(drawingsData);
+              console.log('  ✓ Valid JSON string');
+            }
+          } catch (e) {
+            console.log('  ⚠️ Not valid JSON, but still a string');
+          }
+        } else if (typeof annotations === 'object') {
+          // Object - needs stringification
           try {
             drawingsData = JSON.stringify(annotations);
-            console.log('📝 Stringified annotation object');
+            console.log('  → Stringified object, result length:', drawingsData.length);
           } catch (e) {
-            console.error('Failed to stringify annotations:', e);
+            console.error('  ❌ Failed to stringify:', e);
             drawingsData = '';
           }
+        } else {
+          // Other type - convert to string
+          drawingsData = String(annotations);
+          console.log('  → Converted to string from type:', typeof annotations);
         }
         
-        // CRITICAL: Only add Drawings field if we have valid data
-        // Make sure it's a string for Caspio TEXT field
+        // CRITICAL: Final validation before adding to updateData
         if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
+          // Clean up any problematic characters
+          const originalLength = drawingsData.length;
+          drawingsData = drawingsData
+            .replace(/\u0000/g, '') // Remove null bytes
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars except tab, newline, carriage return
+          
+          if (originalLength !== drawingsData.length) {
+            console.log('  ⚠️ Cleaned', originalLength - drawingsData.length, 'problematic characters');
+          }
+          
+          // CRITICAL: Ensure it's definitely a string
+          if (typeof drawingsData !== 'string') {
+            console.error('  ❌ CRITICAL ERROR: drawingsData is not a string after processing!');
+            console.error('    Type:', typeof drawingsData);
+            console.error('    Value:', drawingsData);
+            drawingsData = String(drawingsData);
+          }
+          
+          // Set the Drawings field
           updateData.Drawings = drawingsData;
-          console.log('📝 Storing annotations in Drawings field as TEXT');
-          console.log('  Drawings data type:', typeof updateData.Drawings);
-          console.log('  Drawings is string:', typeof updateData.Drawings === 'string');
-          console.log('  Drawings length:', updateData.Drawings.length);
-          console.log('  First 100 chars:', updateData.Drawings.substring(0, 100));
+          
+          console.log('💾 [v1.4.315] Final Drawings field data:');
+          console.log('  Type:', typeof updateData.Drawings);
+          console.log('  Length:', updateData.Drawings.length);
+          console.log('  Is string:', typeof updateData.Drawings === 'string');
+          console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
+          console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
         } else {
-          console.log('⚠️ No valid annotation data to store, skipping Drawings field update');
-          // Don't include Drawings field at all if no data
+          console.log('  ⚠️ No valid data, skipping Drawings field');
         }
       } else {
-        console.log('ℹ️ No annotations provided, not updating Drawings field');
+        console.log('ℹ️ [v1.4.315] No annotations provided, not updating Drawings field');
       }
       
       // Show debug popup before update
