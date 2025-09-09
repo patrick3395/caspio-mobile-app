@@ -242,14 +242,16 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.242):
-- **Annotation Persistence CRITICALLY FIXED** (v1.4.242): MAJOR FIX to preserve original images
+## 15. CURRENT WORK (December 2024 - v1.4.244):
+- **Annotation Persistence COMPLETELY FIXED** (v1.4.244): MAJOR FIX to preserve original images
   - PROBLEM IDENTIFIED: Photo field was being replaced with flattened annotated image
-  - ROOT CAUSE: updatePhotoAttachment was uploading annotated files to Caspio
+  - ROOT CAUSE: performVisualPhotoUpload was uploading annotated files instead of originals
   - SOLUTION IMPLEMENTED: 
-    • Completely removed file upload from updatePhotoAttachment method
+    • Fixed performVisualPhotoUpload to upload ORIGINAL photo, not annotated
+    • Modified line 4713: `originalPhoto || photo` instead of just `photo`
+    • Removed file upload from updatePhotoAttachment method
     • Now ONLY updates Drawings field with annotation JSON
-    • Photo field remains untouched, preserving original image
+    • Photo field always stores original image for re-editing
     • No annotated files uploaded to Caspio Files API
     • Annotations stored purely as JSON data in Drawings field
   - BENEFITS:

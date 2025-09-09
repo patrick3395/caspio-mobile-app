@@ -6593,5 +6593,4 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log(`Marked as selected from database: ${key}`);
       }
     }
-  }
-}
+  }}
