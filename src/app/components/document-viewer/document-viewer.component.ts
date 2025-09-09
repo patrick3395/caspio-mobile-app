@@ -689,7 +689,7 @@ export class DocumentViewerComponent implements OnInit {
       setTimeout(() => {
         if (!this.pdfLoaded && this.isPDF) {
           console.log('PDF load event did not fire after 10 seconds, forcing display');
-          console.log('PDF source type:', this.pdfSource.substring(0, 50));
+          console.log('PDF source type:', typeof this.pdfSource === 'string' ? this.pdfSource.substring(0, 50) : 'Uint8Array');
           this.pdfLoaded = true;
         }
       }, 10000);
@@ -906,15 +906,17 @@ export class DocumentViewerComponent implements OnInit {
     console.error('PDF failure details:', {
       error: event?.error,
       message: event?.message,
-      source: this.pdfSource?.substring(0, 100)
+      source: typeof this.pdfSource === 'string' ? this.pdfSource?.substring(0, 100) : 'Uint8Array'
     });
     this.pdfLoaded = true; // Hide loading indicator even on failure
     
     // Show more detailed error message to user
     const errorMessage = event?.message || 'Failed to load the PDF. The file may be corrupted or too large.';
+    const sourceType = typeof this.pdfSource === 'string' && this.pdfSource?.startsWith('data:') ? 'base64' : 
+                      typeof this.pdfSource === 'string' ? 'URL' : 'Uint8Array';
     this.alertController.create({
       header: 'PDF Loading Error',
-      message: `${errorMessage}\n\nDebug: Source type is ${this.pdfSource?.startsWith('data:') ? 'base64' : 'unknown'}`,
+      message: `${errorMessage}\n\nDebug: Source type is ${sourceType}`,
       buttons: ['OK']
     }).then(alert => alert.present());
   }
