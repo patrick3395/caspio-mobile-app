@@ -670,8 +670,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (b === 'None') return 1;
               
               // Try to parse as numbers for proper numeric sorting
-              const aNum = parseFloat(a.replace(/['"]/g, ''));
-              const bNum = parseFloat(b.replace(/['"]/g, ''));
+              const quotePattern = /["']/g;
+              const aNum = parseFloat(a.replace(quotePattern, ''));
+              const bNum = parseFloat(b.replace(quotePattern, ''));
               
               if (!isNaN(aNum) && !isNaN(bNum)) {
                 return aNum - bNum;
@@ -3221,6 +3222,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       await this.showToast('Failed to prepare preview', 'danger');
     }
+  }
   }
   
   // Utility functions
