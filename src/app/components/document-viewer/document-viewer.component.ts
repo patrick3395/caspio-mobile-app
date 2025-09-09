@@ -680,9 +680,41 @@ export class DocumentViewerComponent implements OnInit {
       // Initialize the loading state
       this.pdfLoaded = false;
       
-      // Use the file URL directly - the PDF viewer handles both data URLs and regular URLs
-      this.pdfSource = this.fileUrl;
-      console.log('PDF source set, URL type:', this.fileUrl.startsWith('data:') ? 'base64 data URL' : 'regular URL');
+      // Check if we have a base64 data URL and convert it if needed
+      if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
+        // Try converting base64 to Uint8Array as an alternative approach
+        try {
+          console.log('📄 Converting base64 to Uint8Array for better compatibility...');
+          const base64 = this.fileUrl.split(',')[1];
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          this.pdfSource = bytes;
+          console.log('✅ PDF converted to Uint8Array, size:', bytes.length);
+        } catch (conversionError) {
+          console.error('Failed to convert to Uint8Array, using base64 directly:', conversionError);
+          this.pdfSource = this.fileUrl;
+          console.log('⚠️ Fallback: Using base64 data URL directly, length:', this.fileUrl.length);
+        }
+      } else if (this.fileUrl.startsWith('blob:')) {
+        // Blob URLs don't work with ngx-extended-pdf-viewer
+        console.error('❌ Blob URL detected for PDF - this will not work!');
+        console.log('Blob URL:', this.fileUrl);
+        // Try to show an error
+        this.pdfSource = '';
+        setTimeout(() => {
+          this.onPdfLoadingFailed({ message: 'PDF cannot be loaded from blob URL. Please refresh and try again.' });
+        }, 100);
+      } else {
+        // Regular URL or other format
+        this.pdfSource = this.fileUrl;
+        console.log('PDF source set, URL type: regular URL or other format');
+      }
+      
+      console.log('PDF source type:', typeof this.pdfSource);
+      console.log('PDF source starts with:', typeof this.pdfSource === 'string' ? this.pdfSource.substring(0, 100) : 'Not a string');
       
       // Set a timeout to show PDF even if event doesn't fire
       // Increased timeout to give PDF viewer more time to process base64 data
@@ -893,10 +925,14 @@ export class DocumentViewerComponent implements OnInit {
 
   onPdfLoadingStarts(event: any) {
     console.log('PDF loading started:', event);
-    console.log('PDF source length:', this.pdfSource?.length);
-    console.log('PDF source type:', typeof this.pdfSource);
-    if (typeof this.pdfSource === 'string') {
+    if (this.pdfSource instanceof Uint8Array) {
+      console.log('PDF source is Uint8Array, length:', this.pdfSource.length);
+      console.log('First 10 bytes:', Array.from(this.pdfSource.slice(0, 10)));
+    } else if (typeof this.pdfSource === 'string') {
+      console.log('PDF source is string, length:', this.pdfSource.length);
       console.log('PDF source begins with:', this.pdfSource.substring(0, 100));
+    } else {
+      console.log('PDF source type unknown:', typeof this.pdfSource);
     }
     this.pdfLoaded = false;
   }

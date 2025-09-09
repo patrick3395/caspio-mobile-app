@@ -3068,35 +3068,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // New handler for PDF button click
   async handlePDFClick(event: Event) {
-    console.log('[v1.4.331] PDF button clicked via handlePDFClick');
+    console.log('[v1.4.336] PDF button clicked via handlePDFClick');
     
     // Prevent all default behaviors immediately
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
     
-    // Disable the button immediately to prevent double clicks
-    const button = event.currentTarget as HTMLButtonElement;
-    if (button) {
-      button.disabled = true;
-      button.style.opacity = '0.6';
-    }
-    
-    // Small delay to ensure no navigation occurs
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    // Call the actual PDF generation
+    // Call the actual PDF generation directly
     await this.generatePDF(event);
-    
-    // Re-enable button after generation completes
-    if (button) {
-      button.disabled = false;
-      button.style.opacity = '1';
-    }
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.331] generatePDF called - enhanced first click fix');
+    console.log('[v1.4.336] generatePDF called - fixed button selector issue');
     
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3113,45 +3097,51 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.331] Preventing form submission');
+        console.log('[v1.4.336] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
     
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.331] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.336] PDF generation already in progress, ignoring click');
       return;
     }
     
     // Set flag immediately to prevent any double clicks
     this.isPDFGenerating = true;
     
-    // Disable the PDF button visually
-    const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+    // Disable the PDF button visually - check for both possible button selectors
+    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
     if (pdfButton) {
+      if (pdfButton instanceof HTMLButtonElement) {
+        pdfButton.disabled = true;
+      }
       pdfButton.style.pointerEvents = 'none';
       pdfButton.style.opacity = '0.6';
     }
     
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`[v1.4.331] PDF generation attempt #${this.pdfGenerationAttempts}`);
+    console.log(`[v1.4.336] PDF generation attempt #${this.pdfGenerationAttempts}`);
     
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
       if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.331] Missing service/project ID, attempting recovery');
+        console.error('[v1.4.336] Missing service/project ID, attempting recovery');
         // Try to recover IDs from route if possible
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
-          console.log('[v1.4.331] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+          console.log('[v1.4.336] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
         } else {
           this.isPDFGenerating = false;
           if (pdfButton) {
+            if (pdfButton instanceof HTMLButtonElement) {
+              pdfButton.disabled = false;
+            }
             pdfButton.style.pointerEvents = 'auto';
             pdfButton.style.opacity = '1';
           }
@@ -3180,6 +3170,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Reset the generation flag and button state before returning
       this.isPDFGenerating = false;
       if (pdfButton) {
+        if (pdfButton instanceof HTMLButtonElement) {
+          pdfButton.disabled = false;
+        }
         pdfButton.style.pointerEvents = 'auto';
         pdfButton.style.opacity = '1';
       }
@@ -3209,7 +3202,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         // Load all data in parallel for maximum speed
-        console.log('[v1.4.331] Loading PDF data...');
+        console.log('[v1.4.336] Loading PDF data...');
         const startTime = Date.now();
         
         try {
@@ -3217,7 +3210,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Execute all data fetching in parallel with individual error handling
           const [projectData, structuralData, elevationData] = await Promise.all([
             this.prepareProjectInfo().catch(err => {
-              console.error('[v1.4.331] Error in prepareProjectInfo:', err);
+              console.error('[v1.4.336] Error in prepareProjectInfo:', err);
               // Return minimal valid data structure
               return {
                 projectId: this.projectId,
@@ -3229,11 +3222,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               };
             }),
             this.prepareStructuralSystemsData().catch(err => {
-              console.error('[v1.4.331] Error in prepareStructuralSystemsData:', err);
+              console.error('[v1.4.336] Error in prepareStructuralSystemsData:', err);
               return []; // Return empty array instead of failing
             }),
             this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.331] Error in prepareElevationPlotData:', err);
+              console.error('[v1.4.336] Error in prepareElevationPlotData:', err);
               return []; // Return empty array instead of failing
             })
           ]);
@@ -3251,7 +3244,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
         } catch (dataError) {
-          console.error('[v1.4.331] Fatal error loading PDF data:', dataError);
+          console.error('[v1.4.336] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
           projectInfo = {
             projectId: this.projectId,
@@ -3340,9 +3333,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Reset the generation flag on error
       this.isPDFGenerating = false;
       
-      // Re-enable the PDF button
-      const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+      // Re-enable the PDF button - check for both possible button selectors
+      const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
       if (pdfButton) {
+        if (pdfButton instanceof HTMLButtonElement) {
+          pdfButton.disabled = false;
+        }
         pdfButton.style.pointerEvents = 'auto';
         pdfButton.style.opacity = '1';
       }
@@ -3359,12 +3355,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('[v1.4.331] Outer error in generatePDF:', error);
+    console.error('[v1.4.336] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
     
-    // Re-enable the PDF button
-    const pdfButton = document.querySelector('.pdf-fab') as HTMLElement;
+    // Re-enable the PDF button - check for both possible button selectors
+    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
     if (pdfButton) {
+      if (pdfButton instanceof HTMLButtonElement) {
+        pdfButton.disabled = false;
+      }
       pdfButton.style.pointerEvents = 'auto';
       pdfButton.style.opacity = '1';
     }
@@ -5680,23 +5679,55 @@ Has Annotations: ${!!annotations}`;
               console.log('  ⚠️ Object contains blob URL in backgroundImage');
             }
             
-            // CRITICAL: Use JSON.stringify with replacer to handle circular refs
-            drawingsData = JSON.stringify(annotations, (key, value) => {
-              // Skip any function properties
-              if (typeof value === 'function') {
-                return undefined;
-              }
-              // Skip any DOM elements
-              if (value instanceof HTMLElement) {
-                return undefined;
-              }
-              // Handle undefined values
-              if (value === undefined) {
-                return null;
-              }
-              return value;
-            });
-            console.log('  → Stringified object with replacer, result length:', drawingsData.length);
+            // CRITICAL FIX v1.4.336: Special handling for array of annotation objects
+            // When reloading, annotations come back as an array of objects
+            if (Array.isArray(annotations)) {
+              console.log('  📋 Annotations is an array with', annotations.length, 'items');
+              
+              // Clean each annotation object
+              const cleanedAnnotations = annotations.map(ann => {
+                // Remove any non-serializable properties
+                const cleaned: any = {};
+                for (const key in ann) {
+                  const value = ann[key];
+                  if (typeof value !== 'function' && 
+                      !(value instanceof HTMLElement) &&
+                      key !== 'canvas' && 
+                      key !== 'ctx' &&
+                      key !== 'fabric') {
+                    cleaned[key] = value;
+                  }
+                }
+                return cleaned;
+              });
+              
+              drawingsData = JSON.stringify(cleanedAnnotations);
+              console.log('  ✅ Cleaned and stringified array of annotations');
+            } else {
+              // Single object - use replacer to handle circular refs
+              drawingsData = JSON.stringify(annotations, (key, value) => {
+                // Skip any function properties
+                if (typeof value === 'function') {
+                  return undefined;
+                }
+                // Skip any DOM elements
+                if (value instanceof HTMLElement) {
+                  return undefined;
+                }
+                // Skip canvas-related properties
+                if (key === 'canvas' || key === 'ctx' || key === 'fabric') {
+                  return undefined;
+                }
+                // Handle undefined values
+                if (value === undefined) {
+                  return null;
+                }
+                return value;
+              });
+              console.log('  → Stringified object with replacer');
+            }
+            
+            console.log('  Result length:', drawingsData.length);
           } catch (e) {
             console.error('  ❌ Failed to stringify:', e);
             // Try to create a simple representation
@@ -5732,17 +5763,18 @@ Has Annotations: ${!!annotations}`;
             drawingsData = String(drawingsData);
           }
           
-          // Set the Drawings field
-          updateData.Drawings = drawingsData;
-          
-          console.log('💾 [v1.4.315] Final Drawings field data:');
-          console.log('  Type:', typeof updateData.Drawings);
-          console.log('  Length:', updateData.Drawings.length);
-          console.log('  Is string:', typeof updateData.Drawings === 'string');
-          console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
-          console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
-        } else {
-          console.log('  ⚠️ No valid data, skipping Drawings field');
+            // Set the Drawings field
+            updateData.Drawings = drawingsData;
+            
+            console.log('💾 [v1.4.315] Final Drawings field data:');
+            console.log('  Type:', typeof updateData.Drawings);
+            console.log('  Length:', updateData.Drawings.length);
+            console.log('  Is string:', typeof updateData.Drawings === 'string');
+            console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
+            console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
+          } else {
+            console.log('  ⚠️ No valid data, skipping Drawings field');
+          }
         }
       } else {
         console.log('ℹ️ [v1.4.315] No annotations provided, not updating Drawings field');
@@ -6640,6 +6672,7 @@ Stack: ${error?.stack}`;
               
               // Parse the Drawings field for annotation data (where annotations are stored)
               let annotationData = null;
+              let rawDrawingsString = photo.Drawings; // Keep the raw string
               if (photo.Drawings) {
                 try {
                   annotationData = typeof photo.Drawings === 'string' ? JSON.parse(photo.Drawings) : photo.Drawings;
@@ -6658,6 +6691,7 @@ Stack: ${error?.stack}`;
                 annotations: annotationData,  // CRITICAL: Load from Drawings field, not Annotation
                 annotationsData: annotationData,  // Also store with 's' for compatibility
                 hasAnnotations: !!annotationData,
+                rawDrawingsString: rawDrawingsString,  // CRITICAL: Keep the raw string for updates
                 // CRITICAL: Preserve AttachID for updates - this is what was missing!
                 AttachID: photo.AttachID || photo.PK_ID || photo.id,
                 id: photo.AttachID || photo.PK_ID || photo.id, // Also store as 'id' for compatibility
