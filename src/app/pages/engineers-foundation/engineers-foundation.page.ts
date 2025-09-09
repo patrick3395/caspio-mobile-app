@@ -3159,7 +3159,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Check if an option is selected for a multi-select item
-  isOptionSelected(item: any, option: string): boolean {
+  isOptionSelectedV1(item: any, option: string): boolean {
     if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
       return false;
     }
@@ -3359,8 +3359,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle multi-select change
-  async onMultiSelectChange(category: string, item: any) {
-    console.log('Multi-select changed:', category, item.name, item.selectedOptions);
+  async onMultiSelectChangeDebug(category: string, item: any) {
+    console.log('Multi-select changed (DEBUG):', category, item.name, item.selectedOptions);
     
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
@@ -3568,16 +3568,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
   // Check if an option is selected for a multi-select item
-  isOptionSelected(item: any, option: string): boolean {
+  isOptionSelectedV1_DUPLICATE(item: any, option: string): boolean {
     if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
       return false;
     }
     return item.selectedOptions.includes(option);
   }
+  */
   
+  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
   // Handle toggling an option in multi-select
-  async onOptionToggle(category: string, item: any, option: string, event: any) {
+  async onOptionToggle_DUPLICATE(category: string, item: any, option: string, event: any) {
     // Initialize selectedOptions if not present
     if (!item.selectedOptions) {
       item.selectedOptions = [];
@@ -3599,9 +3602,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Update the text field and save
     await this.onMultiSelectChange(category, item);
   }
+  */
   
+  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393  
   // Save visual selection to Services_Visuals table
-  async saveVisualSelection(category: string, templateId: string) {
+  async saveVisualSelection_DUPLICATE(category: string, templateId: string) {
     console.log('=====================================');
     console.log('🔍 SAVING VISUAL TO SERVICES_VISUALS');
     console.log('=====================================');
@@ -3714,36 +3719,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       visualData.Answers = answers;
     }
     
-    
-    try {
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-      message: `
-        <div style="text-align: left; font-family: monospace; font-size: 12px;">
-          <strong style="color: blue;">📤 SENDING TO SERVICES_VISUALS TABLE</strong><br><br>
-          
-          <strong>Data Fields:</strong><br>
-          • ServiceID: ${visualData.ServiceID}<br>
-          • Category: ${visualData.Category}<br>
-          • Kind: ${visualData.Kind}<br>
-          • Name: ${visualData.Name}<br>
-          • Text: ${visualData.Text ? visualData.Text.substring(0, 100) + '...' : 'Empty'}<br>
-          • Notes: ${visualData.Notes || 'Empty'}<br>
-          • Answers: <span style="color: green; font-weight: bold;">${visualData.Answers || 'None'}</span><br><br>
-          
-          <strong>Template Info:</strong><br>
-          • Template ID: ${templateId}<br>
-          • Answer Type: ${item?.answerType !== undefined ? item.answerType : 'Not set'}<br>
-          • Has Answer: ${answers ? 'YES' : 'NO'}<br><br>
-          
-          <strong>API Endpoint:</strong><br>
-          POST /tables/Services_Visuals/records
-        </div>
-      `,
-      buttons: ['Send Request'],
-      cssClass: 'wide-alert'
-    });
-    await debugAlert.present();
-    await debugAlert.onDidDismiss();
     
     try {
       console.log('⏳ Calling caspioService.createServicesVisual...');
@@ -3910,9 +3885,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
   }
+  */
   
+  /* DUPLICATE FUNCTIONS - COMMENTED OUT TO FIX TS2393
   // Remove visual selection from Services_Visuals table
-  async removeVisualSelection(category: string, templateId: string) {
+  async removeVisualSelection_DUPLICATE(category: string, templateId: string) {
     // Check if we have a stored record ID
     const recordKey = `visual_${category}_${templateId}`;
     const recordId = localStorage.getItem(recordKey);
@@ -3930,35 +3907,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Check if item is selected
-  isItemSelected(category: string, itemId: string): boolean {
+  isItemSelected_DUPLICATE(category: string, itemId: string): boolean {
     return this.selectedItems[`${category}_${itemId}`] || false;
   }
 
   // Helper methods for PDF generation - check selection by visual ID
-  isCommentSelected(category: string, visualId: string): boolean {
+  isCommentSelected_DUPLICATE(category: string, visualId: string): boolean {
     // Check if this comment visual is selected using the same format as toggleItemSelection
     const key = `${category}_${visualId}`;
     return this.selectedItems[key] || false;
   }
 
-  isLimitationSelected(category: string, visualId: string): boolean {
+  isLimitationSelected_DUPLICATE(category: string, visualId: string): boolean {
     // Check if this limitation visual is selected using the same format as toggleItemSelection
     const key = `${category}_${visualId}`;
     return this.selectedItems[key] || false;
   }
 
-  isDeficiencySelected(category: string, visualId: string): boolean {
+  isDeficiencySelected_DUPLICATE(category: string, visualId: string): boolean {
     // Check if this deficiency visual is selected using the same format as toggleItemSelection
     const key = `${category}_${visualId}`;
     return this.selectedItems[key] || false;
   }
 
   // Get photo count for a visual ID
-  getVisualPhotoCount(visualId: string): number {
+  getVisualPhotoCount_DUPLICATE(visualId: string): number {
     // Find photos associated with this visual ID
     const photos = this.visualPhotos[visualId] || [];
     return photos.length;
   }
+  */
   
   // Check if item is being saved
   isItemSaving(category: string, itemId: string): boolean {
