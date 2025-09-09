@@ -21,7 +21,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   @Input() structuralData: any[] = [];
   @Input() elevationData: any[] = [];
   @Input() serviceData: any = {};
-  @Input() loadingController: any; // Loading controller passed from parent
   
   hasElevationData = false;
   imageCache: Map<string, string> = new Map();

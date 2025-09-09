@@ -32,7 +32,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         <ngx-extended-pdf-viewer 
           [src]="pdfSource"
           [height]="'calc(100vh - 56px)'"
-          [useBrowserLocale]="true"
           [mobileFriendlyZoom]="'page-width'"
           [showToolbar]="true"
           [showSidebarButton]="false"
@@ -43,16 +42,13 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showOpenFileButton]="false"
           [showPrintButton]="true"
           [showDownloadButton]="true"
-          [showBookmarkButton]="false"
           [showSecondaryToolbarButton]="true"
           [showRotateButton]="true"
           [showHandToolButton]="true"
-          [showScrollingButton]="true"
           [showSpreadButton]="false"
           [showPropertiesButton]="false"
           [zoom]="'page-width'"
           [spread]="'off'"
-          [wheelAction]="'zoom'"
           backgroundColor="#525659">
         </ngx-extended-pdf-viewer>
       </div>
@@ -126,7 +122,7 @@ export class DocumentViewerComponent implements OnInit {
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
-  pdfSource: string | Uint8Array | { url: string } = '';
+  pdfSource: string | Uint8Array = '';
 
   constructor(
     private modalController: ModalController,
