@@ -5,6 +5,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
+import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
@@ -1359,72 +1360,92 @@ export class ProjectDetailPage implements OnInit {
     if (doc.attachId) {
       try {
         const loading = await this.loadingController.create({
-          message: 'Loading documents...'
+          message: 'Loading document...'
         });
         await loading.present();
         
-        // Collect all images for this document (main + additional files)
-        const allImages: Array<{
-          url: string;
-          title: string;
-          filename: string;
-          attachId?: string;
-        }> = [];
-        
         // Get the main attachment
-        console.log('📸 Loading attachment with ID:', doc.attachId);
+        console.log('📄 Loading attachment with ID:', doc.attachId);
         const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
-        
-        if (attachment && attachment.Attachment) {
-          console.log('✅ Got attachment URL, length:', attachment.Attachment?.length);
-          allImages.push({
-            url: attachment.Attachment,
-            title: doc.title,
-            filename: doc.linkName || doc.filename || 'document',
-            attachId: doc.attachId  // Keep the original attachId
-          });
-        } else {
-          console.error('❌ No attachment URL received for ID:', doc.attachId);
-        }
-        
-        // Get additional files if any
-        if (doc.additionalFiles && doc.additionalFiles.length > 0) {
-          for (const additionalFile of doc.additionalFiles) {
-            if (additionalFile.attachId) {
-              try {
-                const addAttachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
-                if (addAttachment && addAttachment.Attachment) {
-                  allImages.push({
-                    url: addAttachment.Attachment,
-                    title: `${doc.title} - Additional`,
-                    filename: additionalFile.linkName || 'additional',
-                    attachId: additionalFile.attachId  // Keep the additional file's attachId
-                  });
-                }
-              } catch (err) {
-                console.error('Error loading additional file:', err);
-              }
-            }
-          }
-        }
         
         await loading.dismiss();
         
-        if (allImages.length > 0) {
+        if (attachment && attachment.Attachment) {
+          const filename = doc.linkName || doc.filename || 'document';
+          const fileUrl = attachment.Attachment;
           
-          // Use the new multiple images mode with save callback
-          const modal = await this.modalController.create({
-            component: ImageViewerComponent,
-            componentProps: {
-              images: allImages,
-              initialIndex: 0,
-              onSaveAnnotation: async (attachId: string, blob: Blob, filename: string) => {
-                return await this.caspioService.updateAttachmentImage(attachId, blob, filename);
+          // Check if it's a PDF based on filename or data URL
+          const isPDF = filename.toLowerCase().includes('.pdf') || 
+                       fileUrl.toLowerCase().includes('application/pdf') ||
+                       fileUrl.toLowerCase().includes('.pdf');
+          
+          if (isPDF) {
+            console.log('📑 Opening PDF with DocumentViewerComponent');
+            // Use DocumentViewerComponent for PDFs
+            const modal = await this.modalController.create({
+              component: DocumentViewerComponent,
+              componentProps: {
+                fileUrl: fileUrl,
+                fileName: filename,
+                fileType: 'pdf',
+                filePath: doc.linkName || doc.filename
+              },
+              cssClass: 'fullscreen-modal'
+            });
+            await modal.present();
+          } else {
+            console.log('🖼️ Opening image with ImageViewerComponent');
+            // Collect all images for this document (main + additional files)
+            const allImages: Array<{
+              url: string;
+              title: string;
+              filename: string;
+              attachId?: string;
+            }> = [];
+            
+            allImages.push({
+              url: fileUrl,
+              title: doc.title,
+              filename: filename,
+              attachId: doc.attachId
+            });
+            
+            // Get additional files if any (for images only)
+            if (doc.additionalFiles && doc.additionalFiles.length > 0) {
+              for (const additionalFile of doc.additionalFiles) {
+                if (additionalFile.attachId) {
+                  try {
+                    const addAttachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+                    if (addAttachment && addAttachment.Attachment) {
+                      allImages.push({
+                        url: addAttachment.Attachment,
+                        title: `${doc.title} - Additional`,
+                        filename: additionalFile.linkName || 'additional',
+                        attachId: additionalFile.attachId
+                      });
+                    }
+                  } catch (err) {
+                    console.error('Error loading additional file:', err);
+                  }
+                }
               }
             }
-          });
-          await modal.present();
+            
+            // Use ImageViewerComponent for images
+            const modal = await this.modalController.create({
+              component: ImageViewerComponent,
+              componentProps: {
+                images: allImages,
+                initialIndex: 0,
+                onSaveAnnotation: async (attachId: string, blob: Blob, filename: string) => {
+                  return await this.caspioService.updateAttachmentImage(attachId, blob, filename);
+                }
+              }
+            });
+            await modal.present();
+          }
         } else {
+          console.error('❌ No attachment URL received for ID:', doc.attachId);
           await this.showToast('Document data not available', 'warning');
         }
       } catch (error) {

@@ -2221,15 +2221,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   toggleSection(section: string) {
-    // Use requestAnimationFrame for smooth animation
-    requestAnimationFrame(() => {
-      this.expandedSections[section] = !this.expandedSections[section];
-    });
-  }
-
-  hasExpandedSections(): boolean {
-    // Check if any main section is expanded
-    return Object.values(this.expandedSections).some(expanded => expanded);
+    this.expandedSections[section] = !this.expandedSections[section];
   }
 
   scrollToSection(section: string) {

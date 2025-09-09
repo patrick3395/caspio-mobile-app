@@ -243,17 +243,20 @@ ps aux | grep omnara
 - **Mobile Access**: Use tunnel URL provided in server output
 
 ## 15. CURRENT WORK (December 2024 - v1.4.248):
-- **Annotation Persistence IN PROGRESS** (v1.4.248): Debugging why original images aren't preserved
-  - PROBLEM IDENTIFIED: Photo field was being replaced with flattened annotated image
-  - ROOT CAUSE: performVisualPhotoUpload was uploading annotated files instead of originals
+- **Annotation Persistence FIXED** (v1.4.248): Complete fix for annotation editing
+  - PROBLEM IDENTIFIED: Annotations weren't editable when reloaded
+  - ROOT CAUSE: Manual object recreation didn't preserve Fabric.js properties
   - FIXES APPLIED: 
-    • Fixed performVisualPhotoUpload to upload ORIGINAL photo, not annotated (line 4672)
-    • Modified to pass: `originalPhoto || photo` instead of just `photo`
-    • Added debug logging to track what's being uploaded (lines 4661-4666)
-  - CURRENT STATUS:
-    • Issue persists - Photo field still shows annotated image
-    • Added extensive debug logging to understand the flow
-    • Service warns when uploading file with annotations (lines 1127-1140)
+    • Photo field correctly stores original image (confirmed via datapage)
+    • Drawings field stores annotation JSON data
+    • CRITICAL FIX: Replaced manual object recreation with Fabric.js loadFromJSON (lines 573-613)
+    • Now uses proper canvas.loadFromJSON() to restore all object properties
+    • Ensures all loaded annotations are selectable, editable, and deletable
+  - SOLUTION:
+    • The issue was NOT with photo storage (originals are preserved correctly)
+    • The issue was annotations being "flattened" when reloaded
+    • Fixed by using Fabric.js's native loadFromJSON instead of manual recreation
+    • This preserves all object properties including groups, transforms, and editability
     • Removed file upload from updatePhotoAttachment method
     • Now ONLY updates Drawings field with annotation JSON
     • Photo field always stores original image for re-editing

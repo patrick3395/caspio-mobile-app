@@ -86,29 +86,13 @@ ion-toolbar {
   }
 }
 
-// Ensure proper scrolling with flexbox layout
+// Ensure proper scrolling - matching template-form
 ion-content {
   --overflow: scroll !important;
-  
-  // Remove all default padding
-  --padding-bottom: 0;
-  --padding-top: 0;
-  
-  ::ng-deep .inner-scroll {
-    display: block; // Change from flex to block for natural flow
-    min-height: auto;
-    overflow: visible;
-    -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
-    padding: 0; // Remove all padding
-  }
+  height: 100%;
 }
 
-// Dynamic bottom spacer - only when content needs it
-.dynamic-bottom-spacer {
-  height: 60px; // Fixed height for floating button clearance
-  width: 100%;
-  background: transparent;
-}
+// Remove dynamic bottom spacer - not needed with proper structure
 
 // Photo upload dialog - ensure instant appearance with strong backdrop
 .photo-upload-dialog {
@@ -140,12 +124,13 @@ ion-content {
 }
 
 .template-container {
-  padding: 16px 24px 0 24px; // Top and sides only, no bottom padding
-  background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  display: block; // Natural block flow
+  padding: 12px;
+  background: #f9f9f9;
+  min-height: 100%;
+  overflow: visible;
+  padding-bottom: 100px; // Add extra padding at bottom to ensure last content is visible
   max-width: 1400px;
   margin: 0 auto;
-  min-height: auto; // Only as tall as content
 }
 
 .save-status {
@@ -460,18 +445,9 @@ ion-content {
   }
   
   .section-content {
-    padding: 0;
+    padding: 16px;
     background: white;
     overflow: visible;
-    max-height: 0;
-    opacity: 0;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-                opacity 0.3s ease-in-out;
-    will-change: max-height, opacity;
-    
-    &.expanded {
-      max-height: none; // Allow natural height for content
-      opacity: 1;
     }
     
     .info-group {

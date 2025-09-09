@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.214 - FIXED: Multiple annotations now persist correctly</div>
+    <div class="version-header">Version 1.4.249 - Fixed dynamic whitespace like template-form</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -41,7 +41,7 @@
         </div>
       </div>
       
-      <div class="section-content" [class.expanded]="expandedSections['project']">
+      <div class="section-content" *ngIf="expandedSections['project']">
         <!-- People & Roles -->
         <div class="info-group">
           <h3 class="group-title">
@@ -340,7 +340,7 @@
         </div>
       </div>
 
-      <div class="section-content" [class.expanded]="expandedSections['structural']">
+      <div class="section-content" *ngIf="expandedSections['structural']">
         <!-- Visual Categories from Services_Visuals_Templates -->
         <div class="categories-container" *ngIf="visualCategories.length > 0">
           
@@ -783,7 +783,7 @@
         </div>
       </div>
 
-      <div class="section-content" [class.expanded]="expandedSections['elevation']">
+      <div class="section-content" *ngIf="expandedSections['elevation']">
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           
@@ -937,8 +937,7 @@
     (change)="handleFileSelect($event)"
     accept="image/*,.pdf,.doc,.docx">
 
-  <!-- Dynamic bottom spacer only when sections are expanded -->
-  <div class="dynamic-bottom-spacer" *ngIf="hasExpandedSections()"></div>
+  <!-- No dynamic spacer needed - padding-bottom on container handles it -->
   
   <!-- Floating Back to Top Button -->
   <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
