@@ -3153,9 +3153,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
       
       // Listen for the modal to be ready
-      modal.onWillPresent().then(() => {
-        console.log('Modal will present - dismissing loading');
-        // Dismiss loading when modal is about to show
+      modal.onDidPresent().then(() => {
+        console.log('Modal did present - dismissing loading');
+        // Dismiss loading when modal is shown
         loading.dismiss().catch(() => console.log('Loading already dismissed'));
       });
       

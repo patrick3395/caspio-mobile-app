@@ -26,7 +26,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   imageCache: Map<string, string> = new Map();
   primaryPhotoData: string | null = null;
   primaryPhotoLoading: boolean = false;
-  private contentReady = false;
+  contentReady = false;  // Made public for template access
   imagesLoading: number = 0;
 
   constructor(
