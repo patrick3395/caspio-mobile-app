@@ -34,7 +34,7 @@ interface ServicesVisualRecord {
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy {
-  // Build cache fix: v1.4.246 - Force rebuild with standalone component
+  // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   
   projectId: string = '';
@@ -3356,35 +3356,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   getVisualPhotoCount(visualId: string): number {
     const photos = this.visualPhotos[visualId] || [];
     return photos.length;
-  }
-      }
-    } catch (error: any) {
-      console.error('Error handling answer change:', error);
-      
-      // Show error debug
-      const errorAlert = await this.alertController.create({
-        header: 'ANSWER CHANGE ERROR',
-        message: `
-          <div style="font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">❌ ERROR OCCURRED</strong><br><br>
-            
-            <strong>Error:</strong><br>
-            ${error?.message || error}<br><br>
-            
-            <strong>Stack:</strong><br>
-            <div style="max-height: 200px; overflow-y: auto; background: #ffe0e0; padding: 5px;">
-              ${error?.stack || 'No stack trace'}
-            </div>
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await errorAlert.present();
-      
-      await this.showToast('Failed to save answer', 'danger');
-    } finally {
-      this.savingItems[key] = false;
-    }
   }
   
   // Handle multi-select change
