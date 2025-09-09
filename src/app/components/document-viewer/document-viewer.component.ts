@@ -28,10 +28,10 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <embed [src]="sanitizedUrl" 
-               type="application/pdf"
-               width="100%"
-               height="100%" />
+        <iframe [src]="sanitizedUrl" 
+                frameborder="0"
+                type="application/pdf"
+                class="pdf-iframe"></iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -42,7 +42,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
   `,
   styles: [`
     .document-viewer-content {
-      --background: #f5f5f5;
+      --background: #ffffff;
     }
     .viewer-container {
       width: 100%;
@@ -56,19 +56,24 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       width: 100%;
       height: 100%;
       position: relative;
+      background: #ffffff;
+      overflow: auto;
     }
-    .pdf-container embed {
+    .pdf-iframe {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      border: none;
+      background: #ffffff;
     }
     iframe {
       width: 100%;
       height: 100%;
       border: none;
       transform-origin: top left;
+      background: #ffffff;
     }
     .image-container {
       width: 100%;
@@ -77,12 +82,25 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: #000;
+      background: #f5f5f5;
     }
     .image-container img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+    }
+    
+    /* Fix for iOS PDF rendering */
+    @supports (-webkit-touch-callout: none) {
+      .pdf-container {
+        -webkit-overflow-scrolling: touch;
+        overflow: auto;
+      }
+      .pdf-iframe {
+        position: relative;
+        min-height: 100vh;
+        width: 100%;
+      }
     }
   `]
 })
@@ -124,15 +142,25 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, try to add viewer parameters for better fit
+      // For PDFs, use the URL directly without modification
+      // This prevents color inversion issues with embedded PDFs
       let pdfUrl = this.fileUrl;
-      // For data URLs, we can't add parameters
-      if (!pdfUrl.startsWith('data:')) {
-        // Add parameters to fit the PDF to the viewer
-        pdfUrl = pdfUrl + '#view=FitH&zoom=page-fit';
+      
+      // For data URLs (base64 PDFs), ensure proper format
+      if (pdfUrl.startsWith('data:')) {
+        // Make sure the data URL has the correct MIME type
+        if (!pdfUrl.startsWith('data:application/pdf')) {
+          console.warn('PDF data URL has incorrect MIME type');
+        }
+      } else {
+        // For regular URLs, add parameters for better viewing
+        // Use toolbar=1 to show PDF controls, navpanes=0 to hide navigation
+        const separator = pdfUrl.includes('?') ? '&' : '#';
+        pdfUrl = pdfUrl + separator + 'toolbar=1&navpanes=0&scrollbar=1&view=FitH';
       }
+      
       this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
-      console.log('Displaying PDF with fit parameters');
+      console.log('Displaying PDF with proper rendering settings');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {

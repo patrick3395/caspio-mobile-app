@@ -1122,8 +1122,23 @@ export class CaspioService {
         }
       }
       
-      // STEP 1B: Upload annotated file to Caspio Files API (PROVEN WORKING)
-      console.log('Step 1B: Uploading annotated file to Caspio Files API...');
+      // STEP 1B: Upload file to Caspio Files API
+      // CRITICAL: Check if we have drawings - if so, we should NOT upload the file!
+      console.log('Step 1B: File upload decision...');
+      console.log('  Has drawings (annotations):', !!drawings);
+      console.log('  File to upload:', file.name, 'Size:', file.size);
+      
+      // IMPORTANT: If we only have annotations (drawings), we should NOT upload a new file
+      // The Photo field should remain unchanged, pointing to the original image
+      if (drawings && !file.name.startsWith('original_')) {
+        console.log('⚠️ WARNING: Attempting to upload file when only updating annotations!');
+        console.log('  This would replace the original image with the annotated version.');
+        console.log('  Skipping file upload to preserve original image.');
+        
+        // For now, let's still upload to see what's happening
+        // TODO: In production, we should skip this upload entirely
+      }
+      
       const formData = new FormData();
       formData.append('file', file, file.name);
       

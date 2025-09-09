@@ -242,13 +242,18 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.244):
-- **Annotation Persistence COMPLETELY FIXED** (v1.4.244): MAJOR FIX to preserve original images
+## 15. CURRENT WORK (December 2024 - v1.4.248):
+- **Annotation Persistence IN PROGRESS** (v1.4.248): Debugging why original images aren't preserved
   - PROBLEM IDENTIFIED: Photo field was being replaced with flattened annotated image
   - ROOT CAUSE: performVisualPhotoUpload was uploading annotated files instead of originals
-  - SOLUTION IMPLEMENTED: 
-    • Fixed performVisualPhotoUpload to upload ORIGINAL photo, not annotated
-    • Modified line 4713: `originalPhoto || photo` instead of just `photo`
+  - FIXES APPLIED: 
+    • Fixed performVisualPhotoUpload to upload ORIGINAL photo, not annotated (line 4672)
+    • Modified to pass: `originalPhoto || photo` instead of just `photo`
+    • Added debug logging to track what's being uploaded (lines 4661-4666)
+  - CURRENT STATUS:
+    • Issue persists - Photo field still shows annotated image
+    • Added extensive debug logging to understand the flow
+    • Service warns when uploading file with annotations (lines 1127-1140)
     • Removed file upload from updatePhotoAttachment method
     • Now ONLY updates Drawings field with annotation JSON
     • Photo field always stores original image for re-editing

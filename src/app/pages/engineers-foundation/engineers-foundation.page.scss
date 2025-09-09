@@ -90,44 +90,24 @@ ion-toolbar {
 ion-content {
   --overflow: scroll !important;
   
-  // Use flexbox for proper content distribution
-  display: flex;
-  flex-direction: column;
-  
-  // Minimal bottom padding for dynamic content
-  --padding-bottom: 20px; // Further reduced for initial load
-  --padding-top: 0; // Remove any default top padding
+  // Remove all default padding
+  --padding-bottom: 0;
+  --padding-top: 0;
   
   ::ng-deep .inner-scroll {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: auto; // Changed from 100% to auto for initial load
+    display: block; // Change from flex to block for natural flow
+    min-height: auto;
     overflow: visible;
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
-    padding-top: 0; // Ensure no top padding
+    padding: 0; // Remove all padding
   }
 }
 
-// Dynamic bottom spacer - minimal and content-aware
+// Dynamic bottom spacer - only when content needs it
 .dynamic-bottom-spacer {
-  min-height: 15px; // Further reduced for initial load
+  height: 60px; // Fixed height for floating button clearance
   width: 100%;
   background: transparent;
-  flex-shrink: 0; // Prevent compression
-  
-  // More conservative responsive adjustments
-  @media (max-height: 700px) {
-    min-height: 10px;
-  }
-  
-  @media (max-height: 600px) {
-    min-height: 5px;
-  }
-  
-  @media (min-height: 900px) {
-    min-height: 20px;
-  }
 }
 
 // Photo upload dialog - ensure instant appearance with strong backdrop
@@ -160,17 +140,12 @@ ion-content {
 }
 
 .template-container {
-  padding: 24px;
-  padding-bottom: 24px; // Match top padding for consistency
-  padding-top: 16px; // Reduce top padding for initial load
+  padding: 16px 24px 0 24px; // Top and sides only, no bottom padding
   background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-  // Flexbox for proper content distribution
-  display: flex;
-  flex-direction: column;
-  flex: 1 0 auto; // Don't shrink, grow as needed
+  display: block; // Natural block flow
   max-width: 1400px;
   margin: 0 auto;
-  min-height: fit-content; // Only as tall as content requires
+  min-height: auto; // Only as tall as content
 }
 
 .save-status {

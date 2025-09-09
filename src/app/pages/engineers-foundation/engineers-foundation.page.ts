@@ -81,7 +81,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Room templates for elevation plot
   roomTemplates: any[] = [];
   availableRoomTemplates: any[] = []; // v1.4.65 - Available room templates
-  hasContentLoaded = false; // Track when content has loaded to show bottom spacer
   allRoomTemplates: any[] = []; // Store all templates for manual addition
   roomElevationData: { [roomName: string]: any } = {};
   selectedRooms: { [roomName: string]: boolean } = {};
@@ -188,11 +187,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
-    
-    // Set content loaded flag after a short delay to allow initial render
-    setTimeout(() => {
-      this.hasContentLoaded = true;
-    }, 500);
     
     // Photos now use base64 data URLs like Structural section
     // No need to refresh URLs as they don't expire
@@ -2231,6 +2225,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     requestAnimationFrame(() => {
       this.expandedSections[section] = !this.expandedSections[section];
     });
+  }
+
+  hasExpandedSections(): boolean {
+    // Check if any main section is expanded
+    return Object.values(this.expandedSections).some(expanded => expanded);
   }
 
   scrollToSection(section: string) {
@@ -4657,13 +4656,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
+      // CRITICAL DEBUG: Log what we're actually uploading
+      console.log('🔍 CRITICAL: Photo upload parameters:');
+      console.log('  originalPhoto exists:', !!originalPhoto);
+      console.log('  originalPhoto name:', originalPhoto?.name || 'N/A');
+      console.log('  photo name:', photo.name);
+      console.log('  has annotationData:', !!annotationData);
+      console.log('  UPLOADING:', originalPhoto ? originalPhoto.name : photo.name);
+      
       // Using EXACT same approach as working Required Documents upload
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         visualIdNum, 
         '', // Annotation field stays blank
-        originalPhoto || photo,
+        originalPhoto || photo,  // Upload ORIGINAL if available
         drawingsData, // Pass the annotation JSON to Drawings field
-        undefined // Pass original photo for future reference
+        undefined // No longer needed
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);
