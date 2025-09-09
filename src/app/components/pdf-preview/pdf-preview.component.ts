@@ -685,7 +685,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 30;
+    const maxY = pageHeight - 40; // Increased bottom padding
     
     // Comments Section
     if (category.comments && category.comments.length > 0) {
@@ -984,7 +984,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 30;
+    const maxY = pageHeight - 40; // Increased bottom padding
     
     // Section header description
     pdf.setFont('helvetica', 'normal');
@@ -1090,7 +1090,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 30;
+    const maxY = pageHeight - 40; // Increased bottom padding
     const photoWidth = 60;
     const photoHeight = 45;
     const photosPerRow = Math.floor(contentWidth / (photoWidth + 10));

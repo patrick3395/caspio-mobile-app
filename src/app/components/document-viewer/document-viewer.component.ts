@@ -34,22 +34,26 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [height]="'calc(100vh - 56px)'"
           [mobileFriendlyZoom]="'page-width'"
           [showToolbar]="true"
-          [showSidebarButton]="false"
+          [showSidebarButton]="true"
+          [sidebarVisible]="false"
           [showFindButton]="true"
           [showPagingButtons]="true"
           [showZoomButtons]="true"
           [showPresentationModeButton]="false"
           [showOpenFileButton]="false"
-          [showPrintButton]="true"
+          [showPrintButton]="false"
           [showDownloadButton]="true"
-          [showSecondaryToolbarButton]="true"
-          [showRotateButton]="true"
+          [showSecondaryToolbarButton]="false"
+          [showRotateButton]="false"
           [showHandToolButton]="true"
           [showSpreadButton]="false"
           [showPropertiesButton]="false"
           [zoom]="'page-width'"
           [spread]="'off'"
-          backgroundColor="#525659">
+          [theme]="'dark'"
+          [pageViewMode]="'single'"
+          [scrollMode]="0"
+          backgroundColor="#2d2d2d">
         </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
@@ -61,7 +65,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
   `,
   styles: [`
     .document-viewer-content {
-      --background: #ffffff;
+      --background: #2d2d2d;
     }
     .viewer-container {
       width: 100%;
@@ -74,19 +78,122 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     .pdf-container {
       width: 100%;
       height: 100%;
-      background: #525659;
+      background: #2d2d2d;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       position: relative;
       padding: 0;
     }
+    
+    /* Modern PDF Viewer Styling */
+    ::ng-deep .pdf-container {
+      /* Toolbar styling */
+      .toolbar {
+        background: #1a1a1a !important;
+        border-bottom: 1px solid #444 !important;
+      }
+      
+      /* Modern button styling */
+      .toolbarButton {
+        border-radius: 6px !important;
+        transition: all 0.2s ease !important;
+        margin: 0 2px !important;
+      }
+      
+      .toolbarButton:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        transform: scale(1.05);
+      }
+      
+      .toolbarButton:active {
+        transform: scale(0.95);
+      }
+      
+      /* Page input field */
+      .toolbarField {
+        background: #2d2d2d !important;
+        border: 1px solid #444 !important;
+        border-radius: 4px !important;
+        color: #fff !important;
+        padding: 4px 8px !important;
+      }
+      
+      /* Zoom dropdown */
+      #scaleSelect {
+        background: #2d2d2d !important;
+        border: 1px solid #444 !important;
+        border-radius: 4px !important;
+        color: #fff !important;
+      }
+      
+      /* Sidebar styling */
+      #sidebarContainer {
+        background: #1a1a1a !important;
+      }
+      
+      #thumbnailView {
+        background: #1a1a1a !important;
+      }
+      
+      .thumbnail {
+        border: 2px solid transparent !important;
+        border-radius: 4px !important;
+        margin: 8px !important;
+        transition: all 0.2s ease !important;
+      }
+      
+      .thumbnail:hover {
+        border-color: #F15A27 !important;
+        transform: scale(1.02);
+      }
+      
+      .thumbnail.selected {
+        border-color: #F15A27 !important;
+        box-shadow: 0 0 10px rgba(241, 90, 39, 0.3) !important;
+      }
+      
+      /* Search box styling */
+      #findInput {
+        background: #2d2d2d !important;
+        border: 1px solid #444 !important;
+        border-radius: 4px !important;
+        color: #fff !important;
+        padding: 6px 10px !important;
+      }
+      
+      /* Hide outdated elements */
+      .horizontalToolbarSeparator {
+        display: none !important;
+      }
+      
+      /* Modern scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #1a1a1a;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #777;
+      }
+    }
+    
     iframe {
       width: 100%;
       height: 100%;
       border: none;
       transform-origin: top left;
-      background: #ffffff;
+      background: #2d2d2d;
     }
+    
     .image-container {
       width: 100%;
       height: 100%;
@@ -94,12 +201,15 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: #f5f5f5;
+      background: #2d2d2d;
     }
+    
     .image-container img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     
     /* Fix for iOS PDF rendering */

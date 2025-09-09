@@ -1083,9 +1083,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
-            const elevationPoint = this.roomElevationData[roomName].elevationPoints.find(
+            let elevationPoint = this.roomElevationData[roomName].elevationPoints.find(
               (p: any) => p.name === point.PointName
             );
+            
+            // If this point doesn't exist in the template, it's a custom point - add it
+            if (!elevationPoint) {
+              console.log(`Found custom point not in template: ${point.PointName}`);
+              elevationPoint = {
+                name: point.PointName,
+                value: '',
+                photo: null,
+                photos: [],
+                photoCount: 0,
+                isCustom: true  // Mark as custom point
+              };
+              this.roomElevationData[roomName].elevationPoints.push(elevationPoint);
+            }
             
             if (elevationPoint) {
               // Get photo count for this point - use the correct PointID

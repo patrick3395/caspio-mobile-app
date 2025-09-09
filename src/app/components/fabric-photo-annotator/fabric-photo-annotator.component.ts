@@ -26,34 +26,24 @@ import * as fabric from 'fabric';
     </ion-header>
     
     <ion-content>
-      <div class="annotation-tools-container">
-        <div class="main-tools">
-          <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select">
-            <ion-icon name="hand-left-outline"></ion-icon>
-          </button>
-          <button class="tool-btn color-btn" (click)="changeColor()">
-            <ion-icon name="color-palette-outline"></ion-icon>
-            <div class="color-indicator" [style.background]="currentColor"></div>
-          </button>
-          <button class="tool-btn" [class.active]="currentTool === 'arrow'" (click)="setTool('arrow')">
-            <ion-icon name="arrow-forward-outline"></ion-icon>
-          </button>
-          <button class="tool-btn" [class.active]="currentTool === 'rectangle'" (click)="setTool('rectangle')">
-            <ion-icon name="square-outline"></ion-icon>
-          </button>
-          <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')">
-            <ion-icon name="text-outline"></ion-icon>
-          </button>
-        </div>
-        
-        <div class="bottom-tools">
-          <button class="tool-btn" (click)="undo()">
-            <ion-icon name="arrow-back-outline"></ion-icon>
-          </button>
-          <button class="tool-btn" (click)="clearAll()">
-            <ion-icon name="trash-outline"></ion-icon>
-          </button>
-        </div>
+      <!-- Top toolbar with annotation tools only -->
+      <div class="top-toolbar">
+        <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
+          <ion-icon name="hand-left-outline"></ion-icon>
+        </button>
+        <button class="tool-btn color-btn" (click)="changeColor()" title="Change Color">
+          <ion-icon name="color-palette-outline"></ion-icon>
+          <div class="color-indicator" [style.background]="currentColor"></div>
+        </button>
+        <button class="tool-btn" [class.active]="currentTool === 'arrow'" (click)="setTool('arrow')" title="Draw Arrow">
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </button>
+        <button class="tool-btn" [class.active]="currentTool === 'rectangle'" (click)="setTool('rectangle')" title="Draw Rectangle">
+          <ion-icon name="square-outline"></ion-icon>
+        </button>
+        <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Add Text">
+          <ion-icon name="text-outline"></ion-icon>
+        </button>
       </div>
       
       <div class="canvas-container" #canvasContainer>
@@ -61,45 +51,115 @@ import * as fabric from 'fabric';
         
         <!-- Debug Info -->
         <div class="debug-info">
-          <span class="version-badge">v1.4.237</span>
+          <span class="version-badge">v1.4.269</span>
         </div>
+      </div>
+      
+      <!-- Bottom toolbar with undo and clear actions -->
+      <div class="bottom-toolbar">
+        <button class="action-btn undo-btn" (click)="undo()" title="Undo Last">
+          <ion-icon name="arrow-undo-outline"></ion-icon>
+          <span>Undo</span>
+        </button>
+        <button class="action-btn clear-btn" (click)="clearAll()" title="Clear All">
+          <ion-icon name="trash-outline"></ion-icon>
+          <span>Clear</span>
+        </button>
       </div>
       
     </ion-content>
   `,
   styles: [`
-    .annotation-tools-container {
+    .top-toolbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 12px;
+      background: linear-gradient(180deg, #F15A27 0%, #e54d1c 100%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      z-index: 100;
+    }
+    
+    .bottom-toolbar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
       padding: 16px;
-      background: #F15A27;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    
-    .main-tools {
+      background: linear-gradient(0deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
       display: flex;
       justify-content: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    
-    .bottom-tools {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
+      gap: 30px;
+      z-index: 100;
+      border-top: 1px solid rgba(0,0,0,0.1);
     }
     
     .tool-btn {
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.95);
       border: 2px solid rgba(255,255,255,1);
-      border-radius: 12px;
-      width: 50px;
-      height: 50px;
+      border-radius: 10px;
+      width: 48px;
+      height: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #F15A27;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.2s;
       position: relative;
+    }
+    
+    .action-btn {
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .undo-btn {
+      border-color: #4CAF50;
+      color: #4CAF50;
+    }
+    
+    .undo-btn:hover {
+      background: #f1f8f4;
+      border-color: #45a049;
+    }
+    
+    .clear-btn {
+      border-color: #f44336;
+      color: #f44336;
+    }
+    
+    .clear-btn:hover {
+      background: #ffebee;
+      border-color: #da190b;
+    }
+    
+    .action-btn ion-icon {
+      font-size: 20px;
+    }
+    
+    .action-btn span {
+      font-size: 14px;
     }
     
     .tool-btn:hover {
@@ -141,9 +201,11 @@ import * as fabric from 'fabric';
     }
     
     .canvas-container {
-      position: relative;
-      width: 100%;
-      height: calc(100% - 150px);
+      position: absolute;
+      top: 72px;
+      bottom: 80px;
+      left: 0;
+      right: 0;
       display: flex;
       justify-content: center;
       align-items: center;

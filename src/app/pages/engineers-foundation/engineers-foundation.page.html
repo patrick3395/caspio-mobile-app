@@ -443,7 +443,7 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
+                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -576,7 +576,7 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
+                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -709,7 +709,7 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="isItemSelected(category, item.id) && (!item.answerType || item.answerType === 0)">
+                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
