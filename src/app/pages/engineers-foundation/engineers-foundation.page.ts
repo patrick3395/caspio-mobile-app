@@ -3207,21 +3207,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         await modal.present();
         console.log('[v1.4.317] Modal presented successfully');
+        
+        // Dismiss loading after modal is presented
+        // Add a small delay to ensure smooth transition
+        setTimeout(async () => {
+          try {
+            await loading.dismiss();
+            console.log('[v1.4.317] Loading dismissed after modal presentation');
+          } catch (dismissError) {
+            console.log('[v1.4.317] Loading already dismissed');
+          }
+        }, 300);
+        
       } catch (modalError) {
         console.error('[v1.4.317] Error presenting modal:', modalError);
+        // Try to dismiss loading on error
+        try {
+          await loading.dismiss();
+        } catch (dismissError) {
+          console.log('[v1.4.317] Loading already dismissed');
+        }
         throw modalError;
-      }
-      
-      // Wait for modal to be fully presented before dismissing loading
-      // Use onDidPresent event listener instead of method
-      modal.onDidPresent().then(() => {
-        console.log('[v1.4.317] Modal fully presented, dismissing loading');
-      });
-      
-      try {
-        await loading.dismiss();
-      } catch (dismissError) {
-        console.log('[v1.4.317] Loading already dismissed');
       }
       
       // Re-enable the PDF button
