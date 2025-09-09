@@ -5764,17 +5764,16 @@ Has Annotations: ${!!annotations}`;
           }
           
             // Set the Drawings field
-            updateData.Drawings = drawingsData;
-            
-            console.log('💾 [v1.4.315] Final Drawings field data:');
-            console.log('  Type:', typeof updateData.Drawings);
-            console.log('  Length:', updateData.Drawings.length);
-            console.log('  Is string:', typeof updateData.Drawings === 'string');
-            console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
-            console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
-          } else {
-            console.log('  ⚠️ No valid data, skipping Drawings field');
-          }
+          updateData.Drawings = drawingsData;
+          
+          console.log('💾 [v1.4.315] Final Drawings field data:');
+          console.log('  Type:', typeof updateData.Drawings);
+          console.log('  Length:', updateData.Drawings.length);
+          console.log('  Is string:', typeof updateData.Drawings === 'string');
+          console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
+          console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
+        } else {
+          console.log('  ⚠️ No valid data, skipping Drawings field');
         }
       } else {
         console.log('ℹ️ [v1.4.315] No annotations provided, not updating Drawings field');
@@ -7360,11 +7359,13 @@ Stack: ${error?.stack}`;
             buttons: [
               {
                 text: 'Copy Debug Info',
-                handler: () => {
+                handler: async () => {
                   const textToCopy = debugInfo.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-                  navigator.clipboard.writeText(textToCopy).catch(() => {
+                  try {
+                    await navigator.clipboard.writeText(textToCopy);
+                  } catch (error) {
                     console.error('Failed to copy debug info');
-                  });
+                  }
                   return false;
                 }
               },
@@ -7841,8 +7842,4 @@ Stack: ${error?.stack}`;
       }
     }
   }
-}
-}
-}
-}
 }
