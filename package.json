@@ -1,12 +1,12 @@
 {
   "name": "ionic-app-base",
-  "version": "1.4.316",
+  "version": "1.4.317",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build --configuration production && node appflow-ios-build.js",
+    "build": "rm -rf .angular && rm -rf dist && ng build --configuration production && node appflow-ios-build.js",
     "build:prod": "ng build --configuration production",
     "build:mobile": "ng build --configuration production",
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
