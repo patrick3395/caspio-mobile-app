@@ -575,8 +575,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         // CRITICAL FIX: Use Fabric.js's proper JSON loading to preserve all properties
         // This ensures annotations are editable, not flattened
         
-        // Store the current background image
-        const bgImage = this.canvas.backgroundImage;
+        // Store the current background image URL to reload it after
+        const bgImage = this.canvas.backgroundImage as fabric.Image;
+        const bgImageSrc = bgImage ? bgImage.getSrc() : null;
         
         // Create a temporary canvas data object with just the annotations
         const tempCanvasData = {
@@ -588,9 +589,28 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.canvas.loadFromJSON(tempCanvasData, () => {
           console.log(`✅ [v1.4.248] Loaded annotations from JSON`);
           
-          // Restore the background image
-          if (bgImage) {
-            this.canvas.backgroundImage = bgImage;
+          // CRITICAL: Reload the background image after loadFromJSON (which clears everything)
+          if (bgImageSrc) {
+            fabric.Image.fromURL(bgImageSrc).then((img: fabric.Image) => {
+              // Apply same scaling as in initializeFabricCanvas
+              const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
+              const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
+              
+              let scale = 1;
+              if (img.width! > containerWidth || img.height! > containerHeight) {
+                scale = Math.min(containerWidth / img.width!, containerHeight / img.height!);
+              }
+              
+              img.scale(scale);
+              img.selectable = false;
+              img.evented = false;
+              
+              // Set as background image
+              this.canvas.backgroundImage = img;
+              this.canvas.renderAll();
+              
+              console.log(`✅ [v1.4.248] Background image restored`);
+            });
           }
           
           // Ensure all objects are selectable and editable
