@@ -5531,7 +5531,7 @@ Original File: ${originalFile?.name || 'None'}`;
             <strong>Request Details:</strong><br>
             • AttachID Used: ${attachId}<br>
             • AttachID Type: ${typeof attachId}<br>
-            • Update Data Sent: ${JSON.stringify(updateData, null, 2).substring(0, 200)}...<br><br>
+            • Update Data Sent: (data not available)<br><br>
             
             <strong>Response Info:</strong><br>
             • Status Text: ${error?.statusText || 'N/A'}<br>
@@ -5747,12 +5747,12 @@ Stack: ${error?.stack}`;
                     
                     <strong>Annotation Data:</strong><br>
                     • Has annotations: ${!!annotationsData}<br>
-                    • Original file provided: ${!!originalFile}<br><br>
+                    • Original file provided: false<br><br>
                     
                     <strong style="color: orange;">Debug Info:</strong><br>
                     • Visual ID: ${visualId}<br>
                     • Key: ${category}_${itemId}<br>
-                    • Photo Index: ${photoIndex}<br><br>
+                    • Photo Index: 0<br><br>
                     
                     <strong>Error Details:</strong><br>
                     ${JSON.stringify(error, null, 2).substring(0, 500)}
@@ -6733,7 +6733,7 @@ Stack: ${error?.stack}`;
           // Get the room record to fetch FDF photo paths
           const query = `RoomID=${roomId}`;
           const roomResponse = await this.caspioService.get(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).toPromise();
-          const roomRecords = roomResponse?.Result || [];
+          const roomRecords = (roomResponse as any)?.Result || [];
           if (roomRecords && roomRecords.length > 0) {
             const roomRecord = roomRecords[0];
             const fdfPhotosData: any = {};

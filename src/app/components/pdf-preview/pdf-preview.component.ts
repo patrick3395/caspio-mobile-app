@@ -27,6 +27,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   primaryPhotoData: string | null = null;
   primaryPhotoLoading: boolean = false;
   private contentReady = false;
+  imagesLoading: number = 0;
 
   constructor(
     private modalController: ModalController,
@@ -1460,5 +1461,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       this.imagesLoading--;
       this.checkAndDismissLoading();
     }
+  }
+  
+  private checkAndDismissLoading() {
+    // Placeholder method to check and dismiss loading if needed
+    // Can be implemented later if loading state management is required
+    console.log(`Images still loading: ${this.imagesLoading}`);
   }
 }
