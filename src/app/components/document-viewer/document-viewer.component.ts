@@ -618,8 +618,7 @@ export class DocumentViewerComponent implements OnInit {
       const searchPromise = this.pdfViewerService.find(this.searchTerm, {
         highlightAll: true,
         matchCase: false,
-        wholeWords: false,
-        findPrevious: false
+        wholeWords: false
       });
       
       // Get search results count from PDFViewerApplication
