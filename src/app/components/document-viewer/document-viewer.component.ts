@@ -2,11 +2,12 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 
 @Component({
   selector: 'app-document-viewer',
   standalone: true,
-  imports: [CommonModule, IonicModule],
+  imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
   template: `
     <ion-header>
       <ion-toolbar style="--background: #F15A27;">
@@ -28,15 +29,33 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <ion-button (click)="showPDFDebugInfo()" color="warning" size="small" 
-                    style="position: absolute; top: 10px; right: 10px; z-index: 1000;">
-          Debug PDF
-        </ion-button>
-        <embed [src]="sanitizedUrl" 
-               type="application/pdf"
-               width="100%"
-               height="100%"
-               style="min-height: 100vh;" /></div>
+        <ngx-extended-pdf-viewer 
+          [src]="pdfSource"
+          [height]="'calc(100vh - 56px)'"
+          [useBrowserLocale]="true"
+          [mobileFriendlyZoom]="'page-width'"
+          [showToolbar]="true"
+          [showSidebarButton]="false"
+          [showFindButton]="true"
+          [showPagingButtons]="true"
+          [showZoomButtons]="true"
+          [showPresentationModeButton]="false"
+          [showOpenFileButton]="false"
+          [showPrintButton]="true"
+          [showDownloadButton]="true"
+          [showBookmarkButton]="false"
+          [showSecondaryToolbarButton]="true"
+          [showRotateButton]="true"
+          [showHandToolButton]="true"
+          [showScrollingButton]="true"
+          [showSpreadButton]="false"
+          [showPropertiesButton]="false"
+          [zoom]="'page-width'"
+          [spread]="'off'"
+          [wheelAction]="'zoom'"
+          backgroundColor="#525659">
+        </ngx-extended-pdf-viewer>
+      </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
              [alt]="fileName" 
@@ -107,6 +126,7 @@ export class DocumentViewerComponent implements OnInit {
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
+  pdfSource: string | Uint8Array | { url: string } = '';
 
   constructor(
     private modalController: ModalController,
@@ -136,20 +156,30 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, use the URL with proper viewing parameters
-      let pdfUrl = this.fileUrl;
-      
-      // For data URLs (base64 PDFs), ensure proper format
-      if (pdfUrl.startsWith('data:')) {
-        // Make sure the data URL has the correct MIME type
-        if (!pdfUrl.startsWith('data:application/pdf')) {
-          console.warn('PDF data URL has incorrect MIME type');
+      // For PDFs, prepare the source for ngx-extended-pdf-viewer
+      if (this.fileUrl.startsWith('data:')) {
+        // For base64 data URLs, convert to Uint8Array
+        try {
+          const base64 = this.fileUrl.split(',')[1];
+          const binary = atob(base64);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          this.pdfSource = bytes;
+          console.log('Loaded PDF from base64, size:', len, 'bytes');
+        } catch (error) {
+          console.error('Error converting base64 to Uint8Array:', error);
+          // Fallback to direct URL
+          this.pdfSource = this.fileUrl;
         }
+      } else {
+        // For regular URLs, use them directly
+        this.pdfSource = this.fileUrl;
       }
-      // Don't add any parameters - let the browser's PDF viewer handle it naturally
       
-      this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
-      console.log('Displaying PDF with page-fit zoom for proper viewing');
+      console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -199,85 +229,4 @@ export class DocumentViewerComponent implements OnInit {
     this.modalController.dismiss();
   }
 
-  async showPDFDebugInfo() {
-    console.log('Debug button clicked!');
-    
-    // Get URL info
-    const urlLength = this.fileUrl ? this.fileUrl.length : 0;
-    const isBase64 = this.fileUrl ? this.fileUrl.startsWith('data:') : false;
-    
-    let debugInfo = `PDF Debug Information:
-    
-File: ${this.fileName || 'Unknown'}
-URL Type: ${isBase64 ? 'Base64 Data URL' : 'Regular URL'}
-URL Length: ${urlLength} characters
-File Type: ${this.fileType || 'Unknown'}
-
-Current Viewer: Using <embed> tag
-- Width: 100%
-- Height: 100%
-- Min-Height: 100vh
-
-TROUBLESHOOTING:
-1. PDF only shows first page:
-   - This is a known iOS WebView limitation
-   - The embed tag may not support multi-page scrolling
-   
-2. PDF needs zoom out:
-   - Pinch to zoom may work
-   - Or use "Open in New Tab" button
-
-3. For best experience:
-   - Use "Open in New Tab" button in header
-   - This opens PDF in native viewer
-
-Note: iOS WebView has limitations with PDF rendering.
-Multiple pages may not scroll properly in embedded view.`;
-
-    try {
-      const alert = await this.alertController.create({
-        header: 'PDF Debug Info',
-        message: debugInfo,
-        cssClass: 'pdf-debug-alert',
-        buttons: [
-          {
-            text: 'Copy',
-            handler: () => {
-              // Try multiple clipboard methods
-              const copyText = async () => {
-                try {
-                  if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(debugInfo);
-                  } else {
-                    // Fallback
-                    const textArea = document.createElement('textarea');
-                    textArea.value = debugInfo;
-                    textArea.style.position = 'fixed';
-                    textArea.style.opacity = '0';
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                  }
-                } catch (err) {
-                  console.error('Copy failed:', err);
-                }
-              };
-              copyText();
-              return true;
-            }
-          },
-          {
-            text: 'OK',
-            role: 'cancel'
-          }
-        ]
-      });
-      await alert.present();
-    } catch (error) {
-      console.error('Error showing alert:', error);
-      // Fallback to console
-      console.log(debugInfo);
-    }
-  }
 }

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, Platform, AlertController, ToastController } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
@@ -16,16 +16,20 @@ type jsPDF = any;
   templateUrl: './pdf-preview.component.html',
   styleUrls: ['./pdf-preview.component.scss']
 })
-export class PdfPreviewComponent implements OnInit {
+export class PdfPreviewComponent implements OnInit, AfterViewInit {
   @Input() projectData: any;
   @Input() structuralData: any[] = [];
   @Input() elevationData: any[] = [];
   @Input() serviceData: any = {};
+  @Input() loadingController: any; // Loading controller passed from parent
   
   hasElevationData = false;
   imageCache: Map<string, string> = new Map();
   primaryPhotoData: string | null = null;
   primaryPhotoLoading: boolean = false;
+  private contentReady = false;
+  private imagesLoading = 0;
+  private loadingDismissed = false;
 
   constructor(
     private modalController: ModalController,
@@ -52,6 +56,44 @@ export class PdfPreviewComponent implements OnInit {
     } else {
       // Load primary photo if it's a Caspio file
       this.loadPrimaryPhotoIfNeeded();
+    }
+  }
+  
+  async ngAfterViewInit() {
+    // Mark content as ready and check if we should dismiss loading
+    this.contentReady = true;
+    
+    // Check after a delay to allow images to start loading
+    setTimeout(() => {
+      this.checkAndDismissLoading();
+    }, 1000); // Give images time to start loading
+    
+    // Also set a maximum timeout to dismiss loading even if images haven't loaded
+    setTimeout(() => {
+      if (!this.loadingDismissed) {
+        this.dismissLoadingIndicator();
+      }
+    }, 5000); // Maximum 5 seconds wait
+  }
+  
+  private async checkAndDismissLoading() {
+    // Only dismiss if content is ready and no images are loading
+    if (this.contentReady && this.imagesLoading === 0 && !this.loadingDismissed) {
+      await this.dismissLoadingIndicator();
+    }
+  }
+  
+  private async dismissLoadingIndicator() {
+    if (this.loadingDismissed) return;
+    
+    this.loadingDismissed = true;
+    if (this.loadingController && typeof this.loadingController.dismiss === 'function') {
+      try {
+        await this.loadingController.dismiss();
+        console.log('✅ Loading indicator dismissed - PDF ready');
+      } catch (error) {
+        console.log('Loading already dismissed or error:', error);
+      }
     }
   }
   
@@ -117,6 +159,11 @@ export class PdfPreviewComponent implements OnInit {
   }
   
   getPrimaryPhotoUrl(): string {
+    // Track that an image is loading
+    if (!this.primaryPhotoData && this.projectData?.primaryPhoto) {
+      this.imagesLoading++;
+    }
+    
     // If we have loaded base64 data, use it
     if (this.primaryPhotoData) {
       return this.primaryPhotoData;
@@ -1431,11 +1478,23 @@ export class PdfPreviewComponent implements OnInit {
     }
     event.target.classList.remove('loading');
     this.primaryPhotoLoading = false;
+    
+    // Decrement loading counter and check if we should dismiss
+    if (this.imagesLoading > 0) {
+      this.imagesLoading--;
+      this.checkAndDismissLoading();
+    }
   }
   
   handleImageLoad(event: any) {
     event.target.classList.remove('loading');
     this.primaryPhotoLoading = false;
-    console.log('Primary photo loaded successfully');
+    console.log('Image loaded successfully');
+    
+    // Decrement loading counter and check if we should dismiss
+    if (this.imagesLoading > 0) {
+      this.imagesLoading--;
+      this.checkAndDismissLoading();
+    }
   }
 }

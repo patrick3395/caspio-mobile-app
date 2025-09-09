@@ -3106,13 +3106,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           projectData: projectInfo,
           structuralData: structuralSystemsData,
           elevationData: elevationPlotData,
-          serviceData: this.serviceData
+          serviceData: this.serviceData,
+          loadingController: loading  // Pass the loading controller to the modal
         },
         cssClass: 'fullscreen-modal'
       });
       
-      // Dismiss loading only after modal is ready to present
-      await loading.dismiss();
+      // Present the modal first, then let the PDF component dismiss the loader when ready
       await modal.present();
       
     } catch (error) {
@@ -5499,33 +5499,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Use originalUrl if available (from previous annotation), otherwise use url
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
       
-      // Open enhanced photo viewer with annotation option
+      // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
-        component: PhotoViewerComponent,
+        component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          photoUrl: originalImageUrl,  // Always use original, not display URL
-          photoName: photoName,
-          photoCaption: photo.caption || '',
-          canAnnotate: true,
-          visualId: visualId,
-          categoryKey: key,
-          photoData: photo,  // Pass the photo object for update
-          existingAnnotations: photo.annotations  // Pass existing annotations
+          imageUrl: originalImageUrl,  // Always use original, not display URL
+          existingAnnotations: photo.annotations || photo.annotationsData,  // Pass existing annotations
+          photoData: photo,
+          isReEdit: !!photo.originalUrl  // Flag to indicate we're re-editing
         },
-        cssClass: 'photo-viewer-modal'
+        cssClass: 'fullscreen-modal'
       });
       
       await modal.present();
       
-      // Handle annotated photo or updated caption if returned
+      // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
       
-      if (data && data.updatedCaption !== undefined) {
-        // Caption was updated
-        photo.caption = data.updatedCaption;
-        await this.saveCaption(photo, category, itemId);
-        this.changeDetectorRef.detectChanges();
-      } else if (data && data.annotatedBlob) {
+      if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
         const annotationsData = data.annotationData || data.annotationsData;
