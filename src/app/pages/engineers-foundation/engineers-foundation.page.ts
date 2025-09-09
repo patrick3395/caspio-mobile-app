@@ -5856,10 +5856,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   } else if (imageData) {
                     console.log('⚠️ [v1.4.303] Image data received but not base64:', typeof imageData, imageData?.substring?.(0, 50));
                     // Try to handle other data formats
-                    if (typeof imageData === 'object' && imageData.data) {
+                    if (typeof imageData === 'object' && (imageData as any).data) {
                       // Handle potential object response
-                      photoData.url = imageData.data;
-                      photoData.thumbnailUrl = imageData.data;
+                      photoData.url = (imageData as any).data;
+                      photoData.thumbnailUrl = (imageData as any).data;
                     } else {
                       // Use fallback
                       console.log('⚠️ [v1.4.303] Using SVG fallback due to invalid format');
