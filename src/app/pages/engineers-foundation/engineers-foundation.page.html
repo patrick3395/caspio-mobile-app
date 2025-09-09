@@ -5,7 +5,7 @@
     </ion-buttons>
     <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="generatePDF()">
+      <ion-button (click)="generatePDF($event)" type="button">
         <ion-icon name="document-text-outline"></ion-icon>
         <span style="margin-left: 5px;">PDF</span>
       </ion-button>
@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.310 - Added debug alerts for ServiceID and TypeID tracking</div>
+    <div class="version-header">Version 1.4.312 - Fixed TypeID query to properly fetch TypeShort</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 

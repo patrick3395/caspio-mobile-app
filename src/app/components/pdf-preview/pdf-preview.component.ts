@@ -38,7 +38,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     private toastController: ToastController
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
+    // Start with content not ready
+    this.contentReady = false;
+    
     this.hasElevationData = this.elevationData && this.elevationData.length > 0;
     console.log('PDF Preview initialized with data:', {
       projectData: this.projectData,
@@ -53,14 +56,24 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       console.log('Using preloaded primary photo');
     } else {
       // Load primary photo if it's a Caspio file
-      this.loadPrimaryPhotoIfNeeded();
+      await this.loadPrimaryPhotoIfNeeded();
     }
+    
+    // Wait a moment for Angular to render the template
+    setTimeout(() => {
+      this.contentReady = true;
+      console.log('PDF content marked as ready');
+    }, 500);
   }
   
   async ngAfterViewInit() {
-    // Mark content as ready - no loading to dismiss anymore
-    this.contentReady = true;
-    // Loading is now handled in the parent component before modal opens
+    // Additional check to ensure content is ready after view init
+    if (!this.contentReady) {
+      setTimeout(() => {
+        this.contentReady = true;
+        console.log('PDF content ready after view init');
+      }, 1000);
+    }
   }
   
   // Removed loading dismiss methods - loading is now handled in parent component

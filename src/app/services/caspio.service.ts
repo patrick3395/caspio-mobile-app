@@ -1298,7 +1298,8 @@ export class CaspioService {
   
   // Type methods
   getType(typeId: string): Observable<any> {
-    return this.get<any>(`/tables/Types/records?q.where=PK_ID=${typeId}`).pipe(
+    // Try using TypeID field instead of PK_ID since TypeID is the actual field name
+    return this.get<any>(`/tables/Types/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }

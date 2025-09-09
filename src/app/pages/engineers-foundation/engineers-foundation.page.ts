@@ -252,12 +252,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (typeData?.TypeShort) {
         this.typeShort = typeData.TypeShort;
         console.log(`✅ Type information loaded successfully: "${this.typeShort}"`);
+        
+        // Force change detection to update the view
+        this.changeDetectorRef.detectChanges();
+        
+        // Show debug alert to confirm TypeShort is set
+        const debugMessage = `TypeShort Successfully Loaded:\n\nTypeID: ${typeId}\nTypeShort: ${this.typeShort}\n\nThe header should now show: ${this.typeShort}`;
+        await this.showDebugAlert('TypeShort Loaded', debugMessage);
       } else {
         console.warn('⚠️ TypeShort not found in type data:', typeData);
+        
+        // Show what we actually got back
+        const debugMessage = `TypeShort NOT Found:\n\nTypeID: ${typeId}\nResponse: ${JSON.stringify(typeData)}\n\nUsing default: Foundation Evaluation`;
+        await this.showDebugAlert('TypeShort Missing', debugMessage);
       }
     } catch (error) {
       console.error('❌ Error loading type info:', error);
       // Keep default value if load fails
+      const debugMessage = `Error Loading Type:\n\nTypeID: ${typeId}\nError: ${error}\n\nUsing default: Foundation Evaluation`;
+      await this.showDebugAlert('Type Load Error', debugMessage);
     }
   }
   
@@ -3041,7 +3054,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  async generatePDF() {
+  async generatePDF(event?: Event) {
+    // Prevent any default button behavior that might cause page reload
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     // Validate all required Project Information fields before generating PDF
     const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
@@ -3122,17 +3140,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Dismiss loading before opening modal to prevent conflicts
-      try {
-        await loading.dismiss();
-      } catch (e) {
-        console.log('Loading already dismissed');
-      }
-      
-      // Small delay to ensure loading is fully dismissed and prevent UI freeze
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Now open the modal with all data ready
+      // Create the modal first but don't present it yet
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
         componentProps: {
@@ -3140,13 +3148,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           structuralData: structuralSystemsData,
           elevationData: elevationPlotData,
           serviceData: this.serviceData
-          // Removed loadingController - not needed anymore
         },
         cssClass: 'fullscreen-modal'
       });
       
-      // Present the modal
+      // Listen for the modal to be ready
+      modal.onWillPresent().then(() => {
+        console.log('Modal will present - dismissing loading');
+        // Dismiss loading when modal is about to show
+        loading.dismiss().catch(() => console.log('Loading already dismissed'));
+      });
+      
+      // Present the modal (loading will be dismissed via the onWillPresent handler)
       await modal.present();
+      
+      // Additional safety: ensure loading is dismissed after modal is shown
+      setTimeout(() => {
+        loading.dismiss().catch(() => {});
+      }, 500);
       
     } catch (error) {
       console.error('Error preparing preview:', error);
@@ -5418,22 +5437,41 @@ Has Annotations: ${!!annotations}`;
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // Prepare the drawings data with annotations
-        let drawingsObj = annotations;
+        // CRITICAL FIX: Caspio Drawings field is TEXT type, not JSON
+        // We need to send a plain string, not an object
+        let drawingsData = '';
         
-        // If annotations is already a string, parse it
+        // Handle different annotation formats
         if (typeof annotations === 'string') {
+          // If it's already a string, use it directly
+          drawingsData = annotations;
+          console.log('📝 Annotations already a string');
+        } else if (annotations && typeof annotations === 'object') {
+          // If it's an object, stringify it
           try {
-            drawingsObj = JSON.parse(annotations);
+            drawingsData = JSON.stringify(annotations);
+            console.log('📝 Stringified annotation object');
           } catch (e) {
-            drawingsObj = { annotations: annotations };
+            console.error('Failed to stringify annotations:', e);
+            drawingsData = '';
           }
         }
         
-        // Store ONLY the annotation data in Drawings field
-        // Do NOT include any file paths since we're not uploading files
-        updateData.Drawings = JSON.stringify(drawingsObj);
-        console.log('📝 Storing ONLY annotations in Drawings field (NO file uploads):', updateData.Drawings);
+        // CRITICAL: Only add Drawings field if we have valid data
+        // Make sure it's a string for Caspio TEXT field
+        if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
+          updateData.Drawings = drawingsData;
+          console.log('📝 Storing annotations in Drawings field as TEXT');
+          console.log('  Drawings data type:', typeof updateData.Drawings);
+          console.log('  Drawings is string:', typeof updateData.Drawings === 'string');
+          console.log('  Drawings length:', updateData.Drawings.length);
+          console.log('  First 100 chars:', updateData.Drawings.substring(0, 100));
+        } else {
+          console.log('⚠️ No valid annotation data to store, skipping Drawings field update');
+          // Don't include Drawings field at all if no data
+        }
+      } else {
+        console.log('ℹ️ No annotations provided, not updating Drawings field');
       }
       
       // Show debug popup before update
@@ -5447,8 +5485,11 @@ Has Annotations: ${!!annotations}`;
             <strong>AttachID Type:</strong> ${typeof attachId}<br><br>
             
             <strong>Update Data:</strong><br>
-            • Drawings field: ${updateData.Drawings ? 'YES (annotation JSON)' : 'NO'}<br>
-            • Drawings length: ${updateData.Drawings?.length || 0} chars<br><br>
+            • Drawings field: ${updateData.Drawings ? 'YES' : 'NO'}<br>
+            • Drawings type: ${typeof updateData.Drawings}<br>
+            • Drawings is string: ${typeof updateData.Drawings === 'string'}<br>
+            • Drawings length: ${updateData.Drawings?.length || 0} chars<br>
+            • Drawings preview: ${updateData.Drawings ? updateData.Drawings.substring(0, 50) + '...' : 'N/A'}<br><br>
             
             <strong>File Info:</strong><br>
             • Name: ${file?.name || 'N/A'}<br>
@@ -5505,6 +5546,14 @@ Original File: ${originalFile?.name || 'None'}`;
       
       if (role === 'cancel') {
         throw new Error('Update cancelled by user');
+      }
+      
+      // CRITICAL: Check if we have any data to update
+      if (Object.keys(updateData).length === 0) {
+        console.warn('⚠️ No data to update - updateData is empty');
+        // If there's no data to update, just return success
+        console.log('✅ No changes needed, skipping update');
+        return;
       }
       
       // Send update request

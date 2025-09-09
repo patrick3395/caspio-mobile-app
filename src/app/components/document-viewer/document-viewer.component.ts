@@ -18,26 +18,39 @@ import { FormsModule } from '@angular/forms';
             <ion-icon name="menu-outline" slot="icon-only"></ion-icon>
           </ion-button>
           
-          <!-- Search Bar with Results -->
-          <div class="search-container">
-            <ion-icon name="search-outline" style="color: white; margin-right: 4px;"></ion-icon>
-            <input type="text" 
-                   placeholder="Search..." 
-                   class="header-search-input"
-                   [(ngModel)]="searchTerm"
-                   (input)="onSearchChange($event)"
-                   (keyup.enter)="searchNext()"
-                   #searchInput />
-            <div class="search-results" *ngIf="searchTerm && searchResultsCount > 0">
-              <span class="results-count">{{ currentSearchIndex + 1 }}/{{ searchResultsCount }}</span>
-              <ion-button fill="clear" size="small" (click)="searchPrevious()" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
-                <ion-icon name="chevron-up-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
-              </ion-button>
-              <ion-button fill="clear" size="small" (click)="searchNext()" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
-                <ion-icon name="chevron-down-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
-              </ion-button>
+          <!-- Search Button -->
+          <ion-button fill="clear" size="small" (click)="toggleSearchPopup()" style="color: white; --padding-start: 4px; --padding-end: 4px; position: relative;">
+            <ion-icon name="search-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          
+          <!-- Search Popup -->
+          <div class="search-popup" *ngIf="showSearchPopup">
+            <div class="search-popup-header">
+              <input type="text" 
+                     placeholder="Find in document..." 
+                     class="search-popup-input"
+                     [(ngModel)]="searchTerm"
+                     (input)="onSearchChange($event)"
+                     (keyup.enter)="searchNext()"
+                     (keyup.escape)="closeSearchPopup()"
+                     #searchPopupInput />
+              <button class="search-close-btn" (click)="closeSearchPopup()">×</button>
+            </div>
+            <div class="search-popup-controls" *ngIf="searchTerm">
+              <span class="search-count">{{ searchResultsCount > 0 ? (currentSearchIndex + 1) + ' of ' + searchResultsCount : 'No results' }}</span>
+              <div class="search-nav-buttons">
+                <button class="search-nav-btn" (click)="searchPrevious()" [disabled]="searchResultsCount === 0">
+                  <ion-icon name="chevron-up-outline"></ion-icon>
+                </button>
+                <button class="search-nav-btn" (click)="searchNext()" [disabled]="searchResultsCount === 0">
+                  <ion-icon name="chevron-down-outline"></ion-icon>
+                </button>
+              </div>
             </div>
           </div>
+          
+          <!-- Spacer -->
+          <div style="flex: 1;"></div>
           
           <!-- Right Side Actions -->
           <div class="header-actions">
@@ -124,58 +137,118 @@ import { FormsModule } from '@angular/forms';
     .header-controls {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       width: 100%;
       height: 44px;
       gap: 8px;
     }
     
-    .search-container {
+    .search-popup {
+      position: absolute;
+      top: 50px;
+      left: 60px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      padding: 12px;
+      z-index: 1000;
+      min-width: 320px;
+      animation: slideDown 0.2s ease-out;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .search-popup-header {
       display: flex;
       align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .search-popup-input {
       flex: 1;
-      max-width: 450px;
-      margin: 0 8px;
-      position: relative;
-    }
-    
-    .header-search-input {
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 16px;
-      color: white;
-      padding: 4px 12px;
-      width: 100%;
-      font-size: 13px;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
       outline: none;
-      transition: all 0.3s ease;
+      transition: border-color 0.2s;
+    }
+    
+    .search-popup-input:focus {
+      border-color: #F15A27;
+    }
+    
+    .search-close-btn {
+      width: 28px;
       height: 28px;
-    }
-    
-    .header-search-input::placeholder {
-      color: rgba(255, 255, 255, 0.7);
-    }
-    
-    .header-search-input:focus {
-      background: rgba(255, 255, 255, 0.25);
-      border-color: white;
-    }
-    
-    .search-results {
+      border: none;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
       display: flex;
       align-items: center;
-      gap: 2px;
-      margin-left: 8px;
+      justify-content: center;
     }
     
-    .results-count {
+    .search-close-btn:hover {
+      background: #e0e0e0;
+    }
+    
+    .search-popup-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .search-count {
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .search-nav-buttons {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .search-nav-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #d0d0d0;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    
+    .search-nav-btn:hover:not(:disabled) {
+      background: #F15A27;
       color: white;
-      font-size: 12px;
-      min-width: 50px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 10px;
+      border-color: #F15A27;
+    }
+    
+    .search-nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .search-nav-btn ion-icon {
+      font-size: 16px;
     }
     
     .header-actions {
@@ -489,7 +562,7 @@ export class DocumentViewerComponent implements OnInit {
   displayUrl: string = '';
   pdfSource: string | Uint8Array = '';
 
-  @ViewChild('searchInput') searchInput?: ElementRef;
+  @ViewChild('searchPopupInput') searchPopupInput?: ElementRef;
   searchTerm: string = '';
   pdfLoaded: boolean = false;
   totalPages: number = 0;
@@ -498,6 +571,7 @@ export class DocumentViewerComponent implements OnInit {
   sidebarVisible: boolean = false;
   searchResultsCount: number = 0;
   currentSearchIndex: number = 0;
+  showSearchPopup: boolean = false;
 
   constructor(
     private modalController: ModalController,
@@ -593,50 +667,115 @@ export class DocumentViewerComponent implements OnInit {
     this.modalController.dismiss();
   }
 
-  onSearchChange(event: any) {
-    this.searchTerm = event.target.value;
-    this.currentSearchIndex = 0;
-    this.searchResultsCount = 0;
-    
-    if (this.searchTerm && this.searchTerm.length > 0) {
-      // Use the PDF viewer service to search
-      this.pdfViewerService.find(this.searchTerm, {
-        highlightAll: true,
-        matchCase: false,
-        wholeWords: false
-      });
-      
-      // Get search results count from PDFViewerApplication
+  toggleSearchPopup() {
+    this.showSearchPopup = !this.showSearchPopup;
+    if (this.showSearchPopup) {
+      // Focus the search input after popup opens
       setTimeout(() => {
-        const pdfApp = (window as any).PDFViewerApplication;
-        if (pdfApp && pdfApp.findController) {
-          const matchesCount = pdfApp.findController._matchesCountTotal;
-          this.searchResultsCount = matchesCount || 0;
-          if (this.searchResultsCount > 0) {
-            this.currentSearchIndex = 0;
-          }
+        if (this.searchPopupInput) {
+          this.searchPopupInput.nativeElement.focus();
         }
-      }, 500);
+      }, 100);
     } else {
-      // Clear search if empty
+      // Clear search when closing
+      this.clearSearch();
+    }
+  }
+
+  closeSearchPopup() {
+    this.showSearchPopup = false;
+    this.clearSearch();
+  }
+
+  clearSearch() {
+    this.searchTerm = '';
+    this.searchResultsCount = 0;
+    this.currentSearchIndex = 0;
+    // Clear PDF search highlights
+    if (this.pdfViewerService) {
       this.pdfViewerService.find('', {
         highlightAll: false
       });
     }
   }
 
+  onSearchChange(event: any) {
+    this.searchTerm = event.target.value;
+    this.currentSearchIndex = 0;
+    this.searchResultsCount = 0;
+    
+    if (this.searchTerm && this.searchTerm.length > 0) {
+      // Perform the search
+      this.performSearch();
+    } else {
+      // Clear search if empty
+      this.clearSearchHighlights();
+    }
+  }
+
+  performSearch() {
+    const pdfApp = (window as any).PDFViewerApplication;
+    
+    if (pdfApp && pdfApp.findController) {
+      // Use PDFViewerApplication's find controller directly
+      pdfApp.findController.executeCommand('find', {
+        query: this.searchTerm,
+        highlightAll: true,
+        caseSensitive: false,
+        entireWord: false,
+        findPrevious: false
+      });
+      
+      // Get search results count after a delay
+      setTimeout(() => {
+        if (pdfApp.findController._matchesCountTotal !== undefined) {
+          this.searchResultsCount = pdfApp.findController._matchesCountTotal;
+          this.currentSearchIndex = pdfApp.findController._matchesCountTotal > 0 ? 0 : -1;
+        }
+      }, 300);
+    }
+  }
+
   searchNext() {
     if (this.searchTerm && this.searchResultsCount > 0) {
-      this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultsCount;
-      this.pdfViewerService.findNext();
+      const pdfApp = (window as any).PDFViewerApplication;
+      if (pdfApp && pdfApp.findController) {
+        pdfApp.findController.executeCommand('findagain', {
+          query: this.searchTerm,
+          highlightAll: true,
+          caseSensitive: false,
+          entireWord: false,
+          findPrevious: false
+        });
+        this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultsCount;
+      }
     }
   }
 
   searchPrevious() {
     if (this.searchTerm && this.searchResultsCount > 0) {
-      this.currentSearchIndex = this.currentSearchIndex === 0 ? 
-        this.searchResultsCount - 1 : this.currentSearchIndex - 1;
-      this.pdfViewerService.findPrevious();
+      const pdfApp = (window as any).PDFViewerApplication;
+      if (pdfApp && pdfApp.findController) {
+        pdfApp.findController.executeCommand('findagain', {
+          query: this.searchTerm,
+          highlightAll: true,
+          caseSensitive: false,
+          entireWord: false,
+          findPrevious: true
+        });
+        this.currentSearchIndex = this.currentSearchIndex === 0 ? 
+          this.searchResultsCount - 1 : this.currentSearchIndex - 1;
+      }
+    }
+  }
+
+  clearSearchHighlights() {
+    const pdfApp = (window as any).PDFViewerApplication;
+    if (pdfApp && pdfApp.findController) {
+      pdfApp.findController.executeCommand('find', {
+        query: '',
+        highlightAll: false
+      });
     }
   }
 
@@ -646,7 +785,57 @@ export class DocumentViewerComponent implements OnInit {
     if (event && event.pagesCount) {
       this.totalPages = event.pagesCount;
       console.log('Total pages:', this.totalPages);
+      
+      // Setup event delegation for thumbnail clicks
+      this.setupThumbnailEventDelegation();
     }
+  }
+  
+  setupThumbnailEventDelegation() {
+    // Use event delegation on the sidebar container
+    setTimeout(() => {
+      const sidebarContainer = document.getElementById('sidebarContainer');
+      if (sidebarContainer) {
+        // Remove any existing listener
+        sidebarContainer.onclick = null;
+        
+        // Add new click handler
+        sidebarContainer.onclick = (event: MouseEvent) => {
+          const target = event.target as HTMLElement;
+          const thumbnail = target.closest('.thumbnail');
+          
+          if (thumbnail) {
+            const pageLabel = thumbnail.getAttribute('aria-label');
+            const pageMatch = pageLabel ? pageLabel.match(/\d+/) : null;
+            const pageNumber = pageMatch ? parseInt(pageMatch[0]) : null;
+            
+            if (pageNumber) {
+              event.preventDefault();
+              event.stopPropagation();
+              this.navigateToPage(pageNumber);
+            }
+          }
+        };
+      }
+    }, 300);
+  }
+  
+  navigateToPage(pageNumber: number) {
+    console.log('Navigating to page:', pageNumber);
+    
+    // Method 1: Use PDFViewerApplication
+    const pdfApp = (window as any).PDFViewerApplication;
+    if (pdfApp) {
+      pdfApp.page = pageNumber;
+    }
+    
+    // Method 2: Direct scroll to page element
+    setTimeout(() => {
+      const pageElement = document.querySelector(`[data-page-number="${pageNumber}"]`);
+      if (pageElement) {
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   }
 
   onPageRendered(event: any) {
@@ -669,13 +858,75 @@ export class DocumentViewerComponent implements OnInit {
         pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
         pdfViewer.pdfViewer.spreadMode = 0; // NONE
       }
+      
+      // Add click event listeners to thumbnails for page navigation
+      this.setupThumbnailClickHandlers();
     }, 100);
+  }
+  
+  setupThumbnailClickHandlers() {
+    // Wait a bit for thumbnails to be fully rendered
+    setTimeout(() => {
+      // Get the thumbnail container
+      const thumbnailView = document.getElementById('thumbnailView');
+      if (!thumbnailView) return;
+      
+      // Remove any existing listeners to avoid duplicates
+      const existingThumbnails = thumbnailView.querySelectorAll('.thumbnail');
+      existingThumbnails.forEach(thumb => {
+        const newThumb = thumb.cloneNode(true);
+        thumb.parentNode?.replaceChild(newThumb, thumb);
+      });
+      
+      // Add click handlers to thumbnail elements
+      const thumbnails = thumbnailView.querySelectorAll('.thumbnail');
+      thumbnails.forEach((thumbnail: any) => {
+        // Get the page number from the thumbnail's data attribute or aria-label
+        const pageLabel = thumbnail.getAttribute('aria-label');
+        const pageMatch = pageLabel ? pageLabel.match(/\d+/) : null;
+        const pageNumber = pageMatch ? parseInt(pageMatch[0]) : null;
+        
+        if (pageNumber) {
+          thumbnail.style.cursor = 'pointer';
+          thumbnail.addEventListener('click', (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.goToPage(pageNumber);
+          });
+        }
+      });
+    }, 500);
+  }
+  
+  goToPage(pageNumber: number) {
+    console.log('Attempting to navigate to page:', pageNumber);
+    const pdfApp = (window as any).PDFViewerApplication;
+    
+    if (pdfApp && pdfApp.pdfViewer) {
+      // Use the PDF viewer's page navigation
+      pdfApp.page = pageNumber;
+      
+      // Alternative method if above doesn't work
+      const viewerContainer = document.getElementById('viewerContainer');
+      const targetPage = document.querySelector(`[data-page-number="${pageNumber}"]`);
+      
+      if (viewerContainer && targetPage) {
+        targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      
+      console.log('Navigated to page:', pageNumber);
+    }
   }
 
   toggleSidebar() {
     this.sidebarVisible = !this.sidebarVisible;
-    // The sidebar visibility is controlled by the binding [sidebarVisible]
-    // No need to manually update via service
+    
+    // Re-setup thumbnail handlers when sidebar is shown
+    if (this.sidebarVisible) {
+      setTimeout(() => {
+        this.setupThumbnailClickHandlers();
+      }, 200);
+    }
   }
 
   zoomIn() {

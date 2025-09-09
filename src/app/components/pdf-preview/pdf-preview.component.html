@@ -14,7 +14,13 @@
 </ion-header>
 
 <ion-content class="pdf-preview-content">
-  <div class="pdf-container">
+  <!-- Loading overlay for PDF content -->
+  <div class="pdf-loading-overlay" *ngIf="!contentReady">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Preparing PDF...</p>
+  </div>
+  
+  <div class="pdf-container" [style.opacity]="contentReady ? '1' : '0'">
     <!-- Cover Page Preview -->
     <div class="pdf-page cover-page">
       <div class="company-header">
