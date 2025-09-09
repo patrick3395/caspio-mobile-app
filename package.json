@@ -1,13 +1,14 @@
 {
   "name": "ionic-app-base",
-  "version": "1.4.317",
+  "version": "1.4.318",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "rm -rf .angular && rm -rf dist && ng build --configuration production && node appflow-ios-build.js",
-    "build:prod": "ng build --configuration production",
+    "prebuild": "rm -rf .angular && rm -rf dist && rm -rf www && rm -rf node_modules/.cache",
+    "build": "ng build --configuration production && node appflow-ios-build.js",
+    "build:prod": "rm -rf .angular && rm -rf dist && ng build --configuration production",
     "build:mobile": "ng build --configuration production",
     "android": "npm run build:mobile && npx cap copy android && npx cap open android",
     "ios": "npm run build:mobile && npx cap copy ios && npx cap open ios",

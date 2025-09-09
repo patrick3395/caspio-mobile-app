@@ -1,0 +1,14 @@
+{
+  "apps": [
+    {
+      "appId": "1e8beef6",
+      "root": "./",
+      "webDir": "www",
+      "includeNodeModules": false,
+      "clearCache": true,
+      "build": {
+        "prebuild": "rm -rf .angular && rm -rf dist && rm -rf www && rm -rf node_modules/.cache"
+      }
+    }
+  ]
+}
