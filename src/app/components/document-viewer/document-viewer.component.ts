@@ -116,8 +116,6 @@ import { FormsModule } from '@angular/forms';
           [maxZoom]="10"
           [textLayer]="true"
           [enableDragAndDrop]="false"
-          [renderText]="true"
-          [useOnlyCssZoom]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pdfLoadingStarts)="onPdfLoadingStarts($event)"
           (pdfLoadingFailed)="onPdfLoadingFailed($event)"

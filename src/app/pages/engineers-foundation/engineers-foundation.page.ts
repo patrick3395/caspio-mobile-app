@@ -3213,8 +3213,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Wait for modal to be fully presented before dismissing loading
-      await modal.onDidPresent();
-      console.log('[v1.4.317] Modal fully presented, dismissing loading');
+      // Use onDidPresent event listener instead of method
+      modal.onDidPresent().then(() => {
+        console.log('[v1.4.317] Modal fully presented, dismissing loading');
+      });
       
       try {
         await loading.dismiss();
