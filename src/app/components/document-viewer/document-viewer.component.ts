@@ -28,13 +28,11 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <object [data]="sanitizedUrl" 
+        <iframe [src]="sanitizedUrl" 
                 type="application/pdf"
-                class="pdf-object">
-          <embed [src]="sanitizedUrl" 
-                 type="application/pdf"
-                 class="pdf-embed" />
-        </object>
+                class="pdf-iframe"
+                allow="fullscreen"
+                allowfullscreen></iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -62,18 +60,12 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       position: relative;
+      display: flex;
+      justify-content: center;
     }
-    .pdf-object {
+    .pdf-iframe {
       width: 100%;
-      min-height: 100%;
-      height: 150vh; /* Allow for scrolling through multiple pages */
-      border: none;
-      display: block;
-    }
-    .pdf-embed {
-      width: 100%;
-      min-height: 100%;
-      height: 150vh; /* Fallback for embed */
+      height: 100%;
       border: none;
       display: block;
     }
@@ -106,11 +98,10 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
         overflow: auto;
         height: 100%;
       }
-      .pdf-object,
-      .pdf-embed {
+      .pdf-iframe {
         width: 100%;
+        height: 100%;
         min-height: 100vh;
-        height: 200vh; /* Ensure enough height for multiple pages on iOS */
       }
     }
   `]
@@ -153,8 +144,7 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, use the URL directly without modification
-      // This allows the native PDF viewer to handle all pages properly
+      // For PDFs, use the URL with proper viewing parameters
       let pdfUrl = this.fileUrl;
       
       // For data URLs (base64 PDFs), ensure proper format
@@ -163,12 +153,15 @@ export class DocumentViewerComponent implements OnInit {
         if (!pdfUrl.startsWith('data:application/pdf')) {
           console.warn('PDF data URL has incorrect MIME type');
         }
+      } else {
+        // Add parameters for proper PDF viewing
+        // zoom=page-fit ensures the PDF fits the width of the viewer
+        const separator = pdfUrl.includes('?') ? '&' : '#';
+        pdfUrl = pdfUrl + separator + 'zoom=page-fit&view=FitH';
       }
-      // Don't add any parameters that might limit the view
-      // Let the native PDF viewer handle scrolling and navigation
       
       this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
-      console.log('Displaying PDF with native viewer for full scrolling');
+      console.log('Displaying PDF with page-fit zoom for proper viewing');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {

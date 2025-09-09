@@ -44,6 +44,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   serviceData: any = {}; // Store Services table data
   currentUploadContext: any = null;
   currentRoomPointContext: any = null;  // For room photo uploads
+  currentFDFPhotoContext: any = null;  // For FDF photo uploads
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
   
   // Categories from Services_Visuals_Templates
@@ -739,7 +740,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Handle taking FDF photos (Top, Bottom, Threshold)
+  // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const roomId = this.roomRecordIds[roomName];
     if (!roomId) {
@@ -748,63 +749,91 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     try {
-      // Use Camera plugin to take photo
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
+      // Set context for FDF photo
+      this.currentFDFPhotoContext = {
+        roomName,
+        photoType,
+        roomId
+      };
+      
+      // Trigger file input to show native iOS picker (Photo Library, Take Photo, Choose Files)
+      setTimeout(() => {
+        if (this.fileInput && this.fileInput.nativeElement) {
+          this.fileInput.nativeElement.click();
+        } else {
+          console.error('File input not available');
+          this.showToast('File input not available', 'danger');
+          this.currentFDFPhotoContext = null;
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error(`Error initiating FDF ${photoType} photo:`, error);
+      await this.showToast(`Failed to initiate ${photoType} photo`, 'danger');
+      this.currentFDFPhotoContext = null;
+    }
+  }
+  
+  // Process FDF photo after file selection
+  async processFDFPhoto(file: File) {
+    if (!this.currentFDFPhotoContext) {
+      console.error('No FDF photo context');
+      return;
+    }
+    
+    const { roomName, photoType, roomId } = this.currentFDFPhotoContext;
+    
+    try {
+      // Compress the image if needed
+      const compressedFile = await this.imageCompressionService.compressImage(file);
+      
+      // Upload to Caspio Files API
+      const uploadFormData = new FormData();
+      const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
+      uploadFormData.append('file', compressedFile, fileName);
+      
+      const token = await this.caspioService.getValidToken();
+      const account = this.caspioService.getAccountID();
+      
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadFormData
       });
       
-      if (image.dataUrl) {
-        // Convert base64 to blob
-        const response = await fetch(image.dataUrl);
-        const blob = await response.blob();
-        
-        // Create file from blob
-        const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
-        const file = new File([blob], fileName, { type: 'image/jpeg' });
-        
-        // Upload to Caspio Files API
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', file, fileName);
-        
-        const token = await this.caspioService.getValidToken();
-        const account = this.caspioService.getAccountID();
-        
-        const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: uploadFormData
-        });
-        
-        const uploadResult = await uploadResponse.json();
-        const filePath = `/${uploadResult.Name}`;
-        
-        // Update the appropriate column in Services_Rooms
-        const columnName = `FDFPhoto${photoType}`;
-        const updateData: any = {};
-        updateData[columnName] = filePath;
-        
-        const query = `RoomID=${roomId}`;
-        await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-        
-        // Store the photo URL in local state for display
-        if (!this.roomElevationData[roomName].fdfPhotos) {
-          this.roomElevationData[roomName].fdfPhotos = {};
-        }
-        
-        const photoKey = photoType.toLowerCase();
-        this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
-        this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = image.dataUrl;
-        
-        await this.showToast(`${photoType} photo saved`, 'success');
+      const uploadResult = await uploadResponse.json();
+      const filePath = `/${uploadResult.Name}`;
+      
+      // Update the appropriate column in Services_Rooms
+      const columnName = `FDFPhoto${photoType}`;
+      const updateData: any = {};
+      updateData[columnName] = filePath;
+      
+      const query = `RoomID=${roomId}`;
+      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      
+      // Store the photo URL in local state for display
+      if (!this.roomElevationData[roomName].fdfPhotos) {
+        this.roomElevationData[roomName].fdfPhotos = {};
       }
+      
+      const photoKey = photoType.toLowerCase();
+      this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+      
+      // Create preview URL from file
+      const photoUrl = URL.createObjectURL(file);
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
+      
+      await this.showToast(`${photoType} photo saved`, 'success');
+      
     } catch (error) {
-      console.error(`Error taking FDF ${photoType} photo:`, error);
+      console.error(`Error processing FDF ${photoType} photo:`, error);
       await this.showToast(`Failed to save ${photoType} photo`, 'danger');
+    } finally {
+      // Clear context
+      this.currentFDFPhotoContext = null;
     }
   }
   
@@ -4413,6 +4442,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async handleFileSelect(event: any) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
+    
+    // Check if this is for FDF photos
+    if (this.currentFDFPhotoContext) {
+      // Handle single FDF photo
+      if (files.length > 0) {
+        await this.processFDFPhoto(files[0]);
+      }
+      // Clear file input
+      if (this.fileInput && this.fileInput.nativeElement) {
+        this.fileInput.nativeElement.value = '';
+      }
+      return;
+    }
     
     // Check if this is for room points or visuals
     if (this.currentRoomPointContext) {

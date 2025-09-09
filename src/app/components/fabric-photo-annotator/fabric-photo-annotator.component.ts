@@ -307,6 +307,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     let tempArrowHead2: fabric.Line | null = null;
     
     this.canvas.on('mouse:down', (options: fabric.TEvent) => {
+      // CRITICAL: Skip all drawing logic if in selection mode
+      if (this.currentTool === 'select') {
+        return;  // Let Fabric.js handle selection and movement
+      }
+      
       if (this.currentTool === 'arrow') {
         isDrawingArrow = true;
         const pointer = this.canvas.getPointer(options.e);
@@ -353,6 +358,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     });
     
     this.canvas.on('mouse:move', (options: fabric.TEvent) => {
+      // Skip all drawing logic if in selection mode
+      if (this.currentTool === 'select') {
+        return;  // Let Fabric.js handle object movement
+      }
+      
       if (isDrawingArrow) {
         const pointer = this.canvas.getPointer(options.e);
         
@@ -426,6 +436,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     });
     
     this.canvas.on('mouse:up', (options: fabric.TEvent) => {
+      // Skip all drawing logic if in selection mode
+      if (this.currentTool === 'select') {
+        return;  // Let Fabric.js handle selection completion
+      }
+      
       if (isDrawingArrow) {
         isDrawingArrow = false;
         
