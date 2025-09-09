@@ -242,7 +242,7 @@ ps aux | grep omnara
 - **Tunnel**: Cloudflare tunnel auto-created when not using --no-tunnel flag
 - **Mobile Access**: Use tunnel URL provided in server output
 
-## 15. CURRENT WORK (December 2024 - v1.4.248):
+## 15. CURRENT WORK (December 2024 - v1.4.303):
 - **Annotation Persistence FIXED** (v1.4.248): Complete fix for annotation editing
   - PROBLEM IDENTIFIED: Annotations weren't editable when reloaded
   - ROOT CAUSE: Manual object recreation didn't preserve Fabric.js properties
@@ -278,6 +278,17 @@ ps aux | grep omnara
   - Shows project ID being updated in debug popup
 - **Room Numbering**: Automatic #1, #2 numbering for duplicate room names
 - **Photo Upload**: All uploads use proven method from section 2 above
+
+## 16. BLACK THUMBNAIL FIX (v1.4.303 - IN PROGRESS):
+- **Issue**: Thumbnails showing as black boxes after reloading template with annotated images
+- **Root Cause**: Blob URLs created with URL.createObjectURL() are temporary and expire on page reload
+- **Fixes Applied**:
+  - Changed empty string URLs to undefined for proper fallback chain in loadExistingPhotos
+  - Added better debug logging with [v1.4.303] tags to track URL states
+  - Modified handleImageError to attempt fallback to base64 URL if available
+  - Prevented overwriting thumbnailUrl with blob URL if it already has base64 data
+  - Ensured getImageFromFilesAPI results are properly handled with type checking
+- **Current Status**: Testing to verify thumbnails display correctly after reload
 - **PDF Viewer TEST Header**: Added red TEST banner to document viewer component (v1.4.163) to verify correct component is being edited for mobile app deployment
 - **Support Documents Preview**: Added document preview with thumbnails for PDFs, images, and documents. Click-to-view functionality opens in modal viewer. Fixed build error by using getAttachmentWithImage instead of non-existent getAttachmentDetails
 - **PDF Preview TEST Header**: Added red TEST banner to the Engineers Foundation PDF preview component (v1.4.164) - the one that generates the actual PDF report with all visual data and elevation plots

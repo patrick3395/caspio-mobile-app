@@ -93,9 +93,9 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'infinite-scroll'"
-          [scrollMode]="0"
-          [showBorders]="false"
+          [pageViewMode]="'multiple'"
+          [scrollMode]="3"
+          [showBorders]="true"
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
@@ -215,11 +215,15 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
       -webkit-overflow-scrolling: touch !important;
       flex: 1;
       width: 100% !important;
+      padding: 8px 0 !important;
+      background: #2d2d2d !important;
     }
     
     ::ng-deep .page {
-      margin: 0 auto !important;
+      margin: 8px auto !important;
       max-width: 100% !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+      border: 1px solid #444 !important;
     }
     
     /* Modern PDF Viewer Styling */

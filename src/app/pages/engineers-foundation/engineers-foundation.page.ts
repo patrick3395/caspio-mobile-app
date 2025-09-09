@@ -4561,7 +4561,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Reset file input and camera flag
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
-        // Remove capture attribute to allow normal file selection next time
+        // Ensure capture attribute is removed for next use
         this.fileInput.nativeElement.removeAttribute('capture');
       }
       this.currentUploadContext = null;
@@ -4946,8 +4946,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Handle image loading errors
   handleImageError(event: any, photo: any) {
-    console.log('⚠️ Image failed to load:', photo.name, photo.filePath);
-    // Replace with a simple inline SVG as fallback
+    console.log('⚠️ [v1.4.303] Image failed to load:', {
+      name: photo.name,
+      filePath: photo.filePath,
+      displayUrl: photo.displayUrl?.substring?.(0, 50),
+      thumbnailUrl: photo.thumbnailUrl?.substring?.(0, 50),
+      url: photo.url?.substring?.(0, 50),
+      hasAnnotations: photo.hasAnnotations,
+      attemptedSrc: (event.target as HTMLImageElement).src?.substring?.(0, 50)
+    });
+    
+    // If this is a blob URL that expired, try to use the original URL
+    if (photo.url && photo.url.startsWith('data:')) {
+      console.log('🔄 [v1.4.303] Attempting to use original base64 URL');
+      const target = event.target as HTMLImageElement;
+      target.src = photo.url;
+      return;
+    }
+    
+    // Otherwise use SVG fallback
+    console.log('🎨 [v1.4.303] Using SVG fallback');
     const target = event.target as HTMLImageElement;
     target.src = 'data:image/svg+xml;base64,' + btoa(`
       <svg width="150" height="100" xmlns="http://www.w3.org/2000/svg">
@@ -5469,9 +5487,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
               
               // Update ONLY the display URL with annotated version for preview
+              // NOTE: Blob URLs are temporary and won't persist across page reloads
               const newUrl = URL.createObjectURL(data.annotatedBlob);
               this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
-              this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              // Don't overwrite thumbnailUrl if it has base64 data - only set if undefined
+              if (!this.visualPhotos[visualId][photoIndex].thumbnailUrl || 
+                  this.visualPhotos[visualId][photoIndex].thumbnailUrl.startsWith('blob:')) {
+                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              }
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               
               // Keep the original URL intact in the url field
@@ -5482,9 +5505,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
               }
               
-              console.log(`📸 [v1.4.264] Photo URLs after annotation:`);
+              console.log(`📸 [v1.4.303] Photo URLs after annotation:`);
               console.log(`  Original URL preserved:`, this.visualPhotos[visualId][photoIndex].originalUrl || this.visualPhotos[visualId][photoIndex].url);
-              console.log(`  Display URL (annotated):`, this.visualPhotos[visualId][photoIndex].displayUrl);
+              console.log(`  Display URL (annotated blob):`, this.visualPhotos[visualId][photoIndex].displayUrl?.substring?.(0, 50));
+              console.log(`  Thumbnail URL:`, this.visualPhotos[visualId][photoIndex].thumbnailUrl?.substring?.(0, 50));
+              console.log(`  Base URL (should be base64):`, this.visualPhotos[visualId][photoIndex].url?.substring?.(0, 50));
             }
             
             // Success toast removed per user request
@@ -5573,10 +5598,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Note: We can't force camera on iOS file input, but we can track the intent
     this.expectingCameraPhoto = forceCamera;
     
-    if (forceCamera && this.fileInput && this.fileInput.nativeElement) {
-      // Try to hint camera usage with accept and capture attributes
+    // Ensure the file input has proper attributes but don't force camera-only
+    if (this.fileInput && this.fileInput.nativeElement) {
       const input = this.fileInput.nativeElement;
-      input.setAttribute('capture', 'camera');
+      // Don't set capture attribute - this ensures iOS shows all options
+      // (Photo Library, Take Photo, Choose File)
+      input.removeAttribute('capture'); 
       input.setAttribute('accept', 'image/*');
     }
     
@@ -5796,7 +5823,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
               }
               
-              const photoData = {
+              // Initialize photoData with undefined URLs (not empty strings)
+              const photoData: any = {
                 ...photo,
                 name: photo.Photo || 'Photo',
                 Photo: photo.Photo || '', // Keep the original Photo path
@@ -5804,9 +5832,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 annotations: annotationData,  // CRITICAL: Load from Drawings field, not Annotation
                 annotationsData: annotationData,  // Also store with 's' for compatibility
                 hasAnnotations: !!annotationData,
-                url: '',
-                thumbnailUrl: '',
-                displayUrl: null  // CRITICAL: Clear displayUrl since blob URLs are temporary
+                // CRITICAL: Set to undefined, not empty string, so template can fall back properly
+                url: undefined,
+                thumbnailUrl: undefined,
+                displayUrl: undefined
               };
               
               // If we have a Photo field with a file path, try to fetch it
@@ -5815,39 +5844,56 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 photoData.hasPhoto = true;
                 
                 try {
-                  console.log(`🖼️ Fetching image from Files API for: ${photo.Photo}`);
+                  console.log(`🖼️ [v1.4.303] Fetching image from Files API for: ${photo.Photo}`);
                   const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
                   
-                  if (imageData && imageData.startsWith('data:')) {
-                    console.log('✅ Image data received, valid base64, length:', imageData.length);
+                  if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+                    console.log('✅ [v1.4.303] Image data received, valid base64');
+                    // Set both url and thumbnailUrl to the base64 data
                     photoData.url = imageData;
                     photoData.thumbnailUrl = imageData;
+                    // Don't set displayUrl - let it remain undefined
+                  } else if (imageData) {
+                    console.log('⚠️ [v1.4.303] Image data received but not base64:', typeof imageData, imageData?.substring?.(0, 50));
+                    // Try to handle other data formats
+                    if (typeof imageData === 'object' && imageData.data) {
+                      // Handle potential object response
+                      photoData.url = imageData.data;
+                      photoData.thumbnailUrl = imageData.data;
+                    } else {
+                      // Use fallback
+                      console.log('⚠️ [v1.4.303] Using SVG fallback due to invalid format');
+                      photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                      photoData.thumbnailUrl = photoData.url;
+                    }
                   } else {
-                    console.log('⚠️ Invalid image data, using fallback');
+                    console.log('⚠️ [v1.4.303] No image data returned, using fallback');
                     // Use a simple base64 encoded SVG as fallback
                     photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
                     photoData.thumbnailUrl = photoData.url;
                   }
                 } catch (err) {
-                  console.error('❌ Error fetching image:', err);
+                  console.error('❌ [v1.4.303] Error fetching image:', err);
                   // Use simple SVG fallback
                   photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
                   photoData.thumbnailUrl = photoData.url;
                 }
               } else {
-                console.log('⚠️ No Photo field or not a string:', photo.Photo);
-                // No photo exists
-                photoData.url = '';
-                photoData.thumbnailUrl = '';
+                console.log('⚠️ [v1.4.303] No Photo field or not a string:', photo.Photo);
+                // No photo exists - keep URLs as undefined
                 photoData.hasPhoto = false;
               }
               
-              console.log('Photo data processed:', {
+              console.log('[v1.4.303] Photo data processed:', {
                 name: photoData.name,
                 hasUrl: !!photoData.url,
-                urlLength: photoData.url?.length,
+                hasAnnotations: photoData.hasAnnotations,
                 filePath: photoData.filePath
               });
+              
+              // If we have annotations, we could recreate the annotated preview here
+              // But for now, we'll just use the original image and let the user see
+              // the annotations indicator to know they can click to edit
               
               return photoData;
             }));
