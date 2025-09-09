@@ -6551,7 +6551,7 @@ Stack: ${error?.stack}`;
       },
       error: (error) => {
         console.error(`Error saving service field ${fieldName}:`, error);
-        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+        this.setSaveStatus(`Failed to save ${fieldName}`, 'error');
       }
     });
   }
@@ -7371,4 +7371,5 @@ Stack: ${error?.stack}`;
       }
     }
   }
+}
 }
