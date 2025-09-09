@@ -687,7 +687,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 100; // Large bottom margin for white space
+    const maxY = pageHeight - 150; // Extremely large bottom margin for white space (150mm = ~5.9 inches)
     
     // Comments Section
     if (category.comments && category.comments.length > 0) {
@@ -986,7 +986,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 100; // Large bottom margin for white space
+    const maxY = pageHeight - 150; // Extremely large bottom margin for white space (150mm = ~5.9 inches)
     
     // Section header description
     pdf.setFont('helvetica', 'normal');
@@ -1092,7 +1092,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 100; // Large bottom margin for white space
+    const maxY = pageHeight - 150; // Extremely large bottom margin for white space (150mm = ~5.9 inches)
     const photoWidth = 60;
     const photoHeight = 45;
     const photosPerRow = Math.floor(contentWidth / (photoWidth + 10));
@@ -1174,19 +1174,19 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
-    // Footer line - positioned higher for more bottom white space
+    // Footer line - positioned MUCH higher for massive bottom white space
     pdf.setDrawColor(200, 200, 200);
     pdf.setLineWidth(0.5);
-    pdf.line(20, pageHeight - 50, pageWidth - 20, pageHeight - 50);
+    pdf.line(20, pageHeight - 100, pageWidth - 20, pageHeight - 100);
     
-    // Company name
+    // Company name - moved up 50mm higher
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(100, 100, 100);
-    pdf.text('Noble Property Inspections LLC', 20, pageHeight - 40);
+    pdf.text('Noble Property Inspections LLC', 20, pageHeight - 90);
     
-    // Page number
-    pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 40, { align: 'right' });
+    // Page number - moved up 50mm higher
+    pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 90, { align: 'right' });
   }
 
   private async loadImage(url: string): Promise<string | null> {

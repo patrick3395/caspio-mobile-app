@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.292 - Fixed Take Another Photo prompt for library uploads</div>
+    <div class="version-header">Version 1.4.298 - Added spacing for camera button placement</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -427,8 +427,8 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
-                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                title="Add photos">
+                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
+                                title="Take photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>
@@ -555,8 +555,8 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
-                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                title="Add photos">
+                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
+                                title="Take photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>
@@ -683,8 +683,8 @@
                       <!-- Text questions - keep original checkbox behavior -->
                       <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
-                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                title="Add photos">
+                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
+                                title="Take photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>

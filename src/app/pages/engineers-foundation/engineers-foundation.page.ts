@@ -46,6 +46,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   currentRoomPointContext: any = null;  // For room photo uploads
   currentFDFPhotoContext: any = null;  // For FDF photo uploads
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
+  expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -231,10 +232,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
       console.log('Project data loaded:', this.projectData);
       
-      // Load type information if we have TypeID
-      if (this.projectData?.TypeID) {
-        await this.loadTypeInfo(this.projectData.TypeID);
-      }
+      // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
       console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
@@ -268,6 +266,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (serviceResponse) {
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
+        
+        // Load type information using TypeID from service data
+        if (this.serviceData?.TypeID) {
+          await this.loadTypeInfo(this.serviceData.TypeID);
+        }
       }
     } catch (error) {
       console.error('Error loading service data:', error);
@@ -4504,9 +4507,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.showToast('Failed to upload photos', 'danger');
         }
         
-        // Don't show "Take Another Photo" prompt for file input selections
-        // The native file picker already allows multiple selection
-        // This prompt should only appear when using the camera service directly
+        // Show "Take Another Photo" prompt only if:
+        // 1. Single file was uploaded successfully
+        // 2. We were expecting a camera photo (user clicked camera button specifically)
+        // This avoids showing the prompt for Photo Library selections
+        if (files.length === 1 && uploadSuccessCount === 1 && this.expectingCameraPhoto) {
+          const continueAlert = await this.alertController.create({
+            cssClass: 'compact-photo-selector',
+            buttons: [
+              {
+                text: 'Take Another Photo',
+                cssClass: 'action-button',
+                handler: async () => {
+                  // Continue expecting camera photos
+                  this.expectingCameraPhoto = true;
+                  this.currentUploadContext = { category, itemId, action: 'add' };
+                  this.fileInput.nativeElement.click();
+                  return true;
+                }
+              },
+              {
+                text: 'Done',
+                cssClass: 'done-button',
+                handler: () => {
+                  this.expectingCameraPhoto = false;
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+          
+          await continueAlert.present();
+        }
         
         // No need to restore states - the UI should remain unchanged
         
@@ -4525,11 +4558,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('❌ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
     } finally {
-      // Reset file input
+      // Reset file input and camera flag
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
+        // Remove capture attribute to allow normal file selection next time
+        this.fileInput.nativeElement.removeAttribute('capture');
       }
       this.currentUploadContext = null;
+      // Reset camera flag unless user chose "Take Another Photo"
+      // (flag is maintained in the handler if user continues)
+      if (!this.expectingCameraPhoto) {
+        this.expectingCameraPhoto = false;
+      }
     }
   }
   
@@ -5520,7 +5560,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Add another photo - triggers multi-photo capture
-  async addAnotherPhoto(category: string, itemId: string) {
+  async addAnotherPhoto(category: string, itemId: string, forceCamera: boolean = false) {
     // Skip custom action sheet and go directly to native file input
     // This will show the native iOS popup with Photo Library, Take Photo, Choose File
     this.currentUploadContext = { 
@@ -5528,6 +5568,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       itemId,
       action: 'add'
     };
+    
+    // Set flag if we're expecting a camera photo
+    // Note: We can't force camera on iOS file input, but we can track the intent
+    this.expectingCameraPhoto = forceCamera;
+    
+    if (forceCamera && this.fileInput && this.fileInput.nativeElement) {
+      // Try to hint camera usage with accept and capture attributes
+      const input = this.fileInput.nativeElement;
+      input.setAttribute('capture', 'camera');
+      input.setAttribute('accept', 'image/*');
+    }
+    
     this.fileInput.nativeElement.click();
   }
   
@@ -5732,15 +5784,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Process photos to add preview URLs
             const processedPhotos = await Promise.all(photos.map(async (photo: any) => {
               console.log('Processing photo:', photo);
+              
+              // Parse the Drawings field for annotation data (where annotations are stored)
+              let annotationData = null;
+              if (photo.Drawings) {
+                try {
+                  annotationData = typeof photo.Drawings === 'string' ? JSON.parse(photo.Drawings) : photo.Drawings;
+                  console.log('📝 Parsed annotation data from Drawings field');
+                } catch (e) {
+                  console.log('⚠️ Could not parse Drawings field:', e);
+                }
+              }
+              
               const photoData = {
                 ...photo,
                 name: photo.Photo || 'Photo',
                 Photo: photo.Photo || '', // Keep the original Photo path
-                caption: photo.Annotation || '',  // Load existing caption from Annotation field
-                annotations: photo.Annotation || null,  // CRITICAL: Load annotations for the annotator
-                hasAnnotations: !!photo.Annotation,
+                caption: photo.Annotation || '',  // Caption from Annotation field
+                annotations: annotationData,  // CRITICAL: Load from Drawings field, not Annotation
+                annotationsData: annotationData,  // Also store with 's' for compatibility
+                hasAnnotations: !!annotationData,
                 url: '',
-                thumbnailUrl: ''
+                thumbnailUrl: '',
+                displayUrl: null  // CRITICAL: Clear displayUrl since blob URLs are temporary
               };
               
               // If we have a Photo field with a file path, try to fetch it

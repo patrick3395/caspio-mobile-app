@@ -10,7 +10,7 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
   imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: #F15A27; padding: 0 8px;">
+      <ion-toolbar style="--background: #F15A27; padding: 0 8px; padding-top: var(--ion-safe-area-top);">
         <div class="header-controls" *ngIf="isPDF">
           <!-- Sidebar Toggle -->
           <ion-button fill="clear" size="small" (click)="toggleSidebar()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
@@ -73,7 +73,7 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
         </div>
         <ngx-extended-pdf-viewer 
           [src]="pdfSource"
-          [height]="'calc(100vh - 56px)'"
+          [height]="'calc(100vh - 80px)'"
           [mobileFriendlyZoom]="'page-width'"
           [showToolbar]="false"
           [showSidebarButton]="false"
@@ -90,16 +90,18 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [showHandToolButton]="true"
           [showSpreadButton]="false"
           [showPropertiesButton]="false"
-          [zoom]="'page-fit'"
+          [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'multiple'"
-          [scrollMode]="3"
+          [pageViewMode]="'infinite-scroll'"
+          [scrollMode]="0"
           [showBorders]="false"
           [minZoom]="0.1"
           [maxZoom]="10"
+          [textLayer]="true"
           (pdfLoaded)="onPdfLoaded($event)"
           (pageRendered)="onPageRendered($event)"
+          (pagesLoaded)="onPagesLoaded($event)"
           [showFindHighlightAll]="false"
           [showFindMatchCase]="false"
           [showFindEntireWord]="false"
@@ -611,6 +613,21 @@ export class DocumentViewerComponent implements OnInit {
         this.currentPage = 1;
       }
     }
+  }
+
+  onPagesLoaded(event: any) {
+    console.log('All pages loaded:', event);
+    // Force re-render for infinite scroll mode
+    setTimeout(() => {
+      const viewerContainer = document.getElementById('viewerContainer');
+      if (viewerContainer) {
+        // Trigger scroll to render all pages in infinite scroll mode
+        viewerContainer.scrollTop = 10;
+        setTimeout(() => {
+          viewerContainer.scrollTop = 0;
+        }, 50);
+      }
+    }, 200);
   }
 
   toggleSidebar() {
