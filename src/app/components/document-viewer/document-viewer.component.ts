@@ -18,14 +18,6 @@ import { FormsModule } from '@angular/forms';
             <ion-icon name="menu-outline" slot="icon-only"></ion-icon>
           </ion-button>
           
-          <!-- Zoom Controls -->
-          <ion-button fill="clear" size="small" (click)="zoomOut()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
-            <ion-icon name="remove-outline" slot="icon-only"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="zoomIn()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
-            <ion-icon name="add-outline" slot="icon-only"></ion-icon>
-          </ion-button>
-          
           <!-- Search Bar with Results -->
           <div class="search-container">
             <ion-icon name="search-outline" style="color: white; margin-right: 4px;"></ion-icon>
@@ -36,12 +28,12 @@ import { FormsModule } from '@angular/forms';
                    (input)="onSearchChange($event)"
                    (keyup.enter)="searchNext()"
                    #searchInput />
-            <div class="search-results" *ngIf="searchTerm && searchResultsCount >= 0">
+            <div class="search-results" *ngIf="searchTerm && searchResultsCount > 0">
               <span class="results-count">{{ currentSearchIndex + 1 }}/{{ searchResultsCount }}</span>
-              <ion-button fill="clear" size="small" (click)="searchPrevious()" [disabled]="searchResultsCount === 0" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
+              <ion-button fill="clear" size="small" (click)="searchPrevious()" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
                 <ion-icon name="chevron-up-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
               </ion-button>
-              <ion-button fill="clear" size="small" (click)="searchNext()" [disabled]="searchResultsCount === 0" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
+              <ion-button fill="clear" size="small" (click)="searchNext()" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
                 <ion-icon name="chevron-down-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
               </ion-button>
             </div>
@@ -94,7 +86,7 @@ import { FormsModule } from '@angular/forms';
           [showPresentationModeButton]="false"
           [showOpenFileButton]="false"
           [showPrintButton]="false"
-          [showDownloadButton]="true"
+          [showDownloadButton]="false"
           [showSecondaryToolbarButton]="false"
           [showRotateButton]="false"
           [showHandToolButton]="true"
@@ -102,7 +94,7 @@ import { FormsModule } from '@angular/forms';
           [showPropertiesButton]="false"
           [zoom]="'page-width'"
           [spread]="'off'"
-          [theme]="'dark'"
+          [theme]="'light'"
           [pageViewMode]="'infinite-scroll'"
           [scrollMode]="0"
           [showBorders]="true"
@@ -116,9 +108,9 @@ import { FormsModule } from '@angular/forms';
           [showFindMatchCase]="false"
           [showFindEntireWord]="false"
           [showFindMatchDiacritics]="false"
-          [showFindResultsCount]="true"
+          [showFindResultsCount]="false"
           [showFindMessages]="false"
-          backgroundColor="#2d2d2d">
+          backgroundColor="#ffffff">
         </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
@@ -208,7 +200,7 @@ import { FormsModule } from '@angular/forms';
     }
     
     .document-viewer-content {
-      --background: #2d2d2d;
+      --background: #f5f5f5;
     }
     .viewer-container {
       width: 100%;
@@ -221,7 +213,7 @@ import { FormsModule } from '@angular/forms';
     .pdf-container {
       width: 100%;
       height: 100%;
-      background: #2d2d2d;
+      background: #f5f5f5;
       overflow: hidden;
       position: relative;
       padding: 0;
@@ -236,26 +228,18 @@ import { FormsModule } from '@angular/forms';
       flex: 1;
       width: 100% !important;
       padding: 8px 0 !important;
-      background: #2d2d2d !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
+      background: #f5f5f5 !important;
     }
     
     ::ng-deep .page {
       margin: 8px auto 16px auto !important;
-      max-width: min(100%, calc(100vw - 32px)) !important;
-      width: auto !important;
+      max-width: calc(100% - 32px) !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-      border: 1px solid #444 !important;
-      page-break-after: always !important;
-      break-after: page !important;
+      border: 1px solid #ddd !important;
     }
     
     ::ng-deep .pdfViewer {
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
+      display: block !important;
       width: 100% !important;
     }
     
@@ -264,7 +248,7 @@ import { FormsModule } from '@angular/forms';
       overflow-y: auto !important;
       overflow-x: hidden !important;
       height: calc(100vh - 80px) !important;
-      position: relative !important;
+      background: #f9f9f9 !important;
     }
     
     ::ng-deep #thumbnailView {
@@ -612,10 +596,11 @@ export class DocumentViewerComponent implements OnInit {
   onSearchChange(event: any) {
     this.searchTerm = event.target.value;
     this.currentSearchIndex = 0;
+    this.searchResultsCount = 0;
     
     if (this.searchTerm && this.searchTerm.length > 0) {
       // Use the PDF viewer service to search
-      const searchPromise = this.pdfViewerService.find(this.searchTerm, {
+      this.pdfViewerService.find(this.searchTerm, {
         highlightAll: true,
         matchCase: false,
         wholeWords: false
@@ -627,13 +612,13 @@ export class DocumentViewerComponent implements OnInit {
         if (pdfApp && pdfApp.findController) {
           const matchesCount = pdfApp.findController._matchesCountTotal;
           this.searchResultsCount = matchesCount || 0;
-          console.log('Search results count:', this.searchResultsCount);
+          if (this.searchResultsCount > 0) {
+            this.currentSearchIndex = 0;
+          }
         }
-      }, 300);
+      }, 500);
     } else {
       // Clear search if empty
-      this.searchResultsCount = 0;
-      this.currentSearchIndex = 0;
       this.pdfViewerService.find('', {
         highlightAll: false
       });
@@ -661,28 +646,6 @@ export class DocumentViewerComponent implements OnInit {
     if (event && event.pagesCount) {
       this.totalPages = event.pagesCount;
       console.log('Total pages:', this.totalPages);
-      
-      // Force render all pages immediately for infinite scroll
-      setTimeout(() => {
-        // Get the viewer container
-        const viewerContainer = document.getElementById('viewerContainer');
-        if (viewerContainer) {
-          // Scroll to bottom to trigger loading of all pages
-          viewerContainer.scrollTop = viewerContainer.scrollHeight;
-          // Then scroll back to top
-          setTimeout(() => {
-            viewerContainer.scrollTop = 0;
-          }, 200);
-        }
-        
-        // Also trigger the PDF viewer to render all pages
-        const pdfViewer = (window as any).PDFViewerApplication;
-        if (pdfViewer && pdfViewer.pdfViewer) {
-          pdfViewer.pdfViewer.currentScaleValue = 'page-width';
-          pdfViewer.pdfViewer.scrollMode = 0; // Vertical scrolling
-          pdfViewer.pdfViewer.spreadMode = 0; // No spread
-        }
-      }, 300);
     }
   }
 
@@ -699,32 +662,14 @@ export class DocumentViewerComponent implements OnInit {
 
   onPagesLoaded(event: any) {
     console.log('All pages loaded:', event);
-    // Ensure all pages are rendered in infinite scroll mode
+    // Simply ensure proper scroll mode is set
     setTimeout(() => {
-      const viewerContainer = document.getElementById('viewerContainer');
       const pdfViewer = (window as any).PDFViewerApplication;
-      
       if (pdfViewer && pdfViewer.pdfViewer) {
-        // Set infinite scroll mode programmatically
         pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
         pdfViewer.pdfViewer.spreadMode = 0; // NONE
-        
-        // Force render all visible pages
-        pdfViewer.pdfViewer.update();
       }
-      
-      if (viewerContainer) {
-        // Quick scroll to trigger all page rendering
-        const scrollHeight = viewerContainer.scrollHeight;
-        viewerContainer.scrollTop = scrollHeight / 2;
-        setTimeout(() => {
-          viewerContainer.scrollTop = scrollHeight;
-          setTimeout(() => {
-            viewerContainer.scrollTop = 0;
-          }, 100);
-        }, 100);
-      }
-    }, 400);
+    }, 100);
   }
 
   toggleSidebar() {

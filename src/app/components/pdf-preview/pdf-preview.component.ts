@@ -27,8 +27,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   primaryPhotoData: string | null = null;
   primaryPhotoLoading: boolean = false;
   private contentReady = false;
-  private imagesLoading = 0;
-  private loadingDismissed = false;
 
   constructor(
     private modalController: ModalController,
@@ -59,42 +57,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
   
   async ngAfterViewInit() {
-    // Mark content as ready and check if we should dismiss loading
+    // Mark content as ready - no loading to dismiss anymore
     this.contentReady = true;
-    
-    // Check after a delay to allow images to start loading
-    setTimeout(() => {
-      this.checkAndDismissLoading();
-    }, 1000); // Give images time to start loading
-    
-    // Also set a maximum timeout to dismiss loading even if images haven't loaded
-    setTimeout(() => {
-      if (!this.loadingDismissed) {
-        this.dismissLoadingIndicator();
-      }
-    }, 5000); // Maximum 5 seconds wait
+    // Loading is now handled in the parent component before modal opens
   }
   
-  private async checkAndDismissLoading() {
-    // Only dismiss if content is ready and no images are loading
-    if (this.contentReady && this.imagesLoading === 0 && !this.loadingDismissed) {
-      await this.dismissLoadingIndicator();
-    }
-  }
-  
-  private async dismissLoadingIndicator() {
-    if (this.loadingDismissed) return;
-    
-    this.loadingDismissed = true;
-    if (this.loadingController && typeof this.loadingController.dismiss === 'function') {
-      try {
-        await this.loadingController.dismiss();
-        console.log('✅ Loading indicator dismissed - PDF ready');
-      } catch (error) {
-        console.log('Loading already dismissed or error:', error);
-      }
-    }
-  }
+  // Removed loading dismiss methods - loading is now handled in parent component
   
   async loadPrimaryPhotoIfNeeded() {
     if (!this.projectData?.primaryPhoto) {
@@ -158,11 +126,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
   
   getPrimaryPhotoUrl(): string {
-    // Track that an image is loading
-    if (!this.primaryPhotoData && this.projectData?.primaryPhoto) {
-      this.imagesLoading++;
-    }
-    
     // If we have loaded base64 data, use it
     if (this.primaryPhotoData) {
       return this.primaryPhotoData;

@@ -167,6 +167,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       serviceId: this.serviceId
     });
     
+    // Show debug alert with IDs
+    const debugMessage = `Debug Info:\n\nServiceID: ${this.serviceId || 'NOT SET'}\nProjectID: ${this.projectId || 'NOT SET'}\n\nWaiting to load TypeID from service...`;
+    await this.showDebugAlert('Template Loading', debugMessage);
+    
     // Load all data in parallel for faster initialization
     try {
       await Promise.all([
@@ -272,6 +276,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
         console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
+        
+        // Show debug alert with TypeID info
+        const debugMessage = `Debug Info After Service Load:\n\nServiceID: ${this.serviceId}\nTypeID from Service: ${this.serviceData?.TypeID || 'NOT FOUND'}\n\nAll fields in service data:\n${Object.keys(this.serviceData || {}).join(', ')}`;
+        await this.showDebugAlert('TypeID Check', debugMessage);
         
         // Load type information using TypeID from service data
         if (this.serviceData?.TypeID) {
@@ -3114,6 +3122,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
+      // Dismiss loading before opening modal to prevent conflicts
+      try {
+        await loading.dismiss();
+      } catch (e) {
+        console.log('Loading already dismissed');
+      }
+      
+      // Small delay to ensure loading is fully dismissed and prevent UI freeze
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Now open the modal with all data ready
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
@@ -3121,18 +3139,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           projectData: projectInfo,
           structuralData: structuralSystemsData,
           elevationData: elevationPlotData,
-          serviceData: this.serviceData,
-          loadingController: loading  // Pass the loading controller to the modal
+          serviceData: this.serviceData
+          // Removed loadingController - not needed anymore
         },
         cssClass: 'fullscreen-modal'
       });
       
-      // Present the modal first, then let the PDF component dismiss the loader when ready
+      // Present the modal
       await modal.present();
       
     } catch (error) {
       console.error('Error preparing preview:', error);
-      await loading.dismiss();
+      try {
+        await loading.dismiss();
+      } catch (e) {
+        console.log('Loading already dismissed');
+      }
       await this.showToast('Failed to prepare preview', 'danger');
     }
   }
@@ -3165,6 +3187,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       position: 'bottom'
     });
     await toast.present();
+  }
+  
+  async showDebugAlert(title: string, message: string) {
+    const alert = await this.alertController.create({
+      header: title,
+      message: message.replace(/\n/g, '<br>'),
+      buttons: [
+        {
+          text: 'Copy Debug Info',
+          handler: () => {
+            // Copy to clipboard
+            const textToCopy = message.replace(/<br>/g, '\n');
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(textToCopy);
+              this.showToast('Debug info copied to clipboard', 'success');
+            }
+            return false; // Keep alert open
+          }
+        },
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
   }
   
   // Helper methods for template
@@ -5466,7 +5514,62 @@ Original File: ${originalFile?.name || 'None'}`;
     } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
       
-      // Log error without debug popup
+      // Show detailed error debug popup
+      const errorAlert = await this.alertController.create({
+        header: '❌ Update Failed - Error Details',
+        message: `
+          <div style="font-family: monospace; font-size: 11px; text-align: left;">
+            <strong style="color: red;">UPDATE FAILED - DETAILED ERROR</strong><br><br>
+            
+            <strong>Error Message:</strong><br>
+            <span style="color: red;">${error?.message || 'Unknown error'}</span><br><br>
+            
+            <strong>Error Type:</strong> ${error?.name || typeof error}<br>
+            <strong>Error Code:</strong> ${error?.code || 'N/A'}<br>
+            <strong>Status:</strong> ${error?.status || 'N/A'}<br><br>
+            
+            <strong>Request Details:</strong><br>
+            • AttachID Used: ${attachId}<br>
+            • AttachID Type: ${typeof attachId}<br>
+            • Update Data Sent: ${JSON.stringify(updateData, null, 2).substring(0, 200)}...<br><br>
+            
+            <strong>Response Info:</strong><br>
+            • Status Text: ${error?.statusText || 'N/A'}<br>
+            • Response Body: ${JSON.stringify(error?.error || error?.response || {}, null, 2).substring(0, 300)}...<br><br>
+            
+            <strong>Stack Trace:</strong><br>
+            <pre style="font-size: 10px; overflow-x: auto;">${error?.stack?.substring(0, 500) || 'No stack trace'}</pre><br>
+            
+            <strong style="color: orange;">Common Causes:</strong><br>
+            • Invalid AttachID (record doesn't exist)<br>
+            • API token expired<br>
+            • Network connectivity issue<br>
+            • Caspio API error<br>
+            • Missing permissions<br><br>
+            
+            <strong>Full Error Object:</strong><br>
+            <pre style="font-size: 9px; overflow-x: auto; max-height: 150px;">${JSON.stringify(error, null, 2).substring(0, 1000)}</pre>
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Copy Error Details',
+            handler: () => {
+              const errorText = `Update Failed Error:
+Message: ${error?.message}
+AttachID: ${attachId}
+Type: ${typeof attachId}
+Status: ${error?.status}
+Response: ${JSON.stringify(error?.error || error?.response || {})}
+Stack: ${error?.stack}`;
+              navigator.clipboard.writeText(errorText);
+              return false;
+            }
+          },
+          { text: 'OK', role: 'cancel' }
+        ]
+      });
+      await errorAlert.present();
       
       throw error;
     }
@@ -5580,6 +5683,13 @@ Original File: ${originalFile?.name || 'None'}`;
           
           if (photo.AttachID || photo.id) {
             try {
+              // DEBUG: Log what we're about to update
+              console.log('🔍 About to update photo attachment:');
+              console.log('  photo object:', photo);
+              console.log('  photo.AttachID:', photo.AttachID);
+              console.log('  photo.id:', photo.id);
+              console.log('  Using ID:', photo.AttachID || photo.id);
+              
               // Get the original file if provided
               let originalFile = null;
               if (data.originalBlob) {
@@ -5588,8 +5698,14 @@ Original File: ${originalFile?.name || 'None'}`;
                   : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
               }
               
+              // CRITICAL: Make sure we have a valid ID
+              const attachIdToUse = photo.AttachID || photo.id;
+              if (!attachIdToUse || attachIdToUse === 'undefined' || attachIdToUse === 'null') {
+                throw new Error(`Invalid AttachID: ${attachIdToUse} (AttachID: ${photo.AttachID}, id: ${photo.id})`);
+              }
+              
               // Update the existing attachment with annotations
-              await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile);
+              await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile);
             
               // Update the local photo data
               const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -5612,7 +5728,40 @@ Original File: ${originalFile?.name || 'None'}`;
               this.changeDetectorRef.detectChanges();
               
               await this.showToast('Annotations saved', 'success');
-            } catch (error) {
+            } catch (error: any) {
+              console.error('Failed to save annotations in quickAnnotate:', error);
+              
+              // Show detailed error popup
+              const saveErrorAlert = await this.alertController.create({
+                header: '❌ Annotation Save Failed',
+                message: `
+                  <div style="font-family: monospace; font-size: 11px; text-align: left;">
+                    <strong style="color: red;">ANNOTATION SAVE ERROR</strong><br><br>
+                    
+                    <strong>Error:</strong> ${error?.message || 'Unknown error'}<br><br>
+                    
+                    <strong>Photo Details:</strong><br>
+                    • AttachID: ${photo.AttachID || 'MISSING'}<br>
+                    • id: ${photo.id || 'MISSING'}<br>
+                    • Name: ${photo.name || 'N/A'}<br><br>
+                    
+                    <strong>Annotation Data:</strong><br>
+                    • Has annotations: ${!!annotationsData}<br>
+                    • Original file provided: ${!!originalFile}<br><br>
+                    
+                    <strong style="color: orange;">Debug Info:</strong><br>
+                    • Visual ID: ${visualId}<br>
+                    • Key: ${category}_${itemId}<br>
+                    • Photo Index: ${photoIndex}<br><br>
+                    
+                    <strong>Error Details:</strong><br>
+                    ${JSON.stringify(error, null, 2).substring(0, 500)}
+                  </div>
+                `,
+                buttons: ['OK']
+              });
+              await saveErrorAlert.present();
+              
               await this.showToast('Failed to save annotations', 'danger');
             }
           }
@@ -6572,13 +6721,60 @@ Original File: ${originalFile?.name || 'None'}`;
       const roomResult: any = {
         name: roomName,
         fdf: roomData.fdf,
+        fdfPhotos: roomData.fdfPhotos || {}, // Include FDF photos from room data
         notes: roomData.notes,
         points: [],
         photos: []
       };
       
-      // Fetch actual points from Services_Rooms_Points table
+      // Fetch FDF photos from Services_Rooms table and convert to base64
       if (roomId) {
+        try {
+          // Get the room record to fetch FDF photo paths
+          const query = `RoomID=${roomId}`;
+          const roomResponse = await this.caspioService.get(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).toPromise();
+          const roomRecords = roomResponse?.Result || [];
+          if (roomRecords && roomRecords.length > 0) {
+            const roomRecord = roomRecords[0];
+            const fdfPhotosData: any = {};
+            
+            // Process each FDF photo type
+            const fdfPhotoTypes = [
+              { field: 'FDFPhotoTop', key: 'top' },
+              { field: 'FDFPhotoBottom', key: 'bottom' },
+              { field: 'FDFPhotoThreshold', key: 'threshold' }
+            ];
+            
+            for (const photoType of fdfPhotoTypes) {
+              const photoPath = roomRecord[photoType.field];
+              if (photoPath) {
+                // Convert Caspio file path to base64
+                if (photoPath.startsWith('/')) {
+                  try {
+                    const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
+                    if (base64Data && base64Data.startsWith('data:')) {
+                      fdfPhotosData[photoType.key] = true;
+                      fdfPhotosData[`${photoType.key}Url`] = base64Data;
+                    }
+                  } catch (error) {
+                    console.error(`Failed to convert FDF ${photoType.key} photo:`, error);
+                    // Try to use token-based URL as fallback
+                    const token = await this.caspioService.getValidToken();
+                    const account = this.caspioService.getAccountID();
+                    fdfPhotosData[photoType.key] = true;
+                    fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+                  }
+                }
+              }
+            }
+            
+            // Merge with existing fdfPhotos (in case they were already loaded)
+            roomResult.fdfPhotos = { ...roomResult.fdfPhotos, ...fdfPhotosData };
+          }
+        } catch (error) {
+          console.error(`Error fetching FDF photos for room ${roomName}:`, error);
+        }
+        
         console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);
         
         try {

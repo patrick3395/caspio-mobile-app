@@ -873,10 +873,21 @@ export class CaspioService {
   updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
     console.log('📝 Updating Services_Visuals_Attach record');
     console.log('  AttachID:', attachId);
+    console.log('  AttachID type:', typeof attachId);
     console.log('  Update data:', data);
-    console.log('  Endpoint:', `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
     
-    return this.put<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, data).pipe(
+    // CRITICAL: Ensure AttachID is a number for Caspio API
+    const attachIdNum = typeof attachId === 'string' ? parseInt(attachId, 10) : attachId;
+    if (isNaN(attachIdNum)) {
+      console.error('❌ Invalid AttachID - not a number:', attachId);
+      return throwError(() => new Error(`Invalid AttachID: ${attachId} is not a valid number`));
+    }
+    
+    const endpoint = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
+    console.log('  Endpoint:', endpoint);
+    console.log('  AttachID as number:', attachIdNum);
+    
+    return this.put<any>(endpoint, data).pipe(
       tap(response => {
         console.log('✅ Update successful:', response);
       }),
@@ -885,6 +896,8 @@ export class CaspioService {
         console.error('  Status:', error.status);
         console.error('  Message:', error.message);
         console.error('  Body:', error.error);
+        console.error('  AttachID used:', attachIdNum);
+        console.error('  Data sent:', JSON.stringify(data));
         return throwError(error);
       })
     );

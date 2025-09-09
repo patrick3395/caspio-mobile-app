@@ -367,6 +367,42 @@
                 <h4 class="visual-name">Flooring Difference Factor</h4>
               </div>
               <p class="visual-text">{{ room.fdf }}</p>
+              
+              <!-- FDF Photos Grid -->
+              <div class="photo-grid" *ngIf="room.fdfPhotos && (room.fdfPhotos.top || room.fdfPhotos.bottom || room.fdfPhotos.threshold)">
+                <!-- Top Photo -->
+                <div class="photo-item" *ngIf="room.fdfPhotos.top && room.fdfPhotos.topUrl">
+                  <img 
+                    [src]="room.fdfPhotos.topUrl" 
+                    alt="FDF Top"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption">Top</p>
+                </div>
+                
+                <!-- Bottom Photo -->
+                <div class="photo-item" *ngIf="room.fdfPhotos.bottom && room.fdfPhotos.bottomUrl">
+                  <img 
+                    [src]="room.fdfPhotos.bottomUrl" 
+                    alt="FDF Bottom"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption">Bottom</p>
+                </div>
+                
+                <!-- Threshold Photo -->
+                <div class="photo-item" *ngIf="room.fdfPhotos.threshold && room.fdfPhotos.thresholdUrl">
+                  <img 
+                    [src]="room.fdfPhotos.thresholdUrl" 
+                    alt="FDF Threshold"
+                    (error)="handleImageError($event)"
+                    (load)="handleImageLoad($event)"
+                    class="loading" />
+                  <p class="photo-caption">Threshold</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
