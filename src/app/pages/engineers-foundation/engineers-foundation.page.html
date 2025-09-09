@@ -451,7 +451,7 @@
                         </div>
                         <div class="image-preview-container">
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
+                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
@@ -584,7 +584,7 @@
                         </div>
                         <div class="image-preview-container">
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
+                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
@@ -717,7 +717,7 @@
                         </div>
                         <div class="image-preview-container">
                           <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
+                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)">
@@ -941,7 +941,7 @@
                       <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
                         <div class="photo-thumbnails">
                           <div class="photo-thumb-container" *ngFor="let photo of point.photos; let i = index">
-                            <img [src]="photo.thumbnailUrl || photo.url" 
+                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url" 
                                  (click)="viewRoomPhoto(photo, room.RoomName, point)"
                                  (error)="handleImageError($event, photo)"
                                  [alt]="'Photo ' + (i+1) + ' for ' + point.name">

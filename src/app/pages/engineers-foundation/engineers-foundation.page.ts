@@ -3039,37 +3039,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
-    // Dismiss any existing loading indicators first
-    try {
-      const existingLoader = await this.loadingController.getTop();
-      if (existingLoader) {
-        await existingLoader.dismiss();
-      }
-    } catch (e) {
-      // Ignore if no loader exists
-    }
-    
-    let currentLoading = await this.loadingController.create({
-      message: 'Preparing report data...<br><small>0%</small>',
-      spinner: 'crescent'
+    // Create a single loading indicator that stays until PDF is ready
+    const loading = await this.loadingController.create({
+      message: 'Loading PDF...',
+      spinner: 'crescent',
+      backdropDismiss: false
     });
-    await currentLoading.present();
+    await loading.present();
 
     try {
-      // Update progress indicator
-      const updateProgress = async (percent: number, message: string) => {
-        // Dismiss the current loading
-        if (currentLoading) {
-          await currentLoading.dismiss();
-        }
-        // Create and show new loading
-        currentLoading = await this.loadingController.create({
-          message: `${message}<br><small>${percent}%</small>`,
-          spinner: 'crescent'
-        });
-        await currentLoading.present();
-      };
-      
       // Check if we have cached PDF data (valid for 5 minutes)
       const cacheKey = this.cache.getApiCacheKey('pdf_data', { 
         serviceId: this.serviceId,
@@ -3082,17 +3060,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (cachedData) {
         console.log('📦 Using cached PDF data');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
-        await updateProgress(100, 'Loading cached data...');
       } else {
-        // Prepare all data BEFORE opening the modal
-        await updateProgress(10, 'Loading project information...');
-        projectInfo = await this.prepareProjectInfo();
+        // Load all data in parallel for maximum speed
+        console.log('⚡ Loading PDF data in parallel...');
+        const startTime = Date.now();
         
-        await updateProgress(30, 'Loading structural systems...');
-        structuralSystemsData = await this.prepareStructuralSystemsData();
+        // Execute all data fetching in parallel
+        const [projectData, structuralData, elevationData] = await Promise.all([
+          this.prepareProjectInfo(),
+          this.prepareStructuralSystemsData(),
+          this.prepareElevationPlotData()
+        ]);
         
-        await updateProgress(60, 'Loading elevation data...');
-        elevationPlotData = await this.prepareElevationPlotData();
+        projectInfo = projectData;
+        structuralSystemsData = structuralData;
+        elevationPlotData = elevationData;
+        
+        console.log(`✅ All data loaded in ${Date.now() - startTime}ms`);
         
         // Cache the prepared data
         this.cache.set(cacheKey, {
@@ -3102,22 +3086,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }, this.cache.CACHE_TIMES.MEDIUM);
       }
       
-      // Preload primary photo if it exists to avoid blank page
+      // Preload primary photo if it exists (do this separately as it's optional)
       if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
         try {
-          await updateProgress(90, 'Loading primary photo...');
           const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             projectInfo.primaryPhotoBase64 = imageData;
           }
         } catch (error) {
           console.error('Error preloading primary photo:', error);
+          // Don't fail the whole PDF generation if photo fails
         }
-      }
-      
-      // Dismiss the current loading indicator
-      if (currentLoading) {
-        await currentLoading.dismiss();
       }
       
       // Now open the modal with all data ready
@@ -3132,14 +3111,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         cssClass: 'fullscreen-modal'
       });
       
+      // Dismiss loading only after modal is ready to present
+      await loading.dismiss();
       await modal.present();
       
     } catch (error) {
       console.error('Error preparing preview:', error);
-      // Dismiss the current loading indicator if it exists
-      if (currentLoading) {
-        await currentLoading.dismiss();
-      }
+      await loading.dismiss();
       await this.showToast('Failed to prepare preview', 'danger');
     }
   }
@@ -5517,17 +5495,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
       
+      // CRITICAL FIX: Always pass the ORIGINAL URL to the viewer
+      // Use originalUrl if available (from previous annotation), otherwise use url
+      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+      
       // Open enhanced photo viewer with annotation option
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
         componentProps: {
-          photoUrl: imageUrl,
+          photoUrl: originalImageUrl,  // Always use original, not display URL
           photoName: photoName,
           photoCaption: photo.caption || '',
           canAnnotate: true,
           visualId: visualId,
           categoryKey: key,
-          photoData: photo  // Pass the photo object for update
+          photoData: photo,  // Pass the photo object for update
+          existingAnnotations: photo.annotations  // Pass existing annotations
         },
         cssClass: 'photo-viewer-modal'
       });
@@ -5568,15 +5551,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             );
             
             if (photoIndex !== -1 && this.visualPhotos[visualId]) {
-              // Update the photo URL with the new blob
+              // CRITICAL FIX: Store original URL before updating display
+              if (!this.visualPhotos[visualId][photoIndex].originalUrl) {
+                // Save the original URL on first annotation
+                this.visualPhotos[visualId][photoIndex].originalUrl = this.visualPhotos[visualId][photoIndex].url;
+              }
+              
+              // Update ONLY the display URL with annotated version for preview
               const newUrl = URL.createObjectURL(data.annotatedBlob);
-              this.visualPhotos[visualId][photoIndex].url = newUrl;
+              this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
               this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+              
+              // Keep the original URL intact in the url field
+              // DO NOT change this.visualPhotos[visualId][photoIndex].url!
+              
               // Store annotations in the photo object
               if (annotationsData) {
                 this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
               }
+              
+              console.log(`📸 [v1.4.264] Photo URLs after annotation:`);
+              console.log(`  Original URL preserved:`, this.visualPhotos[visualId][photoIndex].originalUrl || this.visualPhotos[visualId][photoIndex].url);
+              console.log(`  Display URL (annotated):`, this.visualPhotos[visualId][photoIndex].displayUrl);
             }
             
             // Success toast removed per user request
@@ -6551,10 +6548,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
     
-    // Return cached photos if already processed
-    const cacheKey = `processed_${visualId}`;
-    if ((this as any)[cacheKey]) {
-      return (this as any)[cacheKey];
+    // Use the cache service for better performance across sessions
+    const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
+    const cachedPhotos = this.cache.get(cacheKey);
+    if (cachedPhotos) {
+      console.log(`✅ Using cached photos for visual ${visualId}`);
+      return cachedPhotos;
     }
     
     // Convert all photos to base64 for PDF compatibility - in parallel
@@ -6564,20 +6563,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
-        try {
-          console.log(`Converting Caspio path to base64: ${photoUrl}`);
-          const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-          
-          if (base64Data && base64Data.startsWith('data:')) {
-            finalUrl = base64Data;
-            console.log(`✅ Photo converted to base64 for visual ${visualId}`);
-          } else {
-            console.error(`Failed to convert photo to base64: ${photoUrl}`);
+        // Check individual photo cache first
+        const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: photoUrl });
+        const cachedBase64 = this.cache.get(photoCacheKey);
+        
+        if (cachedBase64) {
+          finalUrl = cachedBase64;
+        } else {
+          try {
+            console.log(`Converting Caspio path to base64: ${photoUrl}`);
+            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+            
+            if (base64Data && base64Data.startsWith('data:')) {
+              finalUrl = base64Data;
+              // Cache individual photo for reuse
+              this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
+              console.log(`✅ Photo converted and cached for visual ${visualId}`);
+            } else {
+              console.error(`Failed to convert photo to base64: ${photoUrl}`);
+              finalUrl = 'assets/img/photo-placeholder.svg';
+            }
+          } catch (error) {
+            console.error(`Error converting photo for visual ${visualId}:`, error);
             finalUrl = 'assets/img/photo-placeholder.svg';
           }
-        } catch (error) {
-          console.error(`Error converting photo for visual ${visualId}:`, error);
-          finalUrl = 'assets/img/photo-placeholder.svg';
         }
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
         // Keep blob and data URLs as-is
@@ -6595,8 +6604,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Wait for all photo processing to complete in parallel
     const processedPhotos = await Promise.all(photoPromises);
     
-    // Cache the processed photos
-    (this as any)[cacheKey] = processedPhotos;
+    // Cache the processed photos using the cache service
+    this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
     
     return processedPhotos;
   }

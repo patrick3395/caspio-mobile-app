@@ -27,16 +27,16 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 frameborder="0"
                 [attr.data-file-type]="fileType"></iframe>
       </div>
-      <div class="pdf-container" *ngIf="isPDF" (click)="showPDFDebugInfo()">
-        <div class="pdf-wrapper">
-          <iframe [src]="sanitizedUrl" 
-                  type="application/pdf"
-                  class="pdf-iframe"
-                  allow="fullscreen"
-                  allowfullscreen
-                  #pdfFrame></iframe>
-        </div>
-      </div>
+      <div class="pdf-container" *ngIf="isPDF">
+        <ion-button (click)="showPDFDebugInfo()" color="warning" size="small" 
+                    style="position: absolute; top: 10px; right: 10px; z-index: 1000;">
+          Debug PDF
+        </ion-button>
+        <embed [src]="sanitizedUrl" 
+               type="application/pdf"
+               width="100%"
+               height="100%"
+               style="min-height: 100vh;" /></div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
              [alt]="fileName" 
@@ -60,21 +60,10 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       width: 100%;
       height: 100%;
       background: #525659;
-      overflow: scroll;
+      overflow: auto;
       -webkit-overflow-scrolling: touch;
       position: relative;
       padding: 0;
-    }
-    .pdf-wrapper {
-      width: 100%;
-      height: auto;
-      min-height: 300vh; /* Ensure enough height for multiple pages */
-    }
-    .pdf-iframe {
-      width: 100%;
-      height: 300vh; /* Make very tall to show all pages */
-      border: none;
-      display: block;
     }
     iframe {
       width: 100%;
@@ -102,16 +91,8 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
     @supports (-webkit-touch-callout: none) {
       .pdf-container {
         -webkit-overflow-scrolling: touch;
-        overflow: scroll;
+        overflow: auto;
         height: 100%;
-      }
-      .pdf-wrapper {
-        width: 100%;
-        min-height: 300vh;
-      }
-      .pdf-iframe {
-        width: 100%;
-        height: 300vh;
       }
     }
   `]
@@ -219,55 +200,84 @@ export class DocumentViewerComponent implements OnInit {
   }
 
   async showPDFDebugInfo() {
-    // Try to detect PDF info from the iframe if possible
+    console.log('Debug button clicked!');
+    
+    // Get URL info
+    const urlLength = this.fileUrl ? this.fileUrl.length : 0;
+    const isBase64 = this.fileUrl ? this.fileUrl.startsWith('data:') : false;
+    
     let debugInfo = `PDF Debug Information:
     
-File: ${this.fileName}
-URL Type: ${this.fileUrl.startsWith('data:') ? 'Base64 Data URL' : 'Regular URL'}
-File Type: ${this.fileType}
+File: ${this.fileName || 'Unknown'}
+URL Type: ${isBase64 ? 'Base64 Data URL' : 'Regular URL'}
+URL Length: ${urlLength} characters
+File Type: ${this.fileType || 'Unknown'}
 
-PDF Viewer Settings:
-- Container Height: 100% of viewport
-- iFrame Height: 300vh (3x viewport height)
-- Scrolling: Enabled (overflow: scroll)
-- iOS Touch Scrolling: Enabled
+Current Viewer: Using <embed> tag
+- Width: 100%
+- Height: 100%
+- Min-Height: 100vh
 
-If you're only seeing the first page:
-1. Try scrolling down - the PDF should have multiple pages rendered
-2. The iframe is set to 300vh height to accommodate long PDFs
-3. Zoom parameters: view=FitH&zoom=FitW (fit width)
+TROUBLESHOOTING:
+1. PDF only shows first page:
+   - This is a known iOS WebView limitation
+   - The embed tag may not support multi-page scrolling
+   
+2. PDF needs zoom out:
+   - Pinch to zoom may work
+   - Or use "Open in New Tab" button
 
-Note: PDF page count detection requires server-side processing.
-For base64 PDFs, the browser's built-in viewer handles rendering.`;
+3. For best experience:
+   - Use "Open in New Tab" button in header
+   - This opens PDF in native viewer
 
-    const alert = await this.alertController.create({
-      header: 'PDF Viewer Debug',
-      message: `<pre style="font-size: 12px; white-space: pre-wrap;">${debugInfo}</pre>`,
-      buttons: [
-        {
-          text: 'Copy Debug Info',
-          handler: () => {
-            // Try to copy to clipboard
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(debugInfo);
-            } else {
-              // Fallback for older browsers
-              const textArea = document.createElement('textarea');
-              textArea.value = debugInfo;
-              document.body.appendChild(textArea);
-              textArea.select();
-              document.execCommand('copy');
-              document.body.removeChild(textArea);
+Note: iOS WebView has limitations with PDF rendering.
+Multiple pages may not scroll properly in embedded view.`;
+
+    try {
+      const alert = await this.alertController.create({
+        header: 'PDF Debug Info',
+        message: debugInfo,
+        cssClass: 'pdf-debug-alert',
+        buttons: [
+          {
+            text: 'Copy',
+            handler: () => {
+              // Try multiple clipboard methods
+              const copyText = async () => {
+                try {
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(debugInfo);
+                  } else {
+                    // Fallback
+                    const textArea = document.createElement('textarea');
+                    textArea.value = debugInfo;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                  }
+                } catch (err) {
+                  console.error('Copy failed:', err);
+                }
+              };
+              copyText();
+              return true;
             }
-            return false; // Keep alert open
+          },
+          {
+            text: 'OK',
+            role: 'cancel'
           }
-        },
-        {
-          text: 'OK',
-          role: 'cancel'
-        }
-      ]
-    });
-    await alert.present();
+        ]
+      });
+      await alert.present();
+    } catch (error) {
+      console.error('Error showing alert:', error);
+      // Fallback to console
+      console.log(debugInfo);
+    }
   }
 }

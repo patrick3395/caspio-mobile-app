@@ -751,12 +751,10 @@ export class PdfPreviewComponent implements OnInit {
     
     // Display answers for AnswerType 1 and 2
     if (item.answers) {
-      pdf.setFont('helvetica', 'bold');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.setTextColor(0, 100, 0); // Green color for answers
-      const answerText = `Answer: ${item.answers}`;
-      pdf.text(answerText, margin + 8, yPos);
-      pdf.setTextColor(0, 0, 0); // Reset to black
+      pdf.setTextColor(0, 0, 0); // Black color for answers
+      pdf.text(item.answers, margin + 8, yPos);
       yPos += 6;
     }
     
@@ -827,12 +825,10 @@ export class PdfPreviewComponent implements OnInit {
     
     // Display answers for AnswerType 1 and 2
     if (item.answers) {
-      pdf.setFont('helvetica', 'bold');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.setTextColor(0, 100, 0); // Green color for answers
-      const answerText = `Answer: ${item.answers}`;
-      pdf.text(answerText, margin + 5, yPos);
-      pdf.setTextColor(0, 0, 0); // Reset to black
+      pdf.setTextColor(0, 0, 0); // Black color for answers
+      pdf.text(item.answers, margin + 5, yPos);
       yPos += 6;
     }
     
