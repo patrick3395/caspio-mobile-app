@@ -314,6 +314,70 @@ ion-content {
       .item-label {
         // Container for the text with strict height control
         position: relative;
+        width: 100%;
+        
+        .item-header-with-camera {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+          
+          h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            flex: 1;
+            
+            .required-indicator {
+              color: #f44336;
+              margin-left: 4px;
+              font-weight: normal;
+            }
+          }
+          
+          .camera-button-structural {
+            background: var(--noble-orange);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            position: relative;
+            margin-left: 8px;
+            
+            ion-icon {
+              font-size: 16px;
+            }
+            
+            .photo-badge {
+              background: white;
+              color: var(--noble-orange);
+              border-radius: 10px;
+              padding: 0 5px;
+              font-size: 10px;
+              font-weight: bold;
+              min-width: 16px;
+              text-align: center;
+            }
+            
+            &:hover {
+              background: darken(#ff6b35, 10%);
+              transform: scale(1.05);
+            }
+            
+            &:active {
+              transform: scale(0.95);
+            }
+          }
+        }
         
         h3 {
           margin: 0 0 4px 0; // Small margin between name and text
@@ -895,21 +959,8 @@ ion-content {
                   }
                   
                   .annotation-indicator {
-                    position: absolute;
-                    top: 2px;
-                    left: 2px;
-                    width: 20px;
-                    height: 20px;
-                    background: #F15A27;
-                    border-radius: 50%;
-                    color: white;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    
-                    ion-icon {
-                      font-size: 12px;
-                    }
+                    display: none !important; // Hide annotation indicators completely
+                    pointer-events: none; // Ensure they can't block clicks
                   }
                   
                   &.annotated img {

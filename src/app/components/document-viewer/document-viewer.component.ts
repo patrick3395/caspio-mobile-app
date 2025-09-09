@@ -53,6 +53,17 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [theme]="'dark'"
           [pageViewMode]="'single'"
           [scrollMode]="0"
+          [stickyToolbar]="true"
+          [showFindHighlightAll]="false"
+          [showFindMatchCase]="false"
+          [showFindCurrentPageOnly]="false"
+          [showFindPageRange]="false"
+          [showFindEntireWord]="false"
+          [showFindEntirePhrase]="false"
+          [showFindMatchDiacritics]="false"
+          [showFindFuzzySearch]="false"
+          [showFindResultsCount]="true"
+          [showFindMessages]="false"
           backgroundColor="#2d2d2d">
         </ngx-extended-pdf-viewer>
       </div>
@@ -79,18 +90,36 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       width: 100%;
       height: 100%;
       background: #2d2d2d;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow: hidden;
       position: relative;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    ::ng-deep #viewerContainer {
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      flex: 1;
     }
     
     /* Modern PDF Viewer Styling */
     ::ng-deep .pdf-container {
+      /* Fixed toolbar at top */
+      #toolbarContainer {
+        position: sticky !important;
+        position: -webkit-sticky !important;
+        top: 0 !important;
+        z-index: 1000 !important;
+        background: #1a1a1a !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+      }
+      
       /* Toolbar styling */
       .toolbar {
         background: #1a1a1a !important;
         border-bottom: 1px solid #444 !important;
+        position: relative !important;
       }
       
       /* Modern button styling */
@@ -152,13 +181,82 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         box-shadow: 0 0 10px rgba(241, 90, 39, 0.3) !important;
       }
       
-      /* Search box styling */
+      /* Modern Search Bar */
+      #findbar {
+        background: #1a1a1a !important;
+        border-bottom: 1px solid #444 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+        padding: 8px !important;
+      }
+      
       #findInput {
         background: #2d2d2d !important;
-        border: 1px solid #444 !important;
-        border-radius: 4px !important;
+        border: 2px solid #444 !important;
+        border-radius: 20px !important;
         color: #fff !important;
-        padding: 6px 10px !important;
+        padding: 8px 16px !important;
+        font-size: 14px !important;
+        width: 250px !important;
+        transition: all 0.3s ease !important;
+      }
+      
+      #findInput:focus {
+        border-color: #F15A27 !important;
+        outline: none !important;
+        box-shadow: 0 0 10px rgba(241, 90, 39, 0.2) !important;
+      }
+      
+      /* Hide all search options */
+      #findbarOptionsContainer {
+        display: none !important;
+      }
+      
+      #findbarOptionsTwoContainer {
+        display: none !important;
+      }
+      
+      #findbarOptionsOneContainer {
+        display: none !important;
+      }
+      
+      /* Style the search navigation buttons */
+      #findPrevious,
+      #findNext {
+        background: #2d2d2d !important;
+        border: 1px solid #444 !important;
+        border-radius: 50% !important;
+        width: 32px !important;
+        height: 32px !important;
+        margin: 0 4px !important;
+        transition: all 0.2s ease !important;
+      }
+      
+      #findPrevious:hover,
+      #findNext:hover {
+        background: #F15A27 !important;
+        border-color: #F15A27 !important;
+        transform: scale(1.1);
+      }
+      
+      /* Style the results count */
+      #findResultsCount {
+        color: #F15A27 !important;
+        font-weight: 500 !important;
+        margin: 0 10px !important;
+      }
+      
+      /* Hide the find message */
+      #findMsg {
+        display: none !important;
+      }
+      
+      /* Highlight style */
+      .highlight {
+        background-color: rgba(241, 90, 39, 0.4) !important;
+      }
+      
+      .highlight.selected {
+        background-color: #F15A27 !important;
       }
       
       /* Hide outdated elements */

@@ -685,7 +685,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 40; // Increased bottom padding
+    const maxY = pageHeight - 60; // Increased bottom padding to prevent cutoff
     
     // Comments Section
     if (category.comments && category.comments.length > 0) {
@@ -699,7 +699,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       yPos += 12;
       
       for (const item of category.comments) {
-        if (yPos > maxY - 40) {
+        if (yPos > maxY - 50) { // Check for page break with enough space
           pdf.addPage();
           pageNum++;
           this.addPageHeader(pdf, category.name.toUpperCase() + ' (CONTINUED)', margin);
@@ -713,7 +713,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     
     // Limitations Section
     if (category.limitations && category.limitations.length > 0) {
-      if (yPos > maxY - 40) {
+      if (yPos > maxY - 50) { // Check for page break with enough space
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, category.name.toUpperCase() + ' (CONTINUED)', margin);
@@ -731,7 +731,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       yPos += 12;
       
       for (const item of category.limitations) {
-        if (yPos > maxY - 40) {
+        if (yPos > maxY - 50) { // Check for page break with enough space
           pdf.addPage();
           pageNum++;
           this.addPageHeader(pdf, category.name.toUpperCase() + ' (CONTINUED)', margin);
@@ -745,7 +745,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     
     // Deficiencies Section
     if (category.deficiencies && category.deficiencies.length > 0) {
-      if (yPos > maxY - 40) {
+      if (yPos > maxY - 50) { // Check for page break with enough space
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, category.name.toUpperCase() + ' (CONTINUED)', margin);
@@ -764,7 +764,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       yPos += 12;
       
       for (const item of category.deficiencies) {
-        if (yPos > maxY - 40) {
+        if (yPos > maxY - 50) { // Check for page break with enough space
           pdf.addPage();
           pageNum++;
           this.addPageHeader(pdf, category.name.toUpperCase() + ' (CONTINUED)', margin);
@@ -897,7 +897,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           yPos += photoHeight + 12;
           
           // Check for page break
-          if (yPos > maxY - photoHeight) {
+          if (yPos > maxY - photoHeight - 10) { // Extra padding for photos
             return yPos; // Let the parent method handle page break
           }
         }
@@ -984,7 +984,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 40; // Increased bottom padding
+    const maxY = pageHeight - 60; // Increased bottom padding to prevent cutoff
     
     // Section header description
     pdf.setFont('helvetica', 'normal');
@@ -1005,7 +1005,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     
     // Process each room as a visual item - EXACTLY like structural systems
     for (const room of this.elevationData) {
-      if (yPos > maxY - 40) {
+      if (yPos > maxY - 50) { // Check for page break with enough space
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, 'ELEVATION PLOT DATA (CONTINUED)', margin);
@@ -1090,7 +1090,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.addPageFooter(pdf, pageNum);
     
     let yPos = 50;
-    const maxY = pageHeight - 40; // Increased bottom padding
+    const maxY = pageHeight - 60; // Increased bottom padding to prevent cutoff
     const photoWidth = 60;
     const photoHeight = 45;
     const photosPerRow = Math.floor(contentWidth / (photoWidth + 10));
@@ -1111,7 +1111,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         yPos += photoHeight + 15;
       }
       
-      if (yPos > maxY - photoHeight) {
+      if (yPos > maxY - photoHeight - 10) { // Extra padding for photos
         pdf.addPage();
         pageNum++;
         this.addPageHeader(pdf, 'APPENDIX: PHOTO DOCUMENTATION (CONTINUED)', margin);
@@ -1172,19 +1172,19 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
-    // Footer line
+    // Footer line - moved up to match increased bottom margin
     pdf.setDrawColor(200, 200, 200);
     pdf.setLineWidth(0.5);
-    pdf.line(20, pageHeight - 20, pageWidth - 20, pageHeight - 20);
+    pdf.line(20, pageHeight - 35, pageWidth - 20, pageHeight - 35);
     
     // Company name
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(100, 100, 100);
-    pdf.text('Noble Property Inspections LLC', 20, pageHeight - 10);
+    pdf.text('Noble Property Inspections LLC', 20, pageHeight - 25);
     
     // Page number
-    pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
+    pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 25, { align: 'right' });
   }
 
   private async loadImage(url: string): Promise<string | null> {

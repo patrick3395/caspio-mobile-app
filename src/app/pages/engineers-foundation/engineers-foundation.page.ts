@@ -5272,29 +5272,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('  annotations:', annotations);
       console.log('  has originalFile:', !!originalFile);
       
-      // Debug popup - show what we're about to do
-      const debugAlert1 = await this.alertController.create({
-        header: 'Photo Update Debug - Step 1',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: blue;">📤 UPDATING ANNOTATIONS ONLY</strong><br><br>
-            
-            <strong>Attachment ID:</strong> ${attachId}<br>
-            <strong>Attachment ID Type:</strong> ${typeof attachId}<br>
-            <strong>Attachment ID Length:</strong> ${attachId?.length || 0}<br><br>
-            
-            <strong style="color: green;">Process:</strong><br>
-            1. ✅ Keep original Photo field unchanged<br>
-            2. ✅ Update only Drawings field with annotations<br>
-            3. ❌ NO file upload needed (preserving original)<br><br>
-            
-            <strong style="color: orange;">Next: Updating Drawings field only...</strong>
-          </div>
-        `,
-        buttons: ['Continue']
-      });
-      await debugAlert1.present();
-      await debugAlert1.onDidDismiss();
+      // Update annotations without debug popups
       
       // IMPORTANT: We do NOT upload the annotated file anymore!
       // We only save the annotation JSON data to the Drawings field
@@ -5323,88 +5301,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('📝 Storing ONLY annotations in Drawings field (NO file uploads):', updateData.Drawings);
       }
       
-      // Debug popup - show update request
-      const debugAlert2 = await this.alertController.create({
-        header: 'Photo Update Debug - Step 2',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: blue;">📝 UPDATING DRAWINGS FIELD ONLY</strong><br><br>
-            
-            <strong>Table:</strong> Services_Visuals_Attach<br>
-            <strong>Where:</strong> AttachID = ${attachId}<br><br>
-            
-            <strong style="color: green;">IMPORTANT:</strong><br>
-            • Photo field: NOT being updated (preserving original)<br>
-            • Drawings field: Updating with annotation JSON<br><br>
-            
-            <strong>Update Data:</strong><br>
-            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
-              ${JSON.stringify(updateData, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div><br>
-            
-            <strong>API Endpoint:</strong><br>
-            PUT /tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}<br><br>
-            
-            <strong style="color: orange;">Sending update request...</strong>
-          </div>
-        `,
-        buttons: ['Send Update']
-      });
-      await debugAlert2.present();
-      await debugAlert2.onDidDismiss();
+      // Send update request without debug popup
       
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
-      
-      // Debug popup - show update result
-      const debugAlert3 = await this.alertController.create({
-        header: 'Photo Update Debug - Complete',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: green;">✅ ANNOTATIONS SAVED</strong><br><br>
-            
-            <strong>What was updated:</strong><br>
-            • ✅ Drawings field: Annotation JSON saved<br>
-            • ✅ Photo field: Original image preserved<br><br>
-            
-            <strong>Update Response:</strong><br>
-            <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
-              ${JSON.stringify(updateResult, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div><br>
-            
-            <strong>Annotations saved successfully!</strong><br>
-            <strong style="color: green;">Original image preserved for re-editing!</strong>
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await debugAlert3.present();
       
       console.log('✅ Photo attachment updated successfully');
     } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
       
-      // Debug popup - show error
-      const errorAlert = await this.alertController.create({
-        header: 'Photo Update Error',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">❌ UPDATE FAILED</strong><br><br>
-            
-            <strong>Error Message:</strong><br>
-            ${error?.message || 'Unknown error'}<br><br>
-            
-            <strong>Error Details:</strong><br>
-            <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
-              ${JSON.stringify(error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div><br>
-            
-            <strong>Attachment ID:</strong> ${attachId}<br>
-            <strong>File Name:</strong> ${file?.name || 'N/A'}<br>
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await errorAlert.present();
+      // Log error without debug popup
       
       throw error;
     }
