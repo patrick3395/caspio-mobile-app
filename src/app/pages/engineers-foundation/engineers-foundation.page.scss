@@ -292,7 +292,7 @@ ion-content {
 .section-card {
   background: white;
   border-radius: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border: none;
   overflow: visible;
@@ -311,79 +311,70 @@ ion-content {
     margin-bottom: 8px; // Reduce margin for structural section
     
     .visual-item-container {
+      ion-item.checkbox-item.with-camera {
+        position: relative;
+        padding-right: 50px; // Make room for camera button
+        
+        .camera-button-structural {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          background: var(--noble-orange);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          padding: 6px 10px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          font-size: 12px;
+          z-index: 2;
+          
+          ion-icon {
+            font-size: 16px;
+          }
+          
+          .photo-badge {
+            background: white;
+            color: var(--noble-orange);
+            border-radius: 10px;
+            padding: 0 5px;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 16px;
+            text-align: center;
+          }
+          
+          &:hover {
+            background: darken(#ff6b35, 10%);
+            transform: scale(1.05);
+          }
+          
+          &:active {
+            transform: scale(0.95);
+          }
+        }
+      }
+      
       .item-label {
         // Container for the text with strict height control
         position: relative;
         width: 100%;
-        
-        .item-header-with-camera {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 4px;
-          
-          h3 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            flex: 1;
-            
-            .required-indicator {
-              color: #f44336;
-              margin-left: 4px;
-              font-weight: normal;
-            }
-          }
-          
-          .camera-button-structural {
-            background: var(--noble-orange);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 12px;
-            position: relative;
-            margin-left: 8px;
-            
-            ion-icon {
-              font-size: 16px;
-            }
-            
-            .photo-badge {
-              background: white;
-              color: var(--noble-orange);
-              border-radius: 10px;
-              padding: 0 5px;
-              font-size: 10px;
-              font-weight: bold;
-              min-width: 16px;
-              text-align: center;
-            }
-            
-            &:hover {
-              background: darken(#ff6b35, 10%);
-              transform: scale(1.05);
-            }
-            
-            &:active {
-              transform: scale(0.95);
-            }
-          }
-        }
+        padding-right: 0; // Remove extra padding since button is absolutely positioned
         
         h3 {
           margin: 0 0 4px 0; // Small margin between name and text
           font-size: 14px;
           font-weight: 600;
           color: #333;
+          
+          .required-indicator {
+            color: #f44336;
+            margin-left: 4px;
+            font-weight: normal;
+          }
         }
         
         // Wrapper div to control exact height
@@ -817,7 +808,7 @@ ion-content {
             
             // Image preview section
             .image-preview-section {
-              padding: 16px;
+              padding: 8px 12px; // Reduced padding since no Add Photos button
               background: #f8f8f8;
               border-top: 1px solid #e0e0e0;
               border-radius: 0 0 12px 12px;
@@ -845,12 +836,13 @@ ion-content {
               
               .image-preview-container {
                 display: flex;
-                gap: 12px;
+                gap: 8px; // Reduced gap
                 flex-wrap: wrap;
                 align-items: flex-start;
-                min-height: 80px; // Ensure container is visible
+                min-height: 0; // Remove minimum height requirement
                 
                 .no-photos-message {
+                  display: none; // Hide the no photos message since we removed the button
                   width: 100%;
                   padding: 20px;
                   text-align: center;
@@ -928,34 +920,7 @@ ion-content {
                   }
                   
                   .annotate-btn {
-                    position: absolute;
-                    bottom: 2px;
-                    left: 2px;
-                    width: 22px;
-                    height: 22px;
-                    background: rgba(241, 90, 39, 0.9);
-                    border: none;
-                    border-radius: 50%;
-                    color: white;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    opacity: 0;
-                    transition: opacity 0.2s ease;
-                    
-                    ion-icon {
-                      font-size: 14px;
-                    }
-                    
-                    &:hover {
-                      background: #F15A27;
-                      transform: scale(1.1);
-                    }
-                  }
-                  
-                  &:hover .annotate-btn {
-                    opacity: 1;
+                    display: none !important; // Hide annotation button completely
                   }
                   
                   .annotation-indicator {

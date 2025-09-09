@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/active-projects"></ion-back-button>
     </ion-buttons>
-    <ion-title>Engineer's Foundation Evaluation</ion-title>
+    <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="generatePDF()">
         <ion-icon name="document-text-outline"></ion-icon>
@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.249 - Fixed dynamic whitespace like template-form</div>
+    <div class="version-header">Version 1.4.284 - Reduced spacing after removing Add Photos button</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -425,7 +425,13 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                        <button class="camera-button-structural" 
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photos">
+                          <ion-icon name="camera"></ion-icon>
+                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                        </button>
                         <ion-checkbox 
                           slot="start" 
                           [checked]="isItemSelected(category, item.id)"
@@ -433,25 +439,17 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <div class="item-header-with-camera">
-                            <h3>
-                              {{ item.name }}
-                              <span class="required-indicator" *ngIf="item.required">*</span>
-                            </h3>
-                            <button class="camera-button-structural" 
-                                    (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                    title="Add photos">
-                              <ion-icon name="camera"></ion-icon>
-                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                            </button>
-                          </div>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -466,10 +464,6 @@
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
-                            <!-- Quick annotation button -->
-                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
-                              <ion-icon name="brush-outline"></ion-icon>
-                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
@@ -559,7 +553,13 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                        <button class="camera-button-structural" 
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photos">
+                          <ion-icon name="camera"></ion-icon>
+                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                        </button>
                         <ion-checkbox 
                           slot="start" 
                           [checked]="isItemSelected(category, item.id)"
@@ -567,25 +567,17 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <div class="item-header-with-camera">
-                            <h3>
-                              {{ item.name }}
-                              <span class="required-indicator" *ngIf="item.required">*</span>
-                            </h3>
-                            <button class="camera-button-structural" 
-                                    (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                    title="Add photos">
-                              <ion-icon name="camera"></ion-icon>
-                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                            </button>
-                          </div>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -600,10 +592,6 @@
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
-                            <!-- Quick annotation button -->
-                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
-                              <ion-icon name="brush-outline"></ion-icon>
-                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
@@ -693,7 +681,13 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                        <button class="camera-button-structural" 
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photos">
+                          <ion-icon name="camera"></ion-icon>
+                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                        </button>
                         <ion-checkbox 
                           slot="start" 
                           [checked]="isItemSelected(category, item.id)"
@@ -701,25 +695,17 @@
                           (ionChange)="toggleItemSelection(category, item.id)">
                         </ion-checkbox>
                         <ion-label class="item-label" (click)="showFullText(item)">
-                          <div class="item-header-with-camera">
-                            <h3>
-                              {{ item.name }}
-                              <span class="required-indicator" *ngIf="item.required">*</span>
-                            </h3>
-                            <button class="camera-button-structural" 
-                                    (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
-                                    title="Add photos">
-                              <ion-icon name="camera"></ion-icon>
-                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                            </button>
-                          </div>
+                          <h3>
+                            {{ item.name }}
+                            <span class="required-indicator" *ngIf="item.required">*</span>
+                          </h3>
                           <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
-                      <div class="image-preview-section" *ngIf="!item.answerType || item.answerType === 0">
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
                           <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -734,10 +720,6 @@
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
-                            <!-- Quick annotation button -->
-                            <button class="annotate-btn" *ngIf="!photo.uploading" (click)="quickAnnotate(photo, category, item.id); $event.stopPropagation()" title="Annotate">
-                              <ion-icon name="brush-outline"></ion-icon>
-                            </button>
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>

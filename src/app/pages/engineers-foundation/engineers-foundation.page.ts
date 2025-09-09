@@ -72,6 +72,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
   
+  // Type information for the header
+  typeShort: string = 'Foundation Evaluation';
+  
   // Dropdown options for AnswerType 2 from Services_Visuals_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
   
@@ -227,9 +230,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
       console.log('Project data loaded:', this.projectData);
+      
+      // Load type information if we have TypeID
+      if (this.projectData?.TypeID) {
+        await this.loadTypeInfo(this.projectData.TypeID);
+      }
     } catch (error) {
       console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
+    }
+  }
+  
+  async loadTypeInfo(typeId: string) {
+    try {
+      const typeData = await this.caspioService.getType(typeId).toPromise();
+      if (typeData?.TypeShort) {
+        this.typeShort = typeData.TypeShort;
+        console.log('Type information loaded:', this.typeShort);
+      }
+    } catch (error) {
+      console.error('Error loading type info:', error);
+      // Keep default value if load fails
     }
   }
   

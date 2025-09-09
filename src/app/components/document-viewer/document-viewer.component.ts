@@ -1,8 +1,8 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 
 @Component({
   selector: 'app-document-viewer',
@@ -12,6 +12,15 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     <ion-header>
       <ion-toolbar style="--background: #F15A27;">
         <ion-title style="color: white;">{{ fileName || 'Document Viewer' }}</ion-title>
+        <div *ngIf="isPDF" class="search-container" slot="end">
+          <ion-icon name="search-outline" style="color: white; margin-right: 8px;"></ion-icon>
+          <input type="text" 
+                 placeholder="Search..." 
+                 class="header-search-input"
+                 (input)="onSearchChange($event)"
+                 (keyup.enter)="searchNext()"
+                 #searchInput />
+        </div>
         <ion-buttons slot="end">
           <ion-button (click)="openInNewTab()" style="color: white;">
             <ion-icon name="open-outline" slot="icon-only"></ion-icon>
@@ -29,6 +38,10 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
+        <div class="pdf-loading" *ngIf="!pdfLoaded">
+          <ion-spinner name="crescent" color="warning"></ion-spinner>
+          <p>Loading PDF...</p>
+        </div>
         <ngx-extended-pdf-viewer 
           [src]="pdfSource"
           [height]="'calc(100vh - 56px)'"
@@ -36,7 +49,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showToolbar]="true"
           [showSidebarButton]="true"
           [sidebarVisible]="false"
-          [showFindButton]="true"
+          [showFindButton]="false"
           [showPagingButtons]="true"
           [showZoomButtons]="true"
           [showPresentationModeButton]="false"
@@ -51,8 +64,16 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'single'"
-          [scrollMode]="0"
+          [pageViewMode]="'infinite-scroll'"
+          [scrollMode]="1"
+          [showBorders]="false"
+          [renderInteractiveForms]="false"
+          [enablePinchOnMobile]="true"
+          [minZoom]="0.1"
+          [maxZoom]="10"
+          [wheelAction]="'scroll'"
+          (pdfLoaded)="onPdfLoaded($event)"
+          (pageRendered)="onPageRendered($event)"
           [showFindHighlightAll]="false"
           [showFindMatchCase]="false"
           [showFindEntireWord]="false"
@@ -70,6 +91,49 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     </ion-content>
   `,
   styles: [`
+    .search-container {
+      display: flex;
+      align-items: center;
+      margin-right: 16px;
+    }
+    
+    .header-search-input {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 20px;
+      color: white;
+      padding: 6px 16px;
+      width: 200px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+    
+    .header-search-input::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .header-search-input:focus {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: white;
+      width: 250px;
+    }
+    
+    .pdf-loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 100;
+    }
+    
+    .pdf-loading p {
+      color: #F15A27;
+      margin-top: 16px;
+      font-size: 16px;
+    }
+    
     .document-viewer-content {
       --background: #2d2d2d;
     }
@@ -176,12 +240,15 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         box-shadow: 0 0 10px rgba(241, 90, 39, 0.3) !important;
       }
       
-      /* Modern Search Bar */
+      /* Hide the entire default search bar */
       #findbar {
-        background: #1a1a1a !important;
-        border-bottom: 1px solid #444 !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-        padding: 8px !important;
+        display: none !important;
+      }
+      
+      /* Hide any search-related popups */
+      .doorHanger,
+      .doorHangerRight {
+        display: none !important;
       }
       
       #findInput {
@@ -327,10 +394,17 @@ export class DocumentViewerComponent implements OnInit {
   displayUrl: string = '';
   pdfSource: string | Uint8Array = '';
 
+  @ViewChild('searchInput') searchInput?: ElementRef;
+  searchTerm: string = '';
+  pdfLoaded: boolean = false;
+  totalPages: number = 0;
+  currentPage: number = 1;
+
   constructor(
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private pdfViewerService: NgxExtendedPdfViewerService
   ) {}
 
   ngOnInit() {
@@ -356,28 +430,20 @@ export class DocumentViewerComponent implements OnInit {
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
       // For PDFs, prepare the source for ngx-extended-pdf-viewer
+      console.log('Preparing PDF source...');
+      
       if (this.fileUrl.startsWith('data:')) {
-        // For base64 data URLs, convert to Uint8Array
-        try {
-          const base64 = this.fileUrl.split(',')[1];
-          const binary = atob(base64);
-          const len = binary.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          this.pdfSource = bytes;
-          console.log('Loaded PDF from base64, size:', len, 'bytes');
-        } catch (error) {
-          console.error('Error converting base64 to Uint8Array:', error);
-          // Fallback to direct URL
-          this.pdfSource = this.fileUrl;
-        }
+        // For base64 data URLs, pass directly - the viewer handles it efficiently
+        this.pdfSource = this.fileUrl;
+        console.log('Using base64 data URL directly for better performance');
       } else {
         // For regular URLs, use them directly
         this.pdfSource = this.fileUrl;
+        console.log('Using direct URL for PDF');
       }
       
+      // Pre-initialize the PDF viewer
+      this.pdfLoaded = false;
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
@@ -426,6 +492,66 @@ export class DocumentViewerComponent implements OnInit {
 
   dismiss() {
     this.modalController.dismiss();
+  }
+
+  onSearchChange(event: any) {
+    this.searchTerm = event.target.value;
+    if (this.searchTerm && this.searchTerm.length > 0) {
+      // Use the PDF viewer service to search
+      this.pdfViewerService.find(this.searchTerm, {
+        highlightAll: true,
+        matchCase: false,
+        wholeWords: false,
+        ignoreAccents: true
+      });
+    } else {
+      // Clear search if empty
+      this.pdfViewerService.find('', {
+        highlightAll: false
+      });
+    }
+  }
+
+  searchNext() {
+    if (this.searchTerm) {
+      this.pdfViewerService.findNext();
+    }
+  }
+
+  searchPrevious() {
+    if (this.searchTerm) {
+      this.pdfViewerService.findPrevious();
+    }
+  }
+
+  onPdfLoaded(event: any) {
+    console.log('PDF loaded:', event);
+    this.pdfLoaded = true;
+    if (event && event.pagesCount) {
+      this.totalPages = event.pagesCount;
+      console.log('Total pages:', this.totalPages);
+      
+      // Force render all pages for infinite scroll
+      setTimeout(() => {
+        // Trigger a small scroll to force all pages to render
+        const viewerContainer = document.getElementById('viewerContainer');
+        if (viewerContainer) {
+          viewerContainer.scrollTop = 1;
+          viewerContainer.scrollTop = 0;
+        }
+      }, 100);
+    }
+  }
+
+  onPageRendered(event: any) {
+    if (event && event.pageNumber) {
+      console.log('Page rendered:', event.pageNumber);
+      // Update current page if needed
+      if (event.pageNumber === 1) {
+        // First page rendered, PDF is becoming visible
+        this.currentPage = 1;
+      }
+    }
   }
 
 }

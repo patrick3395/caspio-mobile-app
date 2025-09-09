@@ -406,16 +406,29 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.isDrawing = true;
       } else if (this.currentTool === 'text') {
         const pointer = this.canvas.getPointer(options.e);
-        const text = new fabric.IText('Text', {
+        const text = new fabric.IText('Tap to edit', {
           left: pointer.x,
           top: pointer.y,
           fontSize: 20,
-          fill: this.currentColor
+          fill: this.currentColor,
+          fontFamily: 'Arial',
+          editable: true
         });
         this.canvas.add(text);
         this.canvas.setActiveObject(text);
-        text.enterEditing();
-        text.selectAll();
+        
+        // Force the text into edit mode and focus
+        setTimeout(() => {
+          text.enterEditing();
+          text.selectAll();
+          // Trigger the hidden text area to get focus for mobile keyboard
+          const hiddenTextarea = text.hiddenTextarea;
+          if (hiddenTextarea) {
+            hiddenTextarea.focus();
+            hiddenTextarea.click();
+          }
+          this.canvas.renderAll();
+        }, 100);
       }
     });
     
@@ -525,6 +538,38 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.isDrawing = false;
       
       console.log(`📊 [v1.4.233 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
+    });
+    
+    // Add double-click handler for editing text
+    this.canvas.on('mouse:dblclick', (options: fabric.TEvent) => {
+      const target = this.canvas.getActiveObject();
+      if (target && target.type === 'i-text') {
+        const textObj = target as fabric.IText;
+        textObj.enterEditing();
+        textObj.selectAll();
+        // Force keyboard on mobile
+        const hiddenTextarea = textObj.hiddenTextarea;
+        if (hiddenTextarea) {
+          hiddenTextarea.focus();
+          hiddenTextarea.click();
+        }
+      }
+    });
+    
+    // Also handle selection:created event for text objects
+    this.canvas.on('selection:created', (options: any) => {
+      if (options.target && options.target.type === 'i-text' && this.currentTool === 'select') {
+        const textObj = options.target as fabric.IText;
+        // Add a small delay to allow the selection to complete
+        setTimeout(() => {
+          textObj.enterEditing();
+          // Force keyboard on mobile
+          const hiddenTextarea = textObj.hiddenTextarea;
+          if (hiddenTextarea) {
+            hiddenTextarea.focus();
+          }
+        }, 200);
+      }
     });
   }
   
