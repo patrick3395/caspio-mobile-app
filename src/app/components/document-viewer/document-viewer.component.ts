@@ -115,6 +115,8 @@ import { FormsModule } from '@angular/forms';
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
+          [renderText]="true"
+          [useOnlyCssZoom]="false"
           [enableDragAndDrop]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pdfLoadingStarts)="onPdfLoadingStarts($event)"
@@ -663,30 +665,9 @@ export class DocumentViewerComponent implements OnInit {
       // For PDFs, prepare the source for ngx-extended-pdf-viewer
       console.log('Preparing PDF source...');
       
-      if (this.fileUrl.startsWith('data:')) {
-        // For base64 data URLs, convert to blob for better performance
-        try {
-          const base64Data = this.fileUrl.split(',')[1];
-          const byteCharacters = atob(base64Data);
-          const byteNumbers = new Array(byteCharacters.length);
-          
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          
-          const byteArray = new Uint8Array(byteNumbers);
-          this.pdfSource = byteArray;
-          console.log('Converted base64 to Uint8Array for PDF viewer');
-        } catch (error) {
-          console.error('Error converting base64 to Uint8Array:', error);
-          // Fallback to using the data URL directly
-          this.pdfSource = this.fileUrl;
-        }
-      } else {
-        // For regular URLs, use them directly
-        this.pdfSource = this.fileUrl;
-        console.log('Using direct URL for PDF');
-      }
+      // Use the file URL directly - the PDF viewer handles both data URLs and regular URLs
+      this.pdfSource = this.fileUrl;
+      console.log('PDF source set, URL type:', this.fileUrl.startsWith('data:') ? 'base64 data URL' : 'regular URL');
       
       // Pre-initialize the PDF viewer - set a timeout to show PDF even if event doesn't fire
       this.pdfLoaded = false;
@@ -695,7 +676,7 @@ export class DocumentViewerComponent implements OnInit {
           console.log('PDF load event did not fire, forcing display');
           this.pdfLoaded = true;
         }
-      }, 3000);
+      }, 5000);
       
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {

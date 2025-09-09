@@ -3098,8 +3098,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Add a longer delay for first attempt to ensure page is stable
       if (this.pdfGenerationAttempts === 1) {
-        console.log('[v1.4.317] First attempt - waiting for page stability');
-        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('[v1.4.326] First attempt - waiting for page stability and preventing reload');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Double-check that we're still on the page and haven't navigated away
+        if (!this.serviceId || !this.projectId) {
+          console.error('[v1.4.326] Lost service/project ID, aborting PDF generation');
+          this.isPDFGenerating = false;
+          if (pdfButton) {
+            pdfButton.style.pointerEvents = 'auto';
+            pdfButton.style.opacity = '1';
+          }
+          return;
+        }
       }
       
       // Validate all required Project Information fields before generating PDF
@@ -3148,28 +3159,61 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         // Load all data in parallel for maximum speed
-        console.log('⚡ Loading PDF data in parallel...');
+        console.log('[v1.4.326] Loading PDF data (first time) - with error protection...');
         const startTime = Date.now();
         
-        // Execute all data fetching in parallel
-        const [projectData, structuralData, elevationData] = await Promise.all([
-          this.prepareProjectInfo(),
-          this.prepareStructuralSystemsData(),
-          this.prepareElevationPlotData()
-        ]);
-        
-        projectInfo = projectData;
-        structuralSystemsData = structuralData;
-        elevationPlotData = elevationData;
-        
-        console.log(`✅ All data loaded in ${Date.now() - startTime}ms`);
-        
-        // Cache the prepared data
-        this.cache.set(cacheKey, {
-          structuralSystemsData,
-          elevationPlotData,
-          projectInfo
-        }, this.cache.CACHE_TIMES.MEDIUM);
+        try {
+          // Wrap data preparation in try-catch to prevent any reload on error
+          // Execute all data fetching in parallel with individual error handling
+          const [projectData, structuralData, elevationData] = await Promise.all([
+            this.prepareProjectInfo().catch(err => {
+              console.error('[v1.4.326] Error in prepareProjectInfo:', err);
+              // Return minimal valid data structure
+              return {
+                projectId: this.projectId,
+                serviceId: this.serviceId,
+                address: this.projectData?.Address || '',
+                clientName: this.projectData?.ClientName || '',
+                projectData: this.projectData,
+                serviceData: this.serviceData
+              };
+            }),
+            this.prepareStructuralSystemsData().catch(err => {
+              console.error('[v1.4.326] Error in prepareStructuralSystemsData:', err);
+              return []; // Return empty array instead of failing
+            }),
+            this.prepareElevationPlotData().catch(err => {
+              console.error('[v1.4.326] Error in prepareElevationPlotData:', err);
+              return []; // Return empty array instead of failing
+            })
+          ]);
+          
+          projectInfo = projectData;
+          structuralSystemsData = structuralData;
+          elevationPlotData = elevationData;
+          
+          console.log(`[v1.4.326] All data loaded in ${Date.now() - startTime}ms`);
+          
+          // Cache the prepared data
+          this.cache.set(cacheKey, {
+            structuralSystemsData,
+            elevationPlotData,
+            projectInfo
+          }, this.cache.CACHE_TIMES.MEDIUM);
+        } catch (dataError) {
+          console.error('[v1.4.326] Fatal error loading PDF data:', dataError);
+          // Use fallback empty data to prevent reload
+          projectInfo = {
+            projectId: this.projectId,
+            serviceId: this.serviceId,
+            address: this.projectData?.Address || '',
+            clientName: this.projectData?.ClientName || '',
+            projectData: this.projectData,
+            serviceData: this.serviceData
+          };
+          structuralSystemsData = [];
+          elevationPlotData = [];
+        }
       }
       
       // Preload primary photo if it exists (do this separately as it's optional)
@@ -3206,21 +3250,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Present the modal with error handling
       try {
         await modal.present();
-        console.log('[v1.4.317] Modal presented successfully');
+        console.log('[v1.4.326] Modal presented successfully');
         
         // Dismiss loading after modal is presented
         // Add a small delay to ensure smooth transition
         setTimeout(async () => {
           try {
             await loading.dismiss();
-            console.log('[v1.4.317] Loading dismissed after modal presentation');
+            console.log('[v1.4.326] Loading dismissed after modal presentation');
           } catch (dismissError) {
-            console.log('[v1.4.317] Loading already dismissed');
+            console.log('[v1.4.326] Loading already dismissed');
           }
         }, 300);
         
       } catch (modalError) {
-        console.error('[v1.4.317] Error presenting modal:', modalError);
+        console.error('[v1.4.326] Error presenting modal:', modalError);
         // Try to dismiss loading on error
         try {
           await loading.dismiss();
@@ -3238,10 +3282,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Reset the generation flag after successful modal presentation
       this.isPDFGenerating = false;
-      console.log('[v1.4.317] PDF generation completed successfully');
+      console.log('[v1.4.326] PDF generation completed successfully');
       
     } catch (error) {
-      console.error('[v1.4.317] Error preparing preview:', error);
+      console.error('[v1.4.326] Error preparing preview:', error);
       
       // Reset the generation flag on error
       this.isPDFGenerating = false;
@@ -3265,7 +3309,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('[v1.4.317] Outer error in generatePDF:', error);
+    console.error('[v1.4.326] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
     
     // Re-enable the PDF button
@@ -5539,13 +5583,13 @@ Has Annotations: ${!!annotations}`;
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // CRITICAL FIX v1.4.315: Caspio Drawings field is TEXT type
-        // The issue is that Caspio expects a simple string, not nested JSON
+        // CRITICAL FIX v1.4.323: Caspio Drawings field is TEXT type
+        // Handle blob URLs and ensure proper JSON formatting
         let drawingsData = '';
         
-        console.log('🔍 [v1.4.315] Processing annotations for Drawings field:');
+        console.log('🔍 [v1.4.323] Processing annotations for Drawings field:');
         console.log('  Input type:', typeof annotations);
-        console.log('  Input value:', annotations);
+        console.log('  Input preview:', typeof annotations === 'string' ? annotations.substring(0, 200) : annotations);
         
         // Handle different annotation formats
         if (annotations === null || annotations === undefined) {
@@ -5553,23 +5597,39 @@ Has Annotations: ${!!annotations}`;
           drawingsData = '';
           console.log('  → Null/undefined, using empty string');
         } else if (typeof annotations === 'string') {
-          // Already a string
+          // Already a string - validate and clean it
           drawingsData = annotations;
           console.log('  → Already a string, length:', drawingsData.length);
           
-          // Validate it's not causing issues
+          // Check if it contains blob URLs and if it's valid JSON
           try {
-            // Try to parse to check if it's valid JSON string
             if (drawingsData.startsWith('{') || drawingsData.startsWith('[')) {
-              JSON.parse(drawingsData);
+              const parsed = JSON.parse(drawingsData);
               console.log('  ✓ Valid JSON string');
+              
+              // Check for blob URLs in backgroundImage
+              if (parsed.backgroundImage?.src?.startsWith('blob:')) {
+                console.log('  ⚠️ Contains blob URL in backgroundImage, keeping as-is');
+                // Note: blob URLs become invalid after reload, but we still save them
+                // The annotation system should handle missing background images gracefully
+              }
+              
+              // Re-stringify to ensure consistent formatting
+              drawingsData = JSON.stringify(parsed);
+              console.log('  ✓ Re-stringified for consistency');
             }
           } catch (e) {
-            console.log('  ⚠️ Not valid JSON, but still a string');
+            console.log('  ⚠️ Not valid JSON or parse error:', e);
+            // Keep the string as-is if it's not JSON
           }
         } else if (typeof annotations === 'object') {
           // Object - needs stringification
           try {
+            // Check for blob URLs before stringifying
+            if (annotations.backgroundImage?.src?.startsWith('blob:')) {
+              console.log('  ⚠️ Object contains blob URL in backgroundImage');
+            }
+            
             drawingsData = JSON.stringify(annotations);
             console.log('  → Stringified object, result length:', drawingsData.length);
           } catch (e) {
@@ -5726,10 +5786,100 @@ Original File: ${originalFile?.name || 'None'}`;
         }
       }
       
+      // v1.4.327: Show debug info in alert for mobile app (no console)
+      if (updateData.Drawings) {
+        const drawingsInfo = {
+          length: updateData.Drawings.length,
+          type: typeof updateData.Drawings,
+          first300: updateData.Drawings.substring(0, 300),
+          last200: updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 200)),
+          containsBlob: updateData.Drawings.includes('blob:'),
+          containsEscapedQuotes: updateData.Drawings.includes('\\"'),
+          containsDoubleBackslash: updateData.Drawings.includes('\\\\')
+        };
+        
+        // Show debug alert BEFORE sending to see what we're sending
+        const preUpdateDebug = await this.alertController.create({
+          header: '📤 Debug: About to Update',
+          message: `
+            <div style="font-family: monospace; font-size: 10px; text-align: left;">
+              <strong style="color: blue;">PRE-UPDATE DATA CHECK</strong><br><br>
+              
+              <strong>AttachID:</strong> ${attachId} (${typeof attachId})<br><br>
+              
+              <strong>Drawings Field Analysis:</strong><br>
+              • Length: <span style="color: ${drawingsInfo.length > 10000 ? 'red' : drawingsInfo.length > 5000 ? 'orange' : 'green'};">${drawingsInfo.length} chars</span><br>
+              • Type: ${drawingsInfo.type}<br>
+              • Contains blob URL: <span style="color: ${drawingsInfo.containsBlob ? 'orange' : 'green'};">${drawingsInfo.containsBlob ? 'YES ⚠️' : 'NO ✅'}</span><br>
+              • Escaped quotes: ${drawingsInfo.containsEscapedQuotes ? 'YES ⚠️' : 'NO'}<br>
+              • Double backslash: <span style="color: ${drawingsInfo.containsDoubleBackslash ? 'red' : 'green'};">${drawingsInfo.containsDoubleBackslash ? 'YES ❌' : 'NO ✅'}</span><br><br>
+              
+              <strong>First 300 chars:</strong><br>
+              <div style="background: #f0f0f0; padding: 5px; font-size: 9px; overflow-wrap: break-word; max-height: 100px; overflow-y: auto;">
+                ${drawingsInfo.first300.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+              </div><br>
+              
+              <strong>Last 200 chars:</strong><br>
+              <div style="background: #f0f0f0; padding: 5px; font-size: 9px; overflow-wrap: break-word; max-height: 100px; overflow-y: auto;">
+                ${drawingsInfo.last200.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+              </div><br>
+              
+              <strong style="color: orange;">Potential Issues:</strong><br>
+              ${drawingsInfo.length > 10000 ? '• Very long string (>10KB)<br>' : ''}
+              ${drawingsInfo.containsBlob ? '• Contains blob URLs (invalid after reload)<br>' : ''}
+              ${drawingsInfo.containsDoubleBackslash ? '• Double-escaped backslashes detected<br>' : ''}
+            </div>
+          `,
+          buttons: [
+            {
+              text: 'Copy Full Data',
+              handler: () => {
+                const debugText = `AttachID: ${attachId}\nDrawings Length: ${drawingsInfo.length}\nFull Drawings:\n${updateData.Drawings}`;
+                navigator.clipboard.writeText(debugText).catch(() => {
+                  // Fallback for mobile clipboard
+                  const textarea = document.createElement('textarea');
+                  textarea.value = debugText;
+                  textarea.style.position = 'fixed';
+                  textarea.style.opacity = '0';
+                  document.body.appendChild(textarea);
+                  textarea.select();
+                  try {
+                    document.execCommand('copy');
+                    this.showToast('Debug data copied', 'success');
+                  } catch (e) {
+                    this.showToast('Could not copy data', 'warning');
+                  }
+                  document.body.removeChild(textarea);
+                });
+                return false;
+              }
+            },
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Send Update',
+              cssClass: 'primary',
+              handler: () => true
+            }
+          ]
+        });
+        
+        await preUpdateDebug.present();
+        const { role } = await preUpdateDebug.onDidDismiss();
+        
+        if (role === 'cancel') {
+          await this.showToast('Update cancelled by user', 'warning');
+          return;
+        }
+      }
+      
       // Send update request
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
       
-      console.log('✅ Photo attachment updated successfully');
+      // Show success toast for mobile
+      await this.showToast('✅ Annotations updated successfully', 'success');
     } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
       
@@ -5750,7 +5900,9 @@ Original File: ${originalFile?.name || 'None'}`;
             <strong>Request Details:</strong><br>
             • AttachID Used: ${attachId}<br>
             • AttachID Type: ${typeof attachId}<br>
-            • Update Data Sent: (data not available)<br><br>
+            • Update Data Keys: ${Object.keys(updateData || {}).join(', ')}<br>
+            • Drawings Length: ${updateData?.Drawings?.length || 'N/A'}<br>
+            • Drawings Preview: ${updateData?.Drawings ? updateData.Drawings.substring(0, 100) + '...' : 'N/A'}<br><br>
             
             <strong>Response Info:</strong><br>
             • Status Text: ${error?.statusText || 'N/A'}<br>
@@ -6963,9 +7115,29 @@ Stack: ${error?.stack}`;
           const query = `RoomID=${roomId}`;
           const roomResponse = await this.caspioService.get(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).toPromise();
           const roomRecords = (roomResponse as any)?.Result || [];
+          
+          // Create debug info for FDF photos
+          let debugInfo = `<div style="font-family: monospace; font-size: 12px; text-align: left;">
+            <h3 style="color: #ff6b35;">FDF Photos Debug - v1.4.327</h3>
+            <strong>Room: ${roomName}</strong><br>
+            <strong>RoomID: ${roomId}</strong><br>
+            <strong>Query: ${query}</strong><br><br>`;
+          
           if (roomRecords && roomRecords.length > 0) {
             const roomRecord = roomRecords[0];
             const fdfPhotosData: any = {};
+            
+            debugInfo += `<strong style="color: green;">✅ Room record found!</strong><br>
+              <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                <strong>Room Record Fields:</strong><br>`;
+            
+            // Show all fields in the room record
+            Object.keys(roomRecord).forEach(key => {
+              if (key.includes('FDF')) {
+                debugInfo += `<span style="color: blue;">${key}: ${roomRecord[key] || 'null'}</span><br>`;
+              }
+            });
+            debugInfo += `</div>`;
             
             // Process each FDF photo type
             const fdfPhotoTypes = [
@@ -6974,50 +7146,120 @@ Stack: ${error?.stack}`;
               { field: 'FDFPhotoThreshold', key: 'threshold' }
             ];
             
-            console.log(`[FDF Photos] Room ${roomName} record:`, roomRecord);
+            console.log(`[FDF Photos v1.4.327] Room ${roomName} record:`, roomRecord);
+            
+            debugInfo += `<strong>Processing FDF Photos:</strong><br>`;
             
             for (const photoType of fdfPhotoTypes) {
               const photoPath = roomRecord[photoType.field];
-              console.log(`[FDF Photos] Checking ${photoType.field}: ${photoPath}`);
+              console.log(`[FDF Photos v1.4.327] Checking ${photoType.field}: ${photoPath}`);
+              
+              debugInfo += `<div style="margin: 10px 0; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
+                <strong>${photoType.field} (${photoType.key}):</strong><br>`;
               
               if (photoPath) {
+                debugInfo += `Path: <span style="color: blue;">${photoPath}</span><br>`;
+                
                 // Convert Caspio file path to base64
                 if (photoPath.startsWith('/')) {
                   try {
-                    console.log(`[FDF Photos] Converting ${photoType.key} photo from path: ${photoPath}`);
+                    console.log(`[FDF Photos v1.4.327] Converting ${photoType.key} photo from path: ${photoPath}`);
+                    debugInfo += `Status: Converting to base64...<br>`;
+                    
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
                       fdfPhotosData[photoType.key] = true;
                       fdfPhotosData[`${photoType.key}Url`] = base64Data;
-                      console.log(`[FDF Photos] Successfully converted ${photoType.key} photo to base64`);
+                      console.log(`[FDF Photos v1.4.327] Successfully converted ${photoType.key} photo to base64`);
+                      debugInfo += `<span style="color: green;">✅ Converted to base64 successfully</span><br>`;
+                      debugInfo += `Base64 preview: <span style="color: gray;">${base64Data.substring(0, 50)}...</span><br>`;
                     } else {
-                      console.error(`[FDF Photos] Invalid base64 data for ${photoType.key}`);
+                      console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
+                      debugInfo += `<span style="color: red;">❌ Invalid base64 data received</span><br>`;
                     }
                   } catch (error) {
-                    console.error(`[FDF Photos] Failed to convert FDF ${photoType.key} photo:`, error);
+                    console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
+                    debugInfo += `<span style="color: orange;">⚠️ Base64 conversion failed, using fallback URL</span><br>`;
+                    debugInfo += `Error: ${error}<br>`;
+                    
                     // Try to use token-based URL as fallback
                     const token = await this.caspioService.getValidToken();
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-                    console.log(`[FDF Photos] Using fallback URL for ${photoType.key}`);
+                    console.log(`[FDF Photos v1.4.327] Using fallback URL for ${photoType.key}`);
+                    debugInfo += `Fallback URL: <span style="color: blue;">${fdfPhotosData[`${photoType.key}Url`].substring(0, 80)}...</span><br>`;
                   }
                 } else {
-                  console.log(`[FDF Photos] Photo path doesn't start with / for ${photoType.key}: ${photoPath}`);
+                  console.log(`[FDF Photos v1.4.327] Photo path doesn't start with / for ${photoType.key}: ${photoPath}`);
+                  debugInfo += `<span style="color: red;">❌ Invalid path format (doesn't start with /)</span><br>`;
                 }
               } else {
-                console.log(`[FDF Photos] No photo found for ${photoType.field}`);
+                console.log(`[FDF Photos v1.4.327] No photo found for ${photoType.field}`);
+                debugInfo += `<span style="color: gray;">No photo path in database</span><br>`;
               }
+              
+              debugInfo += `</div>`;
             }
             
             // Merge with existing fdfPhotos (in case they were already loaded)
             roomResult.fdfPhotos = { ...roomResult.fdfPhotos, ...fdfPhotosData };
-            console.log(`[FDF Photos] Final fdfPhotos for room ${roomName}:`, roomResult.fdfPhotos);
+            console.log(`[FDF Photos v1.4.327] Final fdfPhotos for room ${roomName}:`, roomResult.fdfPhotos);
+            
+            debugInfo += `<br><strong>Final FDF Photos Data:</strong><br>
+              <div style="background: #e8f5e9; padding: 10px; border-radius: 5px;">`;
+            Object.keys(roomResult.fdfPhotos).forEach(key => {
+              if (key.includes('Url')) {
+                debugInfo += `${key}: <span style="color: green;">${roomResult.fdfPhotos[key] ? 'Set ✅' : 'Not set ❌'}</span><br>`;
+              } else {
+                debugInfo += `${key}: ${roomResult.fdfPhotos[key]}<br>`;
+              }
+            });
+            debugInfo += `</div>`;
           } else {
-            console.log(`[FDF Photos] No room records found for RoomID ${roomId}`);
+            console.log(`[FDF Photos v1.4.327] No room records found for RoomID ${roomId}`);
+            debugInfo += `<span style="color: red;">❌ No room records found in Services_Rooms table</span><br>`;
           }
+          
+          debugInfo += `</div>`;
+          
+          // Show debug popup for FDF photos
+          const debugAlert = await this.alertController.create({
+            header: 'FDF Photos Debug Info',
+            message: debugInfo,
+            cssClass: 'debug-alert-wide',
+            buttons: [
+              {
+                text: 'Copy Debug Info',
+                handler: () => {
+                  const textToCopy = debugInfo.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+                  navigator.clipboard.writeText(textToCopy).catch(() => {
+                    console.error('Failed to copy debug info');
+                  });
+                  return false;
+                }
+              },
+              { text: 'OK', role: 'cancel' }
+            ]
+          });
+          await debugAlert.present();
+          
         } catch (error) {
-          console.error(`[FDF Photos] Error fetching FDF photos for room ${roomName}:`, error);
+          console.error(`[FDF Photos v1.4.327] Error fetching FDF photos for room ${roomName}:`, error);
+          
+          // Show error popup
+          const errorAlert = await this.alertController.create({
+            header: 'FDF Photos Error',
+            message: `
+              <div style="font-family: monospace; font-size: 12px;">
+                <strong style="color: red;">Error loading FDF photos for ${roomName}</strong><br><br>
+                RoomID: ${roomId}<br>
+                Error: ${error}<br>
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await errorAlert.present();
         }
         
         console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);
