@@ -48,6 +48,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   
+  // PDF generation state
+  isPDFGenerating: boolean = false;
+  pdfGenerationAttempts: number = 0;
+  
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
   visualTemplates: any[] = [];
@@ -266,10 +270,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const debugMessage = `TypeShort NOT Found:\n\nTypeID: ${typeId}\nResponse: ${JSON.stringify(typeData)}\n\nUsing default: Foundation Evaluation`;
         await this.showDebugAlert('TypeShort Missing', debugMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error loading type info:', error);
       // Keep default value if load fails
-      const debugMessage = `Error Loading Type:\n\nTypeID: ${typeId}\nError: ${error}\n\nUsing default: Foundation Evaluation`;
+      
+      // Get detailed error information
+      let errorDetails = '';
+      if (error?.error) {
+        errorDetails = typeof error.error === 'string' ? error.error : JSON.stringify(error.error, null, 2);
+      } else if (error?.message) {
+        errorDetails = error.message;
+      } else {
+        errorDetails = JSON.stringify(error, null, 2);
+      }
+      
+      const debugMessage = `Error Loading Type:\n\nTypeID: ${typeId}\n\nError Details:\n${errorDetails}\n\nStatus: ${error?.status || 'Unknown'}\nStatusText: ${error?.statusText || 'Unknown'}\n\nUsing default: Foundation Evaluation`;
       await this.showDebugAlert('Type Load Error', debugMessage);
     }
   }
@@ -3059,8 +3074,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (event) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
     }
-    // Validate all required Project Information fields before generating PDF
+    
+    // Prevent multiple simultaneous PDF generation attempts
+    if (this.isPDFGenerating) {
+      console.log('PDF generation already in progress, ignoring click');
+      return;
+    }
+    
+    // Track generation attempts for debugging
+    this.pdfGenerationAttempts++;
+    console.log(`PDF generation attempt #${this.pdfGenerationAttempts}`);
+    
+    // Set flag to prevent multiple clicks
+    this.isPDFGenerating = true;
+    
+    try {
+      // Small delay to ensure event handling is complete on first click
+      if (this.pdfGenerationAttempts === 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Validate all required Project Information fields before generating PDF
     const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
     const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
@@ -3077,6 +3113,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (projectSection) {
         projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+      
+      // Reset the generation flag before returning
+      this.isPDFGenerating = false;
       return;
     }
     
@@ -3166,8 +3205,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         loading.dismiss().catch(() => {});
       }, 500);
       
+      // Reset the generation flag after successful modal presentation
+      this.isPDFGenerating = false;
+      
     } catch (error) {
       console.error('Error preparing preview:', error);
+      
+      // Reset the generation flag on error
+      this.isPDFGenerating = false;
+      
       try {
         await loading.dismiss();
       } catch (e) {
@@ -5555,6 +5601,32 @@ Original File: ${originalFile?.name || 'None'}`;
         return;
       }
       
+      // FINAL DATA VALIDATION before sending
+      console.log('🔍 FINAL UPDATE DATA CHECK:');
+      console.log('  updateData:', updateData);
+      console.log('  updateData type:', typeof updateData);
+      console.log('  Keys:', Object.keys(updateData));
+      
+      // Check each field in updateData
+      for (const key in updateData) {
+        const value = updateData[key];
+        console.log(`  Field "${key}":`, {
+          value: value,
+          type: typeof value,
+          isString: typeof value === 'string',
+          length: value?.length,
+          preview: typeof value === 'string' ? value.substring(0, 100) : 'NOT A STRING'
+        });
+        
+        // CRITICAL: Ensure all values are strings for Caspio TEXT fields
+        if (typeof value !== 'string' && value !== null && value !== undefined) {
+          console.error(`❌ Field "${key}" is not a string! Type: ${typeof value}`);
+          // Convert to string if possible
+          updateData[key] = String(value);
+          console.log(`  Converted to string: "${updateData[key]}"`);
+        }
+      }
+      
       // Send update request
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
       
@@ -5750,6 +5822,16 @@ Stack: ${error?.stack}`;
               const attachIdToUse = photo.AttachID || photo.id;
               if (!attachIdToUse || attachIdToUse === 'undefined' || attachIdToUse === 'null') {
                 throw new Error(`Invalid AttachID: ${attachIdToUse} (AttachID: ${photo.AttachID}, id: ${photo.id})`);
+              }
+              
+              // DEBUG: Check annotation data type before passing
+              console.log('📊 Annotation data before updatePhotoAttachment:');
+              console.log('  Type:', typeof annotationsData);
+              console.log('  Is object:', annotationsData && typeof annotationsData === 'object');
+              console.log('  Is string:', typeof annotationsData === 'string');
+              if (typeof annotationsData === 'object') {
+                console.log('  Object keys:', Object.keys(annotationsData || {}));
+                console.log('  Object preview:', JSON.stringify(annotationsData).substring(0, 200));
               }
               
               // Update the existing attachment with annotations
@@ -6793,34 +6875,50 @@ Stack: ${error?.stack}`;
               { field: 'FDFPhotoThreshold', key: 'threshold' }
             ];
             
+            console.log(`[FDF Photos] Room ${roomName} record:`, roomRecord);
+            
             for (const photoType of fdfPhotoTypes) {
               const photoPath = roomRecord[photoType.field];
+              console.log(`[FDF Photos] Checking ${photoType.field}: ${photoPath}`);
+              
               if (photoPath) {
                 // Convert Caspio file path to base64
                 if (photoPath.startsWith('/')) {
                   try {
+                    console.log(`[FDF Photos] Converting ${photoType.key} photo from path: ${photoPath}`);
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
                       fdfPhotosData[photoType.key] = true;
                       fdfPhotosData[`${photoType.key}Url`] = base64Data;
+                      console.log(`[FDF Photos] Successfully converted ${photoType.key} photo to base64`);
+                    } else {
+                      console.error(`[FDF Photos] Invalid base64 data for ${photoType.key}`);
                     }
                   } catch (error) {
-                    console.error(`Failed to convert FDF ${photoType.key} photo:`, error);
+                    console.error(`[FDF Photos] Failed to convert FDF ${photoType.key} photo:`, error);
                     // Try to use token-based URL as fallback
                     const token = await this.caspioService.getValidToken();
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+                    console.log(`[FDF Photos] Using fallback URL for ${photoType.key}`);
                   }
+                } else {
+                  console.log(`[FDF Photos] Photo path doesn't start with / for ${photoType.key}: ${photoPath}`);
                 }
+              } else {
+                console.log(`[FDF Photos] No photo found for ${photoType.field}`);
               }
             }
             
             // Merge with existing fdfPhotos (in case they were already loaded)
             roomResult.fdfPhotos = { ...roomResult.fdfPhotos, ...fdfPhotosData };
+            console.log(`[FDF Photos] Final fdfPhotos for room ${roomName}:`, roomResult.fdfPhotos);
+          } else {
+            console.log(`[FDF Photos] No room records found for RoomID ${roomId}`);
           }
         } catch (error) {
-          console.error(`Error fetching FDF photos for room ${roomName}:`, error);
+          console.error(`[FDF Photos] Error fetching FDF photos for room ${roomName}:`, error);
         }
         
         console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);
@@ -6970,6 +7068,17 @@ Stack: ${error?.stack}`;
     }
     
     console.log(`Prepared elevation data for ${result.length} rooms`);
+    
+    // Debug log FDF photos in final result
+    console.log('[FDF Photos] Final elevation data with FDF photos:');
+    result.forEach(room => {
+      if (room.fdfPhotos && Object.keys(room.fdfPhotos).length > 0) {
+        console.log(`[FDF Photos] Room ${room.name} has FDF photos:`, room.fdfPhotos);
+      } else {
+        console.log(`[FDF Photos] Room ${room.name} has no FDF photos`);
+      }
+    });
+    
     return result;
   }
 

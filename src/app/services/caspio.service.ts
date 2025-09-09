@@ -1298,9 +1298,16 @@ export class CaspioService {
   
   // Type methods
   getType(typeId: string): Observable<any> {
-    // Try using TypeID field instead of PK_ID since TypeID is the actual field name
+    // First try TypeID field
     return this.get<any>(`/tables/Types/records?q.where=TypeID=${typeId}`).pipe(
-      map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
+      map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null),
+      catchError(error => {
+        console.log('TypeID query failed, trying PK_ID as fallback:', error);
+        // If TypeID fails, try PK_ID as fallback
+        return this.get<any>(`/tables/Types/records?q.where=PK_ID=${typeId}`).pipe(
+          map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
+        );
+      })
     );
   }
 

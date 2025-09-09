@@ -50,6 +50,18 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       serviceData: this.serviceData
     });
     
+    // Debug FDF photos in elevation data
+    if (this.elevationData && this.elevationData.length > 0) {
+      console.log('[PDF Preview] Elevation data rooms with FDF photos:');
+      this.elevationData.forEach(room => {
+        if (room.fdfPhotos) {
+          console.log(`[PDF Preview] Room ${room.name} FDF photos:`, room.fdfPhotos);
+        } else {
+          console.log(`[PDF Preview] Room ${room.name} has no FDF photos`);
+        }
+      });
+    }
+    
     // Check if primary photo was preloaded
     if (this.projectData?.primaryPhotoBase64) {
       this.primaryPhotoData = this.projectData.primaryPhotoBase64;

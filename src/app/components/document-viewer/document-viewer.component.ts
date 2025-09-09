@@ -88,7 +88,7 @@ import { FormsModule } from '@angular/forms';
         </div>
         <ngx-extended-pdf-viewer 
           [src]="pdfSource"
-          [height]="'calc(100vh - 80px)'"
+          [height]="'100%'"
           [mobileFriendlyZoom]="'page-width'"
           [showToolbar]="false"
           [showSidebarButton]="false"
@@ -114,9 +114,13 @@ import { FormsModule } from '@angular/forms';
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
+          [enableDragAndDrop]="false"
+          [showSidebarOnLoad]="false"
+          [showThumbnailsOnLoad]="true"
           (pdfLoaded)="onPdfLoaded($event)"
           (pageRendered)="onPageRendered($event)"
           (pagesLoaded)="onPagesLoaded($event)"
+          (thumbnailsLoaded)="onThumbnailsLoaded($event)"
           [showFindHighlightAll]="false"
           [showFindMatchCase]="false"
           [showFindEntireWord]="false"
@@ -274,6 +278,12 @@ import { FormsModule } from '@angular/forms';
     
     .document-viewer-content {
       --background: #f5f5f5;
+      height: 100%;
+    }
+    
+    ::ng-deep .document-viewer-content .inner-scroll {
+      height: 100%;
+      overflow: hidden;
     }
     .viewer-container {
       width: 100%;
@@ -285,23 +295,24 @@ import { FormsModule } from '@angular/forms';
     }
     .pdf-container {
       width: 100%;
-      height: 100%;
+      height: calc(100vh - 80px);
       background: #f5f5f5;
-      overflow: hidden;
       position: relative;
       padding: 0;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     
     ::ng-deep #viewerContainer {
       overflow-y: auto !important;
       overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch !important;
-      flex: 1;
+      height: 100% !important;
       width: 100% !important;
       padding: 8px 0 !important;
       background: #f5f5f5 !important;
+      position: relative !important;
     }
     
     ::ng-deep .page {
@@ -314,20 +325,68 @@ import { FormsModule } from '@angular/forms';
     ::ng-deep .pdfViewer {
       display: block !important;
       width: 100% !important;
+      padding-bottom: 50px !important;
     }
     
-    /* Fix sidebar scrolling independently */
+    /* Sidebar container */
     ::ng-deep #sidebarContainer {
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      height: calc(100vh - 80px) !important;
-      background: #f9f9f9 !important;
+      background: #f0f0f0 !important;
+      width: 200px !important;
     }
     
     ::ng-deep #thumbnailView {
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      padding: 8px !important;
+      background: #f0f0f0 !important;
+    }
+    
+    ::ng-deep .thumbnail {
+      cursor: pointer !important;
+      margin: 8px !important;
+      background: white !important;
+    }
+    
+    ::ng-deep .thumbnail.selected {
+      outline: 2px solid #F15A27 !important;
+    }
+    
+    /* Fix search highlights */
+    ::ng-deep .textLayer .highlight {
+      background-color: rgba(255, 255, 0, 0.5) !important;
+      color: black !important;
+    }
+    
+    ::ng-deep .textLayer .highlight.selected {
+      background-color: rgba(241, 90, 39, 0.6) !important;
+      color: black !important;
+    }
+    
+    ::ng-deep .textLayer .highlight.begin {
+      border-radius: 4px 0 0 4px !important;
+    }
+    
+    ::ng-deep .textLayer .highlight.end {
+      border-radius: 0 4px 4px 0 !important;
+    }
+    
+    ::ng-deep .textLayer .highlight.middle {
+      border-radius: 0 !important;
+    }
+    
+    ::ng-deep .textLayer .highlight.selected {
+      background-color: #F15A27 !important;
+    }
+    
+    /* Ensure text layer is visible */
+    ::ng-deep .textLayer {
+      opacity: 1 !important;
+      mix-blend-mode: multiply !important;
+    }
+    
+    ::ng-deep .textLayer span {
+      color: transparent !important;
+    }
+    
+    ::ng-deep .textLayer .highlight span {
+      color: transparent !important;
     }
     
     /* Modern PDF Viewer Styling */
@@ -382,31 +441,7 @@ import { FormsModule } from '@angular/forms';
         color: #fff !important;
       }
       
-      /* Sidebar styling */
-      #sidebarContainer {
-        background: #1a1a1a !important;
-      }
-      
-      #thumbnailView {
-        background: #1a1a1a !important;
-      }
-      
-      .thumbnail {
-        border: 2px solid transparent !important;
-        border-radius: 4px !important;
-        margin: 8px !important;
-        transition: all 0.2s ease !important;
-      }
-      
-      .thumbnail:hover {
-        border-color: #F15A27 !important;
-        transform: scale(1.02);
-      }
-      
-      .thumbnail.selected {
-        border-color: #F15A27 !important;
-        box-shadow: 0 0 10px rgba(241, 90, 39, 0.3) !important;
-      }
+      /* Sidebar styling - removed duplicates */
       
       /* Hide the entire default search bar */
       #findbar {
@@ -547,6 +582,28 @@ import { FormsModule } from '@angular/forms';
         overflow: auto;
         height: 100%;
       }
+    }
+    
+    /* Ensure full height for modal */
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    ion-content {
+      flex: 1;
+      height: 100%;
+    }
+    
+    /* Override any max-height constraints */
+    ::ng-deep .pdfViewer.removePageBorders .page {
+      margin: 0 auto !important;
+    }
+    
+    ::ng-deep #viewer {
+      height: 100% !important;
+      overflow-y: auto !important;
     }
   `]
 })
@@ -716,38 +773,57 @@ export class DocumentViewerComponent implements OnInit {
   performSearch() {
     const pdfApp = (window as any).PDFViewerApplication;
     
-    if (pdfApp && pdfApp.findController) {
-      // Use PDFViewerApplication's find controller directly
-      pdfApp.findController.executeCommand('find', {
+    if (pdfApp && pdfApp.eventBus) {
+      // Dispatch find event through the event bus
+      pdfApp.eventBus.dispatch('find', {
+        source: window,
+        type: '',
         query: this.searchTerm,
-        highlightAll: true,
+        phraseSearch: false,
         caseSensitive: false,
         entireWord: false,
+        highlightAll: true,
         findPrevious: false
       });
       
       // Get search results count after a delay
       setTimeout(() => {
-        if (pdfApp.findController._matchesCountTotal !== undefined) {
-          this.searchResultsCount = pdfApp.findController._matchesCountTotal;
-          this.currentSearchIndex = pdfApp.findController._matchesCountTotal > 0 ? 0 : -1;
+        if (pdfApp.findController) {
+          const matchesCount = pdfApp.findController.matchesCount;
+          if (matchesCount) {
+            this.searchResultsCount = matchesCount.total || 0;
+            this.currentSearchIndex = matchesCount.current > 0 ? matchesCount.current - 1 : 0;
+          } else {
+            this.searchResultsCount = 0;
+            this.currentSearchIndex = 0;
+          }
         }
-      }, 300);
+      }, 500);
     }
   }
 
   searchNext() {
     if (this.searchTerm && this.searchResultsCount > 0) {
       const pdfApp = (window as any).PDFViewerApplication;
-      if (pdfApp && pdfApp.findController) {
-        pdfApp.findController.executeCommand('findagain', {
+      if (pdfApp && pdfApp.eventBus) {
+        pdfApp.eventBus.dispatch('find', {
+          source: window,
+          type: 'again',
           query: this.searchTerm,
-          highlightAll: true,
+          phraseSearch: false,
           caseSensitive: false,
           entireWord: false,
+          highlightAll: true,
           findPrevious: false
         });
         this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultsCount;
+        
+        // Update count
+        setTimeout(() => {
+          if (pdfApp.findController && pdfApp.findController.matchesCount) {
+            this.currentSearchIndex = pdfApp.findController.matchesCount.current - 1;
+          }
+        }, 100);
       }
     }
   }
@@ -755,26 +831,42 @@ export class DocumentViewerComponent implements OnInit {
   searchPrevious() {
     if (this.searchTerm && this.searchResultsCount > 0) {
       const pdfApp = (window as any).PDFViewerApplication;
-      if (pdfApp && pdfApp.findController) {
-        pdfApp.findController.executeCommand('findagain', {
+      if (pdfApp && pdfApp.eventBus) {
+        pdfApp.eventBus.dispatch('find', {
+          source: window,
+          type: 'again',
           query: this.searchTerm,
-          highlightAll: true,
+          phraseSearch: false,
           caseSensitive: false,
           entireWord: false,
+          highlightAll: true,
           findPrevious: true
         });
         this.currentSearchIndex = this.currentSearchIndex === 0 ? 
           this.searchResultsCount - 1 : this.currentSearchIndex - 1;
+        
+        // Update count
+        setTimeout(() => {
+          if (pdfApp.findController && pdfApp.findController.matchesCount) {
+            this.currentSearchIndex = pdfApp.findController.matchesCount.current - 1;
+          }
+        }, 100);
       }
     }
   }
 
   clearSearchHighlights() {
     const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp && pdfApp.findController) {
-      pdfApp.findController.executeCommand('find', {
+    if (pdfApp && pdfApp.eventBus) {
+      pdfApp.eventBus.dispatch('find', {
+        source: window,
+        type: '',
         query: '',
-        highlightAll: false
+        phraseSearch: false,
+        caseSensitive: false,
+        entireWord: false,
+        highlightAll: false,
+        findPrevious: false
       });
     }
   }
@@ -851,17 +943,33 @@ export class DocumentViewerComponent implements OnInit {
 
   onPagesLoaded(event: any) {
     console.log('All pages loaded:', event);
-    // Simply ensure proper scroll mode is set
+    // Ensure proper scroll mode and container setup
     setTimeout(() => {
       const pdfViewer = (window as any).PDFViewerApplication;
       if (pdfViewer && pdfViewer.pdfViewer) {
         pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
         pdfViewer.pdfViewer.spreadMode = 0; // NONE
+        
+        // Force update the viewer to recalculate scroll height
+        pdfViewer.pdfViewer.update();
+      }
+      
+      // Fix the viewer container height
+      const viewerContainer = document.getElementById('viewerContainer');
+      if (viewerContainer) {
+        // Ensure container can scroll all content
+        viewerContainer.style.height = '100%';
+        viewerContainer.style.overflowY = 'auto';
+        viewerContainer.style.position = 'relative';
+        
+        // Force a reflow to ensure scrolling works
+        viewerContainer.scrollTop = 1;
+        viewerContainer.scrollTop = 0;
       }
       
       // Add click event listeners to thumbnails for page navigation
       this.setupThumbnailClickHandlers();
-    }, 100);
+    }, 200);
   }
   
   setupThumbnailClickHandlers() {
@@ -918,14 +1026,35 @@ export class DocumentViewerComponent implements OnInit {
     }
   }
 
+  onThumbnailsLoaded(event: any) {
+    console.log('Thumbnails loaded:', event);
+    // Setup thumbnail click handlers after thumbnails are loaded
+    setTimeout(() => {
+      this.setupThumbnailClickHandlers();
+      this.setupThumbnailEventDelegation();
+    }, 300);
+  }
+
   toggleSidebar() {
     this.sidebarVisible = !this.sidebarVisible;
+    console.log('Sidebar toggled:', this.sidebarVisible);
     
-    // Re-setup thumbnail handlers when sidebar is shown
-    if (this.sidebarVisible) {
-      setTimeout(() => {
-        this.setupThumbnailClickHandlers();
-      }, 200);
+    // Force PDF viewer to show/hide sidebar
+    const pdfApp = (window as any).PDFViewerApplication;
+    if (pdfApp && pdfApp.pdfSidebar) {
+      if (this.sidebarVisible) {
+        pdfApp.pdfSidebar.open();
+        // Ensure thumbnails view is selected
+        pdfApp.pdfSidebar.switchView(0); // 0 = thumbnails view
+        
+        // Re-setup thumbnail handlers when sidebar is shown
+        setTimeout(() => {
+          this.setupThumbnailClickHandlers();
+          this.setupThumbnailEventDelegation();
+        }, 300);
+      } else {
+        pdfApp.pdfSidebar.close();
+      }
     }
   }
 
