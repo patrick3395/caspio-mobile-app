@@ -6547,8 +6547,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private updateVisualInOrganizedData(visual: any): void {
-    const category = visual.Category;
-    const kind = visual.Kind?.toLowerCase();
+    const category: string = visual.Category;
+    const kind: string | undefined = visual.Kind?.toLowerCase();
     
     if (!this.organizedData[category]) {
       this.organizedData[category] = {
