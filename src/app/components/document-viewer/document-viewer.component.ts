@@ -99,7 +99,6 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [minZoom]="0.1"
           [maxZoom]="10"
           [textLayer]="true"
-          [removePageBorders]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pageRendered)="onPageRendered($event)"
           (pagesLoaded)="onPagesLoaded($event)"
