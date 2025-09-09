@@ -3222,6 +3222,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       await this.showToast('Failed to prepare preview', 'danger');
     }
+  } catch (error) {
+    // Outer catch for the main try block
+    console.error('Error in generatePDF:', error);
+    this.isPDFGenerating = false;
+    await this.showToast('Failed to generate PDF', 'danger');
   }
   }
   
