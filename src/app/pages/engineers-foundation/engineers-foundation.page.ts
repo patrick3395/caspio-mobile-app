@@ -1365,50 +1365,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         uploadPromises.push(uploadPromise);
       }
       
-      // If only one photo, show dialog immediately while upload happens in background
-      if (files.length === 1) {
-        // Show dialog immediately, don't wait for upload
-        const continueAlert = await this.alertController.create({
-            cssClass: 'compact-photo-selector photo-upload-dialog',
-            backdropDismiss: false,
-            buttons: [
-              {
-                text: 'Done',
-                role: 'done',
-                cssClass: 'done-button'
-              },
-              {
-                text: 'Take Another Photo',
-                role: 'another',
-                cssClass: 'action-button',
-                handler: async () => {
-                  // Use camera service directly like Structural section
-                  setTimeout(async () => {
-                    await this.captureAnotherRoomPhoto(roomName, point, pointId);
-                  }, 100);
-                  return true;
-                }
-              }
-            ]
-          });
-          
-          await continueAlert.present();
-      } else {
-        // For multiple files, wait for uploads to complete
-        await Promise.all(uploadPromises);
-        
-        if (uploadSuccessCount === 0) {
-          await this.showToast('Failed to upload photos', 'danger');
-        }
-      }
+      // Don't show "Take Another Photo" prompt for file input selections
+      // The native file picker already allows multiple selection
+      // This prompt should only appear when using the camera service directly
       
-      // Handle remaining uploads in background if single file
-      if (files.length === 1) {
-        Promise.all(uploadPromises).then(() => {
-          console.log('Background upload complete');
-        }).catch(err => {
-          console.error('Background upload error:', err);
-        });
+      // Wait for all uploads to complete regardless of count
+      await Promise.all(uploadPromises);
+        
+      if (uploadSuccessCount === 0) {
+        await this.showToast('Failed to upload photos', 'danger');
       }
       
     } catch (error) {
@@ -4539,34 +4504,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           await this.showToast('Failed to upload photos', 'danger');
         }
         
-        // If only one photo was uploaded (likely from Take Photo), offer to take more
-        if (files.length === 1 && uploadSuccessCount === 1) {
-          // Trigger the multi-photo capture loop immediately
-            const continueAlert = await this.alertController.create({
-              cssClass: 'compact-photo-selector',
-              buttons: [
-                {
-                  text: 'Take Another Photo',
-                  cssClass: 'action-button',
-                  handler: async () => {
-                    // Start multi-photo capture
-                    await this.startMultiPhotoCapture(visualId, key, category, itemId);
-                    return true;
-                  }
-                },
-                {
-                  text: 'Done',
-                  cssClass: 'done-button',
-                  handler: () => {
-                    return true;
-                  }
-                }
-              ],
-              backdropDismiss: false
-            });
-            
-            await continueAlert.present();
-        }
+        // Don't show "Take Another Photo" prompt for file input selections
+        // The native file picker already allows multiple selection
+        // This prompt should only appear when using the camera service directly
         
         // No need to restore states - the UI should remain unchanged
         
@@ -6489,7 +6429,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Convert all photos to base64 for PDF compatibility - in parallel
     const photoPromises = photos.map(async (photo) => {
-      let photoUrl = photo.Photo || photo.url || '';
+      // Prioritize displayUrl (annotated) over regular url
+      let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
       let finalUrl = photoUrl;
       
       // If it's a Caspio file path (starts with /), convert to base64
@@ -6525,10 +6466,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         finalUrl = photoUrl;
       }
       
+      // Return the photo object with the appropriate URLs
+      // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
       return {
-        url: finalUrl,
+        url: photo.url || finalUrl, // Original URL
+        displayUrl: finalUrl, // This will be the annotated version if it exists, otherwise the original
         caption: photo.Annotation || '',
-        attachId: photo.AttachID || photo.id || ''
+        attachId: photo.AttachID || photo.id || '',
+        hasAnnotations: photo.hasAnnotations || false
       };
     });
     

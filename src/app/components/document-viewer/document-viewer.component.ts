@@ -10,25 +10,54 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
   imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
-        <ion-title style="color: white;">{{ fileName || 'Document Viewer' }}</ion-title>
-        <div *ngIf="isPDF" class="search-container" slot="end">
-          <ion-icon name="search-outline" style="color: white; margin-right: 8px;"></ion-icon>
-          <input type="text" 
-                 placeholder="Search..." 
-                 class="header-search-input"
-                 (input)="onSearchChange($event)"
-                 (keyup.enter)="searchNext()"
-                 #searchInput />
+      <ion-toolbar style="--background: #F15A27; padding: 0 8px;">
+        <div class="header-controls" *ngIf="isPDF">
+          <!-- Sidebar Toggle -->
+          <ion-button fill="clear" size="small" (click)="toggleSidebar()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
+            <ion-icon name="menu-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          
+          <!-- Zoom Controls -->
+          <ion-button fill="clear" size="small" (click)="zoomOut()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
+            <ion-icon name="remove-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          <span class="zoom-level">{{ currentZoom }}%</span>
+          <ion-button fill="clear" size="small" (click)="zoomIn()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
+            <ion-icon name="add-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          
+          <!-- Search Bar -->
+          <div class="search-container">
+            <ion-icon name="search-outline" style="color: white; margin-right: 4px;"></ion-icon>
+            <input type="text" 
+                   placeholder="Search..." 
+                   class="header-search-input"
+                   (input)="onSearchChange($event)"
+                   (keyup.enter)="searchNext()"
+                   #searchInput />
+          </div>
+          
+          <!-- Right Side Actions -->
+          <div class="header-actions">
+            <ion-button fill="clear" size="small" (click)="openInNewTab()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
+              <ion-icon name="open-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small" (click)="dismiss()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
+              <ion-icon name="close" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
         </div>
-        <ion-buttons slot="end">
-          <ion-button (click)="openInNewTab()" style="color: white;">
+        
+        <!-- Non-PDF header -->
+        <div class="header-controls" *ngIf="!isPDF">
+          <ion-title style="color: white; flex: 1;">{{ fileName || 'Document Viewer' }}</ion-title>
+          <ion-button fill="clear" size="small" (click)="openInNewTab()" style="color: white;">
             <ion-icon name="open-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <ion-button (click)="dismiss()" style="color: white;">
+          <ion-button fill="clear" size="small" (click)="dismiss()" style="color: white;">
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
-        </ion-buttons>
+        </div>
       </ion-toolbar>
     </ion-header>
     <ion-content class="document-viewer-content">
@@ -46,12 +75,12 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [src]="pdfSource"
           [height]="'calc(100vh - 56px)'"
           [mobileFriendlyZoom]="'page-width'"
-          [showToolbar]="true"
-          [showSidebarButton]="true"
-          [sidebarVisible]="false"
+          [showToolbar]="false"
+          [showSidebarButton]="false"
+          [sidebarVisible]="sidebarVisible"
           [showFindButton]="false"
-          [showPagingButtons]="true"
-          [showZoomButtons]="true"
+          [showPagingButtons]="false"
+          [showZoomButtons]="false"
           [showPresentationModeButton]="false"
           [showOpenFileButton]="false"
           [showPrintButton]="false"
@@ -61,11 +90,11 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           [showHandToolButton]="true"
           [showSpreadButton]="false"
           [showPropertiesButton]="false"
-          [zoom]="'page-width'"
+          [zoom]="'page-fit'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'infinite-scroll'"
-          [scrollMode]="1"
+          [pageViewMode]="'multiple'"
+          [scrollMode]="3"
           [showBorders]="false"
           [minZoom]="0.1"
           [maxZoom]="10"
@@ -88,22 +117,42 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     </ion-content>
   `,
   styles: [`
+    .header-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 44px;
+      gap: 8px;
+    }
+    
+    .zoom-level {
+      color: white;
+      font-size: 12px;
+      min-width: 40px;
+      text-align: center;
+      margin: 0 2px;
+    }
+    
     .search-container {
       display: flex;
       align-items: center;
-      margin-right: 16px;
+      flex: 1;
+      max-width: 300px;
+      margin: 0 8px;
     }
     
     .header-search-input {
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 20px;
+      border-radius: 16px;
       color: white;
-      padding: 6px 16px;
-      width: 200px;
-      font-size: 14px;
+      padding: 4px 12px;
+      width: 100%;
+      font-size: 13px;
       outline: none;
       transition: all 0.3s ease;
+      height: 28px;
     }
     
     .header-search-input::placeholder {
@@ -113,7 +162,12 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     .header-search-input:focus {
       background: rgba(255, 255, 255, 0.25);
       border-color: white;
-      width: 250px;
+    }
+    
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
     
     .pdf-loading {
@@ -154,9 +208,16 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     }
     
     ::ng-deep #viewerContainer {
-      overflow: auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch !important;
       flex: 1;
+      width: 100% !important;
+    }
+    
+    ::ng-deep .page {
+      margin: 0 auto !important;
+      max-width: 100% !important;
     }
     
     /* Modern PDF Viewer Styling */
@@ -396,6 +457,8 @@ export class DocumentViewerComponent implements OnInit {
   pdfLoaded: boolean = false;
   totalPages: number = 0;
   currentPage: number = 1;
+  currentZoom: number = 100;
+  sidebarVisible: boolean = false;
 
   constructor(
     private modalController: ModalController,
@@ -547,6 +610,28 @@ export class DocumentViewerComponent implements OnInit {
         // First page rendered, PDF is becoming visible
         this.currentPage = 1;
       }
+    }
+  }
+
+  toggleSidebar() {
+    this.sidebarVisible = !this.sidebarVisible;
+    // Force update the PDF viewer sidebar
+    setTimeout(() => {
+      this.pdfViewerService.updateSidebarVisibility(this.sidebarVisible);
+    }, 50);
+  }
+
+  zoomIn() {
+    if (this.currentZoom < 300) {
+      this.currentZoom = Math.min(300, this.currentZoom + 25);
+      this.pdfViewerService.zoomTo(this.currentZoom / 100);
+    }
+  }
+
+  zoomOut() {
+    if (this.currentZoom > 25) {
+      this.currentZoom = Math.max(25, this.currentZoom - 25);
+      this.pdfViewerService.zoomTo(this.currentZoom / 100);
     }
   }
 

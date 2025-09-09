@@ -313,11 +313,11 @@ ion-content {
     .visual-item-container {
       ion-item.checkbox-item.with-camera {
         position: relative;
-        padding-right: 50px; // Make room for camera button
+        padding-bottom: 35px; // Make room for camera button at bottom
         
         .camera-button-structural {
           position: absolute;
-          top: 10px;
+          bottom: 8px;
           right: 10px;
           background: var(--noble-orange);
           color: white;
