@@ -30,10 +30,11 @@ interface ServicesVisualRecord {
   selector: 'app-engineers-foundation',
   templateUrl: './engineers-foundation.page.html',
   styleUrls: ['./engineers-foundation.page.scss'],
-  standalone: false
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy {
-  // Build cache fix: v1.4.245 - Force rebuild to clear stale cache
+  // Build cache fix: v1.4.246 - Force rebuild with standalone component
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   
   projectId: string = '';
