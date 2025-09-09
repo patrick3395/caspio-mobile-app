@@ -5306,10 +5306,60 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // CRITICAL: Check if attachId is valid
       if (!attachId || attachId === 'undefined' || attachId === 'null') {
         console.error('❌ Invalid AttachID:', attachId);
+        
+        // Show debug popup with detailed error info
+        const alert = await this.alertController.create({
+          header: '❌ Debug: Invalid AttachID',
+          message: `
+            <div style="font-family: monospace; font-size: 12px; text-align: left;">
+              <strong style="color: red;">FAILED TO UPDATE - Invalid AttachID</strong><br><br>
+              
+              <strong>AttachID Value:</strong> "${attachId}"<br>
+              <strong>AttachID Type:</strong> ${typeof attachId}<br>
+              <strong>Is Undefined:</strong> ${attachId === undefined}<br>
+              <strong>Is Null:</strong> ${attachId === null}<br>
+              <strong>Is 'undefined' string:</strong> ${attachId === 'undefined'}<br>
+              <strong>Is 'null' string:</strong> ${attachId === 'null'}<br>
+              <strong>Is Empty:</strong> ${!attachId}<br><br>
+              
+              <strong>File Info:</strong><br>
+              • Name: ${file?.name || 'N/A'}<br>
+              • Size: ${file?.size || 0} bytes<br><br>
+              
+              <strong>Has Annotations:</strong> ${!!annotations}<br>
+              <strong>Has Original File:</strong> ${!!originalFile}<br><br>
+              
+              <strong style="color: orange;">This error typically occurs when:</strong><br>
+              • Photo was loaded but AttachID wasn't preserved<br>
+              • Photo object is missing ID fields<br>
+              • Database didn't return AttachID<br><br>
+              
+              <strong>Stack Trace:</strong><br>
+              ${new Error().stack?.split('\n').slice(0, 5).join('<br>')}
+            </div>
+          `,
+          buttons: [
+            {
+              text: 'Copy Debug Info',
+              handler: () => {
+                const debugText = `Invalid AttachID Debug:
+AttachID: "${attachId}"
+Type: ${typeof attachId}
+File: ${file?.name}
+Has Annotations: ${!!annotations}`;
+                navigator.clipboard.writeText(debugText);
+                return false;
+              }
+            },
+            { text: 'OK', role: 'cancel' }
+          ]
+        });
+        await alert.present();
+        
         throw new Error('Cannot update photo: Invalid AttachID');
       }
       
-      // Update annotations without debug popups
+      // Update annotations - NOW WITH DEBUG POPUP
       
       // IMPORTANT: We do NOT upload the annotated file anymore!
       // We only save the annotation JSON data to the Drawings field
@@ -5338,8 +5388,78 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('📝 Storing ONLY annotations in Drawings field (NO file uploads):', updateData.Drawings);
       }
       
-      // Send update request without debug popup
+      // Show debug popup before update
+      const debugAlert = await this.alertController.create({
+        header: '🔍 Debug: Annotation Update',
+        message: `
+          <div style="font-family: monospace; font-size: 12px; text-align: left;">
+            <strong style="color: blue;">ATTEMPTING TO UPDATE ATTACHMENT</strong><br><br>
+            
+            <strong>AttachID:</strong> <span style="color: green;">${attachId}</span><br>
+            <strong>AttachID Type:</strong> ${typeof attachId}<br><br>
+            
+            <strong>Update Data:</strong><br>
+            • Drawings field: ${updateData.Drawings ? 'YES (annotation JSON)' : 'NO'}<br>
+            • Drawings length: ${updateData.Drawings?.length || 0} chars<br><br>
+            
+            <strong>File Info:</strong><br>
+            • Name: ${file?.name || 'N/A'}<br>
+            • Size: ${file?.size || 0} bytes<br>
+            • Type: ${file?.type || 'N/A'}<br><br>
+            
+            <strong>Original File:</strong> ${originalFile ? originalFile.name : 'None'}<br><br>
+            
+            <strong>API Call:</strong><br>
+            • Table: Services_Visuals_Attach<br>
+            • Method: PUT (update)<br>
+            • Where: AttachID=${attachId}<br><br>
+            
+            <strong style="color: orange;">What happens next:</strong><br>
+            1. Update Services_Visuals_Attach.Drawings field<br>
+            2. Photo field remains unchanged (keeps original)<br>
+            3. Annotations stored as JSON for re-editing<br>
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Copy Debug',
+            handler: () => {
+              const debugText = `Update Attachment Debug:
+AttachID: ${attachId}
+Type: ${typeof attachId}
+File: ${file?.name}
+Has Drawings: ${!!updateData.Drawings}
+Original File: ${originalFile?.name || 'None'}`;
+              navigator.clipboard.writeText(debugText);
+              return false;
+            }
+          },
+          {
+            text: 'Cancel Update',
+            role: 'cancel',
+            handler: () => {
+              console.log('Update cancelled by user');
+              throw new Error('Update cancelled by user');
+            }
+          },
+          {
+            text: 'Continue',
+            handler: async () => {
+              // Continue with the update
+              return true;
+            }
+          }
+        ]
+      });
       
+      await debugAlert.present();
+      const { role } = await debugAlert.onDidDismiss();
+      
+      if (role === 'cancel') {
+        throw new Error('Update cancelled by user');
+      }
+      
+      // Send update request
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
       
       console.log('✅ Photo attachment updated successfully');
@@ -5355,6 +5475,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Quick annotate - open annotator directly
   async quickAnnotate(photo: any, category: string, itemId: string) {
     try {
+      // DEBUG: Show what data we have for this photo
+      console.log('🔍 quickAnnotate called with photo:', photo);
+      console.log('  Photo object keys:', Object.keys(photo));
+      console.log('  AttachID:', photo.AttachID);
+      console.log('  id:', photo.id);
+      console.log('  PK_ID:', photo.PK_ID);
+      console.log('  Has annotations:', !!photo.annotations);
+      
+      // Show debug popup with photo data
+      const photoDebugAlert = await this.alertController.create({
+        header: '📸 Debug: Photo Data',
+        message: `
+          <div style="font-family: monospace; font-size: 11px; text-align: left;">
+            <strong style="color: blue;">PHOTO OBJECT INSPECTION</strong><br><br>
+            
+            <strong>Identity Fields:</strong><br>
+            • AttachID: <span style="color: ${photo.AttachID ? 'green' : 'red'}">${photo.AttachID || 'MISSING'}</span><br>
+            • id: <span style="color: ${photo.id ? 'green' : 'red'}">${photo.id || 'MISSING'}</span><br>
+            • PK_ID: ${photo.PK_ID || 'N/A'}<br><br>
+            
+            <strong>Photo Info:</strong><br>
+            • Name: ${photo.name || 'N/A'}<br>
+            • Photo field: ${photo.Photo || 'N/A'}<br>
+            • FilePath: ${photo.filePath || 'N/A'}<br><br>
+            
+            <strong>URLs:</strong><br>
+            • url: ${photo.url ? 'YES' : 'NO'}<br>
+            • thumbnailUrl: ${photo.thumbnailUrl ? 'YES' : 'NO'}<br>
+            • displayUrl: ${photo.displayUrl ? 'YES' : 'NO'}<br>
+            • originalUrl: ${photo.originalUrl ? 'YES' : 'NO'}<br><br>
+            
+            <strong>Annotations:</strong><br>
+            • Has annotations: ${!!photo.annotations}<br>
+            • Has annotationsData: ${!!photo.annotationsData}<br>
+            • Has Drawings: ${!!photo.Drawings}<br>
+            • Annotation field: ${photo.Annotation || 'empty'}<br><br>
+            
+            <strong>Category/Item:</strong><br>
+            • Category: ${category}<br>
+            • ItemId: ${itemId}<br>
+            • Key: ${category}_${itemId}<br><br>
+            
+            <strong style="color: orange;">All Photo Keys:</strong><br>
+            ${Object.keys(photo).join(', ')}<br><br>
+            
+            <strong style="color: red;">CRITICAL:</strong> If AttachID and id are both missing,<br>
+            the update will fail!
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Copy Full Data',
+            handler: () => {
+              navigator.clipboard.writeText(JSON.stringify(photo, null, 2));
+              return false;
+            }
+          },
+          { text: 'Continue', role: 'cancel' }
+        ]
+      });
+      await photoDebugAlert.present();
+      await photoDebugAlert.onDidDismiss();
+      
       const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = photo.name || 'Photo';
       

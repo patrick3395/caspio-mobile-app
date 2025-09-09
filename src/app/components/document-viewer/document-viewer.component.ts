@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-document-viewer',
   standalone: true,
-  imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
+  imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule, FormsModule],
   template: `
     <ion-header>
       <ion-toolbar style="--background: #F15A27; padding: 0 8px; padding-top: var(--ion-safe-area-top);">
@@ -21,20 +22,29 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
           <ion-button fill="clear" size="small" (click)="zoomOut()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
             <ion-icon name="remove-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <span class="zoom-level">{{ currentZoom }}%</span>
           <ion-button fill="clear" size="small" (click)="zoomIn()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
             <ion-icon name="add-outline" slot="icon-only"></ion-icon>
           </ion-button>
           
-          <!-- Search Bar -->
+          <!-- Search Bar with Results -->
           <div class="search-container">
             <ion-icon name="search-outline" style="color: white; margin-right: 4px;"></ion-icon>
             <input type="text" 
                    placeholder="Search..." 
                    class="header-search-input"
+                   [(ngModel)]="searchTerm"
                    (input)="onSearchChange($event)"
                    (keyup.enter)="searchNext()"
                    #searchInput />
+            <div class="search-results" *ngIf="searchTerm && searchResultsCount >= 0">
+              <span class="results-count">{{ currentSearchIndex + 1 }}/{{ searchResultsCount }}</span>
+              <ion-button fill="clear" size="small" (click)="searchPrevious()" [disabled]="searchResultsCount === 0" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
+                <ion-icon name="chevron-up-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
+              </ion-button>
+              <ion-button fill="clear" size="small" (click)="searchNext()" [disabled]="searchResultsCount === 0" style="color: white; --padding-start: 2px; --padding-end: 2px; min-height: 24px;">
+                <ion-icon name="chevron-down-outline" slot="icon-only" style="font-size: 16px;"></ion-icon>
+              </ion-button>
+            </div>
           </div>
           
           <!-- Right Side Actions -->
@@ -128,20 +138,13 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
       gap: 8px;
     }
     
-    .zoom-level {
-      color: white;
-      font-size: 12px;
-      min-width: 40px;
-      text-align: center;
-      margin: 0 2px;
-    }
-    
     .search-container {
       display: flex;
       align-items: center;
       flex: 1;
-      max-width: 300px;
+      max-width: 450px;
       margin: 0 8px;
+      position: relative;
     }
     
     .header-search-input {
@@ -164,6 +167,23 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     .header-search-input:focus {
       background: rgba(255, 255, 255, 0.25);
       border-color: white;
+    }
+    
+    .search-results {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 8px;
+    }
+    
+    .results-count {
+      color: white;
+      font-size: 12px;
+      min-width: 50px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 10px;
     }
     
     .header-actions {
@@ -211,11 +231,11 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     
     ::ng-deep #viewerContainer {
       overflow-y: auto !important;
-      overflow-x: auto !important;
+      overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch !important;
       flex: 1;
       width: 100% !important;
-      padding: 8px 4px !important;
+      padding: 8px 0 !important;
       background: #2d2d2d !important;
       display: flex !important;
       flex-direction: column !important;
@@ -224,7 +244,8 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     
     ::ng-deep .page {
       margin: 8px auto 16px auto !important;
-      max-width: calc(100% - 16px) !important;
+      max-width: min(100%, calc(100vw - 32px)) !important;
+      width: auto !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
       border: 1px solid #444 !important;
       page-break-after: always !important;
@@ -235,6 +256,21 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
+      width: 100% !important;
+    }
+    
+    /* Fix sidebar scrolling independently */
+    ::ng-deep #sidebarContainer {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      height: calc(100vh - 80px) !important;
+      position: relative !important;
+    }
+    
+    ::ng-deep #thumbnailView {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      padding: 8px !important;
     }
     
     /* Modern PDF Viewer Styling */
@@ -476,6 +512,8 @@ export class DocumentViewerComponent implements OnInit {
   currentPage: number = 1;
   currentZoom: number = 100;
   sidebarVisible: boolean = false;
+  searchResultsCount: number = 0;
+  currentSearchIndex: number = 0;
 
   constructor(
     private modalController: ModalController,
@@ -573,15 +611,30 @@ export class DocumentViewerComponent implements OnInit {
 
   onSearchChange(event: any) {
     this.searchTerm = event.target.value;
+    this.currentSearchIndex = 0;
+    
     if (this.searchTerm && this.searchTerm.length > 0) {
       // Use the PDF viewer service to search
-      this.pdfViewerService.find(this.searchTerm, {
+      const searchPromise = this.pdfViewerService.find(this.searchTerm, {
         highlightAll: true,
         matchCase: false,
-        wholeWords: false
+        wholeWords: false,
+        findPrevious: false
       });
+      
+      // Get search results count from PDFViewerApplication
+      setTimeout(() => {
+        const pdfApp = (window as any).PDFViewerApplication;
+        if (pdfApp && pdfApp.findController) {
+          const matchesCount = pdfApp.findController._matchesCountTotal;
+          this.searchResultsCount = matchesCount || 0;
+          console.log('Search results count:', this.searchResultsCount);
+        }
+      }, 300);
     } else {
       // Clear search if empty
+      this.searchResultsCount = 0;
+      this.currentSearchIndex = 0;
       this.pdfViewerService.find('', {
         highlightAll: false
       });
@@ -589,13 +642,16 @@ export class DocumentViewerComponent implements OnInit {
   }
 
   searchNext() {
-    if (this.searchTerm) {
+    if (this.searchTerm && this.searchResultsCount > 0) {
+      this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultsCount;
       this.pdfViewerService.findNext();
     }
   }
 
   searchPrevious() {
-    if (this.searchTerm) {
+    if (this.searchTerm && this.searchResultsCount > 0) {
+      this.currentSearchIndex = this.currentSearchIndex === 0 ? 
+        this.searchResultsCount - 1 : this.currentSearchIndex - 1;
       this.pdfViewerService.findPrevious();
     }
   }
@@ -679,22 +735,24 @@ export class DocumentViewerComponent implements OnInit {
   }
 
   zoomIn() {
-    if (this.currentZoom < 300) {
-      this.currentZoom = Math.min(300, this.currentZoom + 25);
-      // Use the service's currentZoom property
-      if (this.pdfViewerService) {
-        (this.pdfViewerService as any).currentZoom = this.currentZoom / 100;
-      }
+    const pdfApp = (window as any).PDFViewerApplication;
+    if (pdfApp && pdfApp.pdfViewer) {
+      const currentScale = pdfApp.pdfViewer.currentScale;
+      const newScale = Math.min(3, currentScale + 0.25);
+      pdfApp.pdfViewer.currentScaleValue = newScale;
+      this.currentZoom = Math.round(newScale * 100);
+      console.log('Zooming in to:', this.currentZoom + '%');
     }
   }
 
   zoomOut() {
-    if (this.currentZoom > 25) {
-      this.currentZoom = Math.max(25, this.currentZoom - 25);
-      // Use the service's currentZoom property
-      if (this.pdfViewerService) {
-        (this.pdfViewerService as any).currentZoom = this.currentZoom / 100;
-      }
+    const pdfApp = (window as any).PDFViewerApplication;
+    if (pdfApp && pdfApp.pdfViewer) {
+      const currentScale = pdfApp.pdfViewer.currentScale;
+      const newScale = Math.max(0.25, currentScale - 0.25);
+      pdfApp.pdfViewer.currentScaleValue = newScale;
+      this.currentZoom = Math.round(newScale * 100);
+      console.log('Zooming out to:', this.currentZoom + '%');
     }
   }
 

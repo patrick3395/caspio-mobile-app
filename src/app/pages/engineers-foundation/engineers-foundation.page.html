@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.305 - Camera icon only shows after visual selection</div>
+    <div class="version-header">Version 1.4.308 - Fixed dropdown width overflow in form sections</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -444,7 +444,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
+                          <p class="item-text clickable" [class.text-with-camera]="isItemSelected(category, item.id)" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
@@ -573,7 +573,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
+                          <p class="item-text clickable" [class.text-with-camera]="isItemSelected(category, item.id)" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
@@ -702,7 +702,7 @@
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
-                          <p class="item-text clickable" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
+                          <p class="item-text clickable" [class.text-with-camera]="isItemSelected(category, item.id)" *ngIf="item.text" title="Click to view/edit full text">{{ item.text }}</p>
                         </ion-label>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
