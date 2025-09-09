@@ -412,7 +412,7 @@
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
                             <ion-checkbox 
                               slot="start"
-                              [checked]="isOptionSelected(item, option)"
+                              [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
                               [disabled]="isItemSaving(category, item.id)">
                             </ion-checkbox>
@@ -545,7 +545,7 @@
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
                             <ion-checkbox 
                               slot="start"
-                              [checked]="isOptionSelected(item, option)"
+                              [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
                               [disabled]="isItemSaving(category, item.id)">
                             </ion-checkbox>
@@ -678,7 +678,7 @@
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
                             <ion-checkbox 
                               slot="start"
-                              [checked]="isOptionSelected(item, option)"
+                              [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
                               [disabled]="isItemSaving(category, item.id)">
                             </ion-checkbox>
