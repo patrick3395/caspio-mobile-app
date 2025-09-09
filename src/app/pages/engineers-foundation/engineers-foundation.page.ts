@@ -5900,9 +5900,9 @@ Original File: ${originalFile?.name || 'None'}`;
             <strong>Request Details:</strong><br>
             • AttachID Used: ${attachId}<br>
             • AttachID Type: ${typeof attachId}<br>
-            • Update Data Keys: ${Object.keys(updateData || {}).join(', ')}<br>
-            • Drawings Length: ${updateData?.Drawings?.length || 'N/A'}<br>
-            • Drawings Preview: ${updateData?.Drawings ? updateData.Drawings.substring(0, 100) + '...' : 'N/A'}<br><br>
+            • Has Annotations: ${!!annotations}<br>
+            • File Name: ${file?.name || 'N/A'}<br>
+            • File Size: ${file?.size || 'N/A'} bytes<br><br>
             
             <strong>Response Info:</strong><br>
             • Status Text: ${error?.statusText || 'N/A'}<br>
