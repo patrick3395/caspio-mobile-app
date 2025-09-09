@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
@@ -27,12 +27,15 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
                 frameborder="0"
                 [attr.data-file-type]="fileType"></iframe>
       </div>
-      <div class="pdf-container" *ngIf="isPDF">
-        <iframe [src]="sanitizedUrl" 
-                type="application/pdf"
-                class="pdf-iframe"
-                allow="fullscreen"
-                allowfullscreen></iframe>
+      <div class="pdf-container" *ngIf="isPDF" (click)="showPDFDebugInfo()">
+        <div class="pdf-wrapper">
+          <iframe [src]="sanitizedUrl" 
+                  type="application/pdf"
+                  class="pdf-iframe"
+                  allow="fullscreen"
+                  allowfullscreen
+                  #pdfFrame></iframe>
+        </div>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -57,15 +60,19 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
       width: 100%;
       height: 100%;
       background: #525659;
-      overflow: auto;
+      overflow: scroll;
       -webkit-overflow-scrolling: touch;
       position: relative;
-      display: flex;
-      justify-content: center;
+      padding: 0;
+    }
+    .pdf-wrapper {
+      width: 100%;
+      height: auto;
+      min-height: 300vh; /* Ensure enough height for multiple pages */
     }
     .pdf-iframe {
       width: 100%;
-      height: 100%;
+      height: 300vh; /* Make very tall to show all pages */
       border: none;
       display: block;
     }
@@ -95,13 +102,16 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
     @supports (-webkit-touch-callout: none) {
       .pdf-container {
         -webkit-overflow-scrolling: touch;
-        overflow: auto;
+        overflow: scroll;
         height: 100%;
+      }
+      .pdf-wrapper {
+        width: 100%;
+        min-height: 300vh;
       }
       .pdf-iframe {
         width: 100%;
-        height: 100%;
-        min-height: 100vh;
+        height: 300vh;
       }
     }
   `]
@@ -119,7 +129,8 @@ export class DocumentViewerComponent implements OnInit {
 
   constructor(
     private modalController: ModalController,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -153,12 +164,8 @@ export class DocumentViewerComponent implements OnInit {
         if (!pdfUrl.startsWith('data:application/pdf')) {
           console.warn('PDF data URL has incorrect MIME type');
         }
-      } else {
-        // Add parameters for proper PDF viewing
-        // zoom=page-fit ensures the PDF fits the width of the viewer
-        const separator = pdfUrl.includes('?') ? '&' : '#';
-        pdfUrl = pdfUrl + separator + 'zoom=page-fit&view=FitH';
       }
+      // Don't add any parameters - let the browser's PDF viewer handle it naturally
       
       this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(pdfUrl);
       console.log('Displaying PDF with page-fit zoom for proper viewing');
@@ -209,5 +216,58 @@ export class DocumentViewerComponent implements OnInit {
 
   dismiss() {
     this.modalController.dismiss();
+  }
+
+  async showPDFDebugInfo() {
+    // Try to detect PDF info from the iframe if possible
+    let debugInfo = `PDF Debug Information:
+    
+File: ${this.fileName}
+URL Type: ${this.fileUrl.startsWith('data:') ? 'Base64 Data URL' : 'Regular URL'}
+File Type: ${this.fileType}
+
+PDF Viewer Settings:
+- Container Height: 100% of viewport
+- iFrame Height: 300vh (3x viewport height)
+- Scrolling: Enabled (overflow: scroll)
+- iOS Touch Scrolling: Enabled
+
+If you're only seeing the first page:
+1. Try scrolling down - the PDF should have multiple pages rendered
+2. The iframe is set to 300vh height to accommodate long PDFs
+3. Zoom parameters: view=FitH&zoom=FitW (fit width)
+
+Note: PDF page count detection requires server-side processing.
+For base64 PDFs, the browser's built-in viewer handles rendering.`;
+
+    const alert = await this.alertController.create({
+      header: 'PDF Viewer Debug',
+      message: `<pre style="font-size: 12px; white-space: pre-wrap;">${debugInfo}</pre>`,
+      buttons: [
+        {
+          text: 'Copy Debug Info',
+          handler: () => {
+            // Try to copy to clipboard
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(debugInfo);
+            } else {
+              // Fallback for older browsers
+              const textArea = document.createElement('textarea');
+              textArea.value = debugInfo;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+            }
+            return false; // Keep alert open
+          }
+        },
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
   }
 }

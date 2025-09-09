@@ -6199,12 +6199,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const recordKey = `${category}_${visualId}`;
             const actualVisualId = this.visualRecordIds[recordKey] || visualId;
             
+            // Prepare the text to display based on answerType
+            let displayText = comment.Text || comment.text;
+            let answers = '';
+            
+            // For AnswerType 1 (Yes/No), include the answer
+            if (comment.answerType === 1 && comment.answer) {
+              answers = comment.answer;
+              // Keep original text and add answer separately
+              displayText = comment.originalText || comment.text || '';
+            }
+            // For AnswerType 2 (multi-select), include selected options
+            else if (comment.answerType === 2 && comment.selectedOptions && comment.selectedOptions.length > 0) {
+              answers = comment.selectedOptions.join(', ');
+              // Keep original text and add answers separately
+              displayText = comment.originalText || comment.text || '';
+            }
+            // For AnswerType 0 or undefined (text), use the text as is
+            else {
+              displayText = comment.text || '';
+            }
+            
             photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'comments',
               item: {
                 name: comment.Name || comment.name,
-                text: comment.Text || comment.text,
+                text: displayText,
+                answers: answers, // Add answers field for PDF display
+                answerType: comment.answerType,
                 visualId: actualVisualId
               },
               index: photoFetches.length - 1
@@ -6223,12 +6246,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const recordKey = `${category}_${visualId}`;
             const actualVisualId = this.visualRecordIds[recordKey] || visualId;
             
+            // Prepare the text to display based on answerType
+            let displayText = limitation.Text || limitation.text;
+            let answers = '';
+            
+            // For AnswerType 1 (Yes/No), include the answer
+            if (limitation.answerType === 1 && limitation.answer) {
+              answers = limitation.answer;
+              // Keep original text and add answer separately
+              displayText = limitation.originalText || limitation.text || '';
+            }
+            // For AnswerType 2 (multi-select), include selected options
+            else if (limitation.answerType === 2 && limitation.selectedOptions && limitation.selectedOptions.length > 0) {
+              answers = limitation.selectedOptions.join(', ');
+              // Keep original text and add answers separately
+              displayText = limitation.originalText || limitation.text || '';
+            }
+            // For AnswerType 0 or undefined (text), use the text as is
+            else {
+              displayText = limitation.text || '';
+            }
+            
             photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'limitations',
               item: {
                 name: limitation.Name || limitation.name,
-                text: limitation.Text || limitation.text,
+                text: displayText,
+                answers: answers, // Add answers field for PDF display
+                answerType: limitation.answerType,
                 visualId: actualVisualId
               },
               index: photoFetches.length - 1
@@ -6247,12 +6293,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const recordKey = `${category}_${visualId}`;
             const actualVisualId = this.visualRecordIds[recordKey] || visualId;
             
+            // Prepare the text to display based on answerType
+            let displayText = deficiency.Text || deficiency.text;
+            let answers = '';
+            
+            // For AnswerType 1 (Yes/No), include the answer
+            if (deficiency.answerType === 1 && deficiency.answer) {
+              answers = deficiency.answer;
+              // Keep original text and add answer separately
+              displayText = deficiency.originalText || deficiency.text || '';
+            }
+            // For AnswerType 2 (multi-select), include selected options
+            else if (deficiency.answerType === 2 && deficiency.selectedOptions && deficiency.selectedOptions.length > 0) {
+              answers = deficiency.selectedOptions.join(', ');
+              // Keep original text and add answers separately
+              displayText = deficiency.originalText || deficiency.text || '';
+            }
+            // For AnswerType 0 or undefined (text), use the text as is
+            else {
+              displayText = deficiency.text || '';
+            }
+            
             photoFetches.push(this.getVisualPhotos(actualVisualId));
             photoMappings.push({
               type: 'deficiencies',
               item: {
                 name: deficiency.Name || deficiency.name,
-                text: deficiency.Text || deficiency.text,
+                text: displayText,
+                answers: answers, // Add answers field for PDF display
+                answerType: deficiency.answerType,
                 visualId: actualVisualId
               },
               index: photoFetches.length - 1

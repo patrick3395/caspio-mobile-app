@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
@@ -27,7 +27,7 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
     </ion-header>
     <ion-content class="photo-viewer-content">
       <div class="photo-container">
-        <img [src]="photoUrl" alt="Photo" />
+        <img [src]="displayPhotoUrl || photoUrl" alt="Photo" />
       </div>
       <!-- Caption button at bottom center -->
       <div class="caption-button-container">
@@ -114,7 +114,7 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
     }
   `]
 })
-export class PhotoViewerComponent {
+export class PhotoViewerComponent implements OnInit {
   @Input() photoUrl: string = '';
   @Input() photoName: string = '';
   @Input() canAnnotate: boolean = false;
@@ -123,19 +123,29 @@ export class PhotoViewerComponent {
   @Input() photoData: any = null;
   @Input() photoCaption: string = '';
   @Input() existingAnnotations: any[] = [];
+  
+  // Keep track of original image URL separately from display URL
+  private originalPhotoUrl: string = '';
+  private displayPhotoUrl: string = '';  // What we show (may be annotated)
 
   constructor(
     private modalController: ModalController,
     private alertController: AlertController
   ) {}
 
+  ngOnInit() {
+    // Store the original URL when component initializes
+    this.originalPhotoUrl = this.photoUrl;
+    this.displayPhotoUrl = this.photoUrl;
+  }
+  
   async openAnnotator() {
     // Get existing annotations from photoData if available
     const annotations = this.photoData?.annotations || this.photoData?.annotationsData || this.existingAnnotations || [];
     
-    // ALWAYS use the main Photo field for editing (it should be the original)
-    // The Photo field should never be replaced with annotated version
-    const imageToAnnotate = this.photoUrl; // This should be the original from Photo field
+    // CRITICAL FIX: Always use the ORIGINAL image URL, not the annotated one
+    // This prevents double annotations (baked + objects)
+    const imageToAnnotate = this.originalPhotoUrl || this.photoUrl; // Use original, not display URL
     
     console.log('📝 [PhotoViewer] Opening annotator with:');
     console.log('  - photoData:', this.photoData);
@@ -163,13 +173,16 @@ export class PhotoViewerComponent {
     
     if (data) {
       if (data.annotatedBlob) {
-        // Update the photo URL to show the new annotated version
-        this.photoUrl = URL.createObjectURL(data.annotatedBlob);
+        // CRITICAL FIX: Update DISPLAY URL only, keep original intact
+        this.displayPhotoUrl = URL.createObjectURL(data.annotatedBlob);
+        // DO NOT update this.photoUrl or this.originalPhotoUrl!
         
         // Store annotations back in photoData for persistence
         if (this.photoData) {
           this.photoData.annotations = data.annotationData || data.annotationsData;
           console.log('💾 [PhotoViewer] Stored annotations in photoData:', this.photoData.annotations);
+          console.log('🔍 [v1.4.259] Original URL preserved:', this.originalPhotoUrl);
+          console.log('🖼️ [v1.4.259] Display URL updated to annotated version');
         }
         
         // Return the annotated blob and annotations data to parent
@@ -182,7 +195,7 @@ export class PhotoViewerComponent {
         });
       } else if (data instanceof Blob) {
         // Legacy support
-        this.photoUrl = URL.createObjectURL(data);
+        this.displayPhotoUrl = URL.createObjectURL(data);
         this.modalController.dismiss({
           annotatedBlob: data,
           photoData: this.photoData

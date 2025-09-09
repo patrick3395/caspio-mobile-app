@@ -749,6 +749,17 @@ export class PdfPreviewComponent implements OnInit {
       yPos += lines.length * 4 + 2;
     }
     
+    // Display answers for AnswerType 1 and 2
+    if (item.answers) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 100, 0); // Green color for answers
+      const answerText = `Answer: ${item.answers}`;
+      pdf.text(answerText, margin + 8, yPos);
+      pdf.setTextColor(0, 0, 0); // Reset to black
+      yPos += 6;
+    }
+    
     // Photos
     if (item.photos && item.photos.length > 0) {
       yPos += 5;
@@ -812,6 +823,17 @@ export class PdfPreviewComponent implements OnInit {
       const lines = pdf.splitTextToSize(item.text, contentWidth - 10);
       pdf.text(lines, margin + 5, yPos);
       yPos += lines.length * 4 + 4;
+    }
+    
+    // Display answers for AnswerType 1 and 2
+    if (item.answers) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 100, 0); // Green color for answers
+      const answerText = `Answer: ${item.answers}`;
+      pdf.text(answerText, margin + 5, yPos);
+      pdf.setTextColor(0, 0, 0); // Reset to black
+      yPos += 6;
     }
     
     // Enhanced photo display
