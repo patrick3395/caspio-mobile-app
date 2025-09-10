@@ -1171,30 +1171,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 
-                // Process photos to get base64 URLs like Structural section does
-                elevationPoint.photos = await Promise.all(photos.map(async (photo: any, photoIndex: number) => {
+                // Process photos SEQUENTIALLY to avoid cache issues
+                const processedPhotos = [];
+                for (let photoIndex = 0; photoIndex < photos.length; photoIndex++) {
+                  const photo = photos[photoIndex];
                   const photoPath = photo.Photo || '';
                   let photoUrl = '';
                   let thumbnailUrl = '';
                   
-                  console.log(`[Photo ${photoIndex + 1}] Processing photo for ${point.PointName}:`, {
+                  console.log(`[Photo ${photoIndex + 1}/${photos.length}] Processing for ${point.PointName}:`, {
                     AttachID: photo.AttachID,
                     Photo: photoPath,
-                    HasDrawings: !!photo.Drawings
+                    HasDrawings: !!photo.Drawings,
+                    UniqueCheck: `Path ends with: ${photoPath.substring(photoPath.length - 10)}`
                   });
                   
-                  if (photoPath) {
+                  if (photoPath && photoPath !== '') {
                     try {
-                      // Use the same method as Structural section - fetch as base64 data URL
-                      console.log(`[Photo ${photoIndex + 1}] Fetching from Files API: ${photoPath}`);
+                      // Add timestamp to prevent caching issues
+                      const timestamp = Date.now();
+                      console.log(`[Photo ${photoIndex + 1}] Fetching with timestamp ${timestamp}: ${photoPath}`);
+                      
+                      // Fetch with a slight delay to avoid concurrent cache issues
+                      if (photoIndex > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                      }
+                      
                       const imageData = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                       
                       if (imageData && imageData.startsWith('data:')) {
+                        // Check if this is unique data
+                        const dataPreview = imageData.substring(0, 100) + '...' + imageData.substring(imageData.length - 50);
+                        console.log(`[Photo ${photoIndex + 1}] Got base64, length: ${imageData.length}, preview: ${dataPreview}`);
+                        
                         photoUrl = imageData;
                         thumbnailUrl = imageData;
-                        console.log(`[Photo ${photoIndex + 1}] Successfully loaded base64, length: ${imageData.length}`);
                       } else {
-                        console.log(`[Photo ${photoIndex + 1}] Invalid image data, using fallback`);
+                        console.log(`[Photo ${photoIndex + 1}] Invalid/empty image data`);
                         // Fallback to SVG if fetch fails - make it unique per photo
                         photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo ${photoIndex + 1}</text></svg>`);
                         thumbnailUrl = photoUrl;
@@ -1205,6 +1218,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                       photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Error ${photoIndex + 1}</text></svg>`);
                       thumbnailUrl = photoUrl;
                     }
+                  } else {
+                    console.log(`[Photo ${photoIndex + 1}] No photo path, using placeholder`);
+                    photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 No Path ${photoIndex + 1}</text></svg>`);
+                    thumbnailUrl = photoUrl;
                   }
                   
                   // Load annotations from Drawings field, not Annotation
@@ -1234,15 +1251,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     name: `Photo ${photoIndex + 1}`
                   };
                   
-                  console.log(`[Photo ${photoIndex + 1}] Returning photo data:`, {
+                  console.log(`[Photo ${photoIndex + 1}] Created photo result:`, {
                     attachId: photoResult.attachId,
                     hasUrl: !!photoResult.url,
                     urlLength: photoResult.url?.length,
+                    urlPreview: photoResult.url?.substring(0, 50),
                     hasAnnotations: photoResult.hasAnnotations
                   });
                   
-                  return photoResult;
-                }));
+                  processedPhotos.push(photoResult);
+                }
+                
+                elevationPoint.photos = processedPhotos;
                 console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
             }

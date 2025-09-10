@@ -1080,13 +1080,17 @@ export class CaspioService {
   }
   
   getImageFromFilesAPI(filePath: string): Observable<string> {
-    // Check cache first
+    // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
+    // The cache was causing all photos to show the same image
+    // TODO: Re-enable cache with proper unique keys after fixing
+    /*
     const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
     const cached = this.cache.get(cacheKey);
     if (cached) {
       console.log(`📦 Returning cached image for ${filePath}`);
       return of(cached);
     }
+    */
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1114,9 +1118,10 @@ export class CaspioService {
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
-          // Cache the base64 image for 15 minutes
-          this.cache.set(cacheKey, result, this.cache.CACHE_TIMES.LONG, true);
-          console.log(`📦 Cached image for ${filePath}`);
+          // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
+          // const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
+          // this.cache.set(cacheKey, result, this.cache.CACHE_TIMES.LONG, true);
+          console.log(`🔄 Fetched image for ${filePath} (cache disabled)`);
           observer.next(result);
           observer.complete();
         };
