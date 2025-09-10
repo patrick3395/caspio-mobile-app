@@ -579,7 +579,7 @@ import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-ext
     }
   `]
 })
-export class DocumentViewerComponent implements OnInit, AfterViewInit {
+export class DocumentViewerComponent implements OnInit {
   @Input() fileUrl!: string;
   @Input() fileName!: string;
   @Input() fileType!: string;
