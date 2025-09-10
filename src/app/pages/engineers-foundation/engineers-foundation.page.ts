@@ -1328,28 +1328,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Handle file selection for room points (exact copy of visual method)
+  // Handle file selection for room points with annotation support (matching Structural Systems)
   private async handleRoomPointFileSelect(files: FileList) {
     try {
       const { roomName, point, pointId, roomId } = this.currentRoomPointContext;
       
       console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
-      // Show non-blocking toast
-      const uploadMessage = files.length > 1 
-        ? `Uploading ${files.length} photos...`
-        : 'Uploading photo...';
-      await this.showToast(uploadMessage, 'info');
-      
-      let uploadSuccessCount = 0;
-      const uploadPromises = [];
-      
-      // Process each file
+      // Process each file with annotation support (matching Structural Systems pattern)
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
+        // Ask if user wants to annotate (only for single files, skip for batch)
+        let annotatedResult = { file: file, annotationData: null, originalFile: null };
+        if (files.length === 1) {
+          annotatedResult = await this.annotatePhoto(file);
+        }
+        
         // Create preview immediately
-        const photoUrl = URL.createObjectURL(file);
+        const photoUrl = URL.createObjectURL(annotatedResult.file);
         
         // Add to UI immediately with uploading flag
         if (!point.photos) {
@@ -1361,19 +1358,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           thumbnailUrl: photoUrl,
           annotation: '',
           uploading: true,
-          file: file,
+          file: annotatedResult.file,
+          originalFile: annotatedResult.originalFile,
+          annotationData: annotatedResult.annotationData,
           attachId: null  // Initialize attachId property
         };
         
         point.photos.push(photoEntry);
         point.photoCount = point.photos.length;
         
-        // Upload in background
-        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, file, point.name)
+        // Upload in background with annotation data
+        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData)
           .then(async (response) => {
             photoEntry.uploading = false;
             // Store the attachment ID for annotation updates
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
+            photoEntry.hasAnnotations = !!annotatedResult.annotationData;
             // Store the original path for URL reconstruction later
             if (response?.Photo) {
               photoEntry.originalPath = response.Photo;
@@ -1615,8 +1615,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Upload photo from File object to Services_Rooms_Points_Attach (matching visual method)
-  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string) {
+  // Upload photo from File object to Services_Rooms_Points_Attach with annotation support
+  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null) {
     try {
       const pointIdNum = parseInt(pointId, 10);
       
@@ -1628,7 +1628,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }) as File;
       
       // Directly proceed with upload and return the response
-      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName);
+      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData);
       return response;  // Return response so we can get AttachID
       
     } catch (error) {
@@ -1637,19 +1637,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Perform the actual room point photo upload (matching visual method)
-  private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string) {
+  // Perform the actual room point photo upload with annotation support
+  private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string, annotationData: any = null) {
     try {
       console.log('📦 Using two-step upload for room point photo');
+      
+      // Process annotation data for Drawings field (same as Structural Systems)
+      let drawingsData = '';
+      if (annotationData) {
+        if (typeof annotationData === 'string') {
+          drawingsData = annotationData;
+        } else if (typeof annotationData === 'object') {
+          // Convert object to JSON string for storage
+          drawingsData = JSON.stringify(annotationData);
+        }
+        // Compress if needed (matching Structural Systems logic)
+        drawingsData = this.compressAnnotationData(drawingsData);
+      }
       
       // Use the new two-step method that matches visual upload
       const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
         pointIdNum,
-        '', // Annotation blank as requested
+        drawingsData, // Pass annotation data to Drawings field
         photo
       ).toPromise();
       
-      console.log('✅ Room point photo uploaded successfully:', response);
+      console.log('✅ Room point photo uploaded successfully with annotations:', response);
       
       return response;  // Return the response with AttachID
       
@@ -2852,34 +2865,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return `https://${account}.caspio.com/rest/v2/files${path}?access_token=${token}`;
   }
   
-  // View room photo with viewer modal
+  // View room photo with annotation support (redirects to viewElevationPhoto)
   async viewRoomPhoto(photo: any, roomName: string, point: any) {
-    try {
-      // Use the photo URL directly (it's already base64 or a proper URL)
-      const photoUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-      
-      const modal = await this.modalController.create({
-        component: PhotoViewerComponent,
-        componentProps: {
-          photoUrl: photoUrl,
-          photoName: `${roomName} - ${point.name}`,
-          photoCaption: photo.annotation || '',
-          showAnnotation: true,
-          captionEditable: true,
-          photoData: photo
-        }
-      });
-      
-      await modal.present();
-      
-      const { data } = await modal.onDidDismiss();
-      if (data && data.updatedCaption !== undefined) {
-        photo.annotation = data.updatedCaption;
-        await this.saveRoomPhotoCaption(photo, roomName, point);
-      }
-    } catch (error) {
-      console.error('Error viewing room photo:', error);
-    }
+    // Use the new annotation-enabled viewElevationPhoto method
+    await this.viewElevationPhoto(photo, roomName, point);
   }
   
   // Save room photo caption/annotation
@@ -2950,23 +2939,176 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // View elevation photo in modal (legacy redirect)
-  async viewElevationPhoto(photo: any) {
-    console.log('Viewing elevation photo:', photo);
+  // Update room point photo attachment with annotations (similar to updatePhotoAttachment for Structural Systems)
+  async updateRoomPointPhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
+    try {
+      console.log('Updating room point photo attachment with annotations:', {
+        attachId,
+        hasAnnotations: !!annotations,
+        hasOriginalFile: !!originalFile
+      });
+      
+      // Validate attachId
+      if (!attachId || attachId === 'undefined' || attachId === 'null') {
+        console.error('Invalid AttachID for room point photo:', attachId);
+        await this.showToast('Cannot update photo: Invalid attachment ID', 'danger');
+        return;
+      }
+      
+      // Prepare update data with Drawings field
+      const updateData: any = {};
+      
+      // Process annotation data for Drawings field
+      if (annotations) {
+        let drawingsData = '';
+        
+        if (typeof annotations === 'string') {
+          drawingsData = annotations;
+        } else if (typeof annotations === 'object') {
+          // Convert to JSON string
+          try {
+            drawingsData = JSON.stringify(annotations);
+          } catch (e) {
+            console.error('Failed to stringify annotations:', e);
+            drawingsData = '';
+          }
+        }
+        
+        // Compress if needed
+        if (drawingsData) {
+          drawingsData = this.compressAnnotationData(drawingsData);
+          updateData.Drawings = drawingsData;
+        }
+      }
+      
+      // Update the Services_Rooms_Points_Attach record
+      if (Object.keys(updateData).length > 0) {
+        await this.caspioService.updateServicesRoomsPointsAttach(attachId, updateData).toPromise();
+        console.log('Room point photo attachment updated successfully');
+      }
+      
+    } catch (error) {
+      console.error('Error updating room point photo attachment:', error);
+      await this.showToast('Failed to update photo annotations', 'danger');
+      throw error;
+    }
+  }
+  
+  // View elevation photo with annotation support (matching Structural Systems)
+  async viewElevationPhoto(photo: any, roomName?: string, point?: any) {
+    console.log('Viewing elevation photo with annotation support:', photo);
     
-    // Use the PhotoViewerComponent directly since we don't have category/itemId context
-    if (photo && (photo.url || photo.filePath)) {
+    try {
+      // Validate photo has an ID
+      if (!photo.attachId && !photo.AttachID && !photo.id) {
+        console.error('Photo missing AttachID:', photo);
+        await this.showToast('Cannot edit photo: Missing attachment ID', 'danger');
+        return;
+      }
+      
+      const attachId = photo.attachId || photo.AttachID || photo.id;
+      const imageUrl = photo.url || photo.thumbnailUrl || photo.filePath || 'assets/img/photo-placeholder.png';
+      const photoName = photo.name || 'Elevation Photo';
+      
+      // Use original URL if available (for re-editing annotations)
+      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+      
+      // Parse existing annotations (matching Structural Systems logic)
+      let existingAnnotations = null;
+      const annotationSources = [
+        photo.rawDrawingsString,
+        photo.annotations,
+        photo.annotationData,
+        photo.Drawings
+      ];
+      
+      for (const source of annotationSources) {
+        if (source) {
+          try {
+            if (typeof source === 'string') {
+              existingAnnotations = this.decompressAnnotationData(source);
+            } else {
+              existingAnnotations = source;
+            }
+            
+            if (existingAnnotations) {
+              console.log('Found valid annotations for elevation photo');
+              break;
+            }
+          } catch (e) {
+            console.log('Failed to parse annotations:', e);
+          }
+        }
+      }
+      
+      // Open annotation modal directly (matching Structural Systems)
       const modal = await this.modalController.create({
-        component: PhotoViewerComponent,
+        component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          photo: {
+          imageUrl: originalImageUrl,
+          existingAnnotations: existingAnnotations,
+          photoData: {
             ...photo,
-            Photo: photo.filePath || photo.url
+            AttachID: attachId,
+            id: attachId
           }
         },
-        cssClass: 'photo-viewer-modal'
+        cssClass: 'fullscreen-modal'
       });
+      
       await modal.present();
+      const { data } = await modal.onDidDismiss();
+      
+      if (data && data.annotatedBlob) {
+        // Update the photo with new annotations
+        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
+        const annotationsData = data.annotationData || data.annotationsData;
+        
+        // Get original file if provided
+        let originalFile = null;
+        if (data.originalBlob) {
+          originalFile = data.originalBlob instanceof File 
+            ? data.originalBlob 
+            : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
+        }
+        
+        // Update the attachment with new annotations
+        await this.updateRoomPointPhotoAttachment(attachId, annotatedFile, annotationsData, originalFile);
+        
+        // Update local photo data
+        if (point && point.photos) {
+          const photoIndex = point.photos.findIndex((p: any) => 
+            (p.attachId || p.AttachID || p.id) === attachId
+          );
+          
+          if (photoIndex !== -1) {
+            // Store original URL if not already stored
+            if (!point.photos[photoIndex].originalUrl) {
+              point.photos[photoIndex].originalUrl = point.photos[photoIndex].url;
+            }
+            
+            // Update display URL with annotated version
+            const newUrl = URL.createObjectURL(data.annotatedBlob);
+            point.photos[photoIndex].displayUrl = newUrl;
+            point.photos[photoIndex].hasAnnotations = true;
+            
+            // Store annotations data
+            if (annotationsData) {
+              point.photos[photoIndex].annotations = annotationsData;
+              point.photos[photoIndex].rawDrawingsString = typeof annotationsData === 'object' 
+                ? JSON.stringify(annotationsData) 
+                : annotationsData;
+            }
+          }
+        }
+        
+        // Trigger change detection
+        this.changeDetectorRef.detectChanges();
+      }
+      
+    } catch (error) {
+      console.error('Error viewing elevation photo:', error);
+      await this.showToast('Failed to view photo', 'danger');
     }
   }
   
