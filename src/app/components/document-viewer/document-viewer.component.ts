@@ -42,36 +42,18 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <ngx-extended-pdf-viewer 
-          *ngIf="pdfSrc"
-          [src]="pdfSrc"
-          [height]="'100%'"
-          [useBrowserLocale]="true"
-          [textLayer]="true"
-          [showToolbar]="true"
-          [showSidebarButton]="true"
-          [showFindButton]="true"
-          [showPagingButtons]="true"
-          [showZoomButtons]="true"
-          [showPresentationModeButton]="false"
-          [showOpenFileButton]="false"
-          [showPrintButton]="true"
-          [showDownloadButton]="true"
-          [showBookmarkButton]="false"
-          [showSecondaryToolbarButton]="true"
-          [showRotateButton]="true"
-          [showHandToolButton]="true"
-          [showScrollingButton]="true"
-          [showSpreadButton]="true"
-          [showPropertiesButton]="false"
-          [zoom]="'page-width'"
-          (pdfLoaded)="onPdfLoaded($event)"
-          (pdfLoadingFailed)="onPdfLoadingFailed($event)">
-        </ngx-extended-pdf-viewer>
         <div class="pdf-loading" *ngIf="!pdfSrc">
           <ion-spinner name="crescent" color="warning"></ion-spinner>
           <p>Preparing PDF...</p>
         </div>
+        <ngx-extended-pdf-viewer 
+          *ngIf="pdfSrc"
+          [src]="pdfSrc"
+          [height]="'calc(100vh - 80px)'"
+          [useBrowserLocale]="true"
+          (pdfLoaded)="onPdfLoaded($event)"
+          (pdfLoadingFailed)="onPdfLoadingFailed($event)">
+        </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -252,6 +234,18 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       height: 100%;
       border: none;
       background: white;
+    }
+    
+    ngx-extended-pdf-viewer {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    ::ng-deep ngx-extended-pdf-viewer .ng2-pdf-viewer-container {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
     }
     
     ::ng-deep #viewerContainer {
@@ -609,44 +603,43 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
       // For PDFs, prepare the source for ngx-extended-pdf-viewer
-      console.log('Preparing PDF for ngx-extended-pdf-viewer...');
+      console.log('🔍 PDF VIEWER DEBUG - Starting PDF preparation');
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
-      // ngx-extended-pdf-viewer accepts base64 strings directly
+      // ngx-extended-pdf-viewer can handle base64 data URLs directly
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        console.log('📄 Processing base64 PDF data...');
-        
-        // The viewer works best with just the base64 string without the data URL prefix
-        try {
-          const base64String = this.fileUrl.split(',')[1];
-          const binaryString = atob(base64String);
-          const bytes = new Uint8Array(binaryString.length);
-          
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          
-          // Use Uint8Array for better compatibility
-          this.pdfSrc = bytes;
-          console.log('✅ PDF converted to Uint8Array, size:', bytes.length);
-        } catch (error) {
-          console.error('Error converting base64 to Uint8Array:', error);
-          // Fallback to using the base64 data URL directly
-          this.pdfSrc = this.fileUrl;
-          console.log('⚠️ Using base64 data URL directly as fallback');
-        }
+        console.log('📄 Base64 PDF detected - using directly');
+        // The viewer can handle base64 data URLs directly
+        this.pdfSrc = this.fileUrl;
+        console.log('✅ PDF source set to base64 data URL');
+        console.log('pdfSrc is now set:', !!this.pdfSrc);
+        console.log('pdfSrc length:', this.pdfSrc.length);
       } else if (this.fileUrl.startsWith('blob:')) {
-        console.log('📄 Blob URL detected, converting to array buffer...');
-        // Blob URLs need to be fetched and converted
-        this.convertBlobUrlToArrayBuffer(this.fileUrl);
+        console.log('📄 Blob URL detected');
+        // For blob URLs, just use them directly
+        this.pdfSrc = this.fileUrl;
+        console.log('✅ PDF source set to blob URL');
       } else {
         // Regular URL - pass it directly
         console.log('📄 Using regular URL for PDF');
         this.pdfSrc = this.fileUrl;
+        console.log('✅ PDF source set to regular URL');
       }
       
-      console.log('PDF source prepared for ngx-extended-pdf-viewer');
+      console.log('🔍 PDF VIEWER DEBUG - Final state:');
+      console.log('- isPDF:', this.isPDF);
+      console.log('- pdfSrc set:', !!this.pdfSrc);
+      console.log('- pdfSrc type:', typeof this.pdfSrc);
+      
+      // Force change detection
+      setTimeout(() => {
+        console.log('🔍 PDF VIEWER DEBUG - After timeout:');
+        console.log('- pdfSrc still set:', !!this.pdfSrc);
+        if (!this.pdfSrc) {
+          console.error('❌ pdfSrc was cleared somehow!');
+        }
+      }, 100);
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -698,8 +691,21 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     // Give the PDF viewer time to initialize
-    if (this.isPDF && this.pdfSrc) {
-      console.log('PDF viewer should be initializing...');
+    if (this.isPDF) {
+      console.log('🔍 ngAfterViewInit - PDF viewer state:');
+      console.log('- isPDF:', this.isPDF);
+      console.log('- pdfSrc set:', !!this.pdfSrc);
+      console.log('- pdfSrc type:', typeof this.pdfSrc);
+      
+      // Show debug alert on mobile
+      this.alertController.create({
+        header: 'PDF Debug Info',
+        message: `PDF Source: ${this.pdfSrc ? 'SET' : 'NOT SET'}<br>
+                  Type: ${typeof this.pdfSrc}<br>
+                  Length: ${this.pdfSrc?.length || 0}<br>
+                  Starts with: ${this.pdfSrc?.substring(0, 50) || 'N/A'}`,
+        buttons: ['OK']
+      }).then(alert => alert.present());
     }
   }
 

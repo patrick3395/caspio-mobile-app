@@ -5598,9 +5598,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Helper method to compress large JSON data - v1.4.346 AGGRESSIVE compression
+  // Helper method to compress large JSON data - v1.4.348 BALANCED compression
   private compressAnnotationData(data: string): string {
-    console.log('🗜️ [v1.4.346] Compressing annotation data');
+    console.log('🗜️ [v1.4.348] Compressing annotation data');
     console.log('  Original size:', data.length, 'bytes');
     
     try {
@@ -5615,35 +5615,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return minified;
       }
       
-      // AGGRESSIVE SIMPLIFICATION for large data
-      console.log('  ⚠️ [v1.4.346] Data large, applying AGGRESSIVE simplification');
+      // BALANCED SIMPLIFICATION for large data - preserve functionality
+      console.log('  ⚠️ [v1.4.348] Data large, applying BALANCED simplification');
       
-      // Remove ALL non-essential properties from Fabric.js objects
+      // Remove non-essential properties but KEEP critical ones for functionality
       if (parsed.objects && Array.isArray(parsed.objects)) {
         parsed.objects = parsed.objects.map((obj: any) => {
-          // Keep ONLY the absolute minimum properties
+          // Keep essential properties that Fabric.js needs
           const essential: any = {
-            type: obj.type
+            type: obj.type,
+            version: obj.version || '6.7.1',
+            originX: obj.originX || 'left',
+            originY: obj.originY || 'top',
+            left: Math.round(obj.left || 0),
+            top: Math.round(obj.top || 0),
+            scaleX: obj.scaleX || 1,
+            scaleY: obj.scaleY || 1,
+            angle: obj.angle || 0
           };
           
-          // Type-specific minimal properties
+          // Type-specific properties - preserve enough for proper rendering
           if (obj.type === 'Path' || obj.type === 'path') {
-            // Simplify path data - reduce precision
-            if (typeof obj.path === 'string') {
-              essential.path = obj.path;
-            } else if (Array.isArray(obj.path)) {
-              // Reduce precision in path commands
-              essential.path = obj.path.map((cmd: any) => {
-                if (Array.isArray(cmd)) {
-                  return cmd.map((val: any, idx: number) => 
-                    idx === 0 ? val : typeof val === 'number' ? Math.round(val) : val
-                  );
-                }
-                return cmd;
-              });
-            }
+            // Path data is CRITICAL - must preserve it properly
+            essential.path = obj.path; // Keep path data as-is
             essential.stroke = obj.stroke || '#000000';
             essential.strokeWidth = obj.strokeWidth || 2;
+            essential.fill = obj.fill || 'transparent';
+            essential.strokeLineCap = obj.strokeLineCap || 'round';
+            essential.strokeLineJoin = obj.strokeLineJoin || 'round';
           } else if (obj.type === 'Line' || obj.type === 'line') {
             essential.x1 = Math.round(obj.x1);
             essential.y1 = Math.round(obj.y1);
@@ -5672,19 +5671,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             essential.stroke = obj.stroke || '#000000';
             essential.strokeWidth = obj.strokeWidth || 2;
             essential.fill = obj.fill || 'transparent';
-          } else if (obj.type === 'Group') {
-            // For groups (like arrows), keep minimal data
-            essential.left = Math.round(obj.left);
-            essential.top = Math.round(obj.top);
-            if (obj.objects && obj.objects.length <= 3) { // Likely an arrow
-              essential.objects = obj.objects.map((subObj: any) => ({
-                type: subObj.type,
-                x1: Math.round(subObj.x1 || 0),
-                y1: Math.round(subObj.y1 || 0),
-                x2: Math.round(subObj.x2 || 0),
-                y2: Math.round(subObj.y2 || 0),
-                stroke: subObj.stroke || '#000000'
-              }));
+          } else if (obj.type === 'Group' || obj.type === 'group') {
+            // For groups (like arrows), MUST preserve structure
+            essential.width = Math.round(obj.width || 0);
+            essential.height = Math.round(obj.height || 0);
+            
+            // Groups MUST have their objects array to render
+            if (obj.objects && Array.isArray(obj.objects)) {
+              essential.objects = obj.objects.map((subObj: any) => {
+                const subEssential: any = {
+                  type: subObj.type,
+                  version: subObj.version || '6.7.1',
+                  originX: subObj.originX || 'left',
+                  originY: subObj.originY || 'top',
+                  left: Math.round(subObj.left || 0),
+                  top: Math.round(subObj.top || 0),
+                  stroke: subObj.stroke || '#000000',
+                  strokeWidth: subObj.strokeWidth || 2,
+                  fill: subObj.fill || 'transparent'
+                };
+                
+                // Line-specific properties (for arrow parts)
+                if (subObj.type === 'line' || subObj.type === 'Line') {
+                  subEssential.x1 = Math.round(subObj.x1 || 0);
+                  subEssential.y1 = Math.round(subObj.y1 || 0);
+                  subEssential.x2 = Math.round(subObj.x2 || 0);
+                  subEssential.y2 = Math.round(subObj.y2 || 0);
+                }
+                
+                return subEssential;
+              });
             }
           } else {
             // Unknown type - keep minimal position data
@@ -5708,51 +5724,62 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       
       const compressedStr = JSON.stringify(compressed);
-      console.log('  [v1.4.346] After AGGRESSIVE compression:', compressedStr.length, 'bytes');
-      console.log('  [v1.4.346] Object count:', compressed.objects.length);
-      console.log('  [v1.4.346] Compression ratio:', ((1 - compressedStr.length / data.length) * 100).toFixed(1) + '%');
+      console.log('  [v1.4.348] After BALANCED compression:', compressedStr.length, 'bytes');
+      console.log('  [v1.4.348] Object count:', compressed.objects.length);
+      console.log('  [v1.4.348] Compression ratio:', ((1 - compressedStr.length / data.length) * 100).toFixed(1) + '%');
       
       // If STILL too large, we need to drop some annotations
       if (compressedStr.length > 60000) {
-        console.warn('  ⚠️ [v1.4.346] Still too large, dropping oldest annotations');
+        console.warn('  ⚠️ [v1.4.348] Still too large after balanced compression');
+        console.warn('  [v1.4.348] Current size:', compressedStr.length, 'bytes');
+        console.warn('  [v1.4.348] This photo has too many complex annotations');
         
-        // Keep only the most recent annotations that fit
+        // As a last resort, keep only the most recent annotations
         const maxObjects = Math.floor(compressed.objects.length * (60000 / compressedStr.length));
         compressed.objects = compressed.objects.slice(-maxObjects);
         
         const finalStr = JSON.stringify(compressed);
-        console.log('  [v1.4.346] Kept', compressed.objects.length, 'of original objects');
-        console.log('  [v1.4.346] Final size:', finalStr.length, 'bytes');
+        console.log('  [v1.4.348] Kept', compressed.objects.length, 'most recent annotations');
+        console.log('  [v1.4.348] Final size:', finalStr.length, 'bytes');
         
-        return 'COMPRESSED_V2:' + finalStr;
+        return 'COMPRESSED_V3:' + finalStr;
       }
       
-      return 'COMPRESSED_V2:' + compressedStr;
+      return 'COMPRESSED_V3:' + compressedStr;
     } catch (error) {
-      console.error('❌ [v1.4.346] Compression failed:', error);
+      console.error('❌ [v1.4.348] Compression failed:', error);
       return data; // Return original if compression fails
     }
   }
   
-  // Helper method to decompress annotation data - v1.4.346 handles both V1 and V2
+  // Helper method to decompress annotation data - v1.4.348 handles V1, V2, and V3
   private decompressAnnotationData(data: string): any {
     if (!data) return null;
     
     // Check if data is compressed
-    if (data.startsWith('COMPRESSED_V2:')) {
-      console.log('🔓 [v1.4.346] Decompressing V2 annotation data');
+    if (data.startsWith('COMPRESSED_V3:')) {
+      console.log('🔓 [v1.4.348] Decompressing V3 annotation data');
+      data = data.substring('COMPRESSED_V3:'.length);
+    } else if (data.startsWith('COMPRESSED_V2:')) {
+      console.log('🔓 [v1.4.348] Decompressing V2 annotation data');
       data = data.substring('COMPRESSED_V2:'.length);
     } else if (data.startsWith('COMPRESSED_V1:')) {
-      console.log('🔓 [v1.4.346] Decompressing V1 annotation data');
+      console.log('🔓 [v1.4.348] Decompressing V1 annotation data');
       data = data.substring('COMPRESSED_V1:'.length);
     }
     
     try {
       const parsed = JSON.parse(data);
-      console.log('  [v1.4.346] Decompressed:', parsed.objects?.length || 0, 'objects');
+      console.log('  [v1.4.348] Decompressed:', parsed.objects?.length || 0, 'objects');
+      
+      // Ensure the data has the required Fabric.js structure
+      if (parsed && !parsed.version) {
+        parsed.version = '6.7.1';
+      }
+      
       return parsed;
     } catch (error) {
-      console.error('❌ [v1.4.346] Failed to parse annotation data:', error);
+      console.error('❌ [v1.4.348] Failed to parse annotation data:', error);
       return null;
     }
   }
