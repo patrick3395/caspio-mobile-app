@@ -44,6 +44,9 @@ import * as fabric from 'fabric';
         <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Add Text">
           <ion-icon name="text-outline"></ion-icon>
         </button>
+        <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
+          <ion-icon name="trash-outline"></ion-icon>
+        </button>
       </div>
       
       <div class="canvas-container" #canvasContainer>
@@ -198,6 +201,26 @@ import * as fabric from 'fabric';
       border-radius: 50%;
       border: 2px solid #F15A27;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .delete-btn {
+      background: rgba(255,255,255,0.95);
+      border-color: #ff4444;
+    }
+    
+    .delete-btn ion-icon {
+      color: #ff4444;
+    }
+    
+    .delete-btn:hover {
+      background: #ffeeee;
+      border-color: #ff0000;
+    }
+    
+    .delete-btn.active {
+      background: #ffeeee;
+      border-color: #ff0000;
+      color: #ff0000;
     }
     
     .canvas-container {
@@ -675,7 +698,17 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     console.log(`🗑️ [v1.4.233 FABRIC] Cleared all annotations`);
   }
   
-  // Removed deleteSelected() method as we no longer have a select tool
+  deleteSelected() {
+    const activeObject = this.canvas.getActiveObject();
+    if (activeObject && !(activeObject instanceof fabric.Image)) {
+      this.canvas.remove(activeObject);
+      this.canvas.discardActiveObject();
+      this.canvas.renderAll();
+      console.log('🗑️ Deleted selected annotation');
+    } else {
+      console.log('⚠️ No annotation selected to delete');
+    }
+  }
   
   
   getAnnotationCount(): number {

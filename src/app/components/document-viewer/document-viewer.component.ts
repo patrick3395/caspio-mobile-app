@@ -1,9 +1,9 @@
-import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
-import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 
 @Component({
   selector: 'app-document-viewer',
@@ -42,17 +42,45 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <div class="pdf-loading" *ngIf="!pdfSrc">
+        <div class="pdf-loading" *ngIf="!pdfLoaded">
           <ion-spinner name="crescent" color="warning"></ion-spinner>
-          <p>Preparing PDF...</p>
+          <p>Loading PDF...</p>
         </div>
         <ngx-extended-pdf-viewer 
-          *ngIf="pdfSrc"
-          [src]="pdfSrc"
-          [height]="'calc(100vh - 80px)'"
+          [src]="pdfSource"
+          [height]="'100%'"
+          [mobileFriendlyZoom]="'page-width'"
+          [showToolbar]="false"
+          [showSidebarButton]="false"
+          [sidebarVisible]="false"
+          [showFindButton]="false"
+          [showPagingButtons]="false"
+          [showZoomButtons]="false"
+          [showPresentationModeButton]="false"
+          [showOpenFileButton]="false"
+          [showPrintButton]="false"
+          [showDownloadButton]="false"
+          [showSecondaryToolbarButton]="false"
+          [showRotateButton]="false"
+          [showHandToolButton]="true"
+          [showSpreadButton]="false"
+          [showPropertiesButton]="false"
+          [zoom]="'page-width'"
+          [spread]="'off'"
+          [theme]="'light'"
+          [pageViewMode]="'infinite-scroll'"
+          [scrollMode]="0"
+          [showBorders]="true"
+          [minZoom]="0.1"
+          [maxZoom]="10"
+          [textLayer]="true"
+          [enableDragAndDrop]="false"
           [useBrowserLocale]="true"
+          backgroundColor="#ffffff"
           (pdfLoaded)="onPdfLoaded($event)"
-          (pdfLoadingFailed)="onPdfLoadingFailed($event)">
+          (pdfLoadingFailed)="onPdfLoadingFailed($event)"
+          (pageRendered)="onPageRendered($event)"
+          (pagesLoaded)="onPagesLoaded($event)">
         </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
@@ -561,13 +589,14 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
-  pdfSrc: string | Uint8Array | ArrayBuffer | undefined;
+  pdfSource: string | Uint8Array = '';
   pdfLoaded: boolean = false;
 
   constructor(
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private pdfViewerService: NgxExtendedPdfViewerService
   ) {}
 
   ngOnInit() {
@@ -607,64 +636,22 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
-      // Convert base64 to Uint8Array for ngx-extended-pdf-viewer
-      // IMPORTANT: Do NOT use blob URLs on mobile - they create capacitor:// URLs that can't be fetched
-      if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        console.log('📄 Base64 PDF detected - converting to Uint8Array for mobile compatibility');
-        try {
-          // Extract the base64 data
-          const base64Data = this.fileUrl.split(',')[1];
-          console.log('📊 Base64 data length:', base64Data.length);
-          
-          // Convert base64 to binary
-          const byteCharacters = atob(base64Data);
-          console.log('📊 Binary data length:', byteCharacters.length);
-          
-          const byteNumbers = new Array(byteCharacters.length);
-          
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          
-          // Create Uint8Array and pass it directly to ngx-extended-pdf-viewer
-          const byteArray = new Uint8Array(byteNumbers);
-          console.log('✅ Created Uint8Array, size:', byteArray.length);
-          
-          // Pass the Uint8Array directly - ngx-extended-pdf-viewer supports this natively
-          this.pdfSrc = byteArray;
-          console.log('✅ PDF source set to Uint8Array data (avoids Capacitor blob URL issues)');
-          
-        } catch (error) {
-          console.error('❌ Error converting base64 to Uint8Array:', error);
-          // Fallback: try using the base64 directly
-          this.pdfSrc = this.fileUrl;
-          console.log('⚠️ Fallback: Using base64 data URL directly');
-        }
-      } else if (this.fileUrl.startsWith('blob:')) {
-        console.log('📄 Blob URL detected - converting to ArrayBuffer if possible');
-        // If we receive a blob URL, try to fetch and convert it
-        // This handles cases where a blob URL was created elsewhere
-        this.convertBlobUrlToArrayBuffer(this.fileUrl);
+      // For PDFs, prepare the source for ngx-extended-pdf-viewer
+      console.log('Preparing PDF source...');
+      
+      if (this.fileUrl.startsWith('data:')) {
+        // For base64 data URLs, pass directly - the viewer handles it efficiently
+        this.pdfSource = this.fileUrl;
+        console.log('Using base64 data URL directly for better performance');
       } else {
-        // Regular URL - pass it directly
-        console.log('📄 Using regular URL for PDF');
-        this.pdfSrc = this.fileUrl;
-        console.log('✅ PDF source set to regular URL');
+        // For regular URLs, use them directly
+        this.pdfSource = this.fileUrl;
+        console.log('Using direct URL for PDF');
       }
       
-      console.log('🔍 PDF VIEWER DEBUG - Final state:');
-      console.log('- isPDF:', this.isPDF);
-      console.log('- pdfSrc set:', !!this.pdfSrc);
-      console.log('- pdfSrc type:', typeof this.pdfSrc);
-      
-      // Force change detection
-      setTimeout(() => {
-        console.log('🔍 PDF VIEWER DEBUG - After timeout:');
-        console.log('- pdfSrc still set:', !!this.pdfSrc);
-        if (!this.pdfSrc) {
-          console.error('❌ pdfSrc was cleared somehow!');
-        }
-      }, 100);
+      // Pre-initialize the PDF viewer
+      this.pdfLoaded = false;
+      console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -714,54 +701,7 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
     this.modalController.dismiss();
   }
 
-  ngAfterViewInit() {
-    // Give the PDF viewer time to initialize
-    if (this.isPDF) {
-      console.log('🔍 ngAfterViewInit - PDF viewer state:');
-      console.log('- isPDF:', this.isPDF);
-      console.log('- pdfSrc set:', !!this.pdfSrc);
-      console.log('- pdfSrc type:', typeof this.pdfSrc);
-      
-      // Prepare debug info based on type
-      let lengthInfo = 'N/A';
-      let startsWithInfo = 'N/A';
-      
-      if (typeof this.pdfSrc === 'string') {
-        lengthInfo = this.pdfSrc.length.toString();
-        startsWithInfo = this.pdfSrc.substring(0, 50);
-      } else if (this.pdfSrc instanceof Uint8Array) {
-        lengthInfo = this.pdfSrc.length.toString();
-        startsWithInfo = 'Uint8Array data';
-      } else if (this.pdfSrc instanceof ArrayBuffer) {
-        lengthInfo = this.pdfSrc.byteLength.toString();
-        startsWithInfo = 'ArrayBuffer data';
-      }
-      
-      // Show debug alert on mobile
-      this.alertController.create({
-        header: 'PDF Debug Info',
-        message: `PDF Source: ${this.pdfSrc ? 'SET' : 'NOT SET'}<br>
-                  Type: ${typeof this.pdfSrc}<br>
-                  Length: ${lengthInfo}<br>
-                  Starts with: ${startsWithInfo}`,
-        buttons: ['OK']
-      }).then(alert => alert.present());
-    }
-  }
 
-  async convertBlobUrlToArrayBuffer(blobUrl: string) {
-    try {
-      const response = await fetch(blobUrl);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      this.pdfSrc = new Uint8Array(arrayBuffer);
-      console.log('✅ Blob URL converted to Uint8Array');
-    } catch (error) {
-      console.error('Error converting blob URL:', error);
-      // Fallback to direct URL
-      this.pdfSrc = blobUrl;
-    }
-  }
 
   onPdfLoaded(event: any) {
     console.log('✅ PDF loaded successfully:', event);
@@ -769,6 +709,45 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
     if (event && event.pagesCount) {
       console.log('PDF has', event.pagesCount, 'pages');
     }
+  }
+
+  onPageRendered(event: any) {
+    if (event && event.pageNumber) {
+      console.log('Page rendered:', event.pageNumber);
+      // Update current page if needed
+      if (event.pageNumber === 1) {
+        // First page rendered, PDF is becoming visible
+        this.pdfLoaded = true;
+      }
+    }
+  }
+
+  onPagesLoaded(event: any) {
+    console.log('All pages loaded:', event);
+    // Ensure proper scroll mode and container setup
+    setTimeout(() => {
+      const pdfViewer = (window as any).PDFViewerApplication;
+      if (pdfViewer && pdfViewer.pdfViewer) {
+        pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
+        pdfViewer.pdfViewer.spreadMode = 0; // NONE
+        
+        // Force update the viewer to recalculate scroll height
+        pdfViewer.pdfViewer.update();
+      }
+      
+      // Fix the viewer container height
+      const viewerContainer = document.getElementById('viewerContainer');
+      if (viewerContainer) {
+        // Ensure container can scroll all content
+        viewerContainer.style.height = '100%';
+        viewerContainer.style.overflowY = 'auto';
+        viewerContainer.style.position = 'relative';
+        
+        // Force a reflow to ensure scrolling works
+        viewerContainer.scrollTop = 1;
+        viewerContainer.scrollTop = 0;
+      }
+    }, 200);
   }
 
   onPdfLoadingFailed(error: any) {

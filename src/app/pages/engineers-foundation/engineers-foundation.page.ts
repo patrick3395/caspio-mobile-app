@@ -6144,8 +6144,8 @@ Has Annotations: ${!!annotations}`;
         }
       }
       
-      // Show debug popup before update
-      const debugAlert = await this.alertController.create({
+      // Debug popup removed - proceeding directly with update
+      /* const debugAlert = await this.alertController.create({
         header: '🔍 [v1.4.351] Debug: Annotation Update',
         message: `
           <div style="font-family: monospace; font-size: 12px; text-align: left;">
@@ -6217,14 +6217,14 @@ Original File: ${originalFile?.name || 'None'}`;
       
       if (role === 'cancel') {
         throw new Error('Update cancelled by user');
-      }
+      } */
       
       // CRITICAL: Check if we have any data to update
       if (Object.keys(updateData).length === 0) {
         console.warn('⚠️ No data to update - updateData is empty');
         // If there's no data to update, just return success
         console.log('✅ No changes needed, skipping update');
-        await this.showToast('No changes to save', 'info');
+        // Toast removed - silent return
         return;
       }
       
@@ -6290,8 +6290,8 @@ Original File: ${originalFile?.name || 'None'}`;
           containsDoubleBackslash: updateData.Drawings.includes('\\\\')
         };
         
-        // Show debug alert BEFORE sending to see what we're sending
-        const preUpdateDebug = await this.alertController.create({
+        // Debug alert removed - proceeding directly
+        /* const preUpdateDebug = await this.alertController.create({
           header: '📤 Debug: About to Update',
           message: `
             <div style="font-family: monospace; font-size: 10px; text-align: left;">
@@ -6333,7 +6333,7 @@ Original File: ${originalFile?.name || 'None'}`;
                   // Method 1: Try Clipboard API first
                   if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(debugText);
-                    await this.showToast('✅ Debug data copied to clipboard', 'success');
+                    // Toast removed - silent copy
                   } else {
                     throw new Error('Clipboard API not available');
                   }
@@ -6364,7 +6364,7 @@ Original File: ${originalFile?.name || 'None'}`;
                   try {
                     const successful = document.execCommand('copy');
                     if (successful) {
-                      await this.showToast('✅ Debug data copied (fallback method)', 'success');
+                      // Toast removed - silent copy
                     } else {
                       // Method 3: Show data in a selectable text field
                       await this.showCopyableDebugData(debugText);
@@ -6397,7 +6397,7 @@ Original File: ${originalFile?.name || 'None'}`;
         if (role === 'cancel') {
           await this.showToast('Update cancelled by user', 'warning');
           return;
-        }
+        } */
       }
       
       // Send update request
@@ -6423,8 +6423,7 @@ Original File: ${originalFile?.name || 'None'}`;
         }
       }
       
-      // Show success toast for mobile
-      await this.showToast('✅ Annotations updated successfully', 'success');
+      // Success toast removed - silent update
     } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
       
@@ -6484,7 +6483,7 @@ Stack: ${error?.stack}`;
                 // Method 1: Try Clipboard API first
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                   await navigator.clipboard.writeText(errorText);
-                  await this.showToast('✅ Error details copied', 'success');
+                  // Toast removed - silent copy
                 } else {
                   throw new Error('Clipboard API not available');
                 }
@@ -6515,7 +6514,7 @@ Stack: ${error?.stack}`;
                 try {
                   const successful = document.execCommand('copy');
                   if (successful) {
-                    await this.showToast('✅ Error copied (fallback)', 'success');
+                    // Toast removed - silent copy
                   } else {
                     // Method 3: Show data in a selectable text field
                     await this.showCopyableDebugData(errorText);
@@ -6740,7 +6739,7 @@ Stack: ${error?.stack}`;
               // Trigger change detection
               this.changeDetectorRef.detectChanges();
               
-              await this.showToast('Annotations saved', 'success');
+              // Success toast removed - silent save
             } catch (error: any) {
               console.error('Failed to save annotations in quickAnnotate:', error);
               
