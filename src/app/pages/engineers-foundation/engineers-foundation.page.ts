@@ -1658,6 +1658,58 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         drawingsData = this.compressAnnotationData(drawingsData);
       }
       
+      // DEBUG POPUP: Show what we're about to upload
+      const debugAlert = await this.alertController.create({
+        header: '🔍 DEBUG: Elevation Photo Upload',
+        message: `
+          <div style="font-family: monospace; font-size: 11px; text-align: left;">
+            <strong style="color: blue;">UPLOAD PARAMETERS</strong><br><br>
+            
+            <strong>Point Info:</strong><br>
+            • Point ID: ${pointIdNum}<br>
+            • Point Name: ${pointName}<br>
+            • Point ID Type: ${typeof pointIdNum}<br><br>
+            
+            <strong>Photo Info:</strong><br>
+            • File Name: ${photo.name}<br>
+            • File Size: ${photo.size} bytes<br>
+            • File Type: ${photo.type}<br><br>
+            
+            <strong>Annotation Data:</strong><br>
+            • Has Annotations: ${!!annotationData}<br>
+            • Drawings Data Length: ${drawingsData.length}<br>
+            • Drawings Preview: ${drawingsData ? drawingsData.substring(0, 100) + '...' : 'None'}<br><br>
+            
+            <strong>API Call:</strong><br>
+            • Method: createServicesRoomsPointsAttachWithFile<br>
+            • Table: Services_Rooms_Points_Attach<br>
+            • Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
+            
+            <strong style="color: orange;">Note:</strong> We're using the SAME API method as before,<br>
+            just now passing annotation data to the Drawings field.
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Continue Upload',
+            handler: () => true
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              throw new Error('Upload cancelled by user');
+            }
+          }
+        ]
+      });
+      await debugAlert.present();
+      const { role } = await debugAlert.onDidDismiss();
+      
+      if (role === 'cancel') {
+        throw new Error('Upload cancelled by user');
+      }
+      
       // Use the new two-step method that matches visual upload
       const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
         pointIdNum,
@@ -1667,13 +1719,55 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log('✅ Room point photo uploaded successfully with annotations:', response);
       
+      // Show success debug
+      const successAlert = await this.alertController.create({
+        header: '✅ Upload Successful',
+        message: `
+          <div style="font-family: monospace; font-size: 11px;">
+            <strong>Response:</strong><br>
+            • AttachID: ${response?.AttachID || response?.PK_ID || 'N/A'}<br>
+            • Photo Path: ${response?.Photo || 'N/A'}<br>
+            • Full Response: ${JSON.stringify(response).substring(0, 200)}...
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await successAlert.present();
+      
       return response;  // Return the response with AttachID
       
     } catch (error: any) {
       console.error('❌ Failed to upload room point photo:', error);
       
-      // Just show simple error toast
-      await this.showToast('Failed to upload photo', 'danger');
+      // Show detailed error debug popup
+      const errorAlert = await this.alertController.create({
+        header: '❌ Upload Failed',
+        message: `
+          <div style="font-family: monospace; font-size: 11px; text-align: left;">
+            <strong style="color: red;">ERROR DETAILS</strong><br><br>
+            
+            <strong>Error Message:</strong><br>
+            ${error?.message || 'Unknown error'}<br><br>
+            
+            <strong>Error Object:</strong><br>
+            ${JSON.stringify(error, null, 2).substring(0, 500)}<br><br>
+            
+            <strong>Upload Parameters Were:</strong><br>
+            • Point ID: ${pointIdNum}<br>
+            • Point Name: ${pointName}<br>
+            • File: ${photo?.name} (${photo?.size} bytes)<br>
+            • Annotations: ${annotationData ? 'Yes' : 'No'}<br><br>
+            
+            <strong>Possible Issues:</strong><br>
+            • Check if PointID ${pointIdNum} exists<br>
+            • Check if Drawings field accepts the data<br>
+            • Check network/API connection
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+      
       throw error;
     }
   }
