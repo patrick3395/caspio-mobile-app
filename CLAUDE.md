@@ -491,14 +491,18 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - When I say, "That worked clean up". Make sure to clean up the cload from added bloat, old code, files we do not need etc...
 - do not locally build or push to git unless I tell you to.
 
-## 17. PDF Button Double-Click Fix (v1.4.331 - January 2025):
-- **Issue**: PDF button in Engineers Foundation page required two clicks to work
+## 17. PDF Button Double-Click Fix (v1.4.331-338 - January 2025):
+- **Issue**: PDF button in Engineers Foundation page required two clicks to work, then stopped working entirely
 - **Root Cause**: Ionic ion-button component was causing navigation/reload on first click
-- **Fix Applied**:
-  - Replaced ion-button with native HTML button to bypass Ionic event handling issues
-  - Added handlePDFClick wrapper method that prevents all default behaviors
-  - Added preventTouch method for touchstart events
-  - Button is disabled immediately on click to prevent double-clicks
-  - Added 50ms delay to ensure no navigation occurs before PDF generation
-  - Used requestAnimationFrame removed as it wasn't needed with new approach
-- **Result**: PDF now opens on first click without page reload
+- **Fix Iterations**:
+  - v1.4.331: Replaced ion-button with native HTML button to bypass Ionic event handling
+  - v1.4.336: Fixed button selector mismatch (.pdf-fab vs .pdf-header-button)
+  - v1.4.338: Fixed button re-enabling logic to wait for modal dismissal
+- **Final Fix Applied**:
+  - Native HTML button with custom styling
+  - handlePDFClick wrapper that prevents default behaviors and calls generatePDF
+  - Button disabled during PDF generation to prevent double-clicks
+  - Button re-enabled only after modal is dismissed (using modal.onDidDismiss)
+  - Proper selector checking for both .pdf-header-button and .pdf-fab
+  - Loading indicator shown while PDF is being prepared
+- **Result**: PDF button now works on first click, shows loading indicator, and properly opens PDF modal

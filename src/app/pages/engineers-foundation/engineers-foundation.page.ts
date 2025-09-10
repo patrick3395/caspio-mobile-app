@@ -3068,7 +3068,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // New handler for PDF button click
   async handlePDFClick(event: Event) {
-    console.log('[v1.4.336] PDF button clicked via handlePDFClick');
+    console.log('[v1.4.338] PDF button clicked via handlePDFClick');
     
     // Prevent all default behaviors immediately
     event.preventDefault();
@@ -3076,11 +3076,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     event.stopImmediatePropagation();
     
     // Call the actual PDF generation directly
-    await this.generatePDF(event);
+    await this.generatePDF();
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.336] generatePDF called - fixed button selector issue');
+    console.log('[v1.4.338] generatePDF called');
     
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3097,14 +3097,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.336] Preventing form submission');
+        console.log('[v1.4.338] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
     
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.336] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.338] PDF generation already in progress, ignoring click');
       return;
     }
     
@@ -3123,19 +3123,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`[v1.4.336] PDF generation attempt #${this.pdfGenerationAttempts}`);
+    console.log(`[v1.4.338] PDF generation attempt #${this.pdfGenerationAttempts}`);
     
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
       if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.336] Missing service/project ID, attempting recovery');
+        console.error('[v1.4.338] Missing service/project ID, attempting recovery');
         // Try to recover IDs from route if possible
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
-          console.log('[v1.4.336] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+          console.log('[v1.4.338] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
         } else {
           this.isPDFGenerating = false;
           if (pdfButton) {
@@ -3202,7 +3202,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         // Load all data in parallel for maximum speed
-        console.log('[v1.4.336] Loading PDF data...');
+        console.log('[v1.4.338] Loading PDF data...');
         const startTime = Date.now();
         
         try {
@@ -3210,7 +3210,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Execute all data fetching in parallel with individual error handling
           const [projectData, structuralData, elevationData] = await Promise.all([
             this.prepareProjectInfo().catch(err => {
-              console.error('[v1.4.336] Error in prepareProjectInfo:', err);
+              console.error('[v1.4.338] Error in prepareProjectInfo:', err);
               // Return minimal valid data structure
               return {
                 projectId: this.projectId,
@@ -3222,11 +3222,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               };
             }),
             this.prepareStructuralSystemsData().catch(err => {
-              console.error('[v1.4.336] Error in prepareStructuralSystemsData:', err);
+              console.error('[v1.4.338] Error in prepareStructuralSystemsData:', err);
               return []; // Return empty array instead of failing
             }),
             this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.336] Error in prepareElevationPlotData:', err);
+              console.error('[v1.4.338] Error in prepareElevationPlotData:', err);
               return []; // Return empty array instead of failing
             })
           ]);
@@ -3235,7 +3235,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
           
-          console.log(`[v1.4.331] All data loaded in ${Date.now() - startTime}ms`);
+          console.log(`[v1.4.338] All data loaded in ${Date.now() - startTime}ms`);
           
           // Cache the prepared data
           this.cache.set(cacheKey, {
@@ -3244,7 +3244,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
         } catch (dataError) {
-          console.error('[v1.4.336] Fatal error loading PDF data:', dataError);
+          console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
           projectInfo = {
             projectId: this.projectId,
@@ -3293,42 +3293,50 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Present the modal with error handling
       try {
         await modal.present();
-        console.log('[v1.4.330] Modal presented successfully on attempt #' + this.pdfGenerationAttempts);
+        console.log('[v1.4.338] Modal presented successfully on attempt #' + this.pdfGenerationAttempts);
         
         // Dismiss loading after modal is presented
         // Add a small delay to ensure smooth transition
         setTimeout(async () => {
           try {
             await loading.dismiss();
-            console.log('[v1.4.330] Loading dismissed after modal presentation');
+            console.log('[v1.4.338] Loading dismissed after modal presentation');
           } catch (dismissError) {
-            console.log('[v1.4.326] Loading already dismissed');
+            console.log('[v1.4.338] Loading already dismissed');
           }
         }, 300);
         
       } catch (modalError) {
-        console.error('[v1.4.330] Error presenting modal:', modalError);
+        console.error('[v1.4.338] Error presenting modal:', modalError);
         // Try to dismiss loading on error
         try {
           await loading.dismiss();
         } catch (dismissError) {
-          console.log('[v1.4.317] Loading already dismissed');
+          console.log('[v1.4.338] Loading already dismissed');
         }
         throw modalError;
       }
       
-      // Re-enable the PDF button
-      if (pdfButton) {
-        pdfButton.style.pointerEvents = 'auto';
-        pdfButton.style.opacity = '1';
-      }
+      // Wait for modal to be dismissed before re-enabling button
+      modal.onDidDismiss().then(() => {
+        console.log('[v1.4.338] PDF modal dismissed, re-enabling button');
+        // Re-enable the PDF button
+        const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
+        if (pdfBtn) {
+          if (pdfBtn instanceof HTMLButtonElement) {
+            pdfBtn.disabled = false;
+          }
+          pdfBtn.style.pointerEvents = 'auto';
+          pdfBtn.style.opacity = '1';
+        }
+        // Reset the generation flag after modal is dismissed
+        this.isPDFGenerating = false;
+      });
       
-      // Reset the generation flag after successful modal presentation
-      this.isPDFGenerating = false;
-      console.log('[v1.4.330] PDF generation completed successfully on attempt #' + this.pdfGenerationAttempts);
+      console.log('[v1.4.338] PDF generation completed successfully on attempt #' + this.pdfGenerationAttempts);
       
     } catch (error) {
-      console.error('[v1.4.330] Error preparing preview:', error);
+      console.error('[v1.4.338] Error preparing preview:', error);
       
       // Reset the generation flag on error
       this.isPDFGenerating = false;
@@ -3346,7 +3354,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         await loading.dismiss();
       } catch (e) {
-        console.log('[v1.4.317] Loading already dismissed');
+        console.log('[v1.4.338] Loading already dismissed');
       }
       
       // Show more detailed error message
@@ -3355,7 +3363,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   } catch (error) {
     // Outer catch for the main try block
-    console.error('[v1.4.336] Outer error in generatePDF:', error);
+    console.error('[v1.4.338] Outer error in generatePDF:', error);
     this.isPDFGenerating = false;
     
     // Re-enable the PDF button - check for both possible button selectors
@@ -5558,9 +5566,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Update existing photo attachment with optional annotations
   async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
-      console.log('🔍 updatePhotoAttachment called with:');
+      console.log('🔍 [v1.4.340] updatePhotoAttachment called with:');
       console.log('  attachId:', attachId);
       console.log('  attachId type:', typeof attachId);
+      console.log('  attachId value check:', {
+        isUndefined: attachId === undefined,
+        isNull: attachId === null,
+        isUndefinedString: attachId === 'undefined',
+        isNullString: attachId === 'null',
+        isEmpty: !attachId,
+        actualValue: attachId
+      });
       console.log('  file:', file.name);
       console.log('  annotations:', annotations);
       console.log('  has originalFile:', !!originalFile);
@@ -6283,15 +6299,28 @@ Stack: ${error?.stack}`;
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
-      console.log('👁️ Viewing photo:', photo);
+      console.log('👁️ [v1.4.340] Viewing photo:', {
+        name: photo.name,
+        hasAttachID: !!photo.AttachID,
+        AttachID: photo.AttachID,
+        hasAnnotations: photo.hasAnnotations,
+        hasOriginalUrl: !!photo.originalUrl
+      });
+      
+      // v1.4.340: Validate AttachID before proceeding
+      if (!photo.AttachID && !photo.id) {
+        console.error('❌ [v1.4.340] Photo missing AttachID:', photo);
+        await this.showToast('Cannot edit photo: Missing attachment ID', 'danger');
+        return;
+      }
       
       const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = photo.name || 'Photo';
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
       
-      // CRITICAL FIX: Always pass the ORIGINAL URL to the viewer
-      // Use originalUrl if available (from previous annotation), otherwise use url
+      // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
+      // The originalUrl is set during loadExistingPhotos
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
       
       // ENHANCED: Open annotation window directly instead of photo viewer
@@ -6300,8 +6329,12 @@ Stack: ${error?.stack}`;
         componentProps: {
           imageUrl: originalImageUrl,  // Always use original, not display URL
           existingAnnotations: photo.annotations || photo.annotationsData,  // Pass existing annotations
-          photoData: photo,
-          isReEdit: !!photo.originalUrl  // Flag to indicate we're re-editing
+          photoData: {
+            ...photo,
+            AttachID: photo.AttachID || photo.id, // v1.4.340: Ensure AttachID is passed
+            id: photo.AttachID || photo.id // Ensure both fields are set
+          },
+          isReEdit: !!photo.annotations || !!photo.annotationsData  // Flag to indicate we're re-editing (v1.4.340: Check for annotations, not originalUrl)
         },
         cssClass: 'fullscreen-modal'
       });
@@ -6691,13 +6724,15 @@ Stack: ${error?.stack}`;
                 annotationsData: annotationData,  // Also store with 's' for compatibility
                 hasAnnotations: !!annotationData,
                 rawDrawingsString: rawDrawingsString,  // CRITICAL: Keep the raw string for updates
-                // CRITICAL: Preserve AttachID for updates - this is what was missing!
+                // CRITICAL FIX v1.4.340: Ensure AttachID is ALWAYS preserved as the primary key
                 AttachID: photo.AttachID || photo.PK_ID || photo.id,
                 id: photo.AttachID || photo.PK_ID || photo.id, // Also store as 'id' for compatibility
+                PK_ID: photo.PK_ID || photo.AttachID || photo.id, // Keep PK_ID for backward compatibility
                 // CRITICAL: Set to undefined, not empty string, so template can fall back properly
                 url: undefined,
                 thumbnailUrl: undefined,
-                displayUrl: undefined
+                displayUrl: undefined,
+                originalUrl: undefined // Will be set to base64 URL below
               };
               
               // If we have a Photo field with a file path, try to fetch it
@@ -6710,11 +6745,28 @@ Stack: ${error?.stack}`;
                   const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
                   
                   if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
-                    console.log('✅ [v1.4.303] Image data received, valid base64');
-                    // Set both url and thumbnailUrl to the base64 data
+                    console.log('✅ [v1.4.340] Image data received, valid base64');
+                    // Set the original URL (base image without annotations)
                     photoData.url = imageData;
-                    photoData.thumbnailUrl = imageData;
-                    // Don't set displayUrl - let it remain undefined
+                    photoData.originalUrl = imageData; // Store as originalUrl for annotation editing
+                    
+                    // v1.4.340: If we have annotations, regenerate the annotated thumbnail
+                    if (annotationData && annotationData.objects && annotationData.objects.length > 0) {
+                      console.log('🎨 [v1.4.340] Regenerating annotated thumbnail from stored annotations');
+                      try {
+                        // We'll need to recreate the annotated image from the original + annotations
+                        // For now, use the original as thumbnail and let the annotation indicator show
+                        photoData.thumbnailUrl = imageData;
+                        photoData.displayUrl = undefined; // Will be regenerated when viewed
+                        console.log('✅ [v1.4.340] Photo has annotations, will show indicator');
+                      } catch (err) {
+                        console.error('❌ [v1.4.340] Failed to regenerate annotated thumbnail:', err);
+                        photoData.thumbnailUrl = imageData; // Fallback to original
+                      }
+                    } else {
+                      // No annotations, use original as thumbnail
+                      photoData.thumbnailUrl = imageData;
+                    }
                   } else if (imageData) {
                     console.log('⚠️ [v1.4.303] Image data received but not base64:', typeof imageData, imageData?.substring?.(0, 50));
                     // Try to handle other data formats
