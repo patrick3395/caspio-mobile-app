@@ -1172,29 +1172,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 elevationPoint.photoCount = photos.length;
                 
                 // Process photos to get base64 URLs like Structural section does
-                elevationPoint.photos = await Promise.all(photos.map(async (photo: any) => {
+                elevationPoint.photos = await Promise.all(photos.map(async (photo: any, photoIndex: number) => {
                   const photoPath = photo.Photo || '';
                   let photoUrl = '';
                   let thumbnailUrl = '';
                   
+                  console.log(`[Photo ${photoIndex + 1}] Processing photo for ${point.PointName}:`, {
+                    AttachID: photo.AttachID,
+                    Photo: photoPath,
+                    HasDrawings: !!photo.Drawings
+                  });
+                  
                   if (photoPath) {
                     try {
                       // Use the same method as Structural section - fetch as base64 data URL
-                      console.log(`Fetching room photo from Files API: ${photoPath}`);
+                      console.log(`[Photo ${photoIndex + 1}] Fetching from Files API: ${photoPath}`);
                       const imageData = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                       
                       if (imageData && imageData.startsWith('data:')) {
                         photoUrl = imageData;
                         thumbnailUrl = imageData;
+                        console.log(`[Photo ${photoIndex + 1}] Successfully loaded base64, length: ${imageData.length}`);
                       } else {
-                        // Fallback to SVG if fetch fails
-                        photoUrl = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                        console.log(`[Photo ${photoIndex + 1}] Invalid image data, using fallback`);
+                        // Fallback to SVG if fetch fails - make it unique per photo
+                        photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo ${photoIndex + 1}</text></svg>`);
                         thumbnailUrl = photoUrl;
                       }
                     } catch (err) {
-                      console.error('Error fetching room photo:', err);
-                      // Fallback to SVG on error
-                      photoUrl = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
+                      console.error(`[Photo ${photoIndex + 1}] Error fetching:`, err);
+                      // Fallback to SVG on error - make it unique
+                      photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Error ${photoIndex + 1}</text></svg>`);
                       thumbnailUrl = photoUrl;
                     }
                   }
@@ -1209,17 +1217,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     }
                   }
                   
-                  return {
+                  const photoResult = {
                     url: photoUrl,
                     thumbnailUrl: thumbnailUrl,
+                    displayUrl: photoUrl,  // Add displayUrl for consistency
+                    originalUrl: photoUrl,  // Store original for re-editing
                     annotation: '',  // Don't use Annotation field anymore
                     annotations: annotationData,
                     rawDrawingsString: photo.Drawings,
                     hasAnnotations: !!annotationData,
                     attachId: photo.AttachID || photo.PK_ID,
+                    AttachID: photo.AttachID || photo.PK_ID,  // Also store as AttachID
+                    id: photo.AttachID || photo.PK_ID,  // And as id for compatibility
                     originalPath: photoPath,
-                    filePath: photoPath  // Keep for compatibility
+                    filePath: photoPath,  // Keep for compatibility
+                    name: `Photo ${photoIndex + 1}`
                   };
+                  
+                  console.log(`[Photo ${photoIndex + 1}] Returning photo data:`, {
+                    attachId: photoResult.attachId,
+                    hasUrl: !!photoResult.url,
+                    urlLength: photoResult.url?.length,
+                    hasAnnotations: photoResult.hasAnnotations
+                  });
+                  
+                  return photoResult;
                 }));
                 console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
@@ -1355,15 +1377,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Ask if user wants to annotate (only for single files, skip for batch)
+        // Don't automatically annotate - just prepare the file
+        // User can annotate later by clicking on the photo
         let annotatedResult: { file: File; annotationData?: any; originalFile?: File } = { 
           file: file, 
           annotationData: null, 
           originalFile: undefined 
         };
-        if (files.length === 1) {
-          annotatedResult = await this.annotatePhoto(file);
-        }
+        // Removed automatic annotation for single files
         
         // Create preview immediately
         const photoUrl = URL.createObjectURL(annotatedResult.file);
@@ -1661,15 +1682,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Process annotation data for Drawings field (same as Structural Systems)
       let drawingsData = '';
       if (annotationData && annotationData !== null) {
-        if (typeof annotationData === 'string') {
-          drawingsData = annotationData;
-        } else if (typeof annotationData === 'object') {
-          // Convert object to JSON string for storage
-          drawingsData = JSON.stringify(annotationData);
+        // Check if there are actual annotation objects
+        let hasActualAnnotations = false;
+        
+        if (typeof annotationData === 'object' && annotationData.objects && Array.isArray(annotationData.objects)) {
+          // Check if there are any actual drawing objects (not empty)
+          hasActualAnnotations = annotationData.objects.length > 0;
+        } else if (typeof annotationData === 'string' && annotationData.length > 2) {
+          // If it's a string, check it's not just empty JSON
+          hasActualAnnotations = annotationData !== '{}' && annotationData !== '[]' && annotationData !== '""';
         }
-        // Compress if needed (matching Structural Systems logic)
-        if (drawingsData && drawingsData.length > 0) {
-          drawingsData = this.compressAnnotationData(drawingsData);
+        
+        if (hasActualAnnotations) {
+          if (typeof annotationData === 'string') {
+            drawingsData = annotationData;
+          } else if (typeof annotationData === 'object') {
+            // Convert object to JSON string for storage
+            drawingsData = JSON.stringify(annotationData);
+          }
+          // Compress if needed (matching Structural Systems logic)
+          if (drawingsData && drawingsData.length > 0) {
+            drawingsData = this.compressAnnotationData(drawingsData);
+          }
         }
       }
       // If no annotations, pass empty string (will be omitted in service)
@@ -3109,7 +3143,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // View elevation photo with annotation support (matching Structural Systems)
   async viewElevationPhoto(photo: any, roomName?: string, point?: any) {
-    console.log('Viewing elevation photo with annotation support:', photo);
+    console.log('Viewing elevation photo with annotation support:', {
+      photo,
+      hasUrl: !!photo.url,
+      hasThumbnailUrl: !!photo.thumbnailUrl,
+      hasOriginalUrl: !!photo.originalUrl,
+      hasFilePath: !!photo.filePath,
+      attachId: photo.attachId || photo.AttachID || photo.id
+    });
     
     try {
       // Validate photo has an ID
@@ -3120,11 +3161,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       const attachId = photo.attachId || photo.AttachID || photo.id;
-      const imageUrl = photo.url || photo.thumbnailUrl || photo.filePath || 'assets/img/photo-placeholder.png';
+      
+      // Try to get a valid image URL
+      let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
+      
+      // If no valid URL and we have a file path, try to fetch it
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && photo.filePath) {
+        console.log('No valid URL found, fetching from file path:', photo.filePath);
+        try {
+          const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
+          if (fetchedImage && fetchedImage.startsWith('data:')) {
+            imageUrl = fetchedImage;
+            // Update the photo object for future use
+            photo.url = fetchedImage;
+            photo.originalUrl = fetchedImage;
+          }
+        } catch (err) {
+          console.error('Failed to fetch image from file path:', err);
+        }
+      }
+      
+      // Fallback to placeholder if still no URL
+      if (!imageUrl) {
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+      
       const photoName = photo.name || 'Elevation Photo';
       
       // Use original URL if available (for re-editing annotations)
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+      
+      console.log('Using image URLs:', {
+        imageUrl,
+        originalImageUrl,
+        isBase64: imageUrl.startsWith('data:')
+      });
       
       // Parse existing annotations (matching Structural Systems logic)
       let existingAnnotations = null;
