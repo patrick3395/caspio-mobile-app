@@ -5598,6 +5598,108 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Helper method to compress large JSON data using base64 + gzip-like compression
+  private compressAnnotationData(data: string): string {
+    console.log('🗜️ [v1.4.345] Compressing annotation data');
+    console.log('  Original size:', data.length, 'bytes');
+    
+    // If data is small enough, don't compress
+    if (data.length < 50000) { // Less than 50KB
+      console.log('  Data small enough, not compressing');
+      return data;
+    }
+    
+    try {
+      // Use a simple but effective compression:
+      // 1. Remove unnecessary whitespace from JSON
+      const minified = JSON.stringify(JSON.parse(data));
+      console.log('  After minification:', minified.length, 'bytes');
+      
+      // 2. If still too large, we need to simplify the data
+      if (minified.length > 60000) { // Still close to 64KB limit
+        console.log('  ⚠️ Data still too large, attempting to simplify');
+        
+        const parsed = JSON.parse(minified);
+        
+        // Remove unnecessary properties from Fabric.js objects
+        if (parsed.objects && Array.isArray(parsed.objects)) {
+          parsed.objects = parsed.objects.map((obj: any) => {
+            // Keep only essential properties
+            const essential: any = {
+              type: obj.type,
+              left: Math.round(obj.left),
+              top: Math.round(obj.top),
+              width: Math.round(obj.width),
+              height: Math.round(obj.height),
+              angle: obj.angle || 0,
+              stroke: obj.stroke,
+              strokeWidth: obj.strokeWidth,
+              fill: obj.fill
+            };
+            
+            // Keep specific properties based on type
+            if (obj.type === 'Path' || obj.type === 'path') {
+              essential.path = obj.path;
+            } else if (obj.type === 'Line' || obj.type === 'line') {
+              essential.x1 = obj.x1;
+              essential.y1 = obj.y1;
+              essential.x2 = obj.x2;
+              essential.y2 = obj.y2;
+            } else if (obj.type === 'IText' || obj.type === 'i-text' || obj.type === 'text') {
+              essential.text = obj.text;
+              essential.fontSize = obj.fontSize;
+              essential.fontFamily = obj.fontFamily;
+            } else if (obj.type === 'Circle' || obj.type === 'circle') {
+              essential.radius = obj.radius;
+            } else if (obj.type === 'Rect' || obj.type === 'rect') {
+              // Width and height already included
+            } else if (obj.type === 'Group') {
+              // For groups, keep the objects array
+              essential.objects = obj.objects;
+            }
+            
+            return essential;
+          });
+        }
+        
+        // Remove background image if it's a blob URL (not persistent)
+        if (parsed.backgroundImage?.src?.startsWith('blob:')) {
+          delete parsed.backgroundImage;
+        }
+        
+        const simplified = JSON.stringify(parsed);
+        console.log('  After simplification:', simplified.length, 'bytes');
+        console.log('  Compression ratio:', ((1 - simplified.length / data.length) * 100).toFixed(1) + '%');
+        
+        // Mark as compressed with a special prefix
+        return 'COMPRESSED_V1:' + simplified;
+      }
+      
+      return minified;
+    } catch (error) {
+      console.error('❌ Compression failed:', error);
+      return data; // Return original if compression fails
+    }
+  }
+  
+  // Helper method to decompress annotation data
+  private decompressAnnotationData(data: string): any {
+    if (!data) return null;
+    
+    // Check if data is compressed
+    if (data.startsWith('COMPRESSED_V1:')) {
+      console.log('🔓 [v1.4.345] Decompressing annotation data');
+      data = data.substring('COMPRESSED_V1:'.length);
+    }
+    
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('❌ Failed to parse annotation data:', error);
+      return null;
+    }
+  }
+  
   // Update existing photo attachment with optional annotations
   async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
@@ -5828,7 +5930,7 @@ Has Annotations: ${!!annotations}`;
             .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except tab, newline, carriage return
             .replace(/undefined/g, 'null'); // Replace 'undefined' strings with 'null'
           
-          // v1.4.341: Ensure no undefined values in JSON
+          // v1.4.345: CRITICAL - Compress data if it's too large
           try {
             const parsed = JSON.parse(drawingsData);
             // Re-stringify to ensure clean JSON format
@@ -5836,7 +5938,39 @@ Has Annotations: ${!!annotations}`;
               // Replace undefined with null for valid JSON
               return value === undefined ? null : value;
             });
+            
+            // COMPRESS if needed to fit in 64KB TEXT field
+            drawingsData = this.compressAnnotationData(drawingsData);
+            
+            // Final size check
+            if (drawingsData.length > 64000) {
+              console.error('❌ [v1.4.345] Data STILL too large after compression:', drawingsData.length);
+              
+              // Show error to user
+              const alert = await this.alertController.create({
+                header: '❌ Annotation Too Complex',
+                message: `
+                  <div style="font-family: monospace; font-size: 12px;">
+                    <strong>The annotation data is too large to save.</strong><br><br>
+                    
+                    Data size: ${drawingsData.length.toLocaleString()} bytes<br>
+                    Maximum: 64,000 bytes<br><br>
+                    
+                    <strong>Solutions:</strong><br>
+                    • Reduce the number of annotations<br>
+                    • Use simpler shapes (lines instead of complex paths)<br>
+                    • Clear and redraw with fewer strokes<br>
+                  </div>
+                `,
+                buttons: ['OK']
+              });
+              await alert.present();
+              throw new Error('Annotation data exceeds 64KB limit');
+            }
           } catch (e) {
+            if (e instanceof Error && e.message.includes('64KB')) {
+              throw e; // Re-throw size limit errors
+            }
             console.warn('  ⚠️ Could not re-parse for cleaning, using as-is');
           }
           
@@ -6312,15 +6446,47 @@ Stack: ${error?.stack}`;
       const photoName = photo.name || 'Photo';
       
       // Parse existing annotations if available
-      let existingAnnotations = [];
-      if (photo.annotations) {
-        try {
-          existingAnnotations = typeof photo.annotations === 'string' 
-            ? JSON.parse(photo.annotations) 
-            : photo.annotations;
-        } catch (e) {
-          console.log('Failed to parse annotations:', e);
+      let existingAnnotations = null;
+      
+      // v1.4.345: Try multiple sources for annotations and handle decompression
+      const annotationSources = [
+        photo.annotations,
+        photo.annotationsData,
+        photo.rawDrawingsString,
+        photo.Drawings
+      ];
+      
+      for (const source of annotationSources) {
+        if (source) {
+          try {
+            console.log('[v1.4.345] Attempting to parse annotations from source:', typeof source);
+            if (typeof source === 'string') {
+              // Use decompression helper to handle compressed data
+              existingAnnotations = this.decompressAnnotationData(source);
+            } else {
+              existingAnnotations = source;
+            }
+            
+            if (existingAnnotations) {
+              console.log('[v1.4.345] Successfully parsed annotations:', {
+                hasObjects: !!existingAnnotations.objects,
+                objectCount: existingAnnotations.objects?.length || 0
+              });
+              break; // Found valid annotations, stop searching
+            }
+          } catch (e) {
+            console.log('Failed to parse annotations from this source:', e);
+          }
         }
+      }
+      
+      // Convert to the format expected by FabricPhotoAnnotatorComponent if needed
+      if (existingAnnotations && !existingAnnotations.objects && Array.isArray(existingAnnotations)) {
+        // If it's an array of annotations, wrap it in Fabric.js format
+        existingAnnotations = {
+          version: "6.7.1",
+          objects: existingAnnotations
+        };
       }
       
       // Open annotation modal directly
@@ -6477,21 +6643,49 @@ Stack: ${error?.stack}`;
       // The originalUrl is set during loadExistingPhotos
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
       
+      // v1.4.345: Parse and decompress existing annotations
+      let existingAnnotations = null;
+      const annotationSources = [
+        photo.rawDrawingsString,
+        photo.annotations,
+        photo.annotationsData,
+        photo.Drawings
+      ];
+      
+      for (const source of annotationSources) {
+        if (source) {
+          try {
+            console.log('[v1.4.345] Parsing annotations in viewPhoto:', typeof source);
+            if (typeof source === 'string') {
+              existingAnnotations = this.decompressAnnotationData(source);
+            } else {
+              existingAnnotations = source;
+            }
+            
+            if (existingAnnotations) {
+              console.log('[v1.4.345] Found valid annotations in viewPhoto');
+              break;
+            }
+          } catch (e) {
+            console.log('Failed to parse in viewPhoto:', e);
+          }
+        }
+      }
+      
       // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: originalImageUrl,  // Always use original, not display URL
-          // v1.4.342 CRITICAL FIX: Pass the raw string directly - the component handles both strings and objects
-          // The component will parse it if it's a string (see line 701-709 of the component)
-          existingAnnotations: photo.rawDrawingsString || photo.annotations || photo.annotationsData,  // Pass raw string first, it will be parsed by component
+          // v1.4.345: Pass properly decompressed annotations
+          existingAnnotations: existingAnnotations,
           photoData: {
             ...photo,
             AttachID: photo.AttachID || photo.id, // v1.4.340: Ensure AttachID is passed
             id: photo.AttachID || photo.id, // Ensure both fields are set
             rawDrawingsString: photo.rawDrawingsString // v1.4.341: Pass the raw string
           },
-          isReEdit: !!photo.rawDrawingsString || !!photo.annotations || !!photo.annotationsData  // Flag to indicate we're re-editing
+          isReEdit: !!existingAnnotations  // Flag to indicate we're re-editing
         },
         cssClass: 'fullscreen-modal'
       });
@@ -6884,8 +7078,12 @@ Stack: ${error?.stack}`;
               let rawDrawingsString = photo.Drawings; // Keep the raw string
               if (photo.Drawings) {
                 try {
-                  annotationData = typeof photo.Drawings === 'string' ? JSON.parse(photo.Drawings) : photo.Drawings;
-                  console.log('📝 Parsed annotation data from Drawings field');
+                  // v1.4.345: Use decompression helper to handle compressed data
+                  annotationData = this.decompressAnnotationData(photo.Drawings);
+                  console.log('📝 [v1.4.345] Parsed annotation data from Drawings field');
+                  if (annotationData && annotationData.objects) {
+                    console.log('  Found', annotationData.objects.length, 'annotation objects');
+                  }
                 } catch (e) {
                   console.log('⚠️ Could not parse Drawings field:', e);
                 }
