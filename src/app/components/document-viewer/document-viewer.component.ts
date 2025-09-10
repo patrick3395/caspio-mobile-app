@@ -1,13 +1,14 @@
-import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
+import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 
 @Component({
   selector: 'app-document-viewer',
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule],
+  imports: [CommonModule, IonicModule, FormsModule, NgxExtendedPdfViewerModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <ion-header>
@@ -41,17 +42,36 @@ import { FormsModule } from '@angular/forms';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <div class="pdf-loading" *ngIf="!pdfLoaded">
+        <ngx-extended-pdf-viewer 
+          *ngIf="pdfSrc"
+          [src]="pdfSrc"
+          [height]="'100%'"
+          [useBrowserLocale]="true"
+          [textLayer]="true"
+          [showToolbar]="true"
+          [showSidebarButton]="true"
+          [showFindButton]="true"
+          [showPagingButtons]="true"
+          [showZoomButtons]="true"
+          [showPresentationModeButton]="false"
+          [showOpenFileButton]="false"
+          [showPrintButton]="true"
+          [showDownloadButton]="true"
+          [showBookmarkButton]="false"
+          [showSecondaryToolbarButton]="true"
+          [showRotateButton]="true"
+          [showHandToolButton]="true"
+          [showScrollingButton]="true"
+          [showSpreadButton]="true"
+          [showPropertiesButton]="false"
+          [zoom]="'page-width'"
+          (pdfLoaded)="onPdfLoaded($event)"
+          (pdfLoadingFailed)="onPdfLoadingFailed($event)">
+        </ngx-extended-pdf-viewer>
+        <div class="pdf-loading" *ngIf="!pdfSrc">
           <ion-spinner name="crescent" color="warning"></ion-spinner>
-          <p>Loading PDF...</p>
+          <p>Preparing PDF...</p>
         </div>
-        <iframe 
-          *ngIf="pdfLoaded && sanitizedPdfUrl"
-          [src]="sanitizedPdfUrl" 
-          frameborder="0"
-          class="pdf-iframe"
-          (load)="onPdfIframeLoad()">
-        </iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -537,28 +557,18 @@ import { FormsModule } from '@angular/forms';
     }
   `]
 })
-export class DocumentViewerComponent implements OnInit {
+export class DocumentViewerComponent implements OnInit, AfterViewInit {
   @Input() fileUrl!: string;
   @Input() fileName!: string;
   @Input() fileType!: string;
   @Input() filePath?: string; // Original file path
   
   sanitizedUrl: SafeResourceUrl | null = null;
-  sanitizedPdfUrl: SafeResourceUrl | null = null;
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
-
-  @ViewChild('searchPopupInput') searchPopupInput?: ElementRef;
-  searchTerm: string = '';
+  pdfSrc: string | Uint8Array | { url: string } | undefined;
   pdfLoaded: boolean = false;
-  totalPages: number = 0;
-  currentPage: number = 1;
-  currentZoom: number = 100;
-  sidebarVisible: boolean = false;
-  searchResultsCount: number = 0;
-  currentSearchIndex: number = 0;
-  showSearchPopup: boolean = false;
 
   constructor(
     private modalController: ModalController,
@@ -598,43 +608,45 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, use iframe with the data URL
-      console.log('Preparing PDF for iframe display...');
+      // For PDFs, prepare the source for ngx-extended-pdf-viewer
+      console.log('Preparing PDF for ngx-extended-pdf-viewer...');
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
-      // Initialize the loading state
-      this.pdfLoaded = false;
-      
-      // Sanitize the URL for iframe src
+      // ngx-extended-pdf-viewer accepts base64 strings directly
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        console.log('📄 Using base64 data URL for PDF iframe');
-        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-        // Show the PDF immediately
-        setTimeout(() => {
-          this.pdfLoaded = true;
-          console.log('✅ PDF iframe ready for display');
-        }, 100);
+        console.log('📄 Processing base64 PDF data...');
+        
+        // The viewer works best with just the base64 string without the data URL prefix
+        try {
+          const base64String = this.fileUrl.split(',')[1];
+          const binaryString = atob(base64String);
+          const bytes = new Uint8Array(binaryString.length);
+          
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          // Use Uint8Array for better compatibility
+          this.pdfSrc = bytes;
+          console.log('✅ PDF converted to Uint8Array, size:', bytes.length);
+        } catch (error) {
+          console.error('Error converting base64 to Uint8Array:', error);
+          // Fallback to using the base64 data URL directly
+          this.pdfSrc = this.fileUrl;
+          console.log('⚠️ Using base64 data URL directly as fallback');
+        }
       } else if (this.fileUrl.startsWith('blob:')) {
-        console.log('📄 Using blob URL for PDF iframe');
-        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-        // Show the PDF immediately
-        setTimeout(() => {
-          this.pdfLoaded = true;
-          console.log('✅ PDF iframe ready for display');
-        }, 100);
+        console.log('📄 Blob URL detected, converting to array buffer...');
+        // Blob URLs need to be fetched and converted
+        this.convertBlobUrlToArrayBuffer(this.fileUrl);
       } else {
-        // Regular URL
-        console.log('📄 Using regular URL for PDF iframe');
-        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
-        // Show the PDF immediately
-        setTimeout(() => {
-          this.pdfLoaded = true;
-          console.log('✅ PDF iframe ready for display');
-        }, 100);
+        // Regular URL - pass it directly
+        console.log('📄 Using regular URL for PDF');
+        this.pdfSrc = this.fileUrl;
       }
       
-      console.log('PDF iframe URL prepared');
+      console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -684,73 +696,46 @@ export class DocumentViewerComponent implements OnInit {
     this.modalController.dismiss();
   }
 
-  toggleSearchPopup() {
-    this.showSearchPopup = !this.showSearchPopup;
-    if (this.showSearchPopup) {
-      // Focus the search input after popup opens
-      setTimeout(() => {
-        if (this.searchPopupInput) {
-          this.searchPopupInput.nativeElement.focus();
-        }
-      }, 100);
-    } else {
-      // Clear search when closing
-      this.clearSearch();
+  ngAfterViewInit() {
+    // Give the PDF viewer time to initialize
+    if (this.isPDF && this.pdfSrc) {
+      console.log('PDF viewer should be initializing...');
     }
   }
 
-  closeSearchPopup() {
-    this.showSearchPopup = false;
-    this.clearSearch();
+  async convertBlobUrlToArrayBuffer(blobUrl: string) {
+    try {
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      this.pdfSrc = new Uint8Array(arrayBuffer);
+      console.log('✅ Blob URL converted to Uint8Array');
+    } catch (error) {
+      console.error('Error converting blob URL:', error);
+      // Fallback to direct URL
+      this.pdfSrc = blobUrl;
+    }
   }
 
-  clearSearch() {
-    this.searchTerm = '';
-    this.searchResultsCount = 0;
-    this.currentSearchIndex = 0;
+  onPdfLoaded(event: any) {
+    console.log('✅ PDF loaded successfully:', event);
+    this.pdfLoaded = true;
+    if (event && event.pagesCount) {
+      console.log('PDF has', event.pagesCount, 'pages');
+    }
   }
 
-  onSearchChange(event: any) {
-    this.searchTerm = event.target.value;
-    this.currentSearchIndex = 0;
-    this.searchResultsCount = 0;
+  onPdfLoadingFailed(error: any) {
+    console.error('❌ PDF loading failed:', error);
+    this.pdfLoaded = false;
     
-    if (this.searchTerm && this.searchTerm.length > 0) {
-      // Perform the search
-      this.performSearch();
-    } else {
-      // Clear search if empty
-      this.clearSearchHighlights();
-    }
+    // Show error to user
+    this.alertController.create({
+      header: 'PDF Loading Error',
+      message: 'Unable to load the PDF document. The file may be corrupted or in an unsupported format.',
+      buttons: ['OK']
+    }).then(alert => alert.present());
   }
 
-  performSearch() {
-    // Search not available with iframe PDF viewer
-    console.log('PDF search not available in iframe viewer');
-  }
-
-  searchNext() {
-    // Search not available with iframe PDF viewer
-    console.log('PDF search not available in iframe viewer');
-  }
-
-  searchPrevious() {
-    // Search not available with iframe PDF viewer
-    console.log('PDF search not available in iframe viewer');
-  }
-
-  clearSearchHighlights() {
-    // Search not available with iframe PDF viewer
-    console.log('PDF search not available in iframe viewer');
-  }
-
-  onPdfIframeLoad() {
-    console.log('PDF iframe loaded successfully');
-  }
-  
-  toggleSidebar() {
-    // Sidebar not available with iframe PDF viewer
-    console.log('Sidebar not available in iframe viewer');
-  }
 
 }

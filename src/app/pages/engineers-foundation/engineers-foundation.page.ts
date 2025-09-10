@@ -5598,104 +5598,161 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Helper method to compress large JSON data using base64 + gzip-like compression
+  // Helper method to compress large JSON data - v1.4.346 AGGRESSIVE compression
   private compressAnnotationData(data: string): string {
-    console.log('🗜️ [v1.4.345] Compressing annotation data');
+    console.log('🗜️ [v1.4.346] Compressing annotation data');
     console.log('  Original size:', data.length, 'bytes');
     
-    // If data is small enough, don't compress
-    if (data.length < 50000) { // Less than 50KB
-      console.log('  Data small enough, not compressing');
-      return data;
-    }
-    
     try {
-      // Use a simple but effective compression:
-      // 1. Remove unnecessary whitespace from JSON
-      const minified = JSON.stringify(JSON.parse(data));
+      // Always minify first
+      const parsed = JSON.parse(data);
+      const minified = JSON.stringify(parsed);
       console.log('  After minification:', minified.length, 'bytes');
       
-      // 2. If still too large, we need to simplify the data
-      if (minified.length > 60000) { // Still close to 64KB limit
-        console.log('  ⚠️ Data still too large, attempting to simplify');
-        
-        const parsed = JSON.parse(minified);
-        
-        // Remove unnecessary properties from Fabric.js objects
-        if (parsed.objects && Array.isArray(parsed.objects)) {
-          parsed.objects = parsed.objects.map((obj: any) => {
-            // Keep only essential properties
-            const essential: any = {
-              type: obj.type,
-              left: Math.round(obj.left),
-              top: Math.round(obj.top),
-              width: Math.round(obj.width),
-              height: Math.round(obj.height),
-              angle: obj.angle || 0,
-              stroke: obj.stroke,
-              strokeWidth: obj.strokeWidth,
-              fill: obj.fill
-            };
-            
-            // Keep specific properties based on type
-            if (obj.type === 'Path' || obj.type === 'path') {
-              essential.path = obj.path;
-            } else if (obj.type === 'Line' || obj.type === 'line') {
-              essential.x1 = obj.x1;
-              essential.y1 = obj.y1;
-              essential.x2 = obj.x2;
-              essential.y2 = obj.y2;
-            } else if (obj.type === 'IText' || obj.type === 'i-text' || obj.type === 'text') {
-              essential.text = obj.text;
-              essential.fontSize = obj.fontSize;
-              essential.fontFamily = obj.fontFamily;
-            } else if (obj.type === 'Circle' || obj.type === 'circle') {
-              essential.radius = obj.radius;
-            } else if (obj.type === 'Rect' || obj.type === 'rect') {
-              // Width and height already included
-            } else if (obj.type === 'Group') {
-              // For groups, keep the objects array
-              essential.objects = obj.objects;
-            }
-            
-            return essential;
-          });
-        }
-        
-        // Remove background image if it's a blob URL (not persistent)
-        if (parsed.backgroundImage?.src?.startsWith('blob:')) {
-          delete parsed.backgroundImage;
-        }
-        
-        const simplified = JSON.stringify(parsed);
-        console.log('  After simplification:', simplified.length, 'bytes');
-        console.log('  Compression ratio:', ((1 - simplified.length / data.length) * 100).toFixed(1) + '%');
-        
-        // Mark as compressed with a special prefix
-        return 'COMPRESSED_V1:' + simplified;
+      // If data is small enough after minification, return it
+      if (minified.length < 50000) { // Less than 50KB
+        console.log('  Data small enough after minification');
+        return minified;
       }
       
-      return minified;
+      // AGGRESSIVE SIMPLIFICATION for large data
+      console.log('  ⚠️ [v1.4.346] Data large, applying AGGRESSIVE simplification');
+      
+      // Remove ALL non-essential properties from Fabric.js objects
+      if (parsed.objects && Array.isArray(parsed.objects)) {
+        parsed.objects = parsed.objects.map((obj: any) => {
+          // Keep ONLY the absolute minimum properties
+          const essential: any = {
+            type: obj.type
+          };
+          
+          // Type-specific minimal properties
+          if (obj.type === 'Path' || obj.type === 'path') {
+            // Simplify path data - reduce precision
+            if (typeof obj.path === 'string') {
+              essential.path = obj.path;
+            } else if (Array.isArray(obj.path)) {
+              // Reduce precision in path commands
+              essential.path = obj.path.map((cmd: any) => {
+                if (Array.isArray(cmd)) {
+                  return cmd.map((val: any, idx: number) => 
+                    idx === 0 ? val : typeof val === 'number' ? Math.round(val) : val
+                  );
+                }
+                return cmd;
+              });
+            }
+            essential.stroke = obj.stroke || '#000000';
+            essential.strokeWidth = obj.strokeWidth || 2;
+          } else if (obj.type === 'Line' || obj.type === 'line') {
+            essential.x1 = Math.round(obj.x1);
+            essential.y1 = Math.round(obj.y1);
+            essential.x2 = Math.round(obj.x2);
+            essential.y2 = Math.round(obj.y2);
+            essential.stroke = obj.stroke || '#000000';
+            essential.strokeWidth = obj.strokeWidth || 2;
+          } else if (obj.type === 'IText' || obj.type === 'i-text' || obj.type === 'text') {
+            essential.text = obj.text;
+            essential.left = Math.round(obj.left);
+            essential.top = Math.round(obj.top);
+            essential.fontSize = obj.fontSize || 20;
+            essential.fill = obj.fill || '#000000';
+          } else if (obj.type === 'Circle' || obj.type === 'circle') {
+            essential.radius = Math.round(obj.radius);
+            essential.left = Math.round(obj.left);
+            essential.top = Math.round(obj.top);
+            essential.stroke = obj.stroke || '#000000';
+            essential.strokeWidth = obj.strokeWidth || 2;
+            essential.fill = obj.fill || 'transparent';
+          } else if (obj.type === 'Rect' || obj.type === 'rect') {
+            essential.left = Math.round(obj.left);
+            essential.top = Math.round(obj.top);
+            essential.width = Math.round(obj.width);
+            essential.height = Math.round(obj.height);
+            essential.stroke = obj.stroke || '#000000';
+            essential.strokeWidth = obj.strokeWidth || 2;
+            essential.fill = obj.fill || 'transparent';
+          } else if (obj.type === 'Group') {
+            // For groups (like arrows), keep minimal data
+            essential.left = Math.round(obj.left);
+            essential.top = Math.round(obj.top);
+            if (obj.objects && obj.objects.length <= 3) { // Likely an arrow
+              essential.objects = obj.objects.map((subObj: any) => ({
+                type: subObj.type,
+                x1: Math.round(subObj.x1 || 0),
+                y1: Math.round(subObj.y1 || 0),
+                x2: Math.round(subObj.x2 || 0),
+                y2: Math.round(subObj.y2 || 0),
+                stroke: subObj.stroke || '#000000'
+              }));
+            }
+          } else {
+            // Unknown type - keep minimal position data
+            essential.left = Math.round(obj.left || 0);
+            essential.top = Math.round(obj.top || 0);
+          }
+          
+          return essential;
+        });
+        
+        // Remove any objects that are essentially empty
+        parsed.objects = parsed.objects.filter((obj: any) => 
+          obj && Object.keys(obj).length > 1
+        );
+      }
+      
+      // Remove ALL non-essential top-level properties
+      const compressed = {
+        version: "6.7.1",
+        objects: parsed.objects || []
+      };
+      
+      const compressedStr = JSON.stringify(compressed);
+      console.log('  [v1.4.346] After AGGRESSIVE compression:', compressedStr.length, 'bytes');
+      console.log('  [v1.4.346] Object count:', compressed.objects.length);
+      console.log('  [v1.4.346] Compression ratio:', ((1 - compressedStr.length / data.length) * 100).toFixed(1) + '%');
+      
+      // If STILL too large, we need to drop some annotations
+      if (compressedStr.length > 60000) {
+        console.warn('  ⚠️ [v1.4.346] Still too large, dropping oldest annotations');
+        
+        // Keep only the most recent annotations that fit
+        const maxObjects = Math.floor(compressed.objects.length * (60000 / compressedStr.length));
+        compressed.objects = compressed.objects.slice(-maxObjects);
+        
+        const finalStr = JSON.stringify(compressed);
+        console.log('  [v1.4.346] Kept', compressed.objects.length, 'of original objects');
+        console.log('  [v1.4.346] Final size:', finalStr.length, 'bytes');
+        
+        return 'COMPRESSED_V2:' + finalStr;
+      }
+      
+      return 'COMPRESSED_V2:' + compressedStr;
     } catch (error) {
-      console.error('❌ Compression failed:', error);
+      console.error('❌ [v1.4.346] Compression failed:', error);
       return data; // Return original if compression fails
     }
   }
   
-  // Helper method to decompress annotation data
+  // Helper method to decompress annotation data - v1.4.346 handles both V1 and V2
   private decompressAnnotationData(data: string): any {
     if (!data) return null;
     
     // Check if data is compressed
-    if (data.startsWith('COMPRESSED_V1:')) {
-      console.log('🔓 [v1.4.345] Decompressing annotation data');
+    if (data.startsWith('COMPRESSED_V2:')) {
+      console.log('🔓 [v1.4.346] Decompressing V2 annotation data');
+      data = data.substring('COMPRESSED_V2:'.length);
+    } else if (data.startsWith('COMPRESSED_V1:')) {
+      console.log('🔓 [v1.4.346] Decompressing V1 annotation data');
       data = data.substring('COMPRESSED_V1:'.length);
     }
     
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      console.log('  [v1.4.346] Decompressed:', parsed.objects?.length || 0, 'objects');
+      return parsed;
     } catch (error) {
-      console.error('❌ Failed to parse annotation data:', error);
+      console.error('❌ [v1.4.346] Failed to parse annotation data:', error);
       return null;
     }
   }
@@ -5783,6 +5840,16 @@ Has Annotations: ${!!annotations}`;
       // Update the attachment record - ONLY update Drawings field, NOT Photo field
       const updateData: any = {};
       
+      // v1.4.346 FIX: Log exactly what we're about to save
+      console.log('🔄 [v1.4.346] UPDATE PHOTO ATTACHMENT - REPLACE MODE');
+      console.log('  AttachID:', attachId);
+      console.log('  Received annotations type:', typeof annotations);
+      if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
+        console.log('  Fabric.js format detected');
+        console.log('  Total objects in NEW canvas:', annotations.objects?.length || 0);
+        console.log('  This will REPLACE existing annotations completely');
+      }
+      
       // Add annotations to Drawings field if provided
       if (annotations) {
         // CRITICAL FIX v1.4.341: Caspio Drawings field is TEXT type
@@ -5793,17 +5860,17 @@ Has Annotations: ${!!annotations}`;
         console.log('  Input type:', typeof annotations);
         console.log('  Input preview:', typeof annotations === 'string' ? annotations.substring(0, 200) : annotations);
         
-        // v1.4.342: CRITICAL - Check if annotations is a Fabric.js canvas JSON object
+        // v1.4.346 FIX: CRITICAL - This should be a COMPLETE REPLACEMENT
         // Fabric.js returns an object with 'objects' and 'version' properties
         if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
-          console.log('  📐 Detected Fabric.js canvas object with', annotations.objects?.length || 0, 'objects');
+          console.log('  📐 [v1.4.346] REPLACEMENT: Fabric.js canvas with', annotations.objects?.length || 0, 'objects');
+          console.log('  🔄 [v1.4.346] This REPLACES all previous annotations');
           // This is a Fabric.js canvas export - stringify it DIRECTLY
-          // The toJSON() method from Fabric.js already returns a clean serializable object
+          // The toJSON() method from Fabric.js already returns the COMPLETE canvas state
           try {
-            // v1.4.342: Simply stringify the Fabric.js JSON object as-is
-            // It's already clean from canvas.toJSON()
+            // v1.4.346: The annotations from canvas.toJSON() are the COMPLETE state
             drawingsData = JSON.stringify(annotations);
-            console.log('  ✅ Stringified Fabric.js canvas object, length:', drawingsData.length);
+            console.log('  ✅ [v1.4.346] Complete canvas state:', drawingsData.length, 'bytes');
             
             // v1.4.342: Validate the JSON is parseable
             try {
@@ -5930,9 +5997,11 @@ Has Annotations: ${!!annotations}`;
             .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except tab, newline, carriage return
             .replace(/undefined/g, 'null'); // Replace 'undefined' strings with 'null'
           
-          // v1.4.345: CRITICAL - Compress data if it's too large
+          // v1.4.346 FIX: Compress data if it's too large - THIS IS THE COMPLETE DATA
           try {
             const parsed = JSON.parse(drawingsData);
+            console.log('  [v1.4.346] Parsed data has', parsed.objects?.length || 0, 'total objects');
+            
             // Re-stringify to ensure clean JSON format
             drawingsData = JSON.stringify(parsed, (key, value) => {
               // Replace undefined with null for valid JSON
@@ -5940,11 +6009,18 @@ Has Annotations: ${!!annotations}`;
             });
             
             // COMPRESS if needed to fit in 64KB TEXT field
+            const originalSize = drawingsData.length;
             drawingsData = this.compressAnnotationData(drawingsData);
+            
+            if (originalSize !== drawingsData.length) {
+              console.log('  [v1.4.346] Compressed from', originalSize, 'to', drawingsData.length, 'bytes');
+            }
             
             // Final size check
             if (drawingsData.length > 64000) {
-              console.error('❌ [v1.4.345] Data STILL too large after compression:', drawingsData.length);
+              console.error('❌ [v1.4.346] Canvas too complex:', drawingsData.length, 'bytes');
+              console.error('  The CURRENT canvas state exceeds 64KB even after compression');
+              console.error('  This is NOT an accumulation issue - the canvas has too many annotations');
               
               // Show error to user
               const alert = await this.alertController.create({
