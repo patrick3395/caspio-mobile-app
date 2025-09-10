@@ -1335,12 +1335,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
+      let uploadSuccessCount = 0;
+      const uploadPromises = [];
+      
       // Process each file with annotation support (matching Structural Systems pattern)
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
         // Ask if user wants to annotate (only for single files, skip for batch)
-        let annotatedResult = { file: file, annotationData: null, originalFile: null };
+        let annotatedResult: { file: File; annotationData?: any; originalFile?: File } = { 
+          file: file, 
+          annotationData: null, 
+          originalFile: null 
+        };
         if (files.length === 1) {
           annotatedResult = await this.annotatePhoto(file);
         }
@@ -1407,11 +1414,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         uploadPromises.push(uploadPromise);
       }
       
-      // Don't show "Take Another Photo" prompt for file input selections
-      // The native file picker already allows multiple selection
-      // This prompt should only appear when using the camera service directly
-      
-      // Wait for all uploads to complete regardless of count
+      // Wait for all uploads to complete
       await Promise.all(uploadPromises);
         
       if (uploadSuccessCount === 0) {
