@@ -7045,22 +7045,16 @@ Stack: ${error?.stack}`;
     // Set flag if we're expecting a camera photo
     this.expectingCameraPhoto = forceCamera;
     
-    // Configure file input based on whether we want camera or picker
+    // Configure file input - ALWAYS show iOS picker on first click
     if (this.fileInput && this.fileInput.nativeElement) {
       const input = this.fileInput.nativeElement;
       input.setAttribute('accept', 'image/*');
       
-      if (forceCamera) {
-        // When camera button is clicked, try to open camera directly
-        // 'environment' opens rear camera, 'user' opens front camera
-        input.setAttribute('capture', 'environment');
-        // Remove multiple attribute for single photo capture
-        input.removeAttribute('multiple');
-      } else {
-        // For non-camera selections, show all options
-        input.removeAttribute('capture');
-        input.setAttribute('multiple', 'true');
-      }
+      // First click should always show iOS picker with all options
+      // Don't set capture attribute here - let iOS show all options
+      input.removeAttribute('capture');
+      // Keep multiple for flexibility
+      input.setAttribute('multiple', 'true');
     }
     
     this.fileInput.nativeElement.click();

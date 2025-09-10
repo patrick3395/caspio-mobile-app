@@ -87,6 +87,22 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     
     /* Modern PDF Viewer Styling */
     ::ng-deep .pdf-container {
+      /* Swap the position of sidebar and search buttons */
+      #toolbarViewerLeft {
+        display: flex !important;
+        flex-direction: row !important;
+      }
+      
+      /* Move search button to the left (first position) */
+      #viewFind {
+        order: -1 !important;
+      }
+      
+      /* Ensure sidebar button comes after search */
+      #sidebarToggle {
+        order: 0 !important;
+      }
+      
       /* Toolbar styling */
       .toolbar {
         background: #1a1a1a !important;
@@ -152,13 +168,55 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         box-shadow: 0 0 10px rgba(241, 90, 39, 0.3) !important;
       }
       
-      /* Search box styling */
+      /* Search box styling - Make it look like Ctrl+F */
+      #findbar {
+        background: #3a3a3a !important;
+        border: 1px solid #555 !important;
+        border-radius: 4px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+        padding: 4px !important;
+      }
+      
       #findInput {
         background: #2d2d2d !important;
-        border: 1px solid #444 !important;
+        border: 2px solid #555 !important;
         border-radius: 4px !important;
         color: #fff !important;
         padding: 6px 10px !important;
+        font-size: 14px !important;
+        min-width: 200px !important;
+      }
+      
+      #findInput:focus {
+        border-color: #F15A27 !important;
+        outline: none !important;
+      }
+      
+      /* Style the find bar buttons */
+      #findbar button {
+        background: #4a4a4a !important;
+        border: 1px solid #555 !important;
+        color: #fff !important;
+        border-radius: 3px !important;
+        padding: 4px 8px !important;
+        margin: 0 2px !important;
+      }
+      
+      #findbar button:hover {
+        background: #5a5a5a !important;
+      }
+      
+      /* Ensure sidebar shows thumbnails by default */
+      #sidebarContent {
+        background: #1a1a1a !important;
+      }
+      
+      #thumbnailView {
+        display: block !important;
+      }
+      
+      #outlineView, #attachmentsView, #layersView {
+        display: none !important;
       }
       
       /* Hide outdated elements */

@@ -545,21 +545,24 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - `rawDrawingsString` must match database format for proper re-editing
 - **Result**: Annotations now persist correctly through multiple edit cycles
 
-## 20. Photo Capture Flow Improvements (v1.4.355 - January 2025):
+## 20. Photo Capture Flow Improvements (v1.4.355-356 - January 2025):
 - **Issues Fixed**: 
   1. "Take Another Photo" popup appeared only after image upload completed
   2. "Take Another Photo" option showed iOS picker instead of opening camera directly
 - **Previous Behavior**:
   - User had to wait for photo upload to complete before seeing the prompt
   - Selecting "Take Another Photo" showed iOS picker with all 3 options again
-- **Changes Applied**:
+- **Changes Applied (v1.4.355)**:
   - **Instant Popup**: "Take Another Photo" dialog appears immediately after photo selection
   - **Background Upload**: Photos upload in background while user continues capturing
   - **Direct Camera Access**: "Take Another Photo" now opens camera directly using `capture="environment"` attribute
-  - **Smart Attribute Management**: 
-    - Initial camera button click sets `capture="environment"` to open camera
-    - "Take Another Photo" maintains camera-only mode
-    - "Done" button restores normal file picker behavior
+- **Refinement (v1.4.356)**:
+  - **Initial Camera Click**: First camera button click shows iOS picker with all 3 options
+  - **Smart Flow**: Only after user selects "Take Photo" from iOS picker does "Take Another Photo" go directly to camera
+  - **Attribute Management**: 
+    - Initial click: No capture attribute, shows full iOS picker
+    - "Take Another Photo": Sets `capture="environment"` for direct camera access
+    - "Done" button: Restores normal file picker behavior
 - **Technical Implementation**:
   - Modified `handleFileSelect` to show popup before awaiting uploads
   - Upload promises run in background with `.then()` instead of `await`
