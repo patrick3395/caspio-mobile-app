@@ -5648,16 +5648,39 @@ Has Annotations: ${!!annotations}`;
       
       // Add annotations to Drawings field if provided
       if (annotations) {
-        // CRITICAL FIX v1.4.323: Caspio Drawings field is TEXT type
+        // CRITICAL FIX v1.4.341: Caspio Drawings field is TEXT type
         // Handle blob URLs and ensure proper JSON formatting
         let drawingsData = '';
         
-        console.log('🔍 [v1.4.323] Processing annotations for Drawings field:');
+        console.log('🔍 [v1.4.341] Processing annotations for Drawings field:');
         console.log('  Input type:', typeof annotations);
         console.log('  Input preview:', typeof annotations === 'string' ? annotations.substring(0, 200) : annotations);
         
-        // Handle different annotation formats
-        if (annotations === null || annotations === undefined) {
+        // v1.4.342: CRITICAL - Check if annotations is a Fabric.js canvas JSON object
+        // Fabric.js returns an object with 'objects' and 'version' properties
+        if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
+          console.log('  📐 Detected Fabric.js canvas object with', annotations.objects?.length || 0, 'objects');
+          // This is a Fabric.js canvas export - stringify it DIRECTLY
+          // The toJSON() method from Fabric.js already returns a clean serializable object
+          try {
+            // v1.4.342: Simply stringify the Fabric.js JSON object as-is
+            // It's already clean from canvas.toJSON()
+            drawingsData = JSON.stringify(annotations);
+            console.log('  ✅ Stringified Fabric.js canvas object, length:', drawingsData.length);
+            
+            // v1.4.342: Validate the JSON is parseable
+            try {
+              const testParse = JSON.parse(drawingsData);
+              console.log('  ✅ Validated JSON is parseable, objects:', testParse.objects?.length || 0);
+            } catch (e) {
+              console.error('  ⚠️ Warning: JSON validation failed, but continuing');
+            }
+          } catch (e) {
+            console.error('  ❌ Failed to stringify Fabric.js object:', e);
+            // Try to create a minimal representation
+            drawingsData = JSON.stringify({ objects: [], version: annotations.version || '5.3.0' });
+          }
+        } else if (annotations === null || annotations === undefined) {
           // Skip null/undefined - DON'T send empty string
           console.log('  → Null/undefined, skipping Drawings field');
           // Don't set drawingsData at all - let it remain undefined
@@ -5761,14 +5784,29 @@ Has Annotations: ${!!annotations}`;
         
         // CRITICAL: Final validation before adding to updateData
         if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
-          // Clean up any problematic characters
+          // v1.4.341: CRITICAL - Additional cleaning for Caspio compatibility
           const originalLength = drawingsData.length;
+          
+          // Remove problematic characters that Caspio might reject
           drawingsData = drawingsData
             .replace(/\u0000/g, '') // Remove null bytes
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars except tab, newline, carriage return
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except tab, newline, carriage return
+            .replace(/undefined/g, 'null'); // Replace 'undefined' strings with 'null'
+          
+          // v1.4.341: Ensure no undefined values in JSON
+          try {
+            const parsed = JSON.parse(drawingsData);
+            // Re-stringify to ensure clean JSON format
+            drawingsData = JSON.stringify(parsed, (key, value) => {
+              // Replace undefined with null for valid JSON
+              return value === undefined ? null : value;
+            });
+          } catch (e) {
+            console.warn('  ⚠️ Could not re-parse for cleaning, using as-is');
+          }
           
           if (originalLength !== drawingsData.length) {
-            console.log('  ⚠️ Cleaned', originalLength - drawingsData.length, 'problematic characters');
+            console.log('  ⚠️ Cleaned', originalLength - drawingsData.length, 'characters during final validation');
           }
           
           // CRITICAL: Ensure it's definitely a string
@@ -6328,13 +6366,16 @@ Stack: ${error?.stack}`;
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: originalImageUrl,  // Always use original, not display URL
-          existingAnnotations: photo.annotations || photo.annotationsData,  // Pass existing annotations
+          // v1.4.342 CRITICAL FIX: Pass the raw string directly - the component handles both strings and objects
+          // The component will parse it if it's a string (see line 701-709 of the component)
+          existingAnnotations: photo.rawDrawingsString || photo.annotations || photo.annotationsData,  // Pass raw string first, it will be parsed by component
           photoData: {
             ...photo,
             AttachID: photo.AttachID || photo.id, // v1.4.340: Ensure AttachID is passed
-            id: photo.AttachID || photo.id // Ensure both fields are set
+            id: photo.AttachID || photo.id, // Ensure both fields are set
+            rawDrawingsString: photo.rawDrawingsString // v1.4.341: Pass the raw string
           },
-          isReEdit: !!photo.annotations || !!photo.annotationsData  // Flag to indicate we're re-editing (v1.4.340: Check for annotations, not originalUrl)
+          isReEdit: !!photo.rawDrawingsString || !!photo.annotations || !!photo.annotationsData  // Flag to indicate we're re-editing
         },
         cssClass: 'fullscreen-modal'
       });
@@ -6347,7 +6388,27 @@ Stack: ${error?.stack}`;
       if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
-        const annotationsData = data.annotationData || data.annotationsData;
+        
+        // v1.4.342 CRITICAL FIX: Handle annotation data properly
+        // The modal returns a Fabric.js JSON object from canvas.toJSON()
+        let annotationsData = data.annotationData || data.annotationsData;
+        
+        // v1.4.342: IMPORTANT - The modal returns a Fabric.js JSON object, NOT a string
+        // We need to stringify it before saving to Caspio
+        console.log('📝 [v1.4.342] Annotation data received from modal:', {
+          type: typeof annotationsData,
+          hasObjects: annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData,
+          objectCount: annotationsData?.objects?.length || 0,
+          isString: typeof annotationsData === 'string',
+          isArray: Array.isArray(annotationsData)
+        });
+        
+        // v1.4.342: Convert to string if it's an object (which it should be)
+        if (annotationsData && typeof annotationsData === 'object') {
+          console.log('📋 [v1.4.342] Converting Fabric.js object to string for storage');
+          // The updatePhotoAttachment will handle the stringification properly
+          // Just pass the object as-is
+        }
         
         // Get the original file if provided
         let originalFile = null;

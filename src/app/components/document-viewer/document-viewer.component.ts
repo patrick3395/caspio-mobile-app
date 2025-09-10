@@ -90,47 +90,17 @@ import { FormsModule } from '@angular/forms';
         <ngx-extended-pdf-viewer 
           [src]="pdfSource"
           [height]="'100%'"
-          [mobileFriendlyZoom]="'page-width'"
+          [zoom]="'page-width'"
           [showToolbar]="false"
           [showSidebarButton]="false"
           [sidebarVisible]="sidebarVisible"
-          [showFindButton]="false"
-          [showPagingButtons]="false"
-          [showZoomButtons]="false"
-          [showPresentationModeButton]="false"
-          [showOpenFileButton]="false"
-          [showPrintButton]="false"
-          [showDownloadButton]="false"
-          [showSecondaryToolbarButton]="false"
-          [showRotateButton]="false"
           [showHandToolButton]="true"
-          [showSpreadButton]="false"
-          [showPropertiesButton]="false"
-          [zoom]="'page-width'"
-          [spread]="'off'"
-          [theme]="'light'"
-          [pageViewMode]="'infinite-scroll'"
-          [scrollMode]="0"
-          [showBorders]="true"
-          [minZoom]="0.1"
-          [maxZoom]="10"
           [textLayer]="true"
-          [renderText]="true"
-          [useOnlyCssZoom]="false"
           [enableDragAndDrop]="false"
           (pdfLoaded)="onPdfLoaded($event)"
           (pdfLoadingStarts)="onPdfLoadingStarts($event)"
           (pdfLoadingFailed)="onPdfLoadingFailed($event)"
-          (pageRendered)="onPageRendered($event)"
-          (pagesLoaded)="onPagesLoaded($event)"
-          (thumbnailsLoaded)="onThumbnailsLoaded($event)"
-          [showFindHighlightAll]="false"
-          [showFindMatchCase]="false"
-          [showFindEntireWord]="false"
-          [showFindMatchDiacritics]="false"
-          [showFindResultsCount]="false"
-          [showFindMessages]="false"
-          backgroundColor="#ffffff">
+          (pageRendered)="onPageRendered($event)">
         </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
@@ -680,24 +650,20 @@ export class DocumentViewerComponent implements OnInit {
       // Initialize the loading state
       this.pdfLoaded = false;
       
-      // Check if we have a base64 data URL and convert it if needed
+      // Check if we have a base64 data URL - ngx-extended-pdf-viewer works best with base64 strings
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        // Try converting base64 to Uint8Array as an alternative approach
-        try {
-          console.log('📄 Converting base64 to Uint8Array for better compatibility...');
-          const base64 = this.fileUrl.split(',')[1];
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
+        // Use the base64 data URL directly - ngx-extended-pdf-viewer handles this well
+        console.log('📄 Using base64 data URL directly for PDF viewer');
+        this.pdfSource = this.fileUrl;
+        console.log('✅ PDF source set as base64 data URL, length:', this.fileUrl.length);
+        
+        // Force the PDF to be shown after a short delay
+        setTimeout(() => {
+          if (!this.pdfLoaded) {
+            console.log('Force showing PDF after 2 seconds');
+            this.pdfLoaded = true;
           }
-          this.pdfSource = bytes;
-          console.log('✅ PDF converted to Uint8Array, size:', bytes.length);
-        } catch (conversionError) {
-          console.error('Failed to convert to Uint8Array, using base64 directly:', conversionError);
-          this.pdfSource = this.fileUrl;
-          console.log('⚠️ Fallback: Using base64 data URL directly, length:', this.fileUrl.length);
-        }
+        }, 2000);
       } else if (this.fileUrl.startsWith('blob:')) {
         // Blob URLs don't work with ngx-extended-pdf-viewer
         console.error('❌ Blob URL detected for PDF - this will not work!');
@@ -711,20 +677,18 @@ export class DocumentViewerComponent implements OnInit {
         // Regular URL or other format
         this.pdfSource = this.fileUrl;
         console.log('PDF source set, URL type: regular URL or other format');
+        
+        // Force the PDF to be shown after a short delay
+        setTimeout(() => {
+          if (!this.pdfLoaded) {
+            console.log('Force showing PDF after 2 seconds');
+            this.pdfLoaded = true;
+          }
+        }, 2000);
       }
       
       console.log('PDF source type:', typeof this.pdfSource);
       console.log('PDF source starts with:', typeof this.pdfSource === 'string' ? this.pdfSource.substring(0, 100) : 'Not a string');
-      
-      // Set a timeout to show PDF even if event doesn't fire
-      // Increased timeout to give PDF viewer more time to process base64 data
-      setTimeout(() => {
-        if (!this.pdfLoaded && this.isPDF) {
-          console.log('PDF load event did not fire after 10 seconds, forcing display');
-          console.log('PDF source type:', typeof this.pdfSource === 'string' ? this.pdfSource.substring(0, 50) : 'Uint8Array');
-          this.pdfLoaded = true;
-        }
-      }, 10000);
       
       console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
@@ -925,16 +889,13 @@ export class DocumentViewerComponent implements OnInit {
 
   onPdfLoadingStarts(event: any) {
     console.log('PDF loading started:', event);
-    if (this.pdfSource instanceof Uint8Array) {
-      console.log('PDF source is Uint8Array, length:', this.pdfSource.length);
-      console.log('First 10 bytes:', Array.from(this.pdfSource.slice(0, 10)));
-    } else if (typeof this.pdfSource === 'string') {
+    if (typeof this.pdfSource === 'string') {
       console.log('PDF source is string, length:', this.pdfSource.length);
       console.log('PDF source begins with:', this.pdfSource.substring(0, 100));
     } else {
-      console.log('PDF source type unknown:', typeof this.pdfSource);
+      console.log('PDF source type:', typeof this.pdfSource);
     }
-    this.pdfLoaded = false;
+    // Don't reset pdfLoaded here as we're forcing it to true after 2 seconds
   }
   
   onPdfLoadingFailed(event: any) {
