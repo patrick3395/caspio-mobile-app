@@ -506,3 +506,41 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - Proper selector checking for both .pdf-header-button and .pdf-fab
   - Loading indicator shown while PDF is being prepared
 - **Result**: PDF button now works on first click, shows loading indicator, and properly opens PDF modal
+
+## 18. PDF Viewer Mobile Compatibility Fix (v1.4.352 - January 2025):
+- **Issue**: PDF viewer in Required Documents table showed "Loading PDF" but never displayed the actual PDF on mobile devices (iOS/Android)
+- **Symptoms**: White/gray blank screen after loading popup disappeared
+- **Root Cause**: URL.createObjectURL() creates Capacitor-specific blob URLs (blob:capacitor://localhost) that ngx-extended-pdf-viewer cannot fetch
+- **Debug Finding**: User's debug output showed "blob:capacitor://localhost" URLs with only 63 character length (just the URL, not the data)
+- **Fix Applied (v1.4.352)**:
+  - Converted base64 PDF data directly to Uint8Array instead of using blob URLs
+  - ngx-extended-pdf-viewer natively supports Uint8Array input
+  - Avoids Capacitor blob URL protocol issues entirely
+  - Added proper handling for existing blob URLs by converting them to ArrayBuffer
+  - Improved debug logging to track conversion process
+- **Technical Details**:
+  - Mobile WebView environments (Capacitor) use special blob: protocols that external libraries can't access
+  - Uint8Array passes the actual binary data directly to the PDF viewer
+  - This approach uses more memory but ensures compatibility
+- **Result**: PDFs now display properly on mobile devices without Capacitor URL conflicts
+
+## 19. Annotation Persistence Fix (v1.4.353 - January 2025):
+- **Issue**: After reloading the template, annotations would display correctly but disappear when re-editing
+- **Symptoms**: 
+  - Annotations loaded and displayed after template reload
+  - Opening annotation modal again would not show existing annotations
+  - Previous annotations would be lost when saving new ones
+- **Root Cause**: The `rawDrawingsString` field wasn't being updated after annotation saves
+  - During initial load: annotations stored in `photo.annotations` and `photo.rawDrawingsString`
+  - After saving: only `photo.annotations` was updated, not `rawDrawingsString`
+  - Modal checks `rawDrawingsString` first, which had stale/missing data
+- **Fix Applied**:
+  - Update `rawDrawingsString` whenever annotations are saved in `viewPhoto()` method
+  - Update `rawDrawingsString` in `quickAnnotate()` method as well
+  - Sync `rawDrawingsString` in `updatePhotoAttachment()` after database update
+  - Ensures local state matches what's stored in database (including compression)
+- **Technical Details**:
+  - Annotations stored as JSON in `Drawings` field (TEXT type, 64KB limit)
+  - May be compressed (V1/V2/V3 format) if >64KB
+  - `rawDrawingsString` must match database format for proper re-editing
+- **Result**: Annotations now persist correctly through multiple edit cycles

@@ -6403,6 +6403,26 @@ Original File: ${originalFile?.name || 'None'}`;
       // Send update request
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
       
+      // CRITICAL FIX: Store the actual saved Drawings data (might be compressed)
+      // This ensures rawDrawingsString matches what's in the database
+      if (updateData.Drawings) {
+        // Find and update the photo in visualPhotos to keep local state in sync
+        for (const visualId in this.visualPhotos) {
+          const photos = this.visualPhotos[visualId];
+          if (photos && Array.isArray(photos)) {
+            const photoIndex = photos.findIndex((p: any) => 
+              (p.AttachID || p.id) === attachId
+            );
+            if (photoIndex !== -1) {
+              // Update rawDrawingsString with what we just saved
+              photos[photoIndex].rawDrawingsString = updateData.Drawings;
+              console.log('✅ Updated local rawDrawingsString to match database');
+              break;
+            }
+          }
+        }
+      }
+      
       // Show success toast for mobile
       await this.showToast('✅ Annotations updated successfully', 'success');
     } catch (error: any) {
@@ -6707,6 +6727,13 @@ Stack: ${error?.stack}`;
                 // Store annotations in the photo object
                 if (annotationsData) {
                   this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
+                  // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
+                  if (typeof annotationsData === 'object') {
+                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
+                  } else {
+                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
+                  }
+                  console.log('✅ Updated rawDrawingsString for future re-edits in quickAnnotate');
                 }
               }
               
@@ -6907,6 +6934,14 @@ Stack: ${error?.stack}`;
               // Store annotations in the photo object
               if (annotationsData) {
                 this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
+                // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
+                // The updatePhotoAttachment method saves to Drawings field, so we need to mirror that here
+                if (typeof annotationsData === 'object') {
+                  this.visualPhotos[visualId][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
+                } else {
+                  this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
+                }
+                console.log('✅ Updated rawDrawingsString for future re-edits');
               }
               
               console.log(`📸 [v1.4.303] Photo URLs after annotation:`);

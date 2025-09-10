@@ -607,42 +607,44 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
-      // Convert base64 to Blob for better compatibility with ngx-extended-pdf-viewer
+      // Convert base64 to Uint8Array for ngx-extended-pdf-viewer
+      // IMPORTANT: Do NOT use blob URLs on mobile - they create capacitor:// URLs that can't be fetched
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        console.log('📄 Base64 PDF detected - converting to Blob');
+        console.log('📄 Base64 PDF detected - converting to Uint8Array for mobile compatibility');
         try {
           // Extract the base64 data
           const base64Data = this.fileUrl.split(',')[1];
+          console.log('📊 Base64 data length:', base64Data.length);
           
           // Convert base64 to binary
           const byteCharacters = atob(base64Data);
+          console.log('📊 Binary data length:', byteCharacters.length);
+          
           const byteNumbers = new Array(byteCharacters.length);
           
           for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
           }
           
+          // Create Uint8Array and pass it directly to ngx-extended-pdf-viewer
           const byteArray = new Uint8Array(byteNumbers);
+          console.log('✅ Created Uint8Array, size:', byteArray.length);
           
-          // Create a Blob from the byte array
-          const blob = new Blob([byteArray], { type: 'application/pdf' });
-          console.log('✅ Created Blob, size:', blob.size);
-          
-          // Create a blob URL and use it
-          const blobUrl = URL.createObjectURL(blob);
-          this.pdfSrc = blobUrl;
-          console.log('✅ PDF source set to blob URL:', blobUrl);
+          // Pass the Uint8Array directly - ngx-extended-pdf-viewer supports this natively
+          this.pdfSrc = byteArray;
+          console.log('✅ PDF source set to Uint8Array data (avoids Capacitor blob URL issues)');
           
         } catch (error) {
-          console.error('❌ Error converting base64 to Blob:', error);
+          console.error('❌ Error converting base64 to Uint8Array:', error);
           // Fallback: try using the base64 directly
           this.pdfSrc = this.fileUrl;
           console.log('⚠️ Fallback: Using base64 data URL directly');
         }
       } else if (this.fileUrl.startsWith('blob:')) {
-        console.log('📄 Blob URL detected - using directly');
-        this.pdfSrc = this.fileUrl;
-        console.log('✅ PDF source set to blob URL');
+        console.log('📄 Blob URL detected - converting to ArrayBuffer if possible');
+        // If we receive a blob URL, try to fetch and convert it
+        // This handles cases where a blob URL was created elsewhere
+        this.convertBlobUrlToArrayBuffer(this.fileUrl);
       } else {
         // Regular URL - pass it directly
         console.log('📄 Using regular URL for PDF');
