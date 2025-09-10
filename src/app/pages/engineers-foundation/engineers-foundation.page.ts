@@ -4789,10 +4789,55 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           fileArray.push(files[i]);
         }
         
-        // Track upload results
-        let uploadSuccessCount = 0;
+        // Show "Take Another Photo" prompt IMMEDIATELY if:
+        // 1. Single file was selected
+        // 2. We were expecting a camera photo (user clicked camera button specifically)
+        // This avoids showing the prompt for Photo Library selections
+        if (files.length === 1 && this.expectingCameraPhoto) {
+          const continueAlert = await this.alertController.create({
+            cssClass: 'compact-photo-selector',
+            buttons: [
+              {
+                text: 'Take Another Photo',
+                cssClass: 'action-button',
+                handler: async () => {
+                  // Set capture attribute to force camera
+                  if (this.fileInput && this.fileInput.nativeElement) {
+                    const input = this.fileInput.nativeElement;
+                    input.setAttribute('capture', 'environment');
+                    input.setAttribute('accept', 'image/*');
+                    // Remove multiple attribute for camera capture
+                    input.removeAttribute('multiple');
+                  }
+                  // Continue expecting camera photos
+                  this.expectingCameraPhoto = true;
+                  this.currentUploadContext = { category, itemId, action: 'add' };
+                  setTimeout(() => {
+                    this.fileInput.nativeElement.click();
+                  }, 100);
+                  return true;
+                }
+              },
+              {
+                text: 'Done',
+                cssClass: 'done-button',
+                handler: () => {
+                  this.expectingCameraPhoto = false;
+                  // Restore multiple attribute
+                  if (this.fileInput && this.fileInput.nativeElement) {
+                    this.fileInput.nativeElement.setAttribute('multiple', 'true');
+                  }
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+          
+          await continueAlert.present();
+        }
         
-        // Upload all photos directly without annotation popup
+        // Start uploads in background (don't await)
         const uploadPromises = fileArray.map((file, index) => 
           this.uploadPhotoForVisual(visualId, file, key, true)
             .then(() => {
@@ -4805,58 +4850,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             })
         );
         
-        // Wait for all uploads to complete
-        const results = await Promise.all(uploadPromises);
-        
-        // Count successes and failures
-        uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
-        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
-        
-        // Show result message
-        if (failCount === 0) {
-          // Success toast removed per user request - photos uploaded successfully
-        } else if (uploadSuccessCount > 0) {
-          await this.showToast(
-            `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
-            'warning'
-          );
-        } else {
-          await this.showToast('Failed to upload photos', 'danger');
-        }
-        
-        // Show "Take Another Photo" prompt only if:
-        // 1. Single file was uploaded successfully
-        // 2. We were expecting a camera photo (user clicked camera button specifically)
-        // This avoids showing the prompt for Photo Library selections
-        if (files.length === 1 && uploadSuccessCount === 1 && this.expectingCameraPhoto) {
-          const continueAlert = await this.alertController.create({
-            cssClass: 'compact-photo-selector',
-            buttons: [
-              {
-                text: 'Take Another Photo',
-                cssClass: 'action-button',
-                handler: async () => {
-                  // Continue expecting camera photos
-                  this.expectingCameraPhoto = true;
-                  this.currentUploadContext = { category, itemId, action: 'add' };
-                  this.fileInput.nativeElement.click();
-                  return true;
-                }
-              },
-              {
-                text: 'Done',
-                cssClass: 'done-button',
-                handler: () => {
-                  this.expectingCameraPhoto = false;
-                  return true;
-                }
-              }
-            ],
-            backdropDismiss: false
-          });
+        // Monitor uploads in background without blocking
+        Promise.all(uploadPromises).then(results => {
+          // Count successes and failures
+          const uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
+          const failCount = results.filter((r: { success: boolean }) => !r.success).length;
           
-          await continueAlert.present();
-        }
+          // Show result message only if there were failures
+          if (failCount > 0 && uploadSuccessCount > 0) {
+            this.showToast(
+              `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
+              'warning'
+            );
+          } else if (failCount > 0 && uploadSuccessCount === 0) {
+            this.showToast('Failed to upload photos', 'danger');
+          }
+        });
         
         // No need to restore states - the UI should remain unchanged
         
@@ -4875,17 +4884,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('❌ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
     } finally {
-      // Reset file input and camera flag
+      // Reset file input 
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
-        // Ensure capture attribute is removed for next use
-        this.fileInput.nativeElement.removeAttribute('capture');
+        // Only reset attributes if we're not continuing with camera
+        if (!this.expectingCameraPhoto) {
+          // Ensure capture attribute is removed and multiple is restored
+          this.fileInput.nativeElement.removeAttribute('capture');
+          this.fileInput.nativeElement.setAttribute('multiple', 'true');
+        }
       }
-      this.currentUploadContext = null;
-      // Reset camera flag unless user chose "Take Another Photo"
-      // (flag is maintained in the handler if user continues)
+      // Only clear context if not continuing with camera
       if (!this.expectingCameraPhoto) {
-        this.expectingCameraPhoto = false;
+        this.currentUploadContext = null;
       }
     }
   }
@@ -7025,7 +7036,6 @@ Stack: ${error?.stack}`;
   // Add another photo - triggers multi-photo capture
   async addAnotherPhoto(category: string, itemId: string, forceCamera: boolean = false) {
     // Skip custom action sheet and go directly to native file input
-    // This will show the native iOS popup with Photo Library, Take Photo, Choose File
     this.currentUploadContext = { 
       category, 
       itemId,
@@ -7033,16 +7043,24 @@ Stack: ${error?.stack}`;
     };
     
     // Set flag if we're expecting a camera photo
-    // Note: We can't force camera on iOS file input, but we can track the intent
     this.expectingCameraPhoto = forceCamera;
     
-    // Ensure the file input has proper attributes but don't force camera-only
+    // Configure file input based on whether we want camera or picker
     if (this.fileInput && this.fileInput.nativeElement) {
       const input = this.fileInput.nativeElement;
-      // Don't set capture attribute - this ensures iOS shows all options
-      // (Photo Library, Take Photo, Choose File)
-      input.removeAttribute('capture'); 
       input.setAttribute('accept', 'image/*');
+      
+      if (forceCamera) {
+        // When camera button is clicked, try to open camera directly
+        // 'environment' opens rear camera, 'user' opens front camera
+        input.setAttribute('capture', 'environment');
+        // Remove multiple attribute for single photo capture
+        input.removeAttribute('multiple');
+      } else {
+        // For non-camera selections, show all options
+        input.removeAttribute('capture');
+        input.setAttribute('multiple', 'true');
+      }
     }
     
     this.fileInput.nativeElement.click();
