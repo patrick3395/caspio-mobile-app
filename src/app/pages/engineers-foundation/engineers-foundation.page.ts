@@ -1199,10 +1199,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     }
                   }
                   
+                  // Load annotations from Drawings field, not Annotation
+                  let annotationData = null;
+                  if (photo.Drawings) {
+                    try {
+                      annotationData = this.decompressAnnotationData(photo.Drawings);
+                    } catch (e) {
+                      console.log('Failed to parse Drawings field:', e);
+                    }
+                  }
+                  
                   return {
                     url: photoUrl,
                     thumbnailUrl: thumbnailUrl,
-                    annotation: photo.Annotation || '',
+                    annotation: '',  // Don't use Annotation field anymore
+                    annotations: annotationData,
+                    rawDrawingsString: photo.Drawings,
+                    hasAnnotations: !!annotationData,
                     attachId: photo.AttachID || photo.PK_ID,
                     originalPath: photoPath,
                     filePath: photoPath  // Keep for compatibility
@@ -1647,7 +1660,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Process annotation data for Drawings field (same as Structural Systems)
       let drawingsData = '';
-      if (annotationData) {
+      if (annotationData && annotationData !== null) {
         if (typeof annotationData === 'string') {
           drawingsData = annotationData;
         } else if (typeof annotationData === 'object') {
@@ -1655,8 +1668,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           drawingsData = JSON.stringify(annotationData);
         }
         // Compress if needed (matching Structural Systems logic)
-        drawingsData = this.compressAnnotationData(drawingsData);
+        if (drawingsData && drawingsData.length > 0) {
+          drawingsData = this.compressAnnotationData(drawingsData);
+        }
       }
+      // If no annotations, pass empty string (will be omitted in service)
       
       // DEBUG POPUP: Show what we're about to upload
       const debugAlert = await this.alertController.create({
@@ -8553,9 +8569,22 @@ Stack: ${error?.stack}`;
           (p.PointID === attach.PointID) || (p.PK_ID === attach.PointID)
         );
         
+        // Load annotations from Drawings field
+        let annotationData = null;
+        if (attach.Drawings) {
+          try {
+            annotationData = this.decompressAnnotationData(attach.Drawings);
+          } catch (e) {
+            console.log('Failed to parse Drawings in room photos:', e);
+          }
+        }
+        
         processedPhotos.push({
           url: finalUrl,
-          caption: attach.Annotation || (point ? `${point.PointName}: ${point.PointValue}` : ''),
+          caption: '',  // Don't use Annotation field
+          annotations: annotationData,
+          rawDrawingsString: attach.Drawings,
+          hasAnnotations: !!annotationData,
           pointName: point?.PointName || '',
           pointValue: point?.PointValue || '',
           attachId: attach.AttachID || attach.PK_ID

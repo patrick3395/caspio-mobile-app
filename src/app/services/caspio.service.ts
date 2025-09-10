@@ -546,12 +546,12 @@ export class CaspioService {
   }
   
   // Create Services_Rooms_Points_Attach record with file using two-step Files API method
-  createServicesRoomsPointsAttachWithFile(pointId: number, annotation: string, file: File): Observable<any> {
+  createServicesRoomsPointsAttachWithFile(pointId: number, drawingsData: string, file: File): Observable<any> {
     console.log('📦 Two-step upload for Services_Rooms_Points_Attach using Files API');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadRoomPointsAttachWithFilesAPI(pointId, annotation, file)
+      this.uploadRoomPointsAttachWithFilesAPI(pointId, drawingsData, file)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -563,13 +563,14 @@ export class CaspioService {
   }
 
   // Two-step upload method for Services_Rooms_Points_Attach (matching visual method)
-  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, annotation: string, file: File) {
+  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File) {
     console.log('📦 Services_Rooms_Points_Attach upload using PROVEN Files API method');
     console.log('====== TABLE STRUCTURE ======');
     console.log('AttachID: Autonumber (Primary Key)');
     console.log('PointID: Integer (Foreign Key)');
     console.log('Photo: File (stores path)');
-    console.log('Annotation: Text(255)');
+    console.log('Annotation: Text(255) - NOT USED');
+    console.log('Drawings: Text - For annotation data');
     console.log('=============================');
     
     const accessToken = this.tokenSubject.value;
@@ -577,7 +578,7 @@ export class CaspioService {
     
     console.log('Input parameters:');
     console.log('  PointID:', pointId, '(type:', typeof pointId, ')');
-    console.log('  Annotation:', annotation || '(empty)');
+    console.log('  Drawings:', drawingsData ? `${drawingsData.length} chars` : '(empty)');
     console.log('  File:', file.name, 'Size:', file.size);
     
     try {
@@ -616,14 +617,19 @@ export class CaspioService {
       console.log('Table: Services_Rooms_Points_Attach');
       console.log('Fields being sent:');
       console.log('  - PointID (Integer):', parseInt(pointId.toString()));
-      console.log('  - Annotation (Text):', annotation || '');
       console.log('  - Photo (File path):', filePath);
+      console.log('  - Drawings (Text):', drawingsData ? `${drawingsData.length} chars` : 'empty');
       
-      const recordData = {
+      const recordData: any = {
         PointID: parseInt(pointId.toString()),
-        Annotation: annotation || '',  // Keep blank if no annotation provided
         Photo: filePath  // Include the file path in initial creation
       };
+      
+      // Only add Drawings field if we have annotation data
+      // Don't send empty string - just omit the field
+      if (drawingsData && drawingsData.length > 0) {
+        recordData.Drawings = drawingsData;
+      }
       
       console.log('Record data JSON:', JSON.stringify(recordData, null, 2));
       
