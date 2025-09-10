@@ -1346,7 +1346,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         let annotatedResult: { file: File; annotationData?: any; originalFile?: File } = { 
           file: file, 
           annotationData: null, 
-          originalFile: null 
+          originalFile: undefined 
         };
         if (files.length === 1) {
           annotatedResult = await this.annotatePhoto(file);
