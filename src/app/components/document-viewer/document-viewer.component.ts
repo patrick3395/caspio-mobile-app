@@ -567,7 +567,7 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
-  pdfSrc: string | Uint8Array | { url: string } | undefined;
+  pdfSrc: string | Uint8Array | ArrayBuffer | undefined;
   pdfLoaded: boolean = false;
 
   constructor(
