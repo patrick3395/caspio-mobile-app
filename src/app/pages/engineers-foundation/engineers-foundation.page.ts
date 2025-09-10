@@ -1111,14 +1111,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomId 
       };
       
+      // Set flag to indicate we're expecting camera photo (for "Take Another Photo" flow)
+      this.expectingCameraPhoto = true;
+      
       // Trigger file input with small delay to ensure UI is ready
       setTimeout(() => {
         if (this.fileInput && this.fileInput.nativeElement) {
+          // Remove capture attribute for initial selection to show full iOS picker
+          this.fileInput.nativeElement.removeAttribute('capture');
+          this.fileInput.nativeElement.setAttribute('accept', 'image/*');
           this.fileInput.nativeElement.click();
         } else {
           console.error('File input not available');
           this.showToast('File input not available', 'danger');
           this.currentRoomPointContext = null;
+          this.expectingCameraPhoto = false;
         }
       }, 100);
       
@@ -1390,6 +1397,57 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
+      // Show "Take Another Photo" prompt IMMEDIATELY if:
+      // 1. Single file was selected
+      // 2. We were expecting a camera photo (user clicked camera button specifically)
+      // This matches the Structural Systems behavior
+      if (files.length === 1 && this.expectingCameraPhoto) {
+        const continueAlert = await this.alertController.create({
+          cssClass: 'compact-photo-selector',
+          buttons: [
+            {
+              text: 'Take Another Photo',
+              cssClass: 'action-button',
+              handler: async () => {
+                // Set capture attribute to force camera
+                if (this.fileInput && this.fileInput.nativeElement) {
+                  const input = this.fileInput.nativeElement;
+                  input.setAttribute('capture', 'environment');
+                  input.setAttribute('accept', 'image/*');
+                  // Remove multiple attribute for camera capture
+                  input.removeAttribute('multiple');
+                }
+                // Continue expecting camera photos
+                this.expectingCameraPhoto = true;
+                // Keep the same room point context
+                this.currentRoomPointContext = { roomName, point, pointId, roomId };
+                setTimeout(() => {
+                  this.fileInput.nativeElement.click();
+                }, 100);
+                return true;
+              }
+            },
+            {
+              text: 'Done',
+              cssClass: 'done-button',
+              handler: () => {
+                this.expectingCameraPhoto = false;
+                // Restore multiple attribute
+                if (this.fileInput && this.fileInput.nativeElement) {
+                  this.fileInput.nativeElement.setAttribute('multiple', 'true');
+                  // Clear capture attribute
+                  this.fileInput.nativeElement.removeAttribute('capture');
+                }
+                return true;
+              }
+            }
+          ],
+          backdropDismiss: false
+        });
+        
+        await continueAlert.present();
+      }
+      
       let uploadSuccessCount = 0;
       const uploadPromises = [];
       
@@ -1468,22 +1526,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         uploadPromises.push(uploadPromise);
       }
       
-      // Wait for all uploads to complete
-      await Promise.all(uploadPromises);
-        
-      if (uploadSuccessCount === 0) {
-        await this.showToast('Failed to upload photos', 'danger');
-      }
+      // Don't wait for uploads - monitor them in background (like Structural Systems)
+      Promise.all(uploadPromises).then(results => {
+        // Only show toast if there were failures
+        if (uploadSuccessCount === 0 && results.length > 0) {
+          this.showToast('Failed to upload photos', 'danger');
+        }
+      });
       
     } catch (error) {
       console.error('Error handling room point files:', error);
       await this.showToast('Failed to process photos', 'danger');
     } finally {
-      // Reset file input
-      if (this.fileInput && this.fileInput.nativeElement) {
-        this.fileInput.nativeElement.value = '';
+      // Reset file input only if not continuing with camera
+      if (!this.expectingCameraPhoto) {
+        if (this.fileInput && this.fileInput.nativeElement) {
+          this.fileInput.nativeElement.value = '';
+          // Restore attributes to default state
+          this.fileInput.nativeElement.setAttribute('multiple', 'true');
+          this.fileInput.nativeElement.removeAttribute('capture');
+        }
+        this.currentRoomPointContext = null;
+      } else {
+        // Keep the context if expecting more photos
+        // File input will be cleared on next selection
+        if (this.fileInput && this.fileInput.nativeElement) {
+          this.fileInput.nativeElement.value = '';
+        }
       }
-      this.currentRoomPointContext = null;
     }
   }
   

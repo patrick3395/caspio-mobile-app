@@ -1082,15 +1082,9 @@ export class CaspioService {
   getImageFromFilesAPI(filePath: string): Observable<string> {
     // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
     // The cache was causing all photos to show the same image
-    // TODO: Re-enable cache with proper unique keys after fixing
-    /*
-    const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      console.log(`📦 Returning cached image for ${filePath}`);
-      return of(cached);
-    }
-    */
+    // Adding unique timestamp to debug
+    const debugTimestamp = Date.now();
+    console.log(`[${debugTimestamp}] getImageFromFilesAPI called for: ${filePath}`);
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1098,6 +1092,7 @@ export class CaspioService {
     return new Observable(observer => {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      console.log(`[${debugTimestamp}] Fetching from API: ${cleanPath}`);
       
       // Fetch from Files API
       fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
@@ -1121,7 +1116,8 @@ export class CaspioService {
           // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
           // const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
           // this.cache.set(cacheKey, result, this.cache.CACHE_TIMES.LONG, true);
-          console.log(`🔄 Fetched image for ${filePath} (cache disabled)`);
+          const resultPreview = result.substring(0, 100) + '...' + result.substring(result.length - 50);
+          console.log(`🔄 [${debugTimestamp}] Fetched image for ${filePath} (cache disabled), size: ${result.length}, preview: ${resultPreview}`);
           observer.next(result);
           observer.complete();
         };

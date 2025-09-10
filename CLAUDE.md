@@ -572,4 +572,21 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - Faster photo capture workflow with no waiting
   - Direct camera access when continuing photo capture
   - Seamless background uploads with error handling
+
+## 21. Elevation Plot Photo Duplication Fix (v1.4.362 - January 2025):
+- **Issue**: All elevation plot photos showing the same image when template reloads
+- **Symptoms**: 
+  - All thumbnails displayed identical photo on template reload
+  - Annotations loading correctly but associated with wrong/duplicate photos
+  - Different annotations displayed for each photo but all showing same base image
+- **Root Cause**: Image caching in CaspioService.getImageFromFilesAPI was returning the same cached image for different file paths
+- **Fix Applied**:
+  - Temporarily disabled image caching in getImageFromFilesAPI method
+  - Commented out cache read/write operations
+  - Added debug timestamps and logging to verify unique fetches
+  - Each photo now fetches fresh from Caspio Files API without cache interference
+- **Files Modified**:
+  - `/mnt/c/Users/Owner/Caspio/src/app/services/caspio.service.ts`: Disabled cache for getImageFromFilesAPI
+  - Added unique timestamp logging for debugging
+- **TODO**: Re-enable cache with proper unique key generation after confirming fix works
 - **Result**: Significantly improved photo capture speed and user experience
