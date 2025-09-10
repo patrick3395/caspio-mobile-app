@@ -2,66 +2,24 @@ import { Component, Input, OnInit, ViewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-document-viewer',
   standalone: true,
-  imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule, FormsModule],
+  imports: [CommonModule, IonicModule, FormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <ion-header>
       <ion-toolbar style="--background: #F15A27; padding: 0 8px; padding-top: var(--ion-safe-area-top);">
         <div class="header-controls" *ngIf="isPDF">
-          <!-- Sidebar Toggle -->
-          <ion-button fill="clear" size="small" (click)="toggleSidebar()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
-            <ion-icon name="menu-outline" slot="icon-only"></ion-icon>
+          <ion-title style="color: white; flex: 1;">{{ fileName || 'PDF Viewer' }}</ion-title>
+          <ion-button fill="clear" size="small" (click)="openInNewTab()" style="color: white;">
+            <ion-icon name="open-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          
-          <!-- Search Button -->
-          <ion-button fill="clear" size="small" (click)="toggleSearchPopup()" style="color: white; --padding-start: 4px; --padding-end: 4px; position: relative;">
-            <ion-icon name="search-outline" slot="icon-only"></ion-icon>
+          <ion-button fill="clear" size="small" (click)="dismiss()" style="color: white;">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
-          
-          <!-- Search Popup -->
-          <div class="search-popup" *ngIf="showSearchPopup">
-            <div class="search-popup-header">
-              <input type="text" 
-                     placeholder="Find in document..." 
-                     class="search-popup-input"
-                     [(ngModel)]="searchTerm"
-                     (input)="onSearchChange($event)"
-                     (keyup.enter)="searchNext()"
-                     (keyup.escape)="closeSearchPopup()"
-                     #searchPopupInput />
-              <button class="search-close-btn" (click)="closeSearchPopup()">×</button>
-            </div>
-            <div class="search-popup-controls" *ngIf="searchTerm">
-              <span class="search-count">{{ searchResultsCount > 0 ? (currentSearchIndex + 1) + ' of ' + searchResultsCount : 'No results' }}</span>
-              <div class="search-nav-buttons">
-                <button class="search-nav-btn" (click)="searchPrevious()" [disabled]="searchResultsCount === 0">
-                  <ion-icon name="chevron-up-outline"></ion-icon>
-                </button>
-                <button class="search-nav-btn" (click)="searchNext()" [disabled]="searchResultsCount === 0">
-                  <ion-icon name="chevron-down-outline"></ion-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Spacer -->
-          <div style="flex: 1;"></div>
-          
-          <!-- Right Side Actions -->
-          <div class="header-actions">
-            <ion-button fill="clear" size="small" (click)="openInNewTab()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
-              <ion-icon name="open-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" size="small" (click)="dismiss()" style="color: white; --padding-start: 4px; --padding-end: 4px;">
-              <ion-icon name="close" slot="icon-only"></ion-icon>
-            </ion-button>
-          </div>
         </div>
         
         <!-- Non-PDF header -->
@@ -87,21 +45,13 @@ import { FormsModule } from '@angular/forms';
           <ion-spinner name="crescent" color="warning"></ion-spinner>
           <p>Loading PDF...</p>
         </div>
-        <ngx-extended-pdf-viewer 
-          [src]="pdfSource"
-          [height]="'100%'"
-          [zoom]="'page-width'"
-          [showToolbar]="false"
-          [showSidebarButton]="false"
-          [sidebarVisible]="sidebarVisible"
-          [showHandToolButton]="true"
-          [textLayer]="true"
-          [enableDragAndDrop]="false"
-          (pdfLoaded)="onPdfLoaded($event)"
-          (pdfLoadingStarts)="onPdfLoadingStarts($event)"
-          (pdfLoadingFailed)="onPdfLoadingFailed($event)"
-          (pageRendered)="onPageRendered($event)">
-        </ngx-extended-pdf-viewer>
+        <iframe 
+          *ngIf="pdfLoaded && sanitizedPdfUrl"
+          [src]="sanitizedPdfUrl" 
+          frameborder="0"
+          class="pdf-iframe"
+          (load)="onPdfIframeLoad()">
+        </iframe>
       </div>
       <div class="image-container" *ngIf="isImage">
         <img [src]="displayUrl || fileUrl" 
@@ -275,6 +225,13 @@ import { FormsModule } from '@angular/forms';
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+    
+    .pdf-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
     }
     
     ::ng-deep #viewerContainer {
@@ -587,10 +544,10 @@ export class DocumentViewerComponent implements OnInit {
   @Input() filePath?: string; // Original file path
   
   sanitizedUrl: SafeResourceUrl | null = null;
+  sanitizedPdfUrl: SafeResourceUrl | null = null;
   isImage = false;
   isPDF = false;
   displayUrl: string = '';
-  pdfSource: string | Uint8Array = '';
 
   @ViewChild('searchPopupInput') searchPopupInput?: ElementRef;
   searchTerm: string = '';
@@ -606,8 +563,7 @@ export class DocumentViewerComponent implements OnInit {
   constructor(
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
-    private alertController: AlertController,
-    private pdfViewerService: NgxExtendedPdfViewerService
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -642,55 +598,43 @@ export class DocumentViewerComponent implements OnInit {
       this.displayUrl = this.fileUrl;
       console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
-      // For PDFs, prepare the source for ngx-extended-pdf-viewer
-      console.log('Preparing PDF source...');
+      // For PDFs, use iframe with the data URL
+      console.log('Preparing PDF for iframe display...');
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
       // Initialize the loading state
       this.pdfLoaded = false;
       
-      // Check if we have a base64 data URL - ngx-extended-pdf-viewer works best with base64 strings
+      // Sanitize the URL for iframe src
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        // Use the base64 data URL directly - ngx-extended-pdf-viewer handles this well
-        console.log('📄 Using base64 data URL directly for PDF viewer');
-        this.pdfSource = this.fileUrl;
-        console.log('✅ PDF source set as base64 data URL, length:', this.fileUrl.length);
-        
-        // Force the PDF to be shown after a short delay
+        console.log('📄 Using base64 data URL for PDF iframe');
+        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+        // Show the PDF immediately
         setTimeout(() => {
-          if (!this.pdfLoaded) {
-            console.log('Force showing PDF after 2 seconds');
-            this.pdfLoaded = true;
-          }
-        }, 2000);
+          this.pdfLoaded = true;
+          console.log('✅ PDF iframe ready for display');
+        }, 100);
       } else if (this.fileUrl.startsWith('blob:')) {
-        // Blob URLs don't work with ngx-extended-pdf-viewer
-        console.error('❌ Blob URL detected for PDF - this will not work!');
-        console.log('Blob URL:', this.fileUrl);
-        // Try to show an error
-        this.pdfSource = '';
+        console.log('📄 Using blob URL for PDF iframe');
+        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+        // Show the PDF immediately
         setTimeout(() => {
-          this.onPdfLoadingFailed({ message: 'PDF cannot be loaded from blob URL. Please refresh and try again.' });
+          this.pdfLoaded = true;
+          console.log('✅ PDF iframe ready for display');
         }, 100);
       } else {
-        // Regular URL or other format
-        this.pdfSource = this.fileUrl;
-        console.log('PDF source set, URL type: regular URL or other format');
-        
-        // Force the PDF to be shown after a short delay
+        // Regular URL
+        console.log('📄 Using regular URL for PDF iframe');
+        this.sanitizedPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.fileUrl);
+        // Show the PDF immediately
         setTimeout(() => {
-          if (!this.pdfLoaded) {
-            console.log('Force showing PDF after 2 seconds');
-            this.pdfLoaded = true;
-          }
-        }, 2000);
+          this.pdfLoaded = true;
+          console.log('✅ PDF iframe ready for display');
+        }, 100);
       }
       
-      console.log('PDF source type:', typeof this.pdfSource);
-      console.log('PDF source starts with:', typeof this.pdfSource === 'string' ? this.pdfSource.substring(0, 100) : 'Not a string');
-      
-      console.log('PDF source prepared for ngx-extended-pdf-viewer');
+      console.log('PDF iframe URL prepared');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -764,12 +708,6 @@ export class DocumentViewerComponent implements OnInit {
     this.searchTerm = '';
     this.searchResultsCount = 0;
     this.currentSearchIndex = 0;
-    // Clear PDF search highlights
-    if (this.pdfViewerService) {
-      this.pdfViewerService.find('', {
-        highlightAll: false
-      });
-    }
   }
 
   onSearchChange(event: any) {
@@ -787,357 +725,32 @@ export class DocumentViewerComponent implements OnInit {
   }
 
   performSearch() {
-    const pdfApp = (window as any).PDFViewerApplication;
-    
-    if (pdfApp && pdfApp.eventBus) {
-      // Dispatch find event through the event bus
-      pdfApp.eventBus.dispatch('find', {
-        source: window,
-        type: '',
-        query: this.searchTerm,
-        phraseSearch: false,
-        caseSensitive: false,
-        entireWord: false,
-        highlightAll: true,
-        findPrevious: false
-      });
-      
-      // Get search results count after a delay
-      setTimeout(() => {
-        if (pdfApp.findController) {
-          const matchesCount = pdfApp.findController.matchesCount;
-          if (matchesCount) {
-            this.searchResultsCount = matchesCount.total || 0;
-            this.currentSearchIndex = matchesCount.current > 0 ? matchesCount.current - 1 : 0;
-          } else {
-            this.searchResultsCount = 0;
-            this.currentSearchIndex = 0;
-          }
-        }
-      }, 500);
-    }
+    // Search not available with iframe PDF viewer
+    console.log('PDF search not available in iframe viewer');
   }
 
   searchNext() {
-    if (this.searchTerm && this.searchResultsCount > 0) {
-      const pdfApp = (window as any).PDFViewerApplication;
-      if (pdfApp && pdfApp.eventBus) {
-        pdfApp.eventBus.dispatch('find', {
-          source: window,
-          type: 'again',
-          query: this.searchTerm,
-          phraseSearch: false,
-          caseSensitive: false,
-          entireWord: false,
-          highlightAll: true,
-          findPrevious: false
-        });
-        this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultsCount;
-        
-        // Update count
-        setTimeout(() => {
-          if (pdfApp.findController && pdfApp.findController.matchesCount) {
-            this.currentSearchIndex = pdfApp.findController.matchesCount.current - 1;
-          }
-        }, 100);
-      }
-    }
+    // Search not available with iframe PDF viewer
+    console.log('PDF search not available in iframe viewer');
   }
 
   searchPrevious() {
-    if (this.searchTerm && this.searchResultsCount > 0) {
-      const pdfApp = (window as any).PDFViewerApplication;
-      if (pdfApp && pdfApp.eventBus) {
-        pdfApp.eventBus.dispatch('find', {
-          source: window,
-          type: 'again',
-          query: this.searchTerm,
-          phraseSearch: false,
-          caseSensitive: false,
-          entireWord: false,
-          highlightAll: true,
-          findPrevious: true
-        });
-        this.currentSearchIndex = this.currentSearchIndex === 0 ? 
-          this.searchResultsCount - 1 : this.currentSearchIndex - 1;
-        
-        // Update count
-        setTimeout(() => {
-          if (pdfApp.findController && pdfApp.findController.matchesCount) {
-            this.currentSearchIndex = pdfApp.findController.matchesCount.current - 1;
-          }
-        }, 100);
-      }
-    }
+    // Search not available with iframe PDF viewer
+    console.log('PDF search not available in iframe viewer');
   }
 
   clearSearchHighlights() {
-    const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp && pdfApp.eventBus) {
-      pdfApp.eventBus.dispatch('find', {
-        source: window,
-        type: '',
-        query: '',
-        phraseSearch: false,
-        caseSensitive: false,
-        entireWord: false,
-        highlightAll: false,
-        findPrevious: false
-      });
-    }
+    // Search not available with iframe PDF viewer
+    console.log('PDF search not available in iframe viewer');
   }
 
-  onPdfLoadingStarts(event: any) {
-    console.log('PDF loading started:', event);
-    if (typeof this.pdfSource === 'string') {
-      console.log('PDF source is string, length:', this.pdfSource.length);
-      console.log('PDF source begins with:', this.pdfSource.substring(0, 100));
-    } else {
-      console.log('PDF source type:', typeof this.pdfSource);
-    }
-    // Don't reset pdfLoaded here as we're forcing it to true after 2 seconds
+  onPdfIframeLoad() {
+    console.log('PDF iframe loaded successfully');
   }
   
-  onPdfLoadingFailed(event: any) {
-    console.error('PDF loading failed:', event);
-    console.error('PDF failure details:', {
-      error: event?.error,
-      message: event?.message,
-      source: typeof this.pdfSource === 'string' ? this.pdfSource?.substring(0, 100) : 'Uint8Array'
-    });
-    this.pdfLoaded = true; // Hide loading indicator even on failure
-    
-    // Show more detailed error message to user
-    const errorMessage = event?.message || 'Failed to load the PDF. The file may be corrupted or too large.';
-    const sourceType = typeof this.pdfSource === 'string' && this.pdfSource?.startsWith('data:') ? 'base64' : 
-                      typeof this.pdfSource === 'string' ? 'URL' : 'Uint8Array';
-    this.alertController.create({
-      header: 'PDF Loading Error',
-      message: `${errorMessage}\n\nDebug: Source type is ${sourceType}`,
-      buttons: ['OK']
-    }).then(alert => alert.present());
-  }
-
-  onPdfLoaded(event: any) {
-    console.log('PDF loaded event fired:', event);
-    this.pdfLoaded = true;
-    
-    if (event) {
-      if (event.pagesCount) {
-        this.totalPages = event.pagesCount;
-        console.log('Total pages:', this.totalPages);
-      }
-      
-      // Setup event delegation for thumbnail clicks
-      this.setupThumbnailEventDelegation();
-      
-      // Ensure the PDF viewer is properly initialized
-      setTimeout(() => {
-        const pdfApp = (window as any).PDFViewerApplication;
-        if (pdfApp && pdfApp.pdfViewer) {
-          console.log('PDF viewer initialized successfully');
-          // Force a render update
-          pdfApp.pdfViewer.update();
-        }
-      }, 100);
-    }
-  }
-  
-  setupThumbnailEventDelegation() {
-    // Use event delegation on the sidebar container
-    setTimeout(() => {
-      const sidebarContainer = document.getElementById('sidebarContainer');
-      if (sidebarContainer) {
-        // Remove any existing listener
-        sidebarContainer.onclick = null;
-        
-        // Add new click handler
-        sidebarContainer.onclick = (event: MouseEvent) => {
-          const target = event.target as HTMLElement;
-          const thumbnail = target.closest('.thumbnail');
-          
-          if (thumbnail) {
-            const pageLabel = thumbnail.getAttribute('aria-label');
-            const pageMatch = pageLabel ? pageLabel.match(/\d+/) : null;
-            const pageNumber = pageMatch ? parseInt(pageMatch[0]) : null;
-            
-            if (pageNumber) {
-              event.preventDefault();
-              event.stopPropagation();
-              this.navigateToPage(pageNumber);
-            }
-          }
-        };
-      }
-    }, 300);
-  }
-  
-  navigateToPage(pageNumber: number) {
-    console.log('Navigating to page:', pageNumber);
-    
-    // Method 1: Use PDFViewerApplication
-    const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp) {
-      pdfApp.page = pageNumber;
-    }
-    
-    // Method 2: Direct scroll to page element
-    setTimeout(() => {
-      const pageElement = document.querySelector(`[data-page-number="${pageNumber}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-  }
-
-  onPageRendered(event: any) {
-    if (event && event.pageNumber) {
-      console.log('Page rendered:', event.pageNumber);
-      // Update current page if needed
-      if (event.pageNumber === 1) {
-        // First page rendered, PDF is becoming visible
-        this.currentPage = 1;
-      }
-    }
-  }
-
-  onPagesLoaded(event: any) {
-    console.log('All pages loaded:', event);
-    // Ensure proper scroll mode and container setup
-    setTimeout(() => {
-      const pdfViewer = (window as any).PDFViewerApplication;
-      if (pdfViewer && pdfViewer.pdfViewer) {
-        pdfViewer.pdfViewer.scrollMode = 0; // VERTICAL
-        pdfViewer.pdfViewer.spreadMode = 0; // NONE
-        
-        // Force update the viewer to recalculate scroll height
-        pdfViewer.pdfViewer.update();
-      }
-      
-      // Fix the viewer container height
-      const viewerContainer = document.getElementById('viewerContainer');
-      if (viewerContainer) {
-        // Ensure container can scroll all content
-        viewerContainer.style.height = '100%';
-        viewerContainer.style.overflowY = 'auto';
-        viewerContainer.style.position = 'relative';
-        
-        // Force a reflow to ensure scrolling works
-        viewerContainer.scrollTop = 1;
-        viewerContainer.scrollTop = 0;
-      }
-      
-      // Add click event listeners to thumbnails for page navigation
-      this.setupThumbnailClickHandlers();
-    }, 200);
-  }
-  
-  setupThumbnailClickHandlers() {
-    // Wait a bit for thumbnails to be fully rendered
-    setTimeout(() => {
-      // Get the thumbnail container
-      const thumbnailView = document.getElementById('thumbnailView');
-      if (!thumbnailView) return;
-      
-      // Remove any existing listeners to avoid duplicates
-      const existingThumbnails = thumbnailView.querySelectorAll('.thumbnail');
-      existingThumbnails.forEach(thumb => {
-        const newThumb = thumb.cloneNode(true);
-        thumb.parentNode?.replaceChild(newThumb, thumb);
-      });
-      
-      // Add click handlers to thumbnail elements
-      const thumbnails = thumbnailView.querySelectorAll('.thumbnail');
-      thumbnails.forEach((thumbnail: any) => {
-        // Get the page number from the thumbnail's data attribute or aria-label
-        const pageLabel = thumbnail.getAttribute('aria-label');
-        const pageMatch = pageLabel ? pageLabel.match(/\d+/) : null;
-        const pageNumber = pageMatch ? parseInt(pageMatch[0]) : null;
-        
-        if (pageNumber) {
-          thumbnail.style.cursor = 'pointer';
-          thumbnail.addEventListener('click', (e: Event) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.goToPage(pageNumber);
-          });
-        }
-      });
-    }, 500);
-  }
-  
-  goToPage(pageNumber: number) {
-    console.log('Attempting to navigate to page:', pageNumber);
-    const pdfApp = (window as any).PDFViewerApplication;
-    
-    if (pdfApp && pdfApp.pdfViewer) {
-      // Use the PDF viewer's page navigation
-      pdfApp.page = pageNumber;
-      
-      // Alternative method if above doesn't work
-      const viewerContainer = document.getElementById('viewerContainer');
-      const targetPage = document.querySelector(`[data-page-number="${pageNumber}"]`);
-      
-      if (viewerContainer && targetPage) {
-        targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      
-      console.log('Navigated to page:', pageNumber);
-    }
-  }
-
-  onThumbnailsLoaded(event: any) {
-    console.log('Thumbnails loaded:', event);
-    // Setup thumbnail click handlers after thumbnails are loaded
-    setTimeout(() => {
-      this.setupThumbnailClickHandlers();
-      this.setupThumbnailEventDelegation();
-    }, 300);
-  }
-
   toggleSidebar() {
-    this.sidebarVisible = !this.sidebarVisible;
-    console.log('Sidebar toggled:', this.sidebarVisible);
-    
-    // Force PDF viewer to show/hide sidebar
-    const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp && pdfApp.pdfSidebar) {
-      if (this.sidebarVisible) {
-        pdfApp.pdfSidebar.open();
-        // Ensure thumbnails view is selected
-        pdfApp.pdfSidebar.switchView(0); // 0 = thumbnails view
-        
-        // Re-setup thumbnail handlers when sidebar is shown
-        setTimeout(() => {
-          this.setupThumbnailClickHandlers();
-          this.setupThumbnailEventDelegation();
-        }, 300);
-      } else {
-        pdfApp.pdfSidebar.close();
-      }
-    }
-  }
-
-  zoomIn() {
-    const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp && pdfApp.pdfViewer) {
-      const currentScale = pdfApp.pdfViewer.currentScale;
-      const newScale = Math.min(3, currentScale + 0.25);
-      pdfApp.pdfViewer.currentScaleValue = newScale;
-      this.currentZoom = Math.round(newScale * 100);
-      console.log('Zooming in to:', this.currentZoom + '%');
-    }
-  }
-
-  zoomOut() {
-    const pdfApp = (window as any).PDFViewerApplication;
-    if (pdfApp && pdfApp.pdfViewer) {
-      const currentScale = pdfApp.pdfViewer.currentScale;
-      const newScale = Math.max(0.25, currentScale - 0.25);
-      pdfApp.pdfViewer.currentScaleValue = newScale;
-      this.currentZoom = Math.round(newScale * 100);
-      console.log('Zooming out to:', this.currentZoom + '%');
-    }
+    // Sidebar not available with iframe PDF viewer
+    console.log('Sidebar not available in iframe viewer');
   }
 
 }

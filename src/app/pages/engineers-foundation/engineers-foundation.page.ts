@@ -3401,6 +3401,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }, 3000);
   }
   
+  // v1.4.343: Show debug data in a copyable format when clipboard fails
+  async showCopyableDebugData(debugText: string) {
+    const alert = await this.alertController.create({
+      header: '📋 Debug Data (Select & Copy)',
+      message: `
+        <div style="font-family: monospace; font-size: 11px;">
+          <p style="color: orange; margin-bottom: 10px;">
+            ⚠️ Clipboard copy failed. Please manually select and copy the text below:
+          </p>
+          <textarea 
+            style="width: 100%; 
+                   height: 300px; 
+                   font-family: monospace; 
+                   font-size: 10px; 
+                   border: 1px solid #ccc; 
+                   padding: 8px;
+                   background: #f5f5f5;"
+            readonly
+            onclick="this.select(); this.setSelectionRange(0, 999999);"
+          >${debugText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+          <p style="color: #666; margin-top: 10px; font-size: 10px;">
+            Tap the text area above to select all text, then use your device's copy function.
+          </p>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Done',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async showToast(message: string, color: string = 'primary') {
     const toast = await this.toastController.create({
       message,
@@ -6013,24 +6048,57 @@ Original File: ${originalFile?.name || 'None'}`;
           buttons: [
             {
               text: 'Copy Full Data',
-              handler: () => {
+              handler: async () => {
                 const debugText = `AttachID: ${attachId}\nDrawings Length: ${drawingsInfo.length}\nFull Drawings:\n${updateData.Drawings}`;
-                navigator.clipboard.writeText(debugText).catch(() => {
-                  // Fallback for mobile clipboard
+                
+                // v1.4.343: Enhanced clipboard handling for mobile
+                try {
+                  // Method 1: Try Clipboard API first
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(debugText);
+                    await this.showToast('✅ Debug data copied to clipboard', 'success');
+                  } else {
+                    throw new Error('Clipboard API not available');
+                  }
+                } catch (e) {
+                  // Method 2: Fallback using textarea
                   const textarea = document.createElement('textarea');
                   textarea.value = debugText;
                   textarea.style.position = 'fixed';
+                  textarea.style.left = '0';
+                  textarea.style.top = '0';
                   textarea.style.opacity = '0';
+                  textarea.style.zIndex = '9999';
                   document.body.appendChild(textarea);
-                  textarea.select();
-                  try {
-                    document.execCommand('copy');
-                    this.showToast('Debug data copied', 'success');
-                  } catch (e) {
-                    this.showToast('Could not copy data', 'warning');
+                  
+                  // iOS specific handling
+                  const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  if (isiOS) {
+                    const range = document.createRange();
+                    range.selectNodeContents(textarea);
+                    const selection = window.getSelection();
+                    selection?.removeAllRanges();
+                    selection?.addRange(range);
+                    textarea.setSelectionRange(0, 999999);
+                  } else {
+                    textarea.select();
                   }
-                  document.body.removeChild(textarea);
-                });
+                  
+                  try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                      await this.showToast('✅ Debug data copied (fallback method)', 'success');
+                    } else {
+                      // Method 3: Show data in a selectable text field
+                      await this.showCopyableDebugData(debugText);
+                    }
+                  } catch (e2) {
+                    // Method 3: Show data in a selectable text field
+                    await this.showCopyableDebugData(debugText);
+                  } finally {
+                    document.body.removeChild(textarea);
+                  }
+                }
                 return false;
               }
             },
@@ -6105,7 +6173,7 @@ Original File: ${originalFile?.name || 'None'}`;
         buttons: [
           {
             text: 'Copy Error Details',
-            handler: () => {
+            handler: async () => {
               const errorText = `Update Failed Error:
 Message: ${error?.message}
 AttachID: ${attachId}
@@ -6113,7 +6181,55 @@ Type: ${typeof attachId}
 Status: ${error?.status}
 Response: ${JSON.stringify(error?.error || error?.response || {})}
 Stack: ${error?.stack}`;
-              navigator.clipboard.writeText(errorText);
+              
+              // v1.4.343: Enhanced clipboard handling for mobile
+              try {
+                // Method 1: Try Clipboard API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(errorText);
+                  await this.showToast('✅ Error details copied', 'success');
+                } else {
+                  throw new Error('Clipboard API not available');
+                }
+              } catch (e) {
+                // Method 2: Fallback using textarea
+                const textarea = document.createElement('textarea');
+                textarea.value = errorText;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '0';
+                textarea.style.top = '0';
+                textarea.style.opacity = '0';
+                textarea.style.zIndex = '9999';
+                document.body.appendChild(textarea);
+                
+                // iOS specific handling
+                const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                if (isiOS) {
+                  const range = document.createRange();
+                  range.selectNodeContents(textarea);
+                  const selection = window.getSelection();
+                  selection?.removeAllRanges();
+                  selection?.addRange(range);
+                  textarea.setSelectionRange(0, 999999);
+                } else {
+                  textarea.select();
+                }
+                
+                try {
+                  const successful = document.execCommand('copy');
+                  if (successful) {
+                    await this.showToast('✅ Error copied (fallback)', 'success');
+                  } else {
+                    // Method 3: Show data in a selectable text field
+                    await this.showCopyableDebugData(errorText);
+                  }
+                } catch (e2) {
+                  // Method 3: Show data in a selectable text field
+                  await this.showCopyableDebugData(errorText);
+                } finally {
+                  document.body.removeChild(textarea);
+                }
+              }
               return false;
             }
           },
