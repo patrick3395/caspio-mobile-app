@@ -5869,9 +5869,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('🗜️ [v1.4.348] Compressing annotation data');
     console.log('  Original size:', data.length, 'bytes');
     
+    // FIX v1.4.359: Don't compress empty or minimal data
+    if (!data || data === '{}' || data === '[]' || data === '""' || data === 'null' || data === '') {
+      console.log('  Empty or minimal data, returning empty string');
+      return '';
+    }
+    
     try {
       // Always minify first
       const parsed = JSON.parse(data);
+      
+      // Check if there's actually any content to compress
+      if (parsed && parsed.objects && parsed.objects.length === 0) {
+        console.log('  Empty objects array, returning empty string');
+        return '';
+      }
+      
       const minified = JSON.stringify(parsed);
       console.log('  After minification:', minified.length, 'bytes');
       
@@ -6022,16 +6035,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private decompressAnnotationData(data: string): any {
     if (!data) return null;
     
+    // FIX v1.4.359: Handle malformed COMPRESSED_ strings (no data after prefix)
+    if (data === 'COMPRESSED_' || data === 'COMPRESSED_V1:' || data === 'COMPRESSED_V2:' || data === 'COMPRESSED_V3:') {
+      console.log('⚠️ [v1.4.359] Malformed compressed string with no data, returning null');
+      return null;
+    }
+    
     // Check if data is compressed
     if (data.startsWith('COMPRESSED_V3:')) {
       console.log('🔓 [v1.4.348] Decompressing V3 annotation data');
       data = data.substring('COMPRESSED_V3:'.length);
+      if (!data) return null; // No data after prefix
     } else if (data.startsWith('COMPRESSED_V2:')) {
       console.log('🔓 [v1.4.348] Decompressing V2 annotation data');
       data = data.substring('COMPRESSED_V2:'.length);
+      if (!data) return null; // No data after prefix
     } else if (data.startsWith('COMPRESSED_V1:')) {
       console.log('🔓 [v1.4.348] Decompressing V1 annotation data');
       data = data.substring('COMPRESSED_V1:'.length);
+      if (!data) return null; // No data after prefix
     }
     
     try {
