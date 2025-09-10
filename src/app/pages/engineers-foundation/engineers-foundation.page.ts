@@ -5867,14 +5867,25 @@ Has Annotations: ${!!annotations}`;
       // Update the attachment record - ONLY update Drawings field, NOT Photo field
       const updateData: any = {};
       
-      // v1.4.346 FIX: Log exactly what we're about to save
-      console.log('🔄 [v1.4.346] UPDATE PHOTO ATTACHMENT - REPLACE MODE');
+      // v1.4.351 DEBUG: Log EVERYTHING about what we're saving
+      console.log('🔄 [v1.4.351] UPDATE PHOTO ATTACHMENT - DEBUG MODE');
       console.log('  AttachID:', attachId);
       console.log('  Received annotations type:', typeof annotations);
-      if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
-        console.log('  Fabric.js format detected');
-        console.log('  Total objects in NEW canvas:', annotations.objects?.length || 0);
-        console.log('  This will REPLACE existing annotations completely');
+      if (annotations && typeof annotations === 'object') {
+        if ('objects' in annotations) {
+          console.log('  🎨 Fabric.js canvas object detected');
+          console.log('  Total objects:', annotations.objects?.length || 0);
+          console.log('  Object types:', annotations.objects?.map((o: any) => o.type).join(', '));
+        } else if (Array.isArray(annotations)) {
+          console.log('  📦 Array of annotations detected');
+          console.log('  Array length:', annotations.length);
+        } else {
+          console.log('  ❓ Unknown object format');
+          console.log('  Keys:', Object.keys(annotations).join(', '));
+        }
+      } else if (typeof annotations === 'string') {
+        console.log('  📝 String annotations, length:', annotations.length);
+        console.log('  First 200 chars:', annotations.substring(0, 200));
       }
       
       // Add annotations to Drawings field if provided
@@ -5887,17 +5898,20 @@ Has Annotations: ${!!annotations}`;
         console.log('  Input type:', typeof annotations);
         console.log('  Input preview:', typeof annotations === 'string' ? annotations.substring(0, 200) : annotations);
         
-        // v1.4.346 FIX: CRITICAL - This should be a COMPLETE REPLACEMENT
+        // v1.4.351 DEBUG: Log EXACTLY what we're receiving
         // Fabric.js returns an object with 'objects' and 'version' properties
         if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
-          console.log('  📐 [v1.4.346] REPLACEMENT: Fabric.js canvas with', annotations.objects?.length || 0, 'objects');
-          console.log('  🔄 [v1.4.346] This REPLACES all previous annotations');
+          console.log('  📐 [v1.4.351] DEBUG - Received Fabric.js object:');
+          console.log('    Total objects:', annotations.objects?.length || 0);
+          console.log('    Object types:', annotations.objects?.map((o: any) => o.type).join(', '));
+          console.log('    First 3 objects:', JSON.stringify(annotations.objects?.slice(0, 3), null, 2));
+          
           // This is a Fabric.js canvas export - stringify it DIRECTLY
           // The toJSON() method from Fabric.js already returns the COMPLETE canvas state
           try {
-            // v1.4.346: The annotations from canvas.toJSON() are the COMPLETE state
+            // v1.4.351: The annotations from canvas.toJSON() are the COMPLETE state
             drawingsData = JSON.stringify(annotations);
-            console.log('  ✅ [v1.4.346] Complete canvas state:', drawingsData.length, 'bytes');
+            console.log('  ✅ [v1.4.351] Stringified complete canvas state:', drawingsData.length, 'bytes');
             
             // v1.4.342: Validate the JSON is parseable
             try {
@@ -6027,7 +6041,10 @@ Has Annotations: ${!!annotations}`;
           // v1.4.346 FIX: Compress data if it's too large - THIS IS THE COMPLETE DATA
           try {
             const parsed = JSON.parse(drawingsData);
-            console.log('  [v1.4.346] Parsed data has', parsed.objects?.length || 0, 'total objects');
+            console.log('  [v1.4.351] DEBUG - Before compression:');
+          console.log('    Object count:', parsed.objects?.length || 0);
+          console.log('    Object types:', parsed.objects?.map((o: any) => o.type).join(', '));
+          console.log('    Data size:', drawingsData.length, 'bytes');
             
             // Re-stringify to ensure clean JSON format
             drawingsData = JSON.stringify(parsed, (key, value) => {
@@ -6040,7 +6057,16 @@ Has Annotations: ${!!annotations}`;
             drawingsData = this.compressAnnotationData(drawingsData);
             
             if (originalSize !== drawingsData.length) {
-              console.log('  [v1.4.346] Compressed from', originalSize, 'to', drawingsData.length, 'bytes');
+              console.log('  [v1.4.351] Compressed from', originalSize, 'to', drawingsData.length, 'bytes');
+              
+              // DEBUG: Show what's in the compressed data
+              try {
+                const compressedParsed = this.decompressAnnotationData(drawingsData);
+                console.log('  [v1.4.351] After compression has:', compressedParsed?.objects?.length || 0, 'objects');
+                console.log('  [v1.4.351] Compressed object types:', compressedParsed?.objects?.map((o: any) => o.type).join(', '));
+              } catch (e) {
+                console.error('  [v1.4.351] Could not parse compressed data for debug');
+              }
             }
             
             // Final size check
@@ -6105,12 +6131,25 @@ Has Annotations: ${!!annotations}`;
         console.log('ℹ️ [v1.4.315] No annotations provided, not updating Drawings field');
       }
       
+      // v1.4.351: Enhanced debug popup to show annotation details
+      let annotationSummary = 'N/A';
+      if (updateData.Drawings) {
+        try {
+          const tempParsed = this.decompressAnnotationData(updateData.Drawings);
+          if (tempParsed && tempParsed.objects) {
+            annotationSummary = `${tempParsed.objects.length} objects: ${tempParsed.objects.map((o: any) => o.type).join(', ')}`;
+          }
+        } catch (e) {
+          annotationSummary = 'Could not parse';
+        }
+      }
+      
       // Show debug popup before update
       const debugAlert = await this.alertController.create({
-        header: '🔍 Debug: Annotation Update',
+        header: '🔍 [v1.4.351] Debug: Annotation Update',
         message: `
           <div style="font-family: monospace; font-size: 12px; text-align: left;">
-            <strong style="color: blue;">ATTEMPTING TO UPDATE ATTACHMENT</strong><br><br>
+            <strong style="color: blue;">UPDATE ATTACHMENT - v1.4.351</strong><br><br>
             
             <strong>AttachID:</strong> <span style="color: green;">${attachId}</span><br>
             <strong>AttachID Type:</strong> ${typeof attachId}<br><br>
@@ -6120,7 +6159,8 @@ Has Annotations: ${!!annotations}`;
             • Drawings type: ${typeof updateData.Drawings}<br>
             • Drawings is string: ${typeof updateData.Drawings === 'string'}<br>
             • Drawings length: ${updateData.Drawings?.length || 0} chars<br>
-            • Drawings preview: ${updateData.Drawings ? updateData.Drawings.substring(0, 50) + '...' : 'N/A'}<br><br>
+            • Annotations: ${annotationSummary}<br>
+            • Drawings preview: ${updateData.Drawings ? updateData.Drawings.substring(0, 100) + '...' : 'N/A'}<br><br>
             
             <strong>File Info:</strong><br>
             • Name: ${file?.name || 'N/A'}<br>
@@ -7180,15 +7220,24 @@ Stack: ${error?.stack}`;
               let annotationData = null;
               let rawDrawingsString = photo.Drawings; // Keep the raw string
               if (photo.Drawings) {
+                console.log('🔍 [v1.4.351] DEBUG - Loading Drawings field:');
+                console.log('  AttachID:', photo.AttachID);
+                console.log('  Drawings type:', typeof photo.Drawings);
+                console.log('  Drawings length:', photo.Drawings?.length || 0);
+                console.log('  First 200 chars:', photo.Drawings?.substring?.(0, 200));
+                
                 try {
-                  // v1.4.345: Use decompression helper to handle compressed data
+                  // v1.4.351: Use decompression helper to handle compressed data
                   annotationData = this.decompressAnnotationData(photo.Drawings);
-                  console.log('📝 [v1.4.345] Parsed annotation data from Drawings field');
+                  console.log('📝 [v1.4.351] Decompressed annotation data:');
                   if (annotationData && annotationData.objects) {
-                    console.log('  Found', annotationData.objects.length, 'annotation objects');
+                    console.log('  Object count:', annotationData.objects.length);
+                    console.log('  Object types:', annotationData.objects.map((o: any) => o.type).join(', '));
+                  } else {
+                    console.log('  No objects found in decompressed data');
                   }
                 } catch (e) {
-                  console.log('⚠️ Could not parse Drawings field:', e);
+                  console.log('⚠️ [v1.4.351] Could not parse Drawings field:', e);
                 }
               }
               

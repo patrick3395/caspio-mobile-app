@@ -607,17 +607,40 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
       console.log('File URL length:', this.fileUrl?.length);
       console.log('File URL starts with:', this.fileUrl?.substring(0, 100));
       
-      // ngx-extended-pdf-viewer can handle base64 data URLs directly
+      // Convert base64 to Blob for better compatibility with ngx-extended-pdf-viewer
       if (this.fileUrl.startsWith('data:application/pdf;base64,')) {
-        console.log('📄 Base64 PDF detected - using directly');
-        // The viewer can handle base64 data URLs directly
-        this.pdfSrc = this.fileUrl;
-        console.log('✅ PDF source set to base64 data URL');
-        console.log('pdfSrc is now set:', !!this.pdfSrc);
-        console.log('pdfSrc length:', this.pdfSrc.length);
+        console.log('📄 Base64 PDF detected - converting to Blob');
+        try {
+          // Extract the base64 data
+          const base64Data = this.fileUrl.split(',')[1];
+          
+          // Convert base64 to binary
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          
+          const byteArray = new Uint8Array(byteNumbers);
+          
+          // Create a Blob from the byte array
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          console.log('✅ Created Blob, size:', blob.size);
+          
+          // Create a blob URL and use it
+          const blobUrl = URL.createObjectURL(blob);
+          this.pdfSrc = blobUrl;
+          console.log('✅ PDF source set to blob URL:', blobUrl);
+          
+        } catch (error) {
+          console.error('❌ Error converting base64 to Blob:', error);
+          // Fallback: try using the base64 directly
+          this.pdfSrc = this.fileUrl;
+          console.log('⚠️ Fallback: Using base64 data URL directly');
+        }
       } else if (this.fileUrl.startsWith('blob:')) {
-        console.log('📄 Blob URL detected');
-        // For blob URLs, just use them directly
+        console.log('📄 Blob URL detected - using directly');
         this.pdfSrc = this.fileUrl;
         console.log('✅ PDF source set to blob URL');
       } else {
