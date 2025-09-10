@@ -697,13 +697,28 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
       console.log('- pdfSrc set:', !!this.pdfSrc);
       console.log('- pdfSrc type:', typeof this.pdfSrc);
       
+      // Prepare debug info based on type
+      let lengthInfo = 'N/A';
+      let startsWithInfo = 'N/A';
+      
+      if (typeof this.pdfSrc === 'string') {
+        lengthInfo = this.pdfSrc.length.toString();
+        startsWithInfo = this.pdfSrc.substring(0, 50);
+      } else if (this.pdfSrc instanceof Uint8Array) {
+        lengthInfo = this.pdfSrc.length.toString();
+        startsWithInfo = 'Uint8Array data';
+      } else if (this.pdfSrc instanceof ArrayBuffer) {
+        lengthInfo = this.pdfSrc.byteLength.toString();
+        startsWithInfo = 'ArrayBuffer data';
+      }
+      
       // Show debug alert on mobile
       this.alertController.create({
         header: 'PDF Debug Info',
         message: `PDF Source: ${this.pdfSrc ? 'SET' : 'NOT SET'}<br>
                   Type: ${typeof this.pdfSrc}<br>
-                  Length: ${this.pdfSrc?.length || 0}<br>
-                  Starts with: ${this.pdfSrc?.substring(0, 50) || 'N/A'}`,
+                  Length: ${lengthInfo}<br>
+                  Starts with: ${startsWithInfo}`,
         buttons: ['OK']
       }).then(alert => alert.present());
     }
