@@ -214,7 +214,7 @@ export class CompanyPage implements OnInit {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
-    fileInput.capture = 'environment'; // Opens camera on mobile
+    // Remove capture attribute to show iOS picker with all options
     
     fileInput.onchange = async (event: any) => {
       const file = event.target.files[0];

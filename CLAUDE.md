@@ -582,11 +582,14 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - **Root Cause**: Image caching in CaspioService.getImageFromFilesAPI was using normalized (lowercase) path as cache key, causing collisions
   - Cache key normalization: `filePath.trim().toLowerCase()` made different images with similar paths return same cached result
   - Example: `/IMG_001.jpg` and `/img_001.jpg` would use same cache key
-- **Fix Applied (v1.4.382 - January 2025)**:
-  - Completely disabled ALL image caching in getImageFromFilesAPI method
-  - Commented out both cache read (lines 1186-1193) and write operations (lines 1221-1223)
-  - Each photo now fetches fresh from Caspio Files API without any cache interference
-  - Added debug logging with [v1.4.379] tags to verify unique fetches
+- **Fix Applied (v1.4.382-383 - January 2025)**:
+  - v1.4.382: Completely disabled ALL image caching in getImageFromFilesAPI method
+  - v1.4.383: Added enhanced debugging and cache-busting measures:
+    - Added cache-busting query parameters to API requests (`cb=timestamp_debugId`)
+    - Added no-cache headers (Cache-Control, Pragma) to prevent browser caching
+    - Implemented hash tracking for both paths and results to verify uniqueness
+    - Enhanced logging shows path hash, result hash, and result size for each fetch
+    - Ensures NO normalization or lowercasing of file paths
 - **Files Modified**:
   - `/mnt/c/Users/Owner/Caspio/src/app/services/caspio.service.ts`: Disabled cache for getImageFromFilesAPI
   - Cache mechanism commented out to prevent key collisions
