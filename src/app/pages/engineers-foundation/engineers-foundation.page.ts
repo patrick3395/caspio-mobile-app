@@ -7931,13 +7931,30 @@ Stack: ${error?.stack}`;
   // Load photos for a single visual
   private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
     try {
+      console.log(`[v1.4.385] Loading photos for VisualID: ${visualId} (raw: ${rawVisualId})`);
       const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
           
       if (photos && photos.length > 0) {
+        console.log(`[v1.4.385] Found ${photos.length} photos for VisualID ${visualId}`);
+        
+        // Log all photo paths to check for duplicates
+        const photoPaths = photos.map((p: any) => p.Photo);
+        console.log(`[v1.4.385] Photo paths for VisualID ${visualId}:`, photoPaths);
+        
+        // Check for duplicate paths
+        const uniquePaths = new Set(photoPaths);
+        if (uniquePaths.size !== photoPaths.length) {
+          console.warn(`[v1.4.385] WARNING: Duplicate photo paths detected for VisualID ${visualId}!`);
+        }
+        
         // [v1.4.375 FIX] Process photos SEQUENTIALLY to prevent cache collisions
         const processedPhotos = [];
         
-        for (const photo of photos) {
+        for (let i = 0; i < photos.length; i++) {
+          const photo = photos[i];
+          console.log(`[v1.4.385] Processing photo ${i + 1}/${photos.length} for VisualID ${visualId}:`);
+          console.log(`  AttachID: ${photo.AttachID}`);
+          console.log(`  Photo path: ${photo.Photo}`);
               
           // Parse annotations
           let annotationData = null;
@@ -7985,14 +8002,19 @@ Stack: ${error?.stack}`;
               const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
               
               if (imageData && imageData.startsWith('data:')) {
-                console.log(`[v1.4.378] Successfully loaded image for ${photo.Photo}, length: ${imageData.length}`);
+                // Create a simple hash of the image data to verify uniqueness
+                const imageHash = imageData.length + '_' + imageData.substring(50, 60);
+                console.log(`[v1.4.385] Image loaded for VisualID ${visualId}, photo ${i + 1}:`);
+                console.log(`  Path: ${photo.Photo}`);
+                console.log(`  Size: ${imageData.length} bytes`);
+                console.log(`  Hash: ${imageHash}`);
                 
                 photoData.url = imageData;
                 photoData.originalUrl = imageData;
                 photoData.thumbnailUrl = imageData;
                 photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
               } else {
-                console.error(`[v1.4.377] Invalid image data for ${photo.Photo}`);
+                console.error(`[v1.4.385] Invalid image data for ${photo.Photo}`);
               }
             } catch (error) {
               console.error(`[v1.4.377] Failed to load image for ${photo.Photo}:`, error);

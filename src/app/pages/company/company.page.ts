@@ -101,21 +101,76 @@ export class CompanyPage implements OnInit {
 
   async loadHeadshots() {
     // Load headshot images from Caspio Files API
+    const errors: any[] = [];
+    
     for (let user of this.users) {
       if (user.Headshot) {
         try {
+          console.log(`[DEBUG] Loading headshot for ${user.Name}, path: ${user.Headshot}`);
+          
           // If Headshot is a file path, get the image URL
           // Convert Observable to Promise and await the result
           const imageUrl = await this.caspioService.getImageFromFilesAPI(user.Headshot).toPromise();
           if (imageUrl) {
             user.Headshot = imageUrl;
+            console.log(`[DEBUG] Successfully loaded headshot for ${user.Name}`);
           }
-        } catch (error) {
-          console.error(`Failed to load headshot for ${user.Name}:`, error);
+        } catch (error: any) {
+          console.error(`[DEBUG] Failed to load headshot for ${user.Name}:`, error);
+          errors.push({
+            user: user.Name,
+            userId: user.UserID,
+            path: user.Headshot,
+            error: error.message || error
+          });
           // Use default avatar if image fails to load
           user.Headshot = '';
         }
       }
+    }
+    
+    // If there were errors, show a debug popup with all of them
+    if (errors.length > 0) {
+      const errorList = errors.map(e => 
+        `User: ${e.user} (ID: ${e.userId})<br>Path: ${e.path}<br>Error: ${e.error}<br>`
+      ).join('<br>');
+      
+      const alert = await this.alertController.create({
+        header: 'Debug: Headshot Load Errors',
+        message: `
+          <strong>Failed to load ${errors.length} headshot(s):</strong><br><br>
+          ${errorList}
+          <br><strong>This may be due to:</strong><br>
+          - Invalid authentication token<br>
+          - File not found in Caspio<br>
+          - Network connectivity issues<br>
+          - CORS/permission errors
+        `,
+        buttons: [
+          {
+            text: 'Copy Debug Info',
+            handler: () => {
+              const textToCopy = `Headshot Load Errors:\n${errors.map(e => 
+                `User: ${e.user} (ID: ${e.userId})\nPath: ${e.path}\nError: ${e.error}\n`
+              ).join('\n')}`;
+              navigator.clipboard.writeText(textToCopy).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+              });
+              return false;
+            }
+          },
+          {
+            text: 'OK',
+            role: 'cancel'
+          }
+        ]
+      });
+      await alert.present();
     }
   }
 
@@ -281,10 +336,62 @@ export class CompanyPage implements OnInit {
         // Update local user object and reload headshot
         user.Headshot = filePath;
         
-        // Get the new image URL
-        const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-        if (imageUrl) {
-          user.Headshot = imageUrl;
+        // Get the new image URL with debug info
+        try {
+          console.log('[DEBUG] Attempting to fetch image from path:', filePath);
+          const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+          
+          if (imageUrl) {
+            user.Headshot = imageUrl;
+            console.log('[DEBUG] Image loaded successfully, length:', imageUrl.length);
+          } else {
+            throw new Error('No image URL returned from API');
+          }
+        } catch (imgError: any) {
+          console.error('[DEBUG] Failed to load image:', imgError);
+          
+          // Show debug popup with error details
+          const debugInfo = `
+            <strong>Image Load Error</strong><br><br>
+            <strong>File Path:</strong> ${filePath}<br>
+            <strong>User ID:</strong> ${user.UserID}<br>
+            <strong>Error:</strong> ${imgError.message || imgError}<br>
+            <strong>Status:</strong> ${imgError.status || 'N/A'}<br><br>
+            <strong>Details:</strong><br>
+            ${JSON.stringify(imgError, null, 2).substring(0, 500)}
+          `;
+          
+          const alert = await this.alertController.create({
+            header: 'Debug: Image Load Failed',
+            message: debugInfo,
+            buttons: [
+              {
+                text: 'Copy Debug Info',
+                handler: () => {
+                  const textToCopy = `Image Load Error\nPath: ${filePath}\nUser: ${user.UserID}\nError: ${imgError.message || imgError}\nDetails: ${JSON.stringify(imgError)}`;
+                  navigator.clipboard.writeText(textToCopy).catch(() => {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = textToCopy;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                  });
+                  return false;
+                }
+              },
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await alert.present();
+          
+          // Still show success for upload, but note the image load issue
+          await this.showToast('Headshot uploaded but failed to load preview', 'warning');
+          return;
         }
 
         await this.showToast('Headshot uploaded successfully', 'success');

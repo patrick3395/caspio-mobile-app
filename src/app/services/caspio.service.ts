@@ -1185,55 +1185,26 @@ export class CaspioService {
   }
 
   getImageFromFilesAPI(filePath: string): Observable<string> {
+    const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    // [v1.4.383 DEBUG] Enhanced debugging to trace image duplication issue
-    const debugId = Math.random().toString(36).substring(7);
-    const timestamp = Date.now();
-    const pathHash = this.simpleHash(filePath);
-    console.log(`[${debugId}] 🔍 getImageFromFilesAPI called`);
-    console.log(`[${debugId}]    Path: ${filePath}`);
-    console.log(`[${debugId}]    Path Hash: ${pathHash}`);
-    console.log(`[${debugId}]    Timestamp: ${timestamp}`);
+    // Simple debugging
+    console.log(`[v1.4.384] getImageFromFilesAPI called for: ${filePath}`);
     
-    // [v1.4.379 FIX] CACHE DISABLED - was causing all photos to show same image
-    // TODO: Re-enable cache with proper unique key generation after confirming fix works
-    /*
-    const normalizedPath = filePath.trim().toLowerCase();
-    const cacheKey = `image_${normalizedPath}_${API_BASE_URL}`;
-    const cached = this.imageCache.get(cacheKey);
-    if (cached) {
-      const cacheSignature = cached.substring(0, 50) + '...' + cached.substring(cached.length - 30);
-      console.log(`[${debugId}][Cache Hit] Path: ${filePath}, Signature: ${cacheSignature}`);
-      return of(cached);
-    }
-    */
+    // IMPORTANT: Cache disabled to prevent duplication
+    // DO NOT use normalized/lowercase paths
     
-    // [v1.4.383 FIX] Use getValidToken to ensure fresh authentication
-    return this.getValidToken().pipe(
-      switchMap(accessToken => new Observable<string>(observer => {
-      // [v1.4.383] DO NOT normalize or lowercase the path - use exact path as provided
+    return new Observable(observer => {
+      // Clean the file path - use exact path, no normalization
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      const requestDebugId = debugId; // Capture debugId for inner scope
-      const requestHash = pathHash; // Capture hash for inner scope  
+      console.log(`[v1.4.384] Fetching from API: ${cleanPath}`);
       
-      // Add cache-busting query parameter to force fresh fetch
-      const cacheBuster = `cb=${timestamp}_${debugId}`;
-      const finalUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}&${cacheBuster}`;
-      
-      console.log(`[${requestDebugId}] 📡 Fetching fresh from API (cache disabled)`);
-      console.log(`[${requestDebugId}]    Clean path: ${cleanPath}`);
-      console.log(`[${requestDebugId}]    Request URL: ${finalUrl}`);
-      
-      // Fetch from Files API with cache-busting and no-cache headers
-      fetch(finalUrl, {
+      // Fetch from Files API
+      fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
         method: 'GET',
-        cache: 'no-store', // Force browser to bypass cache completely
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/octet-stream',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          'Accept': 'application/octet-stream'
         }
       })
       .then(response => {
@@ -1248,27 +1219,8 @@ export class CaspioService {
         reader.onloadend = () => {
           const result = reader.result as string;
           
-          // [v1.4.379 FIX] Cache disabled - not storing results
-          // TODO: Re-enable with proper unique key after confirming fix
-          /*
-          const normalizedCacheKey = `image_${filePath.trim().toLowerCase()}_${API_BASE_URL}`;
-          this.imageCache.set(normalizedCacheKey, result);
-          */
-          
-          // [v1.4.383] Enhanced result tracking to debug duplication
-          const resultHash = this.simpleHash(result);
-          const resultSignature = result.substring(0, 50) + '...' + result.substring(result.length - 30);
-          console.log(`[${requestDebugId}] ✅ Fetched fresh image`);
-          console.log(`[${requestDebugId}]    Path: ${filePath}`);
-          console.log(`[${requestDebugId}]    Path Hash: ${requestHash}`);
-          console.log(`[${requestDebugId}]    Result Size: ${result.length} bytes`);
-          console.log(`[${requestDebugId}]    Result Hash: ${resultHash}`);
-          console.log(`[${requestDebugId}]    Result Signature: ${resultSignature}`);
-          
-          // Double-check we're not somehow returning cached data
-          if (result.length > 0) {
-            console.log(`[${requestDebugId}] 🎯 Unique image confirmed (hash: ${resultHash})`);
-          }
+          // [v1.4.384] Cache disabled - not storing to prevent duplication
+          console.log(`[v1.4.384] Image loaded: ${filePath}, size: ${result.length}`);
           
           observer.next(result);
           observer.complete();
@@ -1282,8 +1234,7 @@ export class CaspioService {
         console.error('Error fetching image:', error);
         observer.error(error);
       });
-      }))
-    );
+    });
   }
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
