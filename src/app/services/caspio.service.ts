@@ -1211,7 +1211,7 @@ export class CaspioService {
     
     // [v1.4.383 FIX] Use getValidToken to ensure fresh authentication
     return this.getValidToken().pipe(
-      switchMap(accessToken => new Observable(observer => {
+      switchMap(accessToken => new Observable<string>(observer => {
       // [v1.4.383] DO NOT normalize or lowercase the path - use exact path as provided
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
       const requestDebugId = debugId; // Capture debugId for inner scope
