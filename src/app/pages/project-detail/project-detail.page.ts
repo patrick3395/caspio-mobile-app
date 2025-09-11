@@ -1570,15 +1570,22 @@ export class ProjectDetailPage implements OnInit {
   }
 
   // Template navigation
-  async openTemplate(service: ServiceSelection, event?: Event) {
+  openTemplate(service: ServiceSelection, event?: Event) {
     // Prevent any event bubbling
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
     
+    // Prevent double-clicks
+    if (this.isNavigating) {
+      console.log('Navigation already in progress, ignoring click');
+      return;
+    }
+    
     // Navigate immediately without any checks
     if (service.serviceId) {
+      this.isNavigating = true;
       
       // Convert typeId to string for consistent comparison
       const typeIdStr = String(service.typeId);
@@ -1600,27 +1607,32 @@ export class ProjectDetailPage implements OnInit {
         service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
         typeIdStr === '35';
         
-      try {
-        // Determine navigation URL first
-        let navigationUrl: string;
-        
-        if (isEngineersFoundation) {
-          console.log('✅ Navigating to Engineers Foundation template');
-          navigationUrl = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
-          console.log('   Route:', navigationUrl);
-        } else {
-          console.log('📝 Navigating to standard template form');
-          navigationUrl = `/template-form/${this.projectId}/${service.serviceId}`;
-          console.log('   Route:', navigationUrl);
-        }
-        
-        // Navigate immediately without any blocking
-        await this.router.navigateByUrl(navigationUrl, { replaceUrl: false });
-        console.log('Navigation triggered');
-        
-      } catch (error) {
-        console.error('Navigation error:', error);
+      // Determine navigation URL first
+      let navigationUrl: string;
+      
+      if (isEngineersFoundation) {
+        console.log('✅ Navigating to Engineers Foundation template');
+        navigationUrl = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
+        console.log('   Route:', navigationUrl);
+      } else {
+        console.log('📝 Navigating to standard template form');
+        navigationUrl = `/template-form/${this.projectId}/${service.serviceId}`;
+        console.log('   Route:', navigationUrl);
       }
+      
+      // Navigate without await - let it happen asynchronously
+      this.router.navigateByUrl(navigationUrl, { replaceUrl: false }).then(() => {
+        console.log('Navigation completed successfully');
+        this.isNavigating = false;
+      }).catch(error => {
+        console.error('Navigation error:', error);
+        this.isNavigating = false;
+      });
+      
+      // Reset flag after a timeout as a fallback
+      setTimeout(() => {
+        this.isNavigating = false;
+      }, 1000);
     }
   }
 

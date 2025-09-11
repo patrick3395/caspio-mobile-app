@@ -7884,28 +7884,32 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Load existing photos for visuals - OPTIMIZED FOR SPEED
+  // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('🔄 Loading ALL photos in parallel for maximum speed...');
+    console.log('🔄 [v1.4.375 FIX] Loading Structural Systems photos sequentially to prevent duplication...');
     
-    // Collect ALL photo fetching promises
-    const allPhotoPromises: Promise<void>[] = [];
+    // [v1.4.375 FIX] Clear image cache before loading to prevent same image showing for all items
+    // This is the same fix we applied for Elevation Plot photos
+    console.log('[v1.4.375 FIX] Clearing image cache before loading Structural Systems photos');
+    this.caspioService.clearImageCache();
     
-    // Start ALL visual photo fetches in parallel
+    // [v1.4.375 FIX] Load photos SEQUENTIALLY to avoid cache collisions
+    // When loading in parallel, the cache was returning the same image for different paths
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
       
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        // Create promise for this visual's photos
-        const visualPromise = this.loadPhotosForVisual(visualId, rawVisualId);
-        allPhotoPromises.push(visualPromise);
+        // Load photos for this visual one at a time
+        await this.loadPhotosForVisual(visualId, rawVisualId);
+        
+        // [v1.4.375 FIX] Add small delay between visuals to prevent cache issues
+        // This ensures each image request is properly processed
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
     
-    // Wait for ALL photos to load in parallel
-    await Promise.all(allPhotoPromises);
-    console.log('✅ All photos loaded successfully');
+    console.log('✅ [v1.4.375 FIX] All Structural Systems photos loaded successfully without duplication');
   }
   
   // Load photos for a single visual
@@ -7914,8 +7918,10 @@ Stack: ${error?.stack}`;
       const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
           
       if (photos && photos.length > 0) {
-        // Load all images for this visual in parallel
-        const photoPromises = photos.map(async (photo: any) => {
+        // [v1.4.375 FIX] Process photos SEQUENTIALLY to prevent cache collisions
+        const processedPhotos = [];
+        
+        for (const photo of photos) {
               
           // Parse annotations
           let annotationData = null;
@@ -7953,6 +7959,9 @@ Stack: ${error?.stack}`;
             photoData.hasPhoto = true;
             
             try {
+              // [v1.4.375 FIX] Log which photo we're loading to debug duplication
+              console.log(`[v1.4.375 FIX] Loading image for visual ${visualId}, path: ${photo.Photo}`);
+              
               // Fetch image data (will use cache if available)
               const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
               
@@ -7961,19 +7970,22 @@ Stack: ${error?.stack}`;
                 photoData.originalUrl = imageData;
                 photoData.thumbnailUrl = imageData;
                 photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
+                
+                console.log(`[v1.4.375 FIX] Successfully loaded image for ${photo.Photo}, data length: ${imageData.length}`);
               }
             } catch (error) {
-              // Silently handle load errors
+              console.error(`[v1.4.375 FIX] Failed to load image for ${photo.Photo}:`, error);
             }
           } else {
             photoData.hasPhoto = false;
           }
           
-          return photoData;
-        });
-        
-        // Wait for all photos of this visual to load
-        const processedPhotos = await Promise.all(photoPromises);
+          // [v1.4.375 FIX] Add to processed photos array
+          processedPhotos.push(photoData);
+          
+          // [v1.4.375 FIX] Small delay between photo loads within same visual
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
             
         // Store all photos at once
         this.visualPhotos[visualId] = processedPhotos;
