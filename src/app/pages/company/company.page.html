@@ -14,7 +14,6 @@
   <div class="company-header">
     <ion-icon name="business-outline" class="company-icon"></ion-icon>
     <h2>{{ companyName }}</h2>
-    <p>Company ID: {{ companyId }}</p>
   </div>
 
   <!-- Search Bar -->
@@ -42,32 +41,69 @@
     <p>Loading users...</p>
   </div>
 
-  <!-- Users List -->
-  <ion-list *ngIf="!isLoading && filteredUsers.length > 0">
-    <ion-item *ngFor="let user of filteredUsers" 
-              button 
-              (click)="viewUserDetails(user)"
-              class="user-item">
-      <ion-avatar slot="start" class="user-avatar">
-        <div class="avatar-initials" [style.background-color]="'var(--ion-color-' + getUserStatusColor(user.Status) + ')'">
-          {{ getUserInitials(user) }}
-        </div>
-      </ion-avatar>
-      <ion-label>
-        <h2 class="user-name">{{ user.FirstName }} {{ user.LastName }}</h2>
-        <p class="user-email">{{ user.Email }}</p>
-        <p *ngIf="user.Role" class="user-role">
-          <ion-icon name="briefcase-outline"></ion-icon>
-          {{ user.Role }}
-        </p>
-      </ion-label>
-      <ion-badge 
-        *ngIf="user.Status" 
-        [color]="getUserStatusColor(user.Status)" 
-        slot="end">
-        {{ user.Status }}
-      </ion-badge>
-    </ion-item>
+  <!-- Users Table -->
+  <div *ngIf="!isLoading && filteredUsers.length > 0" class="users-table-container">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Headshot</th>
+          <th>Name</th>
+          <th>Title</th>
+          <th>Phone</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)">
+          <td class="headshot-cell">
+            <div class="user-avatar">
+              <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
+              <div *ngIf="!user.Headshot" class="avatar-initials">
+                {{ getUserInitials(user) }}
+              </div>
+            </div>
+          </td>
+          <td class="name-cell">{{ user.Name }}</td>
+          <td class="title-cell">{{ user.Title || '-' }}</td>
+          <td class="phone-cell">{{ formatPhone(user.Phone) || '-' }}</td>
+          <td class="email-cell">
+            <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile Card View for Small Screens -->
+  <ion-list *ngIf="!isLoading && filteredUsers.length > 0" class="mobile-users-list">
+    <ion-card *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)" class="user-card">
+      <ion-card-content>
+        <ion-grid>
+          <ion-row>
+            <ion-col size="3">
+              <div class="user-avatar">
+                <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
+                <div *ngIf="!user.Headshot" class="avatar-initials">
+                  {{ getUserInitials(user) }}
+                </div>
+              </div>
+            </ion-col>
+            <ion-col size="9">
+              <h2 class="user-name">{{ user.Name }}</h2>
+              <p class="user-title" *ngIf="user.Title">{{ user.Title }}</p>
+              <p class="user-phone" *ngIf="user.Phone">
+                <ion-icon name="call-outline"></ion-icon>
+                {{ formatPhone(user.Phone) }}
+              </p>
+              <p class="user-email">
+                <ion-icon name="mail-outline"></ion-icon>
+                <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+              </p>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </ion-card-content>
+    </ion-card>
   </ion-list>
 
   <!-- Empty State -->

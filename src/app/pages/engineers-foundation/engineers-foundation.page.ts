@@ -1230,9 +1230,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load existing room points and their photos
   async loadExistingRoomPoints(roomId: string, roomName: string) {
     try {
-      // Clear image cache to prevent duplication issues
-      console.log(`[loadExistingRoomPoints] Clearing image cache before loading photos for room: ${roomName}`);
-      this.caspioService.clearImageCache();
+      // [v1.4.378 FIX] DO NOT clear image cache - it affects other sections
+      console.log(`[v1.4.378] Loading photos for room: ${roomName} WITHOUT clearing cache`);
       
       // Get all points for this room
       const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
@@ -5828,14 +5827,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           if (filePath) {
             try {
-              console.log(`[v1.4.377] Loading uploaded image from API: ${filePath}`);
+              console.log(`[v1.4.378] Loading uploaded image from API: ${filePath}`);
               const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
               if (imageData && imageData.startsWith('data:')) {
                 imageUrl = imageData; // Use base64 data URL
-                console.log(`[v1.4.377] Successfully loaded uploaded image, length: ${imageData.length}`);
+                console.log(`[v1.4.378] Successfully loaded uploaded image, length: ${imageData.length}`);
               }
             } catch (err) {
-              console.error(`[v1.4.377] Failed to load uploaded image, keeping blob URL:`, err);
+              console.error(`[v1.4.378] Failed to load uploaded image, keeping blob URL:`, err);
             }
           }
           
@@ -7906,19 +7905,18 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('🔄 [v1.4.377] Loading Structural Systems photos with single cache clear...');
+    console.log('🔄 [v1.4.378] Loading Structural Systems photos WITHOUT clearing cache...');
     
-    // [v1.4.377 FIX] Clear cache ONCE at the beginning like Elevation Plot does
-    console.log('[v1.4.377] Clearing image cache once before loading all Structural Systems photos');
-    this.caspioService.clearImageCache();
+    // [v1.4.378 FIX] DO NOT clear cache - it affects Elevation Plot photos
+    // The cache is managed globally and clearing it here causes cross-contamination
     
-    // [v1.4.377 FIX] Load photos SEQUENTIALLY but without clearing cache for each photo
+    // Load photos SEQUENTIALLY to avoid race conditions
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
       
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        console.log(`[v1.4.377] Processing visual ${visualId} for key ${key}`);
+        console.log(`[v1.4.378] Processing visual ${visualId} for key ${key}`);
         // Load photos for this visual
         await this.loadPhotosForVisual(visualId, rawVisualId);
         
@@ -7927,7 +7925,7 @@ Stack: ${error?.stack}`;
       }
     }
     
-    console.log('✅ [v1.4.377] All Structural Systems photos loaded');
+    console.log('✅ [v1.4.378] All Structural Systems photos loaded');
   }
   
   // Load photos for a single visual
@@ -7977,17 +7975,17 @@ Stack: ${error?.stack}`;
             photoData.hasPhoto = true;
             
             try {
-              // [v1.4.377 FIX] DO NOT clear cache for each photo - only cleared once at start
-              console.log(`[v1.4.377] Loading image for visual ${visualId}, path: ${photo.Photo}`);
+              // [v1.4.378 FIX] Load without cache interference
+              console.log(`[v1.4.378] Loading image for visual ${visualId}, path: ${photo.Photo}`);
               
               // Small delay to prevent race conditions
               await new Promise(resolve => setTimeout(resolve, 20));
               
-              // Fetch image data (cache was cleared once at the beginning)
+              // Fetch image data - cache is no longer cleared
               const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
               
               if (imageData && imageData.startsWith('data:')) {
-                console.log(`[v1.4.377] Successfully loaded image for ${photo.Photo}, length: ${imageData.length}`);
+                console.log(`[v1.4.378] Successfully loaded image for ${photo.Photo}, length: ${imageData.length}`);
                 
                 photoData.url = imageData;
                 photoData.originalUrl = imageData;

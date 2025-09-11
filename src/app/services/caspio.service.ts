@@ -1177,15 +1177,18 @@ export class CaspioService {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    // Add timestamp to debug duplications
+    // [v1.4.378 FIX] More detailed debugging to catch duplication
     const debugId = Math.random().toString(36).substring(7);
-    console.log(`[${debugId}] getImageFromFilesAPI called for path: ${filePath}`);
+    const timestamp = Date.now();
+    console.log(`[${debugId}] getImageFromFilesAPI called at ${timestamp} for path: ${filePath}`);
     
-    // Re-enable cache with proper unique key to prevent duplication
-    const cacheKey = `image_${filePath}_${API_BASE_URL}`;
+    // [v1.4.378 FIX] Include normalized path in cache key to prevent collisions
+    const normalizedPath = filePath.trim().toLowerCase();
+    const cacheKey = `image_${normalizedPath}_${API_BASE_URL}`;
     const cached = this.imageCache.get(cacheKey);
     if (cached) {
-      console.log(`[${debugId}][Cache Hit] Returning cached image for: ${filePath}, first 100 chars: ${cached.substring(0, 100)}`);
+      const cacheSignature = cached.substring(0, 50) + '...' + cached.substring(cached.length - 30);
+      console.log(`[${debugId}][Cache Hit] Path: ${filePath}, Signature: ${cacheSignature}`);
       return of(cached);
     }
     
@@ -1193,7 +1196,7 @@ export class CaspioService {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
       const requestDebugId = debugId; // Capture debugId for inner scope
-      console.log(`[${requestDebugId}][Cache Miss] Fetching from API: ${cleanPath}`);
+      console.log(`[${requestDebugId}][Cache Miss] Fetching from API: ${cleanPath}, key would be: ${cacheKey}`);
       
       // Fetch from Files API
       fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
@@ -1215,9 +1218,13 @@ export class CaspioService {
         reader.onloadend = () => {
           const result = reader.result as string;
           
-          // Cache the result with unique key including file path
-          this.imageCache.set(cacheKey, result);
-          console.log(`[${requestDebugId}] 🔄 Cached image for ${filePath}, size: ${result.length}, key: ${cacheKey}, first 100 chars: ${result.substring(0, 100)}`);
+          // [v1.4.378 FIX] Cache with normalized key to prevent duplication
+          const normalizedCacheKey = `image_${filePath.trim().toLowerCase()}_${API_BASE_URL}`;
+          this.imageCache.set(normalizedCacheKey, result);
+          const resultSignature = result.substring(0, 50) + '...' + result.substring(result.length - 30);
+          console.log(`[${requestDebugId}] 🔄 Cached: ${filePath}`);
+          console.log(`[${requestDebugId}]    Key: ${normalizedCacheKey}`);
+          console.log(`[${requestDebugId}]    Size: ${result.length}, Signature: ${resultSignature}`);
           
           observer.next(result);
           observer.complete();

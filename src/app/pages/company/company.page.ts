@@ -3,18 +3,19 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
+import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 interface User {
-  UserID: number;
-  FirstName: string;
-  LastName: string;
-  Email: string;
+  UserID?: number;
+  Name: string;
+  Title?: string;
   Phone?: string;
-  Role?: string;
-  Status?: string;
-  CreatedDate?: string;
-  LastLogin?: string;
-  CompanyID: number;
+  Email: string;
+  Headshot?: string;
+  CompanyID?: number;
+  FirstName?: string;
+  LastName?: string;
 }
 
 @Component({
@@ -22,7 +23,7 @@ interface User {
   templateUrl: './company.page.html',
   styleUrls: ['./company.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, HttpClientModule]
 })
 export class CompanyPage implements OnInit {
   users: User[] = [];
@@ -36,7 +37,8 @@ export class CompanyPage implements OnInit {
     private caspioService: CaspioService,
     private alertController: AlertController,
     private loadingController: LoadingController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private http: HttpClient
   ) {}
 
   ngOnInit() {
@@ -52,52 +54,67 @@ export class CompanyPage implements OnInit {
     await loading.present();
 
     try {
-      // Get users filtered by CompanyID
-      this.caspioService.getValidToken().subscribe({
-        next: async (token) => {
-          const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          };
+      // Get token from CaspioService
+      const token = await this.caspioService.getAuthToken();
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
 
-          // Query users with CompanyID filter
-          const params = {
-            'q.where': `CompanyID=${this.companyId}`,
-            'q.orderBy': 'LastName,FirstName'
-          };
-
-          const response = await fetch(
-            `https://c7eku786.caspio.com/rest/v2/tables/Users/records?${new URLSearchParams(params)}`,
-            { headers }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            this.users = data.Result || [];
-            this.filteredUsers = [...this.users];
-            
-            if (this.users.length === 0) {
-              this.showToast('No users found for this company', 'warning');
-            }
-          } else {
-            throw new Error('Failed to fetch users');
-          }
-
-          await loading.dismiss();
-          this.isLoading = false;
-        },
-        error: async (error) => {
-          console.error('Error getting token:', error);
-          await loading.dismiss();
-          this.isLoading = false;
-          this.showToast('Failed to load users', 'danger');
-        }
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       });
-    } catch (error) {
+
+      // Query users with CompanyID filter
+      const params = {
+        'q.where': `CompanyID=${this.companyId}`,
+        'q.orderBy': 'Name'
+      };
+
+      const response = await this.http.get<any>(
+        `${environment.caspio.apiBaseUrl}/tables/Users/records?${new URLSearchParams(params)}`,
+        { headers }
+      ).toPromise();
+
+      if (response && response.Result) {
+        this.users = response.Result;
+        this.filteredUsers = [...this.users];
+        
+        // Load headshot images for each user
+        await this.loadHeadshots();
+        
+        if (this.users.length === 0) {
+          await this.showToast('No users found for this company', 'warning');
+        }
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error: any) {
       console.error('Error loading users:', error);
+      await this.showToast(error.message || 'Failed to load users', 'danger');
+    } finally {
       await loading.dismiss();
       this.isLoading = false;
-      this.showToast('Failed to load users', 'danger');
+    }
+  }
+
+  async loadHeadshots() {
+    // Load headshot images from Caspio Files API
+    for (let user of this.users) {
+      if (user.Headshot) {
+        try {
+          // If Headshot is a file path, get the image URL
+          const imageUrl = await this.caspioService.getImageFromFilesAPI(user.Headshot);
+          if (imageUrl) {
+            user.Headshot = imageUrl;
+          }
+        } catch (error) {
+          console.error(`Failed to load headshot for ${user.Name}:`, error);
+          // Use default avatar if image fails to load
+          user.Headshot = '';
+        }
+      }
     }
   }
 
@@ -111,21 +128,30 @@ export class CompanyPage implements OnInit {
     }
 
     this.filteredUsers = this.users.filter(user => {
-      const fullName = `${user.FirstName} ${user.LastName}`.toLowerCase();
+      const name = user.Name?.toLowerCase() || '';
       const email = user.Email?.toLowerCase() || '';
-      const role = user.Role?.toLowerCase() || '';
+      const title = user.Title?.toLowerCase() || '';
+      const phone = user.Phone?.toLowerCase() || '';
       
-      return fullName.includes(searchValue) || 
+      return name.includes(searchValue) || 
              email.includes(searchValue) || 
-             role.includes(searchValue);
+             title.includes(searchValue) ||
+             phone.includes(searchValue);
     });
   }
 
   async viewUserDetails(user: User) {
     const alert = await this.alertController.create({
-      header: `${user.FirstName} ${user.LastName}`,
+      header: user.Name,
       message: `
         <ion-list>
+          ${user.Title ? `
+          <ion-item>
+            <ion-label>
+              <p>Title</p>
+              <h3>${user.Title}</h3>
+            </ion-label>
+          </ion-item>` : ''}
           <ion-item>
             <ion-label>
               <p>Email</p>
@@ -137,27 +163,6 @@ export class CompanyPage implements OnInit {
             <ion-label>
               <p>Phone</p>
               <h3>${user.Phone}</h3>
-            </ion-label>
-          </ion-item>` : ''}
-          ${user.Role ? `
-          <ion-item>
-            <ion-label>
-              <p>Role</p>
-              <h3>${user.Role}</h3>
-            </ion-label>
-          </ion-item>` : ''}
-          ${user.Status ? `
-          <ion-item>
-            <ion-label>
-              <p>Status</p>
-              <h3>${user.Status}</h3>
-            </ion-label>
-          </ion-item>` : ''}
-          ${user.LastLogin ? `
-          <ion-item>
-            <ion-label>
-              <p>Last Login</p>
-              <h3>${new Date(user.LastLogin).toLocaleDateString()}</h3>
             </ion-label>
           </ion-item>` : ''}
         </ion-list>
@@ -184,23 +189,22 @@ export class CompanyPage implements OnInit {
   }
 
   getUserInitials(user: User): string {
-    const first = user.FirstName?.charAt(0) || '';
-    const last = user.LastName?.charAt(0) || '';
-    return (first + last).toUpperCase();
+    if (user.Name) {
+      const nameParts = user.Name.split(' ');
+      const first = nameParts[0]?.charAt(0) || '';
+      const last = nameParts[nameParts.length - 1]?.charAt(0) || '';
+      return (first + last).toUpperCase();
+    }
+    return 'U';
   }
 
-  getUserStatusColor(status?: string): string {
-    if (!status) return 'medium';
-    
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'success';
-      case 'inactive':
-        return 'danger';
-      case 'pending':
-        return 'warning';
-      default:
-        return 'medium';
+  formatPhone(phone?: string): string {
+    if (!phone) return '';
+    // Format phone number if it's just digits
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     }
+    return phone;
   }
 }
