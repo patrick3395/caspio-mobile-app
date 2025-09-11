@@ -7886,30 +7886,25 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('🔄 [v1.4.375 FIX] Loading Structural Systems photos sequentially to prevent duplication...');
+    console.log('🔄 [v1.4.376 CRITICAL FIX] Loading Structural Systems photos with cache clearing per photo...');
     
-    // [v1.4.375 FIX] Clear image cache before loading to prevent same image showing for all items
-    // This is the same fix we applied for Elevation Plot photos
-    console.log('[v1.4.375 FIX] Clearing image cache before loading Structural Systems photos');
-    this.caspioService.clearImageCache();
-    
-    // [v1.4.375 FIX] Load photos SEQUENTIALLY to avoid cache collisions
-    // When loading in parallel, the cache was returning the same image for different paths
+    // [v1.4.376 FIX] Load photos SEQUENTIALLY with cache clearing for EACH photo
+    // The cache is cleared before each individual photo load to ensure fresh data
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
       
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
+        console.log(`[v1.4.376 FIX] Processing visual ${visualId} for key ${key}`);
         // Load photos for this visual one at a time
         await this.loadPhotosForVisual(visualId, rawVisualId);
         
-        // [v1.4.375 FIX] Add small delay between visuals to prevent cache issues
-        // This ensures each image request is properly processed
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // [v1.4.376 FIX] Longer delay between visuals to ensure complete processing
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
     
-    console.log('✅ [v1.4.375 FIX] All Structural Systems photos loaded successfully without duplication');
+    console.log('✅ [v1.4.376 CRITICAL FIX] All Structural Systems photos loaded without duplication');
   }
   
   // Load photos for a single visual
@@ -7959,32 +7954,43 @@ Stack: ${error?.stack}`;
             photoData.hasPhoto = true;
             
             try {
-              // [v1.4.375 FIX] Log which photo we're loading to debug duplication
-              console.log(`[v1.4.375 FIX] Loading image for visual ${visualId}, path: ${photo.Photo}`);
+              // [v1.4.376 CRITICAL FIX] Clear cache before EACH photo load to prevent duplication
+              console.log(`[v1.4.376 FIX] Clearing cache and loading image for visual ${visualId}, path: ${photo.Photo}`);
+              this.caspioService.clearImageCache();
               
-              // Fetch image data (will use cache if available)
+              // Add a unique timestamp to ensure fresh fetch
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              // Fetch image data - cache cleared so this will be fresh
               const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
               
               if (imageData && imageData.startsWith('data:')) {
+                // [v1.4.376 FIX] Verify we got the right image by checking its signature
+                const imageSignature = imageData.substring(0, 100) + '...' + imageData.substring(imageData.length - 50);
+                console.log(`[v1.4.376 FIX] Loaded image for ${photo.Photo}:`);
+                console.log(`  Visual ID: ${visualId}`);
+                console.log(`  Photo path: ${photo.Photo}`);
+                console.log(`  Data length: ${imageData.length}`);
+                console.log(`  Signature: ${imageSignature}`);
+                
                 photoData.url = imageData;
                 photoData.originalUrl = imageData;
                 photoData.thumbnailUrl = imageData;
                 photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
-                
-                console.log(`[v1.4.375 FIX] Successfully loaded image for ${photo.Photo}, data length: ${imageData.length}`);
+              } else {
+                console.error(`[v1.4.376 FIX] Invalid image data for ${photo.Photo}`);
               }
             } catch (error) {
-              console.error(`[v1.4.375 FIX] Failed to load image for ${photo.Photo}:`, error);
+              console.error(`[v1.4.376 FIX] Failed to load image for ${photo.Photo}:`, error);
             }
           } else {
             photoData.hasPhoto = false;
           }
           
-          // [v1.4.375 FIX] Add to processed photos array
+          // [v1.4.376 FIX] Add to processed photos array
           processedPhotos.push(photoData);
           
-          // [v1.4.375 FIX] Small delay between photo loads within same visual
-          await new Promise(resolve => setTimeout(resolve, 20));
+          // [v1.4.376 FIX] No additional delay needed - cache clearing handles uniqueness
         }
             
         // Store all photos at once

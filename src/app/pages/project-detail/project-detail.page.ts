@@ -1569,7 +1569,7 @@ export class ProjectDetailPage implements OnInit {
     this.selectedServiceDoc = null;
   }
 
-  // Template navigation
+  // Template navigation - Fixed double-click issue
   openTemplate(service: ServiceSelection, event?: Event) {
     // Prevent any event bubbling
     if (event) {
@@ -1577,62 +1577,53 @@ export class ProjectDetailPage implements OnInit {
       event.stopPropagation();
     }
     
-    // Prevent double-clicks
-    if (this.isNavigating) {
-      console.log('Navigation already in progress, ignoring click');
+    // Navigate immediately without any checks
+    if (!service.serviceId) {
+      console.log('No serviceId, cannot navigate');
       return;
     }
     
-    // Navigate immediately without any checks
-    if (service.serviceId) {
-      this.isNavigating = true;
+    // Convert typeId to string for consistent comparison
+    const typeIdStr = String(service.typeId);
+    
+    console.log('🔍 Template Navigation Debug:', {
+      typeName: service.typeName,
+      typeId: service.typeId,
+      typeIdStr: typeIdStr,
+      serviceId: service.serviceId,
+      projectId: this.projectId,
+      isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
+    });
+    
+    // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
+    // Also check for various name formats
+    const isEngineersFoundation = 
+      service.typeName === 'Engineers Foundation Evaluation' || 
+      service.typeName === 'Engineer\'s Foundation Evaluation' ||
+      service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
+      typeIdStr === '35';
       
-      // Convert typeId to string for consistent comparison
-      const typeIdStr = String(service.typeId);
+    // Navigate immediately - remove all blocking checks
+    if (isEngineersFoundation) {
+      console.log('✅ Navigating to Engineers Foundation template - IMMEDIATE');
+      // Force navigation with location.assign for immediate response
+      const url = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
       
-      console.log('🔍 Template Navigation Debug:', {
-        typeName: service.typeName,
-        typeId: service.typeId,
-        typeIdStr: typeIdStr,
-        serviceId: service.serviceId,
-        projectId: this.projectId,
-        isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
-      });
-      
-      // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
-      // Also check for various name formats
-      const isEngineersFoundation = 
-        service.typeName === 'Engineers Foundation Evaluation' || 
-        service.typeName === 'Engineer\'s Foundation Evaluation' ||
-        service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
-        typeIdStr === '35';
-        
-      // Determine navigation URL first
-      let navigationUrl: string;
-      
-      if (isEngineersFoundation) {
-        console.log('✅ Navigating to Engineers Foundation template');
-        navigationUrl = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
-        console.log('   Route:', navigationUrl);
-      } else {
-        console.log('📝 Navigating to standard template form');
-        navigationUrl = `/template-form/${this.projectId}/${service.serviceId}`;
-        console.log('   Route:', navigationUrl);
-      }
-      
-      // Navigate without await - let it happen asynchronously
-      this.router.navigateByUrl(navigationUrl, { replaceUrl: false }).then(() => {
-        console.log('Navigation completed successfully');
-        this.isNavigating = false;
+      // Use Ionic NavController for smoother navigation
+      this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], {
+        animated: false,  // Disable animation for faster load
+        replaceUrl: false
       }).catch(error => {
-        console.error('Navigation error:', error);
-        this.isNavigating = false;
+        console.error('Router navigation failed, using fallback:', error);
+        // Fallback to direct navigation
+        window.location.assign(url);
       });
-      
-      // Reset flag after a timeout as a fallback
-      setTimeout(() => {
-        this.isNavigating = false;
-      }, 1000);
+    } else {
+      console.log('📝 Navigating to standard template form');
+      this.router.navigate(['template-form', this.projectId, service.serviceId], {
+        animated: false,
+        replaceUrl: false
+      });
     }
   }
 
