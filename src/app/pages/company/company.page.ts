@@ -105,7 +105,8 @@ export class CompanyPage implements OnInit {
       if (user.Headshot) {
         try {
           // If Headshot is a file path, get the image URL
-          const imageUrl = await this.caspioService.getImageFromFilesAPI(user.Headshot);
+          // Convert Observable to Promise and await the result
+          const imageUrl = await this.caspioService.getImageFromFilesAPI(user.Headshot).toPromise();
           if (imageUrl) {
             user.Headshot = imageUrl;
           }
