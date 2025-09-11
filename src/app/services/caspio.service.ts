@@ -1080,19 +1080,21 @@ export class CaspioService {
   }
   
   getImageFromFilesAPI(filePath: string): Observable<string> {
-    // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
-    // The cache was causing all photos to show the same image
-    // Adding unique timestamp to debug
-    const debugTimestamp = Date.now();
-    console.log(`[${debugTimestamp}] getImageFromFilesAPI called for: ${filePath}`);
-    
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    // Re-enable cache with proper unique key to prevent duplication
+    const cacheKey = `image_${filePath}_${API_BASE_URL}`;
+    const cached = this.imageCache.get(cacheKey);
+    if (cached) {
+      console.log(`[Cache Hit] Returning cached image for: ${filePath}`);
+      return of(cached);
+    }
     
     return new Observable(observer => {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      console.log(`[${debugTimestamp}] Fetching from API: ${cleanPath}`);
+      console.log(`[Cache Miss] Fetching from API: ${cleanPath}`);
       
       // Fetch from Files API
       fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
@@ -1113,11 +1115,11 @@ export class CaspioService {
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
-          // TEMPORARILY DISABLE CACHE TO FIX PHOTO DUPLICATION ISSUE
-          // const cacheKey = this.cache.getApiCacheKey('image_base64', { path: filePath });
-          // this.cache.set(cacheKey, result, this.cache.CACHE_TIMES.LONG, true);
-          const resultPreview = result.substring(0, 100) + '...' + result.substring(result.length - 50);
-          console.log(`🔄 [${debugTimestamp}] Fetched image for ${filePath} (cache disabled), size: ${result.length}, preview: ${resultPreview}`);
+          
+          // Cache the result with unique key including file path
+          this.imageCache.set(cacheKey, result);
+          console.log(`🔄 Cached image for ${filePath}, size: ${result.length}`);
+          
           observer.next(result);
           observer.complete();
         };

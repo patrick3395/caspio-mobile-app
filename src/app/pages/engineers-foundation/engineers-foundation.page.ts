@@ -77,6 +77,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
   
+  // Photo loading optimization
+  photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
+  isLoadingPhotos: boolean = false;
+  loadedPhotoCache: Map<string, string> = new Map(); // Cache loaded base64 images
+  visibleVisuals: Set<string> = new Set(); // Track which visuals are visible
+  photoLoadBatchSize: number = 3; // Load 3 photos at a time
+  
   // Type information for the header
   typeShort: string = 'Foundation Evaluation';
   
@@ -1397,57 +1404,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
-      // Show "Take Another Photo" prompt IMMEDIATELY if:
-      // 1. Single file was selected
-      // 2. We were expecting a camera photo (user clicked camera button specifically)
-      // This matches the Structural Systems behavior
-      if (files.length === 1 && this.expectingCameraPhoto) {
-        const continueAlert = await this.alertController.create({
-          cssClass: 'compact-photo-selector',
-          buttons: [
-            {
-              text: 'Take Another Photo',
-              cssClass: 'action-button',
-              handler: async () => {
-                // Set capture attribute to force camera
-                if (this.fileInput && this.fileInput.nativeElement) {
-                  const input = this.fileInput.nativeElement;
-                  input.setAttribute('capture', 'environment');
-                  input.setAttribute('accept', 'image/*');
-                  // Remove multiple attribute for camera capture
-                  input.removeAttribute('multiple');
-                }
-                // Continue expecting camera photos
-                this.expectingCameraPhoto = true;
-                // Keep the same room point context
-                this.currentRoomPointContext = { roomName, point, pointId, roomId };
-                setTimeout(() => {
-                  this.fileInput.nativeElement.click();
-                }, 100);
-                return true;
-              }
-            },
-            {
-              text: 'Done',
-              cssClass: 'done-button',
-              handler: () => {
-                this.expectingCameraPhoto = false;
-                // Restore multiple attribute
-                if (this.fileInput && this.fileInput.nativeElement) {
-                  this.fileInput.nativeElement.setAttribute('multiple', 'true');
-                  // Clear capture attribute
-                  this.fileInput.nativeElement.removeAttribute('capture');
-                }
-                return true;
-              }
-            }
-          ],
-          backdropDismiss: false
-        });
-        
-        await continueAlert.present();
-      }
-      
       let uploadSuccessCount = 0;
       const uploadPromises = [];
       
@@ -1455,14 +1411,66 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Don't automatically annotate - just prepare the file
-        // User can annotate later by clicking on the photo
-        let annotatedResult: { file: File; annotationData?: any; originalFile?: File } = { 
-          file: file, 
-          annotationData: null, 
-          originalFile: undefined 
-        };
-        // Removed automatic annotation for single files
+        // If this is a single camera photo, open annotator first
+        let annotatedResult: { file: File; annotationData?: any; originalFile?: File };
+        
+        if (files.length === 1 && this.expectingCameraPhoto) {
+          // Single camera photo - open annotator immediately
+          annotatedResult = await this.annotatePhoto(file);
+          
+          // After annotation is complete, show "Take Another Photo" prompt
+          const continueAlert = await this.alertController.create({
+            cssClass: 'compact-photo-selector',
+            buttons: [
+              {
+                text: 'Take Another Photo',
+                cssClass: 'action-button',
+                handler: async () => {
+                  // Set capture attribute to force camera
+                  if (this.fileInput && this.fileInput.nativeElement) {
+                    const input = this.fileInput.nativeElement;
+                    input.setAttribute('capture', 'environment');
+                    input.setAttribute('accept', 'image/*');
+                    // Remove multiple attribute for camera capture
+                    input.removeAttribute('multiple');
+                  }
+                  // Continue expecting camera photos
+                  this.expectingCameraPhoto = true;
+                  // Keep the same room point context
+                  this.currentRoomPointContext = { roomName, point, pointId, roomId };
+                  setTimeout(() => {
+                    this.fileInput.nativeElement.click();
+                  }, 100);
+                  return true;
+                }
+              },
+              {
+                text: 'Done',
+                cssClass: 'done-button',
+                handler: () => {
+                  this.expectingCameraPhoto = false;
+                  // Restore multiple attribute
+                  if (this.fileInput && this.fileInput.nativeElement) {
+                    this.fileInput.nativeElement.setAttribute('multiple', 'true');
+                    // Clear capture attribute
+                    this.fileInput.nativeElement.removeAttribute('capture');
+                  }
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+          
+          await continueAlert.present();
+        } else {
+          // Multiple files or non-camera selection - no automatic annotation
+          annotatedResult = { 
+            file: file, 
+            annotationData: null, 
+            originalFile: undefined 
+          };
+        }
         
         // Create preview immediately
         const photoUrl = URL.createObjectURL(annotatedResult.file);
@@ -5205,11 +5213,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           fileArray.push(files[i]);
         }
         
-        // Show "Take Another Photo" prompt IMMEDIATELY if:
-        // 1. Single file was selected
-        // 2. We were expecting a camera photo (user clicked camera button specifically)
-        // This avoids showing the prompt for Photo Library selections
+        // Process files with annotation for camera photos
+        const processedFiles: Array<{ file: File; annotationData?: any; originalFile?: File }> = [];
+        
+        // If single camera photo, open annotator first
         if (files.length === 1 && this.expectingCameraPhoto) {
+          // Annotate the single camera photo
+          const annotatedResult = await this.annotatePhoto(fileArray[0]);
+          processedFiles.push(annotatedResult);
+          
+          // After annotation, show "Take Another Photo" prompt
           const continueAlert = await this.alertController.create({
             cssClass: 'compact-photo-selector',
             buttons: [
@@ -5227,7 +5240,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                   // Continue expecting camera photos
                   this.expectingCameraPhoto = true;
-                  this.currentUploadContext = { category, itemId, action: 'add' };
+                  this.currentUploadContext = { category, itemId, item, action: 'add' };
                   setTimeout(() => {
                     this.fileInput.nativeElement.click();
                   }, 100);
@@ -5242,6 +5255,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   // Restore multiple attribute
                   if (this.fileInput && this.fileInput.nativeElement) {
                     this.fileInput.nativeElement.setAttribute('multiple', 'true');
+                    this.fileInput.nativeElement.removeAttribute('capture');
                   }
                   return true;
                 }
@@ -5251,11 +5265,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           });
           
           await continueAlert.present();
+        } else {
+          // Multiple files or non-camera - no automatic annotation
+          for (const file of fileArray) {
+            processedFiles.push({ file, annotationData: null, originalFile: undefined });
+          }
         }
         
         // Start uploads in background (don't await)
-        const uploadPromises = fileArray.map((file, index) => 
-          this.uploadPhotoForVisual(visualId, file, key, true)
+        const uploadPromises = processedFiles.map((processedFile, index) => 
+          this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile)
             .then(() => {
               console.log(`✅ File ${index + 1} uploaded successfully`);
               return { success: true, error: null };
@@ -7682,9 +7701,11 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals
   async loadExistingPhotos() {
-    console.log('🔄 Loading existing photos for all visuals...');
+    console.log('🔄 Loading photos with optimized lazy loading...');
     console.log('Visual IDs to load:', this.visualRecordIds);
-    console.log('Current visualPhotos state:', this.visualPhotos);
+    
+    // Clear the queue
+    this.photoLoadQueue = [];
     
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
@@ -7696,9 +7717,9 @@ Stack: ${error?.stack}`;
           console.log(`Found ${photos?.length || 0} photos for visual ${visualId}:`, photos);
           
           if (photos && photos.length > 0) {
-            // Process photos to add preview URLs
-            const processedPhotos = await Promise.all(photos.map(async (photo: any) => {
-              console.log('Processing photo:', photo);
+            // First pass: Create all photos with placeholders (fast)
+            const processedPhotos = photos.map((photo: any, index: number) => {
+              console.log('Creating placeholder for photo:', photo);
               
               // Parse the Drawings field for annotation data (where annotations are stored)
               let annotationData = null;
@@ -7725,7 +7746,8 @@ Stack: ${error?.stack}`;
                 }
               }
               
-              // Initialize photoData with undefined URLs (not empty strings)
+              // Create photo data with loading placeholder
+              const placeholderUrl = this.createLoadingPlaceholder();
               const photoData: any = {
                 ...photo,
                 name: photo.Photo || 'Photo',
@@ -7739,70 +7761,27 @@ Stack: ${error?.stack}`;
                 AttachID: photo.AttachID || photo.PK_ID || photo.id,
                 id: photo.AttachID || photo.PK_ID || photo.id, // Also store as 'id' for compatibility
                 PK_ID: photo.PK_ID || photo.AttachID || photo.id, // Keep PK_ID for backward compatibility
-                // CRITICAL: Set to undefined, not empty string, so template can fall back properly
-                url: undefined,
-                thumbnailUrl: undefined,
-                displayUrl: undefined,
-                originalUrl: undefined // Will be set to base64 URL below
+                // Start with loading placeholder
+                url: placeholderUrl,
+                thumbnailUrl: placeholderUrl,
+                displayUrl: placeholderUrl,
+                originalUrl: undefined, // Will be set when loaded
+                isLoading: true,
+                filePath: photo.Photo
               };
               
-              // If we have a Photo field with a file path, try to fetch it
+              // If we have a Photo field with a file path, add to queue for lazy loading
               if (photo.Photo && typeof photo.Photo === 'string') {
-                photoData.filePath = photo.Photo;
                 photoData.hasPhoto = true;
                 
-                try {
-                  console.log(`🖼️ [v1.4.303] Fetching image from Files API for: ${photo.Photo}`);
-                  const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
+                // Add to load queue instead of loading immediately
+                this.photoLoadQueue.push({
+                  visualId: visualId,
+                  photoIndex: index,
+                  photo: photoData
+                });
                   
-                  if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
-                    console.log('✅ [v1.4.340] Image data received, valid base64');
-                    // Set the original URL (base image without annotations)
-                    photoData.url = imageData;
-                    photoData.originalUrl = imageData; // Store as originalUrl for annotation editing
-                    
-                    // v1.4.340: If we have annotations, regenerate the annotated thumbnail
-                    if (annotationData && annotationData.objects && annotationData.objects.length > 0) {
-                      console.log('🎨 [v1.4.340] Regenerating annotated thumbnail from stored annotations');
-                      try {
-                        // We'll need to recreate the annotated image from the original + annotations
-                        // For now, use the original as thumbnail and let the annotation indicator show
-                        photoData.thumbnailUrl = imageData;
-                        photoData.displayUrl = undefined; // Will be regenerated when viewed
-                        console.log('✅ [v1.4.340] Photo has annotations, will show indicator');
-                      } catch (err) {
-                        console.error('❌ [v1.4.340] Failed to regenerate annotated thumbnail:', err);
-                        photoData.thumbnailUrl = imageData; // Fallback to original
-                      }
-                    } else {
-                      // No annotations, use original as thumbnail
-                      photoData.thumbnailUrl = imageData;
-                    }
-                  } else if (imageData) {
-                    console.log('⚠️ [v1.4.303] Image data received but not base64:', typeof imageData, imageData?.substring?.(0, 50));
-                    // Try to handle other data formats
-                    if (typeof imageData === 'object' && (imageData as any).data) {
-                      // Handle potential object response
-                      photoData.url = (imageData as any).data;
-                      photoData.thumbnailUrl = (imageData as any).data;
-                    } else {
-                      // Use fallback
-                      console.log('⚠️ [v1.4.303] Using SVG fallback due to invalid format');
-                      photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
-                      photoData.thumbnailUrl = photoData.url;
-                    }
-                  } else {
-                    console.log('⚠️ [v1.4.303] No image data returned, using fallback');
-                    // Use a simple base64 encoded SVG as fallback
-                    photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
-                    photoData.thumbnailUrl = photoData.url;
-                  }
-                } catch (err) {
-                  console.error('❌ [v1.4.303] Error fetching image:', err);
-                  // Use simple SVG fallback
-                  photoData.url = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">📷 Photo</text></svg>');
-                  photoData.thumbnailUrl = photoData.url;
-                }
+                // Photo will be loaded later in background
               } else {
                 console.log('⚠️ [v1.4.303] No Photo field or not a string:', photo.Photo);
                 // No photo exists - keep URLs as undefined
@@ -7816,12 +7795,8 @@ Stack: ${error?.stack}`;
                 filePath: photoData.filePath
               });
               
-              // If we have annotations, we could recreate the annotated preview here
-              // But for now, we'll just use the original image and let the user see
-              // the annotations indicator to know they can click to edit
-              
               return photoData;
-            }));
+            });
             
             // Store photos using the same ID format - ensure string consistency
             this.visualPhotos[visualId] = processedPhotos;
@@ -7841,8 +7816,111 @@ Stack: ${error?.stack}`;
       }
     }
     
-    // Log final state (reduced logging)
-    console.log('Photos loaded for', Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k]?.length > 0).length, 'visuals');
+    // Start loading photos in background after a short delay
+    console.log(`📷 Queued ${this.photoLoadQueue.length} photos for background loading`);
+    setTimeout(() => this.startBackgroundPhotoLoading(), 100);
+  }
+  
+  // Start loading photos in small batches
+  private async startBackgroundPhotoLoading() {
+    if (this.isLoadingPhotos || this.photoLoadQueue.length === 0) {
+      return;
+    }
+    
+    this.isLoadingPhotos = true;
+    console.log(`🚀 Starting optimized photo loading for ${this.photoLoadQueue.length} photos`);
+    
+    // Process in small batches
+    while (this.photoLoadQueue.length > 0) {
+      const batch = this.photoLoadQueue.splice(0, this.photoLoadBatchSize);
+      
+      // Load batch in parallel
+      const loadPromises = batch.map(item => this.loadSinglePhoto(item));
+      
+      try {
+        await Promise.all(loadPromises);
+      } catch (error) {
+        console.error('Error in photo batch:', error);
+      }
+      
+      // Small delay between batches to keep UI responsive
+      if (this.photoLoadQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+    
+    this.isLoadingPhotos = false;
+    console.log('✅ All photos loaded');
+  }
+  
+  // Load a single photo
+  private async loadSinglePhoto(item: { visualId: string; photoIndex: number; photo: any }) {
+    const { visualId, photoIndex, photo } = item;
+    
+    // Check cache first
+    const cacheKey = photo.filePath || photo.Photo;
+    if (this.loadedPhotoCache.has(cacheKey)) {
+      const cachedImage = this.loadedPhotoCache.get(cacheKey)!;
+      this.updatePhotoData(visualId, photoIndex, cachedImage);
+      return;
+    }
+    
+    try {
+      const imageData = await this.caspioService.getImageFromFilesAPI(cacheKey).toPromise();
+      
+      if (imageData && imageData.startsWith('data:')) {
+        // Cache the loaded image
+        this.loadedPhotoCache.set(cacheKey, imageData);
+        
+        // Update photo data
+        this.updatePhotoData(visualId, photoIndex, imageData);
+      } else {
+        // Use error placeholder
+        this.updatePhotoWithError(visualId, photoIndex);
+      }
+    } catch (error) {
+      console.error(`Failed to load photo for visual ${visualId}:`, error);
+      this.updatePhotoWithError(visualId, photoIndex);
+    }
+  }
+  
+  // Update photo with loaded image
+  private updatePhotoData(visualId: string, photoIndex: number, imageData: string) {
+    if (this.visualPhotos[visualId] && this.visualPhotos[visualId][photoIndex]) {
+      const photo = this.visualPhotos[visualId][photoIndex];
+      
+      // Update with real image
+      photo.url = imageData;
+      photo.originalUrl = imageData;
+      photo.thumbnailUrl = imageData;
+      photo.isLoading = false;
+      
+      // If has annotations, keep the indicator
+      if (photo.hasAnnotations) {
+        photo.displayUrl = undefined;
+      } else {
+        photo.displayUrl = imageData;
+      }
+      
+      // Trigger UI update
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+  
+  // Update photo with error state
+  private updatePhotoWithError(visualId: string, photoIndex: number) {
+    if (this.visualPhotos[visualId] && this.visualPhotos[visualId][photoIndex]) {
+      const photo = this.visualPhotos[visualId][photoIndex];
+      
+      // Use error placeholder
+      const errorSvg = this.createErrorPlaceholder();
+      photo.url = errorSvg;
+      photo.thumbnailUrl = errorSvg;
+      photo.isLoading = false;
+      photo.hasError = true;
+      
+      this.changeDetectorRef.detectChanges();
+    }
   }
   
   // Create a placeholder image
@@ -7861,6 +7939,32 @@ Stack: ${error?.stack}`;
       ctx.fillText('Loading...', 75, 60);
     }
     return canvas.toDataURL();
+  }
+  
+  // Create loading placeholder with animated spinner
+  private createLoadingPlaceholder(): string {
+    return 'data:image/svg+xml;base64,' + btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="150" height="100" viewBox="0 0 150 100">
+        <rect width="150" height="100" fill="#f5f5f5"/>
+        <g transform="translate(75, 50)">
+          <circle r="15" fill="none" stroke="#ddd" stroke-width="3"/>
+          <path d="M 0,-15 A 15,15 0 0,1 15,0" fill="none" stroke="#ff6b35" stroke-width="3">
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite"/>
+          </path>
+        </g>
+      </svg>
+    `);
+  }
+  
+  // Create error placeholder
+  private createErrorPlaceholder(): string {
+    return 'data:image/svg+xml;base64,' + btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="150" height="100" viewBox="0 0 150 100">
+        <rect width="150" height="100" fill="#f5f5f5"/>
+        <text x="75" y="45" text-anchor="middle" fill="#999" font-size="12">Failed to load</text>
+        <text x="75" y="60" text-anchor="middle" fill="#ccc" font-size="10">Tap to retry</text>
+      </svg>
+    `);
   }
   
   // Create a generic photo placeholder (for existing photos)

@@ -16,7 +16,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.361 - Fixed: Photo thumbnails and viewing with proper unique URLs and fallback handling</div>
+    <div class="version-header">Version 1.4.365 - Optimized photo loading with lazy loading, placeholders, and parallel batch processing</div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -457,11 +457,16 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                               [class.uploading]="photo.uploading" 
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.loading]="photo.isLoading"
+                               [class.error]="photo.hasError">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
+                                 (error)="handleImageError($event, photo)"
+                                 loading="lazy">
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
@@ -586,11 +591,16 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                               [class.uploading]="photo.uploading" 
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.loading]="photo.isLoading"
+                               [class.error]="photo.hasError">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
+                                 (error)="handleImageError($event, photo)"
+                                 loading="lazy">
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
@@ -715,11 +725,16 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" [class.uploading]="photo.uploading" [class.annotated]="photo.hasAnnotations">
+                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                               [class.uploading]="photo.uploading" 
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.loading]="photo.isLoading"
+                               [class.error]="photo.hasError">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
+                                 (error)="handleImageError($event, photo)"
+                                 loading="lazy">
                             <div class="upload-indicator" *ngIf="photo.uploading">
                               <ion-spinner name="crescent" color="light"></ion-spinner>
                             </div>
@@ -928,11 +943,14 @@
                       <!-- Photo preview with captions if exists -->
                       <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
                         <div class="photo-thumbnails">
-                          <div class="photo-thumb-container" *ngFor="let photo of point.photos; let i = index">
+                          <div class="photo-thumb-container" *ngFor="let photo of point.photos; let i = index"
+                               [class.loading]="photo.isLoading"
+                               [class.error]="photo.hasError">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url" 
                                  (click)="viewRoomPhoto(photo, room.RoomName, point)"
                                  (error)="handleImageError($event, photo)"
-                                 [alt]="'Photo ' + (i+1) + ' for ' + point.name">
+                                 [alt]="'Photo ' + (i+1) + ' for ' + point.name"
+                                 loading="lazy">
                             <button class="delete-btn" (click)="deleteRoomPhoto(photo, room.RoomName, point); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
