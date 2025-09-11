@@ -958,15 +958,6 @@ ion-content {
                     opacity: 0.6;
                   }
                   
-                  &.loading img {
-                    animation: pulse 1.5s ease-in-out infinite;
-                  }
-                  
-                  &.error img {
-                    opacity: 0.8;
-                    filter: grayscale(100%);
-                  }
-                  
                   .upload-indicator {
                     position: absolute;
                     top: 50%;
@@ -1418,14 +1409,6 @@ ion-content {
                     flex-direction: column;
                     width: 60px;
                     
-                    &.loading img {
-                      animation: pulse 1.5s ease-in-out infinite;
-                    }
-                    
-                    &.error img {
-                      opacity: 0.8;
-                      filter: grayscale(100%);
-                    }
                     
                     img {
                       width: 60px;
@@ -2032,15 +2015,4 @@ ion-content {
   }
 }
 
-// Animation for loading photos
-@keyframes pulse {
-  0% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
-}
+// Removed loading animations - photos now load instantly in parallel

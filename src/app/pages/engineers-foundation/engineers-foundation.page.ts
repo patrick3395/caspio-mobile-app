@@ -1145,6 +1145,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load existing room points and their photos
   async loadExistingRoomPoints(roomId: string, roomName: string) {
     try {
+      // Clear image cache to prevent duplication issues
+      console.log(`[loadExistingRoomPoints] Clearing image cache before loading photos for room: ${roomName}`);
+      this.caspioService.clearImageCache();
+      
       // Get all points for this room
       const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
       
@@ -7699,229 +7703,109 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Load existing photos for visuals
+  // Load existing photos for visuals - OPTIMIZED FOR SPEED
   async loadExistingPhotos() {
-    console.log('🔄 Loading photos with optimized lazy loading...');
-    console.log('Visual IDs to load:', this.visualRecordIds);
+    console.log('🔄 Loading ALL photos in parallel for maximum speed...');
     
-    // Clear the queue
-    this.photoLoadQueue = [];
+    // Collect ALL photo fetching promises
+    const allPhotoPromises: Promise<void>[] = [];
     
+    // Start ALL visual photo fetches in parallel
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
-      const visualId = String(rawVisualId); // Ensure string consistency
+      const visualId = String(rawVisualId);
+      
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        try {
-          console.log(`📥 Fetching photos for visual ${visualId} (${key})`);
-          const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
-          console.log(`Found ${photos?.length || 0} photos for visual ${visualId}:`, photos);
-          
-          if (photos && photos.length > 0) {
-            // First pass: Create all photos with placeholders (fast)
-            const processedPhotos = photos.map((photo: any, index: number) => {
-              console.log('Creating placeholder for photo:', photo);
-              
-              // Parse the Drawings field for annotation data (where annotations are stored)
-              let annotationData = null;
-              let rawDrawingsString = photo.Drawings; // Keep the raw string
-              if (photo.Drawings) {
-                console.log('🔍 [v1.4.351] DEBUG - Loading Drawings field:');
-                console.log('  AttachID:', photo.AttachID);
-                console.log('  Drawings type:', typeof photo.Drawings);
-                console.log('  Drawings length:', photo.Drawings?.length || 0);
-                console.log('  First 200 chars:', photo.Drawings?.substring?.(0, 200));
-                
-                try {
-                  // v1.4.351: Use decompression helper to handle compressed data
-                  annotationData = this.decompressAnnotationData(photo.Drawings);
-                  console.log('📝 [v1.4.351] Decompressed annotation data:');
-                  if (annotationData && annotationData.objects) {
-                    console.log('  Object count:', annotationData.objects.length);
-                    console.log('  Object types:', annotationData.objects.map((o: any) => o.type).join(', '));
-                  } else {
-                    console.log('  No objects found in decompressed data');
-                  }
-                } catch (e) {
-                  console.log('⚠️ [v1.4.351] Could not parse Drawings field:', e);
-                }
-              }
-              
-              // Create photo data with loading placeholder
-              const placeholderUrl = this.createLoadingPlaceholder();
-              const photoData: any = {
-                ...photo,
-                name: photo.Photo || 'Photo',
-                Photo: photo.Photo || '', // Keep the original Photo path
-                caption: photo.Annotation || '',  // Caption from Annotation field
-                annotations: annotationData,  // CRITICAL: Load from Drawings field, not Annotation
-                annotationsData: annotationData,  // Also store with 's' for compatibility
-                hasAnnotations: !!annotationData,
-                rawDrawingsString: rawDrawingsString,  // CRITICAL: Keep the raw string for updates
-                // CRITICAL FIX v1.4.340: Ensure AttachID is ALWAYS preserved as the primary key
-                AttachID: photo.AttachID || photo.PK_ID || photo.id,
-                id: photo.AttachID || photo.PK_ID || photo.id, // Also store as 'id' for compatibility
-                PK_ID: photo.PK_ID || photo.AttachID || photo.id, // Keep PK_ID for backward compatibility
-                // Start with loading placeholder
-                url: placeholderUrl,
-                thumbnailUrl: placeholderUrl,
-                displayUrl: placeholderUrl,
-                originalUrl: undefined, // Will be set when loaded
-                isLoading: true,
-                filePath: photo.Photo
-              };
-              
-              // If we have a Photo field with a file path, add to queue for lazy loading
-              if (photo.Photo && typeof photo.Photo === 'string') {
-                photoData.hasPhoto = true;
-                
-                // Add to load queue instead of loading immediately
-                this.photoLoadQueue.push({
-                  visualId: visualId,
-                  photoIndex: index,
-                  photo: photoData
-                });
-                  
-                // Photo will be loaded later in background
-              } else {
-                console.log('⚠️ [v1.4.303] No Photo field or not a string:', photo.Photo);
-                // No photo exists - keep URLs as undefined
-                photoData.hasPhoto = false;
-              }
-              
-              console.log('[v1.4.303] Photo data processed:', {
-                name: photoData.name,
-                hasUrl: !!photoData.url,
-                hasAnnotations: photoData.hasAnnotations,
-                filePath: photoData.filePath
-              });
-              
-              return photoData;
-            });
-            
-            // Store photos using the same ID format - ensure string consistency
-            this.visualPhotos[visualId] = processedPhotos;
-            console.log(`📸 Loaded ${processedPhotos.length} photos for visual ${visualId}, stored in visualPhotos`);
-            console.log(`Photos stored at visualPhotos[${visualId}]:`, {
-              visualId,
-              visualIdType: typeof visualId,
-              photos: processedPhotos,
-              keyForThisVisual: key
-            });
-          } else {
-            console.log(`No photos found for visual ${visualId}`);
-          }
-        } catch (error) {
-          console.error(`Failed to load photos for visual ${visualId}:`, error);
-        }
+        // Create promise for this visual's photos
+        const visualPromise = this.loadPhotosForVisual(visualId, rawVisualId);
+        allPhotoPromises.push(visualPromise);
       }
     }
     
-    // Start loading photos in background after a short delay
-    console.log(`📷 Queued ${this.photoLoadQueue.length} photos for background loading`);
-    setTimeout(() => this.startBackgroundPhotoLoading(), 100);
+    // Wait for ALL photos to load in parallel
+    await Promise.all(allPhotoPromises);
+    console.log('✅ All photos loaded successfully');
   }
   
-  // Start loading photos in small batches
-  private async startBackgroundPhotoLoading() {
-    if (this.isLoadingPhotos || this.photoLoadQueue.length === 0) {
-      return;
-    }
-    
-    this.isLoadingPhotos = true;
-    console.log(`🚀 Starting optimized photo loading for ${this.photoLoadQueue.length} photos`);
-    
-    // Process in small batches
-    while (this.photoLoadQueue.length > 0) {
-      const batch = this.photoLoadQueue.splice(0, this.photoLoadBatchSize);
-      
-      // Load batch in parallel
-      const loadPromises = batch.map(item => this.loadSinglePhoto(item));
-      
-      try {
-        await Promise.all(loadPromises);
-      } catch (error) {
-        console.error('Error in photo batch:', error);
-      }
-      
-      // Small delay between batches to keep UI responsive
-      if (this.photoLoadQueue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    }
-    
-    this.isLoadingPhotos = false;
-    console.log('✅ All photos loaded');
-  }
-  
-  // Load a single photo
-  private async loadSinglePhoto(item: { visualId: string; photoIndex: number; photo: any }) {
-    const { visualId, photoIndex, photo } = item;
-    
-    // Check cache first
-    const cacheKey = photo.filePath || photo.Photo;
-    if (this.loadedPhotoCache.has(cacheKey)) {
-      const cachedImage = this.loadedPhotoCache.get(cacheKey)!;
-      this.updatePhotoData(visualId, photoIndex, cachedImage);
-      return;
-    }
-    
+  // Load photos for a single visual
+  private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
     try {
-      const imageData = await this.caspioService.getImageFromFilesAPI(cacheKey).toPromise();
-      
-      if (imageData && imageData.startsWith('data:')) {
-        // Cache the loaded image
-        this.loadedPhotoCache.set(cacheKey, imageData);
+      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+          
+      if (photos && photos.length > 0) {
+        // Load all images for this visual in parallel
+        const photoPromises = photos.map(async (photo: any) => {
+              
+          // Parse annotations
+          let annotationData = null;
+          let rawDrawingsString = photo.Drawings;
+          if (photo.Drawings) {
+            try {
+              annotationData = this.decompressAnnotationData(photo.Drawings);
+            } catch (e) {
+              // Silently handle parse errors
+            }
+          }
+              
+          // Create photo data structure
+          const photoData: any = {
+            ...photo,
+            name: photo.Photo || 'Photo',
+            Photo: photo.Photo || '',
+            caption: photo.Annotation || '',
+            annotations: annotationData,
+            annotationsData: annotationData,
+            hasAnnotations: !!annotationData,
+            rawDrawingsString: rawDrawingsString,
+            AttachID: photo.AttachID || photo.PK_ID || photo.id,
+            id: photo.AttachID || photo.PK_ID || photo.id,
+            PK_ID: photo.PK_ID || photo.AttachID || photo.id,
+            url: undefined,
+            thumbnailUrl: undefined,
+            displayUrl: undefined,
+            originalUrl: undefined,
+            filePath: photo.Photo
+          };
+              
+          // Load image if path exists
+          if (photo.Photo && typeof photo.Photo === 'string') {
+            photoData.hasPhoto = true;
+            
+            try {
+              // Fetch image data (will use cache if available)
+              const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
+              
+              if (imageData && imageData.startsWith('data:')) {
+                photoData.url = imageData;
+                photoData.originalUrl = imageData;
+                photoData.thumbnailUrl = imageData;
+                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
+              }
+            } catch (error) {
+              // Silently handle load errors
+            }
+          } else {
+            photoData.hasPhoto = false;
+          }
+          
+          return photoData;
+        });
         
-        // Update photo data
-        this.updatePhotoData(visualId, photoIndex, imageData);
+        // Wait for all photos of this visual to load
+        const processedPhotos = await Promise.all(photoPromises);
+            
+        // Store all photos at once
+        this.visualPhotos[visualId] = processedPhotos;
       } else {
-        // Use error placeholder
-        this.updatePhotoWithError(visualId, photoIndex);
+        this.visualPhotos[visualId] = [];
       }
     } catch (error) {
-      console.error(`Failed to load photo for visual ${visualId}:`, error);
-      this.updatePhotoWithError(visualId, photoIndex);
+      console.error(`Failed to load photos for visual ${visualId}:`, error);
+      this.visualPhotos[visualId] = [];
     }
   }
   
-  // Update photo with loaded image
-  private updatePhotoData(visualId: string, photoIndex: number, imageData: string) {
-    if (this.visualPhotos[visualId] && this.visualPhotos[visualId][photoIndex]) {
-      const photo = this.visualPhotos[visualId][photoIndex];
-      
-      // Update with real image
-      photo.url = imageData;
-      photo.originalUrl = imageData;
-      photo.thumbnailUrl = imageData;
-      photo.isLoading = false;
-      
-      // If has annotations, keep the indicator
-      if (photo.hasAnnotations) {
-        photo.displayUrl = undefined;
-      } else {
-        photo.displayUrl = imageData;
-      }
-      
-      // Trigger UI update
-      this.changeDetectorRef.detectChanges();
-    }
-  }
-  
-  // Update photo with error state
-  private updatePhotoWithError(visualId: string, photoIndex: number) {
-    if (this.visualPhotos[visualId] && this.visualPhotos[visualId][photoIndex]) {
-      const photo = this.visualPhotos[visualId][photoIndex];
-      
-      // Use error placeholder
-      const errorSvg = this.createErrorPlaceholder();
-      photo.url = errorSvg;
-      photo.thumbnailUrl = errorSvg;
-      photo.isLoading = false;
-      photo.hasError = true;
-      
-      this.changeDetectorRef.detectChanges();
-    }
-  }
+  // Removed slow background loading methods - photos now load in parallel
   
   // Create a placeholder image
   private createPlaceholderImage(): string {
@@ -7941,31 +7825,7 @@ Stack: ${error?.stack}`;
     return canvas.toDataURL();
   }
   
-  // Create loading placeholder with animated spinner
-  private createLoadingPlaceholder(): string {
-    return 'data:image/svg+xml;base64,' + btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="150" height="100" viewBox="0 0 150 100">
-        <rect width="150" height="100" fill="#f5f5f5"/>
-        <g transform="translate(75, 50)">
-          <circle r="15" fill="none" stroke="#ddd" stroke-width="3"/>
-          <path d="M 0,-15 A 15,15 0 0,1 15,0" fill="none" stroke="#ff6b35" stroke-width="3">
-            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite"/>
-          </path>
-        </g>
-      </svg>
-    `);
-  }
-  
-  // Create error placeholder
-  private createErrorPlaceholder(): string {
-    return 'data:image/svg+xml;base64,' + btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="150" height="100" viewBox="0 0 150 100">
-        <rect width="150" height="100" fill="#f5f5f5"/>
-        <text x="75" y="45" text-anchor="middle" fill="#999" font-size="12">Failed to load</text>
-        <text x="75" y="60" text-anchor="middle" fill="#ccc" font-size="10">Tap to retry</text>
-      </svg>
-    `);
-  }
+  // Removed placeholder methods - no longer needed with parallel loading
   
   // Create a generic photo placeholder (for existing photos)
   private createGenericPhotoPlaceholder(): string {

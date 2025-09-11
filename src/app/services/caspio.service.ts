@@ -397,7 +397,14 @@ export class CaspioService {
     // Build query for multiple PointIDs using OR
     const query = idArray.map(id => `PointID=${id}`).join(' OR ');
     return this.get<any>(`/tables/Services_Rooms_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
-      map(response => response.Result || []),
+      map(response => {
+        const results = response.Result || [];
+        console.log(`[getServicesRoomsAttachments] Retrieved ${results.length} photos for PointID(s): ${idArray.join(', ')}`);
+        results.forEach((photo: any, index: number) => {
+          console.log(`  Photo ${index + 1}: AttachID=${photo.AttachID}, Photo=${photo.Photo}, HasDrawings=${!!photo.Drawings}`);
+        });
+        return results;
+      }),
       catchError(error => {
         console.error('Services_Rooms_Points_Attach error:', error);
         return of([]);
@@ -1080,22 +1087,34 @@ export class CaspioService {
     });
   }
   
+  // Clear the image cache (for debugging photo duplication issues)
+  clearImageCache() {
+    const size = this.imageCache.size;
+    this.imageCache.clear();
+    console.log(`[ImageCache] Cleared ${size} cached images`);
+  }
+
   getImageFromFilesAPI(filePath: string): Observable<string> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    // Add timestamp to debug duplications
+    const debugId = Math.random().toString(36).substring(7);
+    console.log(`[${debugId}] getImageFromFilesAPI called for path: ${filePath}`);
     
     // Re-enable cache with proper unique key to prevent duplication
     const cacheKey = `image_${filePath}_${API_BASE_URL}`;
     const cached = this.imageCache.get(cacheKey);
     if (cached) {
-      console.log(`[Cache Hit] Returning cached image for: ${filePath}`);
+      console.log(`[${debugId}][Cache Hit] Returning cached image for: ${filePath}, first 100 chars: ${cached.substring(0, 100)}`);
       return of(cached);
     }
     
     return new Observable(observer => {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      console.log(`[Cache Miss] Fetching from API: ${cleanPath}`);
+      const requestDebugId = debugId; // Capture debugId for inner scope
+      console.log(`[${requestDebugId}][Cache Miss] Fetching from API: ${cleanPath}`);
       
       // Fetch from Files API
       fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
@@ -1119,7 +1138,7 @@ export class CaspioService {
           
           // Cache the result with unique key including file path
           this.imageCache.set(cacheKey, result);
-          console.log(`🔄 Cached image for ${filePath}, size: ${result.length}`);
+          console.log(`[${requestDebugId}] 🔄 Cached image for ${filePath}, size: ${result.length}, key: ${cacheKey}, first 100 chars: ${result.substring(0, 100)}`);
           
           observer.next(result);
           observer.complete();
