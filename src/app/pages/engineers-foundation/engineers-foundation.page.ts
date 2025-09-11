@@ -466,26 +466,53 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     this.roomElevationData[roomName].notes = room.Notes;
                   }
                   
-                  // Load FDF photos if they exist
+                  // Load FDF photos if they exist - fetch as base64 like other photos
                   const fdfPhotos: any = {};
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
-                    // Generate URL for display
-                    const token = await this.caspioService.getValidToken();
-                    const account = this.caspioService.getAccountID();
-                    fdfPhotos.topUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoTop}?access_token=${token}`;
+                    try {
+                      // Fetch the image as base64 data URL (like we do for elevation photos)
+                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
+                      if (imageData && imageData.startsWith('data:')) {
+                        fdfPhotos.topUrl = imageData;
+                      } else {
+                        console.error('Failed to load FDF Top photo:', room.FDFPhotoTop);
+                        fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
+                      }
+                    } catch (err) {
+                      console.error('Error loading FDF Top photo:', err);
+                      fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
+                    }
                   }
                   if (room.FDFPhotoBottom) {
                     fdfPhotos.bottom = true;
-                    const token = await this.caspioService.getValidToken();
-                    const account = this.caspioService.getAccountID();
-                    fdfPhotos.bottomUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoBottom}?access_token=${token}`;
+                    try {
+                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoBottom).toPromise();
+                      if (imageData && imageData.startsWith('data:')) {
+                        fdfPhotos.bottomUrl = imageData;
+                      } else {
+                        console.error('Failed to load FDF Bottom photo:', room.FDFPhotoBottom);
+                        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+                      }
+                    } catch (err) {
+                      console.error('Error loading FDF Bottom photo:', err);
+                      fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+                    }
                   }
                   if (room.FDFPhotoThreshold) {
                     fdfPhotos.threshold = true;
-                    const token = await this.caspioService.getValidToken();
-                    const account = this.caspioService.getAccountID();
-                    fdfPhotos.thresholdUrl = `https://${account}.caspio.com/rest/v2/files${room.FDFPhotoThreshold}?access_token=${token}`;
+                    try {
+                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoThreshold).toPromise();
+                      if (imageData && imageData.startsWith('data:')) {
+                        fdfPhotos.thresholdUrl = imageData;
+                      } else {
+                        console.error('Failed to load FDF Threshold photo:', room.FDFPhotoThreshold);
+                        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+                      }
+                    } catch (err) {
+                      console.error('Error loading FDF Threshold photo:', err);
+                      fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+                    }
                   }
                   
                   if (Object.keys(fdfPhotos).length > 0) {
@@ -5610,6 +5637,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
     try {
+      // Show debug popup for what we're sending (only for single uploads)
+      if (!isBatchUpload) {
+        const debugData = {
+          visualId: visualIdNum,
+          fileName: photo.name,
+          fileSize: `${(photo.size / 1024).toFixed(2)} KB`,
+          fileType: photo.type,
+          hasAnnotations: !!annotationData,
+          hasOriginalPhoto: !!originalPhoto,
+          originalFileName: originalPhoto?.name || 'None',
+          endpoint: 'Services_Visuals_Attach',
+          method: 'Files API (2-step upload)'
+        };
+        
+        const debugAlert = await this.alertController.create({
+          header: '📤 Structural Systems Upload',
+          message: `
+            <strong>Sending:</strong><br>
+            VisualID: ${debugData.visualId}<br>
+            File: ${debugData.fileName}<br>
+            Size: ${debugData.fileSize}<br>
+            Type: ${debugData.fileType}<br>
+            Annotations: ${debugData.hasAnnotations ? 'Yes' : 'No'}<br>
+            Original: ${debugData.originalFileName}<br><br>
+            <strong>Endpoint:</strong> ${debugData.endpoint}<br>
+            <strong>Method:</strong> ${debugData.method}
+          `,
+          buttons: ['OK']
+        });
+        
+        await debugAlert.present();
+        const { role } = await debugAlert.onDidDismiss();
+      }
+      
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
@@ -5622,15 +5683,77 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('  UPLOADING:', originalPhoto ? originalPhoto.name : photo.name);
       
       // Using EXACT same approach as working Required Documents upload
-      const response = await this.caspioService.createServicesVisualsAttachWithFile(
-        visualIdNum, 
-        '', // Annotation field stays blank
-        photo,  // Upload the photo (annotated or original)
-        drawingsData, // Pass the annotation JSON to Drawings field
-        originalPhoto || undefined // Pass original photo if we have annotations
-      ).toPromise();
-      
-      console.log('✅ Photo uploaded successfully:', response);
+      let response;
+      try {
+        response = await this.caspioService.createServicesVisualsAttachWithFile(
+          visualIdNum, 
+          '', // Annotation field stays blank
+          photo,  // Upload the photo (annotated or original)
+          drawingsData, // Pass the annotation JSON to Drawings field
+          originalPhoto || undefined // Pass original photo if we have annotations
+        ).toPromise();
+        
+        console.log('✅ Photo uploaded successfully:', response);
+      } catch (uploadError: any) {
+        console.error('❌ Upload failed:', uploadError);
+        
+        // Show detailed error popup
+        const errorDetails = {
+          message: uploadError?.message || 'Unknown error',
+          status: uploadError?.status || 'N/A',
+          statusText: uploadError?.statusText || 'N/A',
+          error: uploadError?.error || {},
+          visualId: visualIdNum,
+          fileName: photo.name,
+          fileSize: photo.size,
+          hasAnnotations: !!annotationData,
+          timestamp: new Date().toISOString()
+        };
+        
+        const errorAlert = await this.alertController.create({
+          header: '❌ Structural Systems Upload Failed',
+          message: `
+            <div style="text-align: left; font-size: 12px;">
+              <strong style="color: red;">Error Details:</strong><br>
+              Message: ${errorDetails.message}<br>
+              Status: ${errorDetails.status}<br>
+              Status Text: ${errorDetails.statusText}<br><br>
+              
+              <strong>Request Info:</strong><br>
+              VisualID: ${errorDetails.visualId}<br>
+              File: ${errorDetails.fileName}<br>
+              Size: ${(errorDetails.fileSize / 1024).toFixed(2)} KB<br>
+              Has Annotations: ${errorDetails.hasAnnotations}<br><br>
+              
+              <strong>API Response:</strong><br>
+              <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;">
+                ${JSON.stringify(errorDetails.error, null, 2)}
+              </div><br>
+              
+              <strong>Time:</strong> ${errorDetails.timestamp}
+            </div>
+          `,
+          buttons: [
+            {
+              text: 'Copy Error Details',
+              handler: () => {
+                const errorText = JSON.stringify(errorDetails, null, 2);
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(errorText);
+                  this.showToast('Error details copied to clipboard', 'success');
+                }
+              }
+            },
+            {
+              text: 'OK',
+              role: 'cancel'
+            }
+          ]
+        });
+        
+        await errorAlert.present();
+        throw uploadError; // Re-throw to handle in outer catch
+      }
       
       // Update the temporary photo with real data
       const actualVisualId = String(this.visualRecordIds[key]);
