@@ -25,6 +25,7 @@ export interface CaspioAuthResponse {
 export class CaspioService {
   private tokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpirationTimer: any;
+  private imageCache = new Map<string, string>(); // Cache for loaded images
 
   constructor(
     private http: HttpClient,
