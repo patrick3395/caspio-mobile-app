@@ -5272,7 +5272,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           // Multiple files or non-camera - no automatic annotation
           for (const file of fileArray) {
-            processedFiles.push({ file, annotationData: null, originalFile: null });
+            processedFiles.push({ file, annotationData: null, originalFile: undefined });
           }
         }
         
@@ -5453,7 +5453,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Return original photo if annotation was cancelled
-    return { file: photo, annotationData: null, originalFile: null };
+    return { file: photo, annotationData: null, originalFile: undefined };
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
@@ -5627,7 +5627,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         '', // Annotation field stays blank
         photo,  // Upload the photo (annotated or original)
         drawingsData, // Pass the annotation JSON to Drawings field
-        originalPhoto // Pass original photo if we have annotations
+        originalPhoto || undefined // Pass original photo if we have annotations
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);
