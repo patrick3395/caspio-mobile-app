@@ -5565,6 +5565,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // INSTANTLY show preview with object URL
     if (actualVisualId && actualVisualId !== 'undefined') {
+      // [v1.4.386] Store photos by KEY for uniqueness
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+      // Also maintain backward compatibility with visualId storage
       if (!this.visualPhotos[actualVisualId]) {
         this.visualPhotos[actualVisualId] = [];
       }
@@ -5584,7 +5589,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         annotations: null
       };
       
-      // Add immediately for instant feedback
+      // [v1.4.386] Add to BOTH key-based and visualId-based storage
+      console.log(`[v1.4.386] Adding uploaded photo to KEY: ${key} and VisualID: ${actualVisualId}`);
+      this.visualPhotos[key].push(photoData);
       this.visualPhotos[actualVisualId].push(photoData);
     }
     
@@ -5815,9 +5822,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Update the temporary photo with real data
       const actualVisualId = String(this.visualRecordIds[key]);
       
-      if (actualVisualId && actualVisualId !== 'undefined' && this.visualPhotos[actualVisualId]) {
-        // Find the temp photo and update it with real data
-        const photos = this.visualPhotos[actualVisualId];
+      // [v1.4.386] Update photo in BOTH key-based and visualId-based storage
+      if (actualVisualId && actualVisualId !== 'undefined') {
+        // Update in key-based storage
+        if (this.visualPhotos[key]) {
+          const keyPhotos = this.visualPhotos[key];
+          const keyPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+          if (keyPhotoIndex !== -1) {
+            // Will update below
+          }
+        }
+        
+        // Update in visualId-based storage (for backward compatibility)
+        const photos = this.visualPhotos[actualVisualId] || [];
         const tempPhotoIndex = photos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
         
         if (tempPhotoIndex !== -1) {
@@ -5839,7 +5856,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           
           // Update the temp photo with real data
-          photos[tempPhotoIndex] = {
+          const updatedPhotoData = {
             ...photos[tempPhotoIndex],
             AttachID: response?.AttachID || response?.PK_ID || response?.id,
             id: response?.AttachID || response?.PK_ID || response?.id,
@@ -5851,6 +5868,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             originalUrl: imageUrl,
             uploading: false // Remove uploading flag
           };
+          
+          // [v1.4.386] Update in BOTH storage locations
+          photos[tempPhotoIndex] = updatedPhotoData;
+          
+          // Also update in key-based storage
+          if (this.visualPhotos[key]) {
+            const keyPhotos = this.visualPhotos[key];
+            const keyPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+            if (keyPhotoIndex !== -1) {
+              keyPhotos[keyPhotoIndex] = updatedPhotoData;
+              console.log(`[v1.4.386] Updated photo in KEY storage: ${key}`);
+            }
+          }
         }
       }
       
@@ -5903,10 +5933,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Get photos for a visual
   getPhotosForVisual(category: string, itemId: string): any[] {
     const key = `${category}_${itemId}`;
-    const visualId = String(this.visualRecordIds[key]); // Ensure string
-    const photos = visualId && visualId !== 'undefined' && this.visualPhotos[visualId] ? this.visualPhotos[visualId] : [];
     
-    // Removed console logging for performance
+    // [v1.4.386] Use the FULL KEY to get photos, not just visualId
+    // This ensures each visual gets its own photos even if visualIds are duplicated
+    const photos = this.visualPhotos[key] || [];
+    
+    // Debug logging to trace the issue
+    if (photos.length > 0) {
+      console.log(`[v1.4.386] getPhotosForVisual called:`);
+      console.log(`  Key: ${key}`);
+      console.log(`  VisualID: ${this.visualRecordIds[key]}`);
+      console.log(`  Photos found: ${photos.length}`);
+      console.log(`  First photo path: ${photos[0]?.Photo || photos[0]?.filePath || 'unknown'}`);
+    }
     
     return photos;
   }
@@ -7905,30 +7944,155 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('🔄 [v1.4.378] Loading Structural Systems photos WITHOUT clearing cache...');
+    console.log('🔄 [v1.4.386] Loading Structural Systems photos...');
     
-    // [v1.4.378 FIX] DO NOT clear cache - it affects Elevation Plot photos
-    // The cache is managed globally and clearing it here causes cross-contamination
+    // [v1.4.386] Check for duplicate visualIds
+    const visualIdToKeys: { [visualId: string]: string[] } = {};
+    for (const key in this.visualRecordIds) {
+      const visualId = String(this.visualRecordIds[key]);
+      if (!visualIdToKeys[visualId]) {
+        visualIdToKeys[visualId] = [];
+      }
+      visualIdToKeys[visualId].push(key);
+    }
     
-    // Load photos SEQUENTIALLY to avoid race conditions
+    // Log any duplicate visualIds
+    for (const visualId in visualIdToKeys) {
+      if (visualIdToKeys[visualId].length > 1) {
+        console.warn(`[v1.4.386] WARNING: VisualID ${visualId} is used by multiple keys:`, visualIdToKeys[visualId]);
+      }
+    }
+    
+    // Load photos for each KEY, not just visualId
     for (const key in this.visualRecordIds) {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
       
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        console.log(`[v1.4.378] Processing visual ${visualId} for key ${key}`);
-        // Load photos for this visual
-        await this.loadPhotosForVisual(visualId, rawVisualId);
+        console.log(`[v1.4.386] Loading photos for key: ${key}, visualId: ${visualId}`);
+        // Load photos and store them by KEY, not just visualId
+        await this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
         
         // Small delay between visuals to prevent race conditions
         await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
     
-    console.log('✅ [v1.4.378] All Structural Systems photos loaded');
+    console.log('✅ [v1.4.386] All Structural Systems photos loaded');
   }
   
-  // Load photos for a single visual
+  // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
+  private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
+    try {
+      console.log(`[v1.4.386] Loading photos for KEY: ${key}, VisualID: ${visualId}`);
+      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+          
+      if (photos && photos.length > 0) {
+        console.log(`[v1.4.386] Found ${photos.length} photos for KEY ${key} (VisualID ${visualId})`);
+        
+        // Log all photo paths to check for duplicates
+        const photoPaths = photos.map((p: any) => p.Photo);
+        console.log(`[v1.4.386] Photo paths:`, photoPaths);
+        
+        // Process photos
+        const processedPhotos = [];
+        
+        for (let i = 0; i < photos.length; i++) {
+          const photo = photos[i];
+          console.log(`[v1.4.386] Processing photo ${i + 1}/${photos.length}:`);
+          console.log(`  AttachID: ${photo.AttachID}`);
+          console.log(`  Photo path: ${photo.Photo}`);
+          console.log(`  For KEY: ${key}`);
+              
+          // Parse annotations
+          let annotationData = null;
+          let rawDrawingsString = photo.Drawings;
+          if (photo.Drawings) {
+            try {
+              annotationData = this.decompressAnnotationData(photo.Drawings);
+            } catch (e) {
+              // Silently handle parse errors
+            }
+          }
+              
+          // Create photo data structure
+          const photoData: any = {
+            ...photo,
+            name: photo.Photo || 'Photo',
+            Photo: photo.Photo || '',
+            caption: photo.Annotation || '',
+            annotations: annotationData,
+            annotationsData: annotationData,
+            hasAnnotations: !!annotationData,
+            rawDrawingsString: rawDrawingsString,
+            AttachID: photo.AttachID || photo.PK_ID || photo.id,
+            id: photo.AttachID || photo.PK_ID || photo.id,
+            PK_ID: photo.PK_ID || photo.AttachID || photo.id,
+            url: undefined,
+            thumbnailUrl: undefined,
+            displayUrl: undefined,
+            originalUrl: undefined,
+            filePath: photo.Photo
+          };
+              
+          // Load image if path exists
+          if (photo.Photo && typeof photo.Photo === 'string') {
+            photoData.hasPhoto = true;
+            
+            try {
+              console.log(`[v1.4.386] Fetching image for KEY ${key}, photo ${i + 1}`);
+              
+              // Small delay to prevent race conditions
+              await new Promise(resolve => setTimeout(resolve, 20));
+              
+              // Fetch image data
+              const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
+              
+              if (imageData && imageData.startsWith('data:')) {
+                // Create a simple hash of the image data to verify uniqueness
+                const imageHash = imageData.length + '_' + imageData.substring(50, 60);
+                console.log(`[v1.4.386] Image loaded for KEY ${key}:`);
+                console.log(`  Path: ${photo.Photo}`);
+                console.log(`  Size: ${imageData.length} bytes`);
+                console.log(`  Hash: ${imageHash}`);
+                
+                photoData.url = imageData;
+                photoData.originalUrl = imageData;
+                photoData.thumbnailUrl = imageData;
+                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
+              } else {
+                console.error(`[v1.4.386] Invalid image data for ${photo.Photo}`);
+              }
+            } catch (error) {
+              console.error(`[v1.4.386] Failed to load image for ${photo.Photo}:`, error);
+            }
+          } else {
+            photoData.hasPhoto = false;
+          }
+          
+          processedPhotos.push(photoData);
+        }
+            
+        // [v1.4.386] CRITICAL: Store photos by KEY, not just visualId
+        // This ensures each visual gets its own photos even if visualIds are duplicated
+        this.visualPhotos[key] = processedPhotos;
+        
+        // Also store by visualId for backward compatibility
+        this.visualPhotos[visualId] = processedPhotos;
+        
+        console.log(`[v1.4.386] Stored ${processedPhotos.length} photos for KEY: ${key}`);
+      } else {
+        this.visualPhotos[key] = [];
+        this.visualPhotos[visualId] = [];
+      }
+    } catch (error) {
+      console.error(`[v1.4.386] Failed to load photos for KEY ${key}:`, error);
+      this.visualPhotos[key] = [];
+      this.visualPhotos[visualId] = [];
+    }
+  }
+  
+  // Keep the old method for backward compatibility
   private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
     try {
       console.log(`[v1.4.385] Loading photos for VisualID: ${visualId} (raw: ${rawVisualId})`);
@@ -8027,6 +8191,7 @@ Stack: ${error?.stack}`;
           processedPhotos.push(photoData);
         }
             
+        // [v1.4.386] This method is deprecated - use loadPhotosForVisualByKey instead
         // Store all photos at once
         this.visualPhotos[visualId] = processedPhotos;
       } else {

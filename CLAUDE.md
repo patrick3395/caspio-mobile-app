@@ -598,3 +598,24 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - Consider using full case-sensitive path as cache key
   - Or add file metadata (size/timestamp) to cache key for uniqueness
 - **Result**: Each photo now displays its unique image correctly, thumbnails show proper photos
+
+## 22. Structural Systems Photo Duplication Fix (v1.4.386 - January 2025):
+- **Issue**: All photo thumbnails in Structural Systems showing the same image despite different VisualIDs
+- **Root Cause**: Photos were stored by VisualID but multiple visual items could have the same VisualID
+  - visualRecordIds maps: `category_itemId` -> `visualId`
+  - visualPhotos was storing: `visualId` -> `photos[]`
+  - Multiple keys could map to same visualId, causing all to show same photos
+- **Fix Applied (v1.4.386)**:
+  - Changed photo storage to use FULL KEY (`category_itemId`) instead of just `visualId`
+  - This ensures each visual item gets its own unique photo array
+  - Maintains backward compatibility by storing in both locations
+- **Technical Changes**:
+  - `getPhotosForVisual()`: Now retrieves photos using full key `${category}_${itemId}`
+  - `loadExistingPhotos()`: Detects and warns about duplicate visualIds
+  - `loadPhotosForVisualByKey()`: New method that stores photos by key
+  - Upload methods: Store photos in both key-based and visualId-based storage
+- **Debug Features Added**:
+  - Logs all visualId mappings to detect duplicates
+  - Shows photo paths for each visual
+  - Displays image size and hash to verify uniqueness
+- **Result**: Each visual item now shows its own correct photos, even if visualIds are duplicated
