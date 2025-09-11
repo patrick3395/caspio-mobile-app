@@ -36,7 +36,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showToolbar]="true"
           [showSidebarButton]="true"
           [sidebarVisible]="false"
-          [showFindButton]="true"
+          [showFindButton]="false"
           [showPagingButtons]="true"
           [showZoomButtons]="true"
           [showPresentationModeButton]="false"

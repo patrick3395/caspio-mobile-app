@@ -196,33 +196,75 @@ ion-toolbar {
 }
 
 // User Avatar Styles (shared between table and cards)
-.user-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f0f0;
-  margin: 0 auto;
-
-  .headshot-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .avatar-initials {
-    width: 100%;
-    height: 100%;
+.user-avatar-container {
+  position: relative;
+  display: inline-block;
+  
+  .user-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #f0f0f0;
+    margin: 0 auto;
+
+    .headshot-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-initials {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #F15A27;
+      color: white;
+      font-weight: 600;
+      font-size: 18px;
+    }
+  }
+
+  .upload-btn {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     background: #F15A27;
     color: white;
-    font-weight: 600;
-    font-size: 18px;
+    border: 2px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+    ion-icon {
+      font-size: 12px;
+    }
+
+    &:hover {
+      background: #ff6b35;
+      transform: scale(1.1);
+    }
+
+    &.mobile {
+      width: 24px;
+      height: 24px;
+      
+      ion-icon {
+        font-size: 14px;
+      }
+    }
   }
 }
 

@@ -24,10 +24,6 @@ const routes: Routes = [
         loadComponent: () => import('../pages/company/company.page').then(m => m.CompanyPage)
       },
       {
-        path: 'settings',
-        loadChildren: () => import('../home/home.module').then(m => m.HomePageModule)
-      },
-      {
         path: '',
         redirectTo: '/tabs/active-projects',
         pathMatch: 'full'

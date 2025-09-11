@@ -208,4 +208,144 @@ export class CompanyPage implements OnInit {
     }
     return phone;
   }
+
+  async uploadHeadshot(user: User) {
+    // Create hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.capture = 'environment'; // Opens camera on mobile
+    
+    fileInput.onchange = async (event: any) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const loading = await this.loadingController.create({
+        message: 'Uploading headshot...',
+        spinner: 'circles'
+      });
+      await loading.present();
+
+      try {
+        // Compress image if needed
+        let imageFile = file;
+        if (file.size > 1500000) { // If larger than 1.5MB
+          const compressedBlob = await this.compressImage(file);
+          imageFile = new File([compressedBlob], file.name, { type: compressedBlob.type });
+        }
+
+        // Upload to Caspio Files API
+        const token = await this.caspioService.getAuthToken();
+        if (!token) throw new Error('No authentication token');
+
+        const formData = new FormData();
+        formData.append('file', imageFile, `headshot_${user.UserID || Date.now()}.jpg`);
+
+        const uploadResponse = await fetch(
+          `${environment.caspio.apiBaseUrl}/files`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const filePath = `/${uploadResult.Name}`;
+
+        // Update user record with new headshot path
+        const updateResponse = await fetch(
+          `${environment.caspio.apiBaseUrl}/tables/Users/records?q.where=UserID=${user.UserID}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              Headshot: filePath
+            })
+          }
+        );
+
+        if (!updateResponse.ok) {
+          throw new Error('Failed to update user record');
+        }
+
+        // Update local user object and reload headshot
+        user.Headshot = filePath;
+        
+        // Get the new image URL
+        const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+        if (imageUrl) {
+          user.Headshot = imageUrl;
+        }
+
+        await this.showToast('Headshot uploaded successfully', 'success');
+      } catch (error: any) {
+        console.error('Error uploading headshot:', error);
+        await this.showToast(error.message || 'Failed to upload headshot', 'danger');
+      } finally {
+        await loading.dismiss();
+      }
+    };
+
+    // Trigger file selection
+    fileInput.click();
+  }
+
+  private async compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Calculate new dimensions (max 1920px)
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 1920;
+          
+          if (width > height) {
+            if (width > maxDimension) {
+              height = (height * maxDimension) / width;
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = (width * maxDimension) / height;
+              height = maxDimension;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to compress image'));
+              }
+            },
+            'image/jpeg',
+            0.8
+          );
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 }

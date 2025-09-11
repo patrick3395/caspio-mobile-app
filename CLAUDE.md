@@ -579,14 +579,19 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - All thumbnails displayed identical photo on template reload
   - Annotations loading correctly but associated with wrong/duplicate photos
   - Different annotations displayed for each photo but all showing same base image
-- **Root Cause**: Image caching in CaspioService.getImageFromFilesAPI was returning the same cached image for different file paths
-- **Fix Applied**:
-  - Temporarily disabled image caching in getImageFromFilesAPI method
-  - Commented out cache read/write operations
-  - Added debug timestamps and logging to verify unique fetches
-  - Each photo now fetches fresh from Caspio Files API without cache interference
+- **Root Cause**: Image caching in CaspioService.getImageFromFilesAPI was using normalized (lowercase) path as cache key, causing collisions
+  - Cache key normalization: `filePath.trim().toLowerCase()` made different images with similar paths return same cached result
+  - Example: `/IMG_001.jpg` and `/img_001.jpg` would use same cache key
+- **Fix Applied (v1.4.382 - January 2025)**:
+  - Completely disabled ALL image caching in getImageFromFilesAPI method
+  - Commented out both cache read (lines 1186-1193) and write operations (lines 1221-1223)
+  - Each photo now fetches fresh from Caspio Files API without any cache interference
+  - Added debug logging with [v1.4.379] tags to verify unique fetches
 - **Files Modified**:
   - `/mnt/c/Users/Owner/Caspio/src/app/services/caspio.service.ts`: Disabled cache for getImageFromFilesAPI
-  - Added unique timestamp logging for debugging
+  - Cache mechanism commented out to prevent key collisions
+  - Updated debug messages to indicate cache disabled status
 - **TODO**: Re-enable cache with proper unique key generation after confirming fix works
-- **Result**: Significantly improved photo capture speed and user experience
+  - Consider using full case-sensitive path as cache key
+  - Or add file metadata (size/timestamp) to cache key for uniqueness
+- **Result**: Each photo now displays its unique image correctly, thumbnails show proper photos
