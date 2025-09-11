@@ -5272,7 +5272,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           // Multiple files or non-camera - no automatic annotation
           for (const file of fileArray) {
-            processedFiles.push({ file, annotationData: null, originalFile: undefined });
+            processedFiles.push({ file, annotationData: null, originalFile: null });
           }
         }
         
@@ -5453,7 +5453,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Return original photo if annotation was cancelled
-    return { file: photo, annotationData: null, originalFile: photo };
+    return { file: photo, annotationData: null, originalFile: null };
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
@@ -5625,9 +5625,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         visualIdNum, 
         '', // Annotation field stays blank
-        originalPhoto || photo,  // Upload ORIGINAL if available
+        photo,  // Upload the photo (annotated or original)
         drawingsData, // Pass the annotation JSON to Drawings field
-        undefined // No longer needed
+        originalPhoto // Pass original photo if we have annotations
       ).toPromise();
       
       console.log('✅ Photo uploaded successfully:', response);
