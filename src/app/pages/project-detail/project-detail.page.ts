@@ -1611,7 +1611,6 @@ export class ProjectDetailPage implements OnInit {
       
       // Use Ionic NavController for smoother navigation
       this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], {
-        animated: false,  // Disable animation for faster load
         replaceUrl: false
       }).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
@@ -1621,7 +1620,6 @@ export class ProjectDetailPage implements OnInit {
     } else {
       console.log('📝 Navigating to standard template form');
       this.router.navigate(['template-form', this.projectId, service.serviceId], {
-        animated: false,
         replaceUrl: false
       });
     }
