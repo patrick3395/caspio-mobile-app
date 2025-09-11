@@ -1,0 +1,89 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Company Users</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="loadUsers()">
+        <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Company Header -->
+  <div class="company-header">
+    <ion-icon name="business-outline" class="company-icon"></ion-icon>
+    <h2>{{ companyName }}</h2>
+    <p>Company ID: {{ companyId }}</p>
+  </div>
+
+  <!-- Search Bar -->
+  <ion-searchbar 
+    [(ngModel)]="searchTerm"
+    (ionChange)="filterUsers($event)"
+    placeholder="Search users..."
+    animated="true"
+    class="search-bar">
+  </ion-searchbar>
+
+  <!-- Pull to Refresh -->
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content
+      pullingIcon="chevron-down-circle-outline"
+      pullingText="Pull to refresh"
+      refreshingSpinner="circles"
+      refreshingText="Loading users...">
+    </ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="circles" color="primary"></ion-spinner>
+    <p>Loading users...</p>
+  </div>
+
+  <!-- Users List -->
+  <ion-list *ngIf="!isLoading && filteredUsers.length > 0">
+    <ion-item *ngFor="let user of filteredUsers" 
+              button 
+              (click)="viewUserDetails(user)"
+              class="user-item">
+      <ion-avatar slot="start" class="user-avatar">
+        <div class="avatar-initials" [style.background-color]="'var(--ion-color-' + getUserStatusColor(user.Status) + ')'">
+          {{ getUserInitials(user) }}
+        </div>
+      </ion-avatar>
+      <ion-label>
+        <h2 class="user-name">{{ user.FirstName }} {{ user.LastName }}</h2>
+        <p class="user-email">{{ user.Email }}</p>
+        <p *ngIf="user.Role" class="user-role">
+          <ion-icon name="briefcase-outline"></ion-icon>
+          {{ user.Role }}
+        </p>
+      </ion-label>
+      <ion-badge 
+        *ngIf="user.Status" 
+        [color]="getUserStatusColor(user.Status)" 
+        slot="end">
+        {{ user.Status }}
+      </ion-badge>
+    </ion-item>
+  </ion-list>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredUsers.length === 0" class="empty-state">
+    <ion-icon name="people-outline" class="empty-icon"></ion-icon>
+    <h3>No Users Found</h3>
+    <p *ngIf="searchTerm">No users match your search criteria</p>
+    <p *ngIf="!searchTerm">No users found for this company</p>
+    <ion-button (click)="loadUsers()" fill="outline" color="primary">
+      <ion-icon name="refresh-outline" slot="start"></ion-icon>
+      Refresh
+    </ion-button>
+  </div>
+
+  <!-- User Count Footer -->
+  <div *ngIf="!isLoading && users.length > 0" class="user-count">
+    <p>Showing {{ filteredUsers.length }} of {{ users.length }} users</p>
+  </div>
+</ion-content>

@@ -36,6 +36,10 @@ const routes: Routes = [
     path: 'engineers-foundation/:projectId/:serviceId',
     loadComponent: () => import('./pages/engineers-foundation/engineers-foundation.page').then( m => m.EngineersFoundationPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'company',
+    loadChildren: () => import('./pages/company/company.module').then( m => m.CompanyPageModule)
   }
 ];
 

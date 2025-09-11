@@ -51,8 +51,9 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
-          [pageViewMode]="'single'"
-          [scrollMode]="0"
+          [pageViewMode]="'infinite-scroll'"
+          [scrollMode]="1"
+          [enableInfiniteScrolling]="true"
           backgroundColor="#2d2d2d">
         </ngx-extended-pdf-viewer>
       </div>
@@ -77,12 +78,26 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     }
     .pdf-container {
       width: 100%;
-      height: 100%;
+      height: calc(100vh - 56px);
       background: #2d2d2d;
-      overflow: auto;
+      overflow: auto !important;
       -webkit-overflow-scrolling: touch;
       position: relative;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Ensure the PDF viewer itself is scrollable */
+    .pdf-container ::ng-deep #viewerContainer {
+      overflow: auto !important;
+      position: absolute !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    
+    .pdf-container ::ng-deep #viewer {
+      position: relative !important;
     }
     
     /* Modern PDF Viewer Styling */
@@ -270,13 +285,27 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     
-    /* Fix for iOS PDF rendering */
+    /* Fix for iOS PDF rendering and scrolling */
     @supports (-webkit-touch-callout: none) {
       .pdf-container {
         -webkit-overflow-scrolling: touch;
-        overflow: auto;
-        height: 100%;
+        overflow: auto !important;
+        height: calc(100vh - 56px) !important;
       }
+      
+      .pdf-container ::ng-deep #viewerContainer {
+        -webkit-overflow-scrolling: touch !important;
+        overflow-y: scroll !important;
+      }
+    }
+    
+    /* Ensure ion-content doesn't interfere with scrolling */
+    ion-content.document-viewer-content {
+      --overflow: hidden;
+    }
+    
+    ion-content.document-viewer-content ::ng-deep .inner-scroll {
+      overflow: hidden !important;
     }
   `]
 })
