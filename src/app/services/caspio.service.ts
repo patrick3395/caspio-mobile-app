@@ -1185,28 +1185,29 @@ export class CaspioService {
   }
 
   getImageFromFilesAPI(filePath: string): Observable<string> {
-    const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     // Simple debugging
-    console.log(`[v1.4.384] getImageFromFilesAPI called for: ${filePath}`);
+    console.log(`[v1.4.386] getImageFromFilesAPI called for: ${filePath}`);
     
     // IMPORTANT: Cache disabled to prevent duplication
     // DO NOT use normalized/lowercase paths
     
-    return new Observable(observer => {
-      // Clean the file path - use exact path, no normalization
-      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      console.log(`[v1.4.384] Fetching from API: ${cleanPath}`);
-      
-      // Fetch from Files API
-      fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/octet-stream'
-        }
-      })
+    // Use getValidToken to ensure fresh token
+    return this.getValidToken().pipe(
+      switchMap(accessToken => new Observable<string>(observer => {
+        // Clean the file path - use exact path, no normalization
+        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+        console.log(`[v1.4.386] Fetching from API with fresh token: ${cleanPath}`);
+        
+        // Fetch from Files API
+        fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/octet-stream'
+          }
+        })
       .then(response => {
         if (!response.ok) {
           throw new Error(`Failed to fetch image: ${response.status}`);
@@ -1234,7 +1235,8 @@ export class CaspioService {
         console.error('Error fetching image:', error);
         observer.error(error);
       });
-    });
+      }))
+    );
   }
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
@@ -1317,8 +1319,18 @@ export class CaspioService {
         // TODO: In production, we should skip this upload entirely
       }
       
+      // [v1.4.387] Generate unique filename to prevent duplication
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `visual_${visualId}_${timestamp}_${randomId}.${fileExt}`;
+      
+      console.log(`[v1.4.387] Generating unique filename:`);
+      console.log(`  Original: ${file.name}`);
+      console.log(`  Unique: ${uniqueFilename}`);
+      
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      formData.append('file', file, uniqueFilename);
       
       const filesUrl = `${API_BASE_URL}/files`;
       console.log('Uploading to Files API:', filesUrl);
@@ -1341,8 +1353,8 @@ export class CaspioService {
       const uploadResult = await uploadResponse.json();
       console.log('✅ File uploaded to Files API:', uploadResult);
       
-      // The file path for the Photo field
-      const filePath = `/${uploadResult.Name || file.name}`;
+      // The file path for the Photo field - use unique filename
+      const filePath = `/${uploadResult.Name || uniqueFilename}`;
       console.log('File path for Photo field:', filePath);
       
       // STEP 2: Create Services_Visuals_Attach record WITH the Photo field path

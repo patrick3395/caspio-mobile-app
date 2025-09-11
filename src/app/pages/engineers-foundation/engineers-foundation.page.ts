@@ -5565,13 +5565,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // INSTANTLY show preview with object URL
     if (actualVisualId && actualVisualId !== 'undefined') {
-      // [v1.4.386] Store photos by KEY for uniqueness
+      // [v1.4.387] ONLY store photos by KEY for consistency
       if (!this.visualPhotos[key]) {
         this.visualPhotos[key] = [];
-      }
-      // Also maintain backward compatibility with visualId storage
-      if (!this.visualPhotos[actualVisualId]) {
-        this.visualPhotos[actualVisualId] = [];
       }
       
       // Create instant preview
@@ -5589,10 +5585,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         annotations: null
       };
       
-      // [v1.4.386] Add to BOTH key-based and visualId-based storage
-      console.log(`[v1.4.386] Adding uploaded photo to KEY: ${key} and VisualID: ${actualVisualId}`);
+      // [v1.4.387] ONLY add to key-based storage
+      console.log(`[v1.4.387] Adding uploaded photo to KEY: ${key}`);
+      console.log(`  Filename: ${photo.name}`);
+      console.log(`  TempID: ${tempId}`);
       this.visualPhotos[key].push(photoData);
-      this.visualPhotos[actualVisualId].push(photoData);
     }
     
     // Now do the actual upload in background
@@ -5869,16 +5866,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             uploading: false // Remove uploading flag
           };
           
-          // [v1.4.386] Update in BOTH storage locations
-          photos[tempPhotoIndex] = updatedPhotoData;
-          
-          // Also update in key-based storage
+          // [v1.4.387] Update ONLY in key-based storage
           if (this.visualPhotos[key]) {
             const keyPhotos = this.visualPhotos[key];
             const keyPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
             if (keyPhotoIndex !== -1) {
               keyPhotos[keyPhotoIndex] = updatedPhotoData;
-              console.log(`[v1.4.386] Updated photo in KEY storage: ${key}`);
+              console.log(`[v1.4.387] Updated photo in KEY storage: ${key}`);
+              console.log(`  AttachID: ${updatedPhotoData.AttachID}`);
+              console.log(`  Photo path: ${updatedPhotoData.Photo}`);
             }
           }
         }
@@ -5934,17 +5930,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   getPhotosForVisual(category: string, itemId: string): any[] {
     const key = `${category}_${itemId}`;
     
-    // [v1.4.386] Use the FULL KEY to get photos, not just visualId
-    // This ensures each visual gets its own photos even if visualIds are duplicated
+    // [v1.4.387] ONLY use key-based storage for consistency
     const photos = this.visualPhotos[key] || [];
     
-    // Debug logging to trace the issue
+    // Debug logging
+    console.log(`[v1.4.387] getPhotosForVisual:`);
+    console.log(`  Key: ${key}`);
+    console.log(`  Photos found: ${photos.length}`);
     if (photos.length > 0) {
-      console.log(`[v1.4.386] getPhotosForVisual called:`);
-      console.log(`  Key: ${key}`);
-      console.log(`  VisualID: ${this.visualRecordIds[key]}`);
-      console.log(`  Photos found: ${photos.length}`);
-      console.log(`  First photo path: ${photos[0]?.Photo || photos[0]?.filePath || 'unknown'}`);
+      photos.forEach((photo: any, index: number) => {
+        console.log(`  Photo ${index + 1}: ${photo.Photo || photo.filePath || 'unknown'}, AttachID: ${photo.AttachID || photo.id}`);
+      });
     }
     
     return photos;
@@ -7701,15 +7697,26 @@ Stack: ${error?.stack}`;
                 
                 try {
                   const attachId = photo.AttachID || photo.id;
+                  const key = `${category}_${itemId}`;
+                  
+                  console.log(`[v1.4.387] Deleting photo:`);
+                  console.log(`  AttachID: ${attachId}`);
+                  console.log(`  Key: ${key}`);
+                  console.log(`  Photos before delete: ${this.visualPhotos[key]?.length || 0}`);
+                  
+                  // Delete from database
                   await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
                   
-                  // Remove from local array
-                  const visualId = this.visualRecordIds[`${category}_${itemId}`];
-                  if (visualId && this.visualPhotos[visualId]) {
-                    this.visualPhotos[visualId] = this.visualPhotos[visualId].filter(
+                  // [v1.4.387] Remove from KEY-BASED storage
+                  if (this.visualPhotos[key]) {
+                    this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => (p.AttachID || p.id) !== attachId
                     );
+                    console.log(`  Photos after delete: ${this.visualPhotos[key].length}`);
                   }
+                  
+                  // Force UI update
+                  this.changeDetectorRef.detectChanges();
                   
                   await loading.dismiss();
                   // Success toast removed per user request
@@ -8073,22 +8080,20 @@ Stack: ${error?.stack}`;
           processedPhotos.push(photoData);
         }
             
-        // [v1.4.386] CRITICAL: Store photos by KEY, not just visualId
-        // This ensures each visual gets its own photos even if visualIds are duplicated
+        // [v1.4.387] ONLY store photos by KEY for consistency
         this.visualPhotos[key] = processedPhotos;
         
-        // Also store by visualId for backward compatibility
-        this.visualPhotos[visualId] = processedPhotos;
-        
-        console.log(`[v1.4.386] Stored ${processedPhotos.length} photos for KEY: ${key}`);
+        console.log(`[v1.4.387] Stored ${processedPhotos.length} photos for KEY: ${key}`);
+        processedPhotos.forEach((photo: any, index: number) => {
+          console.log(`  Photo ${index + 1}: ${photo.Photo || 'unknown'}, AttachID: ${photo.AttachID}`);
+        });
       } else {
         this.visualPhotos[key] = [];
-        this.visualPhotos[visualId] = [];
+        console.log(`[v1.4.387] No photos found for KEY: ${key}`);
       }
     } catch (error) {
-      console.error(`[v1.4.386] Failed to load photos for KEY ${key}:`, error);
+      console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
       this.visualPhotos[key] = [];
-      this.visualPhotos[visualId] = [];
     }
   }
   

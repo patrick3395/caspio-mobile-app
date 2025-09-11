@@ -312,7 +312,16 @@ export class CompanyPage implements OnInit {
         }
 
         const uploadResult = await uploadResponse.json();
-        const filePath = `/${uploadResult.Name}`;
+        console.log('[DEBUG] Upload response:', JSON.stringify(uploadResult));
+        
+        // The response might have different property names
+        const fileName = uploadResult.Name || uploadResult.name || uploadResult.FileName || uploadResult.filename;
+        if (!fileName) {
+          throw new Error(`Invalid upload response - no filename found: ${JSON.stringify(uploadResult)}`);
+        }
+        
+        const filePath = fileName.startsWith('/') ? fileName : `/${fileName}`;
+        console.log('[DEBUG] File path for database:', filePath);
 
         // Update user record with new headshot path
         const updateResponse = await fetch(
@@ -339,6 +348,11 @@ export class CompanyPage implements OnInit {
         // Get the new image URL with debug info
         try {
           console.log('[DEBUG] Attempting to fetch image from path:', filePath);
+          
+          // Get a fresh token for the image fetch
+          const freshToken = await this.caspioService.getAuthToken();
+          console.log('[DEBUG] Using fresh token for image fetch:', freshToken ? 'Token exists' : 'No token');
+          
           const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
           
           if (imageUrl) {
