@@ -21,7 +21,7 @@ const routes: Routes = [
       },
       {
         path: 'company',
-        loadChildren: () => import('../pages/company/company.module').then(m => m.CompanyPageModule)
+        loadComponent: () => import('../pages/company/company.page').then(m => m.CompanyPage)
       },
       {
         path: 'settings',

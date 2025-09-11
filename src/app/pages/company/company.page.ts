@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule, AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 
 interface User {
   UserID: number;
@@ -19,6 +21,8 @@ interface User {
   selector: 'app-company',
   templateUrl: './company.page.html',
   styleUrls: ['./company.page.scss'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class CompanyPage implements OnInit {
   users: User[] = [];

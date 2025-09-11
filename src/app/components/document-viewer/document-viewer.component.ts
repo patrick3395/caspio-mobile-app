@@ -53,7 +53,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [theme]="'dark'"
           [pageViewMode]="'infinite-scroll'"
           [scrollMode]="1"
-          [enableInfiniteScrolling]="true"
           backgroundColor="#2d2d2d">
         </ngx-extended-pdf-viewer>
       </div>
