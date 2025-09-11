@@ -468,49 +468,66 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   // Load FDF photos if they exist - fetch as base64 like other photos
                   const fdfPhotos: any = {};
+                  console.log(`[FDF Photos] Checking FDF photos for room: ${roomName}`);
+                  console.log(`  FDFPhotoTop: ${room.FDFPhotoTop || 'None'}`);
+                  console.log(`  FDFPhotoBottom: ${room.FDFPhotoBottom || 'None'}`);
+                  console.log(`  FDFPhotoThreshold: ${room.FDFPhotoThreshold || 'None'}`);
+                  
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
+                    console.log(`[FDF Top] Loading photo from path: ${room.FDFPhotoTop}`);
                     try {
                       // Fetch the image as base64 data URL (like we do for elevation photos)
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
+                      console.log(`[FDF Top] Image data received, length: ${imageData?.length || 0}`);
+                      
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.topUrl = imageData;
+                        console.log(`[FDF Top] ✅ Successfully loaded as base64`);
                       } else {
-                        console.error('Failed to load FDF Top photo:', room.FDFPhotoTop);
+                        console.error('[FDF Top] ❌ Invalid image data received:', room.FDFPhotoTop);
                         fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
                       }
                     } catch (err) {
-                      console.error('Error loading FDF Top photo:', err);
+                      console.error('[FDF Top] ❌ Error loading photo:', err);
                       fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
                     }
                   }
                   if (room.FDFPhotoBottom) {
                     fdfPhotos.bottom = true;
+                    console.log(`[FDF Bottom] Loading photo from path: ${room.FDFPhotoBottom}`);
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoBottom).toPromise();
+                      console.log(`[FDF Bottom] Image data received, length: ${imageData?.length || 0}`);
+                      
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.bottomUrl = imageData;
+                        console.log(`[FDF Bottom] ✅ Successfully loaded as base64`);
                       } else {
-                        console.error('Failed to load FDF Bottom photo:', room.FDFPhotoBottom);
+                        console.error('[FDF Bottom] ❌ Invalid image data received:', room.FDFPhotoBottom);
                         fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
                       }
                     } catch (err) {
-                      console.error('Error loading FDF Bottom photo:', err);
+                      console.error('[FDF Bottom] ❌ Error loading photo:', err);
                       fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
                     }
                   }
                   if (room.FDFPhotoThreshold) {
                     fdfPhotos.threshold = true;
+                    console.log(`[FDF Threshold] Loading photo from path: ${room.FDFPhotoThreshold}`);
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoThreshold).toPromise();
+                      console.log(`[FDF Threshold] Image data received, length: ${imageData?.length || 0}`);
+                      
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.thresholdUrl = imageData;
+                        console.log(`[FDF Threshold] ✅ Successfully loaded as base64`);
                       } else {
-                        console.error('Failed to load FDF Threshold photo:', room.FDFPhotoThreshold);
+                        console.error('[FDF Threshold] ❌ Invalid image data received:', room.FDFPhotoThreshold);
                         fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
                       }
                     } catch (err) {
-                      console.error('Error loading FDF Threshold photo:', err);
+                      console.error('[FDF Threshold] ❌ Error loading photo:', err);
                       fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
                     }
                   }
@@ -919,9 +936,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const photoKey = photoType.toLowerCase();
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
       
-      // Create preview URL from file
-      const photoUrl = URL.createObjectURL(file);
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
+      // [FDF FIX v1.4.374] Load the image as base64 instead of using blob URL
+      // This ensures the thumbnail will work after template reload
+      console.log(`[FDF FIX v1.4.374] Loading saved FDF photo as base64: ${filePath}`);
+      try {
+        const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+        if (imageData && imageData.startsWith('data:')) {
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
+          console.log(`[FDF FIX v1.4.374] ✅ FDF ${photoType} photo loaded as base64`);
+        } else {
+          // Fallback to blob URL if base64 fails
+          console.warn(`[FDF FIX v1.4.374] Failed to get base64, using blob URL`);
+          const photoUrl = URL.createObjectURL(file);
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
+        }
+      } catch (err) {
+        console.error(`[FDF FIX v1.4.374] Error loading base64:`, err);
+        // Fallback to blob URL
+        const photoUrl = URL.createObjectURL(file);
+        this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
+      }
       
       await this.showToast(`${photoType} photo saved`, 'success');
       
@@ -939,17 +973,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const photoKey = photoType.toLowerCase();
     const photoUrl = this.roomElevationData[roomName]?.fdfPhotos?.[`${photoKey}Url`];
     
+    console.log(`[FDF FIX v1.4.374] viewFDFPhoto called:`, {
+      roomName,
+      photoType,
+      photoKey,
+      hasUrl: !!photoUrl,
+      urlType: photoUrl ? (photoUrl.startsWith('data:') ? 'base64' : 'blob/url') : 'none',
+      urlLength: photoUrl?.length || 0
+    });
+    
     if (photoUrl) {
-      const modal = await this.modalController.create({
-        component: PhotoViewerComponent,
-        componentProps: {
-          photos: [{ url: photoUrl, caption: `FDF ${photoType} - ${roomName}` }],
-          initialIndex: 0
-        },
-        cssClass: 'photo-viewer-modal'
-      });
+      // If it's a placeholder image, don't open viewer
+      if (photoUrl.includes('photo-placeholder.png')) {
+        console.warn(`[FDF FIX v1.4.374] Cannot view placeholder image`);
+        await this.showToast('Photo not available', 'warning');
+        return;
+      }
       
-      await modal.present();
+      try {
+        const modal = await this.modalController.create({
+          component: PhotoViewerComponent,
+          componentProps: {
+            photos: [{ url: photoUrl, caption: `FDF ${photoType} - ${roomName}` }],
+            initialIndex: 0
+          },
+          cssClass: 'photo-viewer-modal'
+        });
+        
+        await modal.present();
+      } catch (error) {
+        console.error(`[FDF FIX v1.4.374] Error opening photo viewer:`, error);
+        await this.showToast('Failed to open photo viewer', 'danger');
+      }
+    } else {
+      console.warn(`[FDF FIX v1.4.374] No photo URL found for ${roomName} ${photoType}`);
+      await this.showToast('Photo not available', 'warning');
     }
   }
   

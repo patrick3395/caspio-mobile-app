@@ -1094,6 +1094,85 @@ export class CaspioService {
     console.log(`[ImageCache] Cleared ${size} cached images`);
   }
 
+  // Helper method to compress annotation data (same as used in engineers-foundation page)
+  private compressAnnotationData(data: string): string {
+    console.log('🗜️ Compressing annotation data in CaspioService');
+    console.log('  Original size:', data.length, 'bytes');
+    
+    // Don't compress empty or minimal data
+    if (!data || data === '{}' || data === '[]' || data === '""' || data === 'null' || data === '') {
+      console.log('  Empty or minimal data, returning empty string');
+      return '';
+    }
+    
+    try {
+      // Always minify first
+      const parsed = JSON.parse(data);
+      
+      // Check if there's actually any content to compress
+      if (parsed && parsed.objects && parsed.objects.length === 0) {
+        console.log('  Empty objects array, returning empty string');
+        return '';
+      }
+      
+      const minified = JSON.stringify(parsed);
+      console.log('  After minification:', minified.length, 'bytes');
+      
+      // If data is small enough after minification, return it
+      if (minified.length < 50000) { // Less than 50KB
+        console.log('  Data small enough after minification');
+        return minified;
+      }
+      
+      // Apply balanced simplification for large data
+      console.log('  ⚠️ Data large, applying BALANCED simplification');
+      
+      // Simplify the data structure to fit within limits
+      if (parsed.objects) {
+        parsed.objects = parsed.objects.map((obj: any) => {
+          // Keep essential properties, remove verbose ones
+          const simplified: any = {
+            type: obj.type,
+            left: Math.round(obj.left),
+            top: Math.round(obj.top),
+            width: Math.round(obj.width || 0),
+            height: Math.round(obj.height || 0),
+            angle: Math.round(obj.angle || 0)
+          };
+          
+          // Keep stroke and fill info if present
+          if (obj.stroke) simplified.stroke = obj.stroke;
+          if (obj.strokeWidth) simplified.strokeWidth = obj.strokeWidth;
+          if (obj.fill) simplified.fill = obj.fill;
+          
+          // Keep text for text objects
+          if (obj.type === 'i-text' && obj.text) {
+            simplified.text = obj.text;
+            simplified.fontSize = obj.fontSize || 20;
+          }
+          
+          // Keep path data for path objects (but simplified)
+          if (obj.type === 'path' && obj.path) {
+            // Keep only essential path data
+            simplified.path = obj.path;
+          }
+          
+          return simplified;
+        });
+      }
+      
+      const compressed = JSON.stringify(parsed);
+      console.log('  After compression:', compressed.length, 'bytes');
+      
+      // Mark as compressed version 3
+      return 'COMPRESSED_V3:' + compressed;
+      
+    } catch (e) {
+      console.error('Compression failed:', e);
+      return data; // Return original if compression fails
+    }
+  }
+
   getImageFromFilesAPI(filePath: string): Observable<string> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1279,22 +1358,29 @@ export class CaspioService {
       };
       
       // Add Drawings field if annotation data is provided
-      if (drawings) {
-        recordData.Drawings = drawings;
+      // IMPORTANT: Drawings field is TEXT type with 64KB limit
+      // Apply compression like Elevation Plot does
+      if (drawings && drawings.length > 0) {
+        console.log('Processing Drawings field data...');
+        console.log('  Original drawings length:', drawings.length);
         
-        // If we have an original file path, store it in the annotation JSON
-        if (originalFilePath) {
-          try {
-            const drawingsObj = JSON.parse(drawings);
-            drawingsObj.originalFilePath = originalFilePath;
-            recordData.Drawings = JSON.stringify(drawingsObj);
-          } catch (e) {
-            // If drawings isn't valid JSON, create a new object
-            recordData.Drawings = JSON.stringify({
-              annotations: drawings,
-              originalFilePath: originalFilePath
-            });
-          }
+        // Apply compression if needed (using the same method as Elevation Plot)
+        let compressedDrawings = drawings;
+        
+        // Try to compress the data if it's large
+        if (drawings.length > 50000) {
+          console.log('  Data is large, attempting compression...');
+          compressedDrawings = this.compressAnnotationData(drawings);
+          console.log('  After compression:', compressedDrawings.length, 'bytes');
+        }
+        
+        // Only add if within the field limit after compression
+        if (compressedDrawings.length <= 64000) {
+          recordData.Drawings = compressedDrawings;
+          console.log('✅ Drawings field added, final size:', compressedDrawings.length);
+        } else {
+          console.warn('⚠️ Drawings data still too large after compression:', compressedDrawings.length, 'bytes');
+          console.warn('⚠️ Skipping Drawings field to avoid data type error');
         }
       }
       
