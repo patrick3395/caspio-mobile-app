@@ -1295,22 +1295,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   if (photoPath && photoPath !== '') {
                     try {
-                      // Add timestamp to prevent caching issues
+                      // [v1.4.391] Enhanced cache-busting for Elevation photos to prevent duplication
                       const timestamp = Date.now();
-                      console.log(`[Photo ${photoIndex + 1}] Fetching with timestamp ${timestamp}: ${photoPath}`);
-                      
-                      // Fetch with a slight delay to avoid concurrent cache issues
+                      const uniqueId = `${photoIndex}_${timestamp}_${Math.random().toString(36).substring(2, 8)}`;
+                      console.log(`[v1.4.391] Elevation Photo ${photoIndex + 1}/${photos.length}] Fetching with unique ID ${uniqueId}: ${photoPath}`);
+
+                      // [v1.4.391] Increased delay to ensure each fetch is truly separate
                       if (photoIndex > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await new Promise(resolve => setTimeout(resolve, 200));
                       }
-                      
+
+                      // [v1.4.391] Fetch the image - cache is already disabled in service
                       const imageData = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
-                      
+
                       if (imageData && imageData.startsWith('data:')) {
-                        // Check if this is unique data
+                        // [v1.4.391] Log data characteristics to verify uniqueness
+                        const dataLength = imageData.length;
                         const dataPreview = imageData.substring(0, 100) + '...' + imageData.substring(imageData.length - 50);
-                        console.log(`[Photo ${photoIndex + 1}] Got base64, length: ${imageData.length}, preview: ${dataPreview}`);
-                        
+                        console.log(`[v1.4.391] Photo ${photoIndex + 1}] Got base64, length: ${dataLength}, preview: ${dataPreview}`);
+
                         photoUrl = imageData;
                         thumbnailUrl = imageData;
                       } else {
@@ -3700,10 +3703,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.388] generatePDF called');
-
-    // Add debug alert to confirm method is reached
-    await this.showToast('GeneratePDF method reached', 'success');
+    console.log('[v1.4.390] generatePDF called');
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3720,21 +3720,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.388] Preventing form submission');
+        console.log('[v1.4.390] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
 
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.388] PDF generation already in progress, ignoring click');
-      await this.showToast('PDF generation already in progress', 'warning');
+      console.log('[v1.4.390] PDF generation already in progress, ignoring click');
       return;
     }
     
     // Set flag immediately to prevent any double clicks
     this.isPDFGenerating = true;
-    await this.showToast('PDF generation flag set', 'info');
 
     // Disable the PDF button visually - check for both possible button selectors
     const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
@@ -3757,22 +3755,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
       if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.388] Missing service/project ID, attempting recovery');
-        await this.showToast('Missing IDs, attempting recovery...', 'warning');
+        console.error('[v1.4.390] Missing service/project ID, attempting recovery');
 
         // Try to recover IDs from route if possible
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
 
-        console.log('[v1.4.388] Route params:', { routeServiceId, routeProjectId });
+        console.log('[v1.4.390] Route params:', { routeServiceId, routeProjectId });
 
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
-          console.log('[v1.4.388] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
-          await this.showToast('IDs recovered from route', 'success');
+          console.log('[v1.4.390] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
         } else {
-          await this.showToast('ERROR: No service/project IDs available!', 'danger');
+          console.error('[v1.4.390] ERROR: No service/project IDs available!');
           this.isPDFGenerating = false;
           if (pdfButton) {
             if (pdfButton instanceof HTMLButtonElement) {
@@ -3784,8 +3780,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
       } else {
-        console.log('[v1.4.388] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
-        await this.showToast(`IDs OK: Service ${this.serviceId}, Project ${this.projectId}`, 'success');
+        console.log('[v1.4.390] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
       }
       
       // Validate all required Project Information fields before generating PDF
@@ -3819,8 +3814,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Create a single loading indicator that stays until PDF is ready
-    console.log('[v1.4.388] Creating loading indicator...');
-    await this.showToast('Creating loading indicator...', 'info');
+    console.log('[v1.4.390] Creating loading indicator...');
 
     let loading: any = null;
     try {
@@ -3829,13 +3823,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         spinner: 'crescent',
         backdropDismiss: false
       });
-      console.log('[v1.4.388] Loading indicator created successfully');
+      console.log('[v1.4.390] Loading indicator created successfully');
       await loading.present();
-      console.log('[v1.4.388] Loading indicator presented');
-      await this.showToast('Loading indicator shown', 'success');
+      console.log('[v1.4.390] Loading indicator presented');
     } catch (loadingError) {
-      console.error('[v1.4.388] Error creating/presenting loading:', loadingError);
-      await this.showToast(`Loading error: ${loadingError}`, 'danger');
+      console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
       // Continue without loading indicator
     }
 
@@ -3925,19 +3917,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Create the modal with animation disabled for first attempt to prevent conflicts
-      console.log('[v1.4.388] Creating PDF modal...');
-      await this.showToast('Creating PDF modal...', 'info');
+      console.log('[v1.4.390] Creating PDF modal...');
 
       // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
-        console.error('[v1.4.388] PdfPreviewComponent is not available!');
-        await this.showToast('ERROR: PdfPreviewComponent not found!', 'danger');
+        console.error('[v1.4.390] PdfPreviewComponent is not available!');
         throw new Error('PdfPreviewComponent not available');
       }
 
       let modal;
       try {
-        console.log('[v1.4.388] Component info:', {
+        console.log('[v1.4.390] Component info:', {
           componentName: PdfPreviewComponent.name,
           componentType: typeof PdfPreviewComponent,
           hasModalController: !!this.modalController
@@ -3956,12 +3946,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           mode: 'ios', // Force iOS mode for consistency
           backdropDismiss: false // Prevent accidental dismissal
         });
-        console.log('[v1.4.388] Modal created successfully');
-        await this.showToast('Modal created successfully', 'success');
+        console.log('[v1.4.390] Modal created successfully');
       } catch (modalCreateError) {
-        console.error('[v1.4.388] Error creating modal:', modalCreateError);
-        const errorMsg = modalCreateError instanceof Error ? modalCreateError.message : String(modalCreateError);
-        await this.showToast(`Modal creation error: ${errorMsg}`, 'danger');
+        console.error('[v1.4.390] Error creating modal:', modalCreateError);
         throw modalCreateError;
       }
       
@@ -8690,7 +8677,7 @@ Stack: ${error?.stack}`;
               displayText = comment.text || '';
             }
             
-            photoFetches.push(this.getVisualPhotos(actualVisualId));
+            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
             photoMappings.push({
               type: 'comments',
               item: {
@@ -8737,7 +8724,7 @@ Stack: ${error?.stack}`;
               displayText = limitation.text || '';
             }
             
-            photoFetches.push(this.getVisualPhotos(actualVisualId));
+            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
             photoMappings.push({
               type: 'limitations',
               item: {
@@ -8784,7 +8771,7 @@ Stack: ${error?.stack}`;
               displayText = deficiency.text || '';
             }
             
-            photoFetches.push(this.getVisualPhotos(actualVisualId));
+            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
             photoMappings.push({
               type: 'deficiencies',
               item: {
@@ -9181,11 +9168,22 @@ Stack: ${error?.stack}`;
     return result;
   }
 
-  async getVisualPhotos(visualId: string) {
-    // Get photos for a specific visual from Services_Visuals_Attach
-    const photos = this.visualPhotos[visualId] || [];
-    
-    console.log(`📸 Getting photos for visual ${visualId}:`, photos.length);
+  async getVisualPhotos(visualId: string, category?: string, itemId?: string) {
+    // v1.4.390 - Fix: Use key-based photo retrieval to match storage method
+    // Try to get photos using the full key first (as per v1.4.386 fix)
+    let photos = [];
+
+    if (category && itemId) {
+      const fullKey = `${category}_${itemId}`;
+      photos = this.visualPhotos[fullKey] || [];
+      console.log(`📸 Getting photos for key ${fullKey}:`, photos.length);
+    }
+
+    // Fallback to visualId if no photos found with key
+    if (photos.length === 0) {
+      photos = this.visualPhotos[visualId] || [];
+      console.log(`📸 Fallback: Getting photos for visual ${visualId}:`, photos.length);
+    }
     
     // Use the cache service for better performance across sessions
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });

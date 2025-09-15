@@ -590,10 +590,20 @@ export class CaspioService {
     console.log('  File:', file.name, 'Size:', file.size);
     
     try {
-      // STEP 1: Upload file to Caspio Files API (PROVEN WORKING)
+      // [v1.4.391] Generate unique filename to prevent duplication (like Structural section)
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `room_point_${pointId}_${timestamp}_${randomId}.${fileExt}`;
+
+      console.log(`[v1.4.391] Generating unique filename for Elevation photo:`);
+      console.log(`  Original: ${file.name}`);
+      console.log(`  Unique: ${uniqueFilename}`);
+
+      // STEP 1: Upload file to Caspio Files API with unique filename
       console.log('Step 1: Uploading file to Caspio Files API...');
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      formData.append('file', file, uniqueFilename);
       
       const filesUrl = `${API_BASE_URL}/files`;
       console.log('Uploading to Files API:', filesUrl);
@@ -616,9 +626,9 @@ export class CaspioService {
       const uploadResult = await uploadResponse.json();
       console.log('✅ File uploaded to Files API:', uploadResult);
       
-      // The file path for the Photo field
-      const filePath = `/${uploadResult.Name || file.name}`;
-      console.log('File path for Photo field:', filePath);
+      // [v1.4.391] Use unique filename in file path to prevent duplication
+      const filePath = `/${uploadResult.Name || uniqueFilename}`;
+      console.log('[v1.4.391] File path for Photo field (with unique name):', filePath);
       
       // STEP 2: Create Services_Rooms_Points_Attach record WITH the Photo field path
       console.log('Step 2: Creating Services_Rooms_Points_Attach record with file path...');

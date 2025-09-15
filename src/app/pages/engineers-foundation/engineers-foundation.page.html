@@ -5,14 +5,13 @@
     </ion-buttons>
     <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
-      <!-- Simplified PDF button with multiple fallbacks -->
+      <!-- Fixed PDF button - v1.4.390 -->
       <button type="button"
               class="pdf-header-button"
-              style="min-width: 60px; min-height: 40px;"
-              onclick="alert('[v1.4.389] Inline onclick works!');"
-              (click)="testPDFButton()">
-        <ion-icon name="document-text-outline"></ion-icon>
-        <span style="margin-left: 5px;">PDF</span>
+              style="min-width: 60px; min-height: 40px; z-index: 9999; position: relative;"
+              (click)="generatePDF()">
+        <ion-icon name="document-text-outline" style="pointer-events: none;"></ion-icon>
+        <span style="margin-left: 5px; pointer-events: none;">PDF</span>
       </button>
     </ion-buttons>
   </ion-toolbar>
@@ -21,22 +20,8 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.390 - Verified Elevation section photo uploads working correctly</div>
+    <div class="version-header">Version 1.4.391 - Fixed Structural Systems images not loading in PDF</div>
 
-    <!-- v1.4.389 Debug button to test if buttons work at all -->
-    <div style="padding: 10px; background: yellow; text-align: center;">
-      <button type="button"
-              style="background: red; color: white; padding: 10px 20px; font-size: 16px; font-weight: bold;"
-              onclick="alert('TEST BUTTON WORKS!');"
-              (click)="showToast('Angular click works!', 'success')">
-        🧪 TEST BUTTON - CLICK ME
-      </button>
-      <button type="button"
-              style="background: green; color: white; padding: 10px 20px; font-size: 16px; font-weight: bold; margin-left: 10px;"
-              (click)="handlePDFClick($event)">
-        📄 DIRECT PDF TEST
-      </button>
-    </div>
     
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
