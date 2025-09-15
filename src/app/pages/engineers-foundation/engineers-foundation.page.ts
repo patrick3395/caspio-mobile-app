@@ -3580,75 +3580,112 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // New handler for PDF button click
   async handlePDFClick(event: Event) {
-    console.log('[v1.4.338] PDF button clicked via handlePDFClick');
-    
-    // Prevent all default behaviors immediately
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    
-    // Call the actual PDF generation directly
-    await this.generatePDF();
+    console.log('[v1.4.388] PDF button clicked via handlePDFClick');
+
+    // Add comprehensive debugging
+    try {
+      // Show immediate visual feedback
+      await this.showToast('PDF button clicked - starting generation...', 'info');
+
+      // Log current state
+      console.log('[v1.4.388] Current state:', {
+        serviceId: this.serviceId,
+        projectId: this.projectId,
+        isPDFGenerating: this.isPDFGenerating,
+        hasLoadingController: !!this.loadingController,
+        hasModalController: !!this.modalController,
+        hasCaspioService: !!this.caspioService,
+        projectData: this.projectData ? Object.keys(this.projectData) : 'null',
+        serviceData: this.serviceData ? Object.keys(this.serviceData) : 'null'
+      });
+
+      // Prevent all default behaviors immediately
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      // Call the actual PDF generation directly
+      await this.generatePDF();
+    } catch (error) {
+      console.error('[v1.4.388] Error in handlePDFClick:', error);
+      await this.showToast(`PDF Click Error: ${error}`, 'danger');
+    }
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.338] generatePDF called');
-    
+    console.log('[v1.4.388] generatePDF called');
+
+    // Add debug alert to confirm method is reached
+    await this.showToast('GeneratePDF method reached', 'success');
+
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      
+
       // Additional prevention for touch events
       if (event instanceof TouchEvent) {
         event.preventDefault();
       }
-      
+
       // Prevent any form submission if button is inside a form
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.338] Preventing form submission');
+        console.log('[v1.4.388] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
-    
+
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.338] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.388] PDF generation already in progress, ignoring click');
+      await this.showToast('PDF generation already in progress', 'warning');
       return;
     }
     
     // Set flag immediately to prevent any double clicks
     this.isPDFGenerating = true;
-    
+    await this.showToast('PDF generation flag set', 'info');
+
     // Disable the PDF button visually - check for both possible button selectors
     const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
     if (pdfButton) {
+      console.log('[v1.4.388] Found PDF button, disabling:', pdfButton.className);
       if (pdfButton instanceof HTMLButtonElement) {
         pdfButton.disabled = true;
       }
       pdfButton.style.pointerEvents = 'none';
       pdfButton.style.opacity = '0.6';
+    } else {
+      console.log('[v1.4.388] PDF button not found in DOM');
     }
-    
+
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`[v1.4.338] PDF generation attempt #${this.pdfGenerationAttempts}`);
+    console.log(`[v1.4.388] PDF generation attempt #${this.pdfGenerationAttempts}`);
+    await this.showToast(`PDF generation attempt #${this.pdfGenerationAttempts}`, 'info');
     
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
       if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.338] Missing service/project ID, attempting recovery');
+        console.error('[v1.4.388] Missing service/project ID, attempting recovery');
+        await this.showToast('Missing IDs, attempting recovery...', 'warning');
+
         // Try to recover IDs from route if possible
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
+
+        console.log('[v1.4.388] Route params:', { routeServiceId, routeProjectId });
+
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
-          console.log('[v1.4.338] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+          console.log('[v1.4.388] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
+          await this.showToast('IDs recovered from route', 'success');
         } else {
+          await this.showToast('ERROR: No service/project IDs available!', 'danger');
           this.isPDFGenerating = false;
           if (pdfButton) {
             if (pdfButton instanceof HTMLButtonElement) {
@@ -3659,6 +3696,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           return;
         }
+      } else {
+        console.log('[v1.4.388] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
+        await this.showToast(`IDs OK: Service ${this.serviceId}, Project ${this.projectId}`, 'success');
       }
       
       // Validate all required Project Information fields before generating PDF
@@ -3692,12 +3732,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Create a single loading indicator that stays until PDF is ready
-    const loading = await this.loadingController.create({
-      message: 'Loading PDF...',
-      spinner: 'crescent',
-      backdropDismiss: false
-    });
-    await loading.present();
+    console.log('[v1.4.388] Creating loading indicator...');
+    await this.showToast('Creating loading indicator...', 'info');
+
+    let loading;
+    try {
+      loading = await this.loadingController.create({
+        message: 'Loading PDF...',
+        spinner: 'crescent',
+        backdropDismiss: false
+      });
+      console.log('[v1.4.388] Loading indicator created successfully');
+      await loading.present();
+      console.log('[v1.4.388] Loading indicator presented');
+      await this.showToast('Loading indicator shown', 'success');
+    } catch (loadingError) {
+      console.error('[v1.4.388] Error creating/presenting loading:', loadingError);
+      await this.showToast(`Loading error: ${loadingError}`, 'danger');
+      // Continue without loading indicator
+    }
 
     try {
       // Check if we have cached PDF data (valid for 5 minutes)
@@ -3785,19 +3838,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Create the modal with animation disabled for first attempt to prevent conflicts
-      const modal = await this.modalController.create({
-        component: PdfPreviewComponent,
-        componentProps: {
-          projectData: projectInfo,
-          structuralData: structuralSystemsData,
-          elevationData: elevationPlotData,
-          serviceData: this.serviceData
-        },
-        cssClass: 'fullscreen-modal',
-        animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt
-        mode: 'ios', // Force iOS mode for consistency
-        backdropDismiss: false // Prevent accidental dismissal
-      });
+      console.log('[v1.4.388] Creating PDF modal...');
+      await this.showToast('Creating PDF modal...', 'info');
+
+      // Check if PdfPreviewComponent is available
+      if (!PdfPreviewComponent) {
+        console.error('[v1.4.388] PdfPreviewComponent is not available!');
+        await this.showToast('ERROR: PdfPreviewComponent not found!', 'danger');
+        throw new Error('PdfPreviewComponent not available');
+      }
+
+      let modal;
+      try {
+        console.log('[v1.4.388] Component info:', {
+          componentName: PdfPreviewComponent.name,
+          componentType: typeof PdfPreviewComponent,
+          hasModalController: !!this.modalController
+        });
+
+        modal = await this.modalController.create({
+          component: PdfPreviewComponent,
+          componentProps: {
+            projectData: projectInfo,
+            structuralData: structuralSystemsData,
+            elevationData: elevationPlotData,
+            serviceData: this.serviceData
+          },
+          cssClass: 'fullscreen-modal',
+          animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt
+          mode: 'ios', // Force iOS mode for consistency
+          backdropDismiss: false // Prevent accidental dismissal
+        });
+        console.log('[v1.4.388] Modal created successfully');
+        await this.showToast('Modal created successfully', 'success');
+      } catch (modalCreateError) {
+        console.error('[v1.4.388] Error creating modal:', modalCreateError);
+        const errorMsg = modalCreateError instanceof Error ? modalCreateError.message : String(modalCreateError);
+        await this.showToast(`Modal creation error: ${errorMsg}`, 'danger');
+        throw modalCreateError;
+      }
       
       // Wait a moment before presenting to ensure DOM is ready
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -3848,11 +3927,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[v1.4.338] PDF generation completed successfully on attempt #' + this.pdfGenerationAttempts);
       
     } catch (error) {
-      console.error('[v1.4.338] Error preparing preview:', error);
-      
+      console.error('[v1.4.388] Error preparing preview:', error);
+
+      // Show detailed error with stack trace in alert
+      const errorDetails = error instanceof Error ?
+        `Message: ${error.message}\n\nStack: ${error.stack}` :
+        `Error: ${JSON.stringify(error)}`;
+
+      const alert = await this.alertController.create({
+        header: 'PDF Generation Error',
+        message: `
+          <div style="font-family: monospace; font-size: 12px;">
+            <p style="color: red; font-weight: bold;">Failed to generate PDF</p>
+            <textarea
+              style="width: 100%; height: 200px; font-size: 10px; margin-top: 10px;"
+              readonly>${errorDetails}</textarea>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await alert.present();
+
       // Reset the generation flag on error
       this.isPDFGenerating = false;
-      
+
       // Re-enable the PDF button - check for both possible button selectors
       const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
       if (pdfButton) {
@@ -3862,13 +3960,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         pdfButton.style.pointerEvents = 'auto';
         pdfButton.style.opacity = '1';
       }
-      
+
       try {
-        await loading.dismiss();
+        if (loading) await loading.dismiss();
       } catch (e) {
-        console.log('[v1.4.338] Loading already dismissed');
+        console.log('[v1.4.388] Loading already dismissed');
       }
-      
+
       // Show more detailed error message
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.showToast(`Failed to prepare preview: ${errorMessage}`, 'danger');
@@ -5816,68 +5914,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw uploadError; // Re-throw to handle in outer catch
       }
       
-      // Update the temporary photo with real data
-      const actualVisualId = String(this.visualRecordIds[key]);
-      
-      // [v1.4.386] Update photo in BOTH key-based and visualId-based storage
-      if (actualVisualId && actualVisualId !== 'undefined') {
-        // Update in key-based storage
-        if (this.visualPhotos[key]) {
-          const keyPhotos = this.visualPhotos[key];
-          const keyPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-          if (keyPhotoIndex !== -1) {
-            // Will update below
+      // [v1.4.388 FIX] Update photo directly in key-based storage where it was added
+      // The temp photo is stored in visualPhotos[key], not visualPhotos[actualVisualId]
+      const keyPhotos = this.visualPhotos[key] || [];
+      const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+
+      if (tempPhotoIndex !== -1) {
+        // Load the actual image from API instead of keeping blob URL
+        const filePath = response?.Photo || '';
+        let imageUrl = keyPhotos[tempPhotoIndex].url; // Default to blob URL
+
+        if (filePath) {
+          try {
+            console.log(`[v1.4.388] Loading uploaded image from API: ${filePath}`);
+            const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+            if (imageData && imageData.startsWith('data:')) {
+              imageUrl = imageData; // Use base64 data URL
+              console.log(`[v1.4.388] Successfully loaded uploaded image, length: ${imageData.length}`);
+            }
+          } catch (err) {
+            console.error(`[v1.4.388] Failed to load uploaded image, keeping blob URL:`, err);
           }
         }
-        
-        // Update in visualId-based storage (for backward compatibility)
-        const photos = this.visualPhotos[actualVisualId] || [];
-        const tempPhotoIndex = photos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-        
-        if (tempPhotoIndex !== -1) {
-          // [v1.4.377 FIX] Load the actual image from API instead of keeping blob URL
-          const filePath = response?.Photo || '';
-          let imageUrl = photos[tempPhotoIndex].url; // Default to blob URL
-          
-          if (filePath) {
-            try {
-              console.log(`[v1.4.378] Loading uploaded image from API: ${filePath}`);
-              const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-              if (imageData && imageData.startsWith('data:')) {
-                imageUrl = imageData; // Use base64 data URL
-                console.log(`[v1.4.378] Successfully loaded uploaded image, length: ${imageData.length}`);
-              }
-            } catch (err) {
-              console.error(`[v1.4.378] Failed to load uploaded image, keeping blob URL:`, err);
-            }
+
+        // Update the temp photo with real data
+        keyPhotos[tempPhotoIndex] = {
+          ...keyPhotos[tempPhotoIndex],
+          AttachID: response?.AttachID || response?.PK_ID || response?.id,
+          id: response?.AttachID || response?.PK_ID || response?.id,
+          Photo: filePath,
+          filePath: filePath,
+          url: imageUrl,
+          thumbnailUrl: imageUrl,
+          displayUrl: keyPhotos[tempPhotoIndex].hasAnnotations ? undefined : imageUrl,
+          originalUrl: imageUrl,
+          uploading: false // Remove uploading flag
+        };
+
+        console.log(`[v1.4.388] Updated photo in KEY storage: ${key}`);
+        console.log(`  AttachID: ${keyPhotos[tempPhotoIndex].AttachID}`);
+        console.log(`  Photo path: ${keyPhotos[tempPhotoIndex].Photo}`);
+        console.log(`  Uploading flag removed: ${!keyPhotos[tempPhotoIndex].uploading}`);
+
+        // Also update in visualId-based storage for backward compatibility
+        const actualVisualId = String(this.visualRecordIds[key]);
+        if (actualVisualId && actualVisualId !== 'undefined') {
+          if (!this.visualPhotos[actualVisualId]) {
+            this.visualPhotos[actualVisualId] = [];
           }
-          
-          // Update the temp photo with real data
-          const updatedPhotoData = {
-            ...photos[tempPhotoIndex],
-            AttachID: response?.AttachID || response?.PK_ID || response?.id,
-            id: response?.AttachID || response?.PK_ID || response?.id,
-            Photo: filePath,
-            filePath: filePath,
-            url: imageUrl,
-            thumbnailUrl: imageUrl,
-            displayUrl: photos[tempPhotoIndex].hasAnnotations ? undefined : imageUrl,
-            originalUrl: imageUrl,
-            uploading: false // Remove uploading flag
-          };
-          
-          // [v1.4.387] Update ONLY in key-based storage
-          if (this.visualPhotos[key]) {
-            const keyPhotos = this.visualPhotos[key];
-            const keyPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-            if (keyPhotoIndex !== -1) {
-              keyPhotos[keyPhotoIndex] = updatedPhotoData;
-              console.log(`[v1.4.387] Updated photo in KEY storage: ${key}`);
-              console.log(`  AttachID: ${updatedPhotoData.AttachID}`);
-              console.log(`  Photo path: ${updatedPhotoData.Photo}`);
-            }
+          // Add or update the photo in visualId storage
+          const visualIdPhotos = this.visualPhotos[actualVisualId];
+          const visualIdPhotoIndex = visualIdPhotos.findIndex((p: any) => p.name === photo.name);
+          if (visualIdPhotoIndex !== -1) {
+            visualIdPhotos[visualIdPhotoIndex] = keyPhotos[tempPhotoIndex];
+          } else {
+            visualIdPhotos.push(keyPhotos[tempPhotoIndex]);
           }
+          console.log(`[v1.4.388] Also updated in visualId storage: ${actualVisualId}`);
         }
+      } else {
+        console.error(`[v1.4.388] ERROR: Could not find temp photo to update in key storage: ${key}`);
+        console.error(`  Looking for photo: ${photo.name}`);
+        console.error(`  Photos in key storage: ${keyPhotos.length}`);
+        keyPhotos.forEach((p: any, i: number) => {
+          console.error(`    Photo ${i}: ${p.name}, uploading: ${p.uploading}`);
+        });
       }
       
       // No need to restore states - the UI should remain unchanged
@@ -5885,7 +5986,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('❌ Failed to upload photo:', error);
       
-      // Remove the failed temp photo from display
+      // [v1.4.388 FIX] Remove the failed temp photo from key-based storage where it was added
+      const keyPhotos = this.visualPhotos[key];
+      if (keyPhotos) {
+        const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+        if (tempPhotoIndex !== -1) {
+          keyPhotos.splice(tempPhotoIndex, 1);
+          console.log(`[v1.4.388] Removed failed photo from key storage: ${key}`);
+        }
+      }
+
+      // Also remove from visualId storage if it exists there
       const actualVisualId = String(this.visualRecordIds[key]);
       if (actualVisualId && this.visualPhotos[actualVisualId]) {
         const photos = this.visualPhotos[actualVisualId];
