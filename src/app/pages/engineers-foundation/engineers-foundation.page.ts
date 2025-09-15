@@ -4578,17 +4578,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             });
             await successAlert.present();
           } catch (updateError: any) {
-            const errorAlert = await this.alertController.create({
-              header: 'UPDATE FAILED',
-              message: `
-                <div style="font-family: monospace; font-size: 12px;">
-                  <strong style="color: red;">❌ UPDATE ERROR</strong><br><br>
-                  ${updateError?.message || updateError}<br>
-                </div>
-              `,
-              buttons: ['OK']
-            });
-            await errorAlert.present();
+            console.error('❌ Failed to update photo attachment:', updateError);
             throw updateError;
           }
         } else {
@@ -6835,114 +6825,6 @@ Original File: ${originalFile?.name || 'None'}`;
       // Success toast removed - silent update
     } catch (error: any) {
       console.error('❌ Failed to update photo attachment:', error);
-      
-      // Show detailed error debug popup
-      const errorAlert = await this.alertController.create({
-        header: '❌ Update Failed - Error Details',
-        message: `
-          <div style="font-family: monospace; font-size: 11px; text-align: left;">
-            <strong style="color: red;">UPDATE FAILED - DETAILED ERROR</strong><br><br>
-            
-            <strong>Error Message:</strong><br>
-            <span style="color: red;">${error?.message || 'Unknown error'}</span><br><br>
-            
-            <strong>Error Type:</strong> ${error?.name || typeof error}<br>
-            <strong>Error Code:</strong> ${error?.code || 'N/A'}<br>
-            <strong>Status:</strong> ${error?.status || 'N/A'}<br><br>
-            
-            <strong>Request Details:</strong><br>
-            • AttachID Used: ${attachId}<br>
-            • AttachID Type: ${typeof attachId}<br>
-            • Has Annotations: ${!!annotations}<br>
-            • File Name: ${file?.name || 'N/A'}<br>
-            • File Size: ${file?.size || 'N/A'} bytes<br><br>
-            
-            <strong>Response Info:</strong><br>
-            • Status Text: ${error?.statusText || 'N/A'}<br>
-            • Response Body: ${JSON.stringify(error?.error || error?.response || {}, null, 2).substring(0, 300)}...<br><br>
-            
-            <strong>Stack Trace:</strong><br>
-            <pre style="font-size: 10px; overflow-x: auto;">${error?.stack?.substring(0, 500) || 'No stack trace'}</pre><br>
-            
-            <strong style="color: orange;">Common Causes:</strong><br>
-            • Invalid AttachID (record doesn't exist)<br>
-            • API token expired<br>
-            • Network connectivity issue<br>
-            • Caspio API error<br>
-            • Missing permissions<br><br>
-            
-            <strong>Full Error Object:</strong><br>
-            <pre style="font-size: 9px; overflow-x: auto; max-height: 150px;">${JSON.stringify(error, null, 2).substring(0, 1000)}</pre>
-          </div>
-        `,
-        buttons: [
-          {
-            text: 'Copy Error Details',
-            handler: async () => {
-              const errorText = `Update Failed Error:
-Message: ${error?.message}
-AttachID: ${attachId}
-Type: ${typeof attachId}
-Status: ${error?.status}
-Response: ${JSON.stringify(error?.error || error?.response || {})}
-Stack: ${error?.stack}`;
-              
-              // v1.4.343: Enhanced clipboard handling for mobile
-              try {
-                // Method 1: Try Clipboard API first
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                  await navigator.clipboard.writeText(errorText);
-                  // Toast removed - silent copy
-                } else {
-                  throw new Error('Clipboard API not available');
-                }
-              } catch (e) {
-                // Method 2: Fallback using textarea
-                const textarea = document.createElement('textarea');
-                textarea.value = errorText;
-                textarea.style.position = 'fixed';
-                textarea.style.left = '0';
-                textarea.style.top = '0';
-                textarea.style.opacity = '0';
-                textarea.style.zIndex = '9999';
-                document.body.appendChild(textarea);
-                
-                // iOS specific handling
-                const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                if (isiOS) {
-                  const range = document.createRange();
-                  range.selectNodeContents(textarea);
-                  const selection = window.getSelection();
-                  selection?.removeAllRanges();
-                  selection?.addRange(range);
-                  textarea.setSelectionRange(0, 999999);
-                } else {
-                  textarea.select();
-                }
-                
-                try {
-                  const successful = document.execCommand('copy');
-                  if (successful) {
-                    // Toast removed - silent copy
-                  } else {
-                    // Method 3: Show data in a selectable text field
-                    await this.showCopyableDebugData(errorText);
-                  }
-                } catch (e2) {
-                  // Method 3: Show data in a selectable text field
-                  await this.showCopyableDebugData(errorText);
-                } finally {
-                  document.body.removeChild(textarea);
-                }
-              }
-              return false;
-            }
-          },
-          { text: 'OK', role: 'cancel' }
-        ]
-      });
-      await errorAlert.present();
-      
       throw error;
     }
   }
