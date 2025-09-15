@@ -3735,7 +3735,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[v1.4.388] Creating loading indicator...');
     await this.showToast('Creating loading indicator...', 'info');
 
-    let loading;
+    let loading: any = null;
     try {
       loading = await this.loadingController.create({
         message: 'Loading PDF...',
@@ -3890,7 +3890,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Add a small delay to ensure smooth transition
         setTimeout(async () => {
           try {
-            await loading.dismiss();
+            if (loading) await loading.dismiss();
             console.log('[v1.4.338] Loading dismissed after modal presentation');
           } catch (dismissError) {
             console.log('[v1.4.338] Loading already dismissed');
@@ -3901,7 +3901,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.error('[v1.4.338] Error presenting modal:', modalError);
         // Try to dismiss loading on error
         try {
-          await loading.dismiss();
+          if (loading) await loading.dismiss();
         } catch (dismissError) {
           console.log('[v1.4.338] Loading already dismissed');
         }
