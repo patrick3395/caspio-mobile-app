@@ -4039,6 +4039,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await this.showToast(`Failed to generate PDF: ${errorMessage}`, 'danger');
+    }
   }
 
   // Utility functions
@@ -8686,4 +8687,5 @@ Original File: ${originalFile?.name || 'None'}`;
       }
     }
   }
+}
 }
