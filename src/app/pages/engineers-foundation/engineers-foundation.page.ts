@@ -2460,8 +2460,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } finally {
         this.savingRooms[roomName] = false;
       }
-      
-      // Success toast removed per user request
     } catch (error) {
       console.error('Error adding room template:', error);
       await this.showToast('Failed to add room', 'danger');
@@ -3578,7 +3576,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Show multiple alerts to ensure something happens
       alert('[v1.4.389] Test PDF button method called!');
-      await this.showToast('PDF Test Button Clicked!', 'success');
 
       // Show debug info
       const debugInfo = `
@@ -3616,7 +3613,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Show immediate feedback
         try {
-          await this.showToast('PDF button clicked (direct listener)', 'success');
           await this.generatePDF();
         } catch (error) {
           console.error('[v1.4.389] Error in direct listener:', error);
@@ -3660,9 +3656,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Add comprehensive debugging
     try {
-      // Show immediate visual feedback
-      await this.showToast('PDF button clicked - starting generation...', 'info');
-
       // Log current state
       console.log('[v1.4.388] Current state:', {
         serviceId: this.serviceId,
@@ -3735,7 +3728,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
     console.log(`[v1.4.388] PDF generation attempt #${this.pdfGenerationAttempts}`);
-    await this.showToast(`PDF generation attempt #${this.pdfGenerationAttempts}`, 'info');
     
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
@@ -5421,60 +5413,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       };
       
-      // Show popup with data to be sent (skip for batch uploads)
-      if (!isBatchUpload) {
-        const alert = await this.alertController.create({
-          header: 'Services_Visuals_Attach Upload Debug',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">🔍 DEBUG INFO:</strong><br>
-            • Key: ${dataToSend.debug.key}<br>
-            • Raw VisualID param: ${dataToSend.debug.rawVisualId}<br>
-            • Stored for this key: ${dataToSend.debug.storedForKey}<br>
-            • Using VisualID: <strong style="color: blue;">${dataToSend.debug.actualVisualId}</strong><br>
-            • Parsed Number: <strong style="color: blue;">${dataToSend.debug.parsedNumber}</strong><br><br>
-            
-            <strong>All Stored Visual IDs:</strong><br>
-            <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px;">
-              ${dataToSend.debug.allStoredIds || 'None'}
-            </div><br>
-            
-            <strong>Table:</strong> ${dataToSend.table}<br><br>
-            
-            <strong>Fields to Send:</strong><br>
-            • VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
-            • Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
-            • Photo: Will store file path after upload<br><br>
-            
-            <strong>File Info:</strong><br>
-            • Name: ${dataToSend.fileInfo.name}<br>
-            • Size: ${dataToSend.fileInfo.size}<br>
-            • Type: ${dataToSend.fileInfo.type}<br><br>
-            
-            <strong>Upload Process:</strong><br>
-            ${dataToSend.process.map(step => `• ${step}`).join('<br>')}
-          </div>
-        `,
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Upload',
-            handler: async () => {
-              // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, annotationData, originalPhoto);
-            }
-          }
-        ]
-      });
-      
-        await alert.present();
-      } else {
-        // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, annotationData, originalPhoto);
-      }
+      // Proceed without debug popup
+      await this.performVisualPhotoUpload(visualIdNum, photo, key, isBatchUpload, annotationData, originalPhoto);
       
     } catch (error) {
       console.error('❌ Failed to prepare upload:', error);
@@ -5484,40 +5424,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
     try {
-      // Show debug popup for what we're sending (only for single uploads)
-      if (!isBatchUpload) {
-        const debugData = {
-          visualId: visualIdNum,
-          fileName: photo.name,
-          fileSize: `${(photo.size / 1024).toFixed(2)} KB`,
-          fileType: photo.type,
-          hasAnnotations: !!annotationData,
-          hasOriginalPhoto: !!originalPhoto,
-          originalFileName: originalPhoto?.name || 'None',
-          endpoint: 'Services_Visuals_Attach',
-          method: 'Files API (2-step upload)'
-        };
-        
-        const debugAlert = await this.alertController.create({
-          header: '📤 Structural Systems Upload',
-          message: `
-            <strong>Sending:</strong><br>
-            VisualID: ${debugData.visualId}<br>
-            File: ${debugData.fileName}<br>
-            Size: ${debugData.fileSize}<br>
-            Type: ${debugData.fileType}<br>
-            Annotations: ${debugData.hasAnnotations ? 'Yes' : 'No'}<br>
-            Original: ${debugData.originalFileName}<br><br>
-            <strong>Endpoint:</strong> ${debugData.endpoint}<br>
-            <strong>Method:</strong> ${debugData.method}
-          `,
-          buttons: ['OK']
-        });
-        
-        await debugAlert.present();
-        const { role } = await debugAlert.onDidDismiss();
-      }
-      
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
@@ -6080,7 +5986,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error in createCustomVisual:', error);
     }
   }
-  
   // Helper method to compress large JSON data - v1.4.348 BALANCED compression
   private compressAnnotationData(data: string): string {
     console.log('🗜️ [v1.4.348] Compressing annotation data');
