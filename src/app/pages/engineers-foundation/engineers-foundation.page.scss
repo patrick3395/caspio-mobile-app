@@ -11,15 +11,28 @@ ion-toolbar {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  cursor: pointer;
+  cursor: pointer !important;
   font-size: 14px;
-  
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+
   ion-icon {
     font-size: 20px;
+    pointer-events: none !important; // Ensure icon doesn't block clicks
   }
-  
+
+  span {
+    pointer-events: none !important; // Ensure text doesn't block clicks
+  }
+
+  &:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
   &:active {
     opacity: 0.8;
+    background: rgba(255,255,255,0.3);
   }
 }
 

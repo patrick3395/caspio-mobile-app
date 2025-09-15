@@ -172,12 +172,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
-    
-    console.log('Engineers Foundation Evaluation initialized:', {
+
+    console.log('[v1.4.389] Engineers Foundation Evaluation initialized:', {
       projectId: this.projectId,
       serviceId: this.serviceId
     });
-    
+
+    // v1.4.389 - Debug: Ensure PDF button is clickable
+    setTimeout(() => {
+      this.ensurePDFButtonWorks();
+    }, 1000);
+
     // Debug logging removed - v1.4.316
     
     // Load all data in parallel for faster initialization
@@ -3576,6 +3581,88 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   preventTouch(event: TouchEvent) {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  // v1.4.389 - Simple test method for PDF button
+  async testPDFButton() {
+    console.log('[v1.4.389] testPDFButton called!');
+    try {
+      // Show multiple alerts to ensure something happens
+      alert('[v1.4.389] Test PDF button method called!');
+      await this.showToast('PDF Test Button Clicked!', 'success');
+
+      // Show debug info
+      const debugInfo = `
+        Service ID: ${this.serviceId || 'MISSING'}
+        Project ID: ${this.projectId || 'MISSING'}
+        Has Loading Controller: ${!!this.loadingController}
+        Has Modal Controller: ${!!this.modalController}
+      `;
+      alert(debugInfo);
+
+      // Try to call generatePDF
+      await this.generatePDF();
+    } catch (error) {
+      console.error('[v1.4.389] Error in testPDFButton:', error);
+      alert(`Error: ${error}`);
+    }
+  }
+
+  // v1.4.389 - Ensure PDF button is properly wired up
+  ensurePDFButtonWorks() {
+    console.log('[v1.4.389] Ensuring PDF button works...');
+    const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
+    if (pdfButton) {
+      console.log('[v1.4.389] Found PDF button, adding direct listener');
+
+      // Remove any existing listeners first
+      const newButton = pdfButton.cloneNode(true) as HTMLButtonElement;
+      pdfButton.parentNode?.replaceChild(newButton, pdfButton);
+
+      // Add direct event listener
+      newButton.addEventListener('click', async (e) => {
+        console.log('[v1.4.389] PDF button clicked via direct listener');
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Show immediate feedback
+        try {
+          await this.showToast('PDF button clicked (direct listener)', 'success');
+          await this.generatePDF();
+        } catch (error) {
+          console.error('[v1.4.389] Error in direct listener:', error);
+          await this.showToast(`Error: ${error}`, 'danger');
+        }
+      });
+
+      // Also add touch listener for mobile
+      newButton.addEventListener('touchend', async (e) => {
+        console.log('[v1.4.389] PDF button touched');
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      console.log('[v1.4.389] Direct listeners added to PDF button');
+    } else {
+      console.error('[v1.4.389] PDF button not found in DOM!');
+
+      // Try to find it by other means
+      const allButtons = document.querySelectorAll('button');
+      console.log('[v1.4.389] Found', allButtons.length, 'buttons total');
+      allButtons.forEach((btn, index) => {
+        if (btn.textContent?.includes('PDF')) {
+          console.log(`[v1.4.389] Found PDF button at index ${index}:`, btn.className);
+        }
+      });
+    }
+  }
+
+  // Add ionViewDidEnter hook to ensure button is ready
+  ionViewDidEnter() {
+    console.log('[v1.4.389] View entered, ensuring PDF button works');
+    setTimeout(() => {
+      this.ensurePDFButtonWorks();
+    }, 500);
   }
 
   // New handler for PDF button click
