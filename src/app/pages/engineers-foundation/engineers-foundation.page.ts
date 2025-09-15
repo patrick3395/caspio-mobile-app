@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
-import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
+import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
 import { CacheService } from '../../services/cache.service';
@@ -154,6 +154,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private navController: NavController,
     private caspioService: CaspioService,
     private toastController: ToastController,
     private loadingController: LoadingController,
@@ -207,7 +208,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   ngAfterViewInit() {
     // ViewChild ready
   }
-  
+
+  // Custom back navigation method - v1.4.392
+  goBack() {
+    // Try to navigate back using NavController
+    this.navController.back();
+    // Note: NavController.back() will automatically fallback to defaultHref
+    // or navigate to root if no history exists
+  }
+
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
@@ -782,7 +791,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Continue without dropdown options - they're optional
     }
   }
-  
   // Load project dropdown options from Projects_Drop table
   async loadProjectDropdownOptions() {
     try {
@@ -1492,7 +1500,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
-  
   // Handle file selection for room points with annotation support (matching Structural Systems)
   private async handleRoomPointFileSelect(files: FileList) {
     try {
@@ -2292,7 +2299,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to show room selection', 'danger');
     }
   }
-  
   // Add a room template to the list
   async addRoomTemplate(template: any) {
     try {
@@ -2807,7 +2813,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error loading existing visual selections:', error);
     }
   }
-  
+
   toggleSection(section: string) {
     this.expandedSections[section] = !this.expandedSections[section];
   }
@@ -3070,8 +3076,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return 0;
     }
   }
-  
-  
   // Room elevation helper methods
   private saveDebounceTimer: any;
   
@@ -3437,40 +3441,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await modal.present();
       const { data } = await modal.onDidDismiss();
       
-      if (data && data.annotatedBlob) {
-        // Update the photo with new annotations
-        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
+      if (data && (data.annotationData || data.annotationsData)) {
         const annotationsData = data.annotationData || data.annotationsData;
-        
-        // Get original file if provided
         let originalFile = null;
         if (data.originalBlob) {
           originalFile = data.originalBlob instanceof File 
             ? data.originalBlob 
             : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
         }
-        
-        // Update the attachment with new annotations
-        await this.updateRoomPointPhotoAttachment(attachId, annotatedFile, annotationsData, originalFile);
-        
+        // Save Drawings only (no photo overwrite)
+        await this.updateRoomPointPhotoAttachment(attachId, undefined as any, annotationsData, originalFile);
         // Update local photo data
         if (point && point.photos) {
-          const photoIndex = point.photos.findIndex((p: any) => 
-            (p.attachId || p.AttachID || p.id) === attachId
-          );
-          
+          const photoIndex = point.photos.findIndex((p: any) => (p.attachId || p.AttachID || p.id) === attachId);
           if (photoIndex !== -1) {
-            // Store original URL if not already stored
             if (!point.photos[photoIndex].originalUrl) {
               point.photos[photoIndex].originalUrl = point.photos[photoIndex].url;
             }
-            
-            // Update display URL with annotated version
-            const newUrl = URL.createObjectURL(data.annotatedBlob);
-            point.photos[photoIndex].displayUrl = newUrl;
             point.photos[photoIndex].hasAnnotations = true;
-            
-            // Store annotations data
             if (annotationsData) {
               point.photos[photoIndex].annotations = annotationsData;
               point.photos[photoIndex].rawDrawingsString = typeof annotationsData === 'object' 
@@ -3479,8 +3467,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
           }
         }
-        
-        // Trigger change detection
         this.changeDetectorRef.detectChanges();
       }
       
@@ -3701,7 +3687,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast(`PDF Click Error: ${error}`, 'danger');
     }
   }
-
   async generatePDF(event?: Event) {
     console.log('[v1.4.390] generatePDF called');
 
@@ -4500,7 +4485,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isItemSelected(category: string, itemId: string): boolean {
     return this.selectedItems[`${category}_${itemId}`] || false;
   }
-
   // Helper methods for PDF generation - check selection by visual ID
   isCommentSelected(category: string, visualId: string): boolean {
     const key = `${category}_${visualId}`;
@@ -4733,376 +4717,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
-  // Check if an option is selected for a multi-select item
-  isOptionSelectedV1_DUPLICATE(item: any, option: string): boolean {
-    if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
-      return false;
-    }
-    return item.selectedOptions.includes(option);
-  }
-  */
-  
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
-  // Handle toggling an option in multi-select
-  async onOptionToggle_DUPLICATE(category: string, item: any, option: string, event: any) {
-    // Initialize selectedOptions if not present
-    if (!item.selectedOptions) {
-      item.selectedOptions = [];
-    }
-    
-    if (event.detail.checked) {
-      // Add option if not already present
-      if (!item.selectedOptions.includes(option)) {
-        item.selectedOptions.push(option);
-      }
-    } else {
-      // Remove option
-      const index = item.selectedOptions.indexOf(option);
-      if (index > -1) {
-        item.selectedOptions.splice(index, 1);
-      }
-    }
-    
-    // Update the text field and save
-    await this.onMultiSelectChange(category, item);
-  }
-  */
-  
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393  
-  // Save visual selection to Services_Visuals table
-  async saveVisualSelection_DUPLICATE(category: string, templateId: string) {
-    console.log('=====================================');
-    console.log('🔍 SAVING VISUAL TO SERVICES_VISUALS');
-    console.log('=====================================');
-    
-    if (!this.serviceId) {
-      console.error('❌ No ServiceID available for saving visual');
-      return;
-    }
-    
-    console.log('📋 Input Parameters:');
-    console.log('   Category:', category);
-    console.log('   TemplateID:', templateId);
-    console.log('   ServiceID:', this.serviceId);
-    
-    // Find the template data first
-    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
-    if (!template) {
-      console.error('❌ Template not found:', templateId);
-      return;
-    }
-    
-    // Check if this visual already exists
-    const key = `${category}_${templateId}`;
-    if (this.visualRecordIds[key]) {
-      console.log('⚠️ Visual already exists with ID:', this.visualRecordIds[key]);
-      console.log('   Skipping duplicate save');
-      return;
-    }
-    
-    // Also check if it exists in the database but wasn't loaded yet
-    try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      if (existingVisuals) {
-        const exists = existingVisuals.find((v: any) => 
-          v.Category === category && 
-          v.Name === template.Name
-        );
-        if (exists) {
-          console.log('⚠️ Visual already exists in database:', exists);
-          // Store the ID for future reference - ALWAYS as string
-          const existingId = exists.VisualID || exists.PK_ID || exists.id;
-          this.visualRecordIds[key] = String(existingId);
-          console.log('   Stored existing ID:', this.visualRecordIds[key], 'Type:', typeof this.visualRecordIds[key]);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for existing visual:', error);
-    }
-    
-    console.log('📄 Template Found:', template);
-    
-    // Convert ServiceID to number (Caspio expects Integer type)
-    const serviceIdNum = parseInt(this.serviceId, 10);
-    if (isNaN(serviceIdNum)) {
-      console.error('❌ Invalid ServiceID - not a number:', this.serviceId);
-      await this.showToast('Invalid Service ID', 'danger');
-      return;
-    }
-    
-    // Get the item data to access answerType and answers
-    let answers = '';
-    let textValue = template.Text || '';
-    
-    // Find the item in organizedData to get current values
-    const findItem = (items: any[]) => items.find(i => i.id === templateId);
-    let item = null;
-    
-    if (this.organizedData[category]) {
-      item = findItem(this.organizedData[category].comments) ||
-             findItem(this.organizedData[category].limitations) ||
-             findItem(this.organizedData[category].deficiencies);
-    }
-    
-    if (item) {
-      // Check if we have answerToSave (set by onAnswerChange or onMultiSelectChange)
-      if (item.answerToSave) {
-        answers = item.answerToSave;
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-        console.log('📝 Using answerToSave:', answers);
-      }
-      // For AnswerType 1 (Yes/No), store the answer in Answers field
-      else if (item.answerType === 1 && item.answer) {
-        answers = item.answer; // Will be 'Yes' or 'No'
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-      }
-      // For AnswerType 2 (multi-select), store comma-delimited answers
-      else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
-        answers = item.selectedOptions.join(', ');
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-      }
-      // For AnswerType 0 or undefined (text), use the text field as is
-      else {
-        textValue = item.text || template.Text || '';
-      }
-    }
-    
-    // ONLY include the columns that exist in Services_Visuals table
-    const visualData: ServicesVisualRecord = {
-      ServiceID: serviceIdNum,  // Integer type in Caspio
-      Category: category || '',   // Text(255) in Caspio
-      Kind: template.Kind || '',  // Text(255) in Caspio - was Type, now Kind
-      Name: template.Name || '',  // Text(255) in Caspio
-      Text: textValue,   // Text field in Caspio - the full text content
-      Notes: ''                    // Text(255) in Caspio - empty for now
-    };
-    
-    // Add Answers field if there are answers to store
-    if (answers) {
-      visualData.Answers = answers;
-    }
-    
-    
-    try {
-      console.log('⏳ Calling caspioService.createServicesVisual...');
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-      console.log('✅ Visual saved to Services_Visuals:', response);
-      console.log('✅ Response details:', JSON.stringify(response, null, 2));
-      
-      // Skip debug popup for faster performance
-      // await this.showVisualCreationDebug(category, templateId, response);
-      
-      // Check if response exists (even if empty, it might mean success)
-      // Caspio sometimes returns empty response on successful POST
-      if (response === undefined || response === null || response === '') {
-        console.log('⚠️ Empty response received - treating as success (common with Caspio)');
-        // Generate a temporary ID for tracking
-        const tempId = `temp_${Date.now()}`;
-        const recordKey = `visual_${category}_${templateId}`;
-        localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
-        
-        // Query the table to get the actual VisualID
-        setTimeout(async () => {
-          await this.refreshVisualId(category, templateId);
-        }, 1000);
-        
-        console.log('✅ Visual appears to be saved (will verify)');
-        return; // Exit successfully
-      }
-      
-      // Store the record ID for potential deletion later
-      // Response should have the created record
-      let visualId: any;
-      
-      // If response is an array, get the first item
-      // IMPORTANT: Use VisualID, not PK_ID for Services_Visuals table
-      if (Array.isArray(response) && response.length > 0) {
-        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
-        console.log('📋 Response was array, extracted ID from first item:', visualId);
-        console.log('   - VisualID:', response[0].VisualID, '(preferred)');
-        console.log('   - PK_ID:', response[0].PK_ID, '(not used if VisualID exists)');
-      } else if (response && typeof response === 'object') {
-        // If response has Result array (Caspio pattern)
-        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
-          console.log('📋 Response had Result array, extracted ID:', visualId);
-          console.log('   - VisualID:', response.Result[0].VisualID, '(preferred)');
-          console.log('   - PK_ID:', response.Result[0].PK_ID, '(not used if VisualID exists)');
-        } else {
-          // Direct object response
-          visualId = response.VisualID || response.PK_ID || response.id;
-          console.log('📋 Response was object, extracted ID:', visualId);
-          console.log('   - VisualID:', response.VisualID, '(preferred)');
-          console.log('   - PK_ID:', response.PK_ID, '(not used if VisualID exists)');
-        }
-      } else {
-        // Response might be the ID itself
-        visualId = response;
-        console.log('📋 Response was ID directly:', visualId);
-      }
-      
-      console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
-      console.log('🔍 Extracted VisualID:', visualId);
-      
-      const recordKey = `visual_${category}_${templateId}`;
-      localStorage.setItem(recordKey, String(visualId));
-      
-      // Store in our tracking object for photo uploads
-      this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
-      console.log('📌 Visual Record ID stored:', visualId, 'for key:', `${category}_${templateId}`);
-      
-    } catch (error: any) {
-      console.error('⚠️ Error during save (checking if actually failed):', error);
-      console.error('=====================================');
-      console.error('ERROR DETAILS:');
-      console.error('   Status:', error?.status);
-      console.error('   Status Text:', error?.statusText);
-      console.error('   Message:', error?.message);
-      console.error('   Error Body:', error?.error);
-      console.error('=====================================');
-      
-      // Show debug alert for the error
-      const errorAlert = await this.alertController.create({
-        header: 'Visual Save Error',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">❌ FAILED TO SAVE VISUAL</strong><br><br>
-            
-            <strong>Data Sent:</strong><br>
-            • ServiceID: ${visualData.ServiceID}<br>
-            • Category: ${visualData.Category}<br>
-            • Kind: ${visualData.Kind}<br>
-            • Name: ${visualData.Name}<br>
-            • Text: ${visualData.Text?.substring(0, 50)}...<br>
-            • Notes: ${visualData.Notes}<br><br>
-            
-            <strong>Error Details:</strong><br>
-            • Status: ${error?.status || 'No status'}<br>
-            • Status Text: ${error?.statusText || 'Unknown'}<br>
-            • Message: ${error?.message || 'No message'}<br><br>
-            
-            <strong>Error Body:</strong><br>
-            <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
-              ${JSON.stringify(error?.error || error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div>
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await errorAlert.present();
-      
-      // Check if it's a real error or just a response parsing issue
-      // Status 200-299 means success even if response parsing failed
-      if (error?.status >= 200 && error?.status < 300) {
-        console.log('✅ Request was successful (status 2xx) - ignoring response parsing error');
-        // Treat as success
-        const tempId = `temp_${Date.now()}`;
-        const recordKey = `visual_${category}_${templateId}`;
-        localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
-        
-        // Try to get the real ID
-        setTimeout(async () => {
-          await this.refreshVisualId(category, templateId);
-        }, 1000);
-        
-        // Success toast removed per user request
-        return; // Keep the checkbox selected
-      }
-      
-      // Check for specific error types
-      if (error?.status === 400) {
-        console.error('⚠️ 400 Bad Request - Check column names and data types');
-        console.error('Expected columns: ServiceID (Integer), Category (Text), Kind (Text), Name (Text), Notes (Text)');
-      } else if (!error?.status) {
-        console.log('⚠️ No status code - might be a response parsing issue, checking table...');
-        // Try to verify if it was actually saved
-        setTimeout(async () => {
-          const saved = await this.verifyVisualSaved(category, templateId);
-          if (saved) {
-            console.log('✅ Verified: Visual was actually saved');
-            // Success toast removed per user request
-          } else {
-            console.error('❌ Verified: Visual was NOT saved');
-            // Only now revert the selection
-            const key = `${category}_${templateId}`;
-            this.selectedItems[key] = false;
-            if (this.categoryData[category] && this.categoryData[category][templateId]) {
-              this.categoryData[category][templateId].selected = false;
-            }
-          }
-        }, 1000);
-        return; // Don't revert immediately
-      }
-      
-      await this.showToast('Failed to save selection', 'danger');
-      
-      // Only revert if we're sure it failed
-      if (error?.status >= 400) {
-        const key = `${category}_${templateId}`;
-        this.selectedItems[key] = false;
-        if (this.categoryData[category] && this.categoryData[category][templateId]) {
-          this.categoryData[category][templateId].selected = false;
-        }
-      }
-    }
-  }
-  */
-  
-  /* DUPLICATE FUNCTIONS - COMMENTED OUT TO FIX TS2393
-  // Remove visual selection from Services_Visuals table
-  async removeVisualSelection_DUPLICATE(category: string, templateId: string) {
-    // Check if we have a stored record ID
-    const recordKey = `visual_${category}_${templateId}`;
-    const recordId = localStorage.getItem(recordKey);
-    
-    if (recordId) {
-      try {
-        await this.caspioService.deleteServicesVisual(recordId).toPromise();
-        console.log('✅ Visual removed from Services_Visuals');
-        localStorage.removeItem(recordKey);
-      } catch (error) {
-        console.error('❌ Failed to remove visual:', error);
-        // Don't show error toast for deletion failures
-      }
-    }
-  }
-  
-  // Check if item is selected
-  isItemSelected_DUPLICATE(category: string, itemId: string): boolean {
-    return this.selectedItems[`${category}_${itemId}`] || false;
-  }
-
-  // Helper methods for PDF generation - check selection by visual ID
-  isCommentSelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this comment visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  isLimitationSelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this limitation visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  isDeficiencySelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this deficiency visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  // Get photo count for a visual ID
-  getVisualPhotoCount_DUPLICATE(visualId: string): number {
-    // Find photos associated with this visual ID
-    const photos = this.visualPhotos[visualId] || [];
-    return photos.length;
-  }
-  */
-  
   // Check if item is being saved
   isItemSaving(category: string, itemId: string): boolean {
     return this.savingItems[`${category}_${itemId}`] || false;
@@ -5228,7 +4842,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Keeping for backward compatibility
     await this.addAnotherPhoto(category, itemId);
   }
-  
   // Multiple photo capture session with proper confirmation
   private async startMultiPhotoCapture(visualId: string, key: string, category: string, itemId: string) {
     const capturedPhotos: File[] = [];
@@ -5655,7 +5268,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to select image', 'danger');
     }
   }
-  
   // Select document
   private async selectDocument(visualId: string, key: string) {
     try {
@@ -5698,13 +5310,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await modal.present();
     const { data } = await modal.onDidDismiss();
     
-    if (data && data.blob) {
-      // Handle new Fabric.js annotator response with annotation data
-      const annotatedFile = new File([data.blob], photo.name, { type: 'image/jpeg' });
+    if (data && (data.annotationData || data.annotationsData)) {
+      const annotationsData = data.annotationData || data.annotationsData;
+      let originalFile = null;
+      if (data.originalBlob) {
+        originalFile = data.originalBlob instanceof File 
+          ? data.originalBlob 
+          : new File([data.originalBlob], `original_${photo.name}`, { type: 'image/jpeg' });
+      }
       return {
-        file: annotatedFile,
-        annotationData: data.annotationData || data.annotationsData, // Get the Fabric.js JSON
-        originalFile: photo // Keep reference to original for future re-editing
+        file: photo,
+        annotationData: annotationsData,
+        originalFile: originalFile
       };
     }
     
@@ -5736,33 +5353,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const actualVisualId = this.visualRecordIds[key] || visualId;
     
     // INSTANTLY show preview with object URL
-    if (actualVisualId && actualVisualId !== 'undefined') {
-      // [v1.4.387] ONLY store photos by KEY for consistency
-      if (!this.visualPhotos[key]) {
-        this.visualPhotos[key] = [];
-      }
-      
-      // Create instant preview
-      const objectUrl = URL.createObjectURL(photo);
-      const tempId = `temp_${Date.now()}_${Math.random()}`;
-      const photoData: any = {
-        AttachID: tempId,
-        id: tempId,
-        name: photo.name,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        isObjectUrl: true,
-        uploading: true, // Flag to show it's uploading
-        hasAnnotations: false,
-        annotations: null
-      };
-      
-      // [v1.4.387] ONLY add to key-based storage
-      console.log(`[v1.4.387] Adding uploaded photo to KEY: ${key}`);
-      console.log(`  Filename: ${photo.name}`);
-      console.log(`  TempID: ${tempId}`);
-      this.visualPhotos[key].push(photoData);
+    // Always show preview even if VisualID isn't resolved yet
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
     }
+
+    // Create instant preview
+    const objectUrl = URL.createObjectURL(photo);
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const photoData: any = {
+      AttachID: tempId,
+      id: tempId,
+      name: photo.name,
+      url: objectUrl,
+      thumbnailUrl: objectUrl,
+      isObjectUrl: true,
+      uploading: true, // Flag to show it's uploading
+      hasAnnotations: false,
+      annotations: null
+    };
+
+    // [v1.4.387] ONLY add to key-based storage
+    console.log(`[v1.4.387] Adding uploaded photo to KEY: ${key}`);
+    console.log(`  Filename: ${photo.name}`);
+    console.log(`  TempID: ${tempId}`);
+    this.visualPhotos[key].push(photoData);
     
     // Now do the actual upload in background
     try {
@@ -5866,7 +5481,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to prepare photo upload', 'danger');
     }
   }
-  
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
     try {
@@ -6339,7 +5953,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error in createCustomVisualWithPhotos:', error);
     }
   }
-  
   // Create custom visual in database (original method kept for backward compatibility)
   async createCustomVisual(category: string, kind: string, name: string, text: string) {
     try {
@@ -6634,7 +6247,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return data; // Return original if compression fails
     }
   }
-  
   // Helper method to decompress annotation data - v1.4.348 handles V1, V2, and V3
   private decompressAnnotationData(data: string): any {
     if (!data) return null;
@@ -7109,7 +6721,7 @@ Original File: ${originalFile?.name || 'None'}`;
       
       if (role === 'cancel') {
         throw new Error('Update cancelled by user');
-      } */
+      }
       
       // CRITICAL: Check if we have any data to update
       if (Object.keys(updateData).length === 0) {
@@ -7610,10 +7222,13 @@ Stack: ${error?.stack}`;
               );
               
               if (photoIndex !== -1 && this.visualPhotos[visualId]) {
-                // Update the photo URL with the new blob
+                // CRITICAL FIX: Never overwrite the original url - that's our clean image!
+                // Only update displayUrl for viewing the annotated version
                 const newUrl = URL.createObjectURL(data.annotatedBlob);
-                this.visualPhotos[visualId][photoIndex].url = newUrl;
-                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+                // DON'T change .url - keep the original image!
+                // this.visualPhotos[visualId][photoIndex].url = newUrl; // REMOVED - keep original
+                // DON'T change thumbnailUrl - we want original in thumbnails!
+                // this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl; // REMOVED - keep original
                 this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
                 // Store annotations in the photo object
                 if (annotationsData) {
@@ -7756,30 +7371,8 @@ Stack: ${error?.stack}`;
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
       
-      if (data && data.annotatedBlob) {
-        // Update the existing photo instead of creating new
-        const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
-        
-        // v1.4.342 CRITICAL FIX: Handle annotation data properly
-        // The modal returns a Fabric.js JSON object from canvas.toJSON()
+      if (data && (data.annotationData || data.annotationsData)) {
         let annotationsData = data.annotationData || data.annotationsData;
-        
-        // v1.4.342: IMPORTANT - The modal returns a Fabric.js JSON object, NOT a string
-        // We need to stringify it before saving to Caspio
-        console.log('📝 [v1.4.342] Annotation data received from modal:', {
-          type: typeof annotationsData,
-          hasObjects: annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData,
-          objectCount: annotationsData?.objects?.length || 0,
-          isString: typeof annotationsData === 'string',
-          isArray: Array.isArray(annotationsData)
-        });
-        
-        // v1.4.342: Convert to string if it's an object (which it should be)
-        if (annotationsData && typeof annotationsData === 'object') {
-          console.log('📋 [v1.4.342] Converting Fabric.js object to string for storage');
-          // The updatePhotoAttachment will handle the stringification properly
-          // Just pass the object as-is
-        }
         
         // Get the original file if provided
         let originalFile = null;
@@ -7793,8 +7386,8 @@ Stack: ${error?.stack}`;
           // Removed loading screen to allow debug popups to be visible
           
           try {
-            // Update the existing attachment with annotations and original
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile);
+            // Save Drawings only (no photo overwrite)
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, undefined as any, annotationsData, originalFile);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -7808,15 +7401,9 @@ Stack: ${error?.stack}`;
                 this.visualPhotos[visualId][photoIndex].originalUrl = this.visualPhotos[visualId][photoIndex].url;
               }
               
-              // Update ONLY the display URL with annotated version for preview
-              // NOTE: Blob URLs are temporary and won't persist across page reloads
-              const newUrl = URL.createObjectURL(data.annotatedBlob);
-              this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
-              // Don't overwrite thumbnailUrl if it has base64 data - only set if undefined
-              if (!this.visualPhotos[visualId][photoIndex].thumbnailUrl || 
-                  this.visualPhotos[visualId][photoIndex].thumbnailUrl.startsWith('blob:')) {
-                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
-              }
+              // CRITICAL FIX: Never change the original URLs for thumbnails
+              // Annotations should only be shown when viewing the photo in modal
+              // NOT in thumbnails - thumbnails must always show the original image
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               
               // Keep the original URL intact in the url field
@@ -7857,7 +7444,6 @@ Stack: ${error?.stack}`;
       await this.showToast('Failed to view photo', 'danger');
     }
   }
-  
   // Delete existing photo
   async deletePhoto(photo: any, category: string, itemId: string) {
     try {
@@ -8172,7 +7758,6 @@ Stack: ${error?.stack}`;
     
     console.log('✅ [v1.4.386] All Structural Systems photos loaded');
   }
-  
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {
@@ -8248,10 +7833,11 @@ Stack: ${error?.stack}`;
                 console.log(`  Size: ${imageData.length} bytes`);
                 console.log(`  Hash: ${imageHash}`);
                 
-                photoData.url = imageData;
+                photoData.url = imageData;  // Always keep original image URL
                 photoData.originalUrl = imageData;
-                photoData.thumbnailUrl = imageData;
-                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
+                photoData.thumbnailUrl = imageData;  // Thumbnails always show original
+                // Don't set displayUrl here - let the template use original image
+                // Annotations are only applied when viewing the photo modal
               } else {
                 console.error(`[v1.4.386] Invalid image data for ${photo.Photo}`);
               }
@@ -8282,170 +7868,6 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Keep the old method for backward compatibility
-  private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
-    try {
-      console.log(`[v1.4.385] Loading photos for VisualID: ${visualId} (raw: ${rawVisualId})`);
-      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
-          
-      if (photos && photos.length > 0) {
-        console.log(`[v1.4.385] Found ${photos.length} photos for VisualID ${visualId}`);
-        
-        // Log all photo paths to check for duplicates
-        const photoPaths = photos.map((p: any) => p.Photo);
-        console.log(`[v1.4.385] Photo paths for VisualID ${visualId}:`, photoPaths);
-        
-        // Check for duplicate paths
-        const uniquePaths = new Set(photoPaths);
-        if (uniquePaths.size !== photoPaths.length) {
-          console.warn(`[v1.4.385] WARNING: Duplicate photo paths detected for VisualID ${visualId}!`);
-        }
-        
-        // [v1.4.375 FIX] Process photos SEQUENTIALLY to prevent cache collisions
-        const processedPhotos = [];
-        
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
-          console.log(`[v1.4.385] Processing photo ${i + 1}/${photos.length} for VisualID ${visualId}:`);
-          console.log(`  AttachID: ${photo.AttachID}`);
-          console.log(`  Photo path: ${photo.Photo}`);
-              
-          // Parse annotations
-          let annotationData = null;
-          let rawDrawingsString = photo.Drawings;
-          if (photo.Drawings) {
-            try {
-              annotationData = this.decompressAnnotationData(photo.Drawings);
-            } catch (e) {
-              // Silently handle parse errors
-            }
-          }
-              
-          // Create photo data structure
-          const photoData: any = {
-            ...photo,
-            name: photo.Photo || 'Photo',
-            Photo: photo.Photo || '',
-            caption: photo.Annotation || '',
-            annotations: annotationData,
-            annotationsData: annotationData,
-            hasAnnotations: !!annotationData,
-            rawDrawingsString: rawDrawingsString,
-            AttachID: photo.AttachID || photo.PK_ID || photo.id,
-            id: photo.AttachID || photo.PK_ID || photo.id,
-            PK_ID: photo.PK_ID || photo.AttachID || photo.id,
-            url: undefined,
-            thumbnailUrl: undefined,
-            displayUrl: undefined,
-            originalUrl: undefined,
-            filePath: photo.Photo
-          };
-              
-          // Load image if path exists
-          if (photo.Photo && typeof photo.Photo === 'string') {
-            photoData.hasPhoto = true;
-            
-            try {
-              // [v1.4.378 FIX] Load without cache interference
-              console.log(`[v1.4.378] Loading image for visual ${visualId}, path: ${photo.Photo}`);
-              
-              // Small delay to prevent race conditions
-              await new Promise(resolve => setTimeout(resolve, 20));
-              
-              // Fetch image data - cache is no longer cleared
-              const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
-              
-              if (imageData && imageData.startsWith('data:')) {
-                // Create a simple hash of the image data to verify uniqueness
-                const imageHash = imageData.length + '_' + imageData.substring(50, 60);
-                console.log(`[v1.4.385] Image loaded for VisualID ${visualId}, photo ${i + 1}:`);
-                console.log(`  Path: ${photo.Photo}`);
-                console.log(`  Size: ${imageData.length} bytes`);
-                console.log(`  Hash: ${imageHash}`);
-                
-                photoData.url = imageData;
-                photoData.originalUrl = imageData;
-                photoData.thumbnailUrl = imageData;
-                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
-              } else {
-                console.error(`[v1.4.385] Invalid image data for ${photo.Photo}`);
-              }
-            } catch (error) {
-              console.error(`[v1.4.377] Failed to load image for ${photo.Photo}:`, error);
-            }
-          } else {
-            photoData.hasPhoto = false;
-          }
-          
-          // [v1.4.377] Add to processed photos array
-          processedPhotos.push(photoData);
-        }
-            
-        // [v1.4.386] This method is deprecated - use loadPhotosForVisualByKey instead
-        // Store all photos at once
-        this.visualPhotos[visualId] = processedPhotos;
-      } else {
-        this.visualPhotos[visualId] = [];
-      }
-    } catch (error) {
-      console.error(`Failed to load photos for visual ${visualId}:`, error);
-      this.visualPhotos[visualId] = [];
-    }
-  }
-  
-  // Removed slow background loading methods - photos now load in parallel
-  
-  // Create a placeholder image
-  private createPlaceholderImage(): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = 150; // Match new preview size
-    canvas.height = 100; // Match new preview size
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 150, 100);
-      ctx.fillStyle = '#999';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Photo', 75, 45);
-      ctx.fillText('Loading...', 75, 60);
-    }
-    return canvas.toDataURL();
-  }
-  
-  // Removed placeholder methods - no longer needed with parallel loading
-  
-  // Create a generic photo placeholder (for existing photos)
-  private createGenericPhotoPlaceholder(): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = 150;
-    canvas.height = 100;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // Light blue background
-      ctx.fillStyle = '#e3f2fd';
-      ctx.fillRect(0, 0, 150, 100);
-      
-      // Draw a simple camera icon
-      ctx.fillStyle = '#1976d2';
-      // Camera body
-      ctx.fillRect(55, 40, 40, 30);
-      // Camera lens
-      ctx.beginPath();
-      ctx.arc(75, 55, 8, 0, 2 * Math.PI);
-      ctx.fill();
-      // Flash
-      ctx.fillRect(65, 35, 20, 5);
-      
-      // Text
-      ctx.fillStyle = '#666';
-      ctx.font = '11px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Click to view', 75, 85);
-    }
-    return canvas.toDataURL();
-  }
-
   // Handle project field changes
   onProjectFieldChange(fieldName: string, value: any) {
     console.log(`Project field changed: ${fieldName} = ${value}`);
@@ -8618,7 +8040,6 @@ Stack: ${error?.stack}`;
       serviceData: this.serviceData
     };
   }
-
   async prepareStructuralSystemsData() {
     console.log('=== PREPARING STRUCTURAL SYSTEMS DATA FOR PDF ===');
     console.log('Selected items:', this.selectedItems);
@@ -8828,7 +8249,6 @@ Stack: ${error?.stack}`;
     
     return result;
   }
-
   async prepareElevationPlotData() {
     const result = [];
     
@@ -9238,7 +8658,7 @@ Stack: ${error?.stack}`;
         url: photo.url || finalUrl, // Original URL
         displayUrl: finalUrl, // This will be the annotated version if it exists, otherwise the original
         caption: photo.Annotation || '',
-        attachId: photo.AttachID || photo.id || '',
+        attachId: photo.AttachID || photo.PK_ID || '',
         hasAnnotations: photo.hasAnnotations || false
       };
     });
@@ -9344,7 +8764,6 @@ Stack: ${error?.stack}`;
       return [];
     }
   }
-
   async fetchAllVisualsFromDatabase() {
     try {
       console.log('📊 Fetching all visuals from database for ServiceID:', this.serviceId);

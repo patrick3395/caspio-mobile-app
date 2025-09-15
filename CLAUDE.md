@@ -619,3 +619,22 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - Shows photo paths for each visual
   - Displays image size and hash to verify uniqueness
 - **Result**: Each visual item now shows its own correct photos, even if visualIds are duplicated
+
+## 23. Back Button Navigation Fix (v1.4.392 - January 2025):
+- **Issue**: Back button in Engineers Foundation page header did not work (did nothing when clicked)
+- **Symptoms**:
+  - ion-back-button displayed but clicking had no effect
+  - No navigation occurred when attempting to go back
+  - User had to use browser/device back button
+- **Root Cause**: NavController was not imported/injected, which ion-back-button requires for proper navigation
+- **Fix Applied**:
+  - Added NavController to imports from '@ionic/angular'
+  - Injected NavController into constructor
+  - Created custom goBack() method that uses NavController.back()
+  - Added fallback navigation to project-detail page if can't go back
+  - Replaced ion-back-button with ion-button that calls goBack() method
+- **Technical Implementation**:
+  - Method tries NavController.back() first for proper stack navigation
+  - Falls back to router.navigate(['/project-detail', projectId]) if no back history
+  - Custom ion-button with arrow-back icon for consistent UI
+- **Result**: Back button now properly navigates back to project detail page

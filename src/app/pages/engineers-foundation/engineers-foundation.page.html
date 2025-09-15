@@ -858,7 +858,7 @@
                       <!-- Top Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" 
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.topUrl" 
+                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.topUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Top')"
                              alt="Top">
@@ -881,7 +881,7 @@
                       <!-- Bottom Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" 
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.bottomUrl" 
+                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.bottomUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom">
@@ -904,7 +904,7 @@
                       <!-- Threshold Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" 
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.thresholdUrl" 
+                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.thresholdUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Threshold">
@@ -940,7 +940,7 @@
                       <div class="point-photo-preview" *ngIf="point.photos && point.photos.length > 0">
                         <div class="photo-thumbnails">
                           <div class="photo-thumb-container" *ngFor="let photo of point.photos; let i = index">
-                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url" 
+                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  (click)="viewRoomPhoto(photo, room.RoomName, point)"
                                  (error)="handleImageError($event, photo)"
                                  [alt]="'Photo ' + (i+1) + ' for ' + point.name">
