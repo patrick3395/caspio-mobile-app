@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError, from, of } from 'rxjs';
 import { map, tap, catchError, switchMap } from 'rxjs/operators';
@@ -2370,19 +2370,24 @@ export class CaspioService {
 
   // Help table methods
   getHelpById(helpId: number): Observable<any> {
-    return this.get<any>(`/tables/Help/records?q.where=HelpID%3D${helpId}`).pipe(
+    return this.get<any>(`/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`).pipe(
       map(response => {
         const results = response.Result || [];
-        return results.length > 0 ? results[0] : null;
+        if (results.length > 0) {
+          const record = { ...results[0] };
+          if ((record.Comment === undefined || record.Comment === null) && record.Text) {
+            record.Comment = record.Text;
+          }
+          return record;
+        }
+        return null;
       }),
       catchError(error => {
         console.error('Failed to get help by ID:', error);
         return of(null);
       })
     );
-  }
-
-  // Get help images by HelpID
+  }  // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
     return this.get<any>(`/tables/Help_Images/records?q.where=HelpID%3D${helpId}`).pipe(
       map(response => response.Result || []),

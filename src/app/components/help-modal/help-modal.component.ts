@@ -5,13 +5,15 @@ import { CaspioService } from '../../services/caspio.service';
 
 interface HelpData {
   HelpID: number;
-  Title: string;
-  Text: string;
+  Title?: string;
+  Text?: string;
+  Comment?: string;
 }
 
 interface HelpImage {
   HelpID: number;
-  HelpImage: string;
+  Help_Image?: string;
+  HelpImage?: string;
   Description?: string;
 }
 
@@ -48,8 +50,8 @@ interface HelpImage {
       <!-- Help Content -->
       <div *ngIf="!loading && !error" class="help-content">
         <!-- Help Text -->
-        <div *ngIf="helpData?.Text" class="help-text">
-          <div [innerHTML]="helpData!.Text"></div>
+        <div *ngIf="helpText" class="help-text">
+          <div [innerHTML]="helpText"></div>
         </div>
 
         <!-- Help Images -->
@@ -57,7 +59,7 @@ interface HelpImage {
           <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
-              <img [src]="getImageUrl(image.HelpImage)" 
+              <img [src]="getImageUrl(image.Help_Image)" 
                    [alt]="image.Description || 'Help image'"
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)">
@@ -67,7 +69,7 @@ interface HelpImage {
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!helpData?.Text && (!helpImages || helpImages.length === 0)" class="empty-state">
+        <div *ngIf="!helpText && (!helpImages || helpImages.length === 0)" class="empty-state">
           <ion-icon name="information-circle-outline" class="empty-icon"></ion-icon>
           <h3>No Help Information Available</h3>
           <p>Help content for this section is not yet available.</p>
@@ -201,6 +203,7 @@ export class HelpModalComponent implements OnInit {
 
   helpData: HelpData | null = null;
   helpImages: HelpImage[] = [];
+  helpText = '';
   loading = false;
   error = '';
 
@@ -221,6 +224,7 @@ export class HelpModalComponent implements OnInit {
   async loadHelpData() {
     this.loading = true;
     this.error = '';
+    this.helpText = '';
 
     try {
       // Load help data and images in parallel
@@ -230,7 +234,15 @@ export class HelpModalComponent implements OnInit {
       ]);
 
       this.helpData = helpData;
-      this.helpImages = helpImages || [];
+      this.helpImages = (helpImages || []).map(image => ({
+        ...image,
+        Help_Image: image.Help_Image || image.HelpImage || ''
+      }));
+      this.helpText = helpData?.Comment || helpData?.Text || '';
+
+      if (!this.title && helpData?.Title) {
+        this.title = helpData.Title;
+      }
       
       console.log('Help data loaded:', this.helpData);
       console.log('Help images loaded:', this.helpImages);
@@ -265,7 +277,7 @@ export class HelpModalComponent implements OnInit {
   async viewImage(image: HelpImage) {
     // You could implement a full-screen image viewer here
     // For now, just open in a new tab/window
-    const imageUrl = this.getImageUrl(image.HelpImage);
+    const imageUrl = this.getImageUrl(image.Help_Image);
     window.open(imageUrl, '_blank');
   }
 

@@ -240,9 +240,18 @@
             
             <!-- First Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.FirstFoundationType">
-              <label>
-                <ion-icon name="construct-outline"></ion-icon>
-                First Foundation Type
+              <label class="has-help">
+                <span class="label-main">
+                  <ion-icon name="construct-outline"></ion-icon>
+                  First Foundation Type
+                </span>
+                <button type="button"
+                        class="help-icon-button"
+                        (click)="openHelp(5, 'First Foundation Type Help'); $event.preventDefault(); $event.stopPropagation();"
+                        title="First Foundation Type Help"
+                        aria-label="First Foundation Type Help">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                </button>
               </label>
               <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
                       (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
@@ -254,9 +263,18 @@
             
             <!-- Second Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.SecondFoundationType">
-              <label>
-                <ion-icon name="construct-outline"></ion-icon>
-                Second Foundation Type
+              <label class="has-help">
+                <span class="label-main">
+                  <ion-icon name="construct-outline"></ion-icon>
+                  Second Foundation Type
+                </span>
+                <button type="button"
+                        class="help-icon-button"
+                        (click)="openHelp(4, 'Secondary Foundation Help'); $event.preventDefault(); $event.stopPropagation();"
+                        title="Secondary Foundation Help"
+                        aria-label="Secondary Foundation Help">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                </button>
               </label>
               <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
                       (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
@@ -924,14 +942,24 @@
                 </div>
                 
                 <!-- Measurements Section -->
-                <div class="room-section-delimiter" style="margin-top: 15px;">
+                <div class="room-section-delimiter measurement-header" style="margin-top: 15px;">
                   <span class="delimiter-label">Measurements</span>
-                  <button type="button"
-                          (click)="openHelp(2, 'Base Station Help')"
-                          title="Base Station Help"
-                          style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
-                    <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary); vertical-align: middle;"></ion-icon>
-                  </button>
+                  <div class="delimiter-actions">
+                    <button type="button"
+                            class="help-icon-button"
+                            (click)="openHelp(2, 'Base Station Location Help')"
+                            title="Base Station Location Help"
+                            aria-label="Base Station Location Help">
+                      <ion-icon name="information-circle-outline"></ion-icon>
+                    </button>
+                    <button type="button"
+                            class="help-icon-button"
+                            (click)="openHelp(3, 'Elevation Measurements Help')"
+                            title="Elevation Measurements Help"
+                            aria-label="Elevation Measurements Help">
+                      <ion-icon name="information-circle-outline"></ion-icon>
+                    </button>
+                  </div>
                 </div>
                 
                 <!-- Elevation Points with photo capture only - more compact -->
@@ -1036,3 +1064,11 @@
     <ion-icon name="arrow-up"></ion-icon>
   </button>
 </ion-content>
+
+
+
+
+
+
+
+
