@@ -356,7 +356,7 @@ export class HelpModalComponent implements OnInit {
       this.helpData = helpData;
       // Sort helpItems: Do's first, then Don'ts, then Tips
       this.helpItems = (helpItems || []).sort((a, b) => {
-        const order = { 'Do': 1, 'Dont': 2, 'Tip': 3 };
+        const order: { [key: string]: number } = { 'Do': 1, 'Dont': 2, 'Tip': 3 };
         return (order[a.ItemType] || 999) - (order[b.ItemType] || 999);
       });
       this.helpImages = helpImages || [];
