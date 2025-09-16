@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { CaspioService } from '../../services/caspio.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
@@ -156,6 +157,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private route: ActivatedRoute,
     private router: Router,
     private navController: NavController,
+    private location: Location,
     private caspioService: CaspioService,
     private toastController: ToastController,
     private loadingController: LoadingController,
@@ -239,7 +241,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Bound methods for event listeners
   private handleBackClick = () => {
-    console.log('[v1.4.400] Back button clicked via direct listener');
+    console.log('[v1.4.403] Back button clicked via direct listener');
+    console.log('[v1.4.403] Current projectId:', this.projectId);
+    console.log('[v1.4.403] Current router url:', this.router.url);
     this.goBack();
   }
 
@@ -306,17 +310,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Navigation method for back button
   goBack() {
-    if (this.projectId) {
-      // Navigate back to the project page
-      this.navController.navigateBack(`/project/${this.projectId}`).catch(() => {
-        // Fallback to Router if NavController fails
-        this.router.navigate(['/project', this.projectId]);
-      });
-    } else {
-      // Navigate to active projects
-      this.navController.navigateBack('/tabs/active-projects').catch(() => {
+    console.log('[goBack] Navigating back from Engineers Foundation, projectId:', this.projectId);
+
+    // Method 1: Use Location.back() - this is the simplest and most reliable way
+    try {
+      this.location.back();
+      console.log('[goBack] Used Location.back() to navigate');
+    } catch (error) {
+      console.error('[goBack] Location.back() failed:', error);
+
+      // Method 2: Fallback to Router navigation
+      if (this.projectId) {
+        this.router.navigate(['/project', this.projectId]).then(success => {
+          if (success) {
+            console.log('[goBack] Router navigation successful');
+          } else {
+            console.error('[goBack] Router navigation failed');
+            // Method 3: Last resort - force navigation with window.location
+            window.location.href = `/project/${this.projectId}`;
+          }
+        });
+      } else {
         this.router.navigate(['/tabs/active-projects']);
-      });
+      }
     }
   }
 
@@ -8938,72 +8954,40 @@ Stack: ${error?.stack}`;
           const query = `RoomID=${roomId}`;
           const roomResponse = await this.caspioService.get(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).toPromise();
           const roomRecords = (roomResponse as any)?.Result || [];
-          
-          // Create debug info for FDF photos
-          let debugInfo = `<div style="font-family: monospace; font-size: 12px; text-align: left;">
-            <h3 style="color: #ff6b35;">FDF Photos Debug - v1.4.327</h3>
-            <strong>Room: ${roomName}</strong><br>
-            <strong>RoomID: ${roomId}</strong><br>
-            <strong>Query: ${query}</strong><br><br>`;
-          
+
           if (roomRecords && roomRecords.length > 0) {
             const roomRecord = roomRecords[0];
             const fdfPhotosData: any = {};
-            
-            debugInfo += `<strong style="color: green;">✅ Room record found!</strong><br>
-              <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px;">
-                <strong>Room Record Fields:</strong><br>`;
-            
-            // Show all fields in the room record
-            Object.keys(roomRecord).forEach(key => {
-              if (key.includes('FDF')) {
-                debugInfo += `<span style="color: blue;">${key}: ${roomRecord[key] || 'null'}</span><br>`;
-              }
-            });
-            debugInfo += `</div>`;
-            
+
             // Process each FDF photo type
             const fdfPhotoTypes = [
               { field: 'FDFPhotoTop', key: 'top' },
               { field: 'FDFPhotoBottom', key: 'bottom' },
               { field: 'FDFPhotoThreshold', key: 'threshold' }
             ];
-            
+
             console.log(`[FDF Photos v1.4.327] Room ${roomName} record:`, roomRecord);
-            
-            debugInfo += `<strong>Processing FDF Photos:</strong><br>`;
             
             for (const photoType of fdfPhotoTypes) {
               const photoPath = roomRecord[photoType.field];
               console.log(`[FDF Photos v1.4.327] Checking ${photoType.field}: ${photoPath}`);
-              
-              debugInfo += `<div style="margin: 10px 0; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
-                <strong>${photoType.field} (${photoType.key}):</strong><br>`;
-              
+
               if (photoPath) {
-                debugInfo += `Path: <span style="color: blue;">${photoPath}</span><br>`;
-                
                 // Convert Caspio file path to base64
                 if (photoPath.startsWith('/')) {
                   try {
                     console.log(`[FDF Photos v1.4.327] Converting ${photoType.key} photo from path: ${photoPath}`);
-                    debugInfo += `Status: Converting to base64...<br>`;
                     
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
                       fdfPhotosData[photoType.key] = true;
                       fdfPhotosData[`${photoType.key}Url`] = base64Data;
                       console.log(`[FDF Photos v1.4.327] Successfully converted ${photoType.key} photo to base64`);
-                      debugInfo += `<span style="color: green;">✅ Converted to base64 successfully</span><br>`;
-                      debugInfo += `Base64 preview: <span style="color: gray;">${base64Data.substring(0, 50)}...</span><br>`;
                     } else {
                       console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
-                      debugInfo += `<span style="color: red;">❌ Invalid base64 data received</span><br>`;
                     }
                   } catch (error) {
                     console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
-                    debugInfo += `<span style="color: orange;">⚠️ Base64 conversion failed, using fallback URL</span><br>`;
-                    debugInfo += `Error: ${error}<br>`;
                     
                     // Try to use token-based URL as fallback
                     const token = await this.caspioService.getValidToken();
@@ -9011,80 +8995,24 @@ Stack: ${error?.stack}`;
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
                     console.log(`[FDF Photos v1.4.327] Using fallback URL for ${photoType.key}`);
-                    debugInfo += `Fallback URL: <span style="color: blue;">${fdfPhotosData[`${photoType.key}Url`].substring(0, 80)}...</span><br>`;
                   }
                 } else {
                   console.log(`[FDF Photos v1.4.327] Photo path doesn't start with / for ${photoType.key}: ${photoPath}`);
-                  debugInfo += `<span style="color: red;">❌ Invalid path format (doesn't start with /)</span><br>`;
                 }
               } else {
                 console.log(`[FDF Photos v1.4.327] No photo found for ${photoType.field}`);
-                debugInfo += `<span style="color: gray;">No photo path in database</span><br>`;
               }
-              
-              debugInfo += `</div>`;
             }
             
             // Merge with existing fdfPhotos (in case they were already loaded)
             roomResult.fdfPhotos = { ...roomResult.fdfPhotos, ...fdfPhotosData };
             console.log(`[FDF Photos v1.4.327] Final fdfPhotos for room ${roomName}:`, roomResult.fdfPhotos);
-            
-            debugInfo += `<br><strong>Final FDF Photos Data:</strong><br>
-              <div style="background: #e8f5e9; padding: 10px; border-radius: 5px;">`;
-            Object.keys(roomResult.fdfPhotos).forEach(key => {
-              if (key.includes('Url')) {
-                debugInfo += `${key}: <span style="color: green;">${roomResult.fdfPhotos[key] ? 'Set ✅' : 'Not set ❌'}</span><br>`;
-              } else {
-                debugInfo += `${key}: ${roomResult.fdfPhotos[key]}<br>`;
-              }
-            });
-            debugInfo += `</div>`;
           } else {
             console.log(`[FDF Photos v1.4.327] No room records found for RoomID ${roomId}`);
-            debugInfo += `<span style="color: red;">❌ No room records found in Services_Rooms table</span><br>`;
           }
-          
-          debugInfo += `</div>`;
-          
-          // Show debug popup for FDF photos
-          const debugAlert = await this.alertController.create({
-            header: 'FDF Photos Debug Info',
-            message: debugInfo,
-            cssClass: 'debug-alert-wide',
-            buttons: [
-              {
-                text: 'Copy Debug Info',
-                handler: async () => {
-                  const textToCopy = debugInfo.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-                  try {
-                    await navigator.clipboard.writeText(textToCopy);
-                  } catch (error) {
-                    console.error('Failed to copy debug info');
-                  }
-                  return false;
-                }
-              },
-              { text: 'OK', role: 'cancel' }
-            ]
-          });
-          await debugAlert.present();
           
         } catch (error) {
           console.error(`[FDF Photos v1.4.327] Error fetching FDF photos for room ${roomName}:`, error);
-          
-          // Show error popup
-          const errorAlert = await this.alertController.create({
-            header: 'FDF Photos Error',
-            message: `
-              <div style="font-family: monospace; font-size: 12px;">
-                <strong style="color: red;">Error loading FDF photos for ${roomName}</strong><br><br>
-                RoomID: ${roomId}<br>
-                Error: ${error}<br>
-              </div>
-            `,
-            buttons: ['OK']
-          });
-          await errorAlert.present();
         }
         
         console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);

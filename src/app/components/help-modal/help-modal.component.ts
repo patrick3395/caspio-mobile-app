@@ -54,7 +54,7 @@ interface HelpImage {
 
         <!-- Help Images -->
         <div *ngIf="helpImages && helpImages.length > 0" class="help-images">
-          <h3>Related Images</h3>
+          <h3 style="margin-bottom: 10px;">Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
               <img [src]="image.imageUrl || 'assets/img/photo-placeholder.svg'"
@@ -62,8 +62,8 @@ interface HelpImage {
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)"
                    (load)="onImageLoad($event, image)">
-              <div class="image-path-debug" style="font-size: 10px; color: #666; margin-top: 4px; word-break: break-all;">
-                Path: {{ image.HelpImage }}
+              <div class="image-path-debug" style="font-size: 12px; color: #666; padding: 8px; background: #f5f5f5; word-break: break-all;">
+                <strong>File:</strong> {{ image.HelpImage }}
               </div>
             </div>
           </div>
@@ -128,24 +128,30 @@ interface HelpImage {
     }
 
     .images-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-top: 20px;
     }
 
     .image-container {
       background: var(--ion-color-light);
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 2px solid #e0e0e0;
     }
 
     .image-container img {
       width: 100%;
-      height: 150px;
-      object-fit: cover;
+      height: auto;
+      min-height: 300px;
+      max-height: 500px;
+      object-fit: contain;
       cursor: pointer;
       transition: transform 0.2s ease;
+      background: white;
+      padding: 10px;
     }
 
     .image-container img:hover {
@@ -177,12 +183,18 @@ interface HelpImage {
       font-size: 14px;
     }
 
+    .image-path-debug {
+      border-top: 1px solid #ddd;
+      margin-top: -1px;
+    }
+
     /* Mobile-first responsive design */
     @media (max-width: 768px) {
-      .images-grid {
-        grid-template-columns: 1fr;
+      .image-container img {
+        min-height: 250px;
+        max-height: 400px;
       }
-      
+
       .help-text {
         font-size: 15px;
       }
