@@ -11,9 +11,7 @@ interface HelpData {
 
 interface HelpImage {
   HelpID: number;
-  Help_Image?: string;
-  HelpImage?: string;
-  Description?: string;
+  HelpImage: string;
 }
 
 @Component({
@@ -58,11 +56,10 @@ interface HelpImage {
           <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
-              <img [src]="getImageUrl(image.Help_Image || '')"
-                   [alt]="image.Description || 'Help image'"
+              <img [src]="getImageUrl(image.HelpImage || '')"
+                   [alt]="'Help image'"
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)">
-              <p *ngIf="image.Description" class="image-description">{{ image.Description }}</p>
             </div>
           </div>
         </div>
@@ -148,13 +145,6 @@ interface HelpImage {
 
     .image-container img:hover {
       transform: scale(1.05);
-    }
-
-    .image-description {
-      padding: 12px;
-      font-size: 14px;
-      color: var(--ion-color-medium);
-      margin: 0;
     }
 
     .empty-state {
@@ -244,10 +234,7 @@ export class HelpModalComponent implements OnInit {
       this.addDebugMessage('Help images response', helpImages);
 
       this.helpData = helpData;
-      this.helpImages = (helpImages || []).map(image => ({
-        ...image,
-        Help_Image: image.Help_Image || image.HelpImage || ''
-      }));
+      this.helpImages = helpImages || [];
       this.helpText = helpData?.Comment || '';
 
       if (!this.title && helpData?.Title) {
@@ -273,7 +260,7 @@ export class HelpModalComponent implements OnInit {
   }
 
   private getHelpImagesEndpoint(helpId: number): string {
-    return `/tables/Help_Images/records?q.select=HelpID,Help_Image,Description&q.where=HelpID%3D${helpId}`;
+    return `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
   }
 
   private addDebugMessage(label: string, value: any) {
@@ -341,7 +328,7 @@ export class HelpModalComponent implements OnInit {
   async viewImage(image: HelpImage) {
     // You could implement a full-screen image viewer here
     // For now, just open in a new tab/window
-    const imageUrl = this.getImageUrl(image.Help_Image || '');
+    const imageUrl = this.getImageUrl(image.HelpImage || '');
     window.open(imageUrl, '_blank');
   }
 

@@ -2394,17 +2394,14 @@ export class CaspioService {
 
   // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
-    const endpoint = `/tables/Help_Images/records?q.select=HelpID,Help_Image,Description&q.where=HelpID%3D${helpId}`;
+    const endpoint = `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
     console.log('[HelpImages] Fetching help images', { helpId, endpoint });
 
     return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
         console.log('[HelpImages] Response for help images', { helpId, count: results.length, raw: response });
-        return results.map((item: any) => ({
-          ...item,
-          Help_Image: item.Help_Image || item.HelpImage || ''
-        }));
+        return results;
       }),
       catchError(error => {
         console.error('[HelpImages] Failed to get help images', { helpId, error });
