@@ -59,7 +59,7 @@ interface HelpImage {
           <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
-              <img [src]="getImageUrl(image.Help_Image)" 
+              <img [src]="getImageUrl(image.Help_Image || '')"
                    [alt]="image.Description || 'Help image'"
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)">
@@ -277,7 +277,7 @@ export class HelpModalComponent implements OnInit {
   async viewImage(image: HelpImage) {
     // You could implement a full-screen image viewer here
     // For now, just open in a new tab/window
-    const imageUrl = this.getImageUrl(image.Help_Image);
+    const imageUrl = this.getImageUrl(image.Help_Image || '');
     window.open(imageUrl, '_blank');
   }
 
