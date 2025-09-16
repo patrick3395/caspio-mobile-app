@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
-import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform } from '@ionic/angular';
+import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
 import { CacheService } from '../../services/cache.service';
@@ -155,6 +155,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private navController: NavController,
     private caspioService: CaspioService,
     private toastController: ToastController,
     private loadingController: LoadingController,
@@ -209,6 +210,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // ViewChild ready
     // Ensure buttons are enabled on page load
     this.ensureButtonsEnabled();
+    // Add direct event listeners as fallback
+    this.addButtonEventListeners();
+  }
+
+  // Add direct event listeners to buttons as fallback
+  addButtonEventListeners() {
+    setTimeout(() => {
+      // Add listener to back button
+      const backButton = document.querySelector('.back-button') as HTMLElement;
+      if (backButton) {
+        console.log('[v1.4.397] Adding click listener to back button');
+        backButton.addEventListener('click', () => {
+          console.log('[v1.4.397] Back button clicked via direct listener');
+          this.goBack();
+        });
+      } else {
+        console.error('[v1.4.397] Back button not found in DOM');
+      }
+
+      // Add listener to PDF button
+      const pdfButton = document.querySelector('.pdf-header-button') as HTMLElement;
+      if (pdfButton) {
+        console.log('[v1.4.397] Adding click listener to PDF button');
+        pdfButton.addEventListener('click', (event) => {
+          console.log('[v1.4.397] PDF button clicked via direct listener');
+          event.preventDefault();
+          event.stopPropagation();
+          this.generatePDF(event);
+        });
+      } else {
+        console.error('[v1.4.397] PDF button not found in DOM');
+      }
+    }, 500); // Wait for DOM to be fully ready
   }
 
   // Ensure buttons are not stuck in disabled state
@@ -231,6 +265,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
     console.log('ionViewWillEnter - page re-entered');
+    // Re-add button listeners in case they were removed
+    this.addButtonEventListeners();
     
     // Photos now use base64 data URLs like Structural section
     // No need to refresh URLs as they don't expire
@@ -263,16 +299,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.formData = {};
   }
 
+  // Test method to verify Angular binding
+  async showTestAlert() {
+    const alert = await this.alertController.create({
+      header: 'Test Alert',
+      message: 'Angular binding is working!',
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+
   // Navigation method for back button
-  goBack() {
+  async goBack() {
     console.log('[goBack] Navigating back to project page');
-    // Navigate back to the project page with the projectId
-    if (this.projectId) {
-      this.router.navigate(['/project', this.projectId]);
-    } else {
-      // Fallback to active projects if no projectId
-      this.router.navigate(['/tabs/active-projects']);
-    }
+
+    // Show debug alert to confirm button is clicked
+    const alert = await this.alertController.create({
+      header: 'Back Button Debug',
+      message: `Back button clicked!<br>
+                Project ID: ${this.projectId}<br>
+                Navigating to: ${this.projectId ? '/project/' + this.projectId : '/tabs/active-projects'}`,
+      buttons: [{
+        text: 'OK',
+        handler: () => {
+          // Navigate after alert is dismissed
+          if (this.projectId) {
+            this.navController.navigateBack(`/project/${this.projectId}`);
+          } else {
+            this.navController.navigateBack('/tabs/active-projects');
+          }
+        }
+      }]
+    });
+    await alert.present();
   }
 
   async loadProjectData() {
@@ -3735,7 +3794,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.390] generatePDF called');
+    console.log('[v1.4.397] generatePDF called');
+
+    // Show immediate debug alert
+    const debugAlert = await this.alertController.create({
+      header: 'PDF Button Debug',
+      message: `PDF button clicked!<br>
+                Project ID: ${this.projectId}<br>
+                Service ID: ${this.serviceId}<br>
+                Is Generating: ${this.isPDFGenerating}`,
+      buttons: ['OK']
+    });
+    await debugAlert.present();
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3752,14 +3822,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.390] Preventing form submission');
+        console.log('[v1.4.397] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
 
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.390] PDF generation already in progress, ignoring click');
+      console.log('[v1.4.397] PDF generation already in progress, ignoring click');
       return;
     }
     

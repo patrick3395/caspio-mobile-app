@@ -1,17 +1,18 @@
 <ion-header>
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-button (click)="goBack()">
+      <ion-button class="back-button" (click)="goBack()" onclick="console.log('Back button inline onclick triggered')">
         <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
       </ion-button>
     </ion-buttons>
     <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
-      <!-- Fixed PDF button - v1.4.390 -->
+      <!-- Fixed PDF button - v1.4.397 -->
       <button type="button"
               class="pdf-header-button"
               style="min-width: 60px; min-height: 40px; z-index: 9999; position: relative;"
-              (click)="generatePDF()">
+              (click)="generatePDF($event)"
+              onclick="console.log('PDF button inline onclick triggered')">
         <ion-icon name="document-text-outline" style="pointer-events: none;"></ion-icon>
         <span style="margin-left: 5px; pointer-events: none;">PDF</span>
       </button>
@@ -22,9 +23,14 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.397 - Fixed Back and PDF button functionality</div>
+    <div class="version-header">Version 1.4.399 - Fixed button event handlers with debug alerts</div>
 
-    
+    <!-- Test Buttons -->
+    <div style="padding: 10px; background: yellow; text-align: center;">
+      <button onclick="alert('Test button works!')" style="padding: 10px; margin: 5px;">Test Button (onclick)</button>
+      <button (click)="showTestAlert()" style="padding: 10px; margin: 5px;">Test Button (Angular)</button>
+    </div>
+
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
          [class.success]="saveStatusType === 'success'" [class.error]="saveStatusType === 'error'">
