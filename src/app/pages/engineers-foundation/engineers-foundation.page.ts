@@ -1016,7 +1016,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
       
       const uploadResult = await uploadResponse.json();
-      const filePath = `/${uploadResult.Name}`;
+
+      // [v1.4.402] FDF Photo Fix: Handle API response structure properly
+      // The Files API returns {"Name": "filename.jpg"} or {"Result": {"Name": "filename.jpg"}}
+      const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
+      const filePath = `/${uploadedFileName}`;
+
+      console.log(`[v1.4.402] FDF ${photoType} upload response:`, uploadResult);
+      console.log(`[v1.4.402] Using filename: ${uploadedFileName}`);
+      console.log(`[v1.4.402] File path: ${filePath}`);
       
       // Update the appropriate column in Services_Rooms
       const columnName = `FDFPhoto${photoType}`;
@@ -1034,32 +1042,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const photoKey = photoType.toLowerCase();
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
       
-      // [FDF FIX v1.4.374] Load the image as base64 instead of using blob URL
-      // This ensures the thumbnail will work after template reload
-      console.log(`[FDF FIX v1.4.374] Loading saved FDF photo as base64: ${filePath}`);
+      // [v1.4.402] Load the image as base64 to ensure thumbnails work after reload
+      console.log(`[v1.4.402] Loading saved FDF photo as base64: ${filePath}`);
       try {
         const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
         if (imageData && imageData.startsWith('data:')) {
           this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
-          console.log(`[FDF FIX v1.4.374] ✅ FDF ${photoType} photo loaded as base64`);
+          console.log(`[v1.4.402] ✅ FDF ${photoType} photo loaded as base64`);
         } else {
           // Fallback to blob URL if base64 fails
-          console.warn(`[FDF FIX v1.4.374] Failed to get base64, using blob URL`);
-          const photoUrl = URL.createObjectURL(file);
+          console.warn(`[v1.4.402] Failed to get base64, using blob URL`);
+          const photoUrl = URL.createObjectURL(compressedFile);
           this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
         }
       } catch (err) {
-        console.error(`[FDF FIX v1.4.374] Error loading base64:`, err);
+        console.error(`[v1.4.402] Error loading base64:`, err);
         // Fallback to blob URL
-        const photoUrl = URL.createObjectURL(file);
+        const photoUrl = URL.createObjectURL(compressedFile);
         this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = photoUrl;
       }
       
-      await this.showToast(`${photoType} photo saved`, 'success');
-      
-    } catch (error) {
-      console.error(`Error processing FDF ${photoType} photo:`, error);
-      await this.showToast(`Failed to save ${photoType} photo`, 'danger');
+      // [v1.4.402] Show success message with the actual file path
+      await this.showToast(`FDF ${photoType} photo saved: ${filePath}`, 'success');
+
+    } catch (error: any) {
+      console.error(`[v1.4.402] Error processing FDF ${photoType} photo:`, error);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      await this.showToast(`Failed to save FDF ${photoType} photo: ${errorMsg}`, 'danger');
     } finally {
       // Clear context
       this.currentFDFPhotoContext = null;
