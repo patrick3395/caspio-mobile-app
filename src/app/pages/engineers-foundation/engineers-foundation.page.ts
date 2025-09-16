@@ -207,6 +207,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   ngAfterViewInit() {
     // ViewChild ready
+    // Ensure buttons are enabled on page load
+    this.ensureButtonsEnabled();
+  }
+
+  // Ensure buttons are not stuck in disabled state
+  ensureButtonsEnabled() {
+    // Reset PDF generation flag
+    this.isPDFGenerating = false;
+
+    // Enable PDF button after a brief delay to ensure DOM is ready
+    setTimeout(() => {
+      const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
+      if (pdfButton) {
+        pdfButton.disabled = false;
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+        console.log('[ensureButtonsEnabled] PDF button enabled');
+      }
+    }, 100);
   }
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
@@ -243,7 +262,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Force garbage collection hints
     this.formData = {};
   }
-  
+
+  // Navigation method for back button
+  goBack() {
+    console.log('[goBack] Navigating back to project page');
+    // Navigate back to the project page with the projectId
+    if (this.projectId) {
+      this.router.navigate(['/project', this.projectId]);
+    } else {
+      // Fallback to active projects if no projectId
+      this.router.navigate(['/tabs/active-projects']);
+    }
+  }
+
   async loadProjectData() {
     if (!this.projectId) return;
     

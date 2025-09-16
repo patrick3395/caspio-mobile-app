@@ -332,22 +332,22 @@ export class HelpModalComponent implements OnInit {
   }
 
   getImageUrl(imagePath: string): string {
-    console.log('[HelpModal] getImageUrl called with:', imagePath);
+    console.log('[HelpModal v1.4.396] getImageUrl called with:', imagePath);
 
     if (!imagePath) {
-      console.log('[HelpModal] No image path provided, returning placeholder');
+      console.log('[HelpModal v1.4.396] No image path provided, returning placeholder');
       return 'assets/img/photo-placeholder.svg';
     }
 
     // If it's already a data URL, return as-is
     if (imagePath.startsWith('data:')) {
-      console.log('[HelpModal] Image is already a data URL');
+      console.log('[HelpModal v1.4.396] Image is already a data URL');
       return imagePath;
     }
 
     // If it starts with http/https, it might be a full URL already
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      console.log('[HelpModal] Image appears to be a full URL:', imagePath);
+      console.log('[HelpModal v1.4.396] Image appears to be a full URL:', imagePath);
       return imagePath;
     }
 
@@ -356,10 +356,17 @@ export class HelpModalComponent implements OnInit {
     const token = localStorage.getItem('caspio_token');
 
     // Clean the path - remove leading slash if present
-    const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+    let cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
 
-    const fullUrl = `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
-    console.log('[HelpModal] Constructed Caspio Files URL:', fullUrl);
+    // URL encode each part of the path to handle spaces and special characters
+    // Split by '/' to preserve directory structure, encode each part, then rejoin
+    const pathParts = cleanPath.split('/');
+    const encodedParts = pathParts.map(part => encodeURIComponent(part));
+    const encodedPath = encodedParts.join('/');
+
+    const fullUrl = `https://${account}.caspio.com/rest/v2/files/${encodedPath}?access_token=${token}`;
+    console.log('[HelpModal v1.4.396] Constructed Caspio Files URL:', fullUrl);
+    console.log('[HelpModal v1.4.396] Original path:', imagePath, '-> Encoded path:', encodedPath);
 
     return fullUrl;
   }
@@ -371,7 +378,9 @@ export class HelpModalComponent implements OnInit {
   async viewImage(image: HelpImage) {
     // You could implement a full-screen image viewer here
     // For now, just open in a new tab/window
+    console.log('[HelpModal v1.4.396] viewImage called with:', image);
     const imageUrl = this.getImageUrl(image.HelpImage || '');
+    console.log('[HelpModal v1.4.396] Opening image URL:', imageUrl);
     window.open(imageUrl, '_blank');
   }
 

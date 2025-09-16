@@ -1,7 +1,9 @@
 <ion-header>
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/tabs/active-projects"></ion-back-button>
+      <ion-button (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
     </ion-buttons>
     <ion-title>{{ typeShort }}</ion-title>
     <ion-buttons slot="end">
@@ -20,7 +22,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.391 - Fixed Structural Systems images not loading in PDF</div>
+    <div class="version-header">Version 1.4.397 - Fixed Back and PDF button functionality</div>
 
     
     <!-- Save status indicator -->
