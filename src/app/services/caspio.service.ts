@@ -2370,7 +2370,7 @@ export class CaspioService {
 
   // Help table methods
   getHelpById(helpId: number): Observable<any> {
-    const endpoint = `/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`;
+    const endpoint = `/tables/Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
     console.log('[Help] Fetching help record', { helpId, endpoint });
 
     return this.get<any>(endpoint).pipe(
@@ -2379,9 +2379,6 @@ export class CaspioService {
         console.log('[Help] Response for help record', { helpId, count: results.length, raw: response });
         if (results.length > 0) {
           const record = { ...results[0] };
-          if ((record.Comment === undefined || record.Comment === null) && record.Text) {
-            record.Comment = record.Text;
-          }
           console.log('[Help] Normalized help record', record);
           return record;
         }

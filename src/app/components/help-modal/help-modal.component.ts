@@ -6,7 +6,6 @@ import { CaspioService } from '../../services/caspio.service';
 interface HelpData {
   HelpID: number;
   Title?: string;
-  Text?: string;
   Comment?: string;
 }
 
@@ -249,7 +248,7 @@ export class HelpModalComponent implements OnInit {
         ...image,
         Help_Image: image.Help_Image || image.HelpImage || ''
       }));
-      this.helpText = helpData?.Comment || helpData?.Text || '';
+      this.helpText = helpData?.Comment || '';
 
       if (!this.title && helpData?.Title) {
         this.title = helpData.Title;
@@ -270,7 +269,7 @@ export class HelpModalComponent implements OnInit {
   }
 
   private getHelpEndpoint(helpId: number): string {
-    return `/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`;
+    return `/tables/Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
   }
 
   private getHelpImagesEndpoint(helpId: number): string {
