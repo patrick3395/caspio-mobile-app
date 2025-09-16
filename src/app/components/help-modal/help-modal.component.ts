@@ -67,14 +67,14 @@ interface HelpItem {
           <div class="help-items-table">
             <div class="help-item-row" *ngFor="let item of helpItems">
               <div class="item-type" [class.do-type]="item.ItemType === 'Do'"
-                   [class.dont-type]="item.ItemType === 'Dont' || item.ItemType === \"Don't\""
+                   [class.dont-type]="item.ItemType === 'Dont' || item.ItemType === 'Don\\'t'"
                    [class.tip-type]="item.ItemType === 'Tip'">
                 <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50; font-size: 20px;"></ion-icon>
-                <ion-icon *ngIf="item.ItemType === 'Dont' || item.ItemType === \"Don't\"" name="close-circle" style="color: #f44336; font-size: 20px;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Dont' || item.ItemType === 'Don\\'t'" name="close-circle" style="color: #f44336; font-size: 20px;"></ion-icon>
                 <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107; font-size: 20px;"></ion-icon>
-                <span class="type-label" [style.color]="(item.ItemType === 'Dont' || item.ItemType === \"Don't\") ? '#f44336' : null">{{ (item.ItemType === 'Dont' || item.ItemType === "Don't") ? "Don't" : item.ItemType }}</span>
+                <span class="type-label" [style.color]="(item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? '#f44336' : null">{{ (item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? 'Don\\'t' : item.ItemType }}</span>
               </div>
-              <div class="item-content" [style.color]="(item.ItemType === 'Dont' || item.ItemType === \"Don't\") ? '#f44336' : null">{{ item.Item }}</div>
+              <div class="item-content" [style.color]="(item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? '#f44336' : null">{{ item.Item }}</div>
             </div>
           </div>
         </div>
