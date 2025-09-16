@@ -217,32 +217,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Add direct event listeners to buttons as fallback
   addButtonEventListeners() {
     setTimeout(() => {
-      // Add listener to back button
-      const backButton = document.querySelector('.back-button') as HTMLElement;
+      // Add listener to back button using ID
+      const backButton = document.getElementById('eng-back-btn') as HTMLElement;
       if (backButton) {
-        console.log('[v1.4.397] Adding click listener to back button');
-        backButton.addEventListener('click', () => {
-          console.log('[v1.4.397] Back button clicked via direct listener');
-          this.goBack();
-        });
+        console.log('[v1.4.400] Adding click listener to back button');
+        backButton.removeEventListener('click', this.handleBackClick); // Remove any existing listener
+        backButton.addEventListener('click', this.handleBackClick);
+        // Also try onclick directly
+        (backButton as any).onclick = this.handleBackClick;
       } else {
-        console.error('[v1.4.397] Back button not found in DOM');
+        console.error('[v1.4.400] Back button not found in DOM');
       }
 
-      // Add listener to PDF button
-      const pdfButton = document.querySelector('.pdf-header-button') as HTMLElement;
+      // Add listener to PDF button using ID
+      const pdfButton = document.getElementById('eng-pdf-btn') as HTMLElement;
       if (pdfButton) {
-        console.log('[v1.4.397] Adding click listener to PDF button');
-        pdfButton.addEventListener('click', (event) => {
-          console.log('[v1.4.397] PDF button clicked via direct listener');
-          event.preventDefault();
-          event.stopPropagation();
-          this.generatePDF(event);
-        });
+        console.log('[v1.4.400] Adding click listener to PDF button');
+        pdfButton.removeEventListener('click', this.handlePDFClickBound); // Remove any existing listener
+        pdfButton.addEventListener('click', this.handlePDFClickBound);
+        // Also try onclick directly
+        (pdfButton as any).onclick = this.handlePDFClickBound;
       } else {
-        console.error('[v1.4.397] PDF button not found in DOM');
+        console.error('[v1.4.400] PDF button not found in DOM');
       }
     }, 500); // Wait for DOM to be fully ready
+  }
+
+  // Bound methods for event listeners
+  private handleBackClick = () => {
+    console.log('[v1.4.400] Back button clicked via direct listener');
+    this.goBack();
+  }
+
+  private handlePDFClickBound = (event: Event) => {
+    console.log('[v1.4.400] PDF button clicked via direct listener');
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.generatePDF(event);
   }
 
   // Ensure buttons are not stuck in disabled state

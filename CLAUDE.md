@@ -619,3 +619,47 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - Shows photo paths for each visual
   - Displays image size and hash to verify uniqueness
 - **Result**: Each visual item now shows its own correct photos, even if visualIds are duplicated
+
+## 23. Help Modal Fixes (v1.4.392-400 - January 2025):
+
+### Phase 1: Column Name Fixes (v1.4.392-393)
+- **Issue**: Help modal failing to load data due to incorrect column names
+- **Root Cause**: Queries requesting non-existent columns
+  - Help table: Was querying `Text` column that doesn't exist (only has HelpID, Title, Comment)
+  - Help_Images table: Was querying `Help_Image` and `Description` but actual columns are HelpID and HelpImage
+- **Fixes Applied**:
+  - v1.4.392: Removed `Text` column from Help table queries
+  - v1.4.393: Fixed Help_Images to use correct `HelpImage` column (not `Help_Image`)
+  - Removed non-existent `Description` column references
+  - Updated interfaces to match actual database schema
+
+### Phase 2: Image Display Issues (v1.4.394-398)
+- **Issue**: Help images showing placeholder instead of actual images
+- **Symptoms**:
+  - Debug showed correct path: "/New Folder/FDF.png"
+  - Image found but not displaying
+  - Placeholder shown instead
+- **Fixes Applied**:
+  - v1.4.394: Added debug popup showing HelpImage data
+  - v1.4.395: UI cleanup - changed "General" to "Flooring Difference Factor" in Elevation section
+  - v1.4.396-398: Enhanced URL construction for Caspio Files API
+    - Proper URL encoding for spaces and special characters
+    - Path segments encoded individually to preserve directory structure
+    - Added comprehensive debug logging
+
+### Phase 3: Infinite Loop Fix (v1.4.399-400)
+- **Issue**: Help modal stuck showing "Loading help information..."
+- **Root Cause**: Debug popups in `getImageUrl` method created infinite loop during loading
+- **Fix Applied (v1.4.400)**:
+  - Removed automatic debug popups from `getImageUrl`
+  - Changed all debug alerts to console.log statements
+  - Made error handling non-blocking
+  - Kept detailed console logging for troubleshooting
+- **Result**: Help modal now loads properly without UI blocking
+
+### Current Status (v1.4.400):
+- ✅ Help text loading correctly with proper columns
+- ✅ Help modal no longer gets stuck in loading loop
+- ⚠️ Help images still need verification - proper URLs constructed but display needs testing
+- ✅ All debug info available in console without blocking UI
+- ✅ Engineers Foundation page buttons fixed with proper IDs (eng-back-btn, eng-pdf-btn)
