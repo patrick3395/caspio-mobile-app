@@ -12,6 +12,7 @@ interface HelpData {
 interface HelpImage {
   HelpID: number;
   HelpImage: string;
+  imageUrl?: string; // Store the base64 URL after fetching
 }
 
 @Component({
@@ -56,7 +57,7 @@ interface HelpImage {
           <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
-              <img [src]="getImageUrl(image.HelpImage || '')"
+              <img [src]="image.imageUrl || 'assets/img/photo-placeholder.svg'"
                    [alt]="'Help image for ' + (image.HelpImage || 'unknown')"
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)"
@@ -245,16 +246,27 @@ export class HelpModalComponent implements OnInit {
         this.title = helpData.Title;
       }
 
-      // Debug: Log what we got for images (don't show popup - causes issues)
+      // Fetch actual image data for each help image
       if (this.helpImages && this.helpImages.length > 0) {
-        const imageDebugInfo = this.helpImages.map(img => ({
-          HelpID: img.HelpID,
-          HelpImage: img.HelpImage,
-          HelpImageType: typeof img.HelpImage,
-          HelpImageValue: img.HelpImage ? String(img.HelpImage).substring(0, 100) : 'null'
-        }));
-        console.log('[HelpModal v1.4.400] Help Images Debug Info:', imageDebugInfo);
-        console.log(`[HelpModal v1.4.400] Found ${this.helpImages.length} image(s)`);
+        console.log(`[HelpModal v1.4.402] Found ${this.helpImages.length} image(s), fetching as base64...`);
+
+        // Fetch each image as base64
+        for (let image of this.helpImages) {
+          if (image.HelpImage) {
+            console.log(`[HelpModal v1.4.402] Fetching image: ${image.HelpImage}`);
+            try {
+              // Use CaspioService to get image as base64
+              const base64Url = await this.caspioService.getImageFromFilesAPI(image.HelpImage).toPromise();
+              image.imageUrl = base64Url || 'assets/img/photo-placeholder.svg';
+              console.log(`[HelpModal v1.4.402] Image fetched successfully, length: ${base64Url?.length || 0}`);
+            } catch (error) {
+              console.error(`[HelpModal v1.4.402] Failed to fetch image ${image.HelpImage}:`, error);
+              image.imageUrl = 'assets/img/photo-placeholder.svg';
+            }
+          } else {
+            image.imageUrl = 'assets/img/photo-placeholder.svg';
+          }
+        }
       }
 
       if (!helpData || !this.helpText) {
@@ -335,84 +347,33 @@ export class HelpModalComponent implements OnInit {
     await alert.present();
   }
 
+  // This method is no longer used - we fetch images as base64 using CaspioService
+  // Keeping for reference only
+  /*
   getImageUrl(imagePath: string): string {
-    console.log('[HelpModal v1.4.400] getImageUrl called with:', imagePath);
-
-    if (!imagePath) {
-      console.log('[HelpModal v1.4.400] No image path provided, returning placeholder');
-      return 'assets/img/photo-placeholder.svg';
-    }
-
-    // If it's already a data URL, return as-is
-    if (imagePath.startsWith('data:')) {
-      console.log('[HelpModal v1.4.400] Image is already a data URL');
-      return imagePath;
-    }
-
-    // If it starts with http/https, it might be a full URL already
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      console.log('[HelpModal v1.4.400] Image appears to be a full URL:', imagePath);
-      return imagePath;
-    }
-
-    // Otherwise, construct Caspio Files API URL
-    const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
-    const token = localStorage.getItem('caspio_token');
-
-    if (!token) {
-      console.error('[HelpModal v1.4.400] No auth token found!');
-      // Don't show popup here - it causes infinite loop
-      return 'assets/img/photo-placeholder.svg';
-    }
-
-    // Clean the path - remove leading slash if present
-    let cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-
-    // URL encode the entire path to handle spaces and special characters
-    // Important: For Caspio Files API, we need to encode the full path
-    const encodedPath = encodeURIComponent(cleanPath).replace(/%2F/g, '/');
-
-    const fullUrl = `https://${account}.caspio.com/rest/v2/files/${encodedPath}?access_token=${token}`;
-    console.log('[HelpModal v1.4.400] Constructed Caspio Files URL:', fullUrl);
-    console.log('[HelpModal v1.4.400] Token present:', !!token);
-    console.log('[HelpModal v1.4.400] Account:', account);
-    console.log('[HelpModal v1.4.400] Original path:', imagePath);
-    console.log('[HelpModal v1.4.400] Clean path:', cleanPath);
-    console.log('[HelpModal v1.4.400] Encoded path:', encodedPath);
-
-    return fullUrl;
+    // Old implementation - replaced with base64 fetching
+    return 'assets/img/photo-placeholder.svg';
   }
+  */
 
   async handleImageError(event: any) {
-    console.error('[HelpModal v1.4.400] Image failed to load:', event.target.src);
-
-    // Log the error but don't show popup to avoid blocking
-    const failedUrl = event.target.src;
-    console.error('[HelpModal v1.4.400] Failed URL details:', {
-      url: failedUrl,
-      possibleIssues: [
-        '1. Token may be invalid or expired',
-        '2. File may not exist in Caspio',
-        '3. Path may be incorrect',
-        '4. Permissions issue'
-      ]
-    });
-
+    console.error('[HelpModal v1.4.402] Image failed to load');
+    console.error('[HelpModal v1.4.402] This was a base64 image that failed to display');
     // Set placeholder
     event.target.src = 'assets/img/photo-placeholder.svg';
   }
 
   onImageLoad(event: any, image: HelpImage) {
-    console.log('[HelpModal v1.4.400] Image loaded successfully:', image.HelpImage);
-    console.log('[HelpModal v1.4.400] Image URL that worked:', event.target.src);
+    console.log('[HelpModal v1.4.402] Image loaded successfully:', image.HelpImage);
+    console.log('[HelpModal v1.4.402] Base64 image displayed');
   }
 
   async viewImage(image: HelpImage) {
     // You could implement a full-screen image viewer here
     // For now, just open in a new tab/window
-    console.log('[HelpModal v1.4.400] viewImage called with:', image);
-    const imageUrl = this.getImageUrl(image.HelpImage || '');
-    console.log('[HelpModal v1.4.400] Opening image URL:', imageUrl);
+    console.log('[HelpModal v1.4.402] viewImage called with:', image);
+    const imageUrl = image.imageUrl || 'assets/img/photo-placeholder.svg';
+    console.log('[HelpModal v1.4.402] Opening image URL (length):', imageUrl.length);
     window.open(imageUrl, '_blank');
   }
 

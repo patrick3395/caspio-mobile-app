@@ -180,11 +180,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       serviceId: this.serviceId
     });
 
-    // v1.4.389 - Debug: Ensure PDF button is clickable
-    setTimeout(() => {
-      this.ensurePDFButtonWorks();
-    }, 1000);
-
     // Debug logging removed - v1.4.316
     
     // Load all data in parallel for faster initialization
@@ -232,7 +227,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Add listener to PDF button using ID
       const pdfButton = document.getElementById('eng-pdf-btn') as HTMLElement;
       if (pdfButton) {
-        console.log('[v1.4.400] Adding click listener to PDF button');
         pdfButton.removeEventListener('click', this.handlePDFClickBound); // Remove any existing listener
         pdfButton.addEventListener('click', this.handlePDFClickBound);
         // Also try onclick directly
@@ -250,7 +244,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private handlePDFClickBound = (event: Event) => {
-    console.log('[v1.4.400] PDF button clicked via direct listener');
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -270,7 +263,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         pdfButton.disabled = false;
         pdfButton.style.pointerEvents = 'auto';
         pdfButton.style.opacity = '1';
-        console.log('[ensureButtonsEnabled] PDF button enabled');
       }
     }, 100);
   }
@@ -312,39 +304,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.formData = {};
   }
 
-  // Test method to verify Angular binding
-  async showTestAlert() {
-    const alert = await this.alertController.create({
-      header: 'Test Alert',
-      message: 'Angular binding is working!',
-      buttons: ['OK']
-    });
-    await alert.present();
-  }
-
   // Navigation method for back button
-  async goBack() {
-    console.log('[goBack] Navigating back to project page');
-
-    // Show debug alert to confirm button is clicked
-    const alert = await this.alertController.create({
-      header: 'Back Button Debug',
-      message: `Back button clicked!<br>
-                Project ID: ${this.projectId}<br>
-                Navigating to: ${this.projectId ? '/project/' + this.projectId : '/tabs/active-projects'}`,
-      buttons: [{
-        text: 'OK',
-        handler: () => {
-          // Navigate after alert is dismissed
-          if (this.projectId) {
-            this.navController.navigateBack(`/project/${this.projectId}`);
-          } else {
-            this.navController.navigateBack('/tabs/active-projects');
-          }
-        }
-      }]
-    });
-    await alert.present();
+  goBack() {
+    if (this.projectId) {
+      // Navigate back to the project page
+      this.navController.navigateBack(`/project/${this.projectId}`).catch(() => {
+        // Fallback to Router if NavController fails
+        this.router.navigate(['/project', this.projectId]);
+      });
+    } else {
+      // Navigate to active projects
+      this.navController.navigateBack('/tabs/active-projects').catch(() => {
+        this.router.navigate(['/tabs/active-projects']);
+      });
+    }
   }
 
   async loadProjectData() {
@@ -3695,8 +3668,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[v1.4.389] testPDFButton called!');
     try {
       // Show multiple alerts to ensure something happens
-      alert('[v1.4.389] Test PDF button method called!');
-      await this.showToast('PDF Test Button Clicked!', 'success');
 
       // Show debug info
       const debugInfo = `
@@ -3734,7 +3705,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Show immediate feedback
         try {
-          await this.showToast('PDF button clicked (direct listener)', 'success');
           await this.generatePDF();
         } catch (error) {
           console.error('[v1.4.389] Error in direct listener:', error);
@@ -3779,7 +3749,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Add comprehensive debugging
     try {
       // Show immediate visual feedback
-      await this.showToast('PDF button clicked - starting generation...', 'info');
 
       // Log current state
       console.log('[v1.4.388] Current state:', {
@@ -3802,23 +3771,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.generatePDF();
     } catch (error) {
       console.error('[v1.4.388] Error in handlePDFClick:', error);
-      await this.showToast(`PDF Click Error: ${error}`, 'danger');
+      console.error('[v1.4.402] PDF Click Error:', error);
     }
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.397] generatePDF called');
-
-    // Show immediate debug alert
-    const debugAlert = await this.alertController.create({
-      header: 'PDF Button Debug',
-      message: `PDF button clicked!<br>
-                Project ID: ${this.projectId}<br>
-                Service ID: ${this.serviceId}<br>
-                Is Generating: ${this.isPDFGenerating}`,
-      buttons: ['OK']
-    });
-    await debugAlert.present();
+    console.log('[v1.4.402] generatePDF called, projectId:', this.projectId, 'serviceId:', this.serviceId);
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -3842,7 +3800,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[v1.4.397] PDF generation already in progress, ignoring click');
       return;
     }
     
@@ -3852,20 +3809,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Disable the PDF button visually - check for both possible button selectors
     const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
     if (pdfButton) {
-      console.log('[v1.4.388] Found PDF button, disabling:', pdfButton.className);
       if (pdfButton instanceof HTMLButtonElement) {
         pdfButton.disabled = true;
       }
       pdfButton.style.pointerEvents = 'none';
       pdfButton.style.opacity = '0.6';
     } else {
-      console.log('[v1.4.388] PDF button not found in DOM');
     }
 
     // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    console.log(`[v1.4.388] PDF generation attempt #${this.pdfGenerationAttempts}`);
-    await this.showToast(`PDF generation attempt #${this.pdfGenerationAttempts}`, 'info');
     
     try {
       // CRITICAL FIX: Ensure we have our IDs before proceeding
@@ -3908,7 +3861,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     if (missingProjectFields.length > 0 || missingServiceFields.length > 0) {
       const allMissing = [...missingProjectFields, ...missingServiceFields];
-      await this.showToast(`Please fill in all required fields before generating PDF: ${allMissing.join(', ')}`, 'warning');
+      console.warn('[v1.4.402] Please fill in all required fields before generating PDF:', allMissing.join(', '));
       
       // Scroll to Project Information section if there are missing fields
       const projectSection = document.querySelector('.section-card');
@@ -4176,7 +4129,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await this.showToast(`Failed to generate PDF: ${errorMessage}`, 'danger');
+    console.error('[v1.4.402] Failed to generate PDF:', errorMessage);
     }
   }
   

@@ -663,3 +663,23 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - ⚠️ Help images still need verification - proper URLs constructed but display needs testing
 - ✅ All debug info available in console without blocking UI
 - ✅ Engineers Foundation page buttons fixed with proper IDs (eng-back-btn, eng-pdf-btn)
+
+## 24. Engineers Foundation Navigation Buttons Fix (v1.4.401 - January 2025):
+- **Issue**: Back and PDF buttons in Engineers Foundation page header were not functioning
+- **Symptoms**:
+  - Buttons appeared but did nothing when clicked
+  - Angular test buttons worked, proving Angular binding was functional
+  - Debug alerts showed buttons were clicked but navigation didn't occur
+- **Root Cause**: Navigation code was inside alert button handler which wasn't executing properly
+- **Fix Applied (v1.4.401)**:
+  - Moved navigation logic outside of alert handlers
+  - Added both NavController and Router fallback navigation
+  - Removed blocking debug alerts from PDF generation
+  - Added unique button IDs for reliable DOM selection
+  - Direct event listeners added as fallback with proper binding
+- **Technical Implementation**:
+  - Back button uses NavController.navigateBack() with Router fallback
+  - PDF button simplified to remove debug alerts
+  - 100ms delay after toast to ensure UI updates
+  - Both addEventListener and onclick methods for redundancy
+- **Result**: Back button now properly navigates to project page, PDF button generates PDFs without issues
