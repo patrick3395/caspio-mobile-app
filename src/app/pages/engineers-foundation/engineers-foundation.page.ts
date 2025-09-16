@@ -4130,7 +4130,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     });
     await toast.present();
   }
-  
+
+  async openHelp(helpId: number, title: string) {
+    const modal = await this.modalController.create({
+      component: HelpModalComponent,
+      componentProps: {
+        helpId: helpId,
+        title: title
+      },
+      cssClass: 'help-modal'
+    });
+    await modal.present();
+  }
+
   async showDebugAlert(title: string, message: string) {
     const alert = await this.alertController.create({
       header: title,

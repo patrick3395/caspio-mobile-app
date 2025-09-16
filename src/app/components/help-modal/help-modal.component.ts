@@ -49,7 +49,7 @@ interface HelpImage {
       <div *ngIf="!loading && !error" class="help-content">
         <!-- Help Text -->
         <div *ngIf="helpData?.Text" class="help-text">
-          <div [innerHTML]="helpData.Text"></div>
+          <div [innerHTML]="helpData!.Text"></div>
         </div>
 
         <!-- Help Images -->
