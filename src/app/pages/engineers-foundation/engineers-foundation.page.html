@@ -839,6 +839,12 @@
                         {{ option }}
                       </ion-select-option>
                     </ion-select>
+                    <button type="button"
+                            (click)="openHelp(1, 'FDF Help')"
+                            title="FDF Help"
+                            style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                      <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                    </button>
                   </ion-item>
                 </div>
                 
@@ -920,6 +926,12 @@
                 <!-- Measurements Section -->
                 <div class="room-section-delimiter" style="margin-top: 15px;">
                   <span class="delimiter-label">Measurements</span>
+                  <button type="button"
+                          (click)="openHelp(2, 'Base Station Help')"
+                          title="Base Station Help"
+                          style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                    <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary); vertical-align: middle;"></ion-icon>
+                  </button>
                 </div>
                 
                 <!-- Elevation Points with photo capture only - more compact -->
@@ -928,6 +940,12 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                        <button type="button"
+                                (click)="openHelp(3, 'Elevation Point Help')"
+                                title="Point Help"
+                                style="margin: 0 8px; background: transparent; border: none; padding: 2px;">
+                          <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                        </button>
                         <button class="camera-button-primary" 
                                 (click)="capturePhotoForPoint(room.RoomName, point, $event)" 
                                 title="Capture Photo">

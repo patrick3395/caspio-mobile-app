@@ -13,6 +13,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
+import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
