@@ -2370,20 +2370,26 @@ export class CaspioService {
 
   // Help table methods
   getHelpById(helpId: number): Observable<any> {
-    return this.get<any>(`/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`).pipe(
+    const endpoint = `/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`;
+    console.log('[Help] Fetching help record', { helpId, endpoint });
+
+    return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
+        console.log('[Help] Response for help record', { helpId, count: results.length, raw: response });
         if (results.length > 0) {
           const record = { ...results[0] };
           if ((record.Comment === undefined || record.Comment === null) && record.Text) {
             record.Comment = record.Text;
           }
+          console.log('[Help] Normalized help record', record);
           return record;
         }
+        console.warn('[Help] No help record found', { helpId, response });
         return null;
       }),
       catchError(error => {
-        console.error('Failed to get help by ID:', error);
+        console.error('[Help] Failed to get help by ID', { helpId, error });
         return of(null);
       })
     );
@@ -2391,24 +2397,22 @@ export class CaspioService {
 
   // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
-    return this.get<any>(`/tables/Help_Images/records?q.select=HelpID,Help_Image,Description&q.where=HelpID%3D${helpId}`).pipe(
+    const endpoint = `/tables/Help_Images/records?q.select=HelpID,Help_Image,Description&q.where=HelpID%3D${helpId}`;
+    console.log('[HelpImages] Fetching help images', { helpId, endpoint });
+
+    return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
+        console.log('[HelpImages] Response for help images', { helpId, count: results.length, raw: response });
         return results.map((item: any) => ({
           ...item,
           Help_Image: item.Help_Image || item.HelpImage || ''
         }));
       }),
       catchError(error => {
-        console.error('Failed to get help images:', error);
+        console.error('[HelpImages] Failed to get help images', { helpId, error });
         return of([]);
       })
     );
   }
 }
-
-
-
-
-
-

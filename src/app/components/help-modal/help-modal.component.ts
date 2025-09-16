@@ -226,12 +226,16 @@ export class HelpModalComponent implements OnInit {
     this.error = '';
     this.helpText = '';
 
+    console.log('[HelpModal] Loading help content', { helpId: this.helpId, title: this.title });
+
     try {
       // Load help data and images in parallel
       const [helpData, helpImages] = await Promise.all([
         this.caspioService.getHelpById(this.helpId).toPromise(),
         this.caspioService.getHelpImagesByHelpId(this.helpId).toPromise()
       ]);
+
+      console.log('[HelpModal] Raw help response', { helpData, helpImages });
 
       this.helpData = helpData;
       this.helpImages = (helpImages || []).map(image => ({
@@ -243,13 +247,17 @@ export class HelpModalComponent implements OnInit {
       if (!this.title && helpData?.Title) {
         this.title = helpData.Title;
       }
-      
-      console.log('Help data loaded:', this.helpData);
-      console.log('Help images loaded:', this.helpImages);
-      
+
+      console.log('[HelpModal] Normalized help data', { helpData: this.helpData, helpImages: this.helpImages, helpText: this.helpText });
+
+      if (!helpData || !this.helpText) {
+        console.warn('[HelpModal] Help content unavailable', { helpId: this.helpId, helpData });
+        this.error = 'Help content unavailable.';
+      }
+
     } catch (error) {
-      console.error('Error loading help data:', error);
-      this.error = 'Failed to load help information. Please try again.';
+      console.error('[HelpModal] Error loading help data', { helpId: this.helpId, error });
+      this.error = 'Help content unavailable.';
     } finally {
       this.loading = false;
     }
