@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
+import { IonicModule, ModalController, LoadingController, AlertController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 
 interface HelpData {
@@ -204,12 +204,14 @@ export class HelpModalComponent implements OnInit {
   helpData: HelpData | null = null;
   helpImages: HelpImage[] = [];
   helpText = '';
+  debugMessages: string[] = [];
   loading = false;
   error = '';
 
   constructor(
     private modalController: ModalController,
     private loadingController: LoadingController,
+    private alertController: AlertController,
     private caspioService: CaspioService
   ) {}
 
@@ -225,8 +227,12 @@ export class HelpModalComponent implements OnInit {
     this.loading = true;
     this.error = '';
     this.helpText = '';
+    this.debugMessages = [];
 
-    console.log('[HelpModal] Loading help content', { helpId: this.helpId, title: this.title });
+    const helpEndpoint = this.getHelpEndpoint(this.helpId);
+    const imagesEndpoint = this.getHelpImagesEndpoint(this.helpId);
+    this.addDebugMessage('Help request', helpEndpoint);
+    this.addDebugMessage('Help images request', imagesEndpoint);
 
     try {
       // Load help data and images in parallel
@@ -235,7 +241,8 @@ export class HelpModalComponent implements OnInit {
         this.caspioService.getHelpImagesByHelpId(this.helpId).toPromise()
       ]);
 
-      console.log('[HelpModal] Raw help response', { helpData, helpImages });
+      this.addDebugMessage('Help response', helpData);
+      this.addDebugMessage('Help images response', helpImages);
 
       this.helpData = helpData;
       this.helpImages = (helpImages || []).map(image => ({
@@ -248,19 +255,69 @@ export class HelpModalComponent implements OnInit {
         this.title = helpData.Title;
       }
 
-      console.log('[HelpModal] Normalized help data', { helpData: this.helpData, helpImages: this.helpImages, helpText: this.helpText });
-
       if (!helpData || !this.helpText) {
-        console.warn('[HelpModal] Help content unavailable', { helpId: this.helpId, helpData });
         this.error = 'Help content unavailable.';
+        await this.presentDebugAlert('Help Content Unavailable');
       }
 
     } catch (error) {
-      console.error('[HelpModal] Error loading help data', { helpId: this.helpId, error });
       this.error = 'Help content unavailable.';
+      this.addDebugMessage('Help error', error);
+      await this.presentDebugAlert('Help Content Unavailable');
     } finally {
       this.loading = false;
     }
+  }
+
+  private getHelpEndpoint(helpId: number): string {
+    return `/tables/Help/records?q.select=HelpID,Title,Comment,Text&q.where=HelpID%3D${helpId}`;
+  }
+
+  private getHelpImagesEndpoint(helpId: number): string {
+    return `/tables/Help_Images/records?q.select=HelpID,Help_Image,Description&q.where=HelpID%3D${helpId}`;
+  }
+
+  private addDebugMessage(label: string, value: any) {
+    const formattedValue = this.escapeHtml(this.formatDebugValue(value));
+    this.debugMessages.push(`<strong>${label}</strong><br><pre>${formattedValue}</pre>`);
+  }
+
+  private formatDebugValue(value: any): string {
+    if (value === undefined) {
+      return 'undefined';
+    }
+    if (value === null) {
+      return 'null';
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (error) {
+      return String(value);
+    }
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  private async presentDebugAlert(title: string) {
+    if (this.debugMessages.length === 0) {
+      this.debugMessages.push('No debug information available.');
+    }
+
+    const alert = await this.alertController.create({
+      header: title,
+      message: this.debugMessages.join('<br><br>'),
+      buttons: ['OK']
+    });
+
+    await alert.present();
   }
 
   getImageUrl(imagePath: string): string {
@@ -293,3 +350,4 @@ export class HelpModalComponent implements OnInit {
     this.modalController.dismiss();
   }
 }
+
