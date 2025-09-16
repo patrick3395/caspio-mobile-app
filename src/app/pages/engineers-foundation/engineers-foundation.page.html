@@ -839,16 +839,22 @@
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
                 
-                <!-- General Section -->
+                <!-- Flooring Difference Factor Section -->
                 <div class="room-section-delimiter">
-                  <span class="delimiter-label">General</span>
+                  <span class="delimiter-label">Flooring Difference Factor</span>
+                  <button type="button"
+                          (click)="openHelp(1, 'FDF Help')"
+                          title="FDF Help"
+                          style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                    <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                  </button>
                 </div>
                 
                 <!-- Flooring Difference Factor dropdown - compact inline -->
                 <div class="fdf-dropdown-container">
                   <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
                     <ion-label style="font-size: 13px; font-weight: 600;">FDF:</ion-label>
-                    <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
+                    <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf"
                                 placeholder="Select"
                                 interface="popover"
                                 (ionChange)="onFDFChange(room.RoomName)"
@@ -857,12 +863,6 @@
                         {{ option }}
                       </ion-select-option>
                     </ion-select>
-                    <button type="button"
-                            (click)="openHelp(1, 'FDF Help')"
-                            title="FDF Help"
-                            style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
-                      <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
-                    </button>
                   </ion-item>
                 </div>
                 
@@ -947,13 +947,6 @@
                   <div class="delimiter-actions">
                     <button type="button"
                             class="help-icon-button"
-                            (click)="openHelp(2, 'Base Station Location Help')"
-                            title="Base Station Location Help"
-                            aria-label="Base Station Location Help">
-                      <ion-icon name="information-circle-outline"></ion-icon>
-                    </button>
-                    <button type="button"
-                            class="help-icon-button"
                             (click)="openHelp(3, 'Elevation Measurements Help')"
                             title="Elevation Measurements Help"
                             aria-label="Elevation Measurements Help">
@@ -968,14 +961,8 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
-                        <button type="button"
-                                (click)="openHelp(3, 'Elevation Point Help')"
-                                title="Point Help"
-                                style="margin: 0 8px; background: transparent; border: none; padding: 2px;">
-                          <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
-                        </button>
-                        <button class="camera-button-primary" 
-                                (click)="capturePhotoForPoint(room.RoomName, point, $event)" 
+                        <button class="camera-button-primary"
+                                (click)="capturePhotoForPoint(room.RoomName, point, $event)"
                                 title="Capture Photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="point.photoCount > 0" class="photo-badge">{{ point.photoCount }}</span>

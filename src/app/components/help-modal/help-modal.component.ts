@@ -241,9 +241,21 @@ export class HelpModalComponent implements OnInit {
         this.title = helpData.Title;
       }
 
+      // Debug: Show what we got for images
+      if (this.helpImages && this.helpImages.length > 0) {
+        const imageDebugInfo = this.helpImages.map(img => ({
+          HelpID: img.HelpID,
+          HelpImage: img.HelpImage,
+          HelpImageType: typeof img.HelpImage,
+          HelpImageValue: img.HelpImage ? String(img.HelpImage).substring(0, 100) : 'null'
+        }));
+        await this.presentDebugAlert('Help Images Debug Info',
+          `Found ${this.helpImages.length} image(s):\n\n${JSON.stringify(imageDebugInfo, null, 2)}`);
+      }
+
       if (!helpData || !this.helpText) {
         this.error = 'Help content unavailable.';
-        await this.presentDebugAlert('Help Content Unavailable');
+        await this.presentDebugAlert('Help Content Unavailable', this.debugMessages.join('\n\n'));
       }
 
     } catch (error) {
@@ -292,33 +304,64 @@ export class HelpModalComponent implements OnInit {
       .replace(/>/g, '&gt;');
   }
 
-  private async presentDebugAlert(title: string) {
-    if (this.debugMessages.length === 0) {
-      this.debugMessages.push('No debug information available.');
-    }
+  private async presentDebugAlert(title: string, customMessage?: string) {
+    const message = customMessage || (this.debugMessages.length > 0 ? this.debugMessages.join('<br><br>') : 'No debug information available.');
 
     const alert = await this.alertController.create({
       header: title,
-      message: this.debugMessages.join('<br><br>'),
-      buttons: ['OK']
+      message: message.replace(/\n/g, '<br>'),
+      buttons: [
+        {
+          text: 'Copy Debug Info',
+          handler: () => {
+            const textToCopy = message.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '');
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(textToCopy);
+            }
+            return false; // Keep alert open
+          }
+        },
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
     });
 
     await alert.present();
   }
 
   getImageUrl(imagePath: string): string {
-    if (!imagePath) return 'assets/img/photo-placeholder.svg';
-    
+    console.log('[HelpModal] getImageUrl called with:', imagePath);
+
+    if (!imagePath) {
+      console.log('[HelpModal] No image path provided, returning placeholder');
+      return 'assets/img/photo-placeholder.svg';
+    }
+
     // If it's already a data URL, return as-is
     if (imagePath.startsWith('data:')) {
+      console.log('[HelpModal] Image is already a data URL');
       return imagePath;
     }
-    
+
+    // If it starts with http/https, it might be a full URL already
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      console.log('[HelpModal] Image appears to be a full URL:', imagePath);
+      return imagePath;
+    }
+
     // Otherwise, construct Caspio Files API URL
     const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
     const token = localStorage.getItem('caspio_token');
+
+    // Clean the path - remove leading slash if present
     const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-    return `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
+
+    const fullUrl = `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
+    console.log('[HelpModal] Constructed Caspio Files URL:', fullUrl);
+
+    return fullUrl;
   }
 
   handleImageError(event: any) {

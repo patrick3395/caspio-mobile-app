@@ -2400,7 +2400,17 @@ export class CaspioService {
     return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
-        console.log('[HelpImages] Response for help images', { helpId, count: results.length, raw: response });
+        console.log('[HelpImages] Response for help images', {
+          helpId,
+          count: results.length,
+          raw: response,
+          firstImage: results[0] ? {
+            HelpID: results[0].HelpID,
+            HelpImage: results[0].HelpImage,
+            HelpImageType: typeof results[0].HelpImage,
+            HelpImageLength: results[0].HelpImage ? String(results[0].HelpImage).length : 0
+          } : 'No images found'
+        });
         return results;
       }),
       catchError(error => {
