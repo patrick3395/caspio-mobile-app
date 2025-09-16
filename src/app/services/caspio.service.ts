@@ -2392,6 +2392,28 @@ export class CaspioService {
     );
   }
 
+  // Get help items by HelpID
+  getHelpItemsByHelpId(helpId: number): Observable<any[]> {
+    const endpoint = `/tables/Help_Items/records?q.select=HelpID,ItemType,Item&q.where=HelpID%3D${helpId}`;
+    console.log('[HelpItems] Fetching help items', { helpId, endpoint });
+
+    return this.get<any>(endpoint).pipe(
+      map(response => {
+        const results = response.Result || [];
+        console.log('[HelpItems] Response for help items', {
+          helpId,
+          count: results.length,
+          raw: response
+        });
+        return results;
+      }),
+      catchError(error => {
+        console.error('[HelpItems] Failed to get help items', { helpId, error });
+        return of([]);
+      })
+    );
+  }
+
   // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
     const endpoint = `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;

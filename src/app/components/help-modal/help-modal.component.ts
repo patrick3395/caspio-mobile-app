@@ -15,6 +15,12 @@ interface HelpImage {
   imageUrl?: string; // Store the base64 URL after fetching
 }
 
+interface HelpItem {
+  HelpID: number;
+  ItemType: string; // 'Do', 'Dont', 'Tip'
+  Item: string;
+}
+
 @Component({
   selector: 'app-help-modal',
   template: `
@@ -50,6 +56,24 @@ interface HelpImage {
         <!-- Help Text -->
         <div *ngIf="helpText" class="help-text">
           <div [innerHTML]="helpText"></div>
+        </div>
+
+        <!-- Help Items Table (Dos and Don'ts) -->
+        <div *ngIf="helpItems && helpItems.length > 0" class="help-items-section">
+          <h3>Guidelines</h3>
+          <div class="help-items-table">
+            <div class="help-item-row" *ngFor="let item of helpItems">
+              <div class="item-type" [class.do-type]="item.ItemType === 'Do'"
+                   [class.dont-type]="item.ItemType === 'Dont'"
+                   [class.tip-type]="item.ItemType === 'Tip'">
+                <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Dont'" name="close-circle" style="color: #f44336;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107;"></ion-icon>
+                <span class="type-label">{{ item.ItemType === 'Dont' ? "Don't" : item.ItemType }}</span>
+              </div>
+              <div class="item-content">{{ item.Item }}</div>
+            </div>
+          </div>
         </div>
 
         <!-- Help Images -->
@@ -119,6 +143,76 @@ interface HelpImage {
 
     .help-text p {
       margin-bottom: 16px;
+    }
+
+    /* Help Items (Dos and Don'ts) Table Styling */
+    .help-items-section {
+      margin: 24px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .help-items-section h3 {
+      color: var(--ion-color-primary);
+      margin-bottom: 16px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .help-items-table {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .help-item-row {
+      display: flex;
+      align-items: flex-start;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      gap: 12px;
+    }
+
+    .item-type {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 100px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .item-type ion-icon {
+      font-size: 20px;
+    }
+
+    .do-type {
+      color: #4CAF50;
+    }
+
+    .dont-type {
+      color: #f44336;
+    }
+
+    .tip-type {
+      color: #FFC107;
+    }
+
+    .type-label {
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .item-content {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #333;
     }
 
     .help-images h3 {
@@ -209,6 +303,7 @@ export class HelpModalComponent implements OnInit {
 
   helpData: HelpData | null = null;
   helpImages: HelpImage[] = [];
+  helpItems: HelpItem[] = [];
   helpText = '';
   debugMessages: string[] = [];
   loading = false;
@@ -241,16 +336,19 @@ export class HelpModalComponent implements OnInit {
     this.addDebugMessage('Help images request', imagesEndpoint);
 
     try {
-      // Load help data and images in parallel
-      const [helpData, helpImages] = await Promise.all([
+      // Load help data, items, and images in parallel
+      const [helpData, helpItems, helpImages] = await Promise.all([
         this.caspioService.getHelpById(this.helpId).toPromise(),
+        this.caspioService.getHelpItemsByHelpId(this.helpId).toPromise(),
         this.caspioService.getHelpImagesByHelpId(this.helpId).toPromise()
       ]);
 
       this.addDebugMessage('Help response', helpData);
+      this.addDebugMessage('Help items response', helpItems);
       this.addDebugMessage('Help images response', helpImages);
 
       this.helpData = helpData;
+      this.helpItems = helpItems || [];
       this.helpImages = helpImages || [];
       this.helpText = helpData?.Comment || '';
 

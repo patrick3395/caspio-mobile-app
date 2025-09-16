@@ -18,7 +18,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.404 - Fixed back button navigation using Location.back()</div>
+    <div class="version-header">Version 1.4.406 - Added Dos and Don'ts table to help modal</div>
 
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -943,11 +943,11 @@
                   <span class="delimiter-label">Measurements</span>
                   <div class="delimiter-actions">
                     <button type="button"
-                            class="help-icon-button"
                             (click)="openHelp(3, 'Elevation Measurements Help')"
                             title="Elevation Measurements Help"
-                            aria-label="Elevation Measurements Help">
-                      <ion-icon name="information-circle-outline"></ion-icon>
+                            aria-label="Elevation Measurements Help"
+                            style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                      <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                     </button>
                   </div>
                 </div>
