@@ -69,12 +69,12 @@ interface HelpItem {
               <div class="item-type" [class.do-type]="item.ItemType === 'Do'"
                    [class.dont-type]="item.ItemType === 'Dont'"
                    [class.tip-type]="item.ItemType === 'Tip'">
-                <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50;"></ion-icon>
-                <ion-icon *ngIf="item.ItemType === 'Dont'" name="close-circle" style="color: #f44336;"></ion-icon>
-                <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50; font-size: 20px;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Dont'" name="close-circle" style="color: #f44336; font-size: 20px;"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107; font-size: 20px;"></ion-icon>
                 <span class="type-label" [style.color]="item.ItemType === 'Dont' ? '#f44336' : null">{{ item.ItemType === 'Dont' ? "Don't" : item.ItemType }}</span>
               </div>
-              <div class="item-content">{{ item.Item }}</div>
+              <div class="item-content" [style.color]="item.ItemType === 'Dont' ? '#f44336' : null">{{ item.Item }}</div>
             </div>
           </div>
         </div>
@@ -354,7 +354,11 @@ export class HelpModalComponent implements OnInit {
       this.addDebugMessage('Help images response', helpImages);
 
       this.helpData = helpData;
-      this.helpItems = helpItems || [];
+      // Sort helpItems: Do's first, then Don'ts, then Tips
+      this.helpItems = (helpItems || []).sort((a, b) => {
+        const order = { 'Do': 1, 'Dont': 2, 'Tip': 3 };
+        return (order[a.ItemType] || 999) - (order[b.ItemType] || 999);
+      });
       this.helpImages = helpImages || [];
       this.helpText = helpData?.Comment || '';
 
