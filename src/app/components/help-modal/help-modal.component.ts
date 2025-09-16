@@ -53,9 +53,12 @@ interface HelpItem {
 
       <!-- Help Content -->
       <div *ngIf="!loading && !error" class="help-content">
-        <!-- Help Text -->
-        <div *ngIf="helpText" class="help-text">
-          <div [innerHTML]="helpText"></div>
+        <!-- Description Section -->
+        <div *ngIf="helpText" class="help-description-section">
+          <h3>Description</h3>
+          <div class="help-text">
+            <div [innerHTML]="helpText"></div>
+          </div>
         </div>
 
         <!-- Help Items Table (Dos and Don'ts) -->
@@ -69,7 +72,7 @@ interface HelpItem {
                 <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50;"></ion-icon>
                 <ion-icon *ngIf="item.ItemType === 'Dont'" name="close-circle" style="color: #f44336;"></ion-icon>
                 <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107;"></ion-icon>
-                <span class="type-label">{{ item.ItemType === 'Dont' ? "Don't" : item.ItemType }}</span>
+                <span class="type-label" [style.color]="item.ItemType === 'Dont' ? '#f44336' : null">{{ item.ItemType === 'Dont' ? "Don't" : item.ItemType }}</span>
               </div>
               <div class="item-content">{{ item.Item }}</div>
             </div>
@@ -77,8 +80,8 @@ interface HelpItem {
         </div>
 
         <!-- Help Images -->
-        <div *ngIf="helpImages && helpImages.length > 0" class="help-images">
-          <h3 style="margin-bottom: 10px;">Related Images</h3>
+        <div *ngIf="helpImages && helpImages.length > 0" class="help-images-section">
+          <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
               <img [src]="image.imageUrl || 'assets/img/photo-placeholder.svg'"
@@ -129,24 +132,10 @@ interface HelpItem {
       padding: 16px 0;
     }
 
-    .help-text {
-      margin-bottom: 24px;
-      line-height: 1.6;
-      font-size: 16px;
-    }
-
-    .help-text h1, .help-text h2, .help-text h3 {
-      color: var(--ion-color-primary);
-      margin-top: 24px;
-      margin-bottom: 12px;
-    }
-
-    .help-text p {
-      margin-bottom: 16px;
-    }
-
-    /* Help Items (Dos and Don'ts) Table Styling */
-    .help-items-section {
+    /* Common section styling */
+    .help-description-section,
+    .help-items-section,
+    .help-images-section {
       margin: 24px 0;
       padding: 20px;
       background: #f9f9f9;
@@ -154,11 +143,30 @@ interface HelpItem {
       border: 1px solid #e0e0e0;
     }
 
-    .help-items-section h3 {
+    /* Common header styling for all sections */
+    .help-description-section h3,
+    .help-items-section h3,
+    .help-images-section h3 {
       color: var(--ion-color-primary);
       margin-bottom: 16px;
       font-size: 20px;
       font-weight: 600;
+      margin-top: 0;
+    }
+
+    .help-text {
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    .help-text h1, .help-text h2, .help-text h3 {
+      color: var(--ion-color-primary);
+      margin-top: 16px;
+      margin-bottom: 12px;
+    }
+
+    .help-text p {
+      margin-bottom: 16px;
     }
 
     .help-items-table {
@@ -169,7 +177,7 @@ interface HelpItem {
 
     .help-item-row {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       background: white;
       padding: 12px 16px;
       border-radius: 8px;
@@ -180,10 +188,12 @@ interface HelpItem {
     .item-type {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       min-width: 100px;
       font-weight: 600;
       font-size: 14px;
+      padding: 8px;
     }
 
     .item-type ion-icon {
@@ -204,8 +214,9 @@ interface HelpItem {
 
     .type-label {
       text-transform: uppercase;
-      font-size: 12px;
+      font-size: 13px;
       letter-spacing: 0.5px;
+      font-weight: 700;
     }
 
     .item-content {
@@ -215,11 +226,6 @@ interface HelpItem {
       color: #333;
     }
 
-    .help-images h3 {
-      color: var(--ion-color-primary);
-      margin-bottom: 16px;
-      font-size: 18px;
-    }
 
     .images-grid {
       display: flex;

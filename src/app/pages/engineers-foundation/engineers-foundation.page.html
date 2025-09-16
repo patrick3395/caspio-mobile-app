@@ -18,7 +18,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.406 - Added Dos and Don'ts table to help modal</div>
+    <div class="version-header">Version 1.4.409 - Fixed Measurements help IDs (Base Station: 2, Points: 3)</div>
 
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -941,7 +941,52 @@
                 <!-- Measurements Section -->
                 <div class="room-section-delimiter measurement-header" style="margin-top: 15px;">
                   <span class="delimiter-label">Measurements</span>
-                  <div class="delimiter-actions">
+                </div>
+
+                <!-- Base Station Section (First Point) -->
+                <div *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0" style="margin-bottom: 15px;">
+                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: 600; font-size: 14px; color: #666;">Base Station</span>
+                    <button type="button"
+                            (click)="openHelp(2, 'Base Station Location Help')"
+                            title="Base Station Location Help"
+                            aria-label="Base Station Location Help"
+                            style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                      <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                    </button>
+                  </div>
+                  <!-- Base Station Point (First elevation point) -->
+                  <div class="elevation-point-card" *ngIf="roomElevationData[room.RoomName].elevationPoints[0]">
+                    <div class="point-header">
+                      <span class="point-label" [title]="roomElevationData[room.RoomName].elevationPoints[0].name">{{ roomElevationData[room.RoomName].elevationPoints[0].name }}</span>
+                      <button class="camera-button-primary"
+                              (click)="capturePhotoForPoint(room.RoomName, roomElevationData[room.RoomName].elevationPoints[0], $event)"
+                              title="Capture Photo">
+                        <ion-icon name="camera"></ion-icon>
+                        <span *ngIf="roomElevationData[room.RoomName].elevationPoints[0].photoCount > 0" class="photo-badge">{{ roomElevationData[room.RoomName].elevationPoints[0].photoCount }}</span>
+                      </button>
+                    </div>
+                    <!-- Photo preview for base station -->
+                    <div class="point-photo-preview" *ngIf="roomElevationData[room.RoomName].elevationPoints[0].photos && roomElevationData[room.RoomName].elevationPoints[0].photos.length > 0">
+                      <div class="photo-thumbnails">
+                        <div class="photo-thumb-container" *ngFor="let photo of roomElevationData[room.RoomName].elevationPoints[0].photos; let i = index">
+                          <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url"
+                               (click)="viewRoomPhoto(photo, room.RoomName, roomElevationData[room.RoomName].elevationPoints[0])"
+                               (error)="handleImageError($event, photo)"
+                               [alt]="'Photo ' + (i+1) + ' for ' + roomElevationData[room.RoomName].elevationPoints[0].name">
+                          <button class="delete-btn" (click)="deleteRoomPhoto(photo, room.RoomName, roomElevationData[room.RoomName].elevationPoints[0]); $event.stopPropagation()" title="Delete">
+                            <ion-icon name="close"></ion-icon>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Other Measurement Points -->
+                <div *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 1" style="margin-top: 15px;">
+                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: 600; font-size: 14px; color: #666;">Elevation Points</span>
                     <button type="button"
                             (click)="openHelp(3, 'Elevation Measurements Help')"
                             title="Elevation Measurements Help"
@@ -950,12 +995,10 @@
                       <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                     </button>
                   </div>
-                </div>
-                
-                <!-- Elevation Points with photo capture only - more compact -->
-                <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
-                  <div class="elevation-points-grid">
-                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                  <!-- All other elevation points (skip first one) -->
+                  <div class="elevation-points-container">
+                    <div class="elevation-points-grid">
+                      <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints.slice(1)">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
                         <button class="camera-button-primary"
@@ -988,11 +1031,13 @@
                         </div>
                       </div>
                     </div>
+                    </div>
                   </div>
-                  
-                  <!-- Add custom point button at bottom right -->
-                  <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                    <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
+                </div>
+
+                <!-- Add custom point button at bottom right -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                  <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
                             style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
                       <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
                       Add Custom Point
