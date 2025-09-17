@@ -32,6 +32,14 @@ interface ServicesVisualRecord {
   Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
 }
 
+interface PendingPhotoUpload {
+  file: File;
+  annotationData?: any;
+  originalPhoto?: File | null;
+  isBatchUpload: boolean;
+  tempId: string;
+}
+
 @Component({
   selector: 'app-engineers-foundation',
   templateUrl: './engineers-foundation.page.html',
@@ -60,6 +68,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private viewInitialized = false;
   private dataInitialized = false;
   private subscriptions = new Subscription();
+  private pendingVisualKeys: Set<string> = new Set();
+  private pendingPhotoUploads: { [key: string]: PendingPhotoUpload[] } = {};
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -209,6 +219,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.updateOfflineBanner();
         if (status) {
           setTimeout(() => this.updateQueueStatus(), 300);
+          this.refreshPendingVisuals();
         }
       })
     );
@@ -363,9 +374,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.visualPhotos = {};
     this.roomElevationData = {};
     this.roomTemplates = [];
-    
+
     // Force garbage collection hints
     this.formData = {};
+    this.pendingPhotoUploads = {};
   }
 
   // Navigation method for back button
@@ -4402,6 +4414,81 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  private refreshPendingVisuals(): void {
+    const pendingEntries = Object.entries(this.visualRecordIds)
+      .filter(([, value]) => value === '__pending__');
+
+    pendingEntries.forEach(([key]) => {
+      const separatorIndex = key.lastIndexOf('_');
+      if (separatorIndex <= 0 || separatorIndex >= key.length - 1) {
+        return;
+      }
+
+      const category = key.substring(0, separatorIndex);
+      const templateId = key.substring(separatorIndex + 1);
+
+      if (category && templateId) {
+        this.refreshVisualId(category, templateId);
+      }
+
+      if (this.pendingPhotoUploads[key] && this.pendingPhotoUploads[key].length > 0) {
+        this.processPendingPhotoUploadsForKey(key);
+      }
+    });
+  }
+
+  private async processPendingPhotoUploadsForKey(key: string): Promise<void> {
+    const pendingUploads = this.pendingPhotoUploads[key];
+    const visualId = this.visualRecordIds[key];
+
+    if (!pendingUploads || pendingUploads.length === 0) {
+      return;
+    }
+
+    if (!visualId || visualId === '__pending__') {
+      return;
+    }
+
+    const visualIdNum = parseInt(visualId, 10);
+    if (isNaN(visualIdNum)) {
+      console.warn('Pending photo uploads waiting for numeric VisualID. Current value:', visualId);
+      return;
+    }
+
+    const uploads = [...pendingUploads];
+    delete this.pendingPhotoUploads[key];
+
+    for (const upload of uploads) {
+      const keyPhotos = this.visualPhotos[key] || [];
+      const photoIndex = keyPhotos.findIndex((p: any) => p.id === upload.tempId);
+
+      if (photoIndex !== -1) {
+        keyPhotos[photoIndex].uploading = true;
+        keyPhotos[photoIndex].queued = false;
+      }
+
+      try {
+        await this.performVisualPhotoUpload(
+          visualIdNum,
+          upload.file,
+          key,
+          upload.isBatchUpload,
+          upload.annotationData,
+          upload.originalPhoto || null,
+          upload.tempId
+        );
+      } catch (error) {
+        console.error('Failed to upload queued photo after sync resumed:', error);
+        if (photoIndex !== -1) {
+          keyPhotos[photoIndex].uploading = false;
+          keyPhotos[photoIndex].queued = false;
+          keyPhotos[photoIndex].failed = true;
+        }
+        await this.showToast('Queued photo failed to sync. Please retry.', 'danger');
+      }
+    }
+  }
+
   toggleManualOffline(): void {
     const newState = !this.manualOffline;
     this.offlineService.setManualOffline(newState);
@@ -4717,122 +4804,131 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('No ServiceID available for saving visual');
       return;
     }
-    
-    // Find the template data first
-    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
-    if (!template) {
-      console.error('Template not found:', templateId);
-      return;
-    }
-    
-    // Check if this visual already exists
+
     const key = `${category}_${templateId}`;
     if (this.visualRecordIds[key]) {
       return;
     }
-    
-    // Also check if it exists in the database but wasn't loaded yet
-    try {
-      const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
-      if (existingVisuals) {
-        const exists = existingVisuals.find((v: any) => 
-          v.Category === category && 
-          v.Name === template.Name
-        );
-        if (exists) {
-          const existingId = exists.VisualID || exists.PK_ID || exists.id;
-          this.visualRecordIds[key] = String(existingId);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for existing visual:', error);
-    }
-    
-    // Convert ServiceID to number (Caspio expects Integer type)
-    const serviceIdNum = parseInt(this.serviceId, 10);
-    if (isNaN(serviceIdNum)) {
-      console.error('Invalid ServiceID - not a number:', this.serviceId);
-      await this.showToast('Invalid Service ID', 'danger');
+
+    if (this.pendingVisualKeys.has(key)) {
+      console.log('[Offline] Visual create already pending for', key);
       return;
     }
-    
-    // Get the item data to access answerType and answers
-    let answers = '';
-    let textValue = template.Text || '';
-    
-    // Find the item in organizedData to get current values
-    const findItem = (items: any[]) => items.find(i => i.id === templateId);
-    let item = null;
-    
-    if (this.organizedData[category]) {
-      item = findItem(this.organizedData[category].comments) ||
-             findItem(this.organizedData[category].limitations) ||
-             findItem(this.organizedData[category].deficiencies);
-    }
-    
-    if (item) {
-      // Check if we have answerToSave (set by onAnswerChange or onMultiSelectChange)
-      if (item.answerToSave) {
-        answers = item.answerToSave;
-        textValue = item.originalText || template.Text || '';
-      }
-      // For AnswerType 1 (Yes/No), store the answer in Answers field
-      else if (item.answerType === 1 && item.answer) {
-        answers = item.answer;
-        textValue = item.originalText || template.Text || '';
-      }
-      // For AnswerType 2 (multi-select), store comma-delimited answers
-      else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
-        answers = item.selectedOptions.join(', ');
-        textValue = item.originalText || template.Text || '';
-      }
-      // For AnswerType 0 or undefined (text), use the text field as is
-      else {
-        textValue = item.text || template.Text || '';
-      }
-    }
-    
-    // ONLY include the columns that exist in Services_Visuals table
-    const visualData: ServicesVisualRecord = {
-      ServiceID: serviceIdNum,
-      Category: category || '',
-      Kind: template.Kind || '',
-      Name: template.Name || '',
-      Text: textValue,
-      Notes: ''
-    };
-    
-    // Add Answers field if there are answers to store
-    if (answers) {
-      visualData.Answers = answers;
-    }
-    
+
+    this.pendingVisualKeys.add(key);
+
     try {
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-      
-      // Handle response to get the Visual ID
-      let visualId: any;
-      if (Array.isArray(response) && response.length > 0) {
-        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
-      } else if (response && typeof response === 'object') {
-        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
-        } else {
-          visualId = response.VisualID || response.PK_ID || response.id;
-        }
-      } else {
-        visualId = response;
+      const template = this.visualTemplates.find(t => t.PK_ID === templateId);
+      if (!template) {
+        console.error('Template not found:', templateId);
+        return;
       }
-      
-      // Store the visual ID for future reference
+
       const recordKey = `visual_${category}_${templateId}`;
-      localStorage.setItem(recordKey, String(visualId));
-      this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
-      
-    } catch (error: any) {
+
+      try {
+        const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
+        if (existingVisuals) {
+          const exists = existingVisuals.find((v: any) =>
+            v.Category === category &&
+            v.Name === template.Name
+          );
+          if (exists) {
+            const existingId = exists.VisualID || exists.PK_ID || exists.id;
+            this.visualRecordIds[key] = String(existingId);
+            localStorage.setItem(recordKey, String(existingId));
+            await this.processPendingPhotoUploadsForKey(key);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for existing visual:', error);
+      }
+
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        console.error('Invalid ServiceID - not a number:', this.serviceId);
+        await this.showToast('Invalid Service ID', 'danger');
+        return;
+      }
+
+      let answers = '';
+      let textValue = template.Text || '';
+
+      const findItem = (items: any[]) => items.find(i => i.id === templateId);
+      let item = null;
+      if (this.organizedData[category]) {
+        item = findItem(this.organizedData[category].comments) ||
+               findItem(this.organizedData[category].limitations) ||
+               findItem(this.organizedData[category].deficiencies);
+      }
+
+      if (item) {
+        if (item.answerToSave) {
+          answers = item.answerToSave;
+          textValue = item.originalText || template.Text || '';
+        } else if (item.answerType === 1 && item.answer) {
+          answers = item.answer;
+          textValue = item.originalText || template.Text || '';
+        } else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
+          answers = item.selectedOptions.join(', ');
+          textValue = item.originalText || template.Text || '';
+        } else {
+          textValue = item.text || template.Text || '';
+        }
+      }
+
+      const visualData: ServicesVisualRecord = {
+        ServiceID: serviceIdNum,
+        Category: category || '',
+        Kind: template.Kind || '',
+        Name: template.Name || '',
+        Text: textValue,
+        Notes: ''
+      };
+
+      if (answers) {
+        visualData.Answers = answers;
+      }
+
+      this.visualRecordIds[key] = '__pending__';
+      localStorage.setItem(recordKey, '__pending__');
+
+      let visualId: string | null = null;
+
+      try {
+        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+
+        if (Array.isArray(response) && response.length > 0) {
+          visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+        } else if (response && typeof response === 'object') {
+          if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+            visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+          } else {
+            visualId = String(response.VisualID || response.PK_ID || response.id || '');
+          }
+        } else if (response) {
+          visualId = String(response);
+        }
+      } catch (error) {
+        delete this.visualRecordIds[key];
+        localStorage.removeItem(recordKey);
+        throw error;
+      }
+
+      if (visualId && visualId !== 'undefined' && visualId !== 'null' && visualId !== '') {
+        this.visualRecordIds[key] = visualId;
+        localStorage.setItem(recordKey, visualId);
+        await this.processPendingPhotoUploadsForKey(key);
+      } else {
+        // Keep pending marker and try to refresh later
+        setTimeout(() => this.refreshVisualId(category, templateId), 2000);
+      }
+    } catch (error) {
       console.error('Error saving visual:', error);
       await this.showToast('Failed to save visual', 'danger');
+    } finally {
+      this.pendingVisualKeys.delete(key);
     }
   }
   
@@ -4841,7 +4937,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Check if we have a stored record ID
     const recordKey = `visual_${category}_${templateId}`;
     const recordId = localStorage.getItem(recordKey);
-    
+    const key = `${category}_${templateId}`;
+    delete this.visualRecordIds[key];
+    delete this.pendingPhotoUploads[key];
+
+    if (recordId === '__pending__') {
+      // Pending create was never synced; just clear the placeholder
+      localStorage.removeItem(recordKey);
+      this.pendingVisualKeys.delete(key);
+      return;
+    }
+
     if (recordId) {
       try {
         await this.caspioService.deleteServicesVisual(recordId).toPromise();
@@ -6089,10 +6195,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       maxWidthOrHeight: 1920,
       useWebWorker: true
     }) as File;
-    
+
+    const uploadFile = compressedPhoto || photo;
+
     // Use the ID from visualRecordIds to ensure consistency
     const actualVisualId = this.visualRecordIds[key] || visualId;
-    
+    const isPendingVisual = !actualVisualId || actualVisualId === '__pending__';
+
     // INSTANTLY show preview with object URL
     if (actualVisualId && actualVisualId !== 'undefined') {
       // [v1.4.387] ONLY store photos by KEY for consistency
@@ -6110,18 +6219,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         url: objectUrl,
         thumbnailUrl: objectUrl,
         isObjectUrl: true,
-        uploading: true, // Flag to show it's uploading
-        hasAnnotations: false,
-        annotations: null
+        uploading: !isPendingVisual,
+        queued: isPendingVisual,
+        hasAnnotations: !!annotationData,
+        annotations: annotationData || null
       };
-      
+
       // [v1.4.387] ONLY add to key-based storage
       console.log(`[v1.4.387] Adding uploaded photo to KEY: ${key}`);
       console.log(`  Filename: ${photo.name}`);
       console.log(`  TempID: ${tempId}`);
       this.visualPhotos[key].push(photoData);
+
+      if (isPendingVisual) {
+        if (!this.pendingPhotoUploads[key]) {
+          this.pendingPhotoUploads[key] = [];
+        }
+
+        this.pendingPhotoUploads[key].push({
+          file: uploadFile,
+          annotationData,
+          originalPhoto,
+          isBatchUpload,
+          tempId
+        });
+
+        this.showToast('Auto-save is paused. Photo queued and will upload when syncing resumes.', 'warning');
+        return;
+      }
     }
-    
+
     // Now do the actual upload in background
     try {
       // Parse visualId to number as required by the service
@@ -6142,12 +6269,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         fields: {
           VisualID: visualIdNum,
           Annotation: '', // Annotation is blank as requested
-          Photo: `[File: ${photo.name}]`
+          Photo: `[File: ${uploadFile.name}]`
         },
         fileInfo: {
-          name: photo.name,
-          size: `${(photo.size / 1024).toFixed(2)} KB`,
-          type: photo.type || 'unknown'
+          name: uploadFile.name,
+          size: `${(uploadFile.size / 1024).toFixed(2)} KB`,
+          type: uploadFile.type || 'unknown'
         },
         process: [
           '1. Upload file to Files API',
@@ -6207,18 +6334,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, photo, key, false, annotationData, originalPhoto);
+              await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, false, annotationData, originalPhoto, tempId);
             }
           }
         ]
       });
-      
+
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, photo, key, true, annotationData, originalPhoto);
+        await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId);
       }
-      
+
     } catch (error) {
       console.error('❌ Failed to prepare upload:', error);
       await this.showToast('Failed to prepare photo upload', 'danger');
@@ -6226,7 +6353,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Separate method to perform the actual upload
-  private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
+  private async performVisualPhotoUpload(
+    visualIdNum: number,
+    photo: File,
+    key: string,
+    isBatchUpload: boolean = false,
+    annotationData: any = null,
+    originalPhoto: File | null = null,
+    tempPhotoId?: string
+  ) {
     try {
       // Show debug popup for what we're sending (only for single uploads)
       if (!isBatchUpload) {
@@ -6349,7 +6484,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // [v1.4.388 FIX] Update photo directly in key-based storage where it was added
       // The temp photo is stored in visualPhotos[key], not visualPhotos[actualVisualId]
       const keyPhotos = this.visualPhotos[key] || [];
-      const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+      let tempPhotoIndex = -1;
+
+      if (tempPhotoId) {
+        tempPhotoIndex = keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId);
+      }
+
+      if (tempPhotoIndex === -1) {
+        tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
+      }
 
       if (tempPhotoIndex !== -1) {
         // Load the actual image from API instead of keeping blob URL
@@ -8482,6 +8625,7 @@ Stack: ${error?.stack}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
           console.log('✅ Visual ID refreshed:', visualId, 'for key:', `${category}_${templateId}`);
+          await this.processPendingPhotoUploadsForKey(`${category}_${templateId}`);
         } else {
           console.log('⚠️ Could not find visual with Category:', category, 'and Name:', templateName);
           console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.VisualID || v.PK_ID })));

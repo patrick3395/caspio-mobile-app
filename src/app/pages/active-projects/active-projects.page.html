@@ -1,17 +1,31 @@
 <ion-header class="custom-header">
-  <ion-toolbar color="light">
-    <ion-title class="page-title">📱 Caspio Mobile v1.3.95</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="checkForUpdates()" fill="clear">
-        <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-      <ion-button (click)="createNewProject()" fill="clear">
-        <ion-icon name="add-circle-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-      <ion-button (click)="logout()" fill="clear">
-        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
+  <ion-toolbar class="action-toolbar">
+    <div class="toolbar-actions">
+      <button
+        type="button"
+        class="toolbar-btn"
+        (click)="checkForUpdates()"
+        aria-label="Refresh projects"
+      >
+        <ion-icon name="refresh-outline"></ion-icon>
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn primary"
+        (click)="createNewProject()"
+        aria-label="Add project"
+      >
+        <ion-icon name="add"></ion-icon>
+      </button>
+      <button
+        type="button"
+        class="toolbar-btn"
+        (click)="logout()"
+        aria-label="Log out"
+      >
+        <ion-icon name="log-out-outline"></ion-icon>
+      </button>
+    </div>
   </ion-toolbar>
 </ion-header>
 
