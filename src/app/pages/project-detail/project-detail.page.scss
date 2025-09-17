@@ -1,10 +1,10 @@
 // Noble Property Inspections Brand Colors
-$orange: #F15A27;
-$gray: #69635D;
-$light-gray: #F5F5F5;
-$border: #E0E0E0;
-$dark: #333333;
-$white: #FFFFFF;
+$orange: var(--noble-orange, #F15A27);
+$gray: rgba(var(--ion-text-color-rgb, 51, 51, 51), 0.75);
+$light-gray: var(--ion-surface-muted-background, #F5F5F5);
+$border: var(--ion-border-color, #E0E0E0);
+$dark: var(--ion-text-color, #333333);
+$white: var(--ion-card-background, #FFFFFF);
 
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
@@ -54,7 +54,7 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 .street-view-header{width:100%;height:200px;overflow:hidden;background:$light-gray;
 img{width:100%;height:100%;object-fit:cover}}
 
-.info-section{padding:20px;background:white;margin-bottom:10px;border-bottom:1px solid $border;
+.info-section{padding:20px;background:$white;margin-bottom:10px;border-bottom:1px solid $border;
 .section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 .section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
 .section-title{margin:0;padding:0;border:none}
@@ -76,7 +76,7 @@ ion-checkbox{--checkmark-color:white;--checkbox-background-checked:#{$orange};} 
 .performed-service-item{display:flex;align-items:center;gap:10px;padding:10px;background:$light-gray;border:1px solid $border;border-radius:8px;
 ion-icon{font-size:20px;flex-shrink:0}
 .service-name{flex:1;font-size:14px;color:$dark;font-weight:500}
-.instance-badge{background:rgba($orange,0.1);color:$orange;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}}}
+.instance-badge{background:rgba(var(--ion-color-primary-rgb, 241, 90, 39),0.12);color:var(--ion-color-primary, $orange);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}}}
 
 .no-services-performed{text-align:center;padding:20px;
 p{color:$gray;font-size:14px}}
@@ -89,7 +89,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   border:1px solid $border;
   border-radius:8px;
   overflow:hidden;
-  background:white;
+  background:$white;
   
   .table-header{
     display:grid;
@@ -150,8 +150,8 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       }
       
       .instance-badge{
-        background:rgba($orange, 0.1);
-        color:$orange;
+        background:rgba(var(--ion-color-primary-rgb, 241, 90, 39), 0.12);
+        color:var(--ion-color-primary, $orange);
         padding:2px 6px;
         border-radius:12px;
         font-size:11px;
@@ -174,7 +174,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
         border:1px solid $border;
         border-radius:4px;
         font-size:13px;
-        background:white;
+        background:$white;
         
         &:focus{
           outline:none;
@@ -224,10 +224,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     .service-price{
       font-weight:600;
       font-size:15px;
-      color:#212529;
+      color:$dark;
       font-family:'Courier New', monospace;
       padding:4px 12px;
-      background:white;
+      background:$white;
       border:1px solid $border;
       border-radius:4px;
     }
@@ -240,7 +240,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   justify-content:flex-end;
   align-items:center;
   padding:12px;
-  background:white;
+  background:$white;
   border:1px solid $border;
   border-top:2px solid $orange;
   border-radius:0 0 8px 8px;
@@ -256,10 +256,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   .total-amount{
     font-weight:600;
     font-size:15px;  // Same as price above
-    color:#212529;
+    color:$dark;
     font-family:'Courier New', monospace;
     padding:4px 12px;
-    background:white;
+    background:$white;
     border:1px solid $border;  // Same as price boxes
     border-radius:4px;
   }
@@ -434,7 +434,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 // Templates Progress Bars
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
-.template-bar{position:relative;height:60px;background:white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+.template-bar{position:relative;height:60px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
 &:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}}
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
