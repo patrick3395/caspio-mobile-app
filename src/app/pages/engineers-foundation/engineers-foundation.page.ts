@@ -4402,6 +4402,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  toggleManualOffline(): void {
+    const newState = !this.manualOffline;
+    this.offlineService.setManualOffline(newState);
+    this.manualOffline = newState;
+    this.updateOfflineBanner();
+
+    const toastMessage = newState
+      ? 'Manual offline mode enabled. Changes will queue until you resume.'
+      : 'Auto-save resumed. Queued changes will sync shortly.';
+    this.showToast(toastMessage, newState ? 'warning' : 'success');
+  }
+
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
     this.saveStatus = message;
     this.saveStatusType = type;
