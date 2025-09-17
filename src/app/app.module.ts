@@ -11,8 +11,8 @@ import { CaspioInterceptor } from './interceptors/caspio.interceptor';
 import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.component';
 
 @NgModule({
-  declarations: [AppComponent, ThemeToggleComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule],
+  declarations: [AppComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true }
