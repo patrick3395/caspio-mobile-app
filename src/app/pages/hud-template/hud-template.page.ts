@@ -2870,17 +2870,15 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
-      // If no templates found with TypeID = 2, fallback to TypeID = 1 temporarily
+      // If no templates found with TypeID = 2, fallback to TypeID = 1 silently
       if (this.visualTemplates.length === 0) {
-        console.warn('[HUD-Template] WARNING: No templates found with TypeID = 2. Falling back to TypeID = 1 temporarily.');
-        console.warn('[HUD-Template] Please configure HUD templates in the database with TypeID = 2.');
+        console.log('[HUD-Template] No TypeID = 2 templates found, using TypeID = 1 templates');
 
         // Use TypeID = 1 as fallback so the template loads
         this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
 
         if (this.visualTemplates.length > 0) {
-          await this.showToast('Using default templates. HUD templates not configured.', 'warning');
-          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1 as fallback`);
+          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1`);
         } else {
           await this.showToast('No templates found in database.', 'danger');
         }
