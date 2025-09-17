@@ -17,7 +17,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.423'; // Update this to match package.json version
+  appVersion = '1.4.424'; // Update this to match package.json version
   
   // Lazy loading configuration
   private readonly INITIAL_LOAD = 20; // Initial number of projects to show

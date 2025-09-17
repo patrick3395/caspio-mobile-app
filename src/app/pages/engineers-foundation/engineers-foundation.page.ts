@@ -1121,49 +1121,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const photoUrl = this.roomElevationData[roomName]?.fdfPhotos?.[`${photoKey}Url`];
     const fdfPhotos = this.roomElevationData[roomName]?.fdfPhotos || {};
     const roomId = this.roomRecordIds[roomName];
+    const columnName = `FDFPhoto${photoType}`;
 
-    // [v1.4.423] Debug popup to show FDF photo state
-    const debugInfo = {
-      roomName,
-      photoType,
-      photoKey,
-      roomId: roomId || 'No room ID',
-      hasUrl: !!photoUrl,
-      urlType: photoUrl ? (photoUrl.startsWith('data:') ? 'base64' : photoUrl.startsWith('blob:') ? 'blob' : photoUrl.includes('placeholder') ? 'placeholder' : 'other') : 'none',
-      urlLength: photoUrl?.length || 0,
-      urlPreview: photoUrl?.substring(0, 100) || 'No URL',
-      allFdfPhotos: Object.keys(fdfPhotos).map(key => `${key}: ${fdfPhotos[key] === true ? 'true' : typeof fdfPhotos[key]}`).join(', '),
-      roomData: this.roomElevationData[roomName] ? 'Exists' : 'Missing'
-    };
+    // [v1.4.424] Enhanced debug - Try to fetch from database first
+    let databasePath = 'Not checked yet';
+    let fetchAttemptResult = 'Not attempted';
+    let freshImageData = null;
 
-    // Show debug popup
+    if (roomId) {
+      try {
+        // Get room data from database
+        const rooms = await this.caspioService.getServicesRoomsByServiceId(this.serviceId).toPromise();
+        const room = rooms.find(r => r.RoomID === parseInt(roomId));
+
+        if (room) {
+          databasePath = room[columnName] || 'No path in database';
+
+          if (room[columnName] && room[columnName] !== '/undefined') {
+            try {
+              // Try to fetch fresh image
+              freshImageData = await this.caspioService.getImageFromFilesAPI(room[columnName]).toPromise();
+
+              if (freshImageData && freshImageData.startsWith('data:')) {
+                fetchAttemptResult = `Success - Base64 image (${freshImageData.length} chars)`;
+                // Update stored URL
+                this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = freshImageData;
+              } else {
+                fetchAttemptResult = `Failed - Invalid data received`;
+              }
+            } catch (fetchErr: any) {
+              fetchAttemptResult = `Error: ${fetchErr?.message || fetchErr}`;
+            }
+          } else {
+            fetchAttemptResult = 'Invalid path in database';
+          }
+        } else {
+          fetchAttemptResult = 'Room not found in database';
+        }
+      } catch (dbErr: any) {
+        fetchAttemptResult = `Database error: ${dbErr?.message || dbErr}`;
+      }
+    }
+
+    // [v1.4.424] Detailed debug popup
     const debugAlert = await this.alertController.create({
-      header: `FDF Photo Debug (v1.4.423)`,
+      header: `FDF Photo Debug (v1.4.424)`,
       message: `
-        <div style="text-align: left; font-size: 12px; font-family: monospace;">
-          <strong>Room:</strong> ${debugInfo.roomName}<br>
-          <strong>Photo Type:</strong> ${debugInfo.photoType}<br>
-          <strong>Photo Key:</strong> ${debugInfo.photoKey}<br>
-          <strong>Room ID:</strong> ${debugInfo.roomId}<br>
+        <div style="text-align: left; font-size: 11px; font-family: monospace;">
+          <strong style="color: blue;">== BASIC INFO ==</strong><br>
+          Room: ${roomName}<br>
+          Photo Type: ${photoType}<br>
+          Room ID: ${roomId || 'No room ID'}<br>
+          Service ID: ${this.serviceId || 'No service ID'}<br>
+          DB Column: ${columnName}<br>
           <hr>
-          <strong>Has URL:</strong> ${debugInfo.hasUrl}<br>
-          <strong>URL Type:</strong> ${debugInfo.urlType}<br>
-          <strong>URL Length:</strong> ${debugInfo.urlLength}<br>
-          <strong>URL Preview:</strong><br>
-          <div style="word-break: break-all; background: #f0f0f0; padding: 4px; margin: 4px 0;">
-            ${debugInfo.urlPreview}
-          </div>
+
+          <strong style="color: blue;">== DATABASE CHECK ==</strong><br>
+          Path in DB: <span style="color: ${databasePath.startsWith('/') ? 'green' : 'red'};">${databasePath}</span><br>
+          Fetch Result: <span style="color: ${fetchAttemptResult.startsWith('Success') ? 'green' : 'red'};">${fetchAttemptResult}</span><br>
           <hr>
-          <strong>All FDF Photos:</strong><br>
-          ${debugInfo.allFdfPhotos || 'None'}<br>
-          <strong>Room Data:</strong> ${debugInfo.roomData}
+
+          <strong style="color: blue;">== CURRENT STORED URL ==</strong><br>
+          Has URL: ${!!photoUrl}<br>
+          URL Type: <span style="color: ${photoUrl?.startsWith('data:') ? 'green' : 'orange'};">${photoUrl ? (photoUrl.startsWith('data:') ? 'base64' : photoUrl.startsWith('blob:') ? 'blob' : photoUrl.includes('placeholder') ? 'placeholder' : 'other') : 'none'}</span><br>
+          URL Length: ${photoUrl?.length || 0}<br>
+          Preview: <div style="word-break: break-all; background: #f0f0f0; padding: 4px;">${photoUrl?.substring(0, 100) || 'No URL'}</div>
+          <hr>
+
+          <strong style="color: blue;">== FDF PHOTOS STATE ==</strong><br>
+          ${Object.entries(fdfPhotos).map(([k, v]) =>
+            `${k}: ${v === true ? '✓' : typeof v === 'string' ?
+              (v.startsWith('data:') ? 'base64' : v.startsWith('blob:') ? 'blob' : 'other') :
+              typeof v}`
+          ).join('<br>')}<br>
+          <hr>
+
+          <strong style="color: blue;">== ACTION ==</strong><br>
+          ${freshImageData ? '<span style="color: green;">✓ Fresh image loaded - Try viewing now</span>' :
+            '<span style="color: red;">✗ Could not load fresh image</span>'}
         </div>
       `,
       buttons: [
         {
-          text: 'Continue',
+          text: 'Try View',
           handler: () => {
-            // Continue with normal photo viewing
             return true;
           }
         },
@@ -1171,7 +1212,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           text: 'Cancel',
           role: 'cancel'
         }
-      ]
+      ],
+      cssClass: 'wide-alert'
     });
 
     await debugAlert.present();
@@ -1181,53 +1223,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return;
     }
 
-    console.log(`[v1.4.423] viewFDFPhoto:`, debugInfo);
+    // Update photoUrl if we got fresh data
+    const finalPhotoUrl = freshImageData || photoUrl;
 
-    if (photoUrl) {
+    console.log(`[v1.4.424] viewFDFPhoto debug:`, {
+      roomName,
+      photoType,
+      databasePath,
+      fetchAttemptResult,
+      hasFreshData: !!freshImageData
+    });
+
+    // Use the fresh data if available, otherwise use the stored URL
+    if (finalPhotoUrl) {
       // If it's a placeholder image, don't open viewer
-      if (photoUrl.includes('photo-placeholder.png')) {
-        console.warn(`[v1.4.421] Cannot view placeholder image`);
+      if (finalPhotoUrl.includes('photo-placeholder.png')) {
+        console.warn(`[v1.4.424] Cannot view placeholder image`);
         await this.showToast('Photo not available', 'warning');
         return;
       }
 
       try {
-        // Ensure we have a valid URL for the viewer
-        let viewableUrl = photoUrl;
-
-        // If it's a blob URL that might be expired, try to reload from database
-        if (photoUrl.startsWith('blob:') && roomName && this.roomRecordIds[roomName]) {
-          console.log(`[v1.4.421] Detected blob URL, attempting to reload from database`);
-          const roomId = this.roomRecordIds[roomName];
-          const columnName = `FDFPhoto${photoType}`;
-
-          try {
-            // Try to get the photo path from database and load fresh
-            const rooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-            const room = rooms?.find((r: any) => r.RoomID === parseInt(roomId));
-            if (room && room[columnName]) {
-              console.log(`[v1.4.421] Found photo path in database: ${room[columnName]}`);
-              const freshImageData = await this.caspioService.getImageFromFilesAPI(room[columnName]).toPromise();
-              if (freshImageData && freshImageData.startsWith('data:')) {
-                viewableUrl = freshImageData;
-                // Update the stored URL for future use
-                this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = freshImageData;
-                console.log(`[v1.4.421] Successfully reloaded image as base64`);
-              }
-            }
-          } catch (reloadError) {
-            console.error(`[v1.4.421] Failed to reload image from database:`, reloadError);
-            // Continue with the existing URL
-          }
-        }
-
         const modal = await this.modalController.create({
           component: PhotoViewerComponent,
           componentProps: {
             photos: [{
-              url: viewableUrl,
-              displayUrl: viewableUrl,
-              thumbnailUrl: viewableUrl,
+              url: finalPhotoUrl,
+              displayUrl: finalPhotoUrl,
+              thumbnailUrl: finalPhotoUrl,
               caption: `FDF ${photoType} - ${roomName}`
             }],
             initialIndex: 0
@@ -1237,11 +1260,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         await modal.present();
       } catch (error) {
-        console.error(`[v1.4.421] Error opening photo viewer:`, error);
+        console.error(`[v1.4.424] Error opening photo viewer:`, error);
         await this.showToast('Failed to open photo viewer', 'danger');
       }
     } else {
-      console.warn(`[v1.4.421] No photo URL found for ${roomName} ${photoType}`);
+      console.warn(`[v1.4.424] No photo URL found for ${roomName} ${photoType}`);
       await this.showToast('Photo not available', 'warning');
     }
   }
