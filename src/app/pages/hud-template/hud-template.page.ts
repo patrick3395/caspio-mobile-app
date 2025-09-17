@@ -87,7 +87,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   photoLoadBatchSize: number = 3; // Load 3 photos at a time
   
   // Type information for the header
-  typeShort: string = 'Foundation Evaluation';
+  typeShort: string = 'HUD/Manufactured Home';
   
   // Dropdown options for AnswerType 2 from Services_Visuals_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
@@ -177,7 +177,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
 
-    console.log('[v1.4.389] Engineers Foundation Evaluation initialized:', {
+    console.log('[v1.4.389] HUD/Manufactured Home Template initialized:', {
       projectId: this.projectId,
       serviceId: this.serviceId
     });
@@ -310,7 +310,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Navigation method for back button
   goBack() {
-    console.log('[goBack] Navigating back from Engineers Foundation, projectId:', this.projectId);
+    console.log('[goBack] Navigating back from HUD Template, projectId:', this.projectId);
 
     // Method 1: Use Location.back() - this is the simplest and most reliable way
     try {
@@ -2830,13 +2830,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadVisualCategories() {
     try {
-      // Get all templates - filter by TypeID = 1 for Foundation Evaluation
+      // Get all templates - filter by TypeID = 2 for HUD/Manufactured Home
       const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
-      
-      // Filter templates for TypeID = 1 (Foundation Evaluation)
-      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
-      
-      console.log(`Filtered ${this.visualTemplates.length} templates for Foundation Evaluation (TypeID = 1)`);
+
+      // Filter templates for TypeID = 2 (HUD/Manufactured Home)
+      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 2);
+
+      console.log(`Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
