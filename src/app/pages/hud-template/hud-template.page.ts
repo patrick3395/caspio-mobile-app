@@ -1012,19 +1012,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         roomId
       };
       
-      await this.presentPhotoSourceActionSheet({
-        header: `Add ${photoType} Photo`,
-        onCamera: () => {
-          this.triggerFileInput('camera', { allowMultiple: false });
-        },
-        onLibrary: () => {
-          this.triggerFileInput('library', { allowMultiple: false });
-        },
-        onCancel: () => {
-          this.currentFDFPhotoContext = null;
-          this.expectingCameraPhoto = false;
-        }
-      });
+      this.triggerFileInput('system', { allowMultiple: false });
 
     } catch (error) {
       console.error(`Error initiating FDF ${photoType} photo:`, error);
@@ -1490,19 +1478,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         roomId
       };
 
-      await this.presentPhotoSourceActionSheet({
-        header: 'Add Photo',
-        onCamera: () => {
-          this.triggerFileInput('camera', { allowMultiple: false });
-        },
-        onLibrary: () => {
-          this.triggerFileInput('library', { allowMultiple: true });
-        },
-        onCancel: () => {
-          this.currentRoomPointContext = null;
-          this.expectingCameraPhoto = false;
-        }
-      });
+      this.triggerFileInput('system', { allowMultiple: false });
 
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
@@ -1788,16 +1764,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // If this is a single camera photo, open annotator first
         let annotatedResult: { file: File; annotationData?: any; originalFile?: File };
         
-        if (files.length === 1 && this.expectingCameraPhoto) {
-          // Single camera photo - open annotator immediately
-          annotatedResult = await this.annotatePhoto(file);
-          
-          // After annotation is complete, show "Take Another Photo" prompt
-          const continueAlert = await this.alertController.create({
-            cssClass: 'compact-photo-selector',
-            buttons: [
-              {
-                text: 'Take Another Photo',
+        if (files.length === 1) {
+          const isCameraFlow = this.expectingCameraPhoto || this.isLikelyCameraCapture(file);
+
+          if (isCameraFlow) {
+            annotatedResult = await this.annotatePhoto(file);
+
+            const continueAlert = await this.alertController.create({
+              cssClass: 'compact-photo-selector',
+              buttons: [
+                {
+                  text: 'Take Another Photo',
                 cssClass: 'action-button',
                 handler: () => {
                   this.currentRoomPointContext = { roomName, point, pointId, roomId };
@@ -1817,8 +1794,16 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             ],
             backdropDismiss: false
           });
-          
-          await continueAlert.present();
+
+            await continueAlert.present();
+          } else {
+            annotatedResult = {
+              file,
+              annotationData: null,
+              originalFile: undefined
+            };
+            this.expectingCameraPhoto = false;
+          }
         } else {
           // Multiple files or non-camera selection - no automatic annotation
           annotatedResult = { 
@@ -2518,51 +2503,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // If room is not selected, do nothing (don't select it)
   }
 
-  private async presentPhotoSourceActionSheet(config: {
-    header: string;
-    subHeader?: string;
-    cameraText?: string;
-    libraryText?: string;
-    cancelText?: string;
-    onCamera: () => void;
-    onLibrary: () => void;
-    onCancel?: () => void;
-  }): Promise<void> {
-    const actionSheet = await this.actionSheetController.create({
-      header: config.header,
-      subHeader: config.subHeader,
-      cssClass: 'photo-source-sheet',
-      buttons: [
-        {
-          text: config.cameraText ?? 'Take Photo',
-          cssClass: 'action-button',
-          handler: () => {
-            config.onCamera();
-            return true;
-          }
-        },
-        {
-          text: config.libraryText ?? 'Photo Library',
-          cssClass: 'action-button',
-          handler: () => {
-            config.onLibrary();
-            return true;
-          }
-        },
-        {
-          text: config.cancelText ?? 'Cancel',
-          role: 'cancel',
-          handler: () => {
-            config.onCancel?.();
-          }
-        }
-      ]
-    });
-
-    await actionSheet.present();
-  }
-
-  private setFileInputMode(source: 'camera' | 'library', options: { allowMultiple?: boolean; capture?: string } = {}): boolean {
+  private setFileInputMode(source: 'camera' | 'library' | 'system', options: { allowMultiple?: boolean; capture?: string } = {}): boolean {
     if (!this.fileInput || !this.fileInput.nativeElement) {
       console.error('File input not available');
       void this.showToast('File input not available', 'danger');
@@ -2576,6 +2517,14 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       this.expectingCameraPhoto = true;
       input.setAttribute('capture', options.capture ?? 'environment');
       input.removeAttribute('multiple');
+    } else if (source === 'system') {
+      this.expectingCameraPhoto = false;
+      input.removeAttribute('capture');
+      if (options.allowMultiple === false) {
+        input.removeAttribute('multiple');
+      } else {
+        input.setAttribute('multiple', 'true');
+      }
     } else {
       this.expectingCameraPhoto = false;
       input.removeAttribute('capture');
@@ -2589,7 +2538,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     return true;
   }
 
-  private triggerFileInput(source: 'camera' | 'library', options: { allowMultiple?: boolean; capture?: string } = {}): void {
+  private triggerFileInput(source: 'camera' | 'library' | 'system', options: { allowMultiple?: boolean; capture?: string } = {}): void {
     if (!this.setFileInputMode(source, options)) {
       return;
     }
@@ -2600,6 +2549,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     setTimeout(() => {
       input.click();
     }, 100);
+  }
+
+  private isLikelyCameraCapture(file: File): boolean {
+    const now = Date.now();
+    const delta = Math.abs(now - file.lastModified);
+    // Treat files modified within the last 15 seconds as freshly captured
+    return delta < 15000;
   }
 
   // Show room selection dialog
@@ -5913,17 +5869,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const processedFiles: Array<{ file: File; annotationData?: any; originalFile?: File }> = [];
         
         // If single camera photo, open annotator first
-        if (files.length === 1 && this.expectingCameraPhoto) {
-          // Annotate the single camera photo
-          const annotatedResult = await this.annotatePhoto(fileArray[0]);
-          processedFiles.push(annotatedResult);
-          
-          // After annotation, show "Take Another Photo" prompt
-          const continueAlert = await this.alertController.create({
-            cssClass: 'compact-photo-selector',
-            buttons: [
-              {
-                text: 'Take Another Photo',
+        if (files.length === 1) {
+          const isCameraFlow = this.expectingCameraPhoto || this.isLikelyCameraCapture(fileArray[0]);
+
+          if (isCameraFlow) {
+            const annotatedResult = await this.annotatePhoto(fileArray[0]);
+            processedFiles.push(annotatedResult);
+
+            const continueAlert = await this.alertController.create({
+              cssClass: 'compact-photo-selector',
+              buttons: [
+                {
+                  text: 'Take Another Photo',
                 cssClass: 'action-button',
                 handler: () => {
                   this.currentUploadContext = { category, itemId, item, action: 'add' };
@@ -5943,8 +5900,16 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             ],
             backdropDismiss: false
           });
-          
-          await continueAlert.present();
+
+            await continueAlert.present();
+          } else {
+            processedFiles.push({
+              file: fileArray[0],
+              annotationData: null,
+              originalFile: undefined
+            });
+            this.expectingCameraPhoto = false;
+          }
         } else {
           // Multiple files or non-camera - no automatic annotation
           for (const file of fileArray) {
@@ -8140,19 +8105,7 @@ Stack: ${error?.stack}`;
       return;
     }
 
-    await this.presentPhotoSourceActionSheet({
-      header: 'Add Photo',
-      onCamera: () => {
-        this.triggerFileInput('camera', { allowMultiple: false });
-      },
-      onLibrary: () => {
-        this.triggerFileInput('library', { allowMultiple: true });
-      },
-      onCancel: () => {
-        this.currentUploadContext = null;
-        this.expectingCameraPhoto = false;
-      }
-    });
+    this.triggerFileInput('system', { allowMultiple: true });
   }
   
   // Save caption to the Annotation field in Services_Visuals_Attach table
