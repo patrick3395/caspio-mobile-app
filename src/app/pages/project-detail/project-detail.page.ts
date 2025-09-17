@@ -7,6 +7,9 @@ import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { ImageCompressionService } from '../../services/image-compression.service';
+import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
+import { EngineersFoundationDataService } from '../engineers-foundation/engineers-foundation-data.service';
+import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 interface ServiceSelection {
@@ -93,7 +96,8 @@ export class ProjectDetailPage implements OnInit {
     private loadingController: LoadingController,
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
-    private imageCompression: ImageCompressionService
+    private imageCompression: ImageCompressionService,
+    private foundationData: EngineersFoundationDataService
   ) {}
 
   ngOnInit() {
@@ -2491,6 +2495,400 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
+    if (this.isEngineersFoundationService(service)) {
+      await this.generateEngineersFoundationPdf(service);
+      return;
+    }
+
+    if (this.isHudTemplateService(service)) {
+      await this.generateHudPdf(service);
+      return;
+    }
+
+    // Fallback to opening the template directly for other service types
     this.openTemplate(service, undefined, { openPdf: true });
+  }
+
+  private isEngineersFoundationService(service: ServiceSelection): boolean {
+    const typeName = service.typeName?.toLowerCase() || '';
+    const typeIdStr = String(service.typeId || '');
+    return typeName.includes('engineer') && typeName.includes('foundation') || typeIdStr === '35';
+  }
+
+  private isHudTemplateService(service: ServiceSelection): boolean {
+    const typeName = service.typeName?.toLowerCase() || '';
+    return typeName.includes('hud') || typeName.includes('manufactured') || typeName.includes('mobile home');
+  }
+
+  private async generateEngineersFoundationPdf(service: ServiceSelection): Promise<void> {
+    const loading = await this.loadingController.create({
+      message: 'Preparing PDF report...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.ensureValidToken();
+
+      const [projectRecord, serviceRecord, visuals] = await Promise.all([
+        this.ensureProjectLoaded(),
+        firstValueFrom(this.caspioService.getServiceById(service.serviceId!)),
+        this.foundationData.getVisualsByService(service.serviceId!)
+      ]);
+
+      if (!serviceRecord) {
+        throw new Error('Service record not found.');
+      }
+
+      const projectInfo = await this.buildProjectInfoForPdf(projectRecord, serviceRecord);
+      const structuralData = await this.buildStructuralDataFromVisuals(visuals || []);
+      const elevationData = await this.buildElevationDataForService(service.serviceId!);
+
+      await this.preloadPrimaryPhoto(projectInfo);
+      try {
+        await loading.dismiss();
+      } catch {}
+
+      await this.presentPdfModal(projectInfo, structuralData, elevationData, serviceRecord);
+    } catch (error) {
+      console.error('Error generating Engineers Foundation PDF:', error);
+      try {
+        await loading.dismiss();
+      } catch {}
+      await this.showToast('Failed to generate PDF. Please try again.', 'danger');
+    }
+  }
+
+  private async generateHudPdf(service: ServiceSelection): Promise<void> {
+    const loading = await this.loadingController.create({
+      message: 'Preparing PDF report...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.ensureValidToken();
+
+      const [projectRecord, serviceRecord, visuals] = await Promise.all([
+        this.ensureProjectLoaded(),
+        firstValueFrom(this.caspioService.getServiceById(service.serviceId!)),
+        this.foundationData.getVisualsByService(service.serviceId!)
+      ]);
+
+      if (!serviceRecord) {
+        throw new Error('Service record not found.');
+      }
+
+      const projectInfo = await this.buildProjectInfoForPdf(projectRecord, serviceRecord);
+      const structuralData = await this.buildStructuralDataFromVisuals(visuals || []);
+
+      await this.preloadPrimaryPhoto(projectInfo);
+      try {
+        await loading.dismiss();
+      } catch {}
+
+      await this.presentPdfModal(projectInfo, structuralData, [], serviceRecord);
+    } catch (error) {
+      console.error('Error generating HUD PDF:', error);
+      try {
+        await loading.dismiss();
+      } catch {}
+      await this.showToast('Failed to generate PDF. Please try again.', 'danger');
+    }
+  }
+
+  private async ensureProjectLoaded(): Promise<Project | null> {
+    if (this.project) {
+      return this.project;
+    }
+    if (!this.projectId) {
+      return null;
+    }
+    try {
+      const project = await firstValueFrom(this.projectsService.getProjectById(this.projectId));
+      this.project = project || null;
+      return this.project;
+    } catch (error) {
+      console.error('Failed to load project record:', error);
+      return this.project || null;
+    }
+  }
+
+  private async ensureValidToken(): Promise<void> {
+    if (this.caspioService.getCurrentToken()) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.caspioService.getValidToken());
+    } catch (error) {
+      console.warn('Unable to refresh Caspio token:', error);
+    }
+  }
+
+  private async buildProjectInfoForPdf(project: Project | null, serviceRecord: any): Promise<any> {
+    const primaryPhoto = project?.PrimaryPhoto || project?.primaryPhoto || null;
+    const zip = project?.ZIP || project?.Zip || '';
+
+    return {
+      projectId: this.projectId,
+      serviceId: serviceRecord?.PK_ID || serviceRecord?.ServiceID || '',
+      primaryPhoto,
+      primaryPhotoBase64: null,
+      address: project?.Address || '',
+      city: project?.City || '',
+      state: project?.State || '',
+      zip,
+      fullAddress: `${project?.Address || ''}, ${project?.City || ''}, ${project?.State || ''} ${zip}`.trim(),
+      clientName: project?.ClientName || project?.Owner || '',
+      agentName: project?.AgentName || '',
+      inspectorName: project?.InspectorName || '',
+      inAttendance: serviceRecord?.InAttendance || '',
+      yearBuilt: project?.YearBuilt || '',
+      squareFeet: project?.SquareFeet || '',
+      typeOfBuilding: project?.TypeOfBuilding || '',
+      style: project?.Style || '',
+      occupancyFurnishings: serviceRecord?.OccupancyFurnishings || '',
+      weatherConditions: serviceRecord?.WeatherConditions || '',
+      outdoorTemperature: serviceRecord?.OutdoorTemperature || '',
+      firstFoundationType: serviceRecord?.FirstFoundationType || '',
+      secondFoundationType: serviceRecord?.SecondFoundationType || '',
+      secondFoundationRooms: serviceRecord?.SecondFoundationRooms || '',
+      thirdFoundationType: serviceRecord?.ThirdFoundationType || '',
+      thirdFoundationRooms: serviceRecord?.ThirdFoundationRooms || '',
+      ownerOccupantInterview: serviceRecord?.OwnerOccupantInterview || '',
+      inspectionDate: this.formatDate(serviceRecord?.DateOfInspection || new Date().toISOString()),
+      inspectorPhone: '936-202-8013',
+      inspectorEmail: 'info@noblepropertyinspections.com',
+      companyName: 'Noble Property Inspections',
+      projectData: project,
+      serviceData: serviceRecord
+    };
+  }
+
+  private async buildStructuralDataFromVisuals(visuals: any[]): Promise<any[]> {
+    if (!visuals || visuals.length === 0) {
+      return [];
+    }
+
+    const resultsMap = new Map<string, { name: string; comments: any[]; limitations: any[]; deficiencies: any[] }>();
+
+    const attachments = await Promise.all(
+      visuals.map(async (visual) => {
+        const visualId = visual?.VisualID || visual?.PK_ID;
+        if (!visualId) {
+          return { visual, attachments: [] };
+        }
+        try {
+          const data = await firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(visualId));
+          return { visual, attachments: data || [] };
+        } catch (error) {
+          console.error('Failed to load visual attachments:', error);
+          return { visual, attachments: [] };
+        }
+      })
+    );
+
+    attachments.forEach(({ visual, attachments: visualAttachments }) => {
+      const category = visual?.Category || 'General';
+      const kind = (visual?.Kind || visual?.Type || '').toLowerCase();
+      const bucket = resultsMap.get(category) || { name: category, comments: [], limitations: [], deficiencies: [] };
+
+      const item = {
+        name: visual?.Name || visual?.VisualName || 'Untitled',
+        text: visual?.Text || visual?.Notes || '',
+        notes: visual?.Notes || '',
+        answers: visual?.Answers || '',
+        visualId: visual?.VisualID || visual?.PK_ID,
+        photos: (visualAttachments || []).map(att => this.buildPhotoObject(att))
+      };
+
+      if (kind === 'limitation') {
+        bucket.limitations.push(item);
+      } else if (kind === 'deficiency') {
+        bucket.deficiencies.push(item);
+      } else {
+        bucket.comments.push(item);
+      }
+
+      if (!resultsMap.has(category)) {
+        resultsMap.set(category, bucket);
+      }
+    });
+
+    return Array.from(resultsMap.values()).filter(group =>
+      group.comments.length || group.limitations.length || group.deficiencies.length
+    );
+  }
+
+  private async buildElevationDataForService(serviceId: string): Promise<any[]> {
+    const rooms = await this.foundationData.getRoomsByService(serviceId);
+    if (!rooms || rooms.length === 0) {
+      return [];
+    }
+
+    const roomResults = await Promise.all(rooms.map(room => this.buildRoomElevation(room)));
+    return roomResults.filter(room => !!room);
+  }
+
+  private async buildRoomElevation(room: any): Promise<any | null> {
+    const roomName = room?.RoomName || room?.name;
+    if (!roomName) {
+      return null;
+    }
+    const roomId = room?.RoomID || room?.PK_ID;
+
+    const result: any = {
+      name: roomName,
+      fdf: room?.FDF || 'None',
+      fdfPhotos: {},
+      notes: room?.Notes || '',
+      points: []
+    };
+
+    if (room?.FDFPhotoTop || room?.FDFPhotoBottom || room?.FDFPhotoThreshold) {
+      result.fdfPhotos = await this.buildFdfPhotos(room);
+    }
+
+    if (!roomId) {
+      return result;
+    }
+
+    try {
+      const pointRecords = await this.foundationData.getRoomPoints(roomId);
+      if (pointRecords && pointRecords.length > 0) {
+        const pointResults = await Promise.all(pointRecords.map(async (point: any) => {
+          const pointId = point?.PointID || point?.PK_ID;
+          const pointName = point?.PointName || `Point ${pointId || ''}`;
+          const value = point?.PointValue || point?.Value || point?.Measurement || '';
+
+          let photos: any[] = [];
+          if (pointId) {
+            try {
+              const attachments = await this.foundationData.getRoomAttachments(pointId);
+              photos = (attachments || []).map(att => this.buildPhotoObject(att));
+            } catch (error) {
+              console.error('Failed to load point attachments:', error);
+            }
+          }
+
+          return {
+            name: pointName,
+            value,
+            photos
+          };
+        }));
+        result.points = pointResults;
+      }
+    } catch (error) {
+      console.error('Failed to load room points:', error);
+    }
+
+    return result;
+  }
+
+  private async buildFdfPhotos(room: any): Promise<any> {
+    const photoMap: any = {};
+    const fields = [
+      { field: 'FDFPhotoTop', key: 'top' },
+      { field: 'FDFPhotoBottom', key: 'bottom' },
+      { field: 'FDFPhotoThreshold', key: 'threshold' }
+    ];
+
+    for (const field of fields) {
+      const path = room?.[field.field];
+      if (!path) {
+        continue;
+      }
+
+      photoMap[field.key] = true;
+      try {
+        const imageData = await this.foundationData.getImage(path);
+        if (imageData && imageData.startsWith('data:')) {
+          photoMap[`${field.key}Url`] = imageData;
+        } else {
+          photoMap[`${field.key}Url`] = this.buildFileUrl(path);
+        }
+      } catch (error) {
+        console.error('Failed to load FDF photo:', error);
+        photoMap[`${field.key}Url`] = this.buildFileUrl(path);
+      }
+    }
+
+    return photoMap;
+  }
+
+  private buildPhotoObject(attachment: any): any {
+    if (!attachment) {
+      return { url: 'assets/img/photo-placeholder.svg', displayUrl: 'assets/img/photo-placeholder.svg' };
+    }
+
+    const photoPath = attachment.Photo || attachment.photo || attachment.Attachment || '';
+    const displayUrl = this.buildFileUrl(photoPath);
+
+    return {
+      url: displayUrl,
+      displayUrl,
+      caption: attachment.Annotation || attachment.caption || '',
+      annotation: attachment.Annotation || attachment.caption || '',
+      attachId: attachment.AttachID || attachment.PK_ID || '',
+      hasAnnotations: !!attachment.Drawings
+    };
+  }
+
+  private buildFileUrl(photoPath: string): string {
+    if (!photoPath) {
+      return 'assets/img/photo-placeholder.svg';
+    }
+
+    if (photoPath.startsWith('data:') || photoPath.startsWith('http')) {
+      return photoPath;
+    }
+
+    if (photoPath.startsWith('/')) {
+      const account = this.caspioService.getAccountID();
+      const token = this.caspioService.getCurrentToken() || '';
+      return `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+    }
+
+    return photoPath;
+  }
+
+  private async preloadPrimaryPhoto(projectInfo: any): Promise<void> {
+    const primaryPhoto = projectInfo?.primaryPhoto;
+    if (!primaryPhoto || typeof primaryPhoto !== 'string' || !primaryPhoto.startsWith('/')) {
+      return;
+    }
+
+    try {
+      const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(primaryPhoto));
+      if (imageData && imageData.startsWith('data:')) {
+        projectInfo.primaryPhotoBase64 = imageData;
+      }
+    } catch (error) {
+      console.error('Failed to preload primary photo:', error);
+    }
+  }
+
+  private async presentPdfModal(projectInfo: any, structuralData: any[], elevationData: any[], serviceRecord: any): Promise<void> {
+    try {
+      const modal = await this.modalController.create({
+        component: PdfPreviewComponent,
+        componentProps: {
+          projectData: projectInfo,
+          structuralData,
+          elevationData,
+          serviceData: serviceRecord
+        },
+        cssClass: 'fullscreen-modal',
+        backdropDismiss: false,
+        animated: true
+      });
+
+      await modal.present();
+      await modal.onDidDismiss();
+    } catch (error) {
+      console.error('Unable to present PDF modal:', error);
+      await this.showToast('Failed to open PDF preview', 'danger');
+    }
   }
 }
