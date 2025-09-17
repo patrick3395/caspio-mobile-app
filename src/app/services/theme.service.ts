@@ -71,6 +71,7 @@ export class ThemeService implements OnDestroy {
     if (!body) return;
 
     body.classList.toggle(this.darkClass, isDark);
+    body.classList.toggle('dark', isDark);
     this.updateMetaThemeColor(isDark);
   }
 
