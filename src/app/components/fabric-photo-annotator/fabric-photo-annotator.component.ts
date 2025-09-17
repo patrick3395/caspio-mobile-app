@@ -728,7 +728,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     }
 
     try {
-      const payload = decompressAnnotationData(this.existingAnnotations);
+      const payload = decompressAnnotationData(this.existingAnnotations as any);
 
       if (!payload || !Array.isArray(payload.objects) || payload.objects.length === 0) {
         console.log('[Annotations] No valid Fabric.js objects found in annotation payload');

@@ -27,9 +27,13 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === 'nu
 const round = (value: unknown): number => Math.round(isFiniteNumber(value) ? value : 0);
 
 const sanitizeStroke = (target: Record<string, any>, source: Record<string, any>): void => {
-  if (source.stroke) target.stroke = source.stroke;
-  if (isFiniteNumber(source.strokeWidth)) target.strokeWidth = source.strokeWidth;
-  if (source.fill && source.fill !== 'rgba(0,0,0,0)') target.fill = source.fill;
+  const stroke = source['stroke'];
+  const strokeWidth = source['strokeWidth'];
+  const fill = source['fill'];
+
+  if (stroke) target['stroke'] = stroke;
+  if (isFiniteNumber(strokeWidth)) target['strokeWidth'] = strokeWidth;
+  if (fill && fill !== 'rgba(0,0,0,0)') target['fill'] = fill;
 };
 
 const sanitizeObject = (obj: FabricAnnotationObject): FabricAnnotationObject | null => {
@@ -37,64 +41,65 @@ const sanitizeObject = (obj: FabricAnnotationObject): FabricAnnotationObject | n
     return null;
   }
 
-  const type = String(obj.type || '').toLowerCase();
+  const source = obj as Record<string, any>;
+  const type = String(source['type'] || '').toLowerCase();
   const base: Record<string, any> = {
-    type: obj.type || type,
-    version: obj.version || FABRIC_JSON_VERSION,
-    originX: obj.originX || 'left',
-    originY: obj.originY || 'top',
-    left: round(obj.left),
-    top: round(obj.top),
-    scaleX: isFiniteNumber(obj.scaleX) ? obj.scaleX : 1,
-    scaleY: isFiniteNumber(obj.scaleY) ? obj.scaleY : 1,
-    angle: isFiniteNumber(obj.angle) ? obj.angle : 0
+    type: source['type'] || type,
+    version: source['version'] || FABRIC_JSON_VERSION,
+    originX: source['originX'] || 'left',
+    originY: source['originY'] || 'top',
+    left: round(source['left']),
+    top: round(source['top']),
+    scaleX: isFiniteNumber(source['scaleX']) ? source['scaleX'] : 1,
+    scaleY: isFiniteNumber(source['scaleY']) ? source['scaleY'] : 1,
+    angle: isFiniteNumber(source['angle']) ? source['angle'] : 0
   };
 
   switch (type) {
     case 'path': {
-      if (!obj.path) {
+      if (!source['path']) {
         return null;
       }
-      sanitizeStroke(base, obj);
-      base.path = obj.path;
-      base.strokeLineCap = obj.strokeLineCap || 'round';
-      base.strokeLineJoin = obj.strokeLineJoin || 'round';
-      base.fill = obj.fill || 'transparent';
+      sanitizeStroke(base, source);
+      base['path'] = source['path'];
+      base['strokeLineCap'] = source['strokeLineCap'] || 'round';
+      base['strokeLineJoin'] = source['strokeLineJoin'] || 'round';
+      base['fill'] = source['fill'] || 'transparent';
       break;
     }
     case 'line': {
-      sanitizeStroke(base, obj);
-      base.x1 = round(obj.x1);
-      base.y1 = round(obj.y1);
-      base.x2 = round(obj.x2);
-      base.y2 = round(obj.y2);
+      sanitizeStroke(base, source);
+      base['x1'] = round(source['x1']);
+      base['y1'] = round(source['y1']);
+      base['x2'] = round(source['x2']);
+      base['y2'] = round(source['y2']);
       break;
     }
     case 'i-text':
     case 'text': {
-      base.text = obj.text || '';
-      base.fontSize = isFiniteNumber(obj.fontSize) ? obj.fontSize : 20;
-      base.fill = obj.fill || '#000000';
+      base['text'] = source['text'] || '';
+      base['fontSize'] = isFiniteNumber(source['fontSize']) ? source['fontSize'] : 20;
+      base['fill'] = source['fill'] || '#000000';
       break;
     }
     case 'circle': {
-      sanitizeStroke(base, obj);
-      base.radius = round(obj.radius);
-      base.fill = obj.fill || 'transparent';
+      sanitizeStroke(base, source);
+      base['radius'] = round(source['radius']);
+      base['fill'] = source['fill'] || 'transparent';
       break;
     }
     case 'rect': {
-      sanitizeStroke(base, obj);
-      base.width = round(obj.width);
-      base.height = round(obj.height);
-      base.fill = obj.fill || 'transparent';
+      sanitizeStroke(base, source);
+      base['width'] = round(source['width']);
+      base['height'] = round(source['height']);
+      base['fill'] = source['fill'] || 'transparent';
       break;
     }
     case 'group': {
-      base.width = round(obj.width);
-      base.height = round(obj.height);
-      const nested = Array.isArray(obj.objects)
-        ? obj.objects
+      base['width'] = round(source['width']);
+      base['height'] = round(source['height']);
+      const nested = Array.isArray(source['objects'])
+        ? source['objects']
             .map(sanitizeObject)
             .filter((entry): entry is FabricAnnotationObject => Boolean(entry))
         : [];
@@ -103,11 +108,11 @@ const sanitizeObject = (obj: FabricAnnotationObject): FabricAnnotationObject | n
         return null;
       }
 
-      base.objects = nested;
+      base['objects'] = nested;
       break;
     }
     default: {
-      sanitizeStroke(base, obj);
+      sanitizeStroke(base, source);
       break;
     }
   }
@@ -268,4 +273,3 @@ export const compressAnnotationData = (
   const reducedString = JSON.stringify(payload);
   return COMPRESSED_PREFIX_V3 + reducedString;
 };
-

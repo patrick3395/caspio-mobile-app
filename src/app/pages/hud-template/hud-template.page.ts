@@ -7803,7 +7803,7 @@ Stack: ${error?.stack}`;
                     • Name: ${photo.name || 'N/A'}<br><br>
                     
                     <strong>Annotation Data:</strong><br>
-                    • Has annotations: ${!!annotationsData}<br>
+                    • Has annotations: ${annotationPayload.hasAnnotations}<br>
                     • Original file provided: false<br><br>
                     
                     <strong style="color: orange;">Debug Info:</strong><br>
