@@ -47,6 +47,13 @@ interface ServiceDocumentGroup {
   documents: DocumentItem[];
 }
 
+interface PdfVisualCategory {
+  name: string;
+  comments: any[];
+  limitations: any[];
+  deficiencies: any[];
+}
+
 @Component({
   selector: 'app-project-detail',
   templateUrl: './project-detail.page.html',
@@ -2626,8 +2633,8 @@ Time: ${debugInfo.timestamp}
   }
 
   private async buildProjectInfoForPdf(project: Project | null, serviceRecord: any): Promise<any> {
-    const primaryPhoto = project?.PrimaryPhoto || project?.primaryPhoto || null;
-    const zip = project?.ZIP || project?.Zip || '';
+    const primaryPhoto = (project?.['PrimaryPhoto'] as string | undefined) || (project?.['primaryPhoto'] as string | undefined) || null;
+    const zip = (project?.['ZIP'] as string | undefined) || (project?.['Zip'] as string | undefined) || '';
 
     return {
       projectId: this.projectId,
@@ -2639,14 +2646,14 @@ Time: ${debugInfo.timestamp}
       state: project?.State || '',
       zip,
       fullAddress: `${project?.Address || ''}, ${project?.City || ''}, ${project?.State || ''} ${zip}`.trim(),
-      clientName: project?.ClientName || project?.Owner || '',
-      agentName: project?.AgentName || '',
-      inspectorName: project?.InspectorName || '',
+      clientName: (project?.['ClientName'] as string | undefined) || (project?.['Owner'] as string | undefined) || '',
+      agentName: (project?.['AgentName'] as string | undefined) || '',
+      inspectorName: (project?.['InspectorName'] as string | undefined) || '',
       inAttendance: serviceRecord?.InAttendance || '',
-      yearBuilt: project?.YearBuilt || '',
-      squareFeet: project?.SquareFeet || '',
-      typeOfBuilding: project?.TypeOfBuilding || '',
-      style: project?.Style || '',
+      yearBuilt: (project?.['YearBuilt'] as string | undefined) || '',
+      squareFeet: (project?.['SquareFeet'] as string | undefined) || '',
+      typeOfBuilding: (project?.['TypeOfBuilding'] as string | undefined) || '',
+      style: (project?.['Style'] as string | undefined) || '',
       occupancyFurnishings: serviceRecord?.OccupancyFurnishings || '',
       weatherConditions: serviceRecord?.WeatherConditions || '',
       outdoorTemperature: serviceRecord?.OutdoorTemperature || '',
@@ -2670,7 +2677,7 @@ Time: ${debugInfo.timestamp}
       return [];
     }
 
-    const resultsMap = new Map<string, { name: string; comments: any[]; limitations: any[]; deficiencies: any[] }>();
+    const resultsMap = new Map<string, PdfVisualCategory>();
 
     const attachments = await Promise.all(
       visuals.map(async (visual) => {
@@ -2691,7 +2698,13 @@ Time: ${debugInfo.timestamp}
     attachments.forEach(({ visual, attachments: visualAttachments }) => {
       const category = visual?.Category || 'General';
       const kind = (visual?.Kind || visual?.Type || '').toLowerCase();
-      const bucket = resultsMap.get(category) || { name: category, comments: [], limitations: [], deficiencies: [] };
+      const existingBucket = resultsMap.get(category);
+      const bucket: PdfVisualCategory = existingBucket || {
+        name: category,
+        comments: [] as any[],
+        limitations: [] as any[],
+        deficiencies: [] as any[]
+      };
 
       const item = {
         name: visual?.Name || visual?.VisualName || 'Untitled',
@@ -2710,7 +2723,7 @@ Time: ${debugInfo.timestamp}
         bucket.comments.push(item);
       }
 
-      if (!resultsMap.has(category)) {
+      if (!existingBucket) {
         resultsMap.set(category, bucket);
       }
     });
