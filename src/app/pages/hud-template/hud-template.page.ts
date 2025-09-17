@@ -2973,117 +2973,89 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   async loadExistingVisualSelections(options?: { awaitPhotos?: boolean }): Promise<void> {
+    const awaitPhotos = options?.awaitPhotos !== false;
     console.log('=====================================');
-    console.log('📥 LOADING EXISTING VISUAL SELECTIONS');
+    console.log('LOADING EXISTING VISUAL SELECTIONS');
     console.log('=====================================');
-    console.log('   ServiceID:', this.serviceId);\r\n    const awaitPhotos = options?.awaitPhotos !== false;\r\n\r\n
-    
+    console.log('ServiceID:', this.serviceId);
+
     if (!this.serviceId) {
-      console.log('❌ No ServiceID - skipping load');
+      console.log('No ServiceID - skipping load');
       return;
     }
-    
+
     try {
-      console.log('⏳ Fetching from Services_Visuals table...');
+      console.log('Fetching existing visuals from Services_Visuals...');
       const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      console.log('📋 Existing visuals loaded:', existingVisuals);
-      console.log('   Count:', existingVisuals?.length || 0);
-      
-      // Mark items as selected based on existing records
+      console.log('Existing visuals count:', existingVisuals?.length || 0);
+
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
-          console.log('🔍 Processing visual:', visual);
-          
-          // Find matching template by Name and Category
           if (visual.Category && visual.Name) {
-            // Find the template that matches this visual
-            const matchingTemplate = this.visualTemplates.find(t => 
-              t.Category === visual.Category && 
+            const matchingTemplate = this.visualTemplates.find(t =>
+              t.Category === visual.Category &&
               t.Name === visual.Name
             );
-            
+
             if (matchingTemplate) {
-              const key = `${visual.Category}_${matchingTemplate.PK_ID}`;
-              console.log('✅ Found matching template, marking as selected:', key);
-              console.log('   Template PK_ID:', matchingTemplate.PK_ID);
-              console.log('   Visual Name:', visual.Name);
+              const key = visual.Category + "_" + matchingTemplate.PK_ID;
               this.selectedItems[key] = true;
-              
-              // Store the visual record ID
+
               const visualId = visual.VisualID || visual.PK_ID || visual.id;
-              
-              // Store in tracking object for photo uploads - ALWAYS as string
               this.visualRecordIds[key] = String(visualId);
-              
-              // Update the text and selectedOptions in organizedData based on AnswerType
+
               const updateItemData = (items: any[]) => {
                 const item = items.find(i => i.id === matchingTemplate.PK_ID);
-                if (item) {
-                  // Check if Answers field exists (for AnswerType 1 and 2)
-                  const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== '';
-                  
-                  // For Yes/No questions (AnswerType 1)
-                  if (item.answerType === 1) {
-                    if (hasAnswersField) {
-                      // Use Answers field for the answer
-                      item.answer = visual.Answers;
-                      item.text = visual.Text || item.originalText || ''; // Preserve original text
-                    } else if (visual.Text === 'Yes' || visual.Text === 'No') {
-                      // Fallback to old method if Answers field not populated
-                      item.answer = visual.Text;
-                      item.text = item.originalText || '';
-                    }
+                if (!item) {
+                  return;
+                }
+
+                const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
+
+                if (item.answerType === 1) {
+                  if (hasAnswersField) {
+                    item.answer = visual.Answers;
+                    item.text = visual.Text || item.originalText || "";
+                  } else if (visual.Text === "Yes" || visual.Text === "No") {
+                    item.answer = visual.Text;
+                    item.text = item.originalText || "";
                   }
-                  // For multi-select questions (AnswerType 2)
-                  else if (item.answerType === 2) {
-                    if (hasAnswersField) {
-                      // Parse comma-delimited answers
-                      item.selectedOptions = visual.Answers.split(',').map((s: string) => s.trim());
-                      item.text = visual.Text || item.originalText || ''; // Preserve original text
-                    } else if (visual.Text) {
-                      // Fallback to old method if Answers field not populated
-                      item.selectedOptions = visual.Text.split(',').map((s: string) => s.trim());
-                    }
+                } else if (item.answerType === 2) {
+                  if (hasAnswersField) {
+                    item.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
+                    item.text = visual.Text || item.originalText || "";
+                  } else if (visual.Text) {
+                    item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
                   }
-                  // For text questions (AnswerType 0 or undefined)
-                  else {
-                    item.text = visual.Text || '';
-                  }
+                } else {
+                  item.text = visual.Text || "";
                 }
               };
-              
-              // Update in the appropriate section
+
               if (this.organizedData[visual.Category]) {
                 updateItemData(this.organizedData[visual.Category].comments);
                 updateItemData(this.organizedData[visual.Category].limitations);
                 updateItemData(this.organizedData[visual.Category].deficiencies);
               }
-              
-              console.log('📌 Stored visual ID:', visualId, 'for key:', key, 'Type:', typeof this.visualRecordIds[key]);
-              console.log('📋 Updated selectedItems:', this.selectedItems);
-            } else {
-              console.log('⚠️ No matching template found for:', visual.Name);
             }
           }
         });
       }
-      
-      console.log('✅ Visual selections restored:', this.selectedItems);
-      console.log('📌 Visual record IDs:', this.visualRecordIds);
-      
-      // Add a small delay to ensure visual IDs are properly set
+
+      console.log('Visual selections restored');
+      console.log('Visual record IDs:', this.visualRecordIds);
+
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Load existing photos for these visuals
-      console.log('?? About to load existing photos...');
+
+      console.log('Loading existing photos...');
       const photosPromise = this.loadExistingPhotos();
 
       if (awaitPhotos) {
         await photosPromise;
-        console.log('?? Finished loading existing photos');
+        console.log('Finished loading existing photos');
       } else {
         this.photoHydrationPromise = photosPromise.finally(() => {
-          console.log('?? Finished loading existing photos (background)');
+          console.log('Finished loading existing photos (background)');
           this.photoHydrationPromise = null;
         });
       }
@@ -3091,7 +3063,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       console.error('Error loading existing visual selections:', error);
     }
   }
-  
+
   toggleSection(section: string) {
     this.expandedSections[section] = !this.expandedSections[section];
   }
