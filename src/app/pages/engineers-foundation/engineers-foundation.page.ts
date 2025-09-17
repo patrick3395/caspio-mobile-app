@@ -573,11 +573,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
-                    console.log(`[v1.4.421] FDF Top - Loading from path: ${room.FDFPhotoTop}`);
+                    console.log(`[v1.4.423] FDF Top - Loading from path: ${room.FDFPhotoTop}`);
+
+                    // [v1.4.423] Show debug info about what we're loading
+                    const loadDebugInfo = {
+                      photoType: 'Top',
+                      roomName,
+                      roomId: room.RoomID,
+                      storedPath: room.FDFPhotoTop,
+                      pathIsValid: room.FDFPhotoTop && room.FDFPhotoTop !== '/undefined',
+                      pathStartsWithSlash: room.FDFPhotoTop?.startsWith('/')
+                    };
+
+                    console.log(`[v1.4.423] FDF Top Load Debug:`, loadDebugInfo);
+
                     try {
                       // Fetch the image as base64 data URL
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
-                      console.log(`[v1.4.421] FDF Top - Received data:`, {
+                      console.log(`[v1.4.423] FDF Top - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
                         length: imageData?.length || 0,
@@ -586,13 +599,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.topUrl = imageData;
-                        console.log(`[v1.4.421] FDF Top - ✅ Base64 loaded successfully`);
+                        console.log(`[v1.4.423] FDF Top - ✅ Base64 loaded successfully`);
                       } else {
-                        console.error(`[v1.4.421] FDF Top - ❌ Invalid data, using placeholder`);
+                        console.error(`[v1.4.423] FDF Top - ❌ Invalid data, using placeholder`);
+                        console.error(`[v1.4.423] FDF Top - Path was: ${room.FDFPhotoTop}`);
                         fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
                       }
-                    } catch (err) {
-                      console.error(`[v1.4.421] FDF Top - ❌ Load error:`, err);
+                    } catch (err: any) {
+                      console.error(`[v1.4.423] FDF Top - ❌ Load error:`, err);
+                      console.error(`[v1.4.423] FDF Top - Error details:`, {
+                        message: err?.message,
+                        status: err?.status,
+                        path: room.FDFPhotoTop
+                      });
                       fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
                     }
                   }
@@ -1100,16 +1119,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async viewFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
     const photoUrl = this.roomElevationData[roomName]?.fdfPhotos?.[`${photoKey}Url`];
+    const fdfPhotos = this.roomElevationData[roomName]?.fdfPhotos || {};
+    const roomId = this.roomRecordIds[roomName];
 
-    console.log(`[v1.4.421] viewFDFPhoto:`, {
+    // [v1.4.423] Debug popup to show FDF photo state
+    const debugInfo = {
       roomName,
       photoType,
       photoKey,
+      roomId: roomId || 'No room ID',
       hasUrl: !!photoUrl,
-      urlType: photoUrl ? (photoUrl.startsWith('data:') ? 'base64' : photoUrl.startsWith('blob:') ? 'blob' : 'other') : 'none',
+      urlType: photoUrl ? (photoUrl.startsWith('data:') ? 'base64' : photoUrl.startsWith('blob:') ? 'blob' : photoUrl.includes('placeholder') ? 'placeholder' : 'other') : 'none',
       urlLength: photoUrl?.length || 0,
-      urlPreview: photoUrl?.substring(0, 100)
+      urlPreview: photoUrl?.substring(0, 100) || 'No URL',
+      allFdfPhotos: Object.keys(fdfPhotos).map(key => `${key}: ${fdfPhotos[key] === true ? 'true' : typeof fdfPhotos[key]}`).join(', '),
+      roomData: this.roomElevationData[roomName] ? 'Exists' : 'Missing'
+    };
+
+    // Show debug popup
+    const debugAlert = await this.alertController.create({
+      header: `FDF Photo Debug (v1.4.423)`,
+      message: `
+        <div style="text-align: left; font-size: 12px; font-family: monospace;">
+          <strong>Room:</strong> ${debugInfo.roomName}<br>
+          <strong>Photo Type:</strong> ${debugInfo.photoType}<br>
+          <strong>Photo Key:</strong> ${debugInfo.photoKey}<br>
+          <strong>Room ID:</strong> ${debugInfo.roomId}<br>
+          <hr>
+          <strong>Has URL:</strong> ${debugInfo.hasUrl}<br>
+          <strong>URL Type:</strong> ${debugInfo.urlType}<br>
+          <strong>URL Length:</strong> ${debugInfo.urlLength}<br>
+          <strong>URL Preview:</strong><br>
+          <div style="word-break: break-all; background: #f0f0f0; padding: 4px; margin: 4px 0;">
+            ${debugInfo.urlPreview}
+          </div>
+          <hr>
+          <strong>All FDF Photos:</strong><br>
+          ${debugInfo.allFdfPhotos || 'None'}<br>
+          <strong>Room Data:</strong> ${debugInfo.roomData}
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Continue',
+          handler: () => {
+            // Continue with normal photo viewing
+            return true;
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        }
+      ]
     });
+
+    await debugAlert.present();
+    const { role } = await debugAlert.onDidDismiss();
+
+    if (role === 'cancel') {
+      return;
+    }
+
+    console.log(`[v1.4.423] viewFDFPhoto:`, debugInfo);
 
     if (photoUrl) {
       // If it's a placeholder image, don't open viewer
@@ -2297,6 +2369,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       } finally {
         this.savingRooms[roomName] = false;
+        // Trigger change detection to update completion percentage
+        this.changeDetectorRef.detectChanges();
       }
     }
   }
@@ -2336,8 +2410,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     this.savingRooms[roomName] = false;
+    // Trigger change detection to update completion percentage
+    this.changeDetectorRef.detectChanges();
   }
-  
+
   isRoomSelected(roomName: string): boolean {
     return !!this.selectedRooms[roomName];
   }
@@ -3267,8 +3343,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return Math.round((completedRequired / totalRequired) * 100);
 
       case 'elevation':
-        const hasRoomData = Object.keys(this.roomElevationData).length > 0;
-        return hasRoomData ? 100 : 0;
+        // Base Station is required for 100% completion
+        const baseStationSelected = this.selectedRooms['Base Station'] === true;
+
+        // Check if we have at least one other room selected (besides Base Station)
+        const otherRoomsSelected = Object.keys(this.selectedRooms).filter(
+          room => room !== 'Base Station' && this.selectedRooms[room] === true
+        ).length > 0;
+
+        // Calculate completion: Base Station is 50%, having at least one other room is another 50%
+        let elevationCompletion = 0;
+        if (baseStationSelected) {
+          elevationCompletion = 50;
+          if (otherRoomsSelected) {
+            elevationCompletion = 100;
+          }
+        }
+
+        return elevationCompletion;
 
       default:
         return 0;

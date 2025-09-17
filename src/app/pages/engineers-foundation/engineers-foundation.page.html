@@ -18,7 +18,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.422 - Fixed null check for rooms array</div>
+    <div class="version-header">Version 1.4.423 - Elevation Plot % requires Base Station selection</div>
 
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
@@ -784,7 +784,7 @@
     <div class="section-card">
       <div class="section-header" data-section="elevation" (click)="toggleSection('elevation')">
         <div class="section-info">
-          <div class="section-title">
+          <div class="section-title" [class.complete]="getSectionCompletion('elevation') === 100">
             <ion-icon name="analytics-outline"></ion-icon>
             Elevation Plot
           </div>
@@ -816,10 +816,13 @@
                     (ionChange)="toggleRoomSelection(room.RoomName, $event)"
                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>
-                  <ion-label class="item-label" 
+                  <ion-label class="item-label"
                              (click)="handleRoomLabelClick(room.RoomName, $event)"
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
-                    <h3>{{ room.RoomName }}</h3>
+                    <h3>
+                      {{ room.RoomName }}
+                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'">*</span>
+                    </h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
