@@ -3,13 +3,10 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
-import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
-import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
-// jsPDF and jspdf-autotable are now lazy-loaded via PdfGeneratorService
 
 interface ServiceSelection {
   instanceId: string;
@@ -94,7 +91,6 @@ export class ProjectDetailPage implements OnInit {
     private loadingController: LoadingController,
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
-    private pdfGenerator: PdfGeneratorService,
     private imageCompression: ImageCompressionService
   ) {}
 
@@ -1570,22 +1566,24 @@ export class ProjectDetailPage implements OnInit {
   }
 
   // Template navigation - Fixed double-click issue
-  openTemplate(service: ServiceSelection, event?: Event) {
+  openTemplate(service: ServiceSelection, event?: Event, options?: { openPdf?: boolean }) {
     // Prevent any event bubbling
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    
+
     // Navigate immediately without any checks
     if (!service.serviceId) {
       console.log('No serviceId, cannot navigate');
       return;
     }
-    
+
     // Convert typeId to string for consistent comparison
     const typeIdStr = String(service.typeId);
-    
+
+    const openPdf = !!options?.openPdf;
+
     console.log('🔍 Template Navigation Debug:', {
       typeName: service.typeName,
       typeId: service.typeId,
@@ -1613,32 +1611,42 @@ export class ProjectDetailPage implements OnInit {
     if (isHUDTemplate) {
       console.log('🏠 Navigating to HUD template - IMMEDIATE');
       const url = `/hud-template/${this.projectId}/${service.serviceId}`;
+      const extras: any = { replaceUrl: false };
+      if (openPdf) {
+        extras.queryParams = { openPdf: '1' };
+      }
 
-      // Use Ionic NavController for smoother navigation
-      this.router.navigate(['hud-template', this.projectId, service.serviceId], {
-        replaceUrl: false
-      }).catch(error => {
+      // Use Angular router; fallback to direct navigation with query param if needed
+      this.router.navigate(['hud-template', this.projectId, service.serviceId], extras).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
-        // Fallback to direct navigation
-        window.location.assign(url);
+        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
+        window.location.assign(finalUrl);
       });
     } else if (isEngineersFoundation) {
       console.log('✅ Navigating to Engineers Foundation template - IMMEDIATE');
       // Force navigation with location.assign for immediate response
       const url = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
+      const extras: any = { replaceUrl: false };
+      if (openPdf) {
+        extras.queryParams = { openPdf: '1' };
+      }
 
-      // Use Ionic NavController for smoother navigation
-      this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], {
-        replaceUrl: false
-      }).catch(error => {
+      this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], extras).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
-        // Fallback to direct navigation
-        window.location.assign(url);
+        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
+        window.location.assign(finalUrl);
       });
     } else {
       console.log('📝 Navigating to standard template form');
-      this.router.navigate(['template-form', this.projectId, service.serviceId], {
-        replaceUrl: false
+      const extras: any = { replaceUrl: false };
+      if (openPdf) {
+        extras.queryParams = { openPdf: '1' };
+      }
+      this.router.navigate(['template-form', this.projectId, service.serviceId], extras).catch(error => {
+        console.error('Router navigation to template-form failed:', error);
+        const url = `/template-form/${this.projectId}/${service.serviceId}`;
+        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
+        window.location.assign(finalUrl);
       });
     }
   }
@@ -2439,152 +2447,51 @@ Time: ${debugInfo.timestamp}
   }
 
   async generateServicePDF() {
-    // Check if we have services selected
-    if (!this.selectedServices || this.selectedServices.length === 0) {
-      await this.showToast('Please select a service first', 'warning');
+    const templateServices = this.getServicesForTemplates();
+
+    if (!templateServices || templateServices.length === 0) {
+      await this.showToast('No templates available for PDF generation', 'warning');
       return;
     }
 
-    // If multiple services, ask user to select one
-    let selectedService: ServiceSelection;
-    
-    if (this.selectedServices.length > 1) {
-      const alert = await this.alertController.create({
-        header: 'Select Service for PDF',
-        message: 'Which service would you like to generate a PDF for?',
-        inputs: this.selectedServices.map((service, index) => ({
-          type: 'radio',
-          label: `${service.typeName} - ${this.formatDate(service.dateOfInspection)}`,
-          value: index,
-          checked: index === 0
-        })),
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Generate PDF',
-            handler: (selectedIndex) => {
-              selectedService = this.selectedServices[selectedIndex];
-              this.generatePDFForService(selectedService);
-            }
-          }
-        ]
-      });
-      await alert.present();
-    } else {
-      selectedService = this.selectedServices[0];
-      await this.generatePDFForService(selectedService);
+    if (templateServices.length === 1) {
+      await this.generatePDFForService(templateServices[0]);
+      return;
     }
+
+    const alert = await this.alertController.create({
+      header: 'Select Template',
+      message: 'Choose a template to open its PDF report.',
+      inputs: templateServices.map((service, index) => ({
+        type: 'radio',
+        label: `${service.typeName} - ${this.formatDate(service.dateOfInspection)}`,
+        value: index,
+        checked: index === 0
+      })),
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Open PDF',
+          handler: (selectedIndex) => {
+            const selectedService = templateServices[selectedIndex];
+            this.generatePDFForService(selectedService);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   async generatePDFForService(service: ServiceSelection) {
     if (!service.serviceId) {
-      await this.showToast('Service has not been saved yet. Please save the service first.', 'warning');
+      await this.showToast('Please save the service before generating a PDF', 'warning');
       return;
     }
 
-    const loading = await this.loadingController.create({
-      message: 'Generating PDF Report...',
-      spinner: 'crescent'
-    });
-    await loading.present();
-
-    try {
-      // Step 1: Get full project data from Projects table
-      const projectData = this.project; // We already have this
-      
-      if (!projectData) {
-        await loading.dismiss();
-        await this.showToast('Project data not available', 'warning');
-        return;
-      }
-      
-      // Step 2: Get the specific service data from Services table
-      const serviceData = await this.caspioService.getServiceById(service.serviceId).toPromise();
-      console.log('Service data:', serviceData);
-      
-      // Step 3: Get all visuals for this service from Services_Visuals table
-      const visualsData = await this.caspioService.getServicesVisualsByServiceId(service.serviceId).toPromise();
-      console.log('Visuals data:', visualsData);
-      
-      // Step 4: For each visual, get attachments from Services_Visuals_Attach table
-      const visualsWithAttachments = [];
-      if (visualsData && Array.isArray(visualsData)) {
-        for (const visual of visualsData) {
-          const visualId = visual.VisualID || visual.PK_ID;
-          if (visualId) {
-            try {
-              const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(visualId).toPromise();
-              visualsWithAttachments.push({
-                ...visual,
-                attachments: attachments || []
-              });
-            } catch (error) {
-              console.error(`Error fetching attachments for visual ${visualId}:`, error);
-              visualsWithAttachments.push({
-                ...visual,
-                attachments: []
-              });
-            }
-          }
-        }
-      }
-      console.log('Visuals with attachments:', visualsWithAttachments);
-      
-      await loading.dismiss();
-      
-      // Step 5: Open PDF preview modal with all the data
-      const modal = await this.modalController.create({
-        component: PdfPreviewComponent,
-        componentProps: {
-          projectData: {
-            // Project Information
-            address: projectData['Address'] || '',
-            city: projectData['City'] || '',
-            state: projectData['State'] || '',
-            zipCode: projectData['ZIP'] || '',
-            clientName: projectData['ClientName'] || '',
-            agentName: projectData['AgentName'] || '',
-            inspectorName: projectData['InspectorName'] || '',
-            yearBuilt: projectData['YearBuilt'] || '',
-            squareFeet: projectData['SquareFeet'] || '',
-            typeOfBuilding: projectData['TypeOfBuilding'] || '',
-            style: projectData['Style'] || '',
-            primaryPhoto: projectData['PrimaryPhoto'] || '',
-            // Additional project fields
-            projectId: this.projectId,
-            statusId: projectData['StatusID'],
-            companyId: projectData['CompanyID']
-          },
-          serviceData: {
-            // Service Information
-            serviceId: service.serviceId,
-            serviceName: service.typeName,
-            dateOfInspection: service.dateOfInspection,
-            typeId: service.typeId,
-            ...serviceData // Include all service fields
-          },
-          structuralData: visualsWithAttachments.filter(v => 
-            v.Category === 'Structural Systems' || 
-            v.Kind === 'Structural' ||
-            !v.Category // Include uncategorized for now
-          ),
-          elevationData: visualsWithAttachments.filter(v => 
-            v.Category === 'Elevation' || 
-            v.Kind === 'Elevation'
-          )
-        },
-        cssClass: 'fullscreen-modal'
-      });
-      
-      await modal.present();
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      await loading.dismiss();
-      await this.showToast('Failed to generate PDF. Please try again.', 'danger');
-    }
+    this.openTemplate(service, undefined, { openPdf: true });
   }
 }

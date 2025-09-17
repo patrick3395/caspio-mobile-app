@@ -54,6 +54,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // PDF generation state
   isPDFGenerating: boolean = false;
   pdfGenerationAttempts: number = 0;
+  private shouldAutoOpenPdf: boolean = false;
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -183,8 +184,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       serviceId: this.serviceId
     });
 
+    const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
+    this.shouldAutoOpenPdf = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
+
     // Debug logging removed - v1.4.316
-    
+
     // Load all data in parallel for faster initialization
     try {
       await Promise.all([
@@ -199,6 +203,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Then load any existing template data (including visual selections)
       await this.loadExistingData();
+
+      if (this.shouldAutoOpenPdf) {
+        this.shouldAutoOpenPdf = false;
+        setTimeout(() => {
+          this.generatePDF().catch(error => {
+            console.error('[AutoPDF] Failed to generate PDF automatically:', error);
+          });
+        }, 400);
+      }
     } catch (error) {
       console.error('Error loading template data:', error);
     }

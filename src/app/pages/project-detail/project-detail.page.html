@@ -133,10 +133,6 @@
       <div *ngIf="selectedServices.length > 0" class="selected-services-table">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3>Selected Services & Inspection Dates</h3>
-          <ion-button size="small" color="tertiary" (click)="generateServicePDF()" *ngIf="selectedServices.length > 0">
-            <ion-icon name="document-text-outline" slot="start"></ion-icon>
-            Generate PDF Report
-          </ion-button>
         </div>
         <div class="services-table">
           <div class="table-header">
@@ -358,7 +354,13 @@
 
     <!-- Templates Section -->
     <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
-      <h2 class="section-title">Templates</h2>
+      <div class="section-header-with-button">
+        <h2 class="section-title">Templates</h2>
+        <ion-button size="small" color="tertiary" (click)="generateServicePDF()">
+          <ion-icon name="document-text-outline" slot="start"></ion-icon>
+          Generate PDF Report
+        </ion-button>
+      </div>
       
       <div class="templates-container">
         <div *ngFor="let service of getServicesForTemplates()" 
