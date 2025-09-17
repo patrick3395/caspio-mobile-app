@@ -6203,6 +6203,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const isPendingVisual = !actualVisualId || actualVisualId === '__pending__';
 
     // INSTANTLY show preview with object URL
+    let tempId: string | undefined;
+
     if (actualVisualId && actualVisualId !== 'undefined') {
       // [v1.4.387] ONLY store photos by KEY for consistency
       if (!this.visualPhotos[key]) {
@@ -6211,7 +6213,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Create instant preview
       const objectUrl = URL.createObjectURL(photo);
-      const tempId = `temp_${Date.now()}_${Math.random()}`;
+      tempId = `temp_${Date.now()}_${Math.random()}`;
       const photoData: any = {
         AttachID: tempId,
         id: tempId,
