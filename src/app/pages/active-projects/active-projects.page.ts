@@ -4,6 +4,7 @@ import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
 import { AlertController } from '@ionic/angular';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-active-projects',
@@ -18,6 +19,7 @@ export class ActiveProjectsPage implements OnInit {
   error = '';
   currentUser: any = null;
   appVersion = '1.4.428'; // Update this to match package.json version
+  private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Lazy loading configuration
   private readonly INITIAL_LOAD = 20; // Initial number of projects to show
@@ -254,8 +256,7 @@ export class ActiveProjectsPage implements OnInit {
       return 'assets/img/project-placeholder.svg';
     }
     const encodedAddress = encodeURIComponent(address);
-    const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
   }
   
   private projectImageCache: { [projectId: string]: string } = {};
@@ -297,8 +298,7 @@ export class ActiveProjectsPage implements OnInit {
         const address = this.formatAddress(project);
         if (address) {
           const encodedAddress = encodeURIComponent(address);
-          const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-          this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+          this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
         } else {
           this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
         }
@@ -309,8 +309,7 @@ export class ActiveProjectsPage implements OnInit {
       const address = this.formatAddress(project);
       if (address) {
         const encodedAddress = encodeURIComponent(address);
-        const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-        this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+        this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
       } else {
         this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
       }

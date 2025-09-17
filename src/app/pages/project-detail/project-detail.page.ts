@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { ImageCompressionService } from '../../services/image-compression.service';
+import { environment } from '../../../environments/environment';
 
 interface ServiceSelection {
   instanceId: string;
@@ -59,6 +60,7 @@ export class ProjectDetailPage implements OnInit {
   error = '';
   projectId: string = '';
   isReadOnly = false; // Track if project should be view-only
+  private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Services
   availableOffers: any[] = [];
@@ -1703,8 +1705,7 @@ export class ProjectDetailPage implements OnInit {
       return 'assets/img/project-placeholder.svg';
     }
     const address = encodeURIComponent(this.formatAddress());
-    const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${apiKey}`;
+    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${this.googleMapsApiKey}`;
     console.log('📸 Using Street View:', streetViewUrl);
     return streetViewUrl;
   }
@@ -1739,8 +1740,7 @@ export class ProjectDetailPage implements OnInit {
         const address = this.formatAddress();
         if (address) {
           const encodedAddress = encodeURIComponent(address);
-          const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-          this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${apiKey}`;
+          this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
         } else {
           this.projectImageData = 'assets/img/project-placeholder.svg';
         }
@@ -1754,8 +1754,7 @@ export class ProjectDetailPage implements OnInit {
       const address = this.formatAddress();
       if (address) {
         const encodedAddress = encodeURIComponent(address);
-        const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-        this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${apiKey}`;
+        this.projectImageData = `https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
       } else {
         this.projectImageData = 'assets/img/project-placeholder.svg';
       }

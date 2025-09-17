@@ -3,6 +3,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { AlertController } from '@ionic/angular';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-all-projects',
@@ -16,6 +17,7 @@ export class AllProjectsPage implements OnInit {
   error = '';
   currentUser: any = null;
   searchTerm = '';
+  private readonly googleMapsApiKey = environment.googleMapsApiKey;
 
   // Get current user info
   getUserInfo(): string {
@@ -159,8 +161,7 @@ export class AllProjectsPage implements OnInit {
       return 'assets/img/project-placeholder.svg';
     }
     const encodedAddress = encodeURIComponent(address);
-    const apiKey = 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A';
-    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${apiKey}`;
+    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
   }
 
   // Handle image loading errors

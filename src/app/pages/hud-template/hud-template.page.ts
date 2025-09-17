@@ -2858,6 +2858,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       console.log(`[HUD-Template] Total templates fetched: ${allTemplates?.length || 0}`);
 
+      // Create debug info for popup
+      let debugInfo = `<h3>HUD Template TypeID Debug</h3>`;
+      debugInfo += `<p><strong>Total Templates Fetched:</strong> ${allTemplates?.length || 0}</p>`;
+
       // Debug: Check TypeID data types and values
       if (allTemplates && allTemplates.length > 0) {
         const sampleTemplate = allTemplates[0];
@@ -2871,6 +2875,19 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           return acc;
         }, {});
         console.log('[HUD-Template] TypeID distribution:', typeIdInfo);
+
+        debugInfo += `<p><strong>TypeID Distribution in Database:</strong></p><ul>`;
+        for (const [typeId, count] of Object.entries(typeIdInfo)) {
+          debugInfo += `<li>TypeID ${typeId}: ${count} templates</li>`;
+        }
+        debugInfo += `</ul>`;
+
+        // Show first few templates
+        debugInfo += `<p><strong>Sample Templates (first 3):</strong></p><ul>`;
+        allTemplates.slice(0, 3).forEach((t: any) => {
+          debugInfo += `<li>Name: ${t.Name}, Category: ${t.Category}, TypeID: ${t.TypeID} (${typeof t.TypeID})</li>`;
+        });
+        debugInfo += `</ul>`;
       }
 
       // Filter templates for TypeID = 2 (HUD/Manufactured Home)
@@ -2885,14 +2902,22 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
+      debugInfo += `<p><strong>Templates with TypeID = 2:</strong> ${this.visualTemplates.length} found</p>`;
+
       // If we found TypeID 2 templates, log a sample
       if (this.visualTemplates.length > 0) {
         console.log('[HUD-Template] Sample HUD template:', this.visualTemplates[0]);
+        debugInfo += `<p><strong>Sample TypeID 2 Template:</strong></p><ul>`;
+        debugInfo += `<li>Name: ${this.visualTemplates[0].Name}</li>`;
+        debugInfo += `<li>Category: ${this.visualTemplates[0].Category}</li>`;
+        debugInfo += `<li>TypeID: ${this.visualTemplates[0].TypeID} (${typeof this.visualTemplates[0].TypeID})</li>`;
+        debugInfo += `</ul>`;
       }
 
       // If no templates found with TypeID = 2, fallback to TypeID = 1 for testing
       if (this.visualTemplates.length === 0) {
         console.warn('[HUD-Template] No TypeID = 2 templates found, falling back to TypeID = 1');
+        debugInfo += `<p style="color: orange;"><strong>⚠️ No TypeID 2 templates found, falling back to TypeID 1</strong></p>`;
 
         // Use TypeID = 1 as fallback so the template loads
         this.visualTemplates = (allTemplates || []).filter(template => {
@@ -2904,11 +2929,42 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
         if (this.visualTemplates.length > 0) {
           console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1 as fallback`);
+          debugInfo += `<p><strong>Using TypeID 1 templates:</strong> ${this.visualTemplates.length} found</p>`;
         } else {
           console.error('[HUD-Template] No templates found in database at all');
+          debugInfo += `<p style="color: red;"><strong>❌ No templates found in database!</strong></p>`;
           await this.showToast('No templates found in database.', 'danger');
         }
       }
+
+      // Show debug popup
+      const alert = await this.alertController.create({
+        header: 'TypeID Debug Info',
+        message: debugInfo,
+        buttons: [
+          {
+            text: 'Copy Debug Info',
+            handler: () => {
+              const textContent = debugInfo.replace(/<[^>]*>/g, ''); // Strip HTML for copy
+              navigator.clipboard.writeText(textContent).catch(() => {
+                // Fallback for clipboard
+                const textarea = document.createElement('textarea');
+                textarea.value = textContent;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+              });
+            }
+          },
+          {
+            text: 'OK',
+            role: 'cancel'
+          }
+        ],
+        cssClass: 'debug-alert'
+      });
+      await alert.present();
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();

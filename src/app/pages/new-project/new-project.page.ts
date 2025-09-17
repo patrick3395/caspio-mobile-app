@@ -5,8 +5,7 @@ import { IonicModule, LoadingController, AlertController } from '@ionic/angular'
 import { Router } from '@angular/router';
 import { ProjectsService, ProjectCreationData } from '../../services/projects.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
-
-declare var google: any;
+import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
 
 @Component({
   selector: 'app-new-project',
@@ -46,13 +45,16 @@ export class NewProjectPage implements OnInit {
     'TN': 'Tennessee'
   };
   
+  private autocompleteInstance: any = null;
+
   constructor(
     private router: Router,
     private projectsService: ProjectsService,
     private serviceEfeService: ServiceEfeService,
     private loadingController: LoadingController,
     private alertController: AlertController,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private googleMapsLoader: GoogleMapsLoaderService
   ) {}
 
   async ngOnInit() {
@@ -60,12 +62,9 @@ export class NewProjectPage implements OnInit {
     
     // Load states from Caspio
     await this.loadStates();
-    
+
     // Initialize Google Places for address autocomplete
-    // Wait a bit for the view to be fully rendered
-    setTimeout(() => {
-      this.initializeGooglePlaces();
-    }, 500);
+    this.ensureGooglePlacesAutocomplete();
   }
 
   async loadStates() {
@@ -126,31 +125,47 @@ export class NewProjectPage implements OnInit {
     }
   }
 
-  initializeGooglePlaces() {
+  private async ensureGooglePlacesAutocomplete(retry = 0): Promise<void> {
+    try {
+      const googleMaps = await this.googleMapsLoader.load();
+      this.initializeGooglePlaces(googleMaps, retry);
+    } catch (error) {
+      console.error('Failed to load Google Maps Places API:', error);
+    }
+  }
+
+  private initializeGooglePlaces(googleMaps: any, retry = 0) {
     console.log('🔍 Initializing Google Places Autocomplete...');
-    
-    // Check if Google Maps is loaded
-    if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-      console.log('⚠️ Google Maps not loaded yet, retrying in 1 second...');
-      setTimeout(() => this.initializeGooglePlaces(), 1000);
+
+    if (!googleMaps || !googleMaps.maps || !googleMaps.maps.places) {
+      console.warn('⚠️ Google Maps Places library unavailable, aborting initialization.');
       return;
     }
-    
-    const addressInput = document.getElementById('address-input') as HTMLInputElement;
-    
+
+    const addressInput = document.getElementById('address-input') as HTMLInputElement | null;
+
     if (!addressInput) {
-      console.log('⚠️ Address input not found, retrying in 500ms...');
-      setTimeout(() => this.initializeGooglePlaces(), 500);
+      if (retry < 10) {
+        console.log('⚠️ Address input not found, retrying...');
+        setTimeout(() => this.initializeGooglePlaces(googleMaps, retry + 1), 200);
+      } else {
+        console.warn('⚠️ Address input not found after multiple attempts.');
+      }
       return;
     }
-    
+
+    if (this.autocompleteInstance) {
+      return;
+    }
+
     console.log('✅ Setting up Google Places Autocomplete on input:', addressInput);
-    
+
     // Create autocomplete instance
-    const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+    const autocomplete = new googleMaps.maps.places.Autocomplete(addressInput, {
       types: ['address'],
       componentRestrictions: { country: 'us' }
     });
+    this.autocompleteInstance = autocomplete;
     
     // Listen for manual changes to the input
     addressInput.addEventListener('input', (event: any) => {
