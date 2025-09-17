@@ -91,9 +91,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
+  private photoHydrationPromise: Promise<void> | null = null;
+  private waitingForPhotoHydration = false;
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   visibleVisuals: Set<string> = new Set(); // Track which visuals are visible
-  photoLoadBatchSize: number = 3; // Load 3 photos at a time
   private readonly photoLoadConcurrency = 4;
   
   // Type information for the header
@@ -234,6 +235,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   private tryAutoOpenPdf(): void {
     if (!this.autoPdfRequested || !this.viewInitialized || !this.dataInitialized) {
+      return;
+    }
+
+    if (this.photoHydrationPromise) {
+      if (!this.waitingForPhotoHydration) {
+        this.waitingForPhotoHydration = true;
+        this.photoHydrationPromise.finally(() => {
+          this.waitingForPhotoHydration = false;
+          this.tryAutoOpenPdf();
+        });
+      }
       return;
     }
 
@@ -2937,7 +2949,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     await this.loadServiceData();
     
     // Load existing visual selections from Services_Visuals table
-    await this.loadExistingVisualSelections();
+    await this.loadExistingVisualSelections({ awaitPhotos: false });
     
     // TODO: Load existing template data from Service_EFE table
     // This will be implemented based on your Caspio table structure
@@ -2960,11 +2972,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  async loadExistingVisualSelections() {
+  async loadExistingVisualSelections(options?: { awaitPhotos?: boolean }): Promise<void> {
     console.log('=====================================');
     console.log('📥 LOADING EXISTING VISUAL SELECTIONS');
     console.log('=====================================');
-    console.log('   ServiceID:', this.serviceId);
+    console.log('   ServiceID:', this.serviceId);\r\n    const awaitPhotos = options?.awaitPhotos !== false;\r\n\r\n
     
     if (!this.serviceId) {
       console.log('❌ No ServiceID - skipping load');
@@ -3063,9 +3075,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Load existing photos for these visuals
-      console.log('📸 About to load existing photos...');
-      await this.loadExistingPhotos();
-      console.log('📸 Finished loading existing photos');
+      console.log('?? About to load existing photos...');
+      const photosPromise = this.loadExistingPhotos();
+
+      if (awaitPhotos) {
+        await photosPromise;
+        console.log('?? Finished loading existing photos');
+      } else {
+        this.photoHydrationPromise = photosPromise.finally(() => {
+          console.log('?? Finished loading existing photos (background)');
+          this.photoHydrationPromise = null;
+        });
+      }
     } catch (error) {
       console.error('Error loading existing visual selections:', error);
     }
@@ -5077,7 +5098,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     console.log('📋 Input Parameters:');
     console.log('   Category:', category);
     console.log('   TemplateID:', templateId);
-    console.log('   ServiceID:', this.serviceId);
     
     // Find the template data first
     const template = this.visualTemplates.find(t => t.PK_ID === templateId);

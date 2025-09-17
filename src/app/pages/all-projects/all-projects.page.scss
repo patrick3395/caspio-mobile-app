@@ -6,12 +6,22 @@ $dark-gray: #333333;
 $white: #FFFFFF;
 
 .custom-header {
-  ion-toolbar {
-    --background: #{$orange};
+  ion-toolbar.action-toolbar {
+    --background: linear-gradient(135deg, var(--noble-orange), #ff7b4d);
     --border-width: 0;
-    --padding-top: 20px;
-    --padding-bottom: 10px;
-    --color: #{$white};
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+    display: flex;
+    justify-content: center;
+
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
   }
 }
 

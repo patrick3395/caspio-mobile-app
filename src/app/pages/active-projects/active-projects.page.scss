@@ -6,20 +6,20 @@
     --padding-end: 16px;
     --padding-top: 14px;
     --padding-bottom: 14px;
-    display: flex;
-    justify-content: center;
-  }
-}
 
-.toolbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.14);
-  padding: 10px 14px;
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+
+    ion-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
 }
 
 .toolbar-btn {

@@ -1,7 +1,22 @@
 // Company page styles with Noble theme
-ion-toolbar {
-  --background: #F15A27;
-  --color: white;
+.custom-header {
+  ion-toolbar.action-toolbar {
+    --background: linear-gradient(135deg, var(--noble-orange), #ff7b4d);
+    --border-width: 0;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+    display: flex;
+    justify-content: center;
+
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+  }
 }
 
 .company-header {
