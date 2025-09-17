@@ -40,6 +40,12 @@ interface PendingPhotoUpload {
   tempId: string;
 }
 
+interface PendingVisualCreate {
+  category: string;
+  templateId: string;
+  data: ServicesVisualRecord;
+}
+
 @Component({
   selector: 'app-engineers-foundation',
   templateUrl: './engineers-foundation.page.html',
@@ -70,6 +76,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private subscriptions = new Subscription();
   private pendingVisualKeys: Set<string> = new Set();
   private pendingPhotoUploads: { [key: string]: PendingPhotoUpload[] } = {};
+  private pendingVisualCreates: { [key: string]: PendingVisualCreate } = {};
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -219,7 +226,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.updateOfflineBanner();
         if (status) {
           setTimeout(() => this.updateQueueStatus(), 300);
-          this.refreshPendingVisuals();
+          this.refreshPendingVisuals().catch(error => {
+            console.error('Failed to refresh pending visuals:', error);
+          });
         }
       })
     );
@@ -378,6 +387,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Force garbage collection hints
     this.formData = {};
     this.pendingPhotoUploads = {};
+    this.pendingVisualCreates = {};
   }
 
   // Navigation method for back button
@@ -4414,27 +4424,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  private refreshPendingVisuals(): void {
+  private async refreshPendingVisuals(): Promise<void> {
+    await this.processPendingVisualCreates();
+
     const pendingEntries = Object.entries(this.visualRecordIds)
       .filter(([, value]) => value === '__pending__');
 
-    pendingEntries.forEach(([key]) => {
+    for (const [key] of pendingEntries) {
       const separatorIndex = key.lastIndexOf('_');
       if (separatorIndex <= 0 || separatorIndex >= key.length - 1) {
-        return;
+        continue;
       }
 
       const category = key.substring(0, separatorIndex);
       const templateId = key.substring(separatorIndex + 1);
 
       if (category && templateId) {
-        this.refreshVisualId(category, templateId);
+        await this.refreshVisualId(category, templateId);
       }
 
       if (this.pendingPhotoUploads[key] && this.pendingPhotoUploads[key].length > 0) {
-        this.processPendingPhotoUploadsForKey(key);
+        await this.processPendingPhotoUploadsForKey(key);
       }
-    });
+    }
   }
 
   private async processPendingPhotoUploadsForKey(key: string): Promise<void> {
@@ -4486,6 +4498,77 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         await this.showToast('Queued photo failed to sync. Please retry.', 'danger');
       }
+    }
+  }
+
+  private async processPendingVisualCreates(): Promise<void> {
+    if (this.offlineService.isManualOffline() || !this.offlineService.isOnline()) {
+      return;
+    }
+
+    const entries = Object.entries(this.pendingVisualCreates);
+    for (const [key, pending] of entries) {
+      if (this.offlineService.isManualOffline() || !this.offlineService.isOnline()) {
+        break;
+      }
+
+      if (this.visualRecordIds[key] && this.visualRecordIds[key] !== '__pending__') {
+        delete this.pendingVisualCreates[key];
+        continue;
+      }
+
+      try {
+        this.pendingVisualKeys.add(key);
+        this.visualRecordIds[key] = '__pending__';
+        localStorage.setItem(`visual_${pending.category}_${pending.templateId}`, '__pending__');
+        await this.createVisualRecord(key, pending.category, pending.templateId, pending.data);
+        delete this.pendingVisualCreates[key];
+      } catch (error) {
+        console.error('Failed to sync queued visual for', key, error);
+        await this.showToast('Queued visual failed to sync. Please retry.', 'danger');
+        break;
+      } finally {
+        this.pendingVisualKeys.delete(key);
+      }
+    }
+  }
+
+  private async createVisualRecord(
+    key: string,
+    category: string,
+    templateId: string,
+    visualData: ServicesVisualRecord
+  ): Promise<void> {
+    let visualId: string | null = null;
+
+    try {
+      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+        } else {
+          visualId = String(response.VisualID || response.PK_ID || response.id || '');
+        }
+      } else if (response) {
+        visualId = String(response);
+      }
+    } catch (error) {
+      delete this.visualRecordIds[key];
+      localStorage.removeItem(`visual_${category}_${templateId}`);
+      throw error;
+    }
+
+    if (visualId && visualId !== 'undefined' && visualId !== 'null' && visualId !== '') {
+      this.visualRecordIds[key] = visualId;
+      localStorage.setItem(`visual_${category}_${templateId}`, visualId);
+      delete this.pendingVisualCreates[key];
+      await this.processPendingPhotoUploadsForKey(key);
+    } else {
+      // Keep pending marker and try to refresh later
+      setTimeout(() => this.refreshVisualId(category, templateId), 2000);
     }
   }
 
@@ -4806,12 +4889,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     const key = `${category}_${templateId}`;
-    if (this.visualRecordIds[key]) {
+    if (this.visualRecordIds[key] && this.visualRecordIds[key] !== '__pending__') {
       return;
     }
 
-    if (this.pendingVisualKeys.has(key)) {
-      console.log('[Offline] Visual create already pending for', key);
+    if (this.pendingVisualKeys.has(key) && this.visualRecordIds[key] !== '__pending__') {
+      console.log('Visual create already in progress for', key);
       return;
     }
 
@@ -4891,39 +4974,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         visualData.Answers = answers;
       }
 
+      const currentlyOnline = this.offlineService.isOnline();
+      const manualOffline = this.offlineService.isManualOffline();
+
       this.visualRecordIds[key] = '__pending__';
       localStorage.setItem(recordKey, '__pending__');
 
-      let visualId: string | null = null;
-
-      try {
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-
-        if (Array.isArray(response) && response.length > 0) {
-          visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
-        } else if (response && typeof response === 'object') {
-          if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-            visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
-          } else {
-            visualId = String(response.VisualID || response.PK_ID || response.id || '');
-          }
-        } else if (response) {
-          visualId = String(response);
-        }
-      } catch (error) {
-        delete this.visualRecordIds[key];
-        localStorage.removeItem(recordKey);
-        throw error;
+      if (!currentlyOnline || manualOffline) {
+        this.pendingVisualCreates[key] = {
+          category,
+          templateId,
+          data: visualData
+        };
+        this.showToast('Visual queued and will save when auto-sync resumes.', 'warning');
+        return;
       }
 
-      if (visualId && visualId !== 'undefined' && visualId !== 'null' && visualId !== '') {
-        this.visualRecordIds[key] = visualId;
-        localStorage.setItem(recordKey, visualId);
-        await this.processPendingPhotoUploadsForKey(key);
-      } else {
-        // Keep pending marker and try to refresh later
-        setTimeout(() => this.refreshVisualId(category, templateId), 2000);
-      }
+      await this.createVisualRecord(key, category, templateId, visualData);
     } catch (error) {
       console.error('Error saving visual:', error);
       await this.showToast('Failed to save visual', 'danger');
@@ -4940,6 +5007,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const key = `${category}_${templateId}`;
     delete this.visualRecordIds[key];
     delete this.pendingPhotoUploads[key];
+    delete this.pendingVisualCreates[key];
 
     if (recordId === '__pending__') {
       // Pending create was never synced; just clear the placeholder
