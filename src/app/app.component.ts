@@ -3,6 +3,7 @@ import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
 import * as LiveUpdates from '@capacitor/live-updates';
 import { ThemeService } from './services/theme.service';
+import { PerformanceMonitorService } from './services/performance-monitor.service';
 
 @Component({
   selector: 'app-root',
@@ -11,7 +12,11 @@ import { ThemeService } from './services/theme.service';
   standalone: false,
 })
 export class AppComponent {
-  constructor(private platform: Platform, private readonly themeService: ThemeService) {
+  constructor(
+    private platform: Platform,
+    private readonly themeService: ThemeService,
+    private readonly performanceMonitor: PerformanceMonitorService
+  ) {
     this.initializeApp();
   }
 
@@ -41,6 +46,8 @@ export class AppComponent {
         isAndroid: this.platform.is('android'),
         isIOS: this.platform.is('ios')
       });
+
+      this.performanceMonitor.start();
     });
   }
 

@@ -2853,118 +2853,54 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadVisualCategories() {
     try {
-      // Get all templates from the database
+      // Get all templates - filter by TypeID = 2 for HUD/Manufactured Home
       const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
 
-      console.log(`[HUD-Template] Total templates fetched: ${allTemplates?.length || 0}`);
+      // Filter templates for TypeID = 2 (HUD/Manufactured Home) - EXACT same logic as engineers-foundation
+      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 2);
 
-      // Create debug info for popup
-      let debugInfo = `<h3>HUD Template TypeID Debug</h3>`;
-      debugInfo += `<p><strong>Total Templates Fetched:</strong> ${allTemplates?.length || 0}</p>`;
+      console.log(`Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
-      // Debug: Check TypeID data types and values
-      if (allTemplates && allTemplates.length > 0) {
-        const sampleTemplate = allTemplates[0];
-        console.log('[HUD-Template] Sample template TypeID:', sampleTemplate.TypeID, 'Type:', typeof sampleTemplate.TypeID);
-
-        // Get unique TypeIDs with their types
-        const typeIdInfo = allTemplates.reduce((acc: any, t: any) => {
-          const key = `${t.TypeID} (${typeof t.TypeID})`;
-          if (!acc[key]) acc[key] = 0;
-          acc[key]++;
-          return acc;
-        }, {});
-        console.log('[HUD-Template] TypeID distribution:', typeIdInfo);
-
-        debugInfo += `<p><strong>TypeID Distribution in Database:</strong></p><ul>`;
-        for (const [typeId, count] of Object.entries(typeIdInfo)) {
-          debugInfo += `<li>TypeID ${typeId}: ${count} templates</li>`;
-        }
-        debugInfo += `</ul>`;
-
-        // Show first few templates
-        debugInfo += `<p><strong>Sample Templates (first 3):</strong></p><ul>`;
-        allTemplates.slice(0, 3).forEach((t: any) => {
-          debugInfo += `<li>Name: ${t.Name}, Category: ${t.Category}, TypeID: ${t.TypeID} (${typeof t.TypeID})</li>`;
-        });
-        debugInfo += `</ul>`;
-      }
-
-      // Filter templates for TypeID = 2 (HUD/Manufactured Home)
-      // Try multiple approaches to ensure we catch TypeID 2
-      this.visualTemplates = (allTemplates || []).filter(template => {
-        // Check multiple conditions to handle different data types
-        return template.TypeID === 2 ||
-               template.TypeID === '2' ||
-               template.TypeID == 2 ||
-               parseInt(template.TypeID) === 2;
-      });
-
-      console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
-
-      debugInfo += `<p><strong>Templates with TypeID = 2:</strong> ${this.visualTemplates.length} found</p>`;
-
-      // If we found TypeID 2 templates, log a sample
-      if (this.visualTemplates.length > 0) {
-        console.log('[HUD-Template] Sample HUD template:', this.visualTemplates[0]);
-        debugInfo += `<p><strong>Sample TypeID 2 Template:</strong></p><ul>`;
-        debugInfo += `<li>Name: ${this.visualTemplates[0].Name}</li>`;
-        debugInfo += `<li>Category: ${this.visualTemplates[0].Category}</li>`;
-        debugInfo += `<li>TypeID: ${this.visualTemplates[0].TypeID} (${typeof this.visualTemplates[0].TypeID})</li>`;
-        debugInfo += `</ul>`;
-      }
-
-      // If no templates found with TypeID = 2, fallback to TypeID = 1 for testing
+      // If no templates found with TypeID = 2, there's a data issue
       if (this.visualTemplates.length === 0) {
-        console.warn('[HUD-Template] No TypeID = 2 templates found, falling back to TypeID = 1');
-        debugInfo += `<p style="color: orange;"><strong>⚠️ No TypeID 2 templates found, falling back to TypeID 1</strong></p>`;
+        console.error('[HUD-Template] No TypeID = 2 templates found in database');
 
-        // Use TypeID = 1 as fallback so the template loads
-        this.visualTemplates = (allTemplates || []).filter(template => {
-          return template.TypeID === 1 ||
-                 template.TypeID === '1' ||
-                 template.TypeID == 1 ||
-                 parseInt(template.TypeID) === 1;
-        });
+        // Debug popup to show what's in the database
+        let debugInfo = `<h3>HUD Template - No TypeID 2 Found</h3>`;
+        debugInfo += `<p><strong>Total Templates in Database:</strong> ${allTemplates?.length || 0}</p>`;
 
-        if (this.visualTemplates.length > 0) {
-          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1 as fallback`);
-          debugInfo += `<p><strong>Using TypeID 1 templates:</strong> ${this.visualTemplates.length} found</p>`;
-        } else {
-          console.error('[HUD-Template] No templates found in database at all');
-          debugInfo += `<p style="color: red;"><strong>❌ No templates found in database!</strong></p>`;
-          await this.showToast('No templates found in database.', 'danger');
+        if (allTemplates && allTemplates.length > 0) {
+          // Count TypeIDs
+          const typeIdCounts: {[key: number]: number} = {};
+          allTemplates.forEach((t: any) => {
+            const tid = t.TypeID;
+            typeIdCounts[tid] = (typeIdCounts[tid] || 0) + 1;
+          });
+
+          debugInfo += `<p><strong>TypeID Distribution:</strong></p><ul>`;
+          Object.entries(typeIdCounts).forEach(([typeId, count]) => {
+            debugInfo += `<li>TypeID ${typeId}: ${count} templates</li>`;
+          });
+          debugInfo += `</ul>`;
+
+          // Show samples of what IS in the database
+          debugInfo += `<p><strong>Sample Templates:</strong></p><ul>`;
+          allTemplates.slice(0, 5).forEach((t: any) => {
+            debugInfo += `<li>${t.Name} - TypeID: ${t.TypeID} (type: ${typeof t.TypeID})</li>`;
+          });
+          debugInfo += `</ul>`;
         }
-      }
 
-      // Show debug popup
-      const alert = await this.alertController.create({
-        header: 'TypeID Debug Info',
-        message: debugInfo,
-        buttons: [
-          {
-            text: 'Copy Debug Info',
-            handler: () => {
-              const textContent = debugInfo.replace(/<[^>]*>/g, ''); // Strip HTML for copy
-              navigator.clipboard.writeText(textContent).catch(() => {
-                // Fallback for clipboard
-                const textarea = document.createElement('textarea');
-                textarea.value = textContent;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-              });
-            }
-          },
-          {
-            text: 'OK',
-            role: 'cancel'
-          }
-        ],
-        cssClass: 'debug-alert'
-      });
-      await alert.present();
+        const alert = await this.alertController.create({
+          header: 'No HUD Templates Found',
+          message: debugInfo,
+          buttons: ['OK']
+        });
+        await alert.present();
+
+        // Don't fallback - just return empty
+        return;
+      }
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
