@@ -1132,7 +1132,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         // Get room data from database
         const rooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-        const room = rooms.find((r: any) => r.RoomID === parseInt(roomId));
+        const room = rooms?.find((r: any) => r.RoomID === parseInt(roomId));
 
         if (room) {
           databasePath = room[columnName] || 'No path in database';
