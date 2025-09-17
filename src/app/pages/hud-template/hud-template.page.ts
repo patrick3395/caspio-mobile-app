@@ -5502,7 +5502,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // Skip custom action sheet and go directly to native file input
     // This will show the native iOS popup with Photo Library, Take Photo, Choose File
     this.currentUploadContext = { category, itemId, item, action: 'upload' };
-    this.fileInput.nativeElement.click();
+    this.triggerFileInput('system', { allowMultiple: true });
   }
   
   // New method to capture photo from camera
@@ -5718,66 +5718,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       if (!this.expectingCameraPhoto) {
         this.currentUploadContext = null;
       }
-    }
-  }
-  
-  // DEPRECATED - Keeping for reference
-  private async capturePhoto(visualId: string, key: string) {
-    try {
-      console.log('📸 Opening camera for visual:', visualId);
-      
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.capture = 'camera' as any; // Force camera
-      
-      const fileSelected = new Promise<File | null>((resolve) => {
-        input.onchange = (event: any) => {
-          const file = event.target?.files?.[0];
-          resolve(file || null);
-        };
-      });
-      
-      input.click();
-      
-      const file = await fileSelected;
-      if (file) {
-        console.log('📸 Photo captured:', file.name);
-        await this.uploadPhotoForVisual(visualId, file, key);
-      }
-    } catch (error) {
-      console.error('❌ Error capturing photo:', error);
-      await this.showToast('Failed to capture photo', 'danger');
-    }
-  }
-  
-  // Select from gallery
-  private async selectFromGallery(visualId: string, key: string) {
-    try {
-      console.log('🖼️ Opening gallery for visual:', visualId);
-      
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      // No capture attribute for gallery
-      
-      const fileSelected = new Promise<File | null>((resolve) => {
-        input.onchange = (event: any) => {
-          const file = event.target?.files?.[0];
-          resolve(file || null);
-        };
-      });
-      
-      input.click();
-      
-      const file = await fileSelected;
-      if (file) {
-        console.log('🖼️ Image selected:', file.name);
-        await this.uploadPhotoForVisual(visualId, file, key);
-      }
-    } catch (error) {
-      console.error('❌ Error selecting from gallery:', error);
-      await this.showToast('Failed to select image', 'danger');
     }
   }
   

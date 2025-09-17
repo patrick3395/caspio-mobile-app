@@ -5689,7 +5689,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Skip custom action sheet and go directly to native file input
     // This will show the native iOS popup with Photo Library, Take Photo, Choose File
     this.currentUploadContext = { category, itemId, item, action: 'upload' };
-    this.fileInput.nativeElement.click();
+    this.triggerFileInput('system', { allowMultiple: true });
   }
   
   // New method to capture photo from camera
