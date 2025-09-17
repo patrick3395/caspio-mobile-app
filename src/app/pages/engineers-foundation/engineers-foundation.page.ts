@@ -1447,7 +1447,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log(`[v1.4.378] Loading photos for room: ${roomName} WITHOUT clearing cache`);
       
       // Get all points for this room
-      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      const points = await this.foundationData.getRoomPoints(roomId);
       
       if (points && points.length > 0) {
         for (const point of points) {
@@ -1482,7 +1482,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (elevationPoint) {
               // Get photo count for this point - use the correct PointID
               const actualPointId = point.PointID || pointId;
-              const photos = await this.caspioService.getServicesRoomsAttachments(actualPointId).toPromise();
+              const photos = await this.foundationData.getRoomAttachments(actualPointId);
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 
@@ -2922,7 +2922,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     try {
       console.log('⏳ Fetching from Services_Visuals table...');
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
       console.log('📋 Existing visuals loaded:', existingVisuals);
       console.log('   Count:', existingVisuals?.length || 0);
       
@@ -4660,7 +4660,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Also check if it exists in the database but wasn't loaded yet
     try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
       if (existingVisuals) {
         const exists = existingVisuals.find((v: any) => 
           v.Category === category && 
@@ -5088,7 +5088,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Also check if it exists in the database but wasn't loaded yet
     try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
       if (existingVisuals) {
         const exists = existingVisuals.find((v: any) => 
           v.Category === category && 
@@ -8265,7 +8265,7 @@ Stack: ${error?.stack}`;
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
       console.log('[v1.4.225] Verifying if visual was saved - REBUILD FORCED...');
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       
       if (visuals && Array.isArray(visuals)) {
         const templateName = this.categoryData[category]?.[templateId]?.name;
@@ -8328,7 +8328,7 @@ Stack: ${error?.stack}`;
     // Get all existing visuals for comparison
     let existingVisuals: Array<{id: any, name: string, category: string}> = [];
     try {
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       if (visuals && Array.isArray(visuals)) {
         existingVisuals = visuals.map(v => ({
           id: v.VisualID || v.PK_ID || v.id,
@@ -8388,7 +8388,7 @@ Stack: ${error?.stack}`;
   async refreshVisualId(category: string, templateId: string) {
     try {
       console.log('🔄 Refreshing Visual ID for:', category, templateId);
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       
       console.log('📋 Retrieved visuals from database:', visuals);
       
@@ -8462,7 +8462,7 @@ Stack: ${error?.stack}`;
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {
       console.log(`[v1.4.386] Loading photos for KEY: ${key}, VisualID: ${visualId}`);
-      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+      const photos = await this.foundationData.getVisualAttachments(rawVisualId);
           
       if (photos && photos.length > 0) {
         console.log(`[v1.4.386] Found ${photos.length} photos for KEY ${key} (VisualID ${visualId})`);
@@ -8571,7 +8571,7 @@ Stack: ${error?.stack}`;
   private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
     try {
       console.log(`[v1.4.385] Loading photos for VisualID: ${visualId} (raw: ${rawVisualId})`);
-      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+      const photos = await this.foundationData.getVisualAttachments(rawVisualId);
           
       if (photos && photos.length > 0) {
         console.log(`[v1.4.385] Found ${photos.length} photos for VisualID ${visualId}`);
@@ -9208,7 +9208,7 @@ Stack: ${error?.stack}`;
         
         try {
           // Get all points for this room from the database
-          const dbPoints = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+          const dbPoints = await this.foundationData.getRoomPoints(roomId);
           console.log(`Found ${dbPoints?.length || 0} points in database for room ${roomName}`);
           
           // Collect all attachment fetches and image conversions
@@ -9236,7 +9236,7 @@ Stack: ${error?.stack}`;
             // Fetch attachments for this specific point
             if (pointId) {
               pointPromises.push(
-                this.caspioService.getServicesRoomsAttachments(pointId).toPromise()
+                this.foundationData.getRoomAttachments(pointId)
                   .then(attachments => ({ pointId, attachments }))
                   .catch(error => {
                     console.error(`Failed to fetch attachments for point ${pointName}:`, error);
@@ -9455,7 +9455,7 @@ Stack: ${error?.stack}`;
       console.log(`📸 Fetching photos for room ${roomId}`);
       
       // First get all points for this room
-      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      const points = await this.foundationData.getRoomPoints(roomId);
       
       if (!points || points.length === 0) {
         console.log(`No points found for room ${roomId}`);
@@ -9471,7 +9471,7 @@ Stack: ${error?.stack}`;
       }
       
       // Fetch all attachments for these points
-      const attachments = await this.caspioService.getServicesRoomsAttachments(pointIds).toPromise();
+      const attachments = await this.foundationData.getRoomAttachments(pointIds);
       
       if (!attachments || attachments.length === 0) {
         console.log(`No attachments found for room ${roomId} points`);
@@ -9547,7 +9547,7 @@ Stack: ${error?.stack}`;
       console.log('📊 Fetching all visuals from database for ServiceID:', this.serviceId);
       
       // Fetch all Services_Visuals records for this service
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       
       // Check if visuals is defined and is an array
       if (!visuals || !Array.isArray(visuals)) {
@@ -9564,7 +9564,7 @@ Stack: ${error?.stack}`;
       const attachmentPromises = visuals
         .filter(visual => visual.VisualID)
         .map(visual => 
-          this.caspioService.getServiceVisualsAttachByVisualId(visual.VisualID).toPromise()
+          this.foundationData.getVisualAttachments(visual.VisualID)
             .then(attachments => ({ visualId: visual.VisualID, attachments }))
             .catch(error => {
               console.error(`Error fetching attachments for visual ${visual.VisualID}:`, error);

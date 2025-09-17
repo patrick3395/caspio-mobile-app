@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/worker",
+    "types": []
+  },
+  "files": [],
+  "include": [
+    "src/**/*.worker.ts"
+  ]
+}

@@ -16,6 +16,10 @@ export class EngineersFoundationDataService {
   private typeCache = new Map<string, CacheEntry<any>>();
   private imageCache = new Map<string, CacheEntry<string>>();
   private roomTemplatesCache: CacheEntry<any[]> | null = null;
+  private visualsCache = new Map<string, CacheEntry<any[]>>();
+  private visualAttachmentsCache = new Map<string, CacheEntry<any[]>>();
+  private roomPointsCache = new Map<string, CacheEntry<any[]>>();
+  private roomAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
   constructor(private readonly caspioService: CaspioService) {}
 
@@ -69,6 +73,45 @@ export class EngineersFoundationDataService {
     }
     return this.resolveWithCache(this.imageCache, filePath, () =>
       firstValueFrom(this.caspioService.getImageFromFilesAPI(filePath))
+    );
+  }
+
+  async getVisualsByService(serviceId: string): Promise<any[]> {
+    if (!serviceId) {
+      return [];
+    }
+    return this.resolveWithCache(this.visualsCache, serviceId, () =>
+      firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
+    );
+  }
+
+  async getVisualAttachments(visualId: string | number): Promise<any[]> {
+    if (!visualId) {
+      return [];
+    }
+    const key = String(visualId);
+    return this.resolveWithCache(this.visualAttachmentsCache, key, () =>
+      firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(visualId))
+    );
+  }
+
+  async getRoomPoints(roomId: string | number): Promise<any[]> {
+    if (!roomId) {
+      return [];
+    }
+    const key = String(roomId);
+    return this.resolveWithCache(this.roomPointsCache, key, () =>
+      firstValueFrom(this.caspioService.getServicesRoomsPoints(roomId))
+    );
+  }
+
+  async getRoomAttachments(pointIds: string | string[]): Promise<any[]> {
+    if (!pointIds || (Array.isArray(pointIds) && pointIds.length === 0)) {
+      return [];
+    }
+    const key = Array.isArray(pointIds) ? pointIds.sort().join('|') : pointIds;
+    return this.resolveWithCache(this.roomAttachmentsCache, key, () =>
+      firstValueFrom(this.caspioService.getServicesRoomsAttachments(pointIds))
     );
   }
 

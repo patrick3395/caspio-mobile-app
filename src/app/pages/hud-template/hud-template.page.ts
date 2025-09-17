@@ -2853,35 +2853,59 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadVisualCategories() {
     try {
-      // Get all templates - filter by TypeID = 2 for HUD/Manufactured Home
+      // Get all templates from the database
       const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
 
       console.log(`[HUD-Template] Total templates fetched: ${allTemplates?.length || 0}`);
 
-      // Log a sample of templates to see what TypeIDs are available
+      // Debug: Check TypeID data types and values
       if (allTemplates && allTemplates.length > 0) {
-        const typeIds = [...new Set(allTemplates.map(t => t.TypeID))];
-        console.log('[HUD-Template] Available TypeIDs in database:', typeIds);
-        console.log('[HUD-Template] Sample templates:', allTemplates.slice(0, 3));
+        const sampleTemplate = allTemplates[0];
+        console.log('[HUD-Template] Sample template TypeID:', sampleTemplate.TypeID, 'Type:', typeof sampleTemplate.TypeID);
+
+        // Get unique TypeIDs with their types
+        const typeIdInfo = allTemplates.reduce((acc: any, t: any) => {
+          const key = `${t.TypeID} (${typeof t.TypeID})`;
+          if (!acc[key]) acc[key] = 0;
+          acc[key]++;
+          return acc;
+        }, {});
+        console.log('[HUD-Template] TypeID distribution:', typeIdInfo);
       }
 
       // Filter templates for TypeID = 2 (HUD/Manufactured Home)
-      // Use == instead of === to handle both string and number comparisons
-      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID == 2);
+      // Try multiple approaches to ensure we catch TypeID 2
+      this.visualTemplates = (allTemplates || []).filter(template => {
+        // Check multiple conditions to handle different data types
+        return template.TypeID === 2 ||
+               template.TypeID === '2' ||
+               template.TypeID == 2 ||
+               parseInt(template.TypeID) === 2;
+      });
 
       console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
-      // If no templates found with TypeID = 2, fallback to TypeID = 1 silently
+      // If we found TypeID 2 templates, log a sample
+      if (this.visualTemplates.length > 0) {
+        console.log('[HUD-Template] Sample HUD template:', this.visualTemplates[0]);
+      }
+
+      // If no templates found with TypeID = 2, fallback to TypeID = 1 for testing
       if (this.visualTemplates.length === 0) {
-        console.log('[HUD-Template] No TypeID = 2 templates found, using TypeID = 1 templates');
+        console.warn('[HUD-Template] No TypeID = 2 templates found, falling back to TypeID = 1');
 
         // Use TypeID = 1 as fallback so the template loads
-        // Use == for type coercion
-        this.visualTemplates = (allTemplates || []).filter(template => template.TypeID == 1);
+        this.visualTemplates = (allTemplates || []).filter(template => {
+          return template.TypeID === 1 ||
+                 template.TypeID === '1' ||
+                 template.TypeID == 1 ||
+                 parseInt(template.TypeID) === 1;
+        });
 
         if (this.visualTemplates.length > 0) {
-          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1`);
+          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1 as fallback`);
         } else {
+          console.error('[HUD-Template] No templates found in database at all');
           await this.showToast('No templates found in database.', 'danger');
         }
       }
