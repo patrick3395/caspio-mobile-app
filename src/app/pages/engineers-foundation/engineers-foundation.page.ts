@@ -1131,8 +1131,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
           try {
             // Try to get the photo path from database and load fresh
-            const rooms = await this.caspioService.getServicesRoomsByServiceId(this.serviceId).toPromise();
-            const room = rooms.find(r => r.RoomID === parseInt(roomId));
+            const rooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+            const room = rooms.find((r: any) => r.RoomID === parseInt(roomId));
             if (room && room[columnName]) {
               console.log(`[v1.4.421] Found photo path in database: ${room[columnName]}`);
               const freshImageData = await this.caspioService.getImageFromFilesAPI(room[columnName]).toPromise();
@@ -3225,7 +3225,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!this.organizedData[category]) continue;
 
           // Check all sections (comments, limitations, deficiencies)
-          const sections = ['comments', 'limitations', 'deficiencies'];
+          const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
 
           for (const sectionType of sections) {
             const items = this.organizedData[category][sectionType] || [];
