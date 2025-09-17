@@ -40,6 +40,27 @@ interface PendingPhotoUpload {
   tempId: string;
 }
 
+const EMPTY_COMPRESSED_DRAWINGS = 'COMPRESSED_V3:{"version":"6.7.1","objects":[]}';
+
+function hasAnnotationObjects(data: any): boolean {
+  if (!data) {
+    return false;
+  }
+  let parsed = data;
+  if (typeof data === 'string') {
+    try {
+      parsed = JSON.parse(data.startsWith('COMPRESSED_V3:') ? data.substring('COMPRESSED_V3:'.length) : data);
+    } catch {
+      return false;
+    }
+  }
+  if (typeof parsed === 'object' && parsed !== null) {
+    const objects = Array.isArray((parsed as any).objects) ? (parsed as any).objects : [];
+    return objects.length > 0;
+  }
+  return false;
+}
+
 interface PendingVisualCreate {
   category: string;
   templateId: string;
@@ -2164,7 +2185,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
       }
-      // If no annotations, pass empty string (will be omitted in service)
+      if (!drawingsData) {
+        drawingsData = EMPTY_COMPRESSED_DRAWINGS;
+      }
       
       // DEBUG POPUP: Show what we're about to upload
       const debugAlert = await this.alertController.create({
@@ -6468,7 +6491,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Prepare the Drawings field data (annotation JSON)
-      const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
+      let drawingsData = annotationData ? JSON.stringify(annotationData) : EMPTY_COMPRESSED_DRAWINGS;
       
       // CRITICAL DEBUG: Log what we're actually uploading
       console.log('🔍 CRITICAL: Photo upload parameters:');
@@ -7586,14 +7609,14 @@ Has Annotations: ${!!annotations}`;
           console.log('  Length:', updateData.Drawings.length);
           console.log('  Is string:', typeof updateData.Drawings === 'string');
           console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
-          console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
         } else {
-          console.log('  ⚠️ No valid data, skipping Drawings field');
+          console.log('[v1.4.315] No valid annotation data, applying default Drawings payload');
+          updateData.Drawings = EMPTY_COMPRESSED_DRAWINGS;
         }
       } else {
-        console.log('ℹ️ [v1.4.315] No annotations provided, not updating Drawings field');
+        console.log('[v1.4.315] No annotations provided, applying default Drawings payload');
+        updateData.Drawings = EMPTY_COMPRESSED_DRAWINGS;
       }
-      
       // v1.4.351: Enhanced debug popup to show annotation details
       let annotationSummary = 'N/A';
       if (updateData.Drawings) {
