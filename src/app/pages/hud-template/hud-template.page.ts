@@ -86,9 +86,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Photo loading optimization
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
-  loadedPhotoCache: Map<string, string> = new Map(); // Cache loaded base64 images
+  private thumbnailCache = new Map<string, Promise<string | null>>(); // Cache loaded base64 images
+  private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   visibleVisuals: Set<string> = new Set(); // Track which visuals are visible
   photoLoadBatchSize: number = 3; // Load 3 photos at a time
+  private readonly photoLoadConcurrency = 4;
   
   // Type information for the header
   typeShort: string = 'HUD/Manufactured Home';
@@ -8013,273 +8015,141 @@ Stack: ${error?.stack}`;
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {
       console.log(`[v1.4.386] Loading photos for KEY: ${key}, VisualID: ${visualId}`);
-      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
-          
-      if (photos && photos.length > 0) {
-        console.log(`[v1.4.386] Found ${photos.length} photos for KEY ${key} (VisualID ${visualId})`);
-        
-        // Log all photo paths to check for duplicates
-        const photoPaths = photos.map((p: any) => p.Photo);
-        console.log(`[v1.4.386] Photo paths:`, photoPaths);
-        
-        // Process photos
-        const processedPhotos = [];
-        
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
-          console.log(`[v1.4.386] Processing photo ${i + 1}/${photos.length}:`);
-          console.log(`  AttachID: ${photo.AttachID}`);
-          console.log(`  Photo path: ${photo.Photo}`);
-          console.log(`  For KEY: ${key}`);
-              
-          // Parse annotations
-          let annotationData = null;
-          let rawDrawingsString = photo.Drawings;
-          if (photo.Drawings) {
-            try {
-              annotationData = decompressAnnotationData(photo.Drawings);
-            } catch (e) {
-              // Silently handle parse errors
-            }
-          }
-              
-          // Create photo data structure
-          const photoData: any = {
-            ...photo,
-            name: photo.Photo || 'Photo',
-            Photo: photo.Photo || '',
-            caption: photo.Annotation || '',
-            annotations: annotationData,
-            annotationsData: annotationData,
-            hasAnnotations: !!annotationData,
-            rawDrawingsString: rawDrawingsString,
-            AttachID: photo.AttachID || photo.PK_ID || photo.id,
-            id: photo.AttachID || photo.PK_ID || photo.id,
-            PK_ID: photo.PK_ID || photo.AttachID || photo.id,
-            url: undefined,
-            thumbnailUrl: undefined,
-            displayUrl: undefined,
-            originalUrl: undefined,
-            filePath: photo.Photo
-          };
-              
-          // Load image if path exists
-          if (photo.Photo && typeof photo.Photo === 'string') {
-            photoData.hasPhoto = true;
-            
-            try {
-              console.log(`[v1.4.386] Fetching image for KEY ${key}, photo ${i + 1}`);
-              
-              // Small delay to prevent race conditions
-              await new Promise(resolve => setTimeout(resolve, 20));
-              
-              // Fetch image data
-              const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
-              
-              if (imageData && imageData.startsWith('data:')) {
-                // Create a simple hash of the image data to verify uniqueness
-                const imageHash = imageData.length + '_' + imageData.substring(50, 60);
-                console.log(`[v1.4.386] Image loaded for KEY ${key}:`);
-                console.log(`  Path: ${photo.Photo}`);
-                console.log(`  Size: ${imageData.length} bytes`);
-                console.log(`  Hash: ${imageHash}`);
-                
-                photoData.url = imageData;
-                photoData.originalUrl = imageData;
-                photoData.thumbnailUrl = imageData;
-                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
-              } else {
-                console.error(`[v1.4.386] Invalid image data for ${photo.Photo}`);
-              }
-            } catch (error) {
-              console.error(`[v1.4.386] Failed to load image for ${photo.Photo}:`, error);
-            }
-          } else {
-            photoData.hasPhoto = false;
-          }
-          
-          processedPhotos.push(photoData);
-        }
-            
-        // [v1.4.387] ONLY store photos by KEY for consistency
-        this.visualPhotos[key] = processedPhotos;
-        
-        console.log(`[v1.4.387] Stored ${processedPhotos.length} photos for KEY: ${key}`);
-        processedPhotos.forEach((photo: any, index: number) => {
-          console.log(`  Photo ${index + 1}: ${photo.Photo || 'unknown'}, AttachID: ${photo.AttachID}`);
-        });
-      } else {
+      const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+
+      if (!Array.isArray(attachments) || attachments.length === 0) {
         this.visualPhotos[key] = [];
         console.log(`[v1.4.387] No photos found for KEY: ${key}`);
+        return;
       }
+
+      console.log(`[v1.4.386] Found ${attachments.length} photos for KEY ${key} (VisualID ${visualId})`);
+
+      const photoRecords = attachments.map(att => this.buildPhotoRecord(att));
+      this.visualPhotos[key] = photoRecords;
+      this.changeDetectorRef.detectChanges();
+
+      await this.hydratePhotoRecords(photoRecords);
     } catch (error) {
       console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
       this.visualPhotos[key] = [];
     }
   }
-  
+
+  private buildPhotoRecord(attachment: any): any {
+    let annotationData = null;
+    const rawDrawingsString = attachment.Drawings;
+
+    if (attachment.Drawings) {
+      try {
+        annotationData = decompressAnnotationData(attachment.Drawings);
+      } catch {
+        // Ignore parse errors and proceed without annotations
+      }
+    }
+
+    const filePath = typeof attachment.Photo === 'string' ? attachment.Photo : '';
+
+    return {
+      ...attachment,
+      name: filePath || 'Photo',
+      Photo: filePath,
+      caption: attachment.Annotation || '',
+      annotations: annotationData,
+      annotationsData: annotationData,
+      hasAnnotations: !!annotationData,
+      rawDrawingsString,
+      AttachID: attachment.AttachID || attachment.PK_ID || attachment.id,
+      id: attachment.AttachID || attachment.PK_ID || attachment.id,
+      PK_ID: attachment.PK_ID || attachment.AttachID || attachment.id,
+      url: undefined,
+      thumbnailUrl: this.photoPlaceholder,
+      displayUrl: undefined,
+      originalUrl: undefined,
+      filePath,
+      hasPhoto: !!filePath
+    };
+  }
+
+  private async hydratePhotoRecords(records: any[]): Promise<void> {
+    if (!records.length) {
+      return;
+    }
+
+    const concurrency = Math.min(this.photoLoadConcurrency, records.length);
+    if (concurrency <= 0) {
+      return;
+    }
+
+    let currentIndex = 0;
+
+    const workers = Array.from({ length: concurrency }, async () => {
+      while (true) {
+        const index = currentIndex++;
+        if (index >= records.length) {
+          break;
+        }
+
+        const record = records[index];
+
+        if (!record.hasPhoto || !record.filePath) {
+          record.thumbnailUrl = this.photoPlaceholder;
+          continue;
+        }
+
+        const imageData = await this.fetchPhotoBase64(record.filePath);
+
+        if (imageData) {
+          record.url = imageData;
+          record.originalUrl = imageData;
+          record.thumbnailUrl = imageData;
+          if (!record.hasAnnotations) {
+            record.displayUrl = imageData;
+          }
+        } else {
+          record.thumbnailUrl = this.photoPlaceholder;
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  private fetchPhotoBase64(photoPath: string): Promise<string | null> {
+    if (!photoPath || typeof photoPath !== 'string') {
+      return Promise.resolve(null);
+    }
+
+    if (!this.thumbnailCache.has(photoPath)) {
+      const loader = this.caspioService.getImageFromFilesAPI(photoPath).toPromise()
+        .then(imageData => {
+          if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+            return imageData;
+          }
+          console.error(`[v1.4.386] Invalid image data for ${photoPath}`);
+          return null;
+        })
+        .catch(error => {
+          console.error(`[v1.4.386] Failed to load image for ${photoPath}:`, error);
+          return null;
+        })
+        .then(result => {
+          if (result === null) {
+            this.thumbnailCache.delete(photoPath);
+          }
+          return result;
+        });
+
+      this.thumbnailCache.set(photoPath, loader);
+    }
+
+    return this.thumbnailCache.get(photoPath)!;
+  }
+
   // Keep the old method for backward compatibility
   private async loadPhotosForVisual(visualId: string, rawVisualId: any): Promise<void> {
-    try {
-      console.log(`[v1.4.385] Loading photos for VisualID: ${visualId} (raw: ${rawVisualId})`);
-      const photos = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
-          
-      if (photos && photos.length > 0) {
-        console.log(`[v1.4.385] Found ${photos.length} photos for VisualID ${visualId}`);
-        
-        // Log all photo paths to check for duplicates
-        const photoPaths = photos.map((p: any) => p.Photo);
-        console.log(`[v1.4.385] Photo paths for VisualID ${visualId}:`, photoPaths);
-        
-        // Check for duplicate paths
-        const uniquePaths = new Set(photoPaths);
-        if (uniquePaths.size !== photoPaths.length) {
-          console.warn(`[v1.4.385] WARNING: Duplicate photo paths detected for VisualID ${visualId}!`);
-        }
-        
-        // [v1.4.375 FIX] Process photos SEQUENTIALLY to prevent cache collisions
-        const processedPhotos = [];
-        
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
-          console.log(`[v1.4.385] Processing photo ${i + 1}/${photos.length} for VisualID ${visualId}:`);
-          console.log(`  AttachID: ${photo.AttachID}`);
-          console.log(`  Photo path: ${photo.Photo}`);
-              
-          // Parse annotations
-          let annotationData = null;
-          let rawDrawingsString = photo.Drawings;
-          if (photo.Drawings) {
-            try {
-              annotationData = decompressAnnotationData(photo.Drawings);
-            } catch (e) {
-              // Silently handle parse errors
-            }
-          }
-              
-          // Create photo data structure
-          const photoData: any = {
-            ...photo,
-            name: photo.Photo || 'Photo',
-            Photo: photo.Photo || '',
-            caption: photo.Annotation || '',
-            annotations: annotationData,
-            annotationsData: annotationData,
-            hasAnnotations: !!annotationData,
-            rawDrawingsString: rawDrawingsString,
-            AttachID: photo.AttachID || photo.PK_ID || photo.id,
-            id: photo.AttachID || photo.PK_ID || photo.id,
-            PK_ID: photo.PK_ID || photo.AttachID || photo.id,
-            url: undefined,
-            thumbnailUrl: undefined,
-            displayUrl: undefined,
-            originalUrl: undefined,
-            filePath: photo.Photo
-          };
-              
-          // Load image if path exists
-          if (photo.Photo && typeof photo.Photo === 'string') {
-            photoData.hasPhoto = true;
-            
-            try {
-              // [v1.4.378 FIX] Load without cache interference
-              console.log(`[v1.4.378] Loading image for visual ${visualId}, path: ${photo.Photo}`);
-              
-              // Small delay to prevent race conditions
-              await new Promise(resolve => setTimeout(resolve, 20));
-              
-              // Fetch image data - cache is no longer cleared
-              const imageData = await this.caspioService.getImageFromFilesAPI(photo.Photo).toPromise();
-              
-              if (imageData && imageData.startsWith('data:')) {
-                // Create a simple hash of the image data to verify uniqueness
-                const imageHash = imageData.length + '_' + imageData.substring(50, 60);
-                console.log(`[v1.4.385] Image loaded for VisualID ${visualId}, photo ${i + 1}:`);
-                console.log(`  Path: ${photo.Photo}`);
-                console.log(`  Size: ${imageData.length} bytes`);
-                console.log(`  Hash: ${imageHash}`);
-                
-                photoData.url = imageData;
-                photoData.originalUrl = imageData;
-                photoData.thumbnailUrl = imageData;
-                photoData.displayUrl = photoData.hasAnnotations ? undefined : imageData;
-              } else {
-                console.error(`[v1.4.385] Invalid image data for ${photo.Photo}`);
-              }
-            } catch (error) {
-              console.error(`[v1.4.377] Failed to load image for ${photo.Photo}:`, error);
-            }
-          } else {
-            photoData.hasPhoto = false;
-          }
-          
-          // [v1.4.377] Add to processed photos array
-          processedPhotos.push(photoData);
-        }
-            
-        // [v1.4.386] This method is deprecated - use loadPhotosForVisualByKey instead
-        // Store all photos at once
-        this.visualPhotos[visualId] = processedPhotos;
-      } else {
-        this.visualPhotos[visualId] = [];
-      }
-    } catch (error) {
-      console.error(`Failed to load photos for visual ${visualId}:`, error);
-      this.visualPhotos[visualId] = [];
-    }
-  }
-  
-  // Removed slow background loading methods - photos now load in parallel
-  
-  // Create a placeholder image
-  private createPlaceholderImage(): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = 150; // Match new preview size
-    canvas.height = 100; // Match new preview size
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 150, 100);
-      ctx.fillStyle = '#999';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Photo', 75, 45);
-      ctx.fillText('Loading...', 75, 60);
-    }
-    return canvas.toDataURL();
-  }
-  
-  // Removed placeholder methods - no longer needed with parallel loading
-  
-  // Create a generic photo placeholder (for existing photos)
-  private createGenericPhotoPlaceholder(): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = 150;
-    canvas.height = 100;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // Light blue background
-      ctx.fillStyle = '#e3f2fd';
-      ctx.fillRect(0, 0, 150, 100);
-      
-      // Draw a simple camera icon
-      ctx.fillStyle = '#1976d2';
-      // Camera body
-      ctx.fillRect(55, 40, 40, 30);
-      // Camera lens
-      ctx.beginPath();
-      ctx.arc(75, 55, 8, 0, 2 * Math.PI);
-      ctx.fill();
-      // Flash
-      ctx.fillRect(65, 35, 20, 5);
-      
-      // Text
-      ctx.fillStyle = '#666';
-      ctx.font = '11px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Click to view', 75, 85);
-    }
-    return canvas.toDataURL();
+    await this.loadPhotosForVisualByKey(String(visualId), String(visualId), rawVisualId);
   }
 
   // Handle project field changes
