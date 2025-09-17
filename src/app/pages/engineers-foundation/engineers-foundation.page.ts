@@ -3160,14 +3160,60 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Calculate completion percentage based on filled fields
     switch(section) {
       case 'structural':
-        const structuralFields = ['foundationType', 'foundationCondition', 'structuralObservations'];
-        const filledStructural = structuralFields.filter(field => this.formData[field]).length;
-        return Math.round((filledStructural / structuralFields.length) * 100);
-        
+        // Count all required items across all categories
+        let totalRequired = 0;
+        let completedRequired = 0;
+
+        // Iterate through all categories
+        for (const category of this.visualCategories) {
+          if (!this.organizedData[category]) continue;
+
+          // Check all sections (comments, limitations, deficiencies)
+          const sections = ['comments', 'limitations', 'deficiencies'];
+
+          for (const sectionType of sections) {
+            const items = this.organizedData[category][sectionType] || [];
+
+            for (const item of items) {
+              // Only count required items
+              if (item.required) {
+                totalRequired++;
+
+                // Check if this required item has been answered
+                const key = `${category}_${item.id}`;
+
+                // For Yes/No questions (AnswerType 1)
+                if (item.answerType === 1) {
+                  if (item.answer === 'Yes' || item.answer === 'No') {
+                    completedRequired++;
+                  }
+                }
+                // For multi-select questions (AnswerType 2)
+                else if (item.answerType === 2) {
+                  if (item.selectedOptions && item.selectedOptions.length > 0) {
+                    completedRequired++;
+                  }
+                }
+                // For text questions (AnswerType 0 or undefined)
+                else {
+                  // Check if item is selected (checkbox checked)
+                  if (this.selectedItems[key]) {
+                    completedRequired++;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Return percentage, or 0 if no required fields
+        if (totalRequired === 0) return 0;
+        return Math.round((completedRequired / totalRequired) * 100);
+
       case 'elevation':
         const hasRoomData = Object.keys(this.roomElevationData).length > 0;
         return hasRoomData ? 100 : 0;
-        
+
       default:
         return 0;
     }
@@ -4352,9 +4398,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } finally {
       // Clear saving state
       this.savingItems[key] = false;
+      // Trigger change detection to update completion percentage
+      this.changeDetectorRef.detectChanges();
     }
   }
-  
+
   // Handle Yes/No answer change
   async onAnswerChange(category: string, item: any) {
     const key = `${category}_${item.id}`;
@@ -4388,6 +4436,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to save answer', 'danger');
     } finally {
       this.savingItems[key] = false;
+      // Trigger change detection to update completion percentage
+      this.changeDetectorRef.detectChanges();
     }
   }
   
@@ -4425,6 +4475,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to save selections', 'danger');
     } finally {
       this.savingItems[key] = false;
+      // Trigger change detection to update completion percentage
+      this.changeDetectorRef.detectChanges();
     }
   }
   
@@ -4835,6 +4887,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to save selections', 'danger');
     } finally {
       this.savingItems[key] = false;
+      // Trigger change detection to update completion percentage
+      this.changeDetectorRef.detectChanges();
     }
   }
   

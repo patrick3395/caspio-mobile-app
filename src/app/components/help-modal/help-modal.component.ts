@@ -85,13 +85,10 @@ interface HelpItem {
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
               <img [src]="image.imageUrl || 'assets/img/photo-placeholder.svg'"
-                   [alt]="'Help image for ' + (image.HelpImage || 'unknown')"
+                   [alt]="'Help image'"
                    (click)="viewImage(image)"
                    (error)="handleImageError($event)"
                    (load)="onImageLoad($event, image)">
-              <div class="image-path-debug" style="font-size: 12px; color: #666; padding: 8px; background: #f5f5f5; word-break: break-all;">
-                <strong>File:</strong> {{ image.HelpImage }}
-              </div>
             </div>
           </div>
         </div>
