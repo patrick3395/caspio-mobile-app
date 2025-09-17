@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { CaspioService } from '../../services/caspio.service';
+import { OfflineService } from '../../services/offline.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
@@ -16,7 +17,7 @@ import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.co
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { EngineersFoundationDataService } from './engineers-foundation-data.service';
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
@@ -58,6 +59,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private autoPdfRequested = false;
   private viewInitialized = false;
   private dataInitialized = false;
+  private subscriptions = new Subscription();
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -151,7 +153,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   saveStatus: string = '';
   saveStatusType: 'info' | 'success' | 'error' = 'info';
-  
+
+  // Offline sync state
+  isOnline: boolean = true;
+  manualOffline: boolean = false;
+  showOfflineBanner: boolean = false;
+  offlineMessage: string = '';
+  queuedChanges: number = 0;
+  queuedChangesLabel: string = '';
+
   // Track field completion
   fieldCompletion: { [key: string]: number } = {
     structural: 0,
@@ -175,6 +185,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private platform: Platform,
     private pdfGenerator: PdfGeneratorService,
     private cache: CacheService,
+    private offlineService: OfflineService,
     private foundationData: EngineersFoundationDataService
   ) {}
 
@@ -187,6 +198,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       projectId: this.projectId,
       serviceId: this.serviceId
     });
+
+    this.isOnline = this.offlineService.isOnline();
+    this.manualOffline = this.offlineService.isManualOffline();
+    this.updateOfflineBanner();
+
+    this.subscriptions.add(
+      this.offlineService.getOnlineStatus().subscribe(status => {
+        this.isOnline = status;
+        this.updateOfflineBanner();
+        if (status) {
+          setTimeout(() => this.updateQueueStatus(), 300);
+        }
+      })
+    );
+
+    this.subscriptions.add(
+      this.offlineService.getManualOfflineStatus().subscribe(manual => {
+        this.manualOffline = manual;
+        this.updateOfflineBanner();
+      })
+    );
 
     const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
     this.autoPdfRequested = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
@@ -308,6 +340,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+
     // Clean up timers
     if (this.saveDebounceTimer) {
       clearTimeout(this.saveDebounceTimer);
@@ -4340,11 +4374,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return dateString;
     }
   }
-  
+
+  private updateOfflineBanner(): void {
+    if (!this.isOnline) {
+      this.updateQueueStatus();
+      this.offlineMessage = this.manualOffline
+        ? 'Manual offline mode enabled. Auto-save is paused until you resume syncing.'
+        : 'You are offline. Changes are saved locally and will sync automatically when back online.';
+      this.showOfflineBanner = true;
+    } else {
+      this.showOfflineBanner = false;
+      this.offlineMessage = '';
+      this.queuedChanges = 0;
+      this.queuedChangesLabel = '';
+    }
+  }
+
+  private updateQueueStatus(): void {
+    const status = this.offlineService.getQueueStatus();
+    this.queuedChanges = status.count;
+    if (this.queuedChanges > 0) {
+      this.queuedChangesLabel = this.queuedChanges === 1
+        ? '1 change waiting to sync'
+        : `${this.queuedChanges} changes waiting to sync`;
+    } else {
+      this.queuedChangesLabel = '';
+    }
+  }
+
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
     this.saveStatus = message;
     this.saveStatusType = type;
-    
+
     setTimeout(() => {
       this.saveStatus = '';
     }, 3000);
@@ -8791,13 +8852,27 @@ Stack: ${error?.stack}`;
   
   private autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
-    
-    this.showSaveStatus(`Saving ${fieldName}...`, 'info');
-    
+
+    const isCurrentlyOnline = this.offlineService.isOnline();
+    const manualOfflineMode = this.offlineService.isManualOffline();
+
+    if (isCurrentlyOnline) {
+      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    } else {
+      const queuedMessage = manualOfflineMode
+        ? `${fieldName} queued (manual offline mode)`
+        : `${fieldName} queued until connection returns`;
+      this.showSaveStatus(queuedMessage, 'info');
+    }
+
     // Update the Projects table directly
     this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
       next: () => {
-        this.showSaveStatus(`${fieldName} saved`, 'success');
+        if (this.offlineService.isOnline()) {
+          this.showSaveStatus(`${fieldName} saved`, 'success');
+        } else {
+          this.updateOfflineBanner();
+        }
       },
       error: (error) => {
         console.error(`Error saving project field ${fieldName}:`, error);
@@ -8819,14 +8894,29 @@ Stack: ${error?.stack}`;
       newValue: value,
       updateData: { [fieldName]: value }
     });
-    
-    this.showSaveStatus(`Saving ${fieldName}...`, 'info');
-    
+
+    const isCurrentlyOnline = this.offlineService.isOnline();
+    const manualOfflineMode = this.offlineService.isManualOffline();
+
+    if (isCurrentlyOnline) {
+      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    } else {
+      const queuedMessage = manualOfflineMode
+        ? `${fieldName} queued (manual offline mode)`
+        : `${fieldName} queued until connection returns`;
+      this.showSaveStatus(queuedMessage, 'info');
+    }
+
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
       next: (response) => {
-        this.showSaveStatus(`${fieldName} saved`, 'success');
-        console.log(`✅ SUCCESS: ${fieldName} updated!`, response);
+        if (this.offlineService.isOnline()) {
+          this.showSaveStatus(`${fieldName} saved`, 'success');
+          console.log(`✅ SUCCESS: ${fieldName} updated!`, response);
+        } else {
+          console.log(`ℹ️ ${fieldName} queued for sync (offline mode).`);
+          this.updateOfflineBanner();
+        }
       },
       error: (error) => {
         console.error(`Error saving service field ${fieldName}:`, error);

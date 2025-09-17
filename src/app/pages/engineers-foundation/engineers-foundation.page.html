@@ -20,6 +20,14 @@
     <!-- Version Header -->
     <div class="version-header">Version 1.4.423 - Elevation Plot % requires Base Station selection</div>
 
+    <div class="offline-banner" *ngIf="showOfflineBanner">
+      <ion-icon name="cloud-offline"></ion-icon>
+      <div class="offline-text">
+        <span>{{ offlineMessage }}</span>
+        <span *ngIf="queuedChangesLabel" class="queue-count">{{ queuedChangesLabel }}</span>
+      </div>
+    </div>
+
     <!-- Save status indicator -->
     <div class="save-status" *ngIf="saveStatus" [class.info]="saveStatusType === 'info'" 
          [class.success]="saveStatusType === 'success'" [class.error]="saveStatusType === 'error'">
