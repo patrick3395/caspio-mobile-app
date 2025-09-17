@@ -340,6 +340,22 @@ export class CaspioService {
     );
   }
 
+  // Get Services Visuals Templates filtered by TypeID
+  getServicesVisualsTemplatesByTypeId(typeId: number): Observable<any[]> {
+    // Use Caspio's query parameter to filter by TypeID
+    const query = `TypeID=${typeId}`;
+    return this.get<any>(`/tables/Services_Visuals_Templates/records?q.where=${encodeURIComponent(query)}`).pipe(
+      map(response => {
+        console.log(`[CaspioService] Fetched templates for TypeID ${typeId}:`, response.Result?.length || 0);
+        return response.Result || [];
+      }),
+      catchError(error => {
+        console.error(`Error fetching templates for TypeID ${typeId}:`, error);
+        return of([]);
+      })
+    );
+  }
+
   // Services Room Templates methods - simplified
   getServicesRoomTemplates(): Observable<any[]> {
     return this.get<any>('/tables/Services_Rooms_Templates/records').pipe(

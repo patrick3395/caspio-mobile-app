@@ -2853,13 +2853,30 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadVisualCategories() {
     try {
-      // Get all templates - filter by TypeID = 2 for HUD/Manufactured Home
-      const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      // Get templates filtered by TypeID = 2 directly from the API
+      console.log('[HUD-Template] Fetching templates with TypeID = 2 from Services_Visuals_Templates...');
 
-      // Filter templates for TypeID = 2 (HUD/Manufactured Home) - EXACT same logic as engineers-foundation
-      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 2);
+      // Use the new method that filters by TypeID in the API query
+      const allTemplates = await this.caspioService.getServicesVisualsTemplatesByTypeId(2).toPromise();
 
-      console.log(`Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
+      console.log('[HUD-Template] Templates received from API with TypeID = 2:', allTemplates?.length || 0);
+
+      // Debug: Log first few templates to verify they have TypeID = 2
+      if (allTemplates && allTemplates.length > 0) {
+        console.log('[HUD-Template] First 3 TypeID=2 templates:');
+        allTemplates.slice(0, 3).forEach((t: any, index: number) => {
+          console.log(`  Template ${index + 1}:`, {
+            Name: t.Name,
+            TypeID: t.TypeID,
+            Category: t.Category
+          });
+        });
+      }
+
+      // Assign the templates (they should all have TypeID = 2 from the API query)
+      this.visualTemplates = allTemplates || [];
+
+      console.log(`[HUD-Template] Loaded ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
       // If no templates found with TypeID = 2, there's a data issue
       if (this.visualTemplates.length === 0) {
