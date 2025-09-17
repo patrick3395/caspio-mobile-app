@@ -26,6 +26,9 @@ export class CaspioService {
   private tokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpirationTimer: any;
   private imageCache = new Map<string, string>(); // Cache for loaded images
+  private imageWorker: Worker | null = null;
+  private imageWorkerTaskId = 0;
+  private imageWorkerCallbacks = new Map<number, { resolve: (value: string) => void; reject: (reason?: any) => void }>();
 
   constructor(
     private http: HttpClient,
@@ -1224,22 +1227,11 @@ export class CaspioService {
         }
         return response.blob();
       })
-      .then(blob => {
-        // Convert blob to base64 data URL
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          
-          // [v1.4.384] Cache disabled - not storing to prevent duplication
-          console.log(`[v1.4.384] Image loaded: ${filePath}, size: ${result.length}`);
-          
-          observer.next(result);
-          observer.complete();
-        };
-        reader.onerror = () => {
-          observer.error('Failed to read image data');
-        };
-        reader.readAsDataURL(blob);
+      .then(blob => this.convertBlobToDataUrl(blob))
+      .then(result => {
+        console.log(`[v1.4.384] Image loaded: ${filePath}, size: ${result.length}`);
+        observer.next(result);
+        observer.complete();
       })
       .catch(error => {
         console.error('Error fetching image:', error);
@@ -1247,6 +1239,73 @@ export class CaspioService {
       });
       }))
     );
+  }
+
+  private convertBlobToDataUrl(blob: Blob): Promise<string> {
+    const worker = this.ensureImageWorker();
+    if (!worker) {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image data'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    const taskId = ++this.imageWorkerTaskId;
+    return new Promise<string>((resolve, reject) => {
+      this.imageWorkerCallbacks.set(taskId, { resolve, reject });
+      try {
+        worker.postMessage({ id: taskId, type: 'BLOB_TO_DATA_URL', blob }, [blob]);
+      } catch (error) {
+        this.imageWorkerCallbacks.delete(taskId);
+        console.error('Failed to post message to image worker:', error);
+        // Fallback to main thread conversion
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image data'));
+        reader.readAsDataURL(blob);
+      }
+    });
+  }
+
+  private ensureImageWorker(): Worker | null {
+    if (typeof Worker === 'undefined') {
+      return null;
+    }
+
+    if (!this.imageWorker) {
+      try {
+        this.imageWorker = new Worker(new URL('../workers/image-processor.worker', import.meta.url), {
+          type: 'module'
+        });
+        this.imageWorker.onmessage = (event: MessageEvent) => {
+          const { id, success, result, error } = event.data || {};
+          if (typeof id !== 'number') {
+            return;
+          }
+          const callbacks = this.imageWorkerCallbacks.get(id);
+          if (!callbacks) {
+            return;
+          }
+          this.imageWorkerCallbacks.delete(id);
+          if (success) {
+            callbacks.resolve(result);
+          } else {
+            callbacks.reject(error || new Error('Image worker failed'));
+          }
+        };
+        this.imageWorker.onerror = (event: ErrorEvent) => {
+          console.error('Image worker error:', event.message);
+        };
+      } catch (error) {
+        console.error('Failed to initialize image worker:', error);
+        this.imageWorker = null;
+        return null;
+      }
+    }
+
+    return this.imageWorker;
   }
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
