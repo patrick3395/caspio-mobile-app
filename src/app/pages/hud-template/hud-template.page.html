@@ -451,8 +451,8 @@
                                 *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
-                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
-                                title="Take photo">
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>
@@ -585,8 +585,8 @@
                                 *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
-                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
-                                title="Take photo">
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>
@@ -719,8 +719,8 @@
                                 *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
-                                (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
-                                title="Take photo">
+                                (click)="addAnotherPhoto(category, item.id); $event.stopPropagation()" 
+                                title="Add photo">
                           <ion-icon name="camera"></ion-icon>
                           <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
                         </button>
