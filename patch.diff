@@ -1,0 +1,49 @@
+*** Begin Patch
+*** Update File: src/app/pages/engineers-foundation/engineers-foundation.page.ts
+@@
+-const EMPTY_COMPRESSED_DRAWINGS = 'COMPRESSED_V3:{"version":"6.7.1","objects":[]}';
+-
+-function hasAnnotationObjects(data: any): boolean {
+-  if (!data) {
+-    return false;
+-  }
+-  let parsed = data;
+-  if (typeof data === 'string') {
+-    try {
+-      parsed = JSON.parse(data.startsWith('COMPRESSED_V3:') ? data.substring('COMPRESSED_V3:'.length) : data);
+-    } catch {
+-      return false;
+-    }
+-  }
+-  if (typeof parsed === 'object' && parsed !== null) {
+-    const objects = Array.isArray((parsed as any).objects) ? (parsed as any).objects : [];
+-    return objects.length > 0;
+-  }
+-  return false;
+-}
++const EMPTY_COMPRESSED_DRAWINGS = 'COMPRESSED_V3:{"version":"6.7.1","objects":[]}';
++
++function hasAnnotationObjects(data: any): boolean {
++  if (!data) {
++    return false;
++  }
++
++  let parsed = data;
++  if (typeof data === 'string') {
++    const raw = data.startsWith('COMPRESSED_V3:') ? data.substring('COMPRESSED_V3:'.length) : data;
++    try {
++      parsed = JSON.parse(raw);
++    } catch {
++      return false;
++    }
++  }
++
++  const objects = Array.isArray(parsed)
++    ? parsed
++    : Array.isArray(parsed?.objects)
++      ? parsed.objects
++      : [];
++
++  return objects.length > 0;
++}
+*** End Patch

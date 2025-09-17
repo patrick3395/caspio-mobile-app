@@ -14,6 +14,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
+import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -1616,7 +1617,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   let annotationData = null;
                   if (photo.Drawings) {
                     try {
-                      annotationData = this.decompressAnnotationData(photo.Drawings);
+                      annotationData = decompressAnnotationData(photo.Drawings);
                     } catch (e) {
                       console.log('Failed to parse Drawings field:', e);
                     }
@@ -2174,7 +2175,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           }
           // Compress if needed (matching Structural Systems logic)
           if (drawingsData && drawingsData.length > 0) {
-            drawingsData = this.compressAnnotationData(drawingsData);
+            const compressed = compressAnnotationData(drawingsData);
+            drawingsData = compressed || drawingsData;
           }
         }
       }
@@ -3631,6 +3633,53 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
+  private normalizeAnnotationPayload(result: any): {
+    annotationObject: any | null;
+    annotationJson: string | null;
+    compressed: string;
+    hasAnnotations: boolean;
+  } {
+    if (!result) {
+      return { annotationObject: null, annotationJson: null, compressed: '', hasAnnotations: false };
+    }
+
+    let annotationObject: any = result.annotationData ?? result.annotationsData ?? null;
+    let annotationJson: string | null = typeof result.annotationJson === 'string' ? result.annotationJson : null;
+
+    if (!annotationJson) {
+      if (annotationObject && typeof annotationObject === 'string') {
+        annotationJson = annotationObject;
+      } else if (annotationObject) {
+        try {
+          annotationJson = JSON.stringify(annotationObject);
+        } catch {
+          annotationJson = null;
+        }
+      }
+    }
+
+    let compressed = typeof result.compressedAnnotationData === 'string' ? result.compressedAnnotationData : '';
+
+    if (!compressed && annotationJson) {
+      compressed = compressAnnotationData(annotationJson) || annotationJson;
+    }
+
+    if (!annotationObject && compressed) {
+      annotationObject = decompressAnnotationData(compressed);
+    }
+
+    const hasAnnotations = !!(
+      (typeof annotationObject === 'string' && annotationObject.length > 0) ||
+      (annotationObject && typeof annotationObject === 'object' && Array.isArray(annotationObject.objects) && annotationObject.objects.length > 0)
+    );
+
+    return {
+      annotationObject: annotationObject ?? null,
+      annotationJson,
+      compressed,
+      hasAnnotations
+    };
+  }
   // Update room point photo attachment with annotations (similar to updatePhotoAttachment for Structural Systems)
   async updateRoomPointPhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
@@ -3668,7 +3717,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         
         // Compress if needed
         if (drawingsData) {
-          drawingsData = this.compressAnnotationData(drawingsData);
+          const compressed = compressAnnotationData(drawingsData);
+          drawingsData = compressed || drawingsData;
           updateData.Drawings = drawingsData;
         }
       }
@@ -3755,7 +3805,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (source) {
           try {
             if (typeof source === 'string') {
-              existingAnnotations = this.decompressAnnotationData(source);
+              existingAnnotations = decompressAnnotationData(source);
             } else {
               existingAnnotations = source;
             }
@@ -3789,49 +3839,38 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const { data } = await modal.onDidDismiss();
       
       if (data && data.annotatedBlob) {
-        // Update the photo with new annotations
+        const annotationPayload = this.normalizeAnnotationPayload(data);
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
-        const annotationsData = data.annotationData || data.annotationsData;
-        
-        // Get original file if provided
+        const annotationsData = annotationPayload.annotationObject;
+        const compressedAnnotations = annotationPayload.compressed;
+
         let originalFile = null;
         if (data.originalBlob) {
-          originalFile = data.originalBlob instanceof File 
-            ? data.originalBlob 
-            : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
+          originalFile = data.originalBlob instanceof File
+            ? data.originalBlob
+            : new File([data.originalBlob], 'original_' + photoName, { type: 'image/jpeg' });
         }
-        
-        // Update the attachment with new annotations
+
         await this.updateRoomPointPhotoAttachment(attachId, annotatedFile, annotationsData, originalFile);
-        
-        // Update local photo data
+
         if (point && point.photos) {
-          const photoIndex = point.photos.findIndex((p: any) => 
+          const photoIndex = point.photos.findIndex((p: any) =>
             (p.attachId || p.AttachID || p.id) === attachId
           );
-          
+
           if (photoIndex !== -1) {
-            // Store original URL if not already stored
             if (!point.photos[photoIndex].originalUrl) {
               point.photos[photoIndex].originalUrl = point.photos[photoIndex].url;
             }
-            
-            // Update display URL with annotated version
+
             const newUrl = URL.createObjectURL(data.annotatedBlob);
             point.photos[photoIndex].displayUrl = newUrl;
-            point.photos[photoIndex].hasAnnotations = true;
-            
-            // Store annotations data
-            if (annotationsData) {
-              point.photos[photoIndex].annotations = annotationsData;
-              point.photos[photoIndex].rawDrawingsString = typeof annotationsData === 'object' 
-                ? JSON.stringify(annotationsData) 
-                : annotationsData;
-            }
+            point.photos[photoIndex].hasAnnotations = annotationPayload.hasAnnotations;
+            point.photos[photoIndex].annotations = annotationsData || null;
+            point.photos[photoIndex].rawDrawingsString = compressedAnnotations || '';
           }
         }
-        
-        // Trigger change detection
+
         this.changeDetectorRef.detectChanges();
       }
       
@@ -6800,214 +6839,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Helper method to compress large JSON data - v1.4.348 BALANCED compression
-  private compressAnnotationData(data: string): string {
-    console.log('🗜️ [v1.4.348] Compressing annotation data');
-    console.log('  Original size:', data.length, 'bytes');
-    
-    // FIX v1.4.359: Don't compress empty or minimal data
-    if (!data || data === '{}' || data === '[]' || data === '""' || data === 'null' || data === '') {
-      console.log('  Empty or minimal data, returning empty string');
-      return '';
-    }
-    
-    try {
-      // Always minify first
-      const parsed = JSON.parse(data);
-      
-      // Check if there's actually any content to compress
-      if (parsed && parsed.objects && parsed.objects.length === 0) {
-        console.log('  Empty objects array, returning empty string');
-        return '';
-      }
-      
-      const minified = JSON.stringify(parsed);
-      console.log('  After minification:', minified.length, 'bytes');
-      
-      // If data is small enough after minification, return it
-      if (minified.length < 50000) { // Less than 50KB
-        console.log('  Data small enough after minification');
-        return minified;
-      }
-      
-      // BALANCED SIMPLIFICATION for large data - preserve functionality
-      console.log('  ⚠️ [v1.4.348] Data large, applying BALANCED simplification');
-      
-      // Remove non-essential properties but KEEP critical ones for functionality
-      if (parsed.objects && Array.isArray(parsed.objects)) {
-        parsed.objects = parsed.objects.map((obj: any) => {
-          // Keep essential properties that Fabric.js needs
-          const essential: any = {
-            type: obj.type,
-            version: obj.version || '6.7.1',
-            originX: obj.originX || 'left',
-            originY: obj.originY || 'top',
-            left: Math.round(obj.left || 0),
-            top: Math.round(obj.top || 0),
-            scaleX: obj.scaleX || 1,
-            scaleY: obj.scaleY || 1,
-            angle: obj.angle || 0
-          };
-          
-          // Type-specific properties - preserve enough for proper rendering
-          if (obj.type === 'Path' || obj.type === 'path') {
-            // Path data is CRITICAL - must preserve it properly
-            essential.path = obj.path; // Keep path data as-is
-            essential.stroke = obj.stroke || '#000000';
-            essential.strokeWidth = obj.strokeWidth || 2;
-            essential.fill = obj.fill || 'transparent';
-            essential.strokeLineCap = obj.strokeLineCap || 'round';
-            essential.strokeLineJoin = obj.strokeLineJoin || 'round';
-          } else if (obj.type === 'Line' || obj.type === 'line') {
-            essential.x1 = Math.round(obj.x1);
-            essential.y1 = Math.round(obj.y1);
-            essential.x2 = Math.round(obj.x2);
-            essential.y2 = Math.round(obj.y2);
-            essential.stroke = obj.stroke || '#000000';
-            essential.strokeWidth = obj.strokeWidth || 2;
-          } else if (obj.type === 'IText' || obj.type === 'i-text' || obj.type === 'text') {
-            essential.text = obj.text;
-            essential.left = Math.round(obj.left);
-            essential.top = Math.round(obj.top);
-            essential.fontSize = obj.fontSize || 20;
-            essential.fill = obj.fill || '#000000';
-          } else if (obj.type === 'Circle' || obj.type === 'circle') {
-            essential.radius = Math.round(obj.radius);
-            essential.left = Math.round(obj.left);
-            essential.top = Math.round(obj.top);
-            essential.stroke = obj.stroke || '#000000';
-            essential.strokeWidth = obj.strokeWidth || 2;
-            essential.fill = obj.fill || 'transparent';
-          } else if (obj.type === 'Rect' || obj.type === 'rect') {
-            essential.left = Math.round(obj.left);
-            essential.top = Math.round(obj.top);
-            essential.width = Math.round(obj.width);
-            essential.height = Math.round(obj.height);
-            essential.stroke = obj.stroke || '#000000';
-            essential.strokeWidth = obj.strokeWidth || 2;
-            essential.fill = obj.fill || 'transparent';
-          } else if (obj.type === 'Group' || obj.type === 'group') {
-            // For groups (like arrows), MUST preserve structure
-            essential.width = Math.round(obj.width || 0);
-            essential.height = Math.round(obj.height || 0);
-            
-            // Groups MUST have their objects array to render
-            if (obj.objects && Array.isArray(obj.objects)) {
-              essential.objects = obj.objects.map((subObj: any) => {
-                const subEssential: any = {
-                  type: subObj.type,
-                  version: subObj.version || '6.7.1',
-                  originX: subObj.originX || 'left',
-                  originY: subObj.originY || 'top',
-                  left: Math.round(subObj.left || 0),
-                  top: Math.round(subObj.top || 0),
-                  stroke: subObj.stroke || '#000000',
-                  strokeWidth: subObj.strokeWidth || 2,
-                  fill: subObj.fill || 'transparent'
-                };
-                
-                // Line-specific properties (for arrow parts)
-                if (subObj.type === 'line' || subObj.type === 'Line') {
-                  subEssential.x1 = Math.round(subObj.x1 || 0);
-                  subEssential.y1 = Math.round(subObj.y1 || 0);
-                  subEssential.x2 = Math.round(subObj.x2 || 0);
-                  subEssential.y2 = Math.round(subObj.y2 || 0);
-                }
-                
-                return subEssential;
-              });
-            }
-          } else {
-            // Unknown type - keep minimal position data
-            essential.left = Math.round(obj.left || 0);
-            essential.top = Math.round(obj.top || 0);
-          }
-          
-          return essential;
-        });
-        
-        // Remove any objects that are essentially empty
-        parsed.objects = parsed.objects.filter((obj: any) => 
-          obj && Object.keys(obj).length > 1
-        );
-      }
-      
-      // Remove ALL non-essential top-level properties
-      const compressed = {
-        version: "6.7.1",
-        objects: parsed.objects || []
-      };
-      
-      const compressedStr = JSON.stringify(compressed);
-      console.log('  [v1.4.348] After BALANCED compression:', compressedStr.length, 'bytes');
-      console.log('  [v1.4.348] Object count:', compressed.objects.length);
-      console.log('  [v1.4.348] Compression ratio:', ((1 - compressedStr.length / data.length) * 100).toFixed(1) + '%');
-      
-      // If STILL too large, we need to drop some annotations
-      if (compressedStr.length > 60000) {
-        console.warn('  ⚠️ [v1.4.348] Still too large after balanced compression');
-        console.warn('  [v1.4.348] Current size:', compressedStr.length, 'bytes');
-        console.warn('  [v1.4.348] This photo has too many complex annotations');
-        
-        // As a last resort, keep only the most recent annotations
-        const maxObjects = Math.floor(compressed.objects.length * (60000 / compressedStr.length));
-        compressed.objects = compressed.objects.slice(-maxObjects);
-        
-        const finalStr = JSON.stringify(compressed);
-        console.log('  [v1.4.348] Kept', compressed.objects.length, 'most recent annotations');
-        console.log('  [v1.4.348] Final size:', finalStr.length, 'bytes');
-        
-        return 'COMPRESSED_V3:' + finalStr;
-      }
-      
-      return 'COMPRESSED_V3:' + compressedStr;
-    } catch (error) {
-      console.error('❌ [v1.4.348] Compression failed:', error);
-      return data; // Return original if compression fails
-    }
-  }
-  
-  // Helper method to decompress annotation data - v1.4.348 handles V1, V2, and V3
-  private decompressAnnotationData(data: string): any {
-    if (!data) return null;
-    
-    // FIX v1.4.359: Handle malformed COMPRESSED_ strings (no data after prefix)
-    if (data === 'COMPRESSED_' || data === 'COMPRESSED_V1:' || data === 'COMPRESSED_V2:' || data === 'COMPRESSED_V3:') {
-      console.log('⚠️ [v1.4.359] Malformed compressed string with no data, returning null');
-      return null;
-    }
-    
-    // Check if data is compressed
-    if (data.startsWith('COMPRESSED_V3:')) {
-      console.log('🔓 [v1.4.348] Decompressing V3 annotation data');
-      data = data.substring('COMPRESSED_V3:'.length);
-      if (!data) return null; // No data after prefix
-    } else if (data.startsWith('COMPRESSED_V2:')) {
-      console.log('🔓 [v1.4.348] Decompressing V2 annotation data');
-      data = data.substring('COMPRESSED_V2:'.length);
-      if (!data) return null; // No data after prefix
-    } else if (data.startsWith('COMPRESSED_V1:')) {
-      console.log('🔓 [v1.4.348] Decompressing V1 annotation data');
-      data = data.substring('COMPRESSED_V1:'.length);
-      if (!data) return null; // No data after prefix
-    }
-    
-    try {
-      const parsed = JSON.parse(data);
-      console.log('  [v1.4.348] Decompressed:', parsed.objects?.length || 0, 'objects');
-      
-      // Ensure the data has the required Fabric.js structure
-      if (parsed && !parsed.version) {
-        parsed.version = '6.7.1';
-      }
-      
-      return parsed;
-    } catch (error) {
-      console.error('❌ [v1.4.348] Failed to parse annotation data:', error);
-      return null;
-    }
-  }
-  
   // Update existing photo attachment with optional annotations
   async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
@@ -7278,14 +7109,15 @@ Has Annotations: ${!!annotations}`;
             
             // COMPRESS if needed to fit in 64KB TEXT field
             const originalSize = drawingsData.length;
-            drawingsData = this.compressAnnotationData(drawingsData);
+            const compressed = compressAnnotationData(drawingsData);
+            drawingsData = compressed || drawingsData;
             
             if (originalSize !== drawingsData.length) {
               console.log('  [v1.4.351] Compressed from', originalSize, 'to', drawingsData.length, 'bytes');
               
               // DEBUG: Show what's in the compressed data
               try {
-                const compressedParsed = this.decompressAnnotationData(drawingsData);
+                const compressedParsed = decompressAnnotationData(drawingsData);
                 console.log('  [v1.4.351] After compression has:', compressedParsed?.objects?.length || 0, 'objects');
                 console.log('  [v1.4.351] Compressed object types:', compressedParsed?.objects?.map((o: any) => o.type).join(', '));
               } catch (e) {
@@ -7359,7 +7191,7 @@ Has Annotations: ${!!annotations}`;
       let annotationSummary = 'N/A';
       if (updateData.Drawings) {
         try {
-          const tempParsed = this.decompressAnnotationData(updateData.Drawings);
+          const tempParsed = decompressAnnotationData(updateData.Drawings);
           if (tempParsed && tempParsed.objects) {
             annotationSummary = `${tempParsed.objects.length} objects: ${tempParsed.objects.map((o: any) => o.type).join(', ')}`;
           }
@@ -7848,7 +7680,7 @@ Stack: ${error?.stack}`;
             console.log('[v1.4.345] Attempting to parse annotations from source:', typeof source);
             if (typeof source === 'string') {
               // Use decompression helper to handle compressed data
-              existingAnnotations = this.decompressAnnotationData(source);
+              existingAnnotations = decompressAnnotationData(source);
             } else {
               existingAnnotations = source;
             }
@@ -7891,9 +7723,11 @@ Stack: ${error?.stack}`;
       
       if (data) {
         // Handle new Fabric.js annotator response
+        const annotationPayload = this.normalizeAnnotationPayload(data);
         const annotatedBlob = data.blob || data.annotatedBlob;
-        const annotationsData = data.annotationData || data.annotationsData;
-        
+        const annotationsData = annotationPayload.annotationObject;
+        const compressedAnnotations = annotationPayload.compressed;
+
         if (annotatedBlob) {
           // Update the photo with annotations
           const key = `${category}_${itemId}`;
@@ -7924,14 +7758,11 @@ Stack: ${error?.stack}`;
               }
               
               // DEBUG: Check annotation data type before passing
-              console.log('📊 Annotation data before updatePhotoAttachment:');
-              console.log('  Type:', typeof annotationsData);
-              console.log('  Is object:', annotationsData && typeof annotationsData === 'object');
-              console.log('  Is string:', typeof annotationsData === 'string');
-              if (typeof annotationsData === 'object') {
-                console.log('  Object keys:', Object.keys(annotationsData || {}));
-                console.log('  Object preview:', JSON.stringify(annotationsData).substring(0, 200));
-              }
+              console.log('📊 Annotation payload before updatePhotoAttachment:', {
+                hasPayload: !!annotationsData,
+                payloadType: typeof annotationsData,
+                compressedLength: compressedAnnotations ? compressedAnnotations.length : 0
+              });
               
               // Update the existing attachment with annotations
               await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile);
@@ -7942,22 +7773,12 @@ Stack: ${error?.stack}`;
               );
               
               if (photoIndex !== -1 && this.visualPhotos[visualId]) {
-                // Update the photo URL with the new blob
                 const newUrl = URL.createObjectURL(data.annotatedBlob);
                 this.visualPhotos[visualId][photoIndex].url = newUrl;
                 this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
-                this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
-                // Store annotations in the photo object
-                if (annotationsData) {
-                  this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
-                  // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
-                  if (typeof annotationsData === 'object') {
-                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
-                  } else {
-                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
-                  }
-                  console.log('✅ Updated rawDrawingsString for future re-edits in quickAnnotate');
-                }
+                this.visualPhotos[visualId][photoIndex].hasAnnotations = annotationPayload.hasAnnotations;
+                this.visualPhotos[visualId][photoIndex].annotations = annotationsData || null;
+                this.visualPhotos[visualId][photoIndex].rawDrawingsString = compressedAnnotations || '';
               }
               
               // Trigger change detection
@@ -8050,7 +7871,7 @@ Stack: ${error?.stack}`;
           try {
             console.log('[v1.4.345] Parsing annotations in viewPhoto:', typeof source);
             if (typeof source === 'string') {
-              existingAnnotations = this.decompressAnnotationData(source);
+              existingAnnotations = decompressAnnotationData(source);
             } else {
               existingAnnotations = source;
             }
@@ -8533,7 +8354,7 @@ Stack: ${error?.stack}`;
           let rawDrawingsString = photo.Drawings;
           if (photo.Drawings) {
             try {
-              annotationData = this.decompressAnnotationData(photo.Drawings);
+              annotationData = decompressAnnotationData(photo.Drawings);
             } catch (e) {
               // Silently handle parse errors
             }
@@ -8647,7 +8468,7 @@ Stack: ${error?.stack}`;
           let rawDrawingsString = photo.Drawings;
           if (photo.Drawings) {
             try {
-              annotationData = this.decompressAnnotationData(photo.Drawings);
+              annotationData = decompressAnnotationData(photo.Drawings);
             } catch (e) {
               // Silently handle parse errors
             }
@@ -9561,7 +9382,7 @@ Stack: ${error?.stack}`;
         let annotationData = null;
         if (attach.Drawings) {
           try {
-            annotationData = this.decompressAnnotationData(attach.Drawings);
+            annotationData = decompressAnnotationData(attach.Drawings);
           } catch (e) {
             console.log('Failed to parse Drawings in room photos:', e);
           }

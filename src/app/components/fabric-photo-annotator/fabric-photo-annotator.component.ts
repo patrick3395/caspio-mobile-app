@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import * as fabric from 'fabric';
+import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 
 @Component({
   selector: 'app-fabric-photo-annotator',
@@ -718,158 +719,131 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   private async loadExistingAnnotations() {
-    console.log(`📥 [v1.4.248] Loading existing annotations...`);
-    console.log('[v1.4.248] Raw annotation data:', this.existingAnnotations);
-    console.log('[v1.4.248] Type of annotation data:', typeof this.existingAnnotations);
-    
+    console.log('[Annotations] Loading existing annotations...');
+    console.log('[Annotations] Raw annotation data:', this.existingAnnotations);
+
     if (!this.existingAnnotations || !this.canvas) {
-      console.log('No annotations to load or canvas not ready');
+      console.log('[Annotations] No annotations to load or canvas not ready');
       return;
     }
-    
+
     try {
-      let dataToLoad = this.existingAnnotations;
-      
-      // If it's a string, parse it first
-      if (typeof dataToLoad === 'string') {
-        try {
-          dataToLoad = JSON.parse(dataToLoad);
-          console.log('📄 Parsed annotation string to object');
-        } catch (e) {
-          console.error('Failed to parse annotation string:', e);
-          return;
-        }
+      const payload = decompressAnnotationData(this.existingAnnotations);
+
+      if (!payload || !Array.isArray(payload.objects) || payload.objects.length === 0) {
+        console.log('[Annotations] No valid Fabric.js objects found in annotation payload');
+        return;
       }
-      
-      // Check if it's a Fabric.js JSON object with 'objects' property
-      if (dataToLoad && typeof dataToLoad === 'object' && 'objects' in dataToLoad) {
-        const fabricData = dataToLoad as any;
-        
-        // Load the annotations (but filter out any images to avoid duplicates)
-        const annotationObjects = fabricData.objects?.filter((obj: any) => 
-          obj.type !== 'image' && obj.type !== 'Image'
-        ) || [];
-        
-        console.log(`🔍 [v1.4.248] Found ${annotationObjects.length} annotation objects to load`);
-        
-        // CRITICAL FIX: Use Fabric.js's proper JSON loading to preserve all properties
-        // This ensures annotations are editable, not flattened
-        
-        // Store the current background image URL to reload it after
-        const bgImage = this.canvas.backgroundImage as fabric.Image;
-        const bgImageSrc = bgImage ? bgImage.getSrc() : null;
-        
-        // Create a temporary canvas data object with just the annotations
-        const tempCanvasData = {
-          version: fabricData.version,
-          objects: annotationObjects
-        };
-        
-        // Use Fabric's loadFromJSON to properly restore all object properties
-        this.canvas.loadFromJSON(tempCanvasData, () => {
-          console.log(`✅ [v1.4.248] Loaded annotations from JSON`);
-          
-          // CRITICAL: Reload the background image after loadFromJSON (which clears everything)
-          if (bgImageSrc) {
-            fabric.Image.fromURL(bgImageSrc).then((img: fabric.Image) => {
-              // Apply same scaling as in initializeFabricCanvas
-              const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
-              const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
-              
-              let scale = 1;
-              if (img.width! > containerWidth || img.height! > containerHeight) {
-                scale = Math.min(containerWidth / img.width!, containerHeight / img.height!);
-              }
-              
-              img.scale(scale);
-              img.selectable = false;
-              img.evented = false;
-              
-              // Set as background image
-              this.canvas.backgroundImage = img;
-              this.canvas.renderAll();
-              
-              console.log(`✅ [v1.4.248] Background image restored`);
-            });
-          }
-          
-          // Wait for background image to be set, then enable selection
-          setTimeout(() => {
-            // Ensure all objects are selectable and editable
-            this.canvas.getObjects().forEach(obj => {
-              if (!(obj instanceof fabric.Image)) {  // Don't make background selectable
-                obj.set({
-                  selectable: true,
-                  evented: true,
-                  hasControls: true,
-                  hasBorders: true,
-                  lockMovementX: false,
-                  lockMovementY: false,
-                  lockRotation: false,
-                  lockScalingX: false,
-                  lockScalingY: false
-                });
-              }
-            });
-            
-            // Set selection mode as default when annotations exist
-            this.currentTool = 'select';
-            this.canvas.selection = true;
+
+      const annotationObjects = payload.objects.filter((obj: any) =>
+        obj.type !== 'image' && obj.type !== 'Image'
+      );
+
+      if (annotationObjects.length === 0) {
+        console.log('[Annotations] Annotation payload only contained background images');
+        return;
+      }
+
+      const bgImage = this.canvas.backgroundImage as fabric.Image;
+      const bgImageSrc = bgImage ? bgImage.getSrc() : null;
+
+      const payloadToLoad = {
+        version: payload.version,
+        objects: annotationObjects
+      };
+
+      this.canvas.loadFromJSON(payloadToLoad, () => {
+        if (bgImageSrc) {
+          fabric.Image.fromURL(bgImageSrc).then((img: fabric.Image) => {
+            const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
+            const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
+
+            let scale = 1;
+            if (img.width! > containerWidth || img.height! > containerHeight) {
+              scale = Math.min(containerWidth / img.width!, containerHeight / img.height!);
+            }
+
+            img.scale(scale);
+            img.selectable = false;
+            img.evented = false;
+            this.canvas.backgroundImage = img;
             this.canvas.renderAll();
-            console.log(`✅ [v1.4.252] All ${this.canvas.getObjects().length} objects are now editable in selection mode`);
-          }, 500);  // Give time for background image to load
-        });
-        
-        // Set to select tool so user can edit annotations
-        this.currentTool = 'select';
-        this.setTool('select');  // Properly enable selection mode
-        
-        console.log(`✅ [v1.4.233 FABRIC] Successfully loaded ${annotationObjects.length} annotations`);
-        console.log('[v1.4.233] Canvas now has', this.canvas.getObjects().length, 'total objects');
-      } else {
-        console.log('⚠️ No valid Fabric.js data found in annotations');
-      }
+
+            console.log('✅ [Annotations] Background image restored');
+          }).catch(error => console.error('[Annotations] Failed to restore background image', error));
+        }
+
+        setTimeout(() => {
+          this.canvas.getObjects().forEach(obj => {
+            if (!(obj instanceof fabric.Image)) {
+              obj.set({
+                selectable: true,
+                evented: true,
+                hasControls: true,
+                hasBorders: true,
+                lockMovementX: false,
+                lockMovementY: false,
+                lockRotation: false,
+                lockScalingX: false,
+                lockScalingY: false
+              });
+            }
+          });
+
+          this.currentTool = 'select';
+          this.canvas.selection = true;
+          this.canvas.renderAll();
+
+          console.log('✅ [Annotations] Loaded ' + annotationObjects.length + ' annotations into edit mode');
+        }, 500);
+      });
+
+      this.currentTool = 'select';
+      this.setTool('select');
     } catch (error) {
-      console.error('❌ Error loading existing annotations:', error);
+      console.error('❌ [Annotations] Error loading existing annotations:', error);
     }
   }
-  
   async save() {
-    // Export the canvas as image
     const dataUrl = this.canvas.toDataURL({
       format: 'jpeg',
       quality: 0.9,
       multiplier: 1
     });
-    
-    // Convert to blob
+
     const blob = await this.dataUrlToBlob(dataUrl);
-    
-    // Also export the annotation data for future editing
+
     const annotationData = this.canvas.toJSON();
-    
-    // Get the original image blob if this is a re-edit and we used URL
+    const annotationJson = JSON.stringify(annotationData);
+    const hasAnnotationObjects = Array.isArray(annotationData.objects) && annotationData.objects.length > 0;
+    const compressedAnnotationData = hasAnnotationObjects
+      ? compressAnnotationData(annotationJson) || annotationJson
+      : '';
+
     let originalBlob = null;
     if (!this.isReEdit && this.imageFile) {
-      // If this is the first annotation, use the input file as original
       originalBlob = this.imageFile;
     }
-    
-    console.log(`💾 [v1.4.237 FABRIC] Saving with ${this.getAnnotationCount()} annotations`);
-    console.log('📤 [v1.4.237 FABRIC] Annotation data being saved:', annotationData);
-    console.log('📎 [v1.4.237 FABRIC] Has original file:', !!originalBlob);
-    
+
+    console.log('[Annotations] Saving canvas', {
+      totalAnnotations: this.getAnnotationCount(),
+      hasOriginalFile: !!originalBlob,
+      hasAnnotationObjects,
+      compressedLength: compressedAnnotationData ? compressedAnnotationData.length : 0
+    });
+
     this.modalController.dismiss({
-      annotatedBlob: blob,  // Use same property name as old annotator for compatibility
-      blob,  // Keep for backward compatibility
+      annotatedBlob: blob,
+      blob,
       dataUrl,
       annotationData,
-      annotationsData: annotationData,  // Also provide with 's' for compatibility
+      annotationsData: annotationData,
+      annotationJson,
+      compressedAnnotationData,
       annotationCount: this.getAnnotationCount(),
-      originalBlob: originalBlob  // Include original file for first-time annotations
+      originalBlob
     });
   }
-  
   private async dataUrlToBlob(dataUrl: string): Promise<Blob> {
     const response = await fetch(dataUrl);
     return await response.blob();
