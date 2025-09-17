@@ -2655,7 +2655,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
       
       // Automatically expand the elevation section to show the new room
-      this.expandedSections['elevation'] = true;
       
       // Automatically select the room (create Services_Rooms record)
       this.savingRooms[roomName] = true;
@@ -3204,37 +3203,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // Check if we're in an expanded room (within Elevation Plot)
-    if (this.expandedSections['elevation']) {
-      const roomAccordions = Array.from(document.querySelectorAll('.room-elevations-container ion-accordion'));
-      
-      for (let i = 0; i < roomAccordions.length; i++) {
-        const roomAccordion = roomAccordions[i] as HTMLElement;
-        const roomHeader = roomAccordion.querySelector('ion-item[slot="header"]') as HTMLElement;
-        const roomContent = roomAccordion.querySelector('.elevation-content') as HTMLElement;
-        
-        // Check if room is expanded by checking if content has height
-        if (roomHeader && roomContent && roomContent.offsetHeight > 0) {
-          const rect = roomHeader.getBoundingClientRect();
-          const roomTop = rect.top + scrollTop;
-          
-          // Find next boundary
-          let roomBottom = document.documentElement.scrollHeight;
-          if (i < roomAccordions.length - 1) {
-            const nextRoom = roomAccordions[i + 1] as HTMLElement;
-            const nextRect = nextRoom.getBoundingClientRect();
-            roomBottom = nextRect.top + scrollTop;
-          }
-          
-          // Check if we're within this room's bounds
-          if (viewportMiddle >= roomTop && viewportMiddle < roomBottom) {
-            // Scroll to the room header
-            roomHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            return;
-          }
-        }
-      }
-    }
     
     // Otherwise, check main sections
     const sections = ['project', 'structural', 'elevation'];
@@ -3367,25 +3335,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (totalRequired === 0) return 0;
         return Math.round((completedRequired / totalRequired) * 100);
 
-      case 'elevation':
-        // Base Station is required for 100% completion
-        const baseStationSelected = this.selectedRooms['Base Station'] === true;
-
-        // Check if we have at least one other room selected (besides Base Station)
-        const otherRoomsSelected = Object.keys(this.selectedRooms).filter(
-          room => room !== 'Base Station' && this.selectedRooms[room] === true
-        ).length > 0;
-
-        // Calculate completion: Base Station is 50%, having at least one other room is another 50%
-        let elevationCompletion = 0;
-        if (baseStationSelected) {
-          elevationCompletion = 50;
-          if (otherRoomsSelected) {
-            elevationCompletion = 100;
-          }
-        }
-
-        return elevationCompletion;
 
       default:
         return 0;
@@ -8821,14 +8770,12 @@ Stack: ${error?.stack}`;
     // Calculate and save progress for each section
     const projectProgress = this.getProjectCompletion();
     const structuralProgress = this.getSectionCompletion('structural');
-    const elevationProgress = this.getSectionCompletion('elevation');
     
     // Save to localStorage for the project detail page to read
     const storageKey = `template_progress_${this.projectId}_${this.serviceId}`;
     const progressData = {
       project: projectProgress,
       structural: structuralProgress,
-      elevation: elevationProgress,
       timestamp: Date.now()
     };
     
