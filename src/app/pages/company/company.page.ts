@@ -12,7 +12,7 @@ interface User {
   Title?: string;
   Phone?: string;
   Email: string;
-  Headshot?: string;
+  Headshot?: any;
   CompanyID?: number;
   FirstName?: string;
   LastName?: string;
@@ -32,6 +32,7 @@ export class CompanyPage implements OnInit {
   searchTerm = '';
   companyName = 'Noble Property Inspections';
   companyId = 1; // Noble Property Inspections
+  selectedTab = 'companies'; // Default tab for CompanyID = 1
 
   constructor(
     private caspioService: CaspioService,
@@ -78,7 +79,13 @@ export class CompanyPage implements OnInit {
       ).toPromise();
 
       if (response && response.Result) {
-        this.users = response.Result;
+        this.users = response.Result.map((rawUser: any) => {
+          const normalizedHeadshot = this.normalizeHeadshotPath(rawUser?.Headshot);
+          return {
+            ...rawUser,
+            Headshot: normalizedHeadshot ?? ''
+          } as User;
+        });
         this.filteredUsers = [...this.users];
         
         // Load headshot images for each user
@@ -104,13 +111,25 @@ export class CompanyPage implements OnInit {
     const errors: any[] = [];
     
     for (let user of this.users) {
-      if (user.Headshot) {
+      const headshotPath = this.normalizeHeadshotPath(user.Headshot);
+      if (!headshotPath) {
+        user.Headshot = '';
+        continue;
+      }
+
+      // If already a data URL or absolute HTTP URL, keep as-is
+      if (typeof headshotPath === 'string' && (headshotPath.startsWith('data:') || headshotPath.startsWith('http'))) {
+        user.Headshot = headshotPath;
+        continue;
+      }
+
+      if (headshotPath) {
         try {
-          console.log(`[DEBUG] Loading headshot for ${user.Name}, path: ${user.Headshot}`);
+          console.log(`[DEBUG] Loading headshot for ${user.Name}, path: ${headshotPath}`);
           
           // If Headshot is a file path, get the image URL
           // Convert Observable to Promise and await the result
-          const imageUrl = await this.caspioService.getImageFromFilesAPI(user.Headshot).toPromise();
+          const imageUrl = await this.caspioService.getImageFromFilesAPI(headshotPath).toPromise();
           if (imageUrl) {
             user.Headshot = imageUrl;
             console.log(`[DEBUG] Successfully loaded headshot for ${user.Name}`);
@@ -120,7 +139,7 @@ export class CompanyPage implements OnInit {
           errors.push({
             user: user.Name,
             userId: user.UserID,
-            path: user.Headshot,
+            path: headshotPath,
             error: error.message || error
           });
           // Use default avatar if image fails to load
@@ -313,14 +332,13 @@ export class CompanyPage implements OnInit {
 
         const uploadResult = await uploadResponse.json();
         console.log('[DEBUG] Upload response:', JSON.stringify(uploadResult));
-        
-        // The response might have different property names
-        const fileName = uploadResult.Name || uploadResult.name || uploadResult.FileName || uploadResult.filename;
-        if (!fileName) {
+
+        const extractedPath = this.extractUploadedFilePath(uploadResult);
+        if (!extractedPath) {
           throw new Error(`Invalid upload response - no filename found: ${JSON.stringify(uploadResult)}`);
         }
-        
-        const filePath = fileName.startsWith('/') ? fileName : `/${fileName}`;
+
+        const filePath = extractedPath.startsWith('/') ? extractedPath : `/${extractedPath}`;
         console.log('[DEBUG] File path for database:', filePath);
 
         // Update user record with new headshot path
@@ -343,7 +361,8 @@ export class CompanyPage implements OnInit {
         }
 
         // Update local user object and reload headshot
-        user.Headshot = filePath;
+        const normalizedStoredPath = this.normalizeHeadshotPath(filePath) ?? filePath;
+        user.Headshot = normalizedStoredPath;
         
         // Get the new image URL with debug info
         try {
@@ -354,7 +373,7 @@ export class CompanyPage implements OnInit {
           console.log('[DEBUG] Using fresh token for image fetch:', freshToken ? 'Token exists' : 'No token');
           
           const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-          
+
           if (imageUrl) {
             user.Headshot = imageUrl;
             console.log('[DEBUG] Image loaded successfully, length:', imageUrl.length);
@@ -468,5 +487,107 @@ export class CompanyPage implements OnInit {
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  private extractUploadedFilePath(uploadResult: any): string | null {
+    if (!uploadResult) {
+      return null;
+    }
+
+    const queue: any[] = [uploadResult];
+    while (queue.length > 0) {
+      const current = queue.shift();
+
+      if (!current) {
+        continue;
+      }
+
+      if (typeof current === 'string') {
+        const normalized = current.trim();
+        if (normalized && normalized !== 'undefined' && normalized !== '/undefined') {
+          return normalized;
+        }
+        continue;
+      }
+
+      if (Array.isArray(current)) {
+        queue.push(...current);
+        continue;
+      }
+
+      if (typeof current === 'object') {
+        const candidateKeys = ['Path', 'FilePath', 'Name', 'FileName', 'filename', 'name'];
+        for (const key of candidateKeys) {
+          const value = current[key];
+          if (typeof value === 'string' && value.trim()) {
+            const normalized = value.trim();
+            if (normalized && normalized !== 'undefined' && normalized !== '/undefined') {
+              return normalized;
+            }
+          }
+        }
+
+        const nestedKeys = ['Result', 'Results', 'Data', 'Items', 'Value'];
+        for (const nestedKey of nestedKeys) {
+          if (current[nestedKey]) {
+            queue.push(current[nestedKey]);
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeHeadshotPath(raw: any): string | null {
+    if (!raw) {
+      return null;
+    }
+
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed || trimmed === 'undefined' || trimmed === '/undefined' || trimmed === 'null') {
+        return null;
+      }
+      if (trimmed.startsWith('data:') || trimmed.startsWith('http')) {
+        return trimmed;
+      }
+      return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    }
+
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        const normalized = this.normalizeHeadshotPath(item);
+        if (normalized) {
+          return normalized;
+        }
+      }
+      return null;
+    }
+
+    if (typeof raw === 'object') {
+      const candidateKeys = ['FilePath', 'Path', 'Url', 'URL', 'link', 'Link', 'Name', 'FileName', 'value'];
+      for (const key of candidateKeys) {
+        const value = raw[key];
+        if (typeof value === 'string') {
+          const normalized = this.normalizeHeadshotPath(value);
+          if (normalized) {
+            return normalized;
+          }
+        }
+      }
+
+      const nestedKeys = ['Result', 'Results', 'Data', 'Items', 'Value'];
+      for (const nestedKey of nestedKeys) {
+        if (raw[nestedKey]) {
+          const normalized = this.normalizeHeadshotPath(raw[nestedKey]);
+          if (normalized) {
+            return normalized;
+          }
+        }
+      }
+    }
+
+    return null;
   }
 }
