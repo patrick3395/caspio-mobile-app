@@ -1,0 +1,11 @@
+<ng-container *ngIf="isDark$ | async as isDark">
+  <button
+    type="button"
+    class="theme-toggle-button"
+    (click)="toggleTheme()"
+    [attr.aria-label]="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+    [attr.title]="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <ion-icon [name]="isDark ? 'sunny' : 'moon'"></ion-icon>
+  </button>
+</ng-container>

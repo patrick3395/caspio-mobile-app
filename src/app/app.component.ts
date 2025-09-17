@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
 import * as LiveUpdates from '@capacitor/live-updates';
+import { ThemeService } from './services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -10,7 +11,7 @@ import * as LiveUpdates from '@capacitor/live-updates';
   standalone: false,
 })
 export class AppComponent {
-  constructor(private platform: Platform) {
+  constructor(private platform: Platform, private readonly themeService: ThemeService) {
     this.initializeApp();
   }
 
