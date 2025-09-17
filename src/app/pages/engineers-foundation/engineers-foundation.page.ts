@@ -94,6 +94,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
+  private templateLoader?: HTMLIonLoadingElement;
+  private templateLoaderPresented = false;
+  private templateLoadStart = 0;
+  private readonly templateLoaderMinDuration = 1000;
   
   // PDF generation state
   isPDFGenerating: boolean = false;
@@ -134,7 +138,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Photo loading optimization
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
-  loadedPhotoCache: Map<string, string> = new Map(); // Cache loaded base64 images
   visibleVisuals: Set<string> = new Set(); // Track which visuals are visible
   photoLoadBatchSize: number = 3; // Load 3 photos at a time
   private readonly photoLoadConcurrency = 4;
@@ -275,6 +278,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
+    await this.presentTemplateLoader();
+
     try {
       await Promise.all([
         this.loadProjectData(),
@@ -292,6 +297,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
+    } finally {
+      await this.dismissTemplateLoader();
     }
   }
   
@@ -8442,6 +8449,51 @@ Stack: ${error?.stack}`;
     }
 
     return this.thumbnailCache.get(photoPath)!;
+  }
+
+  private async presentTemplateLoader(message: string = 'Loading Template'): Promise<void> {
+    if (this.templateLoaderPresented) {
+      return;
+    }
+
+    this.templateLoadStart = Date.now();
+
+    try {
+      this.templateLoader = await this.loadingController.create({
+        message,
+        backdropDismiss: false,
+        cssClass: 'template-loading-overlay',
+        spinner: 'crescent'
+      });
+
+      await this.templateLoader.present();
+      this.templateLoaderPresented = true;
+    } catch (error) {
+      console.error('[TemplateLoader] Failed to present loading overlay:', error);
+      this.templateLoaderPresented = false;
+    }
+  }
+
+  private async dismissTemplateLoader(): Promise<void> {
+    if (!this.templateLoaderPresented) {
+      return;
+    }
+
+    const elapsed = Date.now() - this.templateLoadStart;
+    const remaining = this.templateLoaderMinDuration - elapsed;
+
+    if (remaining > 0) {
+      await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+
+    try {
+      await this.templateLoader?.dismiss();
+    } catch (error) {
+      console.warn('[TemplateLoader] Failed to dismiss loading overlay:', error);
+    } finally {
+      this.templateLoaderPresented = false;
+      this.templateLoader = undefined;
+    }
   }
 
   // Keep the old method for backward compatibility
