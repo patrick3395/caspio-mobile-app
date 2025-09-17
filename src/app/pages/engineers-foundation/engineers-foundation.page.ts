@@ -1096,17 +1096,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomId
       };
       
-      // Trigger file input to show native iOS picker (Photo Library, Take Photo, Choose Files)
-      setTimeout(() => {
-        if (this.fileInput && this.fileInput.nativeElement) {
-          this.fileInput.nativeElement.click();
-        } else {
-          console.error('File input not available');
-          this.showToast('File input not available', 'danger');
+      await this.presentPhotoSourceActionSheet({
+        header: `Add ${photoType} Photo`,
+        onCamera: () => {
+          this.triggerFileInput('camera', { allowMultiple: false });
+        },
+        onLibrary: () => {
+          this.triggerFileInput('library', { allowMultiple: false });
+        },
+        onCancel: () => {
           this.currentFDFPhotoContext = null;
+          this.expectingCameraPhoto = false;
         }
-      }, 100);
-      
+      });
+
     } catch (error) {
       console.error(`Error initiating FDF ${photoType} photo:`, error);
       await this.showToast(`Failed to initiate ${photoType} photo`, 'danger');
@@ -1490,32 +1493,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Use the EXACT same method as Structural section - set context and trigger file input
-      this.currentRoomPointContext = { 
-        roomName, 
-        point, 
-        pointId, 
-        roomId 
+      this.currentRoomPointContext = {
+        roomName,
+        point,
+        pointId,
+        roomId
       };
-      
-      // Set flag to indicate we're expecting camera photo (for "Take Another Photo" flow)
-      this.expectingCameraPhoto = true;
-      
-      // Trigger file input with small delay to ensure UI is ready
-      setTimeout(() => {
-        if (this.fileInput && this.fileInput.nativeElement) {
-          // Remove capture attribute for initial selection to show full iOS picker
-          this.fileInput.nativeElement.removeAttribute('capture');
-          this.fileInput.nativeElement.setAttribute('accept', 'image/*');
-          this.fileInput.nativeElement.click();
-        } else {
-          console.error('File input not available');
-          this.showToast('File input not available', 'danger');
+
+      await this.presentPhotoSourceActionSheet({
+        header: 'Add Photo',
+        onCamera: () => {
+          this.triggerFileInput('camera', { allowMultiple: false });
+        },
+        onLibrary: () => {
+          this.triggerFileInput('library', { allowMultiple: true });
+        },
+        onCancel: () => {
           this.currentRoomPointContext = null;
           this.expectingCameraPhoto = false;
         }
-      }, 100);
-      
+      });
+
     } catch (error) {
       console.error('Error in capturePhotoForPoint:', error);
       await this.showToast('Failed to capture photo', 'danger');
@@ -1811,22 +1809,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               {
                 text: 'Take Another Photo',
                 cssClass: 'action-button',
-                handler: async () => {
-                  // Set capture attribute to force camera
-                  if (this.fileInput && this.fileInput.nativeElement) {
-                    const input = this.fileInput.nativeElement;
-                    input.setAttribute('capture', 'environment');
-                    input.setAttribute('accept', 'image/*');
-                    // Remove multiple attribute for camera capture
-                    input.removeAttribute('multiple');
-                  }
-                  // Continue expecting camera photos
-                  this.expectingCameraPhoto = true;
-                  // Keep the same room point context
+                handler: () => {
                   this.currentRoomPointContext = { roomName, point, pointId, roomId };
-                  setTimeout(() => {
-                    this.fileInput.nativeElement.click();
-                  }, 100);
+                  this.triggerFileInput('camera', { allowMultiple: false });
                   return true;
                 }
               },
@@ -1835,12 +1820,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 cssClass: 'done-button',
                 handler: () => {
                   this.expectingCameraPhoto = false;
-                  // Restore multiple attribute
-                  if (this.fileInput && this.fileInput.nativeElement) {
-                    this.fileInput.nativeElement.setAttribute('multiple', 'true');
-                    // Clear capture attribute
-                    this.fileInput.nativeElement.removeAttribute('capture');
-                  }
+                  this.setFileInputMode('library', { allowMultiple: true });
                   return true;
                 }
               }
@@ -2541,14 +2521,98 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   handleRoomLabelClick(roomName: string, event: Event) {
     event.stopPropagation();
     event.preventDefault();
-    
+
     // Only toggle expansion if room is already selected
     if (this.isRoomSelected(roomName)) {
       this.toggleRoomExpanded(roomName);
     }
     // If room is not selected, do nothing (don't select it)
   }
-  
+
+  private async presentPhotoSourceActionSheet(config: {
+    header: string;
+    subHeader?: string;
+    cameraText?: string;
+    libraryText?: string;
+    cancelText?: string;
+    onCamera: () => void;
+    onLibrary: () => void;
+    onCancel?: () => void;
+  }): Promise<void> {
+    const actionSheet = await this.actionSheetController.create({
+      header: config.header,
+      subHeader: config.subHeader,
+      cssClass: 'photo-source-sheet',
+      buttons: [
+        {
+          text: config.cameraText ?? 'Take Photo',
+          cssClass: 'action-button',
+          handler: () => {
+            config.onCamera();
+            return true;
+          }
+        },
+        {
+          text: config.libraryText ?? 'Photo Library',
+          cssClass: 'action-button',
+          handler: () => {
+            config.onLibrary();
+            return true;
+          }
+        },
+        {
+          text: config.cancelText ?? 'Cancel',
+          role: 'cancel',
+          handler: () => {
+            config.onCancel?.();
+          }
+        }
+      ]
+    });
+
+    await actionSheet.present();
+  }
+
+  private setFileInputMode(source: 'camera' | 'library', options: { allowMultiple?: boolean; capture?: string } = {}): boolean {
+    if (!this.fileInput || !this.fileInput.nativeElement) {
+      console.error('File input not available');
+      void this.showToast('File input not available', 'danger');
+      return false;
+    }
+
+    const input = this.fileInput.nativeElement;
+    input.setAttribute('accept', 'image/*');
+
+    if (source === 'camera') {
+      this.expectingCameraPhoto = true;
+      input.setAttribute('capture', options.capture ?? 'environment');
+      input.removeAttribute('multiple');
+    } else {
+      this.expectingCameraPhoto = false;
+      input.removeAttribute('capture');
+      if (options.allowMultiple === false) {
+        input.removeAttribute('multiple');
+      } else {
+        input.setAttribute('multiple', 'true');
+      }
+    }
+
+    return true;
+  }
+
+  private triggerFileInput(source: 'camera' | 'library', options: { allowMultiple?: boolean; capture?: string } = {}): void {
+    if (!this.setFileInputMode(source, options)) {
+      return;
+    }
+
+    const input = this.fileInput!.nativeElement as HTMLInputElement;
+    input.value = '';
+
+    setTimeout(() => {
+      input.click();
+    }, 100);
+  }
+
   // Show room selection dialog
   async showAddRoomDialog() {
     try {
@@ -6049,21 +6113,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               {
                 text: 'Take Another Photo',
                 cssClass: 'action-button',
-                handler: async () => {
-                  // Set capture attribute to force camera
-                  if (this.fileInput && this.fileInput.nativeElement) {
-                    const input = this.fileInput.nativeElement;
-                    input.setAttribute('capture', 'environment');
-                    input.setAttribute('accept', 'image/*');
-                    // Remove multiple attribute for camera capture
-                    input.removeAttribute('multiple');
-                  }
-                  // Continue expecting camera photos
-                  this.expectingCameraPhoto = true;
+                handler: () => {
                   this.currentUploadContext = { category, itemId, item, action: 'add' };
-                  setTimeout(() => {
-                    this.fileInput.nativeElement.click();
-                  }, 100);
+                  this.triggerFileInput('camera', { allowMultiple: false });
                   return true;
                 }
               },
@@ -6072,11 +6124,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 cssClass: 'done-button',
                 handler: () => {
                   this.expectingCameraPhoto = false;
-                  // Restore multiple attribute
-                  if (this.fileInput && this.fileInput.nativeElement) {
-                    this.fileInput.nativeElement.setAttribute('multiple', 'true');
-                    this.fileInput.nativeElement.removeAttribute('capture');
-                  }
+                  this.setFileInputMode('library', { allowMultiple: true });
                   return true;
                 }
               }
@@ -8318,29 +8366,30 @@ Stack: ${error?.stack}`;
   
   // Add another photo - triggers multi-photo capture
   async addAnotherPhoto(category: string, itemId: string, forceCamera: boolean = false) {
-    // Skip custom action sheet and go directly to native file input
     this.currentUploadContext = { 
       category, 
       itemId,
       action: 'add'
     };
-    
-    // Set flag if we're expecting a camera photo
-    this.expectingCameraPhoto = forceCamera;
-    
-    // Configure file input - ALWAYS show iOS picker on first click
-    if (this.fileInput && this.fileInput.nativeElement) {
-      const input = this.fileInput.nativeElement;
-      input.setAttribute('accept', 'image/*');
-      
-      // First click should always show iOS picker with all options
-      // Don't set capture attribute here - let iOS show all options
-      input.removeAttribute('capture');
-      // Keep multiple for flexibility
-      input.setAttribute('multiple', 'true');
+
+    if (forceCamera) {
+      this.triggerFileInput('camera', { allowMultiple: false });
+      return;
     }
-    
-    this.fileInput.nativeElement.click();
+
+    await this.presentPhotoSourceActionSheet({
+      header: 'Add Photo',
+      onCamera: () => {
+        this.triggerFileInput('camera', { allowMultiple: false });
+      },
+      onLibrary: () => {
+        this.triggerFileInput('library', { allowMultiple: true });
+      },
+      onCancel: () => {
+        this.currentUploadContext = null;
+        this.expectingCameraPhoto = false;
+      }
+    });
   }
   
   // Save caption to the Annotation field in Services_Visuals_Attach table
