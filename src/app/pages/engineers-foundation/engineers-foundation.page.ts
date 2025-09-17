@@ -54,7 +54,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // PDF generation state
   isPDFGenerating: boolean = false;
   pdfGenerationAttempts: number = 0;
-  private shouldAutoOpenPdf: boolean = false;
+  private autoPdfRequested = false;
+  private viewInitialized = false;
+  private dataInitialized = false;
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -185,7 +187,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     });
 
     const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
-    this.shouldAutoOpenPdf = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
+    this.autoPdfRequested = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
 
     // Debug logging removed - v1.4.316
 
@@ -203,26 +205,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Then load any existing template data (including visual selections)
       await this.loadExistingData();
-
-      if (this.shouldAutoOpenPdf) {
-        this.shouldAutoOpenPdf = false;
-        setTimeout(() => {
-          this.generatePDF().catch(error => {
-            console.error('[AutoPDF] Failed to generate PDF automatically:', error);
-          });
-        }, 400);
-      }
+      this.dataInitialized = true;
+      this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
     }
   }
   
   ngAfterViewInit() {
+    this.viewInitialized = true;
+    this.tryAutoOpenPdf();
     // ViewChild ready
     // Ensure buttons are enabled on page load
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
+  }
+
+  private tryAutoOpenPdf(): void {
+    if (!this.autoPdfRequested || !this.viewInitialized || !this.dataInitialized) {
+      return;
+    }
+
+    this.autoPdfRequested = false;
+    setTimeout(() => {
+      this.generatePDF().catch(error => {
+        console.error('[AutoPDF] Failed to generate PDF automatically:', error);
+      });
+    }, 300);
   }
 
   // Add direct event listeners to buttons as fallback

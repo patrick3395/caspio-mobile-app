@@ -53,7 +53,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // PDF generation state
   isPDFGenerating: boolean = false;
   pdfGenerationAttempts: number = 0;
-  private shouldAutoOpenPdf: boolean = false;
+  private autoPdfRequested = false;
+  private viewInitialized = false;
+  private dataInitialized = false;
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -184,7 +186,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     });
 
     const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
-    this.shouldAutoOpenPdf = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
+    this.autoPdfRequested = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
 
     // Debug logging removed - v1.4.316
     
@@ -202,26 +204,34 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Then load any existing template data (including visual selections)
       await this.loadExistingData();
-
-      if (this.shouldAutoOpenPdf) {
-        this.shouldAutoOpenPdf = false;
-        setTimeout(() => {
-          this.generatePDF().catch(error => {
-            console.error('[AutoPDF] Failed to generate PDF automatically:', error);
-          });
-        }, 400);
-      }
+      this.dataInitialized = true;
+      this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
     }
   }
   
   ngAfterViewInit() {
+    this.viewInitialized = true;
+    this.tryAutoOpenPdf();
     // ViewChild ready
     // Ensure buttons are enabled on page load
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
+  }
+
+  private tryAutoOpenPdf(): void {
+    if (!this.autoPdfRequested || !this.viewInitialized || !this.dataInitialized) {
+      return;
+    }
+
+    this.autoPdfRequested = false;
+    setTimeout(() => {
+      this.generatePDF().catch(error => {
+        console.error('[AutoPDF] Failed to generate PDF automatically:', error);
+      });
+    }, 300);
   }
 
   // Add direct event listeners to buttons as fallback
@@ -2846,10 +2856,35 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Get all templates - filter by TypeID = 2 for HUD/Manufactured Home
       const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
 
+      console.log(`[HUD-Template] Total templates fetched: ${allTemplates?.length || 0}`);
+
+      // Log a sample of templates to see what TypeIDs are available
+      if (allTemplates && allTemplates.length > 0) {
+        const typeIds = [...new Set(allTemplates.map(t => t.TypeID))];
+        console.log('[HUD-Template] Available TypeIDs in database:', typeIds);
+        console.log('[HUD-Template] Sample templates:', allTemplates.slice(0, 3));
+      }
+
       // Filter templates for TypeID = 2 (HUD/Manufactured Home)
       this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 2);
 
-      console.log(`Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
+      console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
+
+      // If no templates found with TypeID = 2, fallback to TypeID = 1 temporarily
+      if (this.visualTemplates.length === 0) {
+        console.warn('[HUD-Template] WARNING: No templates found with TypeID = 2. Falling back to TypeID = 1 temporarily.');
+        console.warn('[HUD-Template] Please configure HUD templates in the database with TypeID = 2.');
+
+        // Use TypeID = 1 as fallback so the template loads
+        this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
+
+        if (this.visualTemplates.length > 0) {
+          await this.showToast('Using default templates. HUD templates not configured.', 'warning');
+          console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1 as fallback`);
+        } else {
+          await this.showToast('No templates found in database.', 'danger');
+        }
+      }
       
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
