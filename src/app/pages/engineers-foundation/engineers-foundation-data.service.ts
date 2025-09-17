@@ -91,7 +91,7 @@ export class EngineersFoundationDataService {
     }
     const key = String(visualId);
     return this.resolveWithCache(this.visualAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(visualId))
+      firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)))
     );
   }
 
@@ -101,7 +101,7 @@ export class EngineersFoundationDataService {
     }
     const key = String(roomId);
     return this.resolveWithCache(this.roomPointsCache, key, () =>
-      firstValueFrom(this.caspioService.getServicesRoomsPoints(roomId))
+      firstValueFrom(this.caspioService.getServicesRoomsPoints(String(roomId)))
     );
   }
 
