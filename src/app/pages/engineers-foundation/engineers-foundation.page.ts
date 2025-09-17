@@ -17,6 +17,7 @@ import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom } from 'rxjs';
+import { EngineersFoundationDataService } from './engineers-foundation-data.service';
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
 
@@ -173,7 +174,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private imageCompression: ImageCompressionService,
     private platform: Platform,
     private pdfGenerator: PdfGeneratorService,
-    private cache: CacheService
+    private cache: CacheService,
+    private foundationData: EngineersFoundationDataService
   ) {}
 
   async ngOnInit() {
@@ -364,7 +366,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!this.projectId) return;
     
     try {
-      this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
+      this.projectData = await this.foundationData.getProject(this.projectId);
       console.log('Project data loaded:', this.projectData);
       
       // Type information is now loaded from Service data which has the correct TypeID
@@ -377,7 +379,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async loadTypeInfo(typeId: string) {
     try {
       console.log(`🔍 Loading type info for TypeID: ${typeId}`);
-      const typeData = await this.caspioService.getType(typeId).toPromise();
+      const typeData = await this.foundationData.getType(typeId);
       console.log('Type data response:', typeData);
       
       if (typeData?.TypeShort) {
@@ -420,7 +422,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     try {
       // Load service data from Services table
-      const serviceResponse = await this.caspioService.getService(this.serviceId).toPromise();
+      const serviceResponse = await this.foundationData.getService(this.serviceId);
       if (serviceResponse) {
         this.serviceData = serviceResponse;
         console.log('Service data loaded:', this.serviceData);
@@ -465,7 +467,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
+      const allTemplates = await this.foundationData.getRoomTemplates();
       
       if (allTemplates && allTemplates.length > 0) {
         // Store all templates for manual addition
@@ -513,7 +515,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Load existing Services_Rooms for this service to check which are already selected
         if (this.serviceId) {
-          const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          const existingRooms = await this.foundationData.getRoomsByService(this.serviceId);
           console.log('Existing Services_Rooms records:', existingRooms);
           
           if (existingRooms && existingRooms.length > 0) {
@@ -602,7 +604,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
                     try {
                       // Fetch the image as base64 data URL
-                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
+                      const imageData = await this.foundationData.getImage(room.FDFPhotoTop);
                       console.log(`[v1.4.427] FDF Top - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
@@ -629,7 +631,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     console.log(`[v1.4.427] FDF Bottom - Loading from path: ${room.FDFPhotoBottom}`);
 
                     try {
-                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoBottom).toPromise();
+                      const imageData = await this.foundationData.getImage(room.FDFPhotoBottom);
                       console.log(`[v1.4.427] FDF Bottom - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
@@ -654,7 +656,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     console.log(`[v1.4.427] FDF Threshold - Loading from path: ${room.FDFPhotoThreshold}`);
 
                     try {
-                      const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoThreshold).toPromise();
+                      const imageData = await this.foundationData.getImage(room.FDFPhotoThreshold);
                       console.log(`[v1.4.427] FDF Threshold - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),

@@ -2866,7 +2866,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
 
       // Filter templates for TypeID = 2 (HUD/Manufactured Home)
-      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 2);
+      // Use == instead of === to handle both string and number comparisons
+      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID == 2);
 
       console.log(`[HUD-Template] Filtered ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
@@ -2875,7 +2876,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         console.log('[HUD-Template] No TypeID = 2 templates found, using TypeID = 1 templates');
 
         // Use TypeID = 1 as fallback so the template loads
-        this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
+        // Use == for type coercion
+        this.visualTemplates = (allTemplates || []).filter(template => template.TypeID == 1);
 
         if (this.visualTemplates.length > 0) {
           console.log(`[HUD-Template] Using ${this.visualTemplates.length} templates from TypeID = 1`);
