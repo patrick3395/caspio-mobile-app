@@ -1597,18 +1597,36 @@ export class ProjectDetailPage implements OnInit {
     
     // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
     // Also check for various name formats
-    const isEngineersFoundation = 
-      service.typeName === 'Engineers Foundation Evaluation' || 
+    const isEngineersFoundation =
+      service.typeName === 'Engineers Foundation Evaluation' ||
       service.typeName === 'Engineer\'s Foundation Evaluation' ||
       service.typeName?.toLowerCase().includes('engineer') && service.typeName?.toLowerCase().includes('foundation') ||
       typeIdStr === '35';
-      
+
+    // Check for HUD template - typically includes "HUD" or "Manufactured" in the name
+    const isHUDTemplate =
+      service.typeName?.toLowerCase().includes('hud') ||
+      service.typeName?.toLowerCase().includes('manufactured') ||
+      service.typeName?.toLowerCase().includes('mobile home');
+
     // Navigate immediately - remove all blocking checks
-    if (isEngineersFoundation) {
+    if (isHUDTemplate) {
+      console.log('🏠 Navigating to HUD template - IMMEDIATE');
+      const url = `/hud-template/${this.projectId}/${service.serviceId}`;
+
+      // Use Ionic NavController for smoother navigation
+      this.router.navigate(['hud-template', this.projectId, service.serviceId], {
+        replaceUrl: false
+      }).catch(error => {
+        console.error('Router navigation failed, using fallback:', error);
+        // Fallback to direct navigation
+        window.location.assign(url);
+      });
+    } else if (isEngineersFoundation) {
       console.log('✅ Navigating to Engineers Foundation template - IMMEDIATE');
       // Force navigation with location.assign for immediate response
       const url = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
-      
+
       // Use Ionic NavController for smoother navigation
       this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], {
         replaceUrl: false

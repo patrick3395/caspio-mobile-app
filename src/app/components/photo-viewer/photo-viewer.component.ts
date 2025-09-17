@@ -30,13 +30,13 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
         <img [src]="displayPhotoUrl || photoUrl" alt="Photo" />
       </div>
       <!-- Caption button at bottom center -->
-      <div class="caption-button-container">
+      <div class="caption-button-container" *ngIf="enableCaption">
         <ion-button (click)="addCaption()" fill="solid" color="primary">
           {{ photoCaption ? 'Edit Caption' : 'Add Caption' }}
         </ion-button>
       </div>
       <!-- Caption display -->
-      <div class="caption-display" *ngIf="photoCaption">
+      <div class="caption-display" *ngIf="enableCaption && photoCaption">
         <ion-icon name="chatbox-ellipses-outline"></ion-icon>
         <span>{{ photoCaption }}</span>
       </div>
@@ -123,6 +123,7 @@ export class PhotoViewerComponent implements OnInit {
   @Input() photoData: any = null;
   @Input() photoCaption: string = '';
   @Input() existingAnnotations: any[] = [];
+  @Input() enableCaption: boolean = true;
   
   // Keep track of original image URL separately from display URL
   private originalPhotoUrl: string = '';
@@ -205,6 +206,9 @@ export class PhotoViewerComponent implements OnInit {
   }
 
   async addCaption() {
+    if (!this.enableCaption) {
+      return;
+    }
     const alert = await this.alertController.create({
       header: 'Add Caption',
       inputs: [

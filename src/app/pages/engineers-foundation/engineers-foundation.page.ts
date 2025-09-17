@@ -1121,7 +1121,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           photoName: `FDF ${photoType} - ${roomName}`,
           canAnnotate: false,
           photoData: null,
-          photoCaption: ''
+          photoCaption: '',
+          enableCaption: false
         },
         cssClass: 'photo-viewer-modal'
       });
