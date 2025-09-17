@@ -9,10 +9,11 @@ import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { CaspioInterceptor } from './interceptors/caspio.interceptor';
 import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.component';
+import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.component';
 
 @NgModule({
   declarations: [AppComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true }

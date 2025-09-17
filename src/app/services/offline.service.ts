@@ -2,9 +2,9 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, fromEvent, merge, Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-interface QueuedRequest {
+export interface QueuedRequest {
   id: string;
-  type: 'CREATE' | 'UPDATE' | 'DELETE' | 'UPLOAD';
+  type: 'POST' | 'PUT' | 'DELETE';
   endpoint: string;
   data: any;
   timestamp: number;
@@ -16,14 +16,19 @@ interface QueuedRequest {
 })
 export class OfflineService {
   private online$ = new BehaviorSubject<boolean>(navigator.onLine);
+  private networkOnline$ = new BehaviorSubject<boolean>(navigator.onLine);
+  private manualOffline$ = new BehaviorSubject<boolean>(false);
   private requestQueue: QueuedRequest[] = [];
   private localStorage = window.localStorage;
   private QUEUE_KEY = 'offline_queue';
+  private MANUAL_KEY = 'offline_manual_mode';
   private MAX_RETRIES = 3;
+  private processor?: (request: QueuedRequest) => Promise<any>;
   
   constructor() {
     // Monitor online/offline status
     this.initializeNetworkEvents();
+    this.loadManualSetting();
     // Load queued requests from localStorage
     this.loadQueue();
   }
@@ -37,15 +42,12 @@ export class OfflineService {
     const offline$ = fromEvent(window, 'offline').pipe(map(() => false));
     
     merge(online$, offline$).subscribe(isOnline => {
-      this.online$.next(isOnline);
-      
-      if (isOnline) {
-        console.log('📶 Back online - processing queued requests');
-        this.processQueue();
-      } else {
-        console.log('📵 Gone offline - requests will be queued');
-      }
+      this.networkOnline$.next(isOnline);
+      this.updateEffectiveOnline();
     });
+
+    // Also respond to manual toggle changes
+    this.manualOffline$.subscribe(() => this.updateEffectiveOnline());
   }
 
   /**
@@ -63,6 +65,48 @@ export class OfflineService {
   }
 
   /**
+   * Observe manual offline state
+   */
+  getManualOfflineStatus(): Observable<boolean> {
+    return this.manualOffline$.asObservable();
+  }
+
+  isManualOffline(): boolean {
+    return this.manualOffline$.value;
+  }
+
+  setManualOffline(enabled: boolean): void {
+    if (this.manualOffline$.value === enabled) {
+      return;
+    }
+    this.manualOffline$.next(enabled);
+    try {
+      this.localStorage.setItem(this.MANUAL_KEY, JSON.stringify(enabled));
+    } catch (e) {
+      console.error('Failed to persist manual offline setting:', e);
+    }
+    if (!enabled && this.isOnline()) {
+      console.log('📶 Manual offline disabled - processing queued requests');
+      this.processQueue();
+    } else if (enabled) {
+      console.log('📵 Manual offline enabled - requests will be queued');
+    }
+  }
+
+  private updateEffectiveOnline(): void {
+    const effective = this.networkOnline$.value && !this.manualOffline$.value;
+    const previous = this.online$.value;
+    this.online$.next(effective);
+
+    if (effective && !previous) {
+      console.log('📶 Back online - processing queued requests');
+      this.processQueue();
+    } else if (!effective && previous) {
+      console.log('📵 Offline (manual or network) - requests will be queued');
+    }
+  }
+
+  /**
    * Queue a request for later processing
    */
   queueRequest(type: QueuedRequest['type'], endpoint: string, data: any): string {
@@ -77,12 +121,11 @@ export class OfflineService {
     
     this.requestQueue.push(request);
     this.saveQueue();
-    
-    // Try to process immediately if online
+
     if (this.isOnline()) {
       this.processQueue();
     }
-    
+
     return request.id;
   }
 
@@ -126,14 +169,10 @@ export class OfflineService {
    * Process a single request
    */
   private async processRequest(request: QueuedRequest): Promise<any> {
-    // This would be implemented based on your specific API calls
-    // For now, it's a placeholder that would call the appropriate service method
-    console.log(`Processing queued ${request.type} request to ${request.endpoint}`);
-    
-    // Simulate processing
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(true), 100);
-    });
+    if (!this.processor) {
+      throw new Error('No offline queue processor registered');
+    }
+    return this.processor(request);
   }
 
   /**
@@ -172,6 +211,23 @@ export class OfflineService {
       console.error('Failed to load queue from localStorage:', e);
       this.requestQueue = [];
     }
+  }
+
+  private loadManualSetting(): void {
+    try {
+      const stored = this.localStorage.getItem(this.MANUAL_KEY);
+      if (stored) {
+        const value = JSON.parse(stored);
+        this.manualOffline$.next(!!value);
+      }
+    } catch (e) {
+      console.error('Failed to load manual offline setting:', e);
+    }
+    this.updateEffectiveOnline();
+  }
+
+  registerProcessor(processor: (request: QueuedRequest) => Promise<any>): void {
+    this.processor = processor;
   }
 
   /**

@@ -377,11 +377,39 @@ ion-content {
     
     .visual-item-container {
       position: relative; // Make container relative for absolute positioning
-      
+       
       ion-item.checkbox-item.with-camera {
         position: relative;
         padding-bottom: 60px; // Much more padding to prevent overlap with text
         min-height: 110px; // Increased minimum height for proper spacing
+
+        &:not(.has-photos) {
+          .item-label {
+            .item-text.text-with-camera,
+            .item-text-wrapper .item-text.text-with-camera {
+              padding-right: 32px;
+
+              &::after {
+                right: 26px;
+                width: 18px;
+              }
+            }
+          }
+        }
+
+        &.has-photos {
+          .item-label {
+            .item-text.text-with-camera,
+            .item-text-wrapper .item-text.text-with-camera {
+              padding-right: 45px;
+
+              &::after {
+                right: 40px;
+                width: 30px;
+              }
+            }
+          }
+        }
       }
       
       // Position camera button relative to the container, near the orange border

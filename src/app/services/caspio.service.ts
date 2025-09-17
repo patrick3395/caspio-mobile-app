@@ -1,11 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, from, of } from 'rxjs';
+import { Observable, BehaviorSubject, throwError, from, of, firstValueFrom } from 'rxjs';
 import { map, tap, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
-import { OfflineService } from './offline.service';
+import { OfflineService, QueuedRequest } from './offline.service';
 
 export interface CaspioToken {
   access_token: string;
@@ -37,6 +37,7 @@ export class CaspioService {
     private offline: OfflineService
   ) {
     this.loadStoredToken();
+    this.offline.registerProcessor(this.processQueuedRequest.bind(this));
   }
 
   authenticate(): Observable<CaspioAuthResponse> {
@@ -181,6 +182,14 @@ export class CaspioService {
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {
+    if (!this.offline.isOnline()) {
+      return from(this.queueOfflineRequest<T>('POST', endpoint, data));
+    }
+
+    return this.performPost<T>(endpoint, data);
+  }
+
+  private performPost<T>(endpoint: string, data: any): Observable<T> {
     const token = this.getCurrentToken();
     console.log('?? DEBUG [CaspioService.post]: Token available:', !!token);
     
@@ -219,6 +228,14 @@ export class CaspioService {
   }
 
   put<T>(endpoint: string, data: any): Observable<T> {
+    if (!this.offline.isOnline()) {
+      return from(this.queueOfflineRequest<T>('PUT', endpoint, data));
+    }
+
+    return this.performPut<T>(endpoint, data);
+  }
+
+  private performPut<T>(endpoint: string, data: any): Observable<T> {
     const token = this.getCurrentToken();
     if (!token) {
       return throwError(() => new Error('No authentication token available'));
@@ -237,6 +254,14 @@ export class CaspioService {
   }
 
   delete<T>(endpoint: string): Observable<T> {
+    if (!this.offline.isOnline()) {
+      return from(this.queueOfflineRequest<T>('DELETE', endpoint, null));
+    }
+
+    return this.performDelete<T>(endpoint);
+  }
+
+  private performDelete<T>(endpoint: string): Observable<T> {
     const token = this.getCurrentToken();
     if (!token) {
       return throwError(() => new Error('No authentication token available'));
@@ -248,6 +273,82 @@ export class CaspioService {
     });
 
     return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers });
+  }
+
+  private async queueOfflineRequest<T>(method: QueuedRequest['type'], endpoint: string, data: any): Promise<T> {
+    const payload = await this.serializePayload(data);
+    this.offline.queueRequest(method, endpoint, payload);
+    return null as T;
+  }
+
+  private async serializePayload(data: any): Promise<any> {
+    if (data instanceof FormData) {
+      const entries: any[] = [];
+      for (const [key, value] of data.entries()) {
+        if (value instanceof File) {
+          const dataUrl = await this.blobToDataUrl(value);
+          entries.push({ key, value: dataUrl, fileName: value.name, type: value.type, __file: true });
+        } else {
+          entries.push({ key, value });
+        }
+      }
+      return { __formData: true, entries };
+    }
+    return data;
+  }
+
+  private async deserializePayload(payload: any): Promise<any> {
+    if (payload && payload.__formData) {
+      const formData = new FormData();
+      for (const entry of payload.entries) {
+        if (entry.__file && entry.value) {
+          const blob = this.dataUrlToBlob(entry.value, entry.type || 'application/octet-stream');
+          const file = new File([blob], entry.fileName || 'file', { type: entry.type || 'application/octet-stream' });
+          formData.append(entry.key, file);
+        } else {
+          formData.append(entry.key, entry.value);
+        }
+      }
+      return formData;
+    }
+    return payload;
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  private dataUrlToBlob(dataUrl: string, contentType: string): Blob {
+    const parts = dataUrl.split(',');
+    const byteString = atob(parts[1] || '');
+    const buffer = new ArrayBuffer(byteString.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < byteString.length; i++) {
+      view[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([buffer], { type: contentType });
+  }
+
+  private async processQueuedRequest(request: QueuedRequest): Promise<any> {
+    const payload = await this.deserializePayload(request.data);
+    switch (request.type) {
+      case 'POST':
+        await firstValueFrom(this.performPost(request.endpoint, payload));
+        break;
+      case 'PUT':
+        await firstValueFrom(this.performPut(request.endpoint, payload));
+        break;
+      case 'DELETE':
+        await firstValueFrom(this.performDelete(request.endpoint));
+        break;
+      default:
+        throw new Error(`Unsupported queued request type: ${request.type}`);
+    }
   }
 
   logout(): void {

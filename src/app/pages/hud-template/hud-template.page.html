@@ -7,7 +7,7 @@
     </div>
     <ion-title>{{ typeShort }}</ion-title>
     <div slot="end">
-      <button id="eng-pdf-btn" (click)="generatePDF()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
+      <button id="eng-pdf-btn" class="pdf-header-button" (click)="generatePDF()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
         <ion-icon name="document-text-outline" style="font-size: 20px; margin-right: 5px;"></ion-icon>
         <span>PDF</span>
       </button>
@@ -445,7 +445,10 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none"
+                                class="checkbox-item with-camera"
+                                [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
+                                *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
@@ -576,7 +579,10 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none"
+                                class="checkbox-item with-camera"
+                                [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
+                                *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 
@@ -707,7 +713,10 @@
                       </div>
                       
                       <!-- Text questions - keep original checkbox behavior -->
-                      <ion-item lines="none" class="checkbox-item with-camera" *ngIf="!item.answerType || item.answerType === 0">
+                      <ion-item lines="none"
+                                class="checkbox-item with-camera"
+                                [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
+                                *ngIf="!item.answerType || item.answerType === 0">
                         <button class="camera-button-structural" 
                                 *ngIf="isItemSelected(category, item.id)"
                                 (click)="addAnotherPhoto(category, item.id, true); $event.stopPropagation()" 

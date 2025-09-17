@@ -1,0 +1,13 @@
+<ng-container *ngIf="manualOffline$ | async as manualOffline">
+  <button
+    type="button"
+    class="sync-toggle-button"
+    (click)="toggle()"
+    [attr.aria-pressed]="manualOffline"
+    [attr.aria-label]="manualOffline ? 'Enable auto-sync' : 'Disable auto-sync'"
+    [attr.title]="manualOffline ? 'Auto-save is off. Tap to resume syncing.' : 'Auto-save is on. Tap to pause syncing.'"
+  >
+    <ion-icon [name]="manualOffline ? 'cloud-offline' : 'cloud-upload'"></ion-icon>
+    <span class="status-text">{{ manualOffline ? 'Auto-Save Off' : 'Auto-Save On' }}</span>
+  </button>
+</ng-container>
