@@ -880,9 +880,9 @@
                         <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
                       </button>
                       <!-- Top Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" 
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top"
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.topUrl" 
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Top')"
                              alt="Top">
@@ -903,9 +903,9 @@
                         <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
                       </button>
                       <!-- Bottom Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" 
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom"
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.bottomUrl" 
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom">
@@ -926,9 +926,9 @@
                         <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
                       </button>
                       <!-- Threshold Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" 
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold"
                            style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName].fdfPhotos.thresholdUrl" 
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'" 
                              style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
                              (click)="viewFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Threshold">

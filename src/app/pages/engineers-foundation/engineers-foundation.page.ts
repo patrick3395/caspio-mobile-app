@@ -573,94 +573,80 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
-                    console.log(`[v1.4.423] FDF Top - Loading from path: ${room.FDFPhotoTop}`);
-
-                    // [v1.4.423] Show debug info about what we're loading
-                    const loadDebugInfo = {
-                      photoType: 'Top',
-                      roomName,
-                      roomId: room.RoomID,
-                      storedPath: room.FDFPhotoTop,
-                      pathIsValid: room.FDFPhotoTop && room.FDFPhotoTop !== '/undefined',
-                      pathStartsWithSlash: room.FDFPhotoTop?.startsWith('/')
-                    };
-
-                    console.log(`[v1.4.423] FDF Top Load Debug:`, loadDebugInfo);
+                    fdfPhotos.topPath = room.FDFPhotoTop; // Store the path for later use
+                    console.log(`[v1.4.427] FDF Top - Loading from path: ${room.FDFPhotoTop}`);
 
                     try {
                       // Fetch the image as base64 data URL
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
-                      console.log(`[v1.4.423] FDF Top - Received data:`, {
+                      console.log(`[v1.4.427] FDF Top - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0,
-                        preview: imageData?.substring(0, 50)
+                        length: imageData?.length || 0
                       });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.topUrl = imageData;
-                        console.log(`[v1.4.423] FDF Top - ✅ Base64 loaded successfully`);
+                        console.log(`[v1.4.427] FDF Top - ✅ Base64 loaded successfully`);
                       } else {
-                        console.error(`[v1.4.423] FDF Top - ❌ Invalid data, using placeholder`);
-                        console.error(`[v1.4.423] FDF Top - Path was: ${room.FDFPhotoTop}`);
-                        fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
+                        // Don't use placeholder, keep the path for on-demand loading
+                        console.warn(`[v1.4.427] FDF Top - No base64 data, will fetch on demand`);
+                        fdfPhotos.topUrl = null; // Don't set placeholder
                       }
                     } catch (err: any) {
-                      console.error(`[v1.4.423] FDF Top - ❌ Load error:`, err);
-                      console.error(`[v1.4.423] FDF Top - Error details:`, {
-                        message: err?.message,
-                        status: err?.status,
-                        path: room.FDFPhotoTop
-                      });
-                      fdfPhotos.topUrl = 'assets/img/photo-placeholder.png';
+                      console.error(`[v1.4.427] FDF Top - Load error:`, err?.message || err);
+                      // Don't use placeholder, keep the path for on-demand loading
+                      fdfPhotos.topUrl = null;
                     }
                   }
                   if (room.FDFPhotoBottom) {
                     fdfPhotos.bottom = true;
-                    console.log(`[v1.4.421] FDF Bottom - Loading from path: ${room.FDFPhotoBottom}`);
+                    fdfPhotos.bottomPath = room.FDFPhotoBottom; // Store the path
+                    console.log(`[v1.4.427] FDF Bottom - Loading from path: ${room.FDFPhotoBottom}`);
+
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoBottom).toPromise();
-                      console.log(`[v1.4.421] FDF Bottom - Received data:`, {
+                      console.log(`[v1.4.427] FDF Bottom - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0,
-                        preview: imageData?.substring(0, 50)
+                        length: imageData?.length || 0
                       });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.bottomUrl = imageData;
-                        console.log(`[v1.4.421] FDF Bottom - ✅ Base64 loaded successfully`);
+                        console.log(`[v1.4.427] FDF Bottom - ✅ Base64 loaded successfully`);
                       } else {
-                        console.error(`[v1.4.421] FDF Bottom - ❌ Invalid data, using placeholder`);
-                        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+                        console.warn(`[v1.4.427] FDF Bottom - No base64 data, will fetch on demand`);
+                        fdfPhotos.bottomUrl = null;
                       }
-                    } catch (err) {
-                      console.error(`[v1.4.421] FDF Bottom - ❌ Load error:`, err);
-                      fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+                    } catch (err: any) {
+                      console.error(`[v1.4.427] FDF Bottom - Load error:`, err?.message || err);
+                      fdfPhotos.bottomUrl = null;
                     }
                   }
                   if (room.FDFPhotoThreshold) {
                     fdfPhotos.threshold = true;
-                    console.log(`[v1.4.421] FDF Threshold - Loading from path: ${room.FDFPhotoThreshold}`);
+                    fdfPhotos.thresholdPath = room.FDFPhotoThreshold; // Store the path
+                    console.log(`[v1.4.427] FDF Threshold - Loading from path: ${room.FDFPhotoThreshold}`);
+
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoThreshold).toPromise();
-                      console.log(`[v1.4.421] FDF Threshold - Received data:`, {
+                      console.log(`[v1.4.427] FDF Threshold - Received data:`, {
                         hasData: !!imageData,
                         isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0,
-                        preview: imageData?.substring(0, 50)
+                        length: imageData?.length || 0
                       });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.thresholdUrl = imageData;
-                        console.log(`[v1.4.421] FDF Threshold - ✅ Base64 loaded successfully`);
+                        console.log(`[v1.4.427] FDF Threshold - ✅ Base64 loaded successfully`);
                       } else {
-                        console.error(`[v1.4.421] FDF Threshold - ❌ Invalid data, using placeholder`);
-                        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+                        console.warn(`[v1.4.427] FDF Threshold - No base64 data, will fetch on demand`);
+                        fdfPhotos.thresholdUrl = null;
                       }
-                    } catch (err) {
-                      console.error(`[v1.4.421] FDF Threshold - ❌ Load error:`, err);
-                      fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+                    } catch (err: any) {
+                      console.error(`[v1.4.427] FDF Threshold - Load error:`, err?.message || err);
+                      fdfPhotos.thresholdUrl = null;
                     }
                   }
                   
@@ -1234,23 +1220,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       hasFreshData: !!freshImageData
     });
 
-    // Use the fresh data if available, otherwise use the stored URL
-    if (finalPhotoUrl) {
-      // If it's a placeholder image, don't open viewer
-      if (finalPhotoUrl.includes('photo-placeholder.png')) {
-        console.warn(`[v1.4.424] Cannot view placeholder image`);
-        await this.showToast('Photo not available', 'warning');
-        return;
-      }
+    // [v1.4.427] Use fresh data if available, otherwise try to get from stored URL
+    let viewableUrl = finalPhotoUrl;
 
+    // If we don't have fresh data and the stored URL is a blob, we need to fetch from database
+    if (!freshImageData && photoUrl && (photoUrl.startsWith('blob:') || photoUrl === 'assets/img/photo-placeholder.png')) {
+      // The blob URL is expired or placeholder, we need to fetch from database path
+      if (databasePath && databasePath.startsWith('/') && databasePath !== '/undefined') {
+        console.log(`[v1.4.427] Blob URL expired, fetching from database path: ${databasePath}`);
+        try {
+          const imageData = await this.caspioService.getImageFromFilesAPI(databasePath).toPromise();
+          if (imageData && imageData.startsWith('data:')) {
+            viewableUrl = imageData;
+            // Update stored URL for future use
+            this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
+            console.log(`[v1.4.427] Successfully fetched image from database path`);
+          } else {
+            console.error(`[v1.4.427] Failed to get valid image data from path: ${databasePath}`);
+          }
+        } catch (fetchErr: any) {
+          console.error(`[v1.4.427] Error fetching from database path:`, fetchErr);
+        }
+      }
+    }
+
+    if (viewableUrl && !viewableUrl.includes('photo-placeholder.png')) {
       try {
         const modal = await this.modalController.create({
           component: PhotoViewerComponent,
           componentProps: {
             photos: [{
-              url: finalPhotoUrl,
-              displayUrl: finalPhotoUrl,
-              thumbnailUrl: finalPhotoUrl,
+              url: viewableUrl,
+              displayUrl: viewableUrl,
+              thumbnailUrl: viewableUrl,
               caption: `FDF ${photoType} - ${roomName}`
             }],
             initialIndex: 0
@@ -1260,11 +1262,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         await modal.present();
       } catch (error) {
-        console.error(`[v1.4.424] Error opening photo viewer:`, error);
+        console.error(`[v1.4.427] Error opening photo viewer:`, error);
         await this.showToast('Failed to open photo viewer', 'danger');
       }
     } else {
-      console.warn(`[v1.4.424] No photo URL found for ${roomName} ${photoType}`);
+      console.warn(`[v1.4.427] No valid photo URL found for ${roomName} ${photoType}`);
       await this.showToast('Photo not available', 'warning');
     }
   }
