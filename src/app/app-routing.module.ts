@@ -36,6 +36,11 @@ const routes: Routes = [
     path: 'engineers-foundation/:projectId/:serviceId',
     loadComponent: () => import('./pages/engineers-foundation/engineers-foundation.page').then( m => m.EngineersFoundationPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'hud-template/:projectId/:serviceId',
+    loadComponent: () => import('./pages/hud-template/hud-template.page').then( m => m.HudTemplatePage),
+    canActivate: [AuthGuard]
   }
 ];
 

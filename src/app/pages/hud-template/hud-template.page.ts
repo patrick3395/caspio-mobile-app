@@ -16,7 +16,6 @@ import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.co
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { firstValueFrom } from 'rxjs';
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
 
@@ -31,13 +30,13 @@ interface ServicesVisualRecord {
 }
 
 @Component({
-  selector: 'app-engineers-foundation',
-  templateUrl: './engineers-foundation.page.html',
-  styleUrls: ['./engineers-foundation.page.scss'],
+  selector: 'app-hud-template',
+  templateUrl: './hud-template.page.html',
+  styleUrls: ['./hud-template.page.scss'],
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy {
+export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   
@@ -1025,7 +1024,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
       uploadFormData.append('file', compressedFile, fileName);
       
-      const token = await firstValueFrom(this.caspioService.getValidToken());
+      const token = await this.caspioService.getValidToken();
       const account = this.caspioService.getAccountID();
       
       const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
@@ -9227,7 +9226,7 @@ Stack: ${error?.stack}`;
                     console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
                     
                     // Try to use token-based URL as fallback
-                    const token = await firstValueFrom(this.caspioService.getValidToken());
+                    const token = await this.caspioService.getValidToken();
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
