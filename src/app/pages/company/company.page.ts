@@ -864,6 +864,13 @@ export class CompanyPage implements OnInit {
     }
     return phone;
   }
+
+  buildCompanyAddress(company: { Address?: string; City?: string; State?: string; Zip?: string }): string {
+    const parts = [company.Address, company.City, company.State, company.Zip]
+      .map(part => (part ?? '').toString().trim())
+      .filter(part => part.length > 0);
+    return parts.length ? parts.join(', ') : 'Address not provided';
+  }
   private populateStageDefinitions(records: any[]) {
     const definitions = records.map(record => {
       const name = record.Stage ?? record.Name ?? 'No Stage';

@@ -186,7 +186,7 @@
                   </div>
                   <div class="company-rollup-card">
                     <h5>Address</h5>
-                    <p>{{ [company.Address, company.City, company.State, company.Zip].filter(Boolean).join(', ') || 'Address not provided' }}</p>
+                    <p>{{ buildCompanyAddress(company) }}</p>
                   </div>
                   <div class="company-rollup-card">
                     <h5>Open Tasks</h5>
