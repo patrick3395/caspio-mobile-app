@@ -14,9 +14,12 @@ ion-header {
 
     ion-button {
       --color: white;
+      --padding-start: 12px;
+      --padding-end: 12px;
 
       ion-icon {
         color: white;
+        font-size: 28px;
       }
     }
   }
