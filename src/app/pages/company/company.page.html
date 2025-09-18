@@ -1,27 +1,7 @@
 ﻿
 <ion-header class="company-header">
   <ion-toolbar class="company-toolbar">
-    <ion-title>
-      <div class="toolbar-title">
-        <span>Company CRM</span>
-        <small>{{ companies.length }} companies across {{ stages.length }} stages</small>
-      </div>
-    </ion-title>
-    <ion-buttons slot="end" class="toolbar-actions">
-      <ion-select
-        interface="popover"
-        placeholder="Focus company"
-        [value]="selectedCompanyId"
-        (ionChange)="setSelectedCompany($event.detail.value)">
-        <ion-select-option *ngFor="let company of companies" [value]="company.CompanyID">
-          {{ company.CompanyName }}
-        </ion-select-option>
-      </ion-select>
-      <ion-button fill="clear" color="primary" (click)="loadCompanyData()">
-        <ion-icon slot="start" name="refresh-outline"></ion-icon>
-        Refresh
-      </ion-button>
-    </ion-buttons>
+    <ion-title>CRM</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -31,31 +11,32 @@
   </ion-refresher>
 
   <div class="page-shell">
-    <ion-segment
-      [(ngModel)]="selectedTab"
-      (ionChange)="onTabChange($event)"
-      class="company-tabs"
-      scrollable
-      mode="md">
-      <ion-segment-button value="companies">
-        <ion-label>Companies</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="contacts">
-        <ion-label>Contacts</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="tasks">
-        <ion-label>Tasks</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="meetings">
-        <ion-label>Meetings</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="communications">
-        <ion-label>Touches</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="invoices">
-        <ion-label>Invoices</ion-label>
-      </ion-segment-button>
-    </ion-segment>
+    <div class="tab-button-grid">
+      <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
+        <ion-icon name="business-outline"></ion-icon>
+        <span>Companies</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
+        <ion-icon name="people-outline"></ion-icon>
+        <span>Contacts</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'tasks'" (click)="selectTab('tasks')">
+        <ion-icon name="checkbox-outline"></ion-icon>
+        <span>Tasks</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'meetings'" (click)="selectTab('meetings')">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <span>Meetings</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
+        <ion-icon name="chatbubbles-outline"></ion-icon>
+        <span>Touches</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
+        <ion-icon name="receipt-outline"></ion-icon>
+        <span>Invoices</span>
+      </button>
+    </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
       <div class="companies-search-container">
         <ion-searchbar
@@ -74,9 +55,9 @@
               <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
               <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
             </div>
-            <button class="stage-expand-toggle" (click)="toggleStageExpand(group.stage, $event)">
+            <div class="stage-expand-toggle">
               <ion-icon [name]="isStageExpanded(group.stage) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
-            </button>
+            </div>
           </div>
 
           <div class="companies-list" *ngIf="isStageExpanded(group.stage)">

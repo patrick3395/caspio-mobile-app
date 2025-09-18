@@ -416,41 +416,52 @@ export class CompanyPage implements OnInit {
     this.applyCompanyFilters();
   }
 
-  async onTabChange(event: any) {
-    const newTab = event.detail?.value || this.selectedTab;
+  selectTab(tab: string) {
+    // Instant tab switching - no data processing
+    this.selectedTab = tab as any;
 
-    // Update the tab immediately for instant UI feedback
-    this.selectedTab = newTab;
-    this.isProcessingTab = true;
+    // Only load data if it hasn't been loaded yet for this tab
+    if (!this.tabDataLoaded[tab]) {
+      this.loadTabData(tab);
+      this.tabDataLoaded[tab] = true;
+    }
+  }
 
-    // Use requestAnimationFrame to defer heavy processing
+  private tabDataLoaded: {[key: string]: boolean} = {
+    companies: true, // Already loaded on init
+    contacts: false,
+    tasks: false,
+    meetings: false,
+    communications: false,
+    invoices: false
+  };
+
+  private loadTabData(tab: string) {
+    // Load data asynchronously without blocking UI
     requestAnimationFrame(() => {
-      // Use setTimeout with 0 delay to push to next tick
-      setTimeout(() => {
-        switch (newTab) {
-          case 'contacts':
-            this.applyContactFilters();
-            break;
-          case 'tasks':
-            this.applyTaskFilters();
-            break;
-          case 'meetings':
-            this.applyMeetingFilters();
-            break;
-          case 'communications':
-            this.applyCommunicationFilters();
-            break;
-          case 'invoices':
-            this.categorizeInvoices();
-            break;
-          case 'companies':
-          default:
-            this.applyCompanyFilters();
-            break;
-        }
-        this.isProcessingTab = false;
-      }, 0);
+      switch (tab) {
+        case 'contacts':
+          this.applyContactFilters();
+          break;
+        case 'tasks':
+          this.applyTaskFilters();
+          break;
+        case 'meetings':
+          this.applyMeetingFilters();
+          break;
+        case 'communications':
+          this.applyCommunicationFilters();
+          break;
+        case 'invoices':
+          this.categorizeInvoices();
+          break;
+      }
     });
+  }
+
+  async onTabChange(event: any) {
+    // Keep for compatibility but use selectTab instead
+    this.selectTab(event.detail?.value || this.selectedTab);
   }
   applyCompanyFilters() {
     const unassignedStage: StageDefinition = { id: 0, name: 'No Stage', sortOrder: 999 };
@@ -940,17 +951,19 @@ export class CompanyPage implements OnInit {
 
   private expandedCompanies = new Set<number>();
   private expandedStages = new Set<number>();
+  private stagesInitialized = false;
 
   isStageExpanded(stage: StageDefinition): boolean {
-    // Default to expanded
-    if (!this.expandedStages.has(stage.id) && this.expandedStages.size === 0) {
-      return true;
-    }
+    // Default to collapsed (false) instead of expanded
     return this.expandedStages.has(stage.id);
   }
 
-  toggleStageExpand(stage: StageDefinition, event: Event): void {
-    event.stopPropagation();
+  toggleStageExpand(stage: StageDefinition, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
     if (this.expandedStages.has(stage.id)) {
       this.expandedStages.delete(stage.id);
     } else {

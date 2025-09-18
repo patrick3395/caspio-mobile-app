@@ -5,35 +5,21 @@
 }
 
 .company-header {
-  background: var(--ion-color-light);
-  box-shadow: 0 2px 8px rgba(10, 31, 68, 0.12);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .company-toolbar {
   --padding-start: 16px;
   --padding-end: 16px;
-}
+  text-align: center;
 
-.toolbar-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.toolbar-title span {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.toolbar-title small {
-  font-size: 0.85rem;
-  color: var(--ion-color-medium-shade);
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  ion-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
+    letter-spacing: 0.5px;
+  }
 }
 
 .page-shell {
@@ -43,10 +29,79 @@
   padding: 16px;
 }
 
-.company-tabs {
-  border-radius: 14px;
-  margin-top: 4px;
-  background: var(--ion-color-light-shade);
+// Tab button grid styling
+.tab-button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.tab-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  min-height: 70px;
+  background: #f8f9fa;
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
+  ion-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+    color: #6c757d;
+    transition: all 0.15s ease;
+  }
+
+  span {
+    display: block;
+    text-align: center;
+  }
+
+  &:hover {
+    background: #ffffff;
+    border-color: #f15a27;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
+
+    ion-icon {
+      color: #f15a27;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.active {
+    background: #f15a27;
+    border-color: #f15a27;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.2);
+
+    ion-icon {
+      color: #ffffff;
+    }
+  }
+}
+
+@media (max-width: 400px) {
+  .tab-button-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .tab-content {
@@ -542,7 +597,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
