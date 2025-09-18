@@ -1,23 +1,159 @@
+﻿
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController } from '@ionic/angular';
+import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
 import { CaspioService } from '../../services/caspio.service';
-import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
-interface User {
-  UserID?: number;
-  Name: string;
-  Title?: string;
-  Phone?: string;
-  Email: string;
-  Headshot?: any;
-  CompanyID?: number;
-  FirstName?: string;
-  LastName?: string;
+interface StageDefinition {
+  id: number;
+  name: string;
+  sortOrder: number;
 }
 
+interface CompanyRecord {
+  PK_ID: number;
+  CompanyID: number;
+  StageID: number | null;
+  StageName: string;
+  CompanyName: string;
+  SizeLabel: string;
+  ServiceArea: string;
+  LeadSource: string;
+  Phone: string;
+  Email: string;
+  Website: string;
+  Address: string;
+  City: string;
+  State: string;
+  Zip: string;
+  Notes: string;
+  Franchise: boolean;
+  DateOnboarded: string;
+  CCEmail: string;
+}
+
+interface InvoiceTotals {
+  total: number;
+  outstanding: number;
+  paid: number;
+  invoices?: number;
+}
+
+interface CompanyViewModel extends CompanyRecord {
+  contactCount: number;
+  openTasks: number;
+  overdueTasks: number;
+  totalTouches: number;
+  lastTouchLabel: string;
+  lastTouchDate: Date | null;
+  upcomingMeetingDate: Date | null;
+  invoiceTotals: InvoiceTotals;
+}
+
+interface SnapshotItem {
+  label: string;
+  value: string;
+  icon: string;
+  hint?: string;
+}
+
+interface StatItem {
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: string;
+}
+
+interface ContactRecord {
+  PK_ID: number;
+  ContactID: number;
+  CompanyID: number | null;
+  Name: string;
+  Title: string;
+  Role: string;
+  Email: string;
+  Phone1: string;
+  Phone2: string;
+  PrimaryContact: boolean;
+  Notes: string;
+}
+
+interface TaskViewModel {
+  PK_ID: number;
+  TaskID: number;
+  CompanyID: number | null;
+  dueDate: Date | null;
+  dueLabel: string;
+  assignment: string;
+  assignTo: string;
+  completed: boolean;
+  notes: string;
+  communicationType: string;
+  isOverdue: boolean;
+}
+
+interface MeetingViewModel {
+  PK_ID: number;
+  MeetingID: number;
+  CompanyID: number | null;
+  subject: string;
+  description: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  attendees: string[];
+}
+
+interface CommunicationViewModel {
+  PK_ID: number;
+  TouchID: number;
+  CompanyID: number | null;
+  date: Date | null;
+  mode: string;
+  communicationType: string;
+  notes: string;
+  outcome: string;
+  channels: string[];
+}
+
+interface InvoiceRecord {
+  PK_ID: number;
+  InvoiceID: number;
+  ProjectID: number | null;
+  ServiceID: number | null;
+  Date: string | null;
+  Address: string;
+  City: string;
+  Zip: string;
+  Fee: number;
+  Paid: number | null;
+  PaymentProcessor: string;
+  InvoiceNotes: string;
+  StateID: number | null;
+  Mode: string;
+}
+
+interface InvoiceViewModel extends InvoiceRecord {
+  CompanyID: number | null;
+  CompanyName: string;
+  DateValue: Date | null;
+  AmountLabel: string;
+  BalanceLabel: string;
+  Status: string;
+}
+
+interface StageGroup {
+  stage: StageDefinition;
+  companies: CompanyViewModel[];
+}
+
+interface StageSummary {
+  stage: StageDefinition;
+  count: number;
+  highlight: boolean;
+}
 @Component({
   selector: 'app-company',
   templateUrl: './company.page.html',
@@ -26,83 +162,96 @@ interface User {
   imports: [CommonModule, FormsModule, IonicModule, HttpClientModule]
 })
 export class CompanyPage implements OnInit {
-  users: User[] = [];
-  filteredUsers: User[] = [];
+  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
+
   isLoading = false;
-  searchTerm = '';
-  companyName = 'Noble Property Inspections';
-  companyId = 1; // Noble Property Inspections
-  selectedTab = 'companies'; // Default tab for CompanyID = 1
+  isInitialLoad = true;
 
-  companyProfile: any = null;
-  companySnapshot: { label: string; value: string; icon: string; hint?: string }[] = [];
-  companyStats: { title: string; value: string; subtitle?: string; icon: string }[] = [];
+  companies: CompanyRecord[] = [];
+  stages: StageDefinition[] = [];
+  stageGroups: StageGroup[] = [];
+  stageSummary: StageSummary[] = [];
 
-  contacts: any[] = [];
-  filteredContacts: any[] = [];
-  contactsSearchTerm = '';
+  companyFilters = {
+    search: '',
+    stage: 'all',
+    size: 'all',
+    leadSource: 'all',
+    onlyFranchise: false,
+    hasNotes: false
+  };
 
-  tasks: any[] = [];
-  filteredTasks: any[] = [];
-  taskSearchTerm = '';
-  taskStatusFilter: 'all' | 'open' | 'completed' = 'all';
-  taskAssigneeFilter = 'all';
+  selectedCompanyId: number | null = 1;
+  selectedCompany: CompanyViewModel | null = null;
+  companySnapshot: SnapshotItem[] = [];
+  companyStats: StatItem[] = [];
+
+  contacts: ContactRecord[] = [];
+  filteredContacts: ContactRecord[] = [];
+  contactFilters = {
+    search: '',
+    companyScope: 'selected',
+    role: 'all',
+    showPrimaryOnly: false
+  };
+  uniqueContactRoles: string[] = [];
+
+  tasks: TaskViewModel[] = [];
+  filteredTasks: TaskViewModel[] = [];
+  taskFilters = {
+    search: '',
+    status: 'all',
+    assignedTo: 'all',
+    scope: 'selected',
+    overdueOnly: false
+  };
   taskAssignees: string[] = [];
   taskMetrics = { total: 0, completed: 0, outstanding: 0, overdue: 0 };
 
-  communications: any[] = [];
-  filteredCommunications: any[] = [];
-  communicationSearchTerm = '';
-  communicationTypeFilter = 'all';
+  meetings: MeetingViewModel[] = [];
+  filteredMeetings: MeetingViewModel[] = [];
+  meetingFilters = {
+    search: '',
+    scope: 'selected',
+    timeframe: 'upcoming'
+  };
+
+  communications: CommunicationViewModel[] = [];
+  filteredCommunications: CommunicationViewModel[] = [];
+  communicationFilters = {
+    search: '',
+    scope: 'selected',
+    type: 'all',
+    mode: 'all',
+    onlyResponses: false
+  };
   communicationTypes: string[] = [];
 
-  invoices: any[] = [];
-  filteredInvoices: any[] = [];
-  invoiceSearchTerm = '';
-  invoiceStatusFilter = 'all';
-  invoiceMetrics = { total: 0, outstanding: 0, paid: 0 };
+  invoices: InvoiceViewModel[] = [];
+  filteredInvoices: InvoiceViewModel[] = [];
+  invoiceFilters = {
+    search: '',
+    scope: 'selected',
+    status: 'all',
+    paymentProcessor: 'all'
+  };
+  invoiceMetrics: InvoiceTotals = { total: 0, outstanding: 0, paid: 0 };
+  paymentProcessors: string[] = [];
 
-  readonly contactFieldMap = {
-    name: ['Name', 'FullName', 'ContactName', 'DisplayName'],
-    title: ['Title', 'Role', 'Position', 'JobTitle'],
-    email: ['Email', 'EmailAddress', 'PrimaryEmail'],
-    phone: ['Phone', 'PhoneNumber', 'Mobile', 'CellPhone'],
-    city: ['City', 'LocationCity'],
-    tags: ['Tags', 'Category', 'Labels'],
-    lastContact: ['LastContact', 'LastContactDate', 'Last_Contact_Date']
-  } as const;
+  private stageLookup = new Map<number, StageDefinition>();
+  private companyNameLookup = new Map<number, string>();
+  private projectCompanyLookup = new Map<number, number>();
+  private contactCountByCompany = new Map<number, number>();
+  private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
+  private touchSummaryByCompany = new Map<number, { total: number; lastDate: Date | null; label: string; channels: string[] }>();
+  private meetingSummaryByCompany = new Map<number, { nextMeeting: Date | null; recentMeeting: Date | null; total: number }>();
+  private invoiceSummaryByCompany = new Map<number, InvoiceTotals>();
+  private communicationTypeLookup = new Map<number, string>();
 
-  readonly taskFieldMap = {
-    title: ['Title', 'TaskTitle', 'Task', 'Name', 'Subject'],
-    description: ['Description', 'Details', 'Notes', 'Summary'],
-    assignedTo: ['AssignedTo', 'AssignTo', 'AssignedUser', 'Owner', 'Assigned_Name'],
-    status: ['Status', 'TaskStatus', 'State', 'Stage'],
-    completed: ['Completed', 'Complete', 'IsComplete', 'Done'],
-    dueDate: ['DueDate', 'Due_On', 'DueDateTime', 'Deadline'],
-    priority: ['Priority', 'Importance', 'Urgency']
-  } as const;
-
-  readonly communicationFieldMap = {
-    subject: ['Subject', 'Topic', 'Title'],
-    summary: ['Summary', 'Notes', 'Description', 'Details'],
-    type: ['Type', 'Channel', 'Medium'],
-    contact: ['ContactName', 'Name', 'Recipient', 'To'],
-    owner: ['Owner', 'AgentName', 'HandledBy'],
-    date: ['Date', 'ContactDate', 'CommunicationDate', 'CreatedOn']
-  } as const;
-
-  readonly invoiceFieldMap = {
-    number: ['InvoiceNumber', 'Number', 'InvoiceNo', 'InvoiceID'],
-    date: ['InvoiceDate', 'Date', 'IssuedOn'],
-    dueDate: ['DueDate', 'Due_On', 'Deadline'],
-    status: ['Status', 'State'],
-    amount: ['Amount', 'Total', 'InvoiceTotal', 'BalanceDue'],
-    balance: ['Balance', 'Outstanding', 'BalanceDue', 'AmountDue']
-  } as const;
-
+  uniqueCompanySizes: string[] = [];
+  uniqueLeadSources: string[] = [];
   constructor(
     private caspioService: CaspioService,
-    private alertController: AlertController,
     private loadingController: LoadingController,
     private toastController: ToastController,
     private http: HttpClient
@@ -112,872 +261,1002 @@ export class CompanyPage implements OnInit {
     this.loadCompanyData();
   }
 
-  async loadCompanyData() {
-    await Promise.all([
-      this.loadCompanyProfile(),
-      this.loadUsers(),
-      this.loadContacts(),
-      this.loadTasks(),
-      this.loadCommunications(),
-      this.loadInvoices()
-    ]);
-    this.buildCompanyStats();
-  }
-
-  async loadUsers() {
-    this.isLoading = true;
-    const loading = await this.loadingController.create({
-      message: 'Loading users...',
-      spinner: 'circles'
-    });
-    await loading.present();
-
+  async loadCompanyData(showSpinner: boolean = true) {
+    let loading: HTMLIonLoadingElement | null = null;
     try {
-      // Get token from CaspioService
-      const token = await this.caspioService.getAuthToken();
-      
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
-      const headers = new HttpHeaders({
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      });
-
-      // Query users with CompanyID filter
-      const params = {
-        'q.where': `CompanyID=${this.companyId}`,
-        'q.orderBy': 'Name'
-      };
-
-      const response = await this.http.get<any>(
-        `${environment.caspio.apiBaseUrl}/tables/Users/records?${new URLSearchParams(params)}`,
-        { headers }
-      ).toPromise();
-
-      if (response && response.Result) {
-        this.users = response.Result.map((rawUser: any) => {
-          const normalizedHeadshot = this.normalizeHeadshotPath(rawUser?.Headshot);
-          return {
-            ...rawUser,
-            Headshot: normalizedHeadshot ?? ''
-          } as User;
+      if (showSpinner) {
+        loading = await this.loadingController.create({
+          message: this.isInitialLoad ? 'Loading CRM data...' : 'Refreshing data...',
+          spinner: 'lines'
         });
-        this.filteredUsers = [...this.users];
-        
-        // Load headshot images for each user
-        await this.loadHeadshots();
-        
-        if (this.users.length === 0) {
-          await this.showToast('No users found for this company', 'warning');
-        }
-      } else {
-        throw new Error('Invalid response format');
+        await loading.present();
       }
+
+      this.isLoading = true;
+
+      const [
+        stageRecords,
+        companyRecords,
+        contactRecords,
+        taskRecords,
+        touchRecords,
+        meetingRecords,
+        invoiceRecords,
+        projectRecords,
+        communicationRecords
+      ] = await Promise.all([
+        this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '1000' }),
+        this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '1000' }),
+        this.fetchTableRecords('Contacts', { 'q.orderBy': 'Name', 'q.limit': '1000' }),
+        this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '1000' }),
+        this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '1000' }),
+        this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '1000' }),
+        this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '1000' }),
+        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Address,City,StateID,Zip,Date', 'q.limit': '1000' }),
+        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '1000' })
+      ]);
+
+      this.populateStageDefinitions(stageRecords);
+      this.populateCommunicationTypes(communicationRecords);
+      this.populateProjectLookup(projectRecords);
+
+      this.companies = companyRecords.map(record => this.normalizeCompanyRecord(record));
+      this.companyNameLookup.clear();
+      this.companies.forEach(company => this.companyNameLookup.set(company.CompanyID, company.CompanyName));
+
+      this.uniqueCompanySizes = this.extractUniqueValues(this.companies.map(company => company.SizeLabel));
+      this.uniqueLeadSources = this.extractUniqueValues(this.companies.map(company => company.LeadSource));
+
+      this.ensureSelectedCompany();
+
+      this.contacts = contactRecords.map(record => this.normalizeContactRecord(record));
+      this.uniqueContactRoles = this.extractUniqueValues(this.contacts.map(contact => contact.Role).filter(Boolean));
+
+      this.tasks = taskRecords.map(record => this.normalizeTaskRecord(record));
+      this.taskAssignees = this.extractUniqueValues(this.tasks.map(task => task.assignTo).filter(Boolean));
+
+      this.meetings = meetingRecords.map(record => this.normalizeMeetingRecord(record));
+      this.communications = touchRecords.map(record => this.normalizeTouchRecord(record));
+      this.communicationTypes = this.extractUniqueValues(this.communications.map(comm => comm.communicationType).filter(Boolean));
+
+      this.invoices = invoiceRecords.map(record => this.normalizeInvoiceRecord(record));
+      this.paymentProcessors = this.extractUniqueValues(this.invoices.map(invoice => invoice.PaymentProcessor || 'Unspecified'));
+
+      this.recalculateCompanyAggregates();
+
+      this.applyCompanyFilters();
+      this.applyContactFilters();
+      this.applyTaskFilters();
+      this.applyMeetingFilters();
+      this.applyCommunicationFilters();
+      this.applyInvoiceFilters();
+      this.updateSelectedCompanySnapshot();
     } catch (error: any) {
-      console.error('Error loading users:', error);
-      await this.showToast(error.message || 'Failed to load users', 'danger');
+      console.error('Error loading company data:', error);
+      await this.showToast(error?.message ?? 'Unable to load company data', 'danger');
     } finally {
-      await loading.dismiss();
+      if (loading) {
+        await loading.dismiss();
+      }
       this.isLoading = false;
+      this.isInitialLoad = false;
     }
   }
 
-  async loadHeadshots() {
-    // Load headshot images from Caspio Files API
-    const errors: any[] = [];
-    
-    for (let user of this.users) {
-      const headshotPath = this.normalizeHeadshotPath(user.Headshot);
-      if (!headshotPath) {
-        user.Headshot = '';
-        continue;
-      }
-
-      // If already a data URL or absolute HTTP URL, keep as-is
-      if (typeof headshotPath === 'string' && (headshotPath.startsWith('data:') || headshotPath.startsWith('http'))) {
-        user.Headshot = headshotPath;
-        continue;
-      }
-
-      if (headshotPath) {
-        try {
-          console.log(`[DEBUG] Loading headshot for ${user.Name}, path: ${headshotPath}`);
-          
-          // If Headshot is a file path, get the image URL
-          // Convert Observable to Promise and await the result
-          const imageUrl = await this.caspioService.getImageFromFilesAPI(headshotPath).toPromise();
-          if (imageUrl) {
-            user.Headshot = imageUrl;
-            console.log(`[DEBUG] Successfully loaded headshot for ${user.Name}`);
-          }
-        } catch (error: any) {
-          console.error(`[DEBUG] Failed to load headshot for ${user.Name}:`, error);
-          errors.push({
-            user: user.Name,
-            userId: user.UserID,
-            path: headshotPath,
-            error: error.message || error
-          });
-          // Use default avatar if image fails to load
-          user.Headshot = '';
-        }
-      }
-    }
-    
-    // If there were errors, show a debug popup with all of them
-    if (errors.length > 0) {
-      const errorList = errors.map(e => 
-        `User: ${e.user} (ID: ${e.userId})<br>Path: ${e.path}<br>Error: ${e.error}<br>`
-      ).join('<br>');
-      
-      const alert = await this.alertController.create({
-        header: 'Debug: Headshot Load Errors',
-        message: `
-          <strong>Failed to load ${errors.length} headshot(s):</strong><br><br>
-          ${errorList}
-          <br><strong>This may be due to:</strong><br>
-          - Invalid authentication token<br>
-          - File not found in Caspio<br>
-          - Network connectivity issues<br>
-          - CORS/permission errors
-        `,
-        buttons: [
-          {
-            text: 'Copy Debug Info',
-            handler: () => {
-              const textToCopy = `Headshot Load Errors:\n${errors.map(e => 
-                `User: ${e.user} (ID: ${e.userId})\nPath: ${e.path}\nError: ${e.error}\n`
-              ).join('\n')}`;
-              navigator.clipboard.writeText(textToCopy).catch(() => {
-                const textarea = document.createElement('textarea');
-                textarea.value = textToCopy;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-              });
-              return false;
-            }
-          },
-          {
-            text: 'OK',
-            role: 'cancel'
-          }
-        ]
-      });
-      await alert.present();
-    }
+  async doRefresh(event: any) {
+    await this.loadCompanyData(false);
+    event?.target?.complete?.();
   }
 
-  private async loadCompanyProfile() {
-    try {
-      const records = await this.fetchTableRecords('Companies', {
-        'q.where': `PK_ID=${this.companyId}`
-      });
-      this.companyProfile = records.length ? records[0] : null;
-    } catch (error) {
-      console.error('Error loading company profile:', error);
-    }
-  }
-
-  private async loadContacts() {
-    try {
-      this.contacts = await this.fetchTableRecords('Contacts', {
-        'q.where': `CompanyID=${this.companyId}`,
-        'q.orderBy': 'Name'
-      });
-    } catch (error) {
-      console.error('Error loading contacts:', error);
-      this.contacts = [];
-    }
-
+  setSelectedCompany(companyId: number) {
+    this.selectedCompanyId = companyId;
+    this.updateSelectedCompanySnapshot();
+    this.applyCompanyFilters();
     this.applyContactFilters();
-    this.buildCompanyStats();
+    this.applyTaskFilters();
+    this.applyMeetingFilters();
+    this.applyCommunicationFilters();
+    this.applyInvoiceFilters();
+  }
+
+  setStageFilter(stageId: number) {
+    const newValue = String(stageId);
+    this.companyFilters.stage = this.companyFilters.stage === newValue ? 'all' : newValue;
+    this.applyCompanyFilters();
+  }
+
+  clearCompanyFilters() {
+    this.companyFilters = {
+      search: '',
+      stage: 'all',
+      size: 'all',
+      leadSource: 'all',
+      onlyFranchise: false,
+      hasNotes: false
+    };
+    this.applyCompanyFilters();
+  }
+
+  onTabChange(event: any) {
+    this.selectedTab = event.detail?.value || this.selectedTab;
+    switch (this.selectedTab) {
+      case 'contacts':
+        this.applyContactFilters();
+        break;
+      case 'tasks':
+        this.applyTaskFilters();
+        break;
+      case 'meetings':
+        this.applyMeetingFilters();
+        break;
+      case 'communications':
+        this.applyCommunicationFilters();
+        break;
+      case 'invoices':
+        this.applyInvoiceFilters();
+        break;
+      case 'companies':
+      default:
+        this.applyCompanyFilters();
+        break;
+    }
+  }
+  applyCompanyFilters() {
+    const unassignedStage: StageDefinition = { id: 0, name: 'No Stage', sortOrder: 999 };
+    const allStages = [...this.stages];
+    if (!this.stageLookup.has(0)) {
+      allStages.push(unassignedStage);
+    }
+
+    const stageMap = new Map<number, CompanyViewModel[]>();
+    allStages.forEach(stage => stageMap.set(stage.id, []));
+
+    const filtered = this.companies
+      .filter(company => this.matchesCompanyFilters(company))
+      .map(company => this.enrichCompany(company));
+
+    filtered.forEach(company => {
+      const stageId = company.StageID ?? 0;
+      if (!stageMap.has(stageId)) {
+        stageMap.set(stageId, []);
+      }
+      stageMap.get(stageId)!.push(company);
+    });
+
+    this.stageGroups = allStages
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(stage => ({
+        stage,
+        companies: (stageMap.get(stage.id) ?? []).sort((a, b) => a.CompanyName.localeCompare(b.CompanyName))
+      }));
+
+    this.stageSummary = this.stageGroups.map(group => ({
+      stage: group.stage,
+      count: group.companies.length,
+      highlight: this.selectedCompanyId !== null && group.stage.id === (this.selectedCompany?.StageID ?? 0)
+    }));
   }
 
   applyContactFilters() {
-    const term = this.contactsSearchTerm.trim().toLowerCase();
+    const searchTerm = this.contactFilters.search.trim().toLowerCase();
+    const scope = this.contactFilters.companyScope;
+    const selectedId = this.selectedCompanyId;
+    const roleFilter = this.contactFilters.role;
+
     this.filteredContacts = this.contacts.filter(contact => {
-      const name = this.resolveField(contact, this.contactFieldMap.name, '').toLowerCase();
-      const email = this.resolveField(contact, this.contactFieldMap.email, '').toLowerCase();
-      const title = this.resolveField(contact, this.contactFieldMap.title, '').toLowerCase();
-      const phone = (this.resolveField(contact, this.contactFieldMap.phone, '') || '').toString().toLowerCase();
-
-      if (!term) {
-        return true;
-      }
-
-      return name.includes(term) || email.includes(term) || title.includes(term) || phone.includes(term);
-    });
-  }
-
-  private async loadTasks() {
-    try {
-      this.tasks = await this.fetchTableRecords('Tasks', {
-        'q.where': `CompanyID=${this.companyId}`,
-        'q.orderBy': 'DueDate DESC'
-      });
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      this.tasks = [];
-    }
-
-    this.taskAssignees = Array.from(new Set(this.tasks.map(task => this.resolveField(task, this.taskFieldMap.assignedTo, ''))))
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
-
-    this.recalculateTaskMetrics();
-    this.applyTaskFilters();
-  }
-
-  applyTaskFilters() {
-    const term = this.taskSearchTerm.trim().toLowerCase();
-    const assigneeFilter = this.taskAssigneeFilter.toLowerCase();
-    const now = new Date();
-
-    this.filteredTasks = this.tasks.filter(task => {
-      const title = this.resolveField(task, this.taskFieldMap.title, '').toLowerCase();
-      const description = this.resolveField(task, this.taskFieldMap.description, '').toLowerCase();
-      const assignedTo = this.resolveField(task, this.taskFieldMap.assignedTo, '');
-      const assignedToLower = assignedTo.toLowerCase();
-      const status = this.resolveField(task, this.taskFieldMap.status, '').toLowerCase();
-      const completed = this.resolveBoolean(task, this.taskFieldMap.completed);
-      const dueDate = this.getDateValue(task, this.taskFieldMap.dueDate);
-
-      if (assigneeFilter !== 'all' && assignedToLower !== assigneeFilter) {
-        return false;
-      }
-
-      if (this.taskStatusFilter === 'completed' && !completed) {
-        return false;
-      }
-
-      if (this.taskStatusFilter === 'open' && completed) {
-        return false;
-      }
-
-      if (term) {
-        const priority = this.resolveField(task, this.taskFieldMap.priority, '').toLowerCase();
-        if (
-          !title.includes(term) &&
-          !description.includes(term) &&
-          !assignedToLower.includes(term) &&
-          !status.includes(term) &&
-          !priority.includes(term)
-        ) {
+      if (scope === 'selected') {
+        if (selectedId === null || contact.CompanyID !== selectedId) {
           return false;
         }
       }
 
-      return true;
-    }).map(task => ({
-      ...task,
-      __meta: {
-        title: this.resolveField(task, this.taskFieldMap.title, 'Untitled Task'),
-        description: this.resolveField(task, this.taskFieldMap.description, ''),
-        assignedTo: this.resolveField(task, this.taskFieldMap.assignedTo, 'Unassigned'),
-        status: this.resolveField(task, this.taskFieldMap.status, this.resolveBoolean(task, this.taskFieldMap.completed) ? 'Completed' : 'Open'),
-        completed: this.resolveBoolean(task, this.taskFieldMap.completed),
-        dueDate: this.getDateValue(task, this.taskFieldMap.dueDate),
-        dueDateLabel: this.formatDate(this.getDateValue(task, this.taskFieldMap.dueDate)),
-        isOverdue: (() => {
-          const due = this.getDateValue(task, this.taskFieldMap.dueDate);
-          if (!due) { return false; }
-          const completed = this.resolveBoolean(task, this.taskFieldMap.completed);
-          return !completed && due < now;
-        })(),
-        priority: this.resolveField(task, this.taskFieldMap.priority, '')
+      if (roleFilter !== 'all' && contact.Role !== roleFilter) {
+        return false;
       }
-    }));
 
-    this.buildCompanyStats();
+      if (this.contactFilters.showPrimaryOnly && !contact.PrimaryContact) {
+        return false;
+      }
+
+      if (!searchTerm) {
+        return true;
+      }
+
+      const haystack = [
+        contact.Name,
+        contact.Title,
+        contact.Role,
+        contact.Email,
+        contact.Phone1,
+        contact.Phone2,
+        this.getCompanyName(contact.CompanyID)
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(searchTerm);
+    });
   }
 
-  private recalculateTaskMetrics() {
-    const now = new Date();
+  applyTaskFilters() {
+    const searchTerm = this.taskFilters.search.trim().toLowerCase();
+    const scope = this.taskFilters.scope;
+    const selectedId = this.selectedCompanyId;
+    const statusFilter = this.taskFilters.status;
+    const assignedFilter = this.taskFilters.assignedTo;
+    const overdueOnly = this.taskFilters.overdueOnly;
+
+    this.filteredTasks = this.tasks.filter(task => {
+      if (scope === 'selected') {
+        if (selectedId === null || task.CompanyID !== selectedId) {
+          return false;
+        }
+      }
+
+      if (statusFilter === 'completed' && !task.completed) {
+        return false;
+      }
+
+      if (statusFilter === 'open' && task.completed) {
+        return false;
+      }
+
+      if (assignedFilter !== 'all' && task.assignTo !== assignedFilter) {
+        return false;
+      }
+
+      if (overdueOnly && !task.isOverdue) {
+        return false;
+      }
+
+      if (!searchTerm) {
+        return true;
+      }
+
+      const haystack = [
+        task.assignment,
+        task.assignTo,
+        task.notes,
+        task.communicationType,
+        this.getCompanyName(task.CompanyID)
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(searchTerm);
+    });
+
     const total = this.tasks.length;
-    const completed = this.tasks.filter(task => this.resolveBoolean(task, this.taskFieldMap.completed)).length;
-    const overdue = this.tasks.filter(task => {
-      const due = this.getDateValue(task, this.taskFieldMap.dueDate);
-      if (!due) { return false; }
-      return !this.resolveBoolean(task, this.taskFieldMap.completed) && due < now;
-    }).length;
-    const outstanding = total - completed;
+    const completed = this.tasks.filter(task => task.completed).length;
+    const outstanding = this.tasks.filter(task => !task.completed).length;
+    const overdue = this.tasks.filter(task => task.isOverdue).length;
 
     this.taskMetrics = { total, completed, outstanding, overdue };
   }
 
-  private async loadCommunications() {
-    try {
-      this.communications = await this.fetchTableRecords('Communications', {
-        'q.where': `CompanyID=${this.companyId}`,
-        'q.orderBy': 'Date DESC'
-      });
-    } catch (error) {
-      console.error('Error loading communications:', error);
-      this.communications = [];
-    }
+  applyMeetingFilters() {
+    const searchTerm = this.meetingFilters.search.trim().toLowerCase();
+    const scope = this.meetingFilters.scope;
+    const timeframe = this.meetingFilters.timeframe;
+    const selectedId = this.selectedCompanyId;
+    const now = new Date();
 
-    this.communicationTypes = Array.from(new Set(
-      this.communications
-        .map(comm => this.resolveField(comm, this.communicationFieldMap.type, '').toString().toLowerCase())
-    )).filter(Boolean).sort((a, b) => a.localeCompare(b));
+    this.filteredMeetings = this.meetings.filter(meeting => {
+      if (scope === 'selected') {
+        if (selectedId === null || meeting.CompanyID !== selectedId) {
+          return false;
+        }
+      }
 
-    this.applyCommunicationFilters();
+      if (timeframe === 'upcoming') {
+        if (!meeting.startDate || meeting.startDate < now) {
+          return false;
+        }
+      } else if (timeframe === 'past') {
+        if (!meeting.startDate || meeting.startDate >= now) {
+          return false;
+        }
+      }
+
+      if (!searchTerm) {
+        return true;
+      }
+
+      const haystack = [
+        meeting.subject,
+        meeting.description,
+        meeting.attendees.join(' '),
+        this.getCompanyName(meeting.CompanyID)
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(searchTerm);
+    });
   }
 
   applyCommunicationFilters() {
-    const term = this.communicationSearchTerm.trim().toLowerCase();
-    const typeFilter = this.communicationTypeFilter.toLowerCase();
+    const searchTerm = this.communicationFilters.search.trim().toLowerCase();
+    const scope = this.communicationFilters.scope;
+    const selectedId = this.selectedCompanyId;
+    const typeFilter = this.communicationFilters.type;
+    const modeFilter = this.communicationFilters.mode;
+    const onlyResponses = this.communicationFilters.onlyResponses;
 
     this.filteredCommunications = this.communications.filter(comm => {
-      const subject = this.resolveField(comm, this.communicationFieldMap.subject, '').toLowerCase();
-      const summary = this.resolveField(comm, this.communicationFieldMap.summary, '').toLowerCase();
-      const type = this.resolveField(comm, this.communicationFieldMap.type, '').toLowerCase();
-      const contact = this.resolveField(comm, this.communicationFieldMap.contact, '').toLowerCase();
-      const owner = this.resolveField(comm, this.communicationFieldMap.owner, '').toLowerCase();
+      if (scope === 'selected') {
+        if (selectedId === null || comm.CompanyID !== selectedId) {
+          return false;
+        }
+      }
 
-      if (typeFilter !== 'all' && type !== typeFilter) {
+      if (typeFilter !== 'all' && comm.communicationType !== typeFilter) {
         return false;
       }
 
-      if (!term) {
+      if (modeFilter !== 'all') {
+        if (modeFilter === 'call' && !(comm.mode === 'call' || comm.mode === 'multi')) {
+          return false;
+        }
+        if (modeFilter === 'email' && !(comm.mode === 'email' || comm.mode === 'multi')) {
+          return false;
+        }
+        if (modeFilter === 'text' && !(comm.mode === 'text' || comm.mode === 'multi')) {
+          return false;
+        }
+      }
+
+      if (onlyResponses && comm.outcome !== 'Connected') {
+        return false;
+      }
+
+      if (!searchTerm) {
         return true;
       }
 
-      return subject.includes(term) || summary.includes(term) || contact.includes(term) || owner.includes(term) || type.includes(term);
+      const haystack = [
+        comm.communicationType,
+        comm.notes,
+        comm.outcome,
+        comm.channels.join(' '),
+        this.getCompanyName(comm.CompanyID)
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(searchTerm);
     });
-  }
 
-  private async loadInvoices() {
-    try {
-      this.invoices = await this.fetchTableRecords('Invoices', {
-        'q.where': `CompanyID=${this.companyId}`,
-        'q.orderBy': 'InvoiceDate DESC'
-      });
-    } catch (error) {
-      console.error('Error loading invoices:', error);
-      this.invoices = [];
-    }
-
-    this.calculateInvoiceMetrics();
-    this.applyInvoiceFilters();
+    this.communicationTypes = this.extractUniqueValues(this.communications.map(comm => comm.communicationType).filter(Boolean));
   }
 
   applyInvoiceFilters() {
-    const term = this.invoiceSearchTerm.trim().toLowerCase();
-    const statusFilter = this.invoiceStatusFilter.toLowerCase();
+    const searchTerm = this.invoiceFilters.search.trim().toLowerCase();
+    const scope = this.invoiceFilters.scope;
+    const statusFilter = this.invoiceFilters.status;
+    const processorFilter = this.invoiceFilters.paymentProcessor;
+    const selectedId = this.selectedCompanyId;
 
     this.filteredInvoices = this.invoices.filter(invoice => {
-      const number = this.resolveField(invoice, this.invoiceFieldMap.number, '').toLowerCase();
-      const status = this.resolveField(invoice, this.invoiceFieldMap.status, '').toLowerCase();
-      const amount = this.resolveField(invoice, this.invoiceFieldMap.amount, '').toString();
-
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'open' && status.includes('paid')) {
-          return false;
-        }
-        if (statusFilter === 'paid' && !status.includes('paid')) {
+      if (scope === 'selected') {
+        if (selectedId === null || invoice.CompanyID !== selectedId) {
           return false;
         }
       }
 
-      if (!term) {
+      if (statusFilter !== 'all' && invoice.Status !== statusFilter) {
+        return false;
+      }
+
+      if (processorFilter !== 'all') {
+        const processor = invoice.PaymentProcessor || 'Unspecified';
+        if (processor !== processorFilter) {
+          return false;
+        }
+      }
+
+      if (!searchTerm) {
         return true;
       }
 
-      return number.includes(term) || status.includes(term) || amount.includes(term);
+      const haystack = [
+        invoice.InvoiceID,
+        invoice.CompanyName,
+        invoice.Address,
+        invoice.City,
+        invoice.InvoiceNotes,
+        invoice.Status,
+        invoice.PaymentProcessor
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(searchTerm);
     });
 
-    this.buildCompanyStats();
-  }
-
-  private calculateInvoiceMetrics() {
-    let total = 0;
-    let paid = 0;
-    let outstanding = 0;
-
-    this.invoices.forEach(invoice => {
-      const amountValue = Number(this.resolveField(invoice, this.invoiceFieldMap.amount, 0)) || 0;
-      const balanceValue = Number(this.resolveField(invoice, this.invoiceFieldMap.balance, amountValue)) || 0;
-      const status = this.resolveField(invoice, this.invoiceFieldMap.status, '').toLowerCase();
-
-      total += amountValue;
-      if (status.includes('paid') || balanceValue === 0) {
-        paid += amountValue;
-      } else {
-        outstanding += balanceValue;
+    this.invoiceMetrics = this.filteredInvoices.reduce((acc, invoice) => {
+      acc.total += invoice.Fee ?? 0;
+      const paid = invoice.Paid ?? 0;
+      acc.paid += paid;
+      const balance = (invoice.Fee ?? 0) - paid;
+      if (balance > 0) {
+        acc.outstanding += balance;
       }
-    });
-
-    this.invoiceMetrics = {
-      total,
-      outstanding,
-      paid
-    };
+      return acc;
+    }, { total: 0, outstanding: 0, paid: 0 });
   }
 
-  filterUsers(event: any) {
-    const searchValue = event.target.value.toLowerCase();
-    this.searchTerm = searchValue;
-
-    if (!searchValue) {
-      this.filteredUsers = [...this.users];
-      return;
+  getCompanyName(companyId: number | null): string {
+    if (companyId === null) {
+      return 'Unassigned';
     }
-
-    this.filteredUsers = this.users.filter(user => {
-      const name = user.Name?.toLowerCase() || '';
-      const email = user.Email?.toLowerCase() || '';
-      const title = user.Title?.toLowerCase() || '';
-      const phone = user.Phone?.toLowerCase() || '';
-      
-      return name.includes(searchValue) || 
-             email.includes(searchValue) || 
-             title.includes(searchValue) ||
-             phone.includes(searchValue);
-    });
+    return this.companyNameLookup.get(companyId) ?? 'Unassigned';
   }
 
-  async viewUserDetails(user: User) {
-    const alert = await this.alertController.create({
-      header: user.Name,
-      message: `
-        <ion-list>
-          ${user.Title ? `
-          <ion-item>
-            <ion-label>
-              <p>Title</p>
-              <h3>${user.Title}</h3>
-            </ion-label>
-          </ion-item>` : ''}
-          <ion-item>
-            <ion-label>
-              <p>Email</p>
-              <h3>${user.Email}</h3>
-            </ion-label>
-          </ion-item>
-          ${user.Phone ? `
-          <ion-item>
-            <ion-label>
-              <p>Phone</p>
-              <h3>${user.Phone}</h3>
-            </ion-label>
-          </ion-item>` : ''}
-        </ion-list>
-      `,
-      buttons: ['Close']
-    });
-
-    await alert.present();
-  }
-
-  async doRefresh(event: any) {
-    await this.loadUsers();
-    event.target.complete();
-  }
-
-  private async showToast(message: string, color: string) {
-    const toast = await this.toastController.create({
-      message,
-      duration: 2000,
-      color,
-      position: 'bottom'
-    });
-    await toast.present();
-  }
-
-  getUserInitials(user: User): string {
-    if (user.Name) {
-      const nameParts = user.Name.split(' ');
-      const first = nameParts[0]?.charAt(0) || '';
-      const last = nameParts[nameParts.length - 1]?.charAt(0) || '';
-      return (first + last).toUpperCase();
+  formatDate(value: Date | string | null | undefined): string {
+    const date = value instanceof Date ? value : value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '—';
     }
-    return 'U';
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+  }
+
+  formatCurrency(value: number | string | null | undefined): string {
+    const amount = typeof value === 'number' ? value : Number(value ?? 0);
+    if (isNaN(amount)) {
+      return '$0.00';
+    }
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(amount);
   }
 
   formatPhone(phone?: string): string {
-    if (!phone) return '';
-    // Format phone number if it's just digits
+    if (!phone) {
+      return '';
+    }
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length === 10) {
       return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     }
     return phone;
   }
+  private populateStageDefinitions(records: any[]) {
+    const definitions = records.map(record => {
+      const name = record.Stage ?? record.Name ?? 'No Stage';
+      const id = record.StageID !== undefined && record.StageID !== null ? Number(record.StageID) : 0;
+      return {
+        id,
+        name,
+        sortOrder: this.parseStageOrder(name, id)
+      };
+    }).sort((a, b) => a.sortOrder - b.sortOrder);
 
-  async uploadHeadshot(user: User) {
-    // Create hidden file input
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    // Remove capture attribute to show iOS picker with all options
-    
-    fileInput.onchange = async (event: any) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const loading = await this.loadingController.create({
-        message: 'Uploading headshot...',
-        spinner: 'circles'
-      });
-      await loading.present();
-
-      try {
-        // Compress image if needed
-        let imageFile = file;
-        if (file.size > 1500000) { // If larger than 1.5MB
-          const compressedBlob = await this.compressImage(file);
-          imageFile = new File([compressedBlob], file.name, { type: compressedBlob.type });
-        }
-
-        // Upload to Caspio Files API
-        const token = await this.caspioService.getAuthToken();
-        if (!token) throw new Error('No authentication token');
-
-        const formData = new FormData();
-        formData.append('file', imageFile, `headshot_${user.UserID || Date.now()}.jpg`);
-
-        const uploadResponse = await fetch(
-          `${environment.caspio.apiBaseUrl}/files`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
-          }
-        );
-
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload image');
-        }
-
-        const uploadResult = await uploadResponse.json();
-        console.log('[DEBUG] Upload response:', JSON.stringify(uploadResult));
-
-        const extractedPath = this.extractUploadedFilePath(uploadResult);
-        if (!extractedPath) {
-          throw new Error(`Invalid upload response - no filename found: ${JSON.stringify(uploadResult)}`);
-        }
-
-        const filePath = extractedPath.startsWith('/') ? extractedPath : `/${extractedPath}`;
-        console.log('[DEBUG] File path for database:', filePath);
-
-        // Update user record with new headshot path
-        const updateResponse = await fetch(
-          `${environment.caspio.apiBaseUrl}/tables/Users/records?q.where=UserID=${user.UserID}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              Headshot: filePath
-            })
-          }
-        );
-
-        if (!updateResponse.ok) {
-          throw new Error('Failed to update user record');
-        }
-
-        // Update local user object and reload headshot
-        const normalizedStoredPath = this.normalizeHeadshotPath(filePath) ?? filePath;
-        user.Headshot = normalizedStoredPath;
-        
-        // Get the new image URL with debug info
-        try {
-          console.log('[DEBUG] Attempting to fetch image from path:', filePath);
-          
-          // Get a fresh token for the image fetch
-          const freshToken = await this.caspioService.getAuthToken();
-          console.log('[DEBUG] Using fresh token for image fetch:', freshToken ? 'Token exists' : 'No token');
-          
-          const imageUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-
-          if (imageUrl) {
-            user.Headshot = imageUrl;
-            console.log('[DEBUG] Image loaded successfully, length:', imageUrl.length);
-          } else {
-            throw new Error('No image URL returned from API');
-          }
-        } catch (imgError: any) {
-          console.error('[DEBUG] Failed to load image:', imgError);
-          
-          // Show debug popup with error details
-          const debugInfo = `
-            <strong>Image Load Error</strong><br><br>
-            <strong>File Path:</strong> ${filePath}<br>
-            <strong>User ID:</strong> ${user.UserID}<br>
-            <strong>Error:</strong> ${imgError.message || imgError}<br>
-            <strong>Status:</strong> ${imgError.status || 'N/A'}<br><br>
-            <strong>Details:</strong><br>
-            ${JSON.stringify(imgError, null, 2).substring(0, 500)}
-          `;
-          
-          const alert = await this.alertController.create({
-            header: 'Debug: Image Load Failed',
-            message: debugInfo,
-            buttons: [
-              {
-                text: 'Copy Debug Info',
-                handler: () => {
-                  const textToCopy = `Image Load Error\nPath: ${filePath}\nUser: ${user.UserID}\nError: ${imgError.message || imgError}\nDetails: ${JSON.stringify(imgError)}`;
-                  navigator.clipboard.writeText(textToCopy).catch(() => {
-                    // Fallback for older browsers
-                    const textarea = document.createElement('textarea');
-                    textarea.value = textToCopy;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                  });
-                  return false;
-                }
-              },
-              {
-                text: 'OK',
-                role: 'cancel'
-              }
-            ]
-          });
-          await alert.present();
-          
-          // Still show success for upload, but note the image load issue
-          await this.showToast('Headshot uploaded but failed to load preview', 'warning');
-          return;
-        }
-
-        await this.showToast('Headshot uploaded successfully', 'success');
-      } catch (error: any) {
-        console.error('Error uploading headshot:', error);
-        await this.showToast(error.message || 'Failed to upload headshot', 'danger');
-      } finally {
-        await loading.dismiss();
-      }
-    };
-
-    // Trigger file selection
-    fileInput.click();
+    this.stages = definitions;
+    this.stageLookup.clear();
+    definitions.forEach(definition => this.stageLookup.set(definition.id, definition));
   }
 
-  private async compressImage(file: File): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Calculate new dimensions (max 1920px)
-          let width = img.width;
-          let height = img.height;
-          const maxDimension = 1920;
-          
-          if (width > height) {
-            if (width > maxDimension) {
-              height = (height * maxDimension) / width;
-              width = maxDimension;
-            }
-          } else {
-            if (height > maxDimension) {
-              width = (width * maxDimension) / height;
-              height = maxDimension;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Failed to compress image'));
-              }
-            },
-            'image/jpeg',
-            0.8
-          );
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+  private populateCommunicationTypes(records: any[]) {
+    this.communicationTypeLookup.clear();
+    records.forEach(record => {
+      if (record.CommunicationID !== undefined) {
+        this.communicationTypeLookup.set(Number(record.CommunicationID), record.Type ?? 'General');
+      }
     });
   }
 
-  private extractUploadedFilePath(uploadResult: any): string | null {
-    if (!uploadResult) {
-      return null;
-    }
-
-    const queue: any[] = [uploadResult];
-    while (queue.length > 0) {
-      const current = queue.shift();
-
-      if (!current) {
-        continue;
+  private populateProjectLookup(records: any[]) {
+    this.projectCompanyLookup.clear();
+    records.forEach(record => {
+      if (record.ProjectID !== undefined && record.CompanyID !== undefined && record.CompanyID !== null) {
+        this.projectCompanyLookup.set(Number(record.ProjectID), Number(record.CompanyID));
       }
-
-      if (typeof current === 'string') {
-        const normalized = current.trim();
-        if (normalized && normalized !== 'undefined' && normalized !== '/undefined') {
-          return normalized;
-        }
-        continue;
-      }
-
-      if (Array.isArray(current)) {
-        queue.push(...current);
-        continue;
-      }
-
-      if (typeof current === 'object') {
-        const candidateKeys = ['Path', 'FilePath', 'Name', 'FileName', 'filename', 'name'];
-        for (const key of candidateKeys) {
-          const value = current[key];
-          if (typeof value === 'string' && value.trim()) {
-            const normalized = value.trim();
-            if (normalized && normalized !== 'undefined' && normalized !== '/undefined') {
-              return normalized;
-            }
-          }
-        }
-
-        const nestedKeys = ['Result', 'Results', 'Data', 'Items', 'Value'];
-        for (const nestedKey of nestedKeys) {
-          if (current[nestedKey]) {
-            queue.push(current[nestedKey]);
-          }
-        }
-      }
-    }
-
-    return null;
+    });
   }
 
-  private normalizeHeadshotPath(raw: any): string | null {
-    if (!raw) {
-      return null;
+  private normalizeCompanyRecord(raw: any): CompanyRecord {
+    const stageId = raw.StageID !== undefined && raw.StageID !== null ? Number(raw.StageID) : null;
+    const stageName = stageId !== null ? this.stageLookup.get(stageId)?.name ?? 'No Stage' : 'No Stage';
+
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.CompanyID ?? 0),
+      CompanyID: Number(raw.CompanyID ?? raw.PK_ID ?? 0),
+      StageID: stageId,
+      StageName: stageName,
+      CompanyName: raw.CompanyName ?? 'Unnamed Company',
+      SizeLabel: this.extractListLabel(raw.Size),
+      ServiceArea: raw.ServiceArea ?? '',
+      LeadSource: raw.LeadSource ?? '',
+      Phone: raw.Phone ?? '',
+      Email: raw.Email ?? '',
+      Website: this.normalizeUrl(raw.Website ?? ''),
+      Address: raw.Address ?? '',
+      City: raw.City ?? '',
+      State: raw.State ?? '',
+      Zip: raw.Zip ?? '',
+      Notes: raw.Notes ?? '',
+      Franchise: Boolean(raw.Franchise),
+      DateOnboarded: raw.DateOnboarded ?? '',
+      CCEmail: raw.CC_Email ?? raw.CCEmail ?? ''
+    };
+  }
+
+  private normalizeContactRecord(raw: any): ContactRecord {
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.ContactID ?? 0),
+      ContactID: Number(raw.ContactID ?? raw.PK_ID ?? 0),
+      CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
+      Name: raw.Name ?? 'Unnamed Contact',
+      Title: raw.Title ?? '',
+      Role: raw.Role ?? '',
+      Email: raw.Email ?? '',
+      Phone1: raw.Phone1 ?? '',
+      Phone2: raw.Phone2 ?? '',
+      PrimaryContact: Boolean(raw.PrimaryContact),
+      Notes: raw.Notes ?? ''
+    };
+  }
+
+  private normalizeTaskRecord(raw: any): TaskViewModel {
+    const dueDate = this.toDate(raw.Due);
+    const completed = Boolean(raw.Complete);
+    const isOverdue = !completed && dueDate !== null && this.isDateInPast(dueDate);
+
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.TaskID ?? 0),
+      TaskID: Number(raw.TaskID ?? raw.PK_ID ?? 0),
+      CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
+      dueDate,
+      dueLabel: this.formatDate(dueDate),
+      assignment: (raw.Assignment ?? '').trim(),
+      assignTo: (raw.AssignTo ?? '').trim(),
+      completed,
+      notes: (raw.CompleteNotes ?? '').trim(),
+      communicationType: this.communicationTypeLookup.get(Number(raw.CommunicationID)) ?? 'General',
+      isOverdue
+    };
+  }
+
+  private normalizeMeetingRecord(raw: any): MeetingViewModel {
+    const attendees = [raw.Attendee1, raw.Attendee2, raw.Attendee3, raw.Attendee4, raw.Attendee5]
+      .map((value: any) => (value ?? '').toString().trim())
+      .filter(value => value.length > 0);
+
+    const allAttendees = (raw.AllAttendees ?? '').toString().split(',')
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.MeetingID ?? 0),
+      MeetingID: Number(raw.MeetingID ?? raw.PK_ID ?? 0),
+      CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
+      subject: (raw.Subject ?? 'Scheduled meeting').trim(),
+      description: (raw.Description ?? '').trim(),
+      startDate: this.toDate(raw.StartDate ?? raw.Date),
+      endDate: this.toDate(raw.EndDate),
+      attendees: this.extractUniqueValues([...attendees, ...allAttendees])
+    };
+  }
+
+  private normalizeTouchRecord(raw: any): CommunicationViewModel {
+    const channels: string[] = [];
+    if (raw.Conversed) {
+      channels.push('Call');
+    }
+    if (raw.LeftVM) {
+      channels.push('Voicemail');
+    }
+    if (raw.AlsoTexted) {
+      channels.push('Text');
+    }
+    if (raw.AlsoEmailed) {
+      channels.push('Email');
     }
 
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      if (!trimmed || trimmed === 'undefined' || trimmed === '/undefined' || trimmed === 'null') {
-        return null;
-      }
-      if (trimmed.startsWith('data:') || trimmed.startsWith('http')) {
-        return trimmed;
-      }
-      return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    let mode = 'call';
+    const hasText = Boolean(raw.AlsoTexted);
+    const hasEmail = Boolean(raw.AlsoEmailed);
+
+    if (hasText && hasEmail) {
+      mode = 'multi';
+    } else if (hasText) {
+      mode = 'text';
+    } else if (hasEmail) {
+      mode = 'email';
     }
 
-    if (Array.isArray(raw)) {
-      for (const item of raw) {
-        const normalized = this.normalizeHeadshotPath(item);
-        if (normalized) {
-          return normalized;
+    const outcome = raw.Conversed ? 'Connected' : raw.LeftVM ? 'Left voicemail' : 'Attempted';
+
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.TouchID ?? 0),
+      TouchID: Number(raw.TouchID ?? raw.PK_ID ?? 0),
+      CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
+      date: this.toDate(raw.Date),
+      mode,
+      communicationType: this.communicationTypeLookup.get(Number(raw.CommunicationID)) ?? 'General',
+      notes: (raw.Notes ?? '').trim(),
+      outcome,
+      channels
+    };
+  }
+
+  private normalizeInvoiceRecord(raw: any): InvoiceViewModel {
+    const projectId = raw.ProjectID !== undefined && raw.ProjectID !== null ? Number(raw.ProjectID) : null;
+    const companyId = projectId !== null ? this.projectCompanyLookup.get(projectId) ?? null : null;
+    const amount = Number(raw.Fee ?? 0);
+    const paidAmount = Number(raw.Paid ?? 0);
+    const balance = amount - paidAmount;
+
+    let status = 'Open';
+    if (amount === 0 && paidAmount === 0) {
+      status = 'Draft';
+    } else if (amount < 0) {
+      status = 'Credit';
+    } else if (paidAmount >= amount && amount > 0) {
+      status = 'Paid';
+    } else if (paidAmount > 0 && paidAmount < amount) {
+      status = 'Partially Paid';
+    }
+
+    const processor = (raw.PaymentProcessor ?? '').trim();
+    const normalizedProcessor = processor || 'Unspecified';
+
+    return {
+      PK_ID: Number(raw.PK_ID ?? raw.InvoiceID ?? 0),
+      InvoiceID: Number(raw.InvoiceID ?? raw.PK_ID ?? 0),
+      ProjectID: projectId,
+      ServiceID: raw.ServiceID !== undefined && raw.ServiceID !== null ? Number(raw.ServiceID) : null,
+      Date: raw.Date ?? null,
+      DateValue: this.toDate(raw.Date),
+      Address: raw.Address ?? '',
+      City: raw.City ?? '',
+      Zip: raw.Zip ?? '',
+      Fee: amount,
+      Paid: isNaN(paidAmount) ? null : paidAmount,
+      PaymentProcessor: normalizedProcessor,
+      InvoiceNotes: raw.InvoiceNotes ?? '',
+      StateID: raw.StateID !== undefined && raw.StateID !== null ? Number(raw.StateID) : null,
+      Mode: raw.Mode ?? '',
+      CompanyID: companyId,
+      CompanyName: companyId !== null ? (this.companyNameLookup.get(companyId) ?? 'Unknown company') : 'Unassigned',
+      AmountLabel: this.formatCurrency(amount),
+      BalanceLabel: this.formatCurrency(balance),
+      Status: status
+    };
+  }
+
+  private recalculateCompanyAggregates() {
+    this.contactCountByCompany.clear();
+    this.contacts.forEach(contact => {
+      if (contact.CompanyID !== null) {
+        const current = this.contactCountByCompany.get(contact.CompanyID) ?? 0;
+        this.contactCountByCompany.set(contact.CompanyID, current + 1);
+      }
+    });
+
+    this.taskSummaryByCompany.clear();
+    this.tasks.forEach(task => {
+      if (task.CompanyID === null) {
+        return;
+      }
+      const summary = this.taskSummaryByCompany.get(task.CompanyID) ?? { open: 0, overdue: 0, nextDue: null };
+      if (!task.completed) {
+        summary.open += 1;
+        if (task.isOverdue) {
+          summary.overdue += 1;
         }
-      }
-      return null;
-    }
-
-    if (typeof raw === 'object') {
-      const candidateKeys = ['FilePath', 'Path', 'Url', 'URL', 'link', 'Link', 'Name', 'FileName', 'value'];
-      for (const key of candidateKeys) {
-        const value = raw[key];
-        if (typeof value === 'string') {
-          const normalized = this.normalizeHeadshotPath(value);
-          if (normalized) {
-            return normalized;
+        if (task.dueDate) {
+          if (!summary.nextDue || task.dueDate < summary.nextDue) {
+            summary.nextDue = task.dueDate;
           }
         }
       }
+      this.taskSummaryByCompany.set(task.CompanyID, summary);
+    });
 
-      const nestedKeys = ['Result', 'Results', 'Data', 'Items', 'Value'];
-      for (const nestedKey of nestedKeys) {
-        if (raw[nestedKey]) {
-          const normalized = this.normalizeHeadshotPath(raw[nestedKey]);
-          if (normalized) {
-            return normalized;
+    this.touchSummaryByCompany.clear();
+    this.communications.forEach(comm => {
+      if (comm.CompanyID === null) {
+        return;
+      }
+      const summary = this.touchSummaryByCompany.get(comm.CompanyID) ?? { total: 0, lastDate: null, label: '', channels: [] as string[] };
+      summary.total += 1;
+      if (comm.date && (!summary.lastDate || comm.date > summary.lastDate)) {
+        summary.lastDate = comm.date;
+        const channelSummary = comm.channels.length
+          ? comm.channels.join(', ')
+          : comm.mode === 'call'
+            ? 'Call'
+            : comm.mode === 'email'
+              ? 'Email'
+              : comm.mode === 'text'
+                ? 'Text'
+                : 'Touch';
+        summary.label = `${this.formatShortDate(comm.date)} · ${channelSummary}`;
+        summary.channels = comm.channels;
+      }
+      this.touchSummaryByCompany.set(comm.CompanyID, summary);
+    });
+
+    this.meetingSummaryByCompany.clear();
+    this.meetings.forEach(meeting => {
+      if (meeting.CompanyID === null) {
+        return;
+      }
+      const summary = this.meetingSummaryByCompany.get(meeting.CompanyID) ?? { nextMeeting: null, recentMeeting: null, total: 0 };
+      summary.total += 1;
+      if (meeting.startDate) {
+        if (meeting.startDate >= new Date()) {
+          if (!summary.nextMeeting || meeting.startDate < summary.nextMeeting) {
+            summary.nextMeeting = meeting.startDate;
           }
         }
+        if (!summary.recentMeeting || meeting.startDate > summary.recentMeeting) {
+          summary.recentMeeting = meeting.startDate;
+        }
       }
+      this.meetingSummaryByCompany.set(meeting.CompanyID, summary);
+    });
+
+    this.invoiceSummaryByCompany.clear();
+    this.invoices.forEach(invoice => {
+      if (invoice.CompanyID === null) {
+        return;
+      }
+      const summary = this.invoiceSummaryByCompany.get(invoice.CompanyID) ?? { total: 0, outstanding: 0, paid: 0, invoices: 0 };
+      summary.total += invoice.Fee ?? 0;
+      const paid = invoice.Paid ?? 0;
+      summary.paid += paid;
+      const balance = (invoice.Fee ?? 0) - paid;
+      if (balance > 0) {
+        summary.outstanding += balance;
+      }
+      summary.invoices = (summary.invoices ?? 0) + 1;
+      this.invoiceSummaryByCompany.set(invoice.CompanyID, summary);
+    });
+  }
+
+  private ensureSelectedCompany() {
+    if (this.selectedCompanyId && this.companies.some(company => company.CompanyID === this.selectedCompanyId)) {
+      return;
     }
-
-    return null;
+    const fallback = this.companies.find(company => company.CompanyID === 1) ?? this.companies[0] ?? null;
+    this.selectedCompanyId = fallback?.CompanyID ?? null;
   }
 
-  onTabChange(event: any) {
-    this.selectedTab = event.detail?.value || this.selectedTab;
-  }
-
-  private buildCompanyStats() {
-    if (!this.companyProfile) {
+  private updateSelectedCompanySnapshot() {
+    if (this.selectedCompanyId === null) {
+      this.selectedCompany = null;
       this.companySnapshot = [];
       this.companyStats = [];
       return;
     }
 
-    const profile = this.companyProfile;
+    const record = this.companies.find(company => company.CompanyID === this.selectedCompanyId);
+    if (!record) {
+      this.selectedCompany = null;
+      this.companySnapshot = [];
+      this.companyStats = [];
+      return;
+    }
+
+    const viewModel = this.enrichCompany(record);
+    this.selectedCompany = viewModel;
+
+    const primaryContact = this.contacts.find(contact => contact.CompanyID === viewModel.CompanyID && contact.PrimaryContact)
+      ?? this.contacts.find(contact => contact.CompanyID === viewModel.CompanyID)
+      ?? null;
+
+    const contactEmail = primaryContact?.Email ?? '';
+    const addressParts = [viewModel.Address, viewModel.City, viewModel.State, viewModel.Zip].filter(Boolean).join(', ');
+
     this.companySnapshot = [
       {
+        label: 'Stage',
+        value: viewModel.StageName || 'No stage',
+        icon: 'flag'
+      },
+      {
         label: 'Primary Contact',
-        value: this.resolveField(profile, ['PrimaryContact', 'Primary_Contact', 'ContactName', 'OwnerName'], 'Not assigned'),
+        value: primaryContact ? primaryContact.Name : 'Not assigned',
         icon: 'person-circle',
-        hint: this.resolveField(profile, ['PrimaryContactEmail', 'Email', 'PrimaryEmail'])
+        hint: contactEmail
       },
       {
         label: 'Phone',
-        value: this.formatPhone(this.resolveField(profile, ['Phone', 'PhoneNumber', 'MainPhone'])),
+        value: this.formatPhone(viewModel.Phone) || 'No phone on file',
         icon: 'call'
       },
       {
         label: 'Website',
-        value: this.resolveField(profile, ['Website', 'Site', 'URL'], '—'),
+        value: viewModel.Website || 'No website listed',
         icon: 'globe'
       },
       {
-        label: 'Billing Address',
-        value: [
-          this.resolveField(profile, ['BillingAddress', 'Address', 'Street']),
-          this.resolveField(profile, ['City']),
-          this.resolveField(profile, ['State', 'StateProvince']),
-          this.resolveField(profile, ['Zip', 'PostalCode'])
-        ].filter(Boolean).join(', ') || '—',
-        icon: 'home'
+        label: 'Address',
+        value: addressParts || 'Address not provided',
+        icon: 'location'
       }
     ];
+
+    const taskSummary = this.taskSummaryByCompany.get(viewModel.CompanyID) ?? { open: 0, overdue: 0, nextDue: null };
+    const touchSummary = this.touchSummaryByCompany.get(viewModel.CompanyID) ?? { total: 0, lastDate: null, label: '', channels: [] };
+    const meetingSummary = this.meetingSummaryByCompany.get(viewModel.CompanyID) ?? { nextMeeting: null, recentMeeting: null, total: 0 };
+    const invoiceSummary = this.invoiceSummaryByCompany.get(viewModel.CompanyID) ?? { total: 0, outstanding: 0, paid: 0 };
 
     this.companyStats = [
       {
         title: 'Active Contacts',
-        value: String(this.contacts.length || 0),
-        subtitle: 'Total people linked to this company',
+        value: String(viewModel.contactCount),
+        subtitle: viewModel.contactCount === 1 ? '1 person linked' : `${viewModel.contactCount} people linked`,
         icon: 'people'
       },
       {
         title: 'Open Tasks',
-        value: String(this.taskMetrics.outstanding),
-        subtitle: `${this.taskMetrics.completed} completed`,
+        value: String(taskSummary.open),
+        subtitle: taskSummary.overdue ? `${taskSummary.overdue} overdue` : 'On schedule',
         icon: 'checkbox'
       },
       {
-        title: 'Outstanding Invoices',
-        value: this.formatCurrency(this.invoiceMetrics.outstanding),
-        subtitle: `${this.invoiceMetrics.paid ? this.formatCurrency(this.invoiceMetrics.paid) + ' paid' : 'No payments yet'}`,
+        title: 'Last Touch',
+        value: touchSummary.label || 'No activity recorded',
+        subtitle: `Total touches: ${touchSummary.total}`,
+        icon: 'chatbubbles'
+      },
+      {
+        title: 'Upcoming Meeting',
+        value: meetingSummary.nextMeeting ? this.formatDate(meetingSummary.nextMeeting) : 'No meetings scheduled',
+        subtitle: meetingSummary.recentMeeting ? `Last met ${this.formatDate(meetingSummary.recentMeeting)}` : 'No prior meetings recorded',
+        icon: 'calendar'
+      },
+      {
+        title: 'Billing',
+        value: this.formatCurrency(invoiceSummary.total),
+        subtitle: invoiceSummary.outstanding > 0
+          ? `${this.formatCurrency(invoiceSummary.outstanding)} outstanding`
+          : invoiceSummary.total > 0
+            ? 'All invoices paid'
+            : 'No invoices yet',
         icon: 'card'
       }
     ];
+  }
+
+  private enrichCompany(company: CompanyRecord): CompanyViewModel {
+    const contactCount = this.contactCountByCompany.get(company.CompanyID) ?? 0;
+    const taskSummary = this.taskSummaryByCompany.get(company.CompanyID) ?? { open: 0, overdue: 0, nextDue: null };
+    const touchSummary = this.touchSummaryByCompany.get(company.CompanyID) ?? { total: 0, lastDate: null, label: '', channels: [] };
+    const meetingSummary = this.meetingSummaryByCompany.get(company.CompanyID) ?? { nextMeeting: null, recentMeeting: null, total: 0 };
+    const invoiceSummary = this.invoiceSummaryByCompany.get(company.CompanyID) ?? { total: 0, outstanding: 0, paid: 0, invoices: 0 };
+
+    return {
+      ...company,
+      contactCount,
+      openTasks: taskSummary.open,
+      overdueTasks: taskSummary.overdue,
+      totalTouches: touchSummary.total,
+      lastTouchLabel: touchSummary.label || 'No recent activity',
+      lastTouchDate: touchSummary.lastDate,
+      upcomingMeetingDate: meetingSummary.nextMeeting,
+      invoiceTotals: {
+        total: invoiceSummary.total,
+        outstanding: invoiceSummary.outstanding,
+        paid: invoiceSummary.paid,
+        invoices: invoiceSummary.invoices
+      }
+    };
+  }
+
+  private matchesCompanyFilters(company: CompanyRecord): boolean {
+    const searchTerm = this.companyFilters.search.trim().toLowerCase();
+    if (searchTerm) {
+      const haystack = [
+        company.CompanyName,
+        company.City,
+        company.State,
+        company.Address,
+        company.ServiceArea,
+        company.LeadSource
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(searchTerm)) {
+        return false;
+      }
+    }
+
+    if (this.companyFilters.stage !== 'all') {
+      const stageId = Number(this.companyFilters.stage);
+      const companyStage = company.StageID ?? 0;
+      if (companyStage !== stageId) {
+        return false;
+      }
+    }
+
+    if (this.companyFilters.size !== 'all') {
+      if (!company.SizeLabel || company.SizeLabel !== this.companyFilters.size) {
+        return false;
+      }
+    }
+
+    if (this.companyFilters.leadSource !== 'all') {
+      if (!company.LeadSource || company.LeadSource !== this.companyFilters.leadSource) {
+        return false;
+      }
+    }
+
+    if (this.companyFilters.onlyFranchise && !company.Franchise) {
+      return false;
+    }
+
+    if (this.companyFilters.hasNotes && !company.Notes) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private parseStageOrder(name: string, fallback?: number): number {
+    const match = name?.match?.(/^(\d+)/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    if (fallback !== undefined && fallback !== null) {
+      return Number(fallback);
+    }
+    return 999;
+  }
+
+  private extractListLabel(value: any): string {
+    if (!value) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'object') {
+      const entries = Object.values(value);
+      if (entries.length > 0 && typeof entries[0] === 'string') {
+        return entries[0];
+      }
+    }
+    return '';
+  }
+
+  private extractUniqueValues(values: (string | null | undefined)[]): string[] {
+    return Array.from(new Set(values
+      .map(value => (value ?? '').toString().trim())
+      .filter(value => value.length > 0)))
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  private normalizeUrl(value: string): string {
+    if (!value) {
+      return '';
+    }
+    if (/^https?:\/\//i.test(value)) {
+      return value;
+    }
+    return `https://${value}`;
+  }
+
+  private toDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  private isDateInPast(date: Date): boolean {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date.getTime() < today.getTime();
+  }
+
+  private formatShortDate(value: Date | string | null | undefined): string {
+    const date = value instanceof Date ? value : value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '—';
+    }
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
+  }
+
+  private async showToast(message: string, color: string) {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2500,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 
   private async fetchTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {
@@ -987,7 +1266,7 @@ export class CompanyPage implements OnInit {
     }
 
     const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     });
 
@@ -997,85 +1276,5 @@ export class CompanyPage implements OnInit {
 
     const response = await this.http.get<any>(url, { headers }).toPromise();
     return response?.Result ?? [];
-  }
-
-  private resolveField(record: any, candidates: readonly string[], fallback: any = ''): any {
-    if (!record) {
-      return fallback;
-    }
-
-    for (const candidate of candidates) {
-      if (record[candidate] !== undefined && record[candidate] !== null) {
-        return record[candidate];
-      }
-      const matchKey = Object.keys(record).find(key => key.toLowerCase() === candidate.toLowerCase());
-      if (matchKey && record[matchKey] !== undefined && record[matchKey] !== null) {
-        return record[matchKey];
-      }
-    }
-
-    return fallback;
-  }
-
-  private resolveBoolean(record: any, candidates: readonly string[]): boolean {
-    const value = this.resolveField(record, candidates);
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value === 'number') {
-      return value === 1;
-    }
-    if (typeof value === 'string') {
-      return ['true', 'yes', 'y', '1', 'completed', 'complete', 'done'].includes(value.toLowerCase());
-    }
-    return false;
-  }
-
-  private getDateValue(record: any, candidates: readonly string[]): Date | null {
-    const value = this.resolveField(record, candidates);
-    if (!value) {
-      return null;
-    }
-
-    const date = value instanceof Date ? value : new Date(value);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
-  formatDate(value: Date | string | null | undefined): string {
-    if (!value) {
-      return '—';
-    }
-
-    const date = value instanceof Date ? value : new Date(value);
-    if (isNaN(date.getTime())) {
-      return '—';
-    }
-
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  formatCurrency(value: any): string {
-    const numericValue = Number(value);
-    if (isNaN(numericValue)) {
-      return '$0.00';
-    }
-
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: 'USD'
-    }).format(numericValue);
-  }
-
-  displayField(record: any, candidates: readonly string[], fallback: string = '—'): string {
-    const value = this.resolveField(record, candidates, fallback);
-    if (value === undefined || value === null || value === '') {
-      return fallback;
-    }
-    return String(value);
-  }
-
-  displayDate(record: any, candidates: readonly string[]): string {
-    const date = this.getDateValue(record, candidates);
-    return this.formatDate(date);
   }
 }
