@@ -1701,7 +1701,8 @@ export class ProjectDetailPage implements OnInit {
       console.log('No serviceId, cannot navigate');
       return;
     }
-\r\n\r\n    // Convert typeId to string for consistent comparison
+
+    // Convert typeId to string for consistent comparison
     const typeIdStr = String(service.typeId);
 
     const openPdf = this.isReadOnly || !!options?.openPdf;
