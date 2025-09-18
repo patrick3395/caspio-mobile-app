@@ -236,7 +236,7 @@ export class CompanyPage implements OnInit {
     status: 'all',
     assignedTo: 'all',
     scope: 'all',
-    overdueOnly: false
+    timeframe: '7day' // 'past', '7day', 'all' - default to 7 day
   };
   taskAssignees: string[] = [];
   taskMetrics = { total: 0, completed: 0, outstanding: 0, overdue: 0 };
@@ -650,13 +650,33 @@ export class CompanyPage implements OnInit {
       this.paginateContacts();
     }
   }
+  setTaskTimeframe(timeframe: string) {
+    this.taskFilters.timeframe = timeframe;
+    this.applyTaskFilters();
+  }
+
   applyTaskFilters() {
     const searchTerm = this.taskFilters.search.trim().toLowerCase();
     const statusFilter = this.taskFilters.status;
     const assignedFilter = this.taskFilters.assignedTo;
-    const overdueOnly = this.taskFilters.overdueOnly;
+    const timeframeFilter = this.taskFilters.timeframe;
+    const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
     this.filteredTasks = this.tasks.filter(task => {
+      // Timeframe filtering
+      if (timeframeFilter === 'past') {
+        if (!task.due || task.due > now) {
+          return false;
+        }
+      } else if (timeframeFilter === '7day') {
+        if (!task.due || task.due < now || task.due > sevenDaysFromNow) {
+          return false;
+        }
+      }
+      // timeframeFilter === 'all' shows everything
+
       if (statusFilter === 'completed' && !task.completed) {
         return false;
       }
@@ -666,10 +686,6 @@ export class CompanyPage implements OnInit {
       }
 
       if (assignedFilter !== 'all' && task.assignTo !== assignedFilter) {
-        return false;
-      }
-
-      if (overdueOnly && !task.isOverdue) {
         return false;
       }
 

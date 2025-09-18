@@ -76,10 +76,6 @@
                     <ion-icon name="people-outline"></ion-icon>
                     <span>{{ company.contactCount || 0 }}</span>
                   </div>
-                  <div class="metric-badge">
-                    <ion-icon name="cash-outline"></ion-icon>
-                    <span>{{ formatCompactCurrency(company.invoiceTotals?.total || 0) }}</span>
-                  </div>
                   <button class="expand-toggle" (click)="toggleCompanyExpand(company, $event)">
                     <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
                   </button>
@@ -99,23 +95,11 @@
                     <label>Website</label>
                     <p class="wrap-text">{{ company.Website || 'Not provided' }}</p>
                   </div>
-                  <div class="detail-col">
-                    <label>Stage</label>
-                    <p>{{ company.StageName || 'Unassigned' }}</p>
-                  </div>
                 </div>
                 <div class="detail-row">
                   <div class="detail-col">
                     <label>Total Revenue</label>
                     <p>{{ formatCurrency(company.invoiceTotals?.total || 0) }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Outstanding</label>
-                    <p class="text-warning">{{ formatCurrency(company.invoiceTotals?.outstanding || 0) }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Touches</label>
-                    <p>{{ company.totalTouches || 0 }} total</p>
                   </div>
                 </div>
                 <div class="rollup-actions">
@@ -145,11 +129,7 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'contacts'" class="tab-content contacts-tab">
-      <div class="section-header">
-        <div>
-          <h3>Contacts</h3>
-          <p>People linked to your companies</p>
-        </div>
+      <div class="contacts-search-container">
         <ion-searchbar
           [value]="contactsSearchTerm"
           (ionInput)="onContactSearchChange($event.detail.value)"
@@ -160,13 +140,11 @@
 
       <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
         <div class="pagination-controls" *ngIf="totalContactPages > 1">
-          <button class="pagination-btn" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
+          <button class="pagination-btn arrow-only" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
             <ion-icon name="chevron-back-outline"></ion-icon>
-            Previous
           </button>
-          <span class="page-indicator">Page {{ currentContactPage }} of {{ totalContactPages }}</span>
-          <button class="pagination-btn" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
-            Next
+          <span class="page-indicator">{{ currentContactPage }} of {{ totalContactPages }}</span>
+          <button class="pagination-btn arrow-only" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
             <ion-icon name="chevron-forward-outline"></ion-icon>
           </button>
         </div>
@@ -212,13 +190,6 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'tasks'" class="tab-content tasks-tab">
-      <div class="section-header">
-        <div>
-          <h3>Tasks</h3>
-          <p>{{ taskMetrics.outstanding }} open · {{ taskMetrics.overdue }} overdue</p>
-        </div>
-      </div>
-
       <div class="tasks-filters">
         <ion-searchbar
           [(ngModel)]="taskFilters.search"
@@ -246,10 +217,16 @@
           <ion-select-option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</ion-select-option>
         </ion-select>
 
-        <div class="tasks-toggle">
-          <ion-toggle
-            [(ngModel)]="taskFilters.overdueOnly"
-            (ionChange)="applyTaskFilters()">Overdue only</ion-toggle>
+        <div class="task-time-tabs">
+          <button class="time-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
+            Past
+          </button>
+          <button class="time-tab" [class.active]="taskFilters.timeframe === '7day'" (click)="setTaskTimeframe('7day')">
+            7 Day
+          </button>
+          <button class="time-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
+            All
+          </button>
         </div>
       </div>
 
