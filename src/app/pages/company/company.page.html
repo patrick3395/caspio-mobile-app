@@ -159,8 +159,16 @@
       </div>
 
       <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
-        <div class="pagination-info">
-          <span>Page {{ currentContactPage }} of {{ totalContactPages }} • Showing {{ paginatedContactGroups.length }} groups</span>
+        <div class="pagination-controls" *ngIf="totalContactPages > 1">
+          <button class="pagination-btn" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            Previous
+          </button>
+          <span class="page-indicator">Page {{ currentContactPage }} of {{ totalContactPages }}</span>
+          <button class="pagination-btn" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
+            Next
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
         </div>
         <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
@@ -193,18 +201,6 @@
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div class="pagination-controls">
-          <button class="pagination-btn" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-            Previous
-          </button>
-          <span class="page-indicator">Page {{ currentContactPage }} of {{ totalContactPages }}</span>
-          <button class="pagination-btn" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
-            Next
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </button>
         </div>
       </div>
       <ng-template #emptyContacts>
