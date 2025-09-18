@@ -428,22 +428,16 @@
             <table>
               <thead>
                 <tr>
-                  <th>Invoice</th>
-                  <th>Company</th>
                   <th>Project Date</th>
-                  <th>Amount</th>
-                  <th>Outstanding</th>
-                  <th>Notes</th>
+                  <th>Project Address</th>
+                  <th>Amount Due</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let pair of openInvoices">
-                  <td>#{{ pair.positive.InvoiceID }}</td>
-                  <td>{{ pair.positive.CompanyName }}</td>
                   <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                  <td>{{ pair.positive.AmountLabel }}</td>
+                  <td>{{ pair.positive.Address || '—' }}</td>
                   <td>{{ formatCurrency(pair.netAmount) }}</td>
-                  <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -455,22 +449,16 @@
             <table>
               <thead>
                 <tr>
-                  <th>Invoice</th>
-                  <th>Company</th>
                   <th>Project Date</th>
-                  <th>Amount</th>
-                  <th>Outstanding</th>
-                  <th>Notes</th>
+                  <th>Project Address</th>
+                  <th>Amount Due</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let pair of unpaidInvoices">
-                  <td>#{{ pair.positive.InvoiceID }}</td>
-                  <td>{{ pair.positive.CompanyName }}</td>
                   <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                  <td>{{ pair.positive.AmountLabel }}</td>
+                  <td>{{ pair.positive.Address || '—' }}</td>
                   <td>{{ formatCurrency(pair.netAmount) }}</td>
-                  <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -488,22 +476,16 @@
                 <table>
                   <thead>
                     <tr>
-                      <th>Invoice</th>
-                      <th>Billed</th>
-                      <th>Credit</th>
                       <th>Project Date</th>
-                      <th>Notes</th>
+                      <th>Project Address</th>
+                      <th>Amount Due</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let pair of group.items">
-                      <td>#{{ pair.positive.InvoiceID }}</td>
-                      <td>{{ pair.positive.AmountLabel }}</td>
-                      <td>
-                        {{ pair.negative ? formatCurrency((pair.negative.Fee || 0) * -1) : formatCurrency(pair.netAmount) }}
-                      </td>
                       <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                      <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
+                      <td>{{ pair.positive.Address || '—' }}</td>
+                      <td>{{ formatCurrency(pair.netAmount) }}</td>
                     </tr>
                   </tbody>
                 </table>

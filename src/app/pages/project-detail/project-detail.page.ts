@@ -454,6 +454,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async toggleService(event: any, offer: any) {
+    if (this.isReadOnly) {
+      return;
+    }
     console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });
     const isChecked = event.detail.checked;
     
@@ -467,6 +470,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async toggleServiceByLabel(offer: any) {
+    if (this.isReadOnly) {
+      return;
+    }
     const isSelected = this.isServiceSelected(offer.OffersID);
     if (isSelected) {
       await this.removeAllServiceInstances(offer.OffersID);
@@ -476,6 +482,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async addService(offer: any) {
+    if (this.isReadOnly) {
+      return;
+    }
     console.log('🔍 DEBUG: Starting addService with offer:', offer);
     this.updatingServices = true;
     
@@ -644,6 +653,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async removeServiceInstance(service: ServiceSelection) {
+    if (this.isReadOnly) {
+      return;
+    }
     const alert = await this.alertController.create({
       header: 'Remove Service',
       message: `Are you sure you want to remove ${service.typeName}?`,
@@ -665,6 +677,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   private async performRemoveService(service: ServiceSelection) {
+    if (this.isReadOnly) {
+      return;
+    }
     this.updatingServices = true;
     
     try {
@@ -698,6 +713,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async removeAllServiceInstances(offersId: string) {
+    if (this.isReadOnly) {
+      return;
+    }
     const services = this.selectedServices.filter(s => s.offersId === offersId);
     for (const service of services) {
       await this.performRemoveService(service);
@@ -705,6 +723,9 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async duplicateService(offersId: string, typeName: string) {
+    if (this.isReadOnly) {
+      return;
+    }
     const offer = this.availableOffers.find(o => o.OffersID === offersId);
     if (offer) {
       await this.addService(offer);
