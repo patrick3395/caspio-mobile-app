@@ -106,7 +106,7 @@
         <ion-segment
           size="small"
           [value]="companyViewScope"
-          (ionChange)="setCompanyViewScope((($event.detail.value) || 'all') as 'all' | 'noble')">
+          (ionChange)="onCompanyScopeChange($event)">
           <ion-segment-button value="all">
             <ion-label>All companies</ion-label>
           </ion-segment-button>

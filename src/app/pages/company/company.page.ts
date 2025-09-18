@@ -168,6 +168,19 @@ interface StageSummary {
   count: number;
   highlight: boolean;
 }
+
+interface InvoicePair {
+  positive: InvoiceViewModel;
+  negative: InvoiceViewModel | null;
+  projectDate: Date | null;
+  netAmount: number;
+}
+
+interface PaidInvoiceGroup {
+  companyId: number | null;
+  companyName: string;
+  items: InvoicePair[];
+}
 @Component({
   selector: 'app-company',
   templateUrl: './company.page.html',
@@ -381,6 +394,11 @@ export class CompanyPage implements OnInit {
     this.applyCompanyFilters();
   }
 
+  onCompanyScopeChange(event: any) {
+    const value = event?.detail?.value === 'noble' ? 'noble' : 'all';
+    this.setCompanyViewScope(value);
+  }
+
   onTabChange(event: any) {
     this.selectedTab = event.detail?.value || this.selectedTab;
     switch (this.selectedTab) {
@@ -555,7 +573,7 @@ export class CompanyPage implements OnInit {
     const previousCompleted = task.completed;
 
     task.completed = completed;
-    task.isOverdue = !completed && this.isDateInPast(task.dueDate);
+    task.isOverdue = !completed && task.dueDate ? this.isDateInPast(task.dueDate) : false;
 
     try {
       const payload: any = {
@@ -571,7 +589,7 @@ export class CompanyPage implements OnInit {
       await this.showToast(completed ? 'Task marked as complete' : 'Task reopened', 'success');
     } catch (error) {
       task.completed = previousCompleted;
-      task.isOverdue = !task.completed && this.isDateInPast(task.dueDate);
+      task.isOverdue = !task.completed && task.dueDate ? this.isDateInPast(task.dueDate) : false;
       console.error('Error updating task status:', error);
       await this.showToast('Unable to update task status', 'danger');
     } finally {
