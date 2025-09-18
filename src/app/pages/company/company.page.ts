@@ -667,11 +667,11 @@ export class CompanyPage implements OnInit {
     this.filteredTasks = this.tasks.filter(task => {
       // Timeframe filtering
       if (timeframeFilter === 'past') {
-        if (!task.due || task.due > now) {
+        if (!task.dueDate || task.dueDate > now) {
           return false;
         }
       } else if (timeframeFilter === '7day') {
-        if (!task.due || task.due < now || task.due > sevenDaysFromNow) {
+        if (!task.dueDate || task.dueDate < now || task.dueDate > sevenDaysFromNow) {
           return false;
         }
       }
