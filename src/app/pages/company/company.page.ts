@@ -252,6 +252,9 @@ export class CompanyPage implements OnInit {
     search: '',
     timeframe: 'upcoming'
   };
+  meetingsViewMode: 'calendar' | 'list' = 'calendar';
+  currentWeekStart = new Date();
+  weekDays: any[] = [];
 
   communications: CommunicationViewModel[] = [];
   filteredCommunications: CommunicationViewModel[] = [];
@@ -300,6 +303,7 @@ export class CompanyPage implements OnInit {
 
   ngOnInit() {
     this.loadCompanyData();
+    this.initializeWeekView();
   }
 
   async loadCompanyData(showSpinner: boolean = true) {
