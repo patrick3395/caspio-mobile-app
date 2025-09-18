@@ -934,27 +934,44 @@ export class CompanyPage implements OnInit {
       bucket.positives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
       bucket.negatives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
 
+      // For Open tab: Show all active projects with positive invoice amounts
+      // These are invoices that have positive amounts regardless of payments
       bucket.positives.forEach(positive => {
-        const negative = bucket.negatives.shift() ?? null;
-        const projectDate = metadata?.projectDate ?? positive.ProjectDate ?? negative?.ProjectDate ?? positive.DateValue ?? negative?.DateValue ?? null;
-        const net = (positive.Fee ?? 0) + (negative?.Fee ?? 0);
-        const pair: InvoicePair = {
-          positive,
-          negative,
-          projectDate,
-          netAmount: net
-        };
+        const fee = positive.Fee ?? 0;
+        if (fee > 0) {
+          // This is an active project with a positive invoice amount
+          const negative = bucket.negatives.find(neg =>
+            neg.ProjectID === positive.ProjectID
+          ) ?? null;
 
-        if (negative) {
-          paidPairs.push(pair);
-        } else {
-          const outstanding = Math.max((positive.Fee ?? 0) - (positive.Paid ?? 0), 0);
-          pair.netAmount = outstanding;
-          const projectHasOccurred = projectDate ? projectDate <= today : (positive.DateValue ? positive.DateValue <= today : true);
-          if (projectHasOccurred) {
-            unpaid.push(pair);
+          const projectDate = metadata?.projectDate ?? positive.ProjectDate ?? positive.DateValue ?? null;
+          const net = fee + (negative?.Fee ?? 0);
+
+          const pair: InvoicePair = {
+            positive,
+            negative,
+            projectDate,
+            netAmount: fee // Show the positive amount for open invoices
+          };
+
+          if (negative) {
+            // If there's a payment, it goes to paid
+            paidPairs.push(pair);
+            // Remove the negative from the list so it's not processed again
+            const negIndex = bucket.negatives.indexOf(negative);
+            if (negIndex > -1) {
+              bucket.negatives.splice(negIndex, 1);
+            }
           } else {
-            open.push(pair);
+            // No payment yet - check if it should be open or unpaid
+            const projectHasOccurred = projectDate ? projectDate <= today : true;
+            if (!projectHasOccurred) {
+              // Future project or active project - goes to Open
+              open.push(pair);
+            } else {
+              // Past project without payment - goes to Unpaid
+              unpaid.push(pair);
+            }
           }
         }
       });
