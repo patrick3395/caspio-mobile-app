@@ -6,7 +6,7 @@
 
 <ion-content>
   <!-- Tab Segment for CompanyID = 1 -->
-  <ion-segment *ngIf="companyId === 1" [(ngModel)]="selectedTab" mode="ios" class="company-tabs">
+  <ion-segment *ngIf="companyId === 1" [(ngModel)]="selectedTab" (ionChange)="onTabChange($event)" scrollable mode="ios" class="company-tabs">
     <ion-segment-button value="companies">
       <ion-label>Companies</ion-label>
     </ion-segment-button>
@@ -27,152 +27,406 @@
     </ion-segment-button>
   </ion-segment>
 
-  <!-- Companies Tab Content (Users) -->
-  <div *ngIf="companyId === 1 && selectedTab === 'companies'">
-    <!-- Search Bar -->
-    <ion-searchbar 
-    [(ngModel)]="searchTerm"
-    (ionChange)="filterUsers($event)"
-    placeholder="Search users..."
-    animated="true"
-    class="search-bar">
-  </ion-searchbar>
+  <!-- Companies Tab Content -->
+  <div *ngIf="companyId === 1 && selectedTab === 'companies'" class="tab-content companies-tab">
+    <ng-container *ngIf="companyProfile; else noCompanyProfile">
+      <section class="company-overview">
+        <div class="company-overview__header">
+          <div>
+            <h2>{{ displayField(companyProfile, ['CompanyName', 'Name'], companyName) }}</h2>
+            <p class="company-overview__subtitle">
+              {{ displayField(companyProfile, ['Industry', 'CompanyType', 'Segment'], 'Industry not specified') }}
+            </p>
+          </div>
+          <div class="company-overview__actions">
+            <ion-button fill="clear" color="primary" size="small" (click)="loadCompanyData()">
+              <ion-icon slot="start" name="refresh-outline"></ion-icon>
+              Refresh
+            </ion-button>
+          </div>
+        </div>
 
-  <!-- Pull to Refresh -->
-  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
-    <ion-refresher-content
-      pullingIcon="chevron-down-circle-outline"
-      pullingText="Pull to refresh"
-      refreshingSpinner="circles"
-      refreshingText="Loading users...">
-    </ion-refresher-content>
-  </ion-refresher>
-
-  <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading-container">
-    <ion-spinner name="circles" color="primary"></ion-spinner>
-    <p>Loading users...</p>
-  </div>
-
-  <!-- Users Table -->
-  <div *ngIf="!isLoading && filteredUsers.length > 0" class="users-table-container">
-    <table class="users-table">
-      <thead>
-        <tr>
-          <th>Headshot</th>
-          <th>Name</th>
-          <th>Title</th>
-          <th>Phone</th>
-          <th>Email</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)">
-          <td class="headshot-cell" (click)="$event.stopPropagation()">
-            <div class="user-avatar-container">
-              <div class="user-avatar">
-                <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
-                <div *ngIf="!user.Headshot" class="avatar-initials">
-                  {{ getUserInitials(user) }}
-                </div>
-              </div>
-              <button class="upload-btn" (click)="uploadHeadshot(user)" title="Upload headshot">
-                <ion-icon name="camera-outline"></ion-icon>
-              </button>
+        <div class="company-snapshot-grid">
+          <div class="snapshot-card" *ngFor="let item of companySnapshot">
+            <ion-icon [name]="item.icon"></ion-icon>
+            <div>
+              <p>{{ item.label }}</p>
+              <h3>{{ item.value || '—' }}</h3>
+              <a *ngIf="item.hint" [href]="'mailto:' + item.hint">{{ item.hint }}</a>
             </div>
-          </td>
-          <td class="name-cell">{{ user.Name }}</td>
-          <td class="title-cell">{{ user.Title || '-' }}</td>
-          <td class="phone-cell">{{ formatPhone(user.Phone) || '-' }}</td>
-          <td class="email-cell">
-            <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </div>
+        </div>
 
-  <!-- Mobile Card View for Small Screens -->
-  <ion-list *ngIf="!isLoading && filteredUsers.length > 0" class="mobile-users-list">
-    <ion-card *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)" class="user-card">
-      <ion-card-content>
-        <ion-grid>
-          <ion-row>
-            <ion-col size="3">
-              <div class="user-avatar-container">
-                <div class="user-avatar">
-                  <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
-                  <div *ngIf="!user.Headshot" class="avatar-initials">
-                    {{ getUserInitials(user) }}
+        <div class="company-stats-grid">
+          <div class="stat-card" *ngFor="let stat of companyStats">
+            <ion-icon [name]="stat.icon"></ion-icon>
+            <div>
+              <p>{{ stat.title }}</p>
+              <h3>{{ stat.value }}</h3>
+              <span *ngIf="stat.subtitle">{{ stat.subtitle }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="company-team">
+        <div class="section-header">
+          <div>
+            <h3>Team Members</h3>
+            <p>People associated with this company</p>
+          </div>
+        </div>
+
+        <ion-searchbar
+          [(ngModel)]="searchTerm"
+          (ionChange)="filterUsers($event)"
+          placeholder="Search team members..."
+          animated="true"
+          class="search-bar">
+        </ion-searchbar>
+
+        <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+          <ion-refresher-content
+            pullingIcon="chevron-down-circle-outline"
+            pullingText="Pull to refresh"
+            refreshingSpinner="circles"
+            refreshingText="Loading users...">
+          </ion-refresher-content>
+        </ion-refresher>
+
+        <div *ngIf="isLoading" class="loading-container">
+          <ion-spinner name="circles" color="primary"></ion-spinner>
+          <p>Loading users...</p>
+        </div>
+
+        <div *ngIf="!isLoading && filteredUsers.length > 0" class="users-table-container">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Headshot</th>
+                <th>Name</th>
+                <th>Title</th>
+                <th>Phone</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)">
+                <td class="headshot-cell" (click)="$event.stopPropagation()">
+                  <div class="user-avatar-container">
+                    <div class="user-avatar">
+                      <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
+                      <div *ngIf="!user.Headshot" class="avatar-initials">
+                        {{ getUserInitials(user) }}
+                      </div>
+                    </div>
+                    <button class="upload-btn" (click)="uploadHeadshot(user)" title="Upload headshot">
+                      <ion-icon name="camera-outline"></ion-icon>
+                    </button>
                   </div>
-                </div>
-                <button class="upload-btn mobile" (click)="uploadHeadshot(user); $event.stopPropagation()" title="Upload headshot">
-                  <ion-icon name="camera-outline"></ion-icon>
-                </button>
-              </div>
-            </ion-col>
-            <ion-col size="9">
-              <h2 class="user-name">{{ user.Name }}</h2>
-              <p class="user-title" *ngIf="user.Title">{{ user.Title }}</p>
-              <p class="user-phone" *ngIf="user.Phone">
-                <ion-icon name="call-outline"></ion-icon>
-                {{ formatPhone(user.Phone) }}
-              </p>
-              <p class="user-email">
-                <ion-icon name="mail-outline"></ion-icon>
-                <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
-              </p>
-            </ion-col>
-          </ion-row>
-        </ion-grid>
-      </ion-card-content>
-    </ion-card>
-  </ion-list>
+                </td>
+                <td class="name-cell">{{ user.Name }}</td>
+                <td class="title-cell">{{ user.Title || '-' }}</td>
+                <td class="phone-cell">{{ formatPhone(user.Phone) || '-' }}</td>
+                <td class="email-cell">
+                  <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-  <!-- Empty State -->
-  <div *ngIf="!isLoading && filteredUsers.length === 0" class="empty-state">
-    <ion-icon name="people-outline" class="empty-icon"></ion-icon>
-    <h3>No Users Found</h3>
-    <p *ngIf="searchTerm">No users match your search criteria</p>
-    <p *ngIf="!searchTerm">No users found for this company</p>
-    <ion-button (click)="loadUsers()" fill="outline" color="primary">
-      <ion-icon name="refresh-outline" slot="start"></ion-icon>
-      Refresh
-    </ion-button>
+        <ion-list *ngIf="!isLoading && filteredUsers.length > 0" class="mobile-users-list">
+          <ion-card *ngFor="let user of filteredUsers" (click)="viewUserDetails(user)" class="user-card">
+            <ion-card-content>
+              <ion-grid>
+                <ion-row>
+                  <ion-col size="3">
+                    <div class="user-avatar-container">
+                      <div class="user-avatar">
+                        <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-img">
+                        <div *ngIf="!user.Headshot" class="avatar-initials">
+                          {{ getUserInitials(user) }}
+                        </div>
+                      </div>
+                      <button class="upload-btn mobile" (click)="uploadHeadshot(user); $event.stopPropagation()" title="Upload headshot">
+                        <ion-icon name="camera-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </ion-col>
+                  <ion-col size="9">
+                    <h2 class="user-name">{{ user.Name }}</h2>
+                    <p class="user-title" *ngIf="user.Title">{{ user.Title }}</p>
+                    <p class="user-phone" *ngIf="user.Phone">
+                      <ion-icon name="call-outline"></ion-icon>
+                      {{ formatPhone(user.Phone) }}
+                    </p>
+                    <p class="user-email">
+                      <ion-icon name="mail-outline"></ion-icon>
+                      <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+                    </p>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </ion-card-content>
+          </ion-card>
+        </ion-list>
+
+        <div *ngIf="!isLoading && filteredUsers.length === 0" class="empty-state">
+          <ion-icon name="people-outline" class="empty-icon"></ion-icon>
+          <h3>No Team Members Found</h3>
+          <p *ngIf="searchTerm">No users match your search criteria</p>
+          <p *ngIf="!searchTerm">No users found for this company</p>
+          <ion-button (click)="loadUsers()" fill="outline" color="primary">
+            <ion-icon name="refresh-outline" slot="start"></ion-icon>
+            Refresh
+          </ion-button>
+        </div>
+
+        <div *ngIf="!isLoading && users.length > 0" class="user-count">
+          <p>Showing {{ filteredUsers.length }} of {{ users.length }} users</p>
+        </div>
+      </section>
+    </ng-container>
   </div>
 
-  <!-- User Count Footer -->
-  <div *ngIf="!isLoading && users.length > 0" class="user-count">
-    <p>Showing {{ filteredUsers.length }} of {{ users.length }} users</p>
-  </div>
-  </div>
+  <ng-template #noCompanyProfile>
+    <div class="empty-tab-state">
+      <ion-icon name="business-outline"></ion-icon>
+      <h3>No Company Details</h3>
+      <p>We could not locate a matching company record.</p>
+    </div>
+  </ng-template>
 
   <!-- Other Tab Contents for CompanyID = 1 -->
-  <div *ngIf="companyId === 1 && selectedTab === 'contacts'" class="tab-content">
-    <div class="empty-tab-state">
+  <div *ngIf="companyId === 1 && selectedTab === 'contacts'" class="tab-content contacts-tab">
+    <div class="section-header">
+      <div>
+        <h3>Contacts</h3>
+        <p>Client and partner contacts linked to this company</p>
+      </div>
+    </div>
+
+    <ion-searchbar
+      [(ngModel)]="contactsSearchTerm"
+      (ionChange)="applyContactFilters()"
+      placeholder="Search contacts by name, email or phone"
+      animated="true"
+      class="search-bar">
+    </ion-searchbar>
+
+    <div *ngIf="filteredContacts.length > 0" class="responsive-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Title</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Last Contact</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let contact of filteredContacts">
+            <td>{{ displayField(contact, contactFieldMap.name) }}</td>
+            <td>{{ displayField(contact, contactFieldMap.title) }}</td>
+            <td>
+              <a *ngIf="displayField(contact, contactFieldMap.email) !== '—'" [href]="'mailto:' + displayField(contact, contactFieldMap.email)">
+                {{ displayField(contact, contactFieldMap.email) }}
+              </a>
+              <span *ngIf="displayField(contact, contactFieldMap.email) === '—'">—</span>
+            </td>
+            <td>{{ formatPhone(displayField(contact, contactFieldMap.phone)) || '—' }}</td>
+            <td>{{ displayDate(contact, contactFieldMap.lastContact) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ion-list *ngIf="filteredContacts.length > 0" class="mobile-card-list">
+      <ion-card *ngFor="let contact of filteredContacts" class="info-card">
+        <ion-card-header>
+          <ion-card-title>{{ displayField(contact, contactFieldMap.name) }}</ion-card-title>
+          <ion-card-subtitle>{{ displayField(contact, contactFieldMap.title) }}</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="card-row" *ngIf="displayField(contact, contactFieldMap.email) !== '—'">
+            <ion-icon name="mail-outline"></ion-icon>
+            <a [href]="'mailto:' + displayField(contact, contactFieldMap.email)">
+              {{ displayField(contact, contactFieldMap.email) }}
+            </a>
+          </div>
+          <div class="card-row" *ngIf="displayField(contact, contactFieldMap.phone) !== '—'">
+            <ion-icon name="call-outline"></ion-icon>
+            <span>{{ formatPhone(displayField(contact, contactFieldMap.phone)) }}</span>
+          </div>
+          <div class="card-row" *ngIf="displayDate(contact, contactFieldMap.lastContact) !== '—'">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>Last contact {{ displayDate(contact, contactFieldMap.lastContact) }}</span>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </ion-list>
+
+    <div *ngIf="filteredContacts.length === 0" class="empty-tab-state">
       <ion-icon name="people-circle-outline"></ion-icon>
-      <h3>Contacts</h3>
-      <p>Contact management coming soon</p>
+      <h3>No Contacts</h3>
+      <p>No contacts match your current filters</p>
     </div>
   </div>
 
-  <div *ngIf="companyId === 1 && selectedTab === 'tasks'" class="tab-content">
-    <div class="empty-tab-state">
+  <div *ngIf="companyId === 1 && selectedTab === 'tasks'" class="tab-content tasks-tab">
+    <div class="section-header">
+      <div>
+        <h3>Tasks</h3>
+        <p>Work items and follow-ups for this client</p>
+      </div>
+      <div class="task-metrics">
+        <div class="metric">
+          <span>Total</span>
+          <strong>{{ taskMetrics.total }}</strong>
+        </div>
+        <div class="metric">
+          <span>Completed</span>
+          <strong>{{ taskMetrics.completed }}</strong>
+        </div>
+        <div class="metric">
+          <span>Outstanding</span>
+          <strong>{{ taskMetrics.outstanding }}</strong>
+        </div>
+        <div class="metric overdue" *ngIf="taskMetrics.overdue > 0">
+          <span>Overdue</span>
+          <strong>{{ taskMetrics.overdue }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="task-controls">
+      <ion-searchbar
+        [(ngModel)]="taskSearchTerm"
+        (ionChange)="applyTaskFilters()"
+        placeholder="Search tasks..."
+        animated="true"
+        class="search-bar">
+      </ion-searchbar>
+
+      <div class="task-filters">
+        <ion-segment size="small" mode="ios" [(ngModel)]="taskStatusFilter" (ionChange)="applyTaskFilters()">
+          <ion-segment-button value="all">All</ion-segment-button>
+          <ion-segment-button value="open">Open</ion-segment-button>
+          <ion-segment-button value="completed">Completed</ion-segment-button>
+        </ion-segment>
+
+        <ion-select
+          interface="popover"
+          placeholder="Filter by assignee"
+          [(ngModel)]="taskAssigneeFilter"
+          (ionChange)="applyTaskFilters()"
+          class="assignee-filter">
+          <ion-select-option value="all">All owners</ion-select-option>
+          <ion-select-option *ngFor="let assignee of taskAssignees" [value]="assignee.toLowerCase()">
+            {{ assignee }}
+          </ion-select-option>
+        </ion-select>
+      </div>
+    </div>
+
+    <div *ngIf="filteredTasks.length > 0" class="task-board">
+      <ion-card *ngFor="let task of filteredTasks" [class.completed]="task.__meta.completed" [class.overdue]="task.__meta.isOverdue">
+        <ion-card-header>
+          <ion-card-subtitle>
+            <ion-icon [name]="task.__meta.completed ? 'checkmark-circle-outline' : 'ellipse-outline'"></ion-icon>
+            {{ task.__meta.status || (task.__meta.completed ? 'Completed' : 'Open') }}
+          </ion-card-subtitle>
+          <ion-card-title>{{ task.__meta.title }}</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p class="task-description" *ngIf="task.__meta.description">{{ task.__meta.description }}</p>
+          <div class="task-meta">
+            <div>
+              <ion-icon name="person-outline"></ion-icon>
+              <span>{{ task.__meta.assignedTo }}</span>
+            </div>
+            <div *ngIf="task.__meta.dueDate">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span>{{ task.__meta.dueDateLabel }}</span>
+            </div>
+            <div *ngIf="task.__meta.priority">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              <span>{{ task.__meta.priority }}</span>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <div *ngIf="filteredTasks.length === 0" class="empty-tab-state">
       <ion-icon name="checkbox-outline"></ion-icon>
-      <h3>Tasks</h3>
-      <p>Task management coming soon</p>
+      <h3>No Tasks Found</h3>
+      <p *ngIf="taskSearchTerm">Try adjusting your search or filters</p>
+      <p *ngIf="!taskSearchTerm">There are no tasks for this company yet</p>
     </div>
   </div>
 
-  <div *ngIf="companyId === 1 && selectedTab === 'metrics'" class="tab-content">
-    <div class="empty-tab-state">
+  <div *ngIf="companyId === 1 && selectedTab === 'metrics'" class="tab-content communications-tab">
+    <div class="section-header">
+      <div>
+        <h3>Communications</h3>
+        <p>Recent interactions logged with this company</p>
+      </div>
+    </div>
+
+    <ion-searchbar
+      [(ngModel)]="communicationSearchTerm"
+      (ionChange)="applyCommunicationFilters()"
+      placeholder="Search notes, people or subjects"
+      animated="true"
+      class="search-bar">
+    </ion-searchbar>
+
+    <div class="communication-filters">
+      <ion-segment size="small" mode="ios" [(ngModel)]="communicationTypeFilter" (ionChange)="applyCommunicationFilters()">
+        <ion-segment-button value="all">All types</ion-segment-button>
+        <ion-segment-button *ngFor="let type of communicationTypes" [value]="type">
+          {{ type | titlecase }}
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <div *ngIf="filteredCommunications.length > 0" class="communication-timeline">
+      <div class="communication-event" *ngFor="let comm of filteredCommunications">
+        <div class="event-icon">
+          <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+        </div>
+        <div class="event-content">
+          <div class="event-meta">
+            <span class="event-type">{{ displayField(comm, communicationFieldMap.type, 'General') | titlecase }}</span>
+            <span class="event-date">{{ displayDate(comm, communicationFieldMap.date) }}</span>
+          </div>
+          <h4>{{ displayField(comm, communicationFieldMap.subject, 'General communication') }}</h4>
+          <p *ngIf="displayField(comm, communicationFieldMap.summary) !== '—'">{{ displayField(comm, communicationFieldMap.summary) }}</p>
+          <div class="event-footer">
+            <span *ngIf="displayField(comm, communicationFieldMap.contact) !== '—'">
+              <ion-icon name="person-outline"></ion-icon>
+              {{ displayField(comm, communicationFieldMap.contact) }}
+            </span>
+            <span *ngIf="displayField(comm, communicationFieldMap.owner) !== '—'">
+              <ion-icon name="at-outline"></ion-icon>
+              {{ displayField(comm, communicationFieldMap.owner) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="filteredCommunications.length === 0" class="empty-tab-state">
       <ion-icon name="analytics-outline"></ion-icon>
-      <h3>Metrics</h3>
-      <p>Performance metrics coming soon</p>
+      <h3>No Communications Logged</h3>
+      <p>Add calls, meetings or notes to keep your history organised.</p>
     </div>
   </div>
 
-  <div *ngIf="companyId === 1 && selectedTab === 'leads'" class="tab-content">
+  <div *ngIf="companyId === 1 && selectedTab === 'leads'" class="tab-content leads-tab">
     <div class="empty-tab-state">
       <ion-icon name="trending-up-outline"></ion-icon>
       <h3>Leads</h3>
@@ -180,11 +434,100 @@
     </div>
   </div>
 
-  <div *ngIf="companyId === 1 && selectedTab === 'invoices'" class="tab-content">
-    <div class="empty-tab-state">
+  <div *ngIf="companyId === 1 && selectedTab === 'invoices'" class="tab-content invoices-tab">
+    <div class="section-header">
+      <div>
+        <h3>Invoices</h3>
+        <p>Billing history and outstanding balances</p>
+      </div>
+    </div>
+
+    <div class="invoice-summary">
+      <div class="summary-pill">
+        <span>Total Billed</span>
+        <strong>{{ formatCurrency(invoiceMetrics.total) }}</strong>
+      </div>
+      <div class="summary-pill warning">
+        <span>Outstanding</span>
+        <strong>{{ formatCurrency(invoiceMetrics.outstanding) }}</strong>
+      </div>
+      <div class="summary-pill success">
+        <span>Collected</span>
+        <strong>{{ formatCurrency(invoiceMetrics.paid) }}</strong>
+      </div>
+    </div>
+
+    <div class="invoice-controls">
+      <ion-searchbar
+        [(ngModel)]="invoiceSearchTerm"
+        (ionChange)="applyInvoiceFilters()"
+        placeholder="Search invoices..."
+        animated="true"
+        class="search-bar">
+      </ion-searchbar>
+
+      <ion-segment size="small" mode="ios" [(ngModel)]="invoiceStatusFilter" (ionChange)="applyInvoiceFilters()">
+        <ion-segment-button value="all">All</ion-segment-button>
+        <ion-segment-button value="open">Open</ion-segment-button>
+        <ion-segment-button value="paid">Paid</ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <div *ngIf="filteredInvoices.length > 0" class="responsive-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Date</th>
+            <th>Due</th>
+            <th>Status</th>
+            <th class="numeric">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invoice of filteredInvoices">
+            <td>{{ displayField(invoice, invoiceFieldMap.number, '—') }}</td>
+            <td>{{ displayDate(invoice, invoiceFieldMap.date) }}</td>
+            <td>{{ displayDate(invoice, invoiceFieldMap.dueDate) }}</td>
+            <td>
+              <span class="status-pill" [class.paid]="displayField(invoice, invoiceFieldMap.status, '').toLowerCase().includes('paid')">
+                {{ displayField(invoice, invoiceFieldMap.status, 'Open') }}
+              </span>
+            </td>
+            <td class="numeric">{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, 0)) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ion-list *ngIf="filteredInvoices.length > 0" class="mobile-card-list">
+      <ion-card *ngFor="let invoice of filteredInvoices" class="info-card">
+        <ion-card-header>
+          <ion-card-title>{{ displayField(invoice, invoiceFieldMap.number, 'Invoice') }}</ion-card-title>
+          <ion-card-subtitle>{{ displayField(invoice, invoiceFieldMap.status, 'Open') }}</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="card-row">
+            <span>Issued</span>
+            <strong>{{ displayDate(invoice, invoiceFieldMap.date) }}</strong>
+          </div>
+          <div class="card-row">
+            <span>Due</span>
+            <strong>{{ displayDate(invoice, invoiceFieldMap.dueDate) }}</strong>
+          </div>
+          <div class="card-row">
+            <span>Amount</span>
+            <strong>{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, 0)) }}</strong>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </ion-list>
+
+    <div *ngIf="filteredInvoices.length === 0" class="empty-tab-state">
       <ion-icon name="receipt-outline"></ion-icon>
-      <h3>Invoices</h3>
-      <p>Invoice management coming soon</p>
+      <h3>No Invoices Found</h3>
+      <p *ngIf="invoiceSearchTerm">Try adjusting your search or filters.</p>
+      <p *ngIf="!invoiceSearchTerm">This company has no recorded invoices.</p>
     </div>
   </div>
 

@@ -34,6 +34,72 @@ export class CompanyPage implements OnInit {
   companyId = 1; // Noble Property Inspections
   selectedTab = 'companies'; // Default tab for CompanyID = 1
 
+  companyProfile: any = null;
+  companySnapshot: { label: string; value: string; icon: string; hint?: string }[] = [];
+  companyStats: { title: string; value: string; subtitle?: string; icon: string }[] = [];
+
+  contacts: any[] = [];
+  filteredContacts: any[] = [];
+  contactsSearchTerm = '';
+
+  tasks: any[] = [];
+  filteredTasks: any[] = [];
+  taskSearchTerm = '';
+  taskStatusFilter: 'all' | 'open' | 'completed' = 'all';
+  taskAssigneeFilter = 'all';
+  taskAssignees: string[] = [];
+  taskMetrics = { total: 0, completed: 0, outstanding: 0, overdue: 0 };
+
+  communications: any[] = [];
+  filteredCommunications: any[] = [];
+  communicationSearchTerm = '';
+  communicationTypeFilter = 'all';
+  communicationTypes: string[] = [];
+
+  invoices: any[] = [];
+  filteredInvoices: any[] = [];
+  invoiceSearchTerm = '';
+  invoiceStatusFilter = 'all';
+  invoiceMetrics = { total: 0, outstanding: 0, paid: 0 };
+
+  readonly contactFieldMap = {
+    name: ['Name', 'FullName', 'ContactName', 'DisplayName'],
+    title: ['Title', 'Role', 'Position', 'JobTitle'],
+    email: ['Email', 'EmailAddress', 'PrimaryEmail'],
+    phone: ['Phone', 'PhoneNumber', 'Mobile', 'CellPhone'],
+    city: ['City', 'LocationCity'],
+    tags: ['Tags', 'Category', 'Labels'],
+    lastContact: ['LastContact', 'LastContactDate', 'Last_Contact_Date']
+  } as const;
+
+  readonly taskFieldMap = {
+    title: ['Title', 'TaskTitle', 'Task', 'Name', 'Subject'],
+    description: ['Description', 'Details', 'Notes', 'Summary'],
+    assignedTo: ['AssignedTo', 'AssignTo', 'AssignedUser', 'Owner', 'Assigned_Name'],
+    status: ['Status', 'TaskStatus', 'State', 'Stage'],
+    completed: ['Completed', 'Complete', 'IsComplete', 'Done'],
+    dueDate: ['DueDate', 'Due_On', 'DueDateTime', 'Deadline'],
+    priority: ['Priority', 'Importance', 'Urgency']
+  } as const;
+
+  readonly communicationFieldMap = {
+    subject: ['Subject', 'Topic', 'Title'],
+    summary: ['Summary', 'Notes', 'Description', 'Details'],
+    type: ['Type', 'Channel', 'Medium'],
+    contact: ['ContactName', 'Name', 'Recipient', 'To'],
+    owner: ['Owner', 'AgentName', 'HandledBy'],
+    date: ['Date', 'ContactDate', 'CommunicationDate', 'CreatedOn']
+  } as const;
+
+  readonly invoiceFieldMap = {
+    number: ['InvoiceNumber', 'Number', 'InvoiceNo', 'InvoiceID'],
+    date: ['InvoiceDate', 'Date', 'IssuedOn'],
+    dueDate: ['DueDate', 'Due_On', 'Deadline'],
+    status: ['Status', 'State'],
+    amount: ['Amount', 'Total', 'InvoiceTotal', 'BalanceDue'],
+    balance: ['Balance', 'Outstanding', 'BalanceDue', 'AmountDue']
+  } as const;
+
   constructor(
     private caspioService: CaspioService,
     private alertController: AlertController,
@@ -43,7 +109,19 @@ export class CompanyPage implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadUsers();
+    this.loadCompanyData();
+  }
+
+  private async loadCompanyData() {
+    await Promise.all([
+      this.loadCompanyProfile(),
+      this.loadUsers(),
+      this.loadContacts(),
+      this.loadTasks(),
+      this.loadCommunications(),
+      this.loadInvoices()
+    ]);
+    this.buildCompanyStats();
   }
 
   async loadUsers() {
@@ -191,6 +269,254 @@ export class CompanyPage implements OnInit {
       });
       await alert.present();
     }
+  }
+
+  private async loadCompanyProfile() {
+    try {
+      const records = await this.fetchTableRecords('Companies', {
+        'q.where': `PK_ID=${this.companyId}`
+      });
+      this.companyProfile = records.length ? records[0] : null;
+    } catch (error) {
+      console.error('Error loading company profile:', error);
+    }
+  }
+
+  private async loadContacts() {
+    try {
+      this.contacts = await this.fetchTableRecords('Contacts', {
+        'q.where': `CompanyID=${this.companyId}`,
+        'q.orderBy': 'Name'
+      });
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      this.contacts = [];
+    }
+
+    this.applyContactFilters();
+    this.buildCompanyStats();
+  }
+
+  applyContactFilters() {
+    const term = this.contactsSearchTerm.trim().toLowerCase();
+    this.filteredContacts = this.contacts.filter(contact => {
+      const name = this.resolveField(contact, this.contactFieldMap.name, '').toLowerCase();
+      const email = this.resolveField(contact, this.contactFieldMap.email, '').toLowerCase();
+      const title = this.resolveField(contact, this.contactFieldMap.title, '').toLowerCase();
+      const phone = (this.resolveField(contact, this.contactFieldMap.phone, '') || '').toString().toLowerCase();
+
+      if (!term) {
+        return true;
+      }
+
+      return name.includes(term) || email.includes(term) || title.includes(term) || phone.includes(term);
+    });
+  }
+
+  private async loadTasks() {
+    try {
+      this.tasks = await this.fetchTableRecords('Tasks', {
+        'q.where': `CompanyID=${this.companyId}`,
+        'q.orderBy': 'DueDate DESC'
+      });
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      this.tasks = [];
+    }
+
+    this.taskAssignees = Array.from(new Set(this.tasks.map(task => this.resolveField(task, this.taskFieldMap.assignedTo, ''))))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    this.recalculateTaskMetrics();
+    this.applyTaskFilters();
+  }
+
+  applyTaskFilters() {
+    const term = this.taskSearchTerm.trim().toLowerCase();
+    const assigneeFilter = this.taskAssigneeFilter.toLowerCase();
+    const now = new Date();
+
+    this.filteredTasks = this.tasks.filter(task => {
+      const title = this.resolveField(task, this.taskFieldMap.title, '').toLowerCase();
+      const description = this.resolveField(task, this.taskFieldMap.description, '').toLowerCase();
+      const assignedTo = this.resolveField(task, this.taskFieldMap.assignedTo, '');
+      const assignedToLower = assignedTo.toLowerCase();
+      const status = this.resolveField(task, this.taskFieldMap.status, '').toLowerCase();
+      const completed = this.resolveBoolean(task, this.taskFieldMap.completed);
+      const dueDate = this.getDateValue(task, this.taskFieldMap.dueDate);
+
+      if (assigneeFilter !== 'all' && assignedToLower !== assigneeFilter) {
+        return false;
+      }
+
+      if (this.taskStatusFilter === 'completed' && !completed) {
+        return false;
+      }
+
+      if (this.taskStatusFilter === 'open' && completed) {
+        return false;
+      }
+
+      if (term) {
+        const priority = this.resolveField(task, this.taskFieldMap.priority, '').toLowerCase();
+        if (
+          !title.includes(term) &&
+          !description.includes(term) &&
+          !assignedToLower.includes(term) &&
+          !status.includes(term) &&
+          !priority.includes(term)
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    }).map(task => ({
+      ...task,
+      __meta: {
+        title: this.resolveField(task, this.taskFieldMap.title, 'Untitled Task'),
+        description: this.resolveField(task, this.taskFieldMap.description, ''),
+        assignedTo: this.resolveField(task, this.taskFieldMap.assignedTo, 'Unassigned'),
+        status: this.resolveField(task, this.taskFieldMap.status, this.resolveBoolean(task, this.taskFieldMap.completed) ? 'Completed' : 'Open'),
+        completed: this.resolveBoolean(task, this.taskFieldMap.completed),
+        dueDate: this.getDateValue(task, this.taskFieldMap.dueDate),
+        dueDateLabel: this.formatDate(this.getDateValue(task, this.taskFieldMap.dueDate)),
+        isOverdue: (() => {
+          const due = this.getDateValue(task, this.taskFieldMap.dueDate);
+          if (!due) { return false; }
+          const completed = this.resolveBoolean(task, this.taskFieldMap.completed);
+          return !completed && due < now;
+        })(),
+        priority: this.resolveField(task, this.taskFieldMap.priority, '')
+      }
+    }));
+
+    this.buildCompanyStats();
+  }
+
+  private recalculateTaskMetrics() {
+    const now = new Date();
+    const total = this.tasks.length;
+    const completed = this.tasks.filter(task => this.resolveBoolean(task, this.taskFieldMap.completed)).length;
+    const overdue = this.tasks.filter(task => {
+      const due = this.getDateValue(task, this.taskFieldMap.dueDate);
+      if (!due) { return false; }
+      return !this.resolveBoolean(task, this.taskFieldMap.completed) && due < now;
+    }).length;
+    const outstanding = total - completed;
+
+    this.taskMetrics = { total, completed, outstanding, overdue };
+  }
+
+  private async loadCommunications() {
+    try {
+      this.communications = await this.fetchTableRecords('Communications', {
+        'q.where': `CompanyID=${this.companyId}`,
+        'q.orderBy': 'Date DESC'
+      });
+    } catch (error) {
+      console.error('Error loading communications:', error);
+      this.communications = [];
+    }
+
+    this.communicationTypes = Array.from(new Set(
+      this.communications
+        .map(comm => this.resolveField(comm, this.communicationFieldMap.type, '').toString().toLowerCase())
+    )).filter(Boolean).sort((a, b) => a.localeCompare(b));
+
+    this.applyCommunicationFilters();
+  }
+
+  applyCommunicationFilters() {
+    const term = this.communicationSearchTerm.trim().toLowerCase();
+    const typeFilter = this.communicationTypeFilter.toLowerCase();
+
+    this.filteredCommunications = this.communications.filter(comm => {
+      const subject = this.resolveField(comm, this.communicationFieldMap.subject, '').toLowerCase();
+      const summary = this.resolveField(comm, this.communicationFieldMap.summary, '').toLowerCase();
+      const type = this.resolveField(comm, this.communicationFieldMap.type, '').toLowerCase();
+      const contact = this.resolveField(comm, this.communicationFieldMap.contact, '').toLowerCase();
+      const owner = this.resolveField(comm, this.communicationFieldMap.owner, '').toLowerCase();
+
+      if (typeFilter !== 'all' && type !== typeFilter) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      return subject.includes(term) || summary.includes(term) || contact.includes(term) || owner.includes(term) || type.includes(term);
+    });
+  }
+
+  private async loadInvoices() {
+    try {
+      this.invoices = await this.fetchTableRecords('Invoices', {
+        'q.where': `CompanyID=${this.companyId}`,
+        'q.orderBy': 'InvoiceDate DESC'
+      });
+    } catch (error) {
+      console.error('Error loading invoices:', error);
+      this.invoices = [];
+    }
+
+    this.calculateInvoiceMetrics();
+    this.applyInvoiceFilters();
+  }
+
+  applyInvoiceFilters() {
+    const term = this.invoiceSearchTerm.trim().toLowerCase();
+    const statusFilter = this.invoiceStatusFilter.toLowerCase();
+
+    this.filteredInvoices = this.invoices.filter(invoice => {
+      const number = this.resolveField(invoice, this.invoiceFieldMap.number, '').toLowerCase();
+      const status = this.resolveField(invoice, this.invoiceFieldMap.status, '').toLowerCase();
+      const amount = this.resolveField(invoice, this.invoiceFieldMap.amount, '').toString();
+
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'open' && status.includes('paid')) {
+          return false;
+        }
+        if (statusFilter === 'paid' && !status.includes('paid')) {
+          return false;
+        }
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      return number.includes(term) || status.includes(term) || amount.includes(term);
+    });
+
+    this.buildCompanyStats();
+  }
+
+  private calculateInvoiceMetrics() {
+    let total = 0;
+    let paid = 0;
+    let outstanding = 0;
+
+    this.invoices.forEach(invoice => {
+      const amountValue = Number(this.resolveField(invoice, this.invoiceFieldMap.amount, 0)) || 0;
+      const balanceValue = Number(this.resolveField(invoice, this.invoiceFieldMap.balance, amountValue)) || 0;
+      const status = this.resolveField(invoice, this.invoiceFieldMap.status, '').toLowerCase();
+
+      total += amountValue;
+      if (status.includes('paid') || balanceValue === 0) {
+        paid += amountValue;
+      } else {
+        outstanding += balanceValue;
+      }
+    });
+
+    this.invoiceMetrics = {
+      total,
+      outstanding,
+      paid
+    };
   }
 
   filterUsers(event: any) {
@@ -589,5 +915,167 @@ export class CompanyPage implements OnInit {
     }
 
     return null;
+  }
+
+  onTabChange(event: any) {
+    this.selectedTab = event.detail?.value || this.selectedTab;
+  }
+
+  private buildCompanyStats() {
+    if (!this.companyProfile) {
+      this.companySnapshot = [];
+      this.companyStats = [];
+      return;
+    }
+
+    const profile = this.companyProfile;
+    this.companySnapshot = [
+      {
+        label: 'Primary Contact',
+        value: this.resolveField(profile, ['PrimaryContact', 'Primary_Contact', 'ContactName', 'OwnerName'], 'Not assigned'),
+        icon: 'person-circle',
+        hint: this.resolveField(profile, ['PrimaryContactEmail', 'Email', 'PrimaryEmail'])
+      },
+      {
+        label: 'Phone',
+        value: this.formatPhone(this.resolveField(profile, ['Phone', 'PhoneNumber', 'MainPhone'])),
+        icon: 'call'
+      },
+      {
+        label: 'Website',
+        value: this.resolveField(profile, ['Website', 'Site', 'URL'], '—'),
+        icon: 'globe'
+      },
+      {
+        label: 'Billing Address',
+        value: [
+          this.resolveField(profile, ['BillingAddress', 'Address', 'Street']),
+          this.resolveField(profile, ['City']),
+          this.resolveField(profile, ['State', 'StateProvince']),
+          this.resolveField(profile, ['Zip', 'PostalCode'])
+        ].filter(Boolean).join(', ') || '—',
+        icon: 'home'
+      }
+    ];
+
+    this.companyStats = [
+      {
+        title: 'Active Contacts',
+        value: String(this.contacts.length || 0),
+        subtitle: 'Total people linked to this company',
+        icon: 'people'
+      },
+      {
+        title: 'Open Tasks',
+        value: String(this.taskMetrics.outstanding),
+        subtitle: `${this.taskMetrics.completed} completed`,
+        icon: 'checkbox'
+      },
+      {
+        title: 'Outstanding Invoices',
+        value: this.formatCurrency(this.invoiceMetrics.outstanding),
+        subtitle: `${this.invoiceMetrics.paid ? this.formatCurrency(this.invoiceMetrics.paid) + ' paid' : 'No payments yet'}`,
+        icon: 'card'
+      }
+    ];
+  }
+
+  private async fetchTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {
+    const token = await this.caspioService.getAuthToken();
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+
+    const searchParams = new URLSearchParams(params);
+    const query = searchParams.toString();
+    const url = `${environment.caspio.apiBaseUrl}/tables/${tableName}/records${query ? `?${query}` : ''}`;
+
+    const response = await this.http.get<any>(url, { headers }).toPromise();
+    return response?.Result ?? [];
+  }
+
+  private resolveField(record: any, candidates: readonly string[], fallback: any = ''): any {
+    if (!record) {
+      return fallback;
+    }
+
+    for (const candidate of candidates) {
+      if (record[candidate] !== undefined && record[candidate] !== null) {
+        return record[candidate];
+      }
+      const matchKey = Object.keys(record).find(key => key.toLowerCase() === candidate.toLowerCase());
+      if (matchKey && record[matchKey] !== undefined && record[matchKey] !== null) {
+        return record[matchKey];
+      }
+    }
+
+    return fallback;
+  }
+
+  private resolveBoolean(record: any, candidates: readonly string[]): boolean {
+    const value = this.resolveField(record, candidates);
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+    if (typeof value === 'string') {
+      return ['true', 'yes', 'y', '1', 'completed', 'complete', 'done'].includes(value.toLowerCase());
+    }
+    return false;
+  }
+
+  private getDateValue(record: any, candidates: readonly string[]): Date | null {
+    const value = this.resolveField(record, candidates);
+    if (!value) {
+      return null;
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  formatDate(value: Date | string | null | undefined): string {
+    if (!value) {
+      return '—';
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) {
+      return '—';
+    }
+
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  formatCurrency(value: any): string {
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) {
+      return '$0.00';
+    }
+
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'USD'
+    }).format(numericValue);
+  }
+
+  displayField(record: any, candidates: readonly string[], fallback: string = '—'): string {
+    const value = this.resolveField(record, candidates, fallback);
+    if (value === undefined || value === null || value === '') {
+      return fallback;
+    }
+    return String(value);
+  }
+
+  displayDate(record: any, candidates: readonly string[]): string {
+    const date = this.getDateValue(record, candidates);
+    return this.formatDate(date);
   }
 }
