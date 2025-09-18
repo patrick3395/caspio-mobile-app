@@ -1,10 +1,10 @@
 <ion-header>
   <ion-toolbar style="--background: #F15A27;">
-    <ion-title style="color: white;">PDF Report Preview</ion-title>
+    <ion-title style="color: white;">Report Preview</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="generatePDF()" fill="clear" style="color: white;">
         <ion-icon name="download-outline" slot="start"></ion-icon>
-        Generate PDF
+        Download
       </ion-button>
       <ion-button (click)="dismiss()" fill="clear" style="color: white;">
         <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -23,48 +23,40 @@
   <div class="pdf-container" [style.opacity]="contentReady ? '1' : '0'">
     <!-- Cover Page Preview -->
     <div class="pdf-page cover-page">
-      <div class="company-header">
-        <h1>NOBLE PROPERTY INSPECTIONS</h1>
-        <div class="company-contact">
-          <p>936-202-8013 | info@noblepropertyinspections.com</p>
-          <p>www.noblepropertyinspections.com</p>
-        </div>
-      </div>
-      
       <div class="report-title-section">
-        <h2 class="report-title">{{ serviceData?.serviceName || 'SERVICE' }}</h2>
-        <h2 class="report-subtitle">INSPECTION REPORT</h2>
+        <h2 class="report-title">{{ serviceData?.serviceName || 'Report Overview' }}</h2>
+        <p class="report-meta">{{ projectData?.companyName || 'Noble Property Inspections' }}</p>
       </div>
-      
+
       <div class="property-photo-container">
-        <img 
-          [src]="getPrimaryPhotoUrl()" 
+        <img
+          [src]="getPrimaryPhotoUrl()"
           alt="Property"
           (error)="handleImageError($event)"
           (load)="handleImageLoad($event)"
           [class.loading]="primaryPhotoLoading"
           class="property-photo" />
       </div>
-      
+
       <div class="property-info-box">
         <h3 class="property-address">{{ projectData?.address || 'Property Address' }}</h3>
         <p class="property-location">{{ projectData?.city }}, {{ projectData?.state }} {{ projectData?.zip }}</p>
-        
+
         <div class="client-info">
           <p><strong>Client:</strong> {{ projectData?.clientName || 'N/A' }}</p>
           <p><strong>Agent:</strong> {{ projectData?.agentName || 'N/A' }}</p>
-          <p><strong>Inspection Date:</strong> {{ getFormattedDate(projectData?.inspectionDate) }}</p>
+          <p><strong>Date:</strong> {{ getFormattedDate(projectData?.inspectionDate) }}</p>
         </div>
       </div>
-      
+
       <div class="inspector-footer">
-        <p class="inspector-title">Inspected By:</p>
+        <p class="inspector-title">Prepared By</p>
         <p class="inspector-name">{{ projectData?.inspectorName || 'N/A' }}</p>
         <p>{{ projectData?.companyName || 'Noble Property Inspections' }}</p>
         <p>{{ projectData?.inspectorEmail || 'info@noblepropertyinspections.com' }}</p>
       </div>
     </div>
-    
+
     <!-- Executive Summary Page -->
     <div class="pdf-page content-page">
       <div class="page-header">

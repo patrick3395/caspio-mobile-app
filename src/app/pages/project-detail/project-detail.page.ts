@@ -1701,8 +1701,7 @@ export class ProjectDetailPage implements OnInit {
       console.log('No serviceId, cannot navigate');
       return;
     }
-
-    // Convert typeId to string for consistent comparison
+\r\n\r\n    // Convert typeId to string for consistent comparison
     const typeIdStr = String(service.typeId);
 
     const openPdf = this.isReadOnly || !!options?.openPdf;
@@ -2153,6 +2152,24 @@ Troubleshooting:
     return serviceProgress[service.typeName] || 0;
   }
 
+  private isTemplateComplete(service: ServiceSelection): boolean {
+    if (!service) {
+      return false;
+    }
+
+    return this.getTemplateProgress(service) >= 100;
+  }
+
+  private async showIncompleteTemplateAlert(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: "Incomplete Template",
+      message: "Please complete required fields before generating the report.",
+      buttons: ["OK"]
+    });
+
+    await alert.present();
+  }
+
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
@@ -2581,7 +2598,14 @@ Time: ${debugInfo.timestamp}
     }
 
     if (savedServices.length === 1) {
-      await this.generatePDFForService(savedServices[0]);
+      const singleService = savedServices[0];
+
+      if (!this.isReadOnly && !this.isTemplateComplete(singleService)) {
+        await this.showIncompleteTemplateAlert();
+        return;
+      }
+
+      await this.generatePDFForService(singleService);
       return;
     }
 
@@ -2602,11 +2626,16 @@ Time: ${debugInfo.timestamp}
         {
           text: 'Open PDF',
           handler: async (selectedIndex) => {
-            const index = typeof selectedIndex === 'number' ? selectedIndex : parseInt((selectedIndex as string), 10);
+            const index = typeof selectedIndex === 'number' ? selectedIndex : parseInt(String(selectedIndex), 10);
             const selectedService = savedServices[index];
 
             if (!selectedService) {
               await this.showToast('Unable to determine which template to open. Please try again.', 'danger');
+              return false;
+            }
+
+            if (!this.isReadOnly && !this.isTemplateComplete(selectedService)) {
+              await this.showIncompleteTemplateAlert();
               return false;
             }
 
@@ -2628,6 +2657,11 @@ Time: ${debugInfo.timestamp}
 
     if (!service.serviceId) {
       await this.showToast('Please save the service before generating a PDF', 'warning');
+      return;
+    }
+
+    if (!this.isReadOnly && !this.isTemplateComplete(service)) {
+      await this.showIncompleteTemplateAlert();
       return;
     }
 
@@ -3041,4 +3075,9 @@ Time: ${debugInfo.timestamp}
     }
   }
 }
+
+
+
+
+
 

@@ -67,50 +67,27 @@
     min-height: 900px; // Increased to prevent footer overlap
     display: flex;
     flex-direction: column;
-    
-    .company-header {
-      background: #F15A27;
-      color: white;
-      padding: 30px 20px;
-      text-align: center;
-      
-      h1 {
-        font-size: 24px;
-        font-weight: bold;
-        margin: 0 0 10px 0;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-      }
-      
-      .company-contact {
-        p {
-          margin: 3px 0;
-          font-size: 13px;
-          opacity: 0.95;
-        }
-      }
-    }
-    
+
     .report-title-section {
       text-align: center;
-      padding: 30px 20px;
-      
+      padding: 40px 20px 20px;
+
       .report-title {
-        font-size: 28px;
-        font-weight: bold;
+        font-size: 30px;
+        font-weight: 700;
         color: #333;
-        margin: 0 0 8px 0;
-        text-transform: uppercase;
-      }
-      
-      .report-subtitle {
-        font-size: 20px;
-        color: #666;
         margin: 0;
-        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0.3px;
+      }
+
+      .report-meta {
+        margin: 8px 0 0;
+        font-size: 14px;
+        color: #707070;
       }
     }
-    
+
     .property-photo-container {
       text-align: center;
       padding: 15px 20px;
@@ -1313,3 +1290,5 @@
     page-break-inside: avoid;
   }
 }
+
+

@@ -356,82 +356,65 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   private async addCoverPage(pdf: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
-    // Company branding header
-    pdf.setFillColor(241, 90, 39); // Orange brand color
-    pdf.rect(0, 0, pageWidth, 40, 'F');
-    
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(24);
+    const serviceName = this.serviceData?.serviceName || 'Foundation Evaluation';
+    const companyName = this.projectData?.companyName || 'Noble Property Inspections';
+    const address = this.projectData?.address || 'Property Address';
+    const cityStateZip = `City, ST 00000`;
+    const clientName = this.projectData?.clientName || 'Client';
+    const reportDate = this.getFormattedDate(this.projectData?.inspectionDate);
+
+    pdf.setTextColor(34, 34, 34);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('NOBLE PROPERTY INSPECTIONS', pageWidth / 2, 15, { align: 'center' });
-    
-    pdf.setFontSize(10);
+    pdf.setFontSize(26);
+    pdf.text(serviceName, pageWidth / 2, 48, { align: 'center' });
+
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Professional Engineering Foundation Evaluation', pageWidth / 2, 25, { align: 'center' });
-    pdf.text('936-202-8013 | info@noblepropertyinspections.com', pageWidth / 2, 32, { align: 'center' });
-    
-    // Report title
-    pdf.setTextColor(51, 51, 51);
-    pdf.setFontSize(20);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('ENGINEERS FOUNDATION', pageWidth / 2, 60, { align: 'center' });
-    pdf.text('EVALUATION REPORT', pageWidth / 2, 70, { align: 'center' });
-    
-    // Property photo
+    pdf.setFontSize(12);
+    pdf.text(`Prepared by ${companyName}`, pageWidth / 2, 64, { align: 'center' });
+
+    let imageBottom = 64;
+
     try {
       const primaryPhotoUrl = this.getPrimaryPhotoUrl();
       if (primaryPhotoUrl && !primaryPhotoUrl.includes('placeholder')) {
         const imgData = await this.loadImage(primaryPhotoUrl);
         if (imgData) {
-          const imgWidth = 120;
-          const imgHeight = 80;
-          pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, 85, imgWidth, imgHeight);
+          const imgWidth = 150;
+          const imgHeight = 95;
+          const imageTop = 78;
+          pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, imageTop, imgWidth, imgHeight);
+          imageBottom = imageTop + imgHeight;
         }
       }
     } catch (error) {
       console.log('Primary photo not available');
     }
-    
-    // Property details box
-    const boxY = 180;
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.5);
-    pdf.rect(margin, boxY, pageWidth - (margin * 2), 60, 'S');
-    
+
+    const boxY = imageBottom + 24;
+    const boxHeight = 58;
+    pdf.setDrawColor(220, 220, 220);
+    pdf.setLineWidth(0.6);
+    pdf.rect(margin, boxY, pageWidth - (margin * 2), boxHeight, 'S');
+
+    pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(51, 51, 51);
-    pdf.text(this.projectData?.address || 'Property Address', pageWidth / 2, boxY + 15, { align: 'center' });
-    
-    pdf.setFontSize(12);
+    pdf.text(address, pageWidth / 2, boxY + 18, { align: 'center' });
+
     pdf.setFont('helvetica', 'normal');
-    const cityStateZip = `${this.projectData?.city || 'City'}, ${this.projectData?.state || 'ST'} ${this.projectData?.zip || '00000'}`;
-    pdf.text(cityStateZip, pageWidth / 2, boxY + 25, { align: 'center' });
-    
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Client: ', margin + 10, boxY + 40);
+    pdf.setFontSize(11);
+    pdf.text(cityStateZip, pageWidth / 2, boxY + 30, { align: 'center' });
+    pdf.text(`Client: ${clientName}`, pageWidth / 2, boxY + 42, { align: 'center' });
+    pdf.text(`Date: ${reportDate}`, pageWidth / 2, boxY + 52, { align: 'center' });
+
+    const footerY = pageHeight - 70;
+    pdf.setDrawColor(235, 235, 235);
+    pdf.line(margin, footerY, pageWidth - margin, footerY);
+
     pdf.setFont('helvetica', 'normal');
-    pdf.text(this.projectData?.clientName || 'Client Name', margin + 30, boxY + 40);
-    
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Inspection Date: ', margin + 10, boxY + 50);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(this.getFormattedDate(this.projectData?.inspectionDate), margin + 45, boxY + 50);
-    
-    // Inspector information
-    const inspectorY = pageHeight - 60;
-    pdf.setFillColor(245, 245, 245);
-    pdf.rect(0, inspectorY, pageWidth, 60, 'F');
-    
-    pdf.setTextColor(51, 51, 51);
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Inspected By:', pageWidth / 2, inspectorY + 15, { align: 'center' });
-    
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(this.projectData?.inspectorName || 'Inspector Name', pageWidth / 2, inspectorY + 25, { align: 'center' });
-    pdf.text(`License #${this.projectData?.licenseNumber || '12345'}`, pageWidth / 2, inspectorY + 35, { align: 'center' });
-    pdf.text(this.projectData?.inspectorEmail || 'inspector@noblepropertyinspections.com', pageWidth / 2, inspectorY + 45, { align: 'center' });
+    pdf.setTextColor(120, 120, 120);
+    pdf.text(companyName, margin, footerY + 16);
+    pdf.text(this.projectData?.inspectorEmail || 'info@noblepropertyinspections.com', pageWidth - margin, footerY + 16, { align: 'right' });
   }
 
   private async addExecutiveSummary(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number) {
@@ -1522,4 +1505,5 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     console.log(`Images still loading: ${this.imagesLoading}`);
   }
 }
+
 
