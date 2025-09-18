@@ -926,6 +926,24 @@ export class CompanyPage implements OnInit {
   }
 
   private expandedCompanies = new Set<number>();
+  private expandedStages = new Set<number>();
+
+  isStageExpanded(stage: StageDefinition): boolean {
+    // Default to expanded
+    if (!this.expandedStages.has(stage.id) && this.expandedStages.size === 0) {
+      return true;
+    }
+    return this.expandedStages.has(stage.id);
+  }
+
+  toggleStageExpand(stage: StageDefinition, event: Event): void {
+    event.stopPropagation();
+    if (this.expandedStages.has(stage.id)) {
+      this.expandedStages.delete(stage.id);
+    } else {
+      this.expandedStages.add(stage.id);
+    }
+  }
 
   isCompanyExpanded(company: CompanyViewModel): boolean {
     return this.expandedCompanies.has(company.CompanyID);

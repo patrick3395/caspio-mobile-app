@@ -69,14 +69,17 @@
 
       <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
         <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
-          <div class="stage-header">
+          <div class="stage-header" (click)="toggleStageExpand(group.stage, $event)">
             <div class="stage-info">
               <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
               <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
             </div>
+            <button class="stage-expand-toggle" (click)="toggleStageExpand(group.stage, $event)">
+              <ion-icon [name]="isStageExpanded(group.stage) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+            </button>
           </div>
 
-          <div class="companies-list">
+          <div class="companies-list" *ngIf="isStageExpanded(group.stage)">
             <div class="company-rollup"
                  *ngFor="let company of group.companies; trackBy: trackByCompany"
                  [class.selected]="company.CompanyID === selectedCompanyId"
@@ -103,6 +106,9 @@
               </div>
 
               <div class="rollup-content" *ngIf="isCompanyExpanded(company)">
+                <div class="company-detail-header">
+                  <h4>{{ company.CompanyName }}</h4>
+                </div>
                 <div class="detail-row">
                   <div class="detail-col">
                     <label>Phone</label>
@@ -110,7 +116,7 @@
                   </div>
                   <div class="detail-col">
                     <label>Website</label>
-                    <p class="truncate">{{ company.Website || 'Not provided' }}</p>
+                    <p class="wrap-text">{{ company.Website || 'Not provided' }}</p>
                   </div>
                   <div class="detail-col">
                     <label>Stage</label>

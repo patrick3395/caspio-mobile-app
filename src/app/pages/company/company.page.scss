@@ -497,9 +497,21 @@
 }
 
 .stage-header {
-  padding: 0 0 8px 0;
-  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f15a27;
+  color: #ffffff;
+  border-radius: 10px;
   margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #e54e1c;
+    transform: translateX(2px);
+  }
 }
 
 .stage-info {
@@ -512,13 +524,35 @@
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #212529;
+  color: #ffffff;
 }
 
 .stage-count {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: lowercase;
+}
+
+.stage-expand-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: #ffffff;
+  }
 }
 
 .companies-list {
@@ -529,28 +563,28 @@
 
 .company-rollup {
   background: #ffffff;
-  border: 2px solid #495057;
+  border: 2px solid #f15a27;
   border-radius: 12px;
   transition: all 0.2s ease;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(241, 90, 39, 0.1);
 
   &:hover {
-    border-color: #212529;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border-color: #e54e1c;
+    box-shadow: 0 4px 16px rgba(241, 90, 39, 0.2);
     transform: translateX(2px);
   }
 
   &.selected {
-    border-color: #f15a27;
-    border-left: 4px solid #f15a27;
-    background: linear-gradient(to right, rgba(241, 90, 39, 0.03), transparent);
+    border-color: #e54e1c;
+    border-left: 4px solid #e54e1c;
+    background: linear-gradient(to right, rgba(241, 90, 39, 0.05), transparent);
   }
 
   &.expanded {
     .rollup-header {
-      background: #f8f9fa;
-      border-bottom: 1px solid #dee2e6;
+      background: #fff5f2;
+      border-bottom: 1px solid #f15a27;
     }
   }
 }
@@ -672,6 +706,19 @@
   margin-bottom: 16px;
 }
 
+.company-detail-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f15a27;
+
+  h4 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #212529;
+  }
+}
+
 .detail-col {
   min-width: 0;
 
@@ -691,10 +738,10 @@
     font-weight: 500;
     word-break: break-word;
 
-    &.truncate {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    &.wrap-text {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
     }
 
     &.text-warning {
