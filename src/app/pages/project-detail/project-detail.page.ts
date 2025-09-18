@@ -1636,7 +1636,7 @@ export class ProjectDetailPage implements OnInit {
     // Convert typeId to string for consistent comparison
     const typeIdStr = String(service.typeId);
 
-    const openPdf = !!options?.openPdf;
+    const openPdf = this.isReadOnly || !!options?.openPdf;
 
     console.log('🔍 Template Navigation Debug:', {
       typeName: service.typeName,

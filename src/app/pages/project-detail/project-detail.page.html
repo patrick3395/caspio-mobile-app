@@ -356,7 +356,11 @@
     <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
       <div class="section-header-with-button">
         <h2 class="section-title">Templates</h2>
-        <ion-button size="small" color="tertiary" (click)="generateServicePDF()">
+        <ion-button
+          *ngIf="!isReadOnly"
+          size="small"
+          color="tertiary"
+          (click)="generateServicePDF()">
           <ion-icon name="document-text-outline" slot="start"></ion-icon>
           Generate PDF Report
         </ion-button>

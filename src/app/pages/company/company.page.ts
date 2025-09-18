@@ -934,47 +934,42 @@ export class CompanyPage implements OnInit, OnDestroy {
       bucket.positives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
       bucket.negatives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
 
-      // For Open tab: Show all active projects with positive invoice amounts
-      // These are invoices that have positive amounts regardless of payments
-      bucket.positives.forEach(positive => {
-        const fee = positive.Fee ?? 0;
-        if (fee > 0) {
-          // This is an active project with a positive invoice amount
-          const negative = bucket.negatives.find(neg =>
-            neg.ProjectID === positive.ProjectID
-          ) ?? null;
+      // Calculate total sum for this ProjectID
+      const totalPositiveAmount = bucket.positives.reduce((sum, inv) => sum + (inv.Fee ?? 0), 0);
+      const totalNegativeAmount = bucket.negatives.reduce((sum, inv) => sum + (inv.Fee ?? 0), 0);
+      const projectNetAmount = totalPositiveAmount + totalNegativeAmount; // negatives are already negative values
 
-          const projectDate = metadata?.projectDate ?? positive.ProjectDate ?? positive.DateValue ?? null;
-          const net = fee + (negative?.Fee ?? 0);
+      // Use the first positive invoice as representative for the project
+      if (bucket.positives.length > 0) {
+        const representative = bucket.positives[0];
+        const projectDate = metadata?.projectDate ?? representative.ProjectDate ?? representative.DateValue ?? null;
 
-          const pair: InvoicePair = {
-            positive,
-            negative,
-            projectDate,
-            netAmount: fee // Show the positive amount for open invoices
-          };
+        // Check if there are any payments for this project
+        const hasPayments = bucket.negatives.length > 0;
 
-          if (negative) {
-            // If there's a payment, it goes to paid
-            paidPairs.push(pair);
-            // Remove the negative from the list so it's not processed again
-            const negIndex = bucket.negatives.indexOf(negative);
-            if (negIndex > -1) {
-              bucket.negatives.splice(negIndex, 1);
-            }
-          } else {
-            // No payment yet - check if it should be open or unpaid
-            const projectHasOccurred = projectDate ? projectDate <= today : true;
-            if (!projectHasOccurred) {
-              // Future project or active project - goes to Open
-              open.push(pair);
-            } else {
-              // Past project without payment - goes to Unpaid
-              unpaid.push(pair);
-            }
+        const pair: InvoicePair = {
+          positive: representative,
+          negative: hasPayments ? bucket.negatives[0] : null,
+          projectDate,
+          netAmount: projectNetAmount // Sum of all invoices for this ProjectID
+        };
+
+        if (hasPayments) {
+          // If there's any payment, it goes to paid
+          paidPairs.push(pair);
+        } else if (totalPositiveAmount > 0) {
+          // No payments but has positive invoices
+          const projectHasOccurred = projectDate ? projectDate <= today : true;
+          if (!projectHasOccurred && projectNetAmount > 0) {
+            // Future/active project with amount due > 0 - goes to Open
+            open.push(pair);
+          } else if (projectHasOccurred && projectNetAmount > 0) {
+            // Past project without payment and amount due > 0 - goes to Unpaid
+            unpaid.push(pair);
           }
+          // If projectNetAmount <= 0, don't include in any category
         }
-      });
+      }
     });
 
     const byCompany = new Map<number | null, InvoicePair[]>();
