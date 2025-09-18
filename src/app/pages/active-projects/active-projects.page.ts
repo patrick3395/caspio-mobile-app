@@ -18,7 +18,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.435'; // Update this to match package.json version
+  appVersion = '1.4.436'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Lazy loading configuration

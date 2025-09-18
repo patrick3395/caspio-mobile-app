@@ -193,6 +193,7 @@ export class CompanyPage implements OnInit {
 
   isLoading = false;
   isInitialLoad = true;
+  isProcessingTab = false;
 
   companies: CompanyRecord[] = [];
   stages: StageDefinition[] = [];
@@ -415,29 +416,41 @@ export class CompanyPage implements OnInit {
     this.applyCompanyFilters();
   }
 
-  onTabChange(event: any) {
-    this.selectedTab = event.detail?.value || this.selectedTab;
-    switch (this.selectedTab) {
-      case 'contacts':
-        this.applyContactFilters();
-        break;
-      case 'tasks':
-        this.applyTaskFilters();
-        break;
-      case 'meetings':
-        this.applyMeetingFilters();
-        break;
-      case 'communications':
-        this.applyCommunicationFilters();
-        break;
-      case 'invoices':
-        this.categorizeInvoices();
-        break;
-      case 'companies':
-      default:
-        this.applyCompanyFilters();
-        break;
-    }
+  async onTabChange(event: any) {
+    const newTab = event.detail?.value || this.selectedTab;
+
+    // Update the tab immediately for instant UI feedback
+    this.selectedTab = newTab;
+    this.isProcessingTab = true;
+
+    // Use requestAnimationFrame to defer heavy processing
+    requestAnimationFrame(() => {
+      // Use setTimeout with 0 delay to push to next tick
+      setTimeout(() => {
+        switch (newTab) {
+          case 'contacts':
+            this.applyContactFilters();
+            break;
+          case 'tasks':
+            this.applyTaskFilters();
+            break;
+          case 'meetings':
+            this.applyMeetingFilters();
+            break;
+          case 'communications':
+            this.applyCommunicationFilters();
+            break;
+          case 'invoices':
+            this.categorizeInvoices();
+            break;
+          case 'companies':
+          default:
+            this.applyCompanyFilters();
+            break;
+        }
+        this.isProcessingTab = false;
+      }, 0);
+    });
   }
   applyCompanyFilters() {
     const unassignedStage: StageDefinition = { id: 0, name: 'No Stage', sortOrder: 999 };
