@@ -348,6 +348,16 @@
   font-size: 0.9rem;
 }
 
+.companies-search {
+  margin-bottom: 16px;
+}
+
+.companies-search ion-searchbar {
+  --background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 24px rgba(10, 31, 68, 0.08);
+}
+
 .contacts-filters,
 .tasks-filters,
 .meetings-filters,
@@ -356,6 +366,29 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
+  align-items: center;
+}
+
+.tasks-filters {
+  background: var(--ion-color-light-shade);
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.tasks-filters ion-searchbar {
+  --background: #fff;
+  border-radius: 12px;
+}
+
+.tasks-filters ion-select,
+.tasks-filters .tasks-toggle {
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+
+.tasks-toggle {
+  display: flex;
   align-items: center;
 }
 

@@ -446,7 +446,11 @@ export class CompanyPage implements OnInit {
     }
 
     const stageMap = new Map<number, CompanyViewModel[]>();
-    allStages.forEach(stage => stageMap.set(stage.id, []));
+    allStages.forEach(stage => {
+      if (stage.id !== 0) {
+        stageMap.set(stage.id, []);
+      }
+    });
 
     const filtered = this.companies
       .filter(company => this.matchesCompanyFilters(company))
@@ -454,6 +458,9 @@ export class CompanyPage implements OnInit {
 
     filtered.forEach(company => {
       const stageId = company.StageID ?? 0;
+      if (stageId === 0) {
+        return;
+      }
       if (!stageMap.has(stageId)) {
         stageMap.set(stageId, []);
       }
@@ -469,6 +476,7 @@ export class CompanyPage implements OnInit {
     };
 
     this.stageGroups = allStages
+      .filter(stage => stage.id !== 0)
       .map(stage => ({
         stage,
         companies: (stageMap.get(stage.id) ?? []).sort((a, b) => a.CompanyName.localeCompare(b.CompanyName))

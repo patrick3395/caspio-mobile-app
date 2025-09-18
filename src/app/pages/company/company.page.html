@@ -57,101 +57,18 @@
       </ion-segment-button>
     </ion-segment>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
-      <div *ngIf="selectedCompany" class="selected-company-card">
-        <div class="selected-company-header">
-          <div>
-            <h2>{{ selectedCompany.CompanyName }}</h2>
-            <p>
-              {{ selectedCompany.StageName }}
-              <span *ngIf="selectedCompany.City || selectedCompany.State">
-                • {{ selectedCompany.City || 'Location unknown' }}
-                <span *ngIf="selectedCompany.State">, {{ selectedCompany.State }}</span>
-              </span>
-            </p>
-          </div>
-          <div class="selected-company-actions">
-            <ion-chip *ngIf="selectedCompany.SizeLabel" color="tertiary" size="small">
-              {{ selectedCompany.SizeLabel }}
-            </ion-chip>
-            <ion-chip *ngIf="selectedCompany.Franchise" color="success" size="small">
-              Franchise Partner
-            </ion-chip>
-          </div>
-        </div>
-
-        <div class="snapshot-grid">
-          <div class="snapshot-card" *ngFor="let item of companySnapshot">
-            <ion-icon [name]="item.icon"></ion-icon>
-            <div>
-              <p>{{ item.label }}</p>
-              <h3>{{ item.value }}</h3>
-              <a *ngIf="item.hint" [href]="'mailto:' + item.hint">{{ item.hint }}</a>
-            </div>
-          </div>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card" *ngFor="let stat of companyStats">
-            <ion-icon [name]="stat.icon"></ion-icon>
-            <div>
-              <p>{{ stat.title }}</p>
-              <h3>{{ stat.value }}</h3>
-              <span *ngIf="stat.subtitle">{{ stat.subtitle }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="company-filters">
+      <div class="companies-search">
         <ion-searchbar
           [(ngModel)]="companyFilters.search"
           (ionChange)="applyCompanyFilters()"
-          placeholder="Search by name, city or service area"
+          placeholder="Search by company name, city or service area"
           animated="true">
         </ion-searchbar>
-
-        <ion-select
-          label="Stage"
-          interface="popover"
-          [(ngModel)]="companyFilters.stage"
-          (ionChange)="applyCompanyFilters()">
-          <ion-select-option value="all">All stages</ion-select-option>
-          <ion-select-option *ngFor="let stage of stages" [value]="stage.id">{{ stage.name }}</ion-select-option>
-          <ion-select-option value="0">No stage</ion-select-option>
-        </ion-select>
-
-        <ion-select
-          label="Company Size"
-          interface="popover"
-          [(ngModel)]="companyFilters.size"
-          (ionChange)="applyCompanyFilters()">
-          <ion-select-option value="all">All sizes</ion-select-option>
-          <ion-select-option *ngFor="let size of uniqueCompanySizes" [value]="size">{{ size }}</ion-select-option>
-        </ion-select>
-
-        <ion-select
-          label="Lead Source"
-          interface="popover"
-          [(ngModel)]="companyFilters.leadSource"
-          (ionChange)="applyCompanyFilters()">
-          <ion-select-option value="all">All sources</ion-select-option>
-          <ion-select-option *ngFor="let source of uniqueLeadSources" [value]="source">{{ source }}</ion-select-option>
-        </ion-select>
-
-        <ion-toggle
-          [(ngModel)]="companyFilters.onlyFranchise"
-          (ionChange)="applyCompanyFilters()">Franchise only</ion-toggle>
-        <ion-toggle
-          [(ngModel)]="companyFilters.hasNotes"
-          (ionChange)="applyCompanyFilters()">Has notes</ion-toggle>
-        <ion-button fill="clear" size="small" color="medium" (click)="clearCompanyFilters()">
-          Clear filters
-        </ion-button>
       </div>
-      <div class="stage-rollups">
+      <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
         <div class="stage-section" *ngFor="let group of stageGroups">
           <div class="stage-section-header">
-            <h3>{{ group.stage.name }}</h3>
+            <h3>{{ group.stage.name?.toLowerCase() === 'active' ? 'Active' : 'StageID ' + group.stage.id }}</h3>
             <span>{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
           </div>
           <ion-accordion-group expand="inset">
@@ -202,6 +119,13 @@
           </ion-accordion-group>
         </div>
       </div>
+      <ng-template #emptyCompanies>
+        <div class="empty-tab-state">
+          <ion-icon name="business-outline"></ion-icon>
+          <h3>No companies to display</h3>
+          <p>Adjust your search to find additional companies.</p>
+        </div>
+      </ng-template>
     </div>
     <div *ngIf="selectedTab === 'contacts'" class="tab-content contacts-tab">
       <div class="section-header">
@@ -302,9 +226,11 @@
           <ion-select-option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</ion-select-option>
         </ion-select>
 
-        <ion-toggle
-          [(ngModel)]="taskFilters.overdueOnly"
-          (ionChange)="applyTaskFilters()">Overdue only</ion-toggle>
+        <div class="tasks-toggle">
+          <ion-toggle
+            [(ngModel)]="taskFilters.overdueOnly"
+            (ionChange)="applyTaskFilters()">Overdue only</ion-toggle>
+        </div>
       </div>
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
@@ -317,8 +243,8 @@
               (ionChange)="toggleTaskCompletion(task, $event.detail.checked)">
             </ion-checkbox>
             <ion-label>
-              <h4>{{ task.assignmentShort || task.assignment || 'Task' }}</h4>
-              <p>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</p>
+              <h4>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</h4>
+              <p>{{ task.assignmentShort || task.assignment || 'No details provided' }}</p>
             </ion-label>
             <ion-badge color="success" *ngIf="task.completed">Completed</ion-badge>
             <ion-badge color="danger" *ngIf="!task.completed && task.isOverdue">Overdue</ion-badge>
