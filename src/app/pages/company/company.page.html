@@ -133,6 +133,7 @@
         <ion-searchbar
           [value]="contactsSearchTerm"
           (ionInput)="onContactSearchChange($event.detail.value)"
+          (ionClear)="onContactSearchChange('')"
           placeholder="Search contacts by name"
           animated="true">
         </ion-searchbar>

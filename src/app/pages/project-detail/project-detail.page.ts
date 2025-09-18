@@ -168,8 +168,10 @@ export class ProjectDetailPage implements OnInit {
       this.project = projectData || null;
       
       const actualProjectId = projectData?.ProjectID || this.projectId;
-      this.isReadOnly = projectData?.StatusID === 2 && 
-                       this.route.snapshot.queryParams['mode'] !== 'add-service';
+      const statusId = projectData?.StatusID;
+      const isCompletedProject = this.isCompletedStatus(statusId);
+      const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
+      this.isReadOnly = isCompletedProject && !isAddServiceMode;
       
       // Now load everything else in parallel
       const [offers, types, services, attachTemplates, existingAttachments] = await Promise.all([
@@ -243,9 +245,10 @@ export class ProjectDetailPage implements OnInit {
         this.loading = false;
         console.log('Project loaded:', project);
         
-        // Check if project is completed or in any non-active state (StatusID != 1)
+        // Determine if the project has been completed (StatusID = 2)
         // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
         const statusId = project.StatusID;
+        const isCompletedProject = this.isCompletedStatus(statusId);
         
         // Check if we're in add-service mode (which overrides read-only)
         const queryParams = this.route.snapshot.queryParams;
@@ -253,7 +256,7 @@ export class ProjectDetailPage implements OnInit {
           this.isReadOnly = false;
           console.log('Add-service mode: Project editable despite StatusID:', statusId);
         } else {
-          this.isReadOnly = statusId !== 1 && statusId !== '1';
+          this.isReadOnly = isCompletedProject;
         }
         
         if (this.isReadOnly) {
@@ -276,6 +279,23 @@ export class ProjectDetailPage implements OnInit {
         console.error('Error loading project:', error);
       }
     });
+  }
+
+
+  private isCompletedStatus(status: any): boolean {
+    if (status === null || status === undefined) {
+      return false;
+    }
+
+    if (typeof status === 'number') {
+      return status === 2;
+    }
+
+    if (typeof status === 'string') {
+      return status.trim() === '2';
+    }
+
+    return false;
   }
 
   async loadAvailableOffers() {

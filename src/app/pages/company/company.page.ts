@@ -1,5 +1,5 @@
 ﻿
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController } from '@ionic/angular';
@@ -188,7 +188,7 @@ interface PaidInvoiceGroup {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule, HttpClientModule]
 })
-export class CompanyPage implements OnInit {
+export class CompanyPage implements OnInit, OnDestroy {
   selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
 
   isLoading = false;
@@ -1248,11 +1248,19 @@ export class CompanyPage implements OnInit {
 
   trackByCompany = (_: number, company: CompanyViewModel) => company.CompanyID;
 
-  trackByContactGroup = (_: number, group: ContactGroup) => group.companyId ?? -1;
+  trackByContactGroup = (index: number, group: ContactGroup) =>
+    group.companyId !== null ? group.companyId : -1 - index;
 
   trackByContact = (_: number, contact: ContactRecord) => contact.ContactID;
 
   trackByTask = (_: number, task: TaskViewModel) => task.TaskID;
+
+  ngOnDestroy() {
+    if (this.contactSearchDebounce) {
+      clearTimeout(this.contactSearchDebounce);
+      this.contactSearchDebounce = null;
+    }
+  }
   private populateStageDefinitions(records: any[]) {
     const definitions = records.map(record => {
       const name = record.Stage ?? record.Name ?? 'No Stage';
