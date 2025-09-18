@@ -190,7 +190,6 @@ interface PaidInvoiceGroup {
 })
 export class CompanyPage implements OnInit {
   selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
-  companyViewScope: 'all' | 'noble' = 'all';
 
   isLoading = false;
   isInitialLoad = true;
@@ -209,7 +208,7 @@ export class CompanyPage implements OnInit {
     hasNotes: false
   };
 
-  selectedCompanyId: number | null = 1;
+  selectedCompanyId: number | null = null;
   selectedCompany: CompanyViewModel | null = null;
   companySnapshot: SnapshotItem[] = [];
   companyStats: StatItem[] = [];
@@ -259,9 +258,13 @@ export class CompanyPage implements OnInit {
   private meetingSummaryByCompany = new Map<number, { nextMeeting: Date | null; recentMeeting: Date | null; total: number }>();
   private invoiceSummaryByCompany = new Map<number, InvoiceTotals>();
   private communicationTypeLookup = new Map<number, string>();
+  private readonly excludedCompanyId = 1;
 
   uniqueCompanySizes: string[] = [];
   uniqueLeadSources: string[] = [];
+
+  selectedContact: ContactRecord | null = null;
+  isContactModalOpen = false;
   constructor(
     private caspioService: CaspioService,
     private loadingController: LoadingController,
@@ -312,7 +315,12 @@ export class CompanyPage implements OnInit {
       this.populateCommunicationTypes(communicationRecords);
       this.populateProjectLookup(projectRecords);
 
-      this.companies = companyRecords.map(record => this.normalizeCompanyRecord(record));
+      const filteredCompanyRecords = companyRecords.filter(record => {
+        const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
+        return id !== this.excludedCompanyId;
+      });
+
+      this.companies = filteredCompanyRecords.map(record => this.normalizeCompanyRecord(record));
       this.companyNameLookup.clear();
       this.companies.forEach(company => this.companyNameLookup.set(company.CompanyID, company.CompanyName));
 
@@ -321,15 +329,25 @@ export class CompanyPage implements OnInit {
 
       this.ensureSelectedCompany();
 
-      this.contacts = contactRecords.map(record => this.normalizeContactRecord(record));
+      this.contacts = contactRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeContactRecord(record));
 
-      this.tasks = taskRecords.map(record => this.normalizeTaskRecord(record));
+      this.tasks = taskRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTaskRecord(record));
       this.taskAssignees = this.extractUniqueValues(this.tasks.map(task => task.assignTo).filter(Boolean));
 
-      this.meetings = meetingRecords.map(record => this.normalizeMeetingRecord(record));
-      this.communications = touchRecords.map(record => this.normalizeTouchRecord(record));
+      this.meetings = meetingRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeMeetingRecord(record));
+      this.communications = touchRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTouchRecord(record));
 
-      this.invoices = invoiceRecords.map(record => this.normalizeInvoiceRecord(record));
+      this.invoices = invoiceRecords
+        .map(record => this.normalizeInvoiceRecord(record))
+        .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
 
       this.recalculateCompanyAggregates();
 
@@ -368,6 +386,16 @@ export class CompanyPage implements OnInit {
     this.categorizeInvoices();
   }
 
+  openContactModal(contact: ContactRecord) {
+    this.selectedContact = contact;
+    this.isContactModalOpen = true;
+  }
+
+  closeContactModal() {
+    this.isContactModalOpen = false;
+    this.selectedContact = null;
+  }
+
   setStageFilter(stageId: number) {
     const newValue = String(stageId);
     this.companyFilters.stage = this.companyFilters.stage === newValue ? 'all' : newValue;
@@ -384,19 +412,6 @@ export class CompanyPage implements OnInit {
       hasNotes: false
     };
     this.applyCompanyFilters();
-  }
-
-  setCompanyViewScope(scope: 'all' | 'noble') {
-    this.companyViewScope = scope;
-    if (scope === 'noble') {
-      this.selectedCompanyId = 1;
-    }
-    this.applyCompanyFilters();
-  }
-
-  onCompanyScopeChange(event: any) {
-    const value = event?.detail?.value === 'noble' ? 'noble' : 'all';
-    this.setCompanyViewScope(value);
   }
 
   onTabChange(event: any) {
@@ -445,12 +460,27 @@ export class CompanyPage implements OnInit {
       stageMap.get(stageId)!.push(company);
     });
 
+    const stagePriority = (stage: StageDefinition) => {
+      const name = (stage.name ?? '').toLowerCase();
+      if (name === 'active') {
+        return -1;
+      }
+      return stage.sortOrder;
+    };
+
     this.stageGroups = allStages
-      .sort((a, b) => a.sortOrder - b.sortOrder)
       .map(stage => ({
         stage,
         companies: (stageMap.get(stage.id) ?? []).sort((a, b) => a.CompanyName.localeCompare(b.CompanyName))
-      }));
+      }))
+      .filter(group => group.companies.length > 0)
+      .sort((a, b) => {
+        const priorityDiff = stagePriority(a.stage) - stagePriority(b.stage);
+        if (priorityDiff !== 0) {
+            return priorityDiff;
+        }
+        return a.stage.name.localeCompare(b.stage.name);
+      });
 
     this.stageSummary = this.stageGroups.map(group => ({
       stage: group.stage,
@@ -867,6 +897,9 @@ export class CompanyPage implements OnInit {
       }
       const projectId = Number(record.ProjectID);
       const companyId = record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null;
+      if (companyId === this.excludedCompanyId) {
+        return;
+      }
       const projectDate = this.toDate(record.Date);
       this.projectDetailsLookup.set(projectId, { companyId, projectDate });
     });
@@ -1143,7 +1176,7 @@ export class CompanyPage implements OnInit {
     if (this.selectedCompanyId && this.companies.some(company => company.CompanyID === this.selectedCompanyId)) {
       return;
     }
-    const fallback = this.companies.find(company => company.CompanyID === 1) ?? this.companies[0] ?? null;
+    const fallback = this.companies[0] ?? null;
     this.selectedCompanyId = fallback?.CompanyID ?? null;
   }
 
@@ -1271,7 +1304,7 @@ export class CompanyPage implements OnInit {
   }
 
   private matchesCompanyFilters(company: CompanyRecord): boolean {
-    if (this.companyViewScope === 'noble' && company.CompanyID !== 1) {
+    if (company.CompanyID === this.excludedCompanyId) {
       return false;
     }
 

@@ -102,34 +102,6 @@
         </div>
       </div>
 
-      <div class="company-scope-toggle">
-        <ion-segment
-          size="small"
-          [value]="companyViewScope"
-          (ionChange)="onCompanyScopeChange($event)">
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="noble">
-            <ion-label>Noble</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-
-      <div class="stage-summary">
-        <div
-          class="stage-summary-card"
-          *ngFor="let summary of stageSummary"
-          [class.active]="summary.highlight"
-          (click)="setStageFilter(summary.stage.id)">
-          <div class="stage-summary-header">
-            <h4>{{ summary.stage.name }}</h4>
-            <span>{{ summary.count }}</span>
-          </div>
-          <p>{{ summary.count === 1 ? 'Company' : 'Companies' }}</p>
-        </div>
-      </div>
-
       <div class="company-filters">
         <ion-searchbar
           [(ngModel)]="companyFilters.search"
@@ -176,43 +148,58 @@
           Clear filters
         </ion-button>
       </div>
-
-      <div class="stage-board">
-        <div class="stage-column" *ngFor="let group of stageGroups">
-          <div class="stage-column-header">
-            <h4>{{ group.stage.name }}</h4>
-            <span>{{ group.companies.length }}</span>
+      <div class="stage-rollups">
+        <div class="stage-section" *ngFor="let group of stageGroups">
+          <div class="stage-section-header">
+            <h3>{{ group.stage.name }}</h3>
+            <span>{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
           </div>
-          <div class="stage-column-body">
-            <ng-container *ngIf="group.companies.length; else emptyStage">
-              <div
-                class="company-card"
-                *ngFor="let company of group.companies"
-                [class.selected]="company.CompanyID === selectedCompanyId"
-                (click)="setSelectedCompany(company.CompanyID)">
-                <div class="company-card-header">
-                  <h5>{{ company.CompanyName }}</h5>
-                  <ion-chip *ngIf="company.SizeLabel" color="tertiary" size="small">{{ company.SizeLabel }}</ion-chip>
-                </div>
-                <p class="company-location">
-                  {{ company.City || 'Location unknown' }}
-                  <span *ngIf="company.State">• {{ company.State }}</span>
-                </p>
-                <div class="company-card-metrics">
+          <ion-accordion-group expand="inset">
+            <ion-accordion *ngFor="let company of group.companies" [value]="'company-' + company.CompanyID">
+              <ion-item slot="header" class="company-rollup-header" [class.selected]="company.CompanyID === selectedCompanyId" (click)="setSelectedCompany(company.CompanyID)">
+                <ion-label>
+                  <h4>{{ company.CompanyName }}</h4>
+                  <p>
+                    {{ company.City || 'Location unknown' }}
+                    <span *ngIf="company.State">• {{ company.State }}</span>
+                  </p>
+                </ion-label>
+                <div class="company-rollup-metrics" slot="end">
                   <span><ion-icon name="people-outline"></ion-icon>{{ company.contactCount }}</span>
                   <span><ion-icon name="checkbox-outline"></ion-icon>{{ company.openTasks }}</span>
                   <span><ion-icon name="chatbubble-ellipses-outline"></ion-icon>{{ company.totalTouches }}</span>
                 </div>
-                <div class="company-card-footer">
-                  <span>{{ company.lastTouchLabel }}</span>
-                  <span *ngIf="company.upcomingMeetingDate">Next: {{ formatDate(company.upcomingMeetingDate) }}</span>
+              </ion-item>
+              <div class="company-rollup-content" slot="content">
+                <div class="company-rollup-grid">
+                  <div class="company-rollup-card">
+                    <h5>Stage</h5>
+                    <p>{{ company.StageName || 'No stage' }}</p>
+                  </div>
+                  <div class="company-rollup-card">
+                    <h5>Phone</h5>
+                    <p>{{ formatPhone(company.Phone) || 'No phone on file' }}</p>
+                  </div>
+                  <div class="company-rollup-card">
+                    <h5>Website</h5>
+                    <p>{{ company.Website || 'No website listed' }}</p>
+                  </div>
+                  <div class="company-rollup-card">
+                    <h5>Address</h5>
+                    <p>{{ [company.Address, company.City, company.State, company.Zip].filter(Boolean).join(', ') || 'Address not provided' }}</p>
+                  </div>
+                  <div class="company-rollup-card">
+                    <h5>Open Tasks</h5>
+                    <p>{{ company.openTasks }} <span *ngIf="company.overdueTasks">( {{ company.overdueTasks }} overdue )</span></p>
+                  </div>
+                  <div class="company-rollup-card">
+                    <h5>Billing</h5>
+                    <p>Total: {{ formatCurrency(company.invoiceTotals.total) }}<br>Outstanding: {{ formatCurrency(company.invoiceTotals.outstanding) }}</p>
+                  </div>
                 </div>
               </div>
-            </ng-container>
-            <ng-template #emptyStage>
-              <div class="empty-column">No companies</div>
-            </ng-template>
-          </div>
+            </ion-accordion>
+          </ion-accordion-group>
         </div>
       </div>
     </div>
@@ -241,7 +228,6 @@
               <thead>
                 <tr>
                   <th>Contact</th>
-                  <th>Title</th>
                   <th>Phone</th>
                   <th>Email</th>
                 </tr>
@@ -249,12 +235,10 @@
               <tbody>
                 <tr *ngFor="let contact of group.contacts">
                   <td>
-                    <strong>{{ contact.Name }}</strong>
+                    <button type="button" class="contact-name-button" (click)="openContactModal(contact)">
+                      {{ contact.Name }}
+                    </button>
                     <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
-                  </td>
-                  <td>
-                    <div>{{ contact.Title || '—' }}</div>
-                    <small *ngIf="contact.Goal">Goal: {{ contact.Goal }}</small>
                   </td>
                   <td>{{ formatPhone(contact.Phone1) || '—' }}</td>
                   <td>
@@ -586,3 +570,55 @@
     </div>
   </div>
 </ion-content>
+
+<ion-modal [isOpen]="isContactModalOpen" (didDismiss)="closeContactModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ selectedContact?.Name || 'Contact Details' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeContactModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="contact-modal-content" *ngIf="selectedContact">
+      <div class="contact-detail-card">
+        <h4>{{ selectedContact.Name }}</h4>
+        <p *ngIf="selectedContact.Goal">Goal: {{ selectedContact.Goal }}</p>
+        <div class="contact-detail-grid">
+          <div>
+            <strong>Company</strong>
+            <p>{{ getCompanyName(selectedContact.CompanyID) }}</p>
+          </div>
+          <div>
+            <strong>Title</strong>
+            <p>{{ selectedContact.Title || '—' }}</p>
+          </div>
+          <div>
+            <strong>Email</strong>
+            <p>
+              <a *ngIf="selectedContact.Email" [href]="'mailto:' + selectedContact.Email">{{ selectedContact.Email }}</a>
+              <span *ngIf="!selectedContact.Email">—</span>
+            </p>
+          </div>
+          <div>
+            <strong>Phone</strong>
+            <p>{{ formatPhone(selectedContact.Phone1) || '—' }}</p>
+          </div>
+          <div>
+            <strong>Secondary Phone</strong>
+            <p>{{ formatPhone(selectedContact.Phone2) || '—' }}</p>
+          </div>
+          <div>
+            <strong>Role</strong>
+            <p>{{ selectedContact.Role || '—' }}</p>
+          </div>
+          <div>
+            <strong>Notes</strong>
+            <p>{{ selectedContact.Notes || 'No notes recorded.' }}</p>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
