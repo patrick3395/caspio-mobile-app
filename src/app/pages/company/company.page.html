@@ -102,6 +102,20 @@
         </div>
       </div>
 
+      <div class="company-scope-toggle">
+        <ion-segment
+          size="small"
+          [value]="companyViewScope"
+          (ionChange)="setCompanyViewScope((($event.detail.value) || 'all') as 'all' | 'noble')">
+          <ion-segment-button value="all">
+            <ion-label>All companies</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="noble">
+            <ion-label>Noble</ion-label>
+          </ion-segment-button>
+        </ion-segment>
+      </div>
+
       <div class="stage-summary">
         <div
           class="stage-summary-card"
@@ -208,68 +222,50 @@
           <h3>Contacts</h3>
           <p>People linked to your companies</p>
         </div>
-        <ion-segment size="small" [(ngModel)]="contactFilters.companyScope" (ionChange)="applyContactFilters()">
-          <ion-segment-button value="selected" [disabled]="!selectedCompanyId">
-            <ion-label>Focus company</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-
-      <div class="contacts-filters">
         <ion-searchbar
-          [(ngModel)]="contactFilters.search"
+          [(ngModel)]="contactsSearchTerm"
           (ionChange)="applyContactFilters()"
-          placeholder="Search by name, role or email"
+          placeholder="Search contacts by name"
           animated="true">
         </ion-searchbar>
-
-        <ion-select
-          label="Role"
-          interface="popover"
-          [(ngModel)]="contactFilters.role"
-          (ionChange)="applyContactFilters()">
-          <ion-select-option value="all">All roles</ion-select-option>
-          <ion-select-option *ngFor="let role of uniqueContactRoles" [value]="role">{{ role }}</ion-select-option>
-        </ion-select>
-
-        <ion-toggle
-          [(ngModel)]="contactFilters.showPrimaryOnly"
-          (ionChange)="applyContactFilters()">Primary contact only</ion-toggle>
       </div>
 
-      <div class="responsive-table" *ngIf="filteredContacts.length; else emptyContacts">
-        <table>
-          <thead>
-            <tr>
-              <th>Contact</th>
-              <th>Role / Title</th>
-              <th>Company</th>
-              <th>Phone</th>
-              <th>Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let contact of filteredContacts">
-              <td>
-                <strong>{{ contact.Name }}</strong>
-                <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
-              </td>
-              <td>
-                <div>{{ contact.Title || '—' }}</div>
-                <small *ngIf="contact.Role">{{ contact.Role }}</small>
-              </td>
-              <td>{{ getCompanyName(contact.CompanyID) }}</td>
-              <td>{{ formatPhone(contact.Phone1) || '—' }}</td>
-              <td>
-                <a *ngIf="contact.Email" [href]="'mailto:' + contact.Email">{{ contact.Email }}</a>
-                <span *ngIf="!contact.Email">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="contact-groups" *ngIf="contactGroups.length; else emptyContacts">
+        <div class="contact-group" *ngFor="let group of contactGroups">
+          <div class="contact-group-header">
+            <h4>{{ group.companyName }}</h4>
+            <span>{{ group.contacts.length }} {{ group.contacts.length === 1 ? 'person' : 'people' }}</span>
+          </div>
+          <div class="responsive-table dark-outline">
+            <table>
+              <thead>
+                <tr>
+                  <th>Contact</th>
+                  <th>Title</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let contact of group.contacts">
+                  <td>
+                    <strong>{{ contact.Name }}</strong>
+                    <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
+                  </td>
+                  <td>
+                    <div>{{ contact.Title || '—' }}</div>
+                    <small *ngIf="contact.Goal">Goal: {{ contact.Goal }}</small>
+                  </td>
+                  <td>{{ formatPhone(contact.Phone1) || '—' }}</td>
+                  <td>
+                    <a *ngIf="contact.Email" [href]="'mailto:' + contact.Email">{{ contact.Email }}</a>
+                    <span *ngIf="!contact.Email">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <ng-template #emptyContacts>
         <div class="empty-tab-state">
@@ -329,21 +325,26 @@
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
         <ion-card *ngFor="let task of filteredTasks" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
-          <ion-card-header>
-            <ion-card-title>{{ task.assignment || 'Untitled task' }}</ion-card-title>
-            <ion-card-subtitle>
-              <span>{{ task.assignTo || 'Unassigned' }}</span>
-              <span>• {{ task.communicationType || 'General' }}</span>
-            </ion-card-subtitle>
-          </ion-card-header>
+          <ion-item lines="none" class="task-card-header">
+            <ion-checkbox
+              slot="start"
+              [checked]="task.completed"
+              [disabled]="isTaskUpdating(task)"
+              (ionChange)="toggleTaskCompletion(task, $event.detail.checked)">
+            </ion-checkbox>
+            <ion-label>
+              <h4>{{ task.assignmentShort || task.assignment || 'Task' }}</h4>
+              <p>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</p>
+            </ion-label>
+            <ion-badge color="success" *ngIf="task.completed">Completed</ion-badge>
+            <ion-badge color="danger" *ngIf="!task.completed && task.isOverdue">Overdue</ion-badge>
+          </ion-item>
           <ion-card-content>
             <div class="task-meta">
-              <span><ion-icon name="calendar-outline"></ion-icon>{{ task.dueLabel }}</span>
+              <span><ion-icon name="calendar-outline"></ion-icon>{{ formatDate(task.dueDate) }}</span>
               <span *ngIf="task.notes"><ion-icon name="document-text-outline"></ion-icon>{{ task.notes }}</span>
               <span><ion-icon name="business-outline"></ion-icon>{{ getCompanyName(task.CompanyID) }}</span>
             </div>
-            <ion-badge color="success" *ngIf="task.completed">Completed</ion-badge>
-            <ion-badge color="danger" *ngIf="!task.completed && task.isOverdue">Overdue</ion-badge>
           </ion-card-content>
         </ion-card>
       </div>
@@ -361,14 +362,6 @@
           <h3>Meetings</h3>
           <p>Past and upcoming touchpoints</p>
         </div>
-        <ion-segment size="small" [(ngModel)]="meetingFilters.scope" (ionChange)="applyMeetingFilters()">
-          <ion-segment-button value="selected" [disabled]="!selectedCompanyId">
-            <ion-label>Focus company</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-        </ion-segment>
       </div>
 
       <div class="meetings-filters">
@@ -421,47 +414,12 @@
           <h3>Touches</h3>
           <p>Communication history across all companies</p>
         </div>
-        <ion-segment size="small" [(ngModel)]="communicationFilters.scope" (ionChange)="applyCommunicationFilters()">
-          <ion-segment-button value="selected" [disabled]="!selectedCompanyId">
-            <ion-label>Focus company</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-
-      <div class="communications-filters">
         <ion-searchbar
-          [(ngModel)]="communicationFilters.search"
+          [(ngModel)]="communicationSearchTerm"
           (ionChange)="applyCommunicationFilters()"
           placeholder="Search notes or outcomes"
           animated="true">
         </ion-searchbar>
-
-        <ion-select
-          label="Type"
-          interface="popover"
-          [(ngModel)]="communicationFilters.type"
-          (ionChange)="applyCommunicationFilters()">
-          <ion-select-option value="all">All types</ion-select-option>
-          <ion-select-option *ngFor="let type of communicationTypes" [value]="type">{{ type }}</ion-select-option>
-        </ion-select>
-
-        <ion-select
-          label="Mode"
-          interface="popover"
-          [(ngModel)]="communicationFilters.mode"
-          (ionChange)="applyCommunicationFilters()">
-          <ion-select-option value="all">All</ion-select-option>
-          <ion-select-option value="call">Call</ion-select-option>
-          <ion-select-option value="email">Email</ion-select-option>
-          <ion-select-option value="text">Text</ion-select-option>
-        </ion-select>
-
-        <ion-toggle
-          [(ngModel)]="communicationFilters.onlyResponses"
-          (ionChange)="applyCommunicationFilters()">Connected only</ion-toggle>
       </div>
 
       <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
@@ -490,16 +448,14 @@
       <div class="section-header">
         <div>
           <h3>Invoices</h3>
-          <p>{{ filteredInvoices.length }} invoices · {{ formatCurrency(invoiceMetrics.total) }} billed</p>
+          <p>{{ visibleInvoiceCount }} records · {{ formatCurrency(invoiceMetrics.total) }} billed</p>
         </div>
-        <ion-segment size="small" [(ngModel)]="invoiceFilters.scope" (ionChange)="applyInvoiceFilters()">
-          <ion-segment-button value="selected" [disabled]="!selectedCompanyId">
-            <ion-label>Focus company</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-        </ion-segment>
+        <ion-searchbar
+          [(ngModel)]="invoiceSearchTerm"
+          (ionChange)="categorizeInvoices()"
+          placeholder="Search invoice, project, or company"
+          animated="true">
+        </ion-searchbar>
       </div>
 
       <div class="invoice-summary">
@@ -517,68 +473,109 @@
         </div>
       </div>
 
-      <div class="invoices-filters">
-        <ion-searchbar
-          [(ngModel)]="invoiceFilters.search"
-          (ionChange)="applyInvoiceFilters()"
-          placeholder="Search invoice ID, notes or address"
-          animated="true">
-        </ion-searchbar>
+      <ng-container *ngIf="openInvoices.length || unpaidInvoices.length || paidInvoiceGroups.length; else emptyInvoices">
+        <div class="invoice-section" *ngIf="openInvoices.length">
+          <div class="invoice-section-header">
+            <h4>Open (upcoming projects)</h4>
+            <span>{{ openInvoices.length }} {{ openInvoices.length === 1 ? 'invoice' : 'invoices' }}</span>
+          </div>
+          <div class="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Company</th>
+                  <th>Project Date</th>
+                  <th>Amount</th>
+                  <th>Outstanding</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let pair of openInvoices">
+                  <td>#{{ pair.positive.InvoiceID }}</td>
+                  <td>{{ pair.positive.CompanyName }}</td>
+                  <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
+                  <td>{{ pair.positive.AmountLabel }}</td>
+                  <td>{{ formatCurrency(pair.netAmount) }}</td>
+                  <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        <ion-select
-          label="Status"
-          interface="popover"
-          [(ngModel)]="invoiceFilters.status"
-          (ionChange)="applyInvoiceFilters()">
-          <ion-select-option value="all">All</ion-select-option>
-          <ion-select-option value="Open">Open</ion-select-option>
-          <ion-select-option value="Paid">Paid</ion-select-option>
-          <ion-select-option value="Partially Paid">Partial</ion-select-option>
-          <ion-select-option value="Credit">Credit</ion-select-option>
-          <ion-select-option value="Draft">Draft</ion-select-option>
-        </ion-select>
+        <div class="invoice-section" *ngIf="unpaidInvoices.length">
+          <div class="invoice-section-header">
+            <h4>Unpaid (project complete)</h4>
+            <span>{{ unpaidInvoices.length }} {{ unpaidInvoices.length === 1 ? 'invoice' : 'invoices' }}</span>
+          </div>
+          <div class="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Company</th>
+                  <th>Project Date</th>
+                  <th>Amount</th>
+                  <th>Outstanding</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let pair of unpaidInvoices">
+                  <td>#{{ pair.positive.InvoiceID }}</td>
+                  <td>{{ pair.positive.CompanyName }}</td>
+                  <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
+                  <td>{{ pair.positive.AmountLabel }}</td>
+                  <td>{{ formatCurrency(pair.netAmount) }}</td>
+                  <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        <ion-select
-          label="Processor"
-          interface="popover"
-          [(ngModel)]="invoiceFilters.paymentProcessor"
-          (ionChange)="applyInvoiceFilters()">
-          <ion-select-option value="all">All</ion-select-option>
-          <ion-select-option *ngFor="let processor of paymentProcessors" [value]="processor">{{ processor }}</ion-select-option>
-        </ion-select>
-      </div>
+        <div class="invoice-section" *ngIf="paidInvoiceGroups.length">
+          <div class="invoice-section-header">
+            <h4>Paid (grouped by company)</h4>
+            <span>{{ paidInvoiceGroups.length }} {{ paidInvoiceGroups.length === 1 ? 'company' : 'companies' }}</span>
+          </div>
+          <div class="invoice-paid-groups">
+            <div class="invoice-group-card" *ngFor="let group of paidInvoiceGroups">
+              <div class="invoice-group-header">
+                <h5>{{ group.companyName }}</h5>
+                <span>{{ group.items.length }} {{ group.items.length === 1 ? 'project' : 'projects' }}</span>
+              </div>
+              <div class="responsive-table slim">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Invoice</th>
+                      <th>Billed</th>
+                      <th>Credit</th>
+                      <th>Project Date</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let pair of group.items">
+                      <td>#{{ pair.positive.InvoiceID }}</td>
+                      <td>{{ pair.positive.AmountLabel }}</td>
+                      <td>
+                        {{ pair.negative ? formatCurrency((pair.negative.Fee || 0) * -1) : formatCurrency(pair.netAmount) }}
+                      </td>
+                      <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
+                      <td>{{ pair.positive.InvoiceNotes || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
 
-      <div class="responsive-table" *ngIf="filteredInvoices.length; else emptyInvoices">
-        <table>
-          <thead>
-            <tr>
-              <th>Invoice</th>
-              <th>Company</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Balance</th>
-              <th>Status</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let invoice of filteredInvoices">
-              <td>#{{ invoice.InvoiceID }}</td>
-              <td>{{ invoice.CompanyName }}</td>
-              <td>{{ formatDate(invoice.DateValue) }}</td>
-              <td>{{ invoice.AmountLabel }}</td>
-              <td>{{ invoice.BalanceLabel }}</td>
-              <td>
-                <ion-badge
-                  [color]="invoice.Status === 'Paid' ? 'success' : invoice.Status === 'Open' ? 'warning' : 'medium'">
-                  {{ invoice.Status }}
-                </ion-badge>
-              </td>
-              <td>{{ invoice.InvoiceNotes || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
       <ng-template #emptyInvoices>
         <div class="empty-tab-state">
           <ion-icon name="receipt-outline"></ion-icon>

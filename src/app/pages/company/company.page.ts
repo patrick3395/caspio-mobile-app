@@ -6,11 +6,17 @@ import { IonicModule, LoadingController, ToastController } from '@ionic/angular'
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
 import { CaspioService } from '../../services/caspio.service';
 import { environment } from '../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 interface StageDefinition {
   id: number;
   name: string;
   sortOrder: number;
+}
+
+interface ProjectMetadata {
+  companyId: number | null;
+  projectDate: Date | null;
 }
 
 interface CompanyRecord {
@@ -73,6 +79,7 @@ interface ContactRecord {
   CompanyID: number | null;
   Name: string;
   Title: string;
+  Goal?: string;
   Role: string;
   Email: string;
   Phone1: string;
@@ -81,13 +88,19 @@ interface ContactRecord {
   Notes: string;
 }
 
+interface ContactGroup {
+  companyId: number | null;
+  companyName: string;
+  contacts: ContactRecord[];
+}
+
 interface TaskViewModel {
   PK_ID: number;
   TaskID: number;
   CompanyID: number | null;
   dueDate: Date | null;
-  dueLabel: string;
   assignment: string;
+  assignmentShort: string;
   assignTo: string;
   completed: boolean;
   notes: string;
@@ -139,6 +152,7 @@ interface InvoiceViewModel extends InvoiceRecord {
   CompanyID: number | null;
   CompanyName: string;
   DateValue: Date | null;
+  ProjectDate: Date | null;
   AmountLabel: string;
   BalanceLabel: string;
   Status: string;
@@ -163,6 +177,7 @@ interface StageSummary {
 })
 export class CompanyPage implements OnInit {
   selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
+  companyViewScope: 'all' | 'noble' = 'all';
 
   isLoading = false;
   isInitialLoad = true;
@@ -187,14 +202,8 @@ export class CompanyPage implements OnInit {
   companyStats: StatItem[] = [];
 
   contacts: ContactRecord[] = [];
-  filteredContacts: ContactRecord[] = [];
-  contactFilters = {
-    search: '',
-    companyScope: 'selected',
-    role: 'all',
-    showPrimaryOnly: false
-  };
-  uniqueContactRoles: string[] = [];
+  contactsSearchTerm = '';
+  contactGroups: ContactGroup[] = [];
 
   tasks: TaskViewModel[] = [];
   filteredTasks: TaskViewModel[] = [];
@@ -207,40 +216,30 @@ export class CompanyPage implements OnInit {
   };
   taskAssignees: string[] = [];
   taskMetrics = { total: 0, completed: 0, outstanding: 0, overdue: 0 };
+  private taskUpdatingIds = new Set<number>();
 
   meetings: MeetingViewModel[] = [];
   filteredMeetings: MeetingViewModel[] = [];
   meetingFilters = {
     search: '',
-    scope: 'selected',
     timeframe: 'upcoming'
   };
 
   communications: CommunicationViewModel[] = [];
   filteredCommunications: CommunicationViewModel[] = [];
-  communicationFilters = {
-    search: '',
-    scope: 'selected',
-    type: 'all',
-    mode: 'all',
-    onlyResponses: false
-  };
-  communicationTypes: string[] = [];
+  communicationSearchTerm = '';
 
   invoices: InvoiceViewModel[] = [];
-  filteredInvoices: InvoiceViewModel[] = [];
-  invoiceFilters = {
-    search: '',
-    scope: 'selected',
-    status: 'all',
-    paymentProcessor: 'all'
-  };
+  invoiceSearchTerm = '';
+  openInvoices: InvoicePair[] = [];
+  unpaidInvoices: InvoicePair[] = [];
+  paidInvoiceGroups: PaidInvoiceGroup[] = [];
   invoiceMetrics: InvoiceTotals = { total: 0, outstanding: 0, paid: 0 };
-  paymentProcessors: string[] = [];
+  visibleInvoiceCount = 0;
 
   private stageLookup = new Map<number, StageDefinition>();
   private companyNameLookup = new Map<number, string>();
-  private projectCompanyLookup = new Map<number, number>();
+  private projectDetailsLookup = new Map<number, ProjectMetadata>();
   private contactCountByCompany = new Map<number, number>();
   private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
   private touchSummaryByCompany = new Map<number, { total: number; lastDate: Date | null; label: string; channels: string[] }>();
@@ -285,15 +284,15 @@ export class CompanyPage implements OnInit {
         projectRecords,
         communicationRecords
       ] = await Promise.all([
-        this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '1000' }),
-        this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '1000' }),
-        this.fetchTableRecords('Contacts', { 'q.orderBy': 'Name', 'q.limit': '1000' }),
-        this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '1000' }),
-        this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '1000' }),
-        this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '1000' }),
-        this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '1000' }),
-        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Address,City,StateID,Zip,Date', 'q.limit': '1000' }),
-        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '1000' })
+        this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' }),
+        this.fetchTableRecords('Contacts', { 'q.orderBy': 'CompanyID,Name', 'q.limit': '2000' }),
+        this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' }),
+        this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
+        this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' }),
+        this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
+        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date', 'q.limit': '2000' }),
+        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' })
       ]);
 
       this.populateStageDefinitions(stageRecords);
@@ -310,17 +309,14 @@ export class CompanyPage implements OnInit {
       this.ensureSelectedCompany();
 
       this.contacts = contactRecords.map(record => this.normalizeContactRecord(record));
-      this.uniqueContactRoles = this.extractUniqueValues(this.contacts.map(contact => contact.Role).filter(Boolean));
 
       this.tasks = taskRecords.map(record => this.normalizeTaskRecord(record));
       this.taskAssignees = this.extractUniqueValues(this.tasks.map(task => task.assignTo).filter(Boolean));
 
       this.meetings = meetingRecords.map(record => this.normalizeMeetingRecord(record));
       this.communications = touchRecords.map(record => this.normalizeTouchRecord(record));
-      this.communicationTypes = this.extractUniqueValues(this.communications.map(comm => comm.communicationType).filter(Boolean));
 
       this.invoices = invoiceRecords.map(record => this.normalizeInvoiceRecord(record));
-      this.paymentProcessors = this.extractUniqueValues(this.invoices.map(invoice => invoice.PaymentProcessor || 'Unspecified'));
 
       this.recalculateCompanyAggregates();
 
@@ -329,7 +325,7 @@ export class CompanyPage implements OnInit {
       this.applyTaskFilters();
       this.applyMeetingFilters();
       this.applyCommunicationFilters();
-      this.applyInvoiceFilters();
+      this.categorizeInvoices();
       this.updateSelectedCompanySnapshot();
     } catch (error: any) {
       console.error('Error loading company data:', error);
@@ -356,7 +352,7 @@ export class CompanyPage implements OnInit {
     this.applyTaskFilters();
     this.applyMeetingFilters();
     this.applyCommunicationFilters();
-    this.applyInvoiceFilters();
+    this.categorizeInvoices();
   }
 
   setStageFilter(stageId: number) {
@@ -377,6 +373,14 @@ export class CompanyPage implements OnInit {
     this.applyCompanyFilters();
   }
 
+  setCompanyViewScope(scope: 'all' | 'noble') {
+    this.companyViewScope = scope;
+    if (scope === 'noble') {
+      this.selectedCompanyId = 1;
+    }
+    this.applyCompanyFilters();
+  }
+
   onTabChange(event: any) {
     this.selectedTab = event.detail?.value || this.selectedTab;
     switch (this.selectedTab) {
@@ -393,7 +397,7 @@ export class CompanyPage implements OnInit {
         this.applyCommunicationFilters();
         break;
       case 'invoices':
-        this.applyInvoiceFilters();
+        this.categorizeInvoices();
         break;
       case 'companies':
       default:
@@ -438,44 +442,56 @@ export class CompanyPage implements OnInit {
   }
 
   applyContactFilters() {
-    const searchTerm = this.contactFilters.search.trim().toLowerCase();
-    const scope = this.contactFilters.companyScope;
+    const searchTerm = this.contactsSearchTerm.trim().toLowerCase();
     const selectedId = this.selectedCompanyId;
-    const roleFilter = this.contactFilters.role;
+    const grouped = new Map<number | null, ContactRecord[]>();
 
-    this.filteredContacts = this.contacts.filter(contact => {
-      if (scope === 'selected') {
-        if (selectedId === null || contact.CompanyID !== selectedId) {
-          return false;
+    this.contacts.forEach(contact => {
+      if (searchTerm) {
+        const haystack = [
+          contact.Name,
+          contact.Title,
+          contact.Goal,
+          contact.Email,
+          contact.Phone1,
+          contact.Phone2,
+          this.getCompanyName(contact.CompanyID)
+        ].join(' ').toLowerCase();
+
+        if (!haystack.includes(searchTerm)) {
+          return;
         }
       }
-
-      if (roleFilter !== 'all' && contact.Role !== roleFilter) {
-        return false;
+      const key = contact.CompanyID ?? null;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
       }
-
-      if (this.contactFilters.showPrimaryOnly && !contact.PrimaryContact) {
-        return false;
-      }
-
-      if (!searchTerm) {
-        return true;
-      }
-
-      const haystack = [
-        contact.Name,
-        contact.Title,
-        contact.Role,
-        contact.Email,
-        contact.Phone1,
-        contact.Phone2,
-        this.getCompanyName(contact.CompanyID)
-      ].join(' ').toLowerCase();
-
-      return haystack.includes(searchTerm);
+      grouped.get(key)!.push(contact);
     });
-  }
 
+    const groups: ContactGroup[] = Array.from(grouped.entries()).map(([companyId, contacts]) => {
+      contacts.sort((a, b) => a.Name.localeCompare(b.Name));
+      return {
+        companyId,
+        companyName: this.getCompanyName(companyId),
+        contacts
+      };
+    });
+
+    groups.sort((a, b) => {
+      if (selectedId !== null) {
+        if (a.companyId === selectedId && b.companyId !== selectedId) {
+          return -1;
+        }
+        if (b.companyId === selectedId && a.companyId !== selectedId) {
+          return 1;
+        }
+      }
+      return a.companyName.localeCompare(b.companyName);
+    });
+
+    this.contactGroups = groups;
+  }
   applyTaskFilters() {
     const searchTerm = this.taskFilters.search.trim().toLowerCase();
     const scope = this.taskFilters.scope;
@@ -530,26 +546,56 @@ export class CompanyPage implements OnInit {
     this.taskMetrics = { total, completed, outstanding, overdue };
   }
 
+  async toggleTaskCompletion(task: TaskViewModel, completed: boolean) {
+    if (task.completed === completed || this.taskUpdatingIds.has(task.TaskID)) {
+      return;
+    }
+
+    this.taskUpdatingIds.add(task.TaskID);
+    const previousCompleted = task.completed;
+
+    task.completed = completed;
+    task.isOverdue = !completed && this.isDateInPast(task.dueDate);
+
+    try {
+      const payload: any = {
+        Complete: completed ? 1 : 0,
+        CompleteDate: completed ? new Date().toISOString() : null
+      };
+      await firstValueFrom(
+        this.caspioService.put(
+          '/tables/Tasks/records?q.where=TaskID=' + task.TaskID,
+          payload
+        )
+      );
+      await this.showToast(completed ? 'Task marked as complete' : 'Task reopened', 'success');
+    } catch (error) {
+      task.completed = previousCompleted;
+      task.isOverdue = !task.completed && this.isDateInPast(task.dueDate);
+      console.error('Error updating task status:', error);
+      await this.showToast('Unable to update task status', 'danger');
+    } finally {
+      this.taskUpdatingIds.delete(task.TaskID);
+      this.applyTaskFilters();
+    }
+  }
+
+  isTaskUpdating(task: TaskViewModel): boolean {
+    return this.taskUpdatingIds.has(task.TaskID);
+  }
   applyMeetingFilters() {
     const searchTerm = this.meetingFilters.search.trim().toLowerCase();
-    const scope = this.meetingFilters.scope;
     const timeframe = this.meetingFilters.timeframe;
-    const selectedId = this.selectedCompanyId;
     const now = new Date();
 
     this.filteredMeetings = this.meetings.filter(meeting => {
-      if (scope === 'selected') {
-        if (selectedId === null || meeting.CompanyID !== selectedId) {
+      const startDate = meeting.startDate;
+      if (timeframe === "upcoming") {
+        if (!startDate || startDate < now) {
           return false;
         }
-      }
-
-      if (timeframe === 'upcoming') {
-        if (!meeting.startDate || meeting.startDate < now) {
-          return false;
-        }
-      } else if (timeframe === 'past') {
-        if (!meeting.startDate || meeting.startDate >= now) {
+      } else if (timeframe === "past") {
+        if (!startDate || startDate >= now) {
           return false;
         }
       }
@@ -570,112 +616,173 @@ export class CompanyPage implements OnInit {
   }
 
   applyCommunicationFilters() {
-    const searchTerm = this.communicationFilters.search.trim().toLowerCase();
-    const scope = this.communicationFilters.scope;
-    const selectedId = this.selectedCompanyId;
-    const typeFilter = this.communicationFilters.type;
-    const modeFilter = this.communicationFilters.mode;
-    const onlyResponses = this.communicationFilters.onlyResponses;
+    const searchTerm = this.communicationSearchTerm.trim().toLowerCase();
 
     this.filteredCommunications = this.communications.filter(comm => {
-      if (scope === 'selected') {
-        if (selectedId === null || comm.CompanyID !== selectedId) {
-          return false;
-        }
-      }
-
-      if (typeFilter !== 'all' && comm.communicationType !== typeFilter) {
-        return false;
-      }
-
-      if (modeFilter !== 'all') {
-        if (modeFilter === 'call' && !(comm.mode === 'call' || comm.mode === 'multi')) {
-          return false;
-        }
-        if (modeFilter === 'email' && !(comm.mode === 'email' || comm.mode === 'multi')) {
-          return false;
-        }
-        if (modeFilter === 'text' && !(comm.mode === 'text' || comm.mode === 'multi')) {
-          return false;
-        }
-      }
-
-      if (onlyResponses && comm.outcome !== 'Connected') {
-        return false;
-      }
-
       if (!searchTerm) {
         return true;
       }
 
       const haystack = [
-        comm.communicationType,
         comm.notes,
         comm.outcome,
-        comm.channels.join(' '),
         this.getCompanyName(comm.CompanyID)
       ].join(' ').toLowerCase();
 
       return haystack.includes(searchTerm);
     });
 
-    this.communicationTypes = this.extractUniqueValues(this.communications.map(comm => comm.communicationType).filter(Boolean));
+    this.filteredCommunications.sort((a, b) => {
+      const aTime = a.date ? new Date(a.date).getTime() : 0;
+      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      return bTime - aTime;
+    });
   }
+  categorizeInvoices() {
+    const searchTerm = this.invoiceSearchTerm.trim().toLowerCase();
 
-  applyInvoiceFilters() {
-    const searchTerm = this.invoiceFilters.search.trim().toLowerCase();
-    const scope = this.invoiceFilters.scope;
-    const statusFilter = this.invoiceFilters.status;
-    const processorFilter = this.invoiceFilters.paymentProcessor;
-    const selectedId = this.selectedCompanyId;
-
-    this.filteredInvoices = this.invoices.filter(invoice => {
-      if (scope === 'selected') {
-        if (selectedId === null || invoice.CompanyID !== selectedId) {
-          return false;
-        }
-      }
-
-      if (statusFilter !== 'all' && invoice.Status !== statusFilter) {
-        return false;
-      }
-
-      if (processorFilter !== 'all') {
-        const processor = invoice.PaymentProcessor || 'Unspecified';
-        if (processor !== processorFilter) {
-          return false;
-        }
-      }
-
+    const filtered = this.invoices.filter(invoice => {
       if (!searchTerm) {
         return true;
       }
 
       const haystack = [
-        invoice.InvoiceID,
+        String(invoice.InvoiceID),
         invoice.CompanyName,
+        invoice.InvoiceNotes,
         invoice.Address,
         invoice.City,
-        invoice.InvoiceNotes,
         invoice.Status,
-        invoice.PaymentProcessor
-      ].join(' ').toLowerCase();
+        invoice.PaymentProcessor ?? ''
+      ]
+        .join(' ')
+        .toLowerCase();
 
       return haystack.includes(searchTerm);
     });
 
-    this.invoiceMetrics = this.filteredInvoices.reduce((acc, invoice) => {
-      acc.total += invoice.Fee ?? 0;
-      const paid = invoice.Paid ?? 0;
-      acc.paid += paid;
-      const balance = (invoice.Fee ?? 0) - paid;
-      if (balance > 0) {
-        acc.outstanding += balance;
+    const groupedByProject = new Map<number | null, { positives: InvoiceViewModel[]; negatives: InvoiceViewModel[] }>();
+
+    filtered.forEach(invoice => {
+      const projectId = invoice.ProjectID ?? null;
+      if (!groupedByProject.has(projectId)) {
+        groupedByProject.set(projectId, { positives: [], negatives: [] });
       }
-      return acc;
-    }, { total: 0, outstanding: 0, paid: 0 });
+      const bucket = groupedByProject.get(projectId)!;
+      if ((invoice.Fee ?? 0) < 0) {
+        bucket.negatives.push(invoice);
+      } else {
+        bucket.positives.push(invoice);
+      }
+    });
+
+    const open: InvoicePair[] = [];
+    const unpaid: InvoicePair[] = [];
+    const paidPairs: InvoicePair[] = [];
+    const today = new Date();
+
+    groupedByProject.forEach((bucket, projectId) => {
+      const metadata = projectId !== null ? this.projectDetailsLookup.get(projectId) ?? null : null;
+
+      bucket.positives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
+      bucket.negatives.sort((a, b) => this.compareDatesAsc(a.DateValue, b.DateValue));
+
+      bucket.positives.forEach(positive => {
+        const negative = bucket.negatives.shift() ?? null;
+        const projectDate = metadata?.projectDate ?? positive.ProjectDate ?? negative?.ProjectDate ?? positive.DateValue ?? negative?.DateValue ?? null;
+        const net = (positive.Fee ?? 0) + (negative?.Fee ?? 0);
+        const pair: InvoicePair = {
+          positive,
+          negative,
+          projectDate,
+          netAmount: net
+        };
+
+        if (negative) {
+          paidPairs.push(pair);
+        } else {
+          const outstanding = Math.max((positive.Fee ?? 0) - (positive.Paid ?? 0), 0);
+          pair.netAmount = outstanding;
+          const projectHasOccurred = projectDate ? projectDate <= today : (positive.DateValue ? positive.DateValue <= today : true);
+          if (projectHasOccurred) {
+            unpaid.push(pair);
+          } else {
+            open.push(pair);
+          }
+        }
+      });
+    });
+
+    const byCompany = new Map<number | null, InvoicePair[]>();
+    paidPairs.forEach(pair => {
+      const companyId = pair.positive.CompanyID ?? pair.negative?.CompanyID ?? null;
+      if (!byCompany.has(companyId)) {
+        byCompany.set(companyId, []);
+      }
+      byCompany.get(companyId)!.push(pair);
+    });
+
+    const paidGroups: PaidInvoiceGroup[] = Array.from(byCompany.entries()).map(([companyId, items]) => {
+      items.sort((a, b) => this.compareDatesDesc(a.projectDate ?? a.positive.DateValue, b.projectDate ?? b.positive.DateValue));
+      return {
+        companyId,
+        companyName: this.getCompanyName(companyId),
+        items
+      };
+    });
+
+    paidGroups.sort((a, b) => a.companyName.localeCompare(b.companyName));
+    open.sort((a, b) => this.compareDatesAsc(a.projectDate ?? a.positive.DateValue, b.projectDate ?? b.positive.DateValue));
+    unpaid.sort((a, b) => this.compareDatesAsc(a.projectDate ?? a.positive.DateValue, b.projectDate ?? b.positive.DateValue));
+
+    this.openInvoices = open;
+    this.unpaidInvoices = unpaid;
+    this.paidInvoiceGroups = paidGroups;
+    this.visibleInvoiceCount = open.length + unpaid.length + paidPairs.length;
+    this.updateInvoiceMetrics();
   }
 
+  updateInvoiceMetrics() {
+    let total = 0;
+    let outstanding = 0;
+    let paid = 0;
+
+    const recordTotals = (pair: InvoicePair) => {
+      const positiveAmount = pair.positive.Fee ?? 0;
+      if (positiveAmount > 0) {
+        total += positiveAmount;
+      }
+
+      if (pair.negative) {
+        paid += Math.abs(pair.negative.Fee ?? 0);
+        if (pair.netAmount > 0) {
+          outstanding += pair.netAmount;
+        }
+      } else {
+        const partialPaid = Math.max(pair.positive.Paid ?? 0, 0);
+        paid += partialPaid;
+        if (pair.netAmount > 0) {
+          outstanding += pair.netAmount;
+        }
+      }
+    };
+
+    this.openInvoices.forEach(recordTotals);
+    this.unpaidInvoices.forEach(recordTotals);
+    this.paidInvoiceGroups.forEach(group => group.items.forEach(recordTotals));
+
+    this.invoiceMetrics = { total, outstanding, paid };
+  }
+
+  private compareDatesAsc(a: Date | null | undefined, b: Date | null | undefined): number {
+    const aTime = a ? new Date(a).getTime() : 0;
+    const bTime = b ? new Date(b).getTime() : 0;
+    return aTime - bTime;
+  }
+
+  private compareDatesDesc(a: Date | null | undefined, b: Date | null | undefined): number {
+    return this.compareDatesAsc(b, a);
+  }
   getCompanyName(companyId: number | null): string {
     if (companyId === null) {
       return 'Unassigned';
@@ -735,11 +842,15 @@ export class CompanyPage implements OnInit {
   }
 
   private populateProjectLookup(records: any[]) {
-    this.projectCompanyLookup.clear();
+    this.projectDetailsLookup.clear();
     records.forEach(record => {
-      if (record.ProjectID !== undefined && record.CompanyID !== undefined && record.CompanyID !== null) {
-        this.projectCompanyLookup.set(Number(record.ProjectID), Number(record.CompanyID));
+      if (record.ProjectID === undefined || record.ProjectID === null) {
+        return;
       }
+      const projectId = Number(record.ProjectID);
+      const companyId = record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null;
+      const projectDate = this.toDate(record.Date);
+      this.projectDetailsLookup.set(projectId, { companyId, projectDate });
     });
   }
 
@@ -777,6 +888,7 @@ export class CompanyPage implements OnInit {
       CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
       Name: raw.Name ?? 'Unnamed Contact',
       Title: raw.Title ?? '',
+      Goal: raw.Goal ?? '',
       Role: raw.Role ?? '',
       Email: raw.Email ?? '',
       Phone1: raw.Phone1 ?? '',
@@ -790,14 +902,16 @@ export class CompanyPage implements OnInit {
     const dueDate = this.toDate(raw.Due);
     const completed = Boolean(raw.Complete);
     const isOverdue = !completed && dueDate !== null && this.isDateInPast(dueDate);
+    const assignment = (raw.Assignment ?? '').trim();
+    const assignmentShort = assignment.length > 60 ? assignment.slice(0, 57) + "..." : assignment;
 
     return {
       PK_ID: Number(raw.PK_ID ?? raw.TaskID ?? 0),
       TaskID: Number(raw.TaskID ?? raw.PK_ID ?? 0),
       CompanyID: raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null,
       dueDate,
-      dueLabel: this.formatDate(dueDate),
-      assignment: (raw.Assignment ?? '').trim(),
+      assignment,
+      assignmentShort,
       assignTo: (raw.AssignTo ?? '').trim(),
       completed,
       notes: (raw.CompleteNotes ?? '').trim(),
@@ -871,11 +985,12 @@ export class CompanyPage implements OnInit {
 
   private normalizeInvoiceRecord(raw: any): InvoiceViewModel {
     const projectId = raw.ProjectID !== undefined && raw.ProjectID !== null ? Number(raw.ProjectID) : null;
-    const companyId = projectId !== null ? this.projectCompanyLookup.get(projectId) ?? null : null;
+    const projectDetails = projectId !== null ? this.projectDetailsLookup.get(projectId) ?? null : null;
+    const fallbackCompanyId = raw.CompanyID !== undefined && raw.CompanyID !== null ? Number(raw.CompanyID) : null;
+    const companyId = projectDetails?.companyId ?? fallbackCompanyId;
     const amount = Number(raw.Fee ?? 0);
     const paidAmount = Number(raw.Paid ?? 0);
     const balance = amount - paidAmount;
-
     let status = 'Open';
     if (amount === 0 && paidAmount === 0) {
       status = 'Draft';
@@ -887,8 +1002,9 @@ export class CompanyPage implements OnInit {
       status = 'Partially Paid';
     }
 
-    const processor = (raw.PaymentProcessor ?? '').trim();
+    const processor = (raw.PaymentProcessor ?? "").trim();
     const normalizedProcessor = processor || 'Unspecified';
+    const projectDate = projectDetails?.projectDate ?? this.toDate(raw.ProjectDate ?? raw.Date);
 
     return {
       PK_ID: Number(raw.PK_ID ?? raw.InvoiceID ?? 0),
@@ -897,23 +1013,23 @@ export class CompanyPage implements OnInit {
       ServiceID: raw.ServiceID !== undefined && raw.ServiceID !== null ? Number(raw.ServiceID) : null,
       Date: raw.Date ?? null,
       DateValue: this.toDate(raw.Date),
-      Address: raw.Address ?? '',
-      City: raw.City ?? '',
-      Zip: raw.Zip ?? '',
+      ProjectDate: projectDate,
+      Address: raw.Address ?? "",
+      City: raw.City ?? "",
+      Zip: raw.Zip ?? "",
       Fee: amount,
       Paid: isNaN(paidAmount) ? null : paidAmount,
       PaymentProcessor: normalizedProcessor,
-      InvoiceNotes: raw.InvoiceNotes ?? '',
+      InvoiceNotes: raw.InvoiceNotes ?? "",
       StateID: raw.StateID !== undefined && raw.StateID !== null ? Number(raw.StateID) : null,
-      Mode: raw.Mode ?? '',
+      Mode: raw.Mode ?? "",
       CompanyID: companyId,
-      CompanyName: companyId !== null ? (this.companyNameLookup.get(companyId) ?? 'Unknown company') : 'Unassigned',
+      CompanyName: this.getCompanyName(companyId),
       AmountLabel: this.formatCurrency(amount),
       BalanceLabel: this.formatCurrency(balance),
       Status: status
     };
   }
-
   private recalculateCompanyAggregates() {
     this.contactCountByCompany.clear();
     this.contacts.forEach(contact => {
@@ -961,7 +1077,7 @@ export class CompanyPage implements OnInit {
               : comm.mode === 'text'
                 ? 'Text'
                 : 'Touch';
-        summary.label = `${this.formatShortDate(comm.date)} · ${channelSummary}`;
+        summary.label = `${this.formatShortDate(comm.date)} - ${channelSummary}`;
         summary.channels = comm.channels;
       }
       this.touchSummaryByCompany.set(comm.CompanyID, summary);
@@ -1137,6 +1253,10 @@ export class CompanyPage implements OnInit {
   }
 
   private matchesCompanyFilters(company: CompanyRecord): boolean {
+    if (this.companyViewScope === 'noble' && company.CompanyID !== 1) {
+      return false;
+    }
+
     const searchTerm = this.companyFilters.search.trim().toLowerCase();
     if (searchTerm) {
       const haystack = [
@@ -1274,7 +1394,7 @@ export class CompanyPage implements OnInit {
     const query = searchParams.toString();
     const url = `${environment.caspio.apiBaseUrl}/tables/${tableName}/records${query ? `?${query}` : ''}`;
 
-    const response = await this.http.get<any>(url, { headers }).toPromise();
+    const response = await firstValueFrom(this.http.get<any>(url, { headers }));
     return response?.Result ?? [];
   }
 }

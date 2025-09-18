@@ -6,6 +6,22 @@ $border: var(--ion-border-color, #E0E0E0);
 $dark: var(--ion-text-color, #333333);
 $white: var(--ion-card-background, #FFFFFF);
 
+// Header styling with orange background and white text
+ion-header {
+  ion-toolbar {
+    --background: #F15A27;
+    --color: white;
+
+    ion-button {
+      --color: white;
+
+      ion-icon {
+        color: white;
+      }
+    }
+  }
+}
+
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
 .loading-container,.error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
