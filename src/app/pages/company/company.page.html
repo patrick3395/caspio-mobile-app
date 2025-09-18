@@ -151,7 +151,10 @@
         <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
             <h4>{{ group.companyName }}</h4>
-            <span>{{ group.contacts.length }} {{ group.contacts.length === 1 ? 'person' : 'people' }}</span>
+            <div class="metric-badge">
+              <ion-icon name="people-outline"></ion-icon>
+              <span>{{ group.contacts.length }}</span>
+            </div>
           </div>
           <div class="responsive-table dark-outline">
             <table>
@@ -279,19 +282,6 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'meetings'" class="tab-content meetings-tab">
-      <div class="meetings-view-controls">
-        <div class="view-toggle">
-          <button class="view-btn" [class.active]="meetingsViewMode === 'calendar'" (click)="setMeetingsViewMode('calendar')">
-            <ion-icon name="calendar-outline"></ion-icon>
-            Calendar
-          </button>
-          <button class="view-btn" [class.active]="meetingsViewMode === 'list'" (click)="setMeetingsViewMode('list')">
-            <ion-icon name="list-outline"></ion-icon>
-            List
-          </button>
-        </div>
-      </div>
-
       <div class="meetings-filters">
         <ion-searchbar
           [(ngModel)]="meetingFilters.search"
@@ -312,42 +302,7 @@
         </ion-segment>
       </div>
 
-      <!-- Calendar View -->
-      <div *ngIf="filteredMeetings.length && meetingsViewMode === 'calendar'; else emptyMeetings" class="calendar-week-view">
-        <div class="week-navigation">
-          <button class="week-nav-btn" (click)="previousWeek()">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </button>
-          <span class="week-label">{{ getWeekLabel() }}</span>
-          <button class="week-nav-btn" (click)="nextWeek()">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </button>
-        </div>
-        <div class="week-days">
-          <div class="day-column" *ngFor="let day of weekDays">
-            <div class="day-header">
-              <span class="day-name">{{ day.name }}</span>
-              <span class="day-date">{{ day.date }}</span>
-            </div>
-            <div class="day-meetings">
-              <div class="meeting-item" *ngFor="let meeting of getMeetingsForDay(day.fullDate)"
-                   [class.past]="isPastMeeting(meeting)">
-                <div class="meeting-time">{{ formatTime(meeting.startDate) }}</div>
-                <div class="meeting-details">
-                  <h5>{{ meeting.subject }}</h5>
-                  <p>{{ getCompanyName(meeting.CompanyID) }}</p>
-                </div>
-              </div>
-              <div class="no-meetings" *ngIf="!getMeetingsForDay(day.fullDate).length">
-                No meetings
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- List View -->
-      <div *ngIf="filteredMeetings.length && meetingsViewMode === 'list'" class="timeline">
+      <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
         <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
           <div class="timeline-marker"></div>
           <div class="timeline-content">
@@ -432,17 +387,24 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
-      <div class="section-header">
-        <div>
-          <h3>Invoices</h3>
-          <p>{{ visibleInvoiceCount }} records · {{ formatCurrency(invoiceMetrics.total) }} billed</p>
-        </div>
+      <div class="invoice-filters">
         <ion-searchbar
           [(ngModel)]="invoiceSearchTerm"
           (ionChange)="categorizeInvoices()"
           placeholder="Search invoice, project, or company"
           animated="true">
         </ion-searchbar>
+        <div class="invoice-tabs">
+          <button class="invoice-tab" [class.active]="invoiceViewMode === 'open'" (click)="setInvoiceViewMode('open')">
+            Open
+          </button>
+          <button class="invoice-tab" [class.active]="invoiceViewMode === 'past'" (click)="setInvoiceViewMode('past')">
+            Past
+          </button>
+          <button class="invoice-tab" [class.active]="invoiceViewMode === 'unpaid'" (click)="setInvoiceViewMode('unpaid')">
+            Unpaid
+          </button>
+        </div>
       </div>
 
       <div class="invoice-summary">
@@ -461,11 +423,7 @@
       </div>
 
       <ng-container *ngIf="openInvoices.length || unpaidInvoices.length || paidInvoiceGroups.length; else emptyInvoices">
-        <div class="invoice-section" *ngIf="openInvoices.length">
-          <div class="invoice-section-header">
-            <h4>Open (upcoming projects)</h4>
-            <span>{{ openInvoices.length }} {{ openInvoices.length === 1 ? 'invoice' : 'invoices' }}</span>
-          </div>
+        <div class="invoice-section" *ngIf="invoiceViewMode === 'open' && openInvoices.length">
           <div class="responsive-table">
             <table>
               <thead>
@@ -492,11 +450,7 @@
           </div>
         </div>
 
-        <div class="invoice-section" *ngIf="unpaidInvoices.length">
-          <div class="invoice-section-header">
-            <h4>Unpaid (project complete)</h4>
-            <span>{{ unpaidInvoices.length }} {{ unpaidInvoices.length === 1 ? 'invoice' : 'invoices' }}</span>
-          </div>
+        <div class="invoice-section" *ngIf="invoiceViewMode === 'unpaid' && unpaidInvoices.length">
           <div class="responsive-table">
             <table>
               <thead>
@@ -523,11 +477,7 @@
           </div>
         </div>
 
-        <div class="invoice-section" *ngIf="paidInvoiceGroups.length">
-          <div class="invoice-section-header">
-            <h4>Paid (grouped by company)</h4>
-            <span>{{ paidInvoiceGroups.length }} {{ paidInvoiceGroups.length === 1 ? 'company' : 'companies' }}</span>
-          </div>
+        <div class="invoice-section" *ngIf="invoiceViewMode === 'past' && paidInvoiceGroups.length">
           <div class="invoice-paid-groups">
             <div class="invoice-group-card" *ngFor="let group of paginatedPaidGroups">
               <div class="invoice-group-header">

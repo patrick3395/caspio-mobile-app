@@ -252,9 +252,6 @@ export class CompanyPage implements OnInit {
     search: '',
     timeframe: 'upcoming'
   };
-  meetingsViewMode: 'calendar' | 'list' = 'calendar';
-  currentWeekStart = new Date();
-  weekDays: any[] = [];
 
   communications: CommunicationViewModel[] = [];
   filteredCommunications: CommunicationViewModel[] = [];
@@ -266,6 +263,7 @@ export class CompanyPage implements OnInit {
 
   invoices: InvoiceViewModel[] = [];
   invoiceSearchTerm = '';
+  invoiceViewMode: 'open' | 'past' | 'unpaid' = 'open';
   openInvoices: InvoicePair[] = [];
   unpaidInvoices: InvoicePair[] = [];
   paidInvoiceGroups: PaidInvoiceGroup[] = [];
@@ -303,7 +301,6 @@ export class CompanyPage implements OnInit {
 
   ngOnInit() {
     this.loadCompanyData();
-    this.initializeWeekView();
   }
 
   async loadCompanyData(showSpinner: boolean = true) {
@@ -1035,6 +1032,10 @@ export class CompanyPage implements OnInit {
     }
   }
 
+  setInvoiceViewMode(mode: 'open' | 'past' | 'unpaid') {
+    this.invoiceViewMode = mode;
+  }
+
   updateInvoiceMetrics() {
     let total = 0;
     let outstanding = 0;
@@ -1081,95 +1082,6 @@ export class CompanyPage implements OnInit {
       return 'Unassigned';
     }
     return this.companyNameLookup.get(companyId) ?? 'Unassigned';
-  }
-
-  initializeWeekView() {
-    // Set to start of current week (Sunday)
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    this.currentWeekStart = new Date(today);
-    this.currentWeekStart.setDate(today.getDate() - dayOfWeek);
-    this.currentWeekStart.setHours(0, 0, 0, 0);
-    this.updateWeekDays();
-  }
-
-  updateWeekDays() {
-    this.weekDays = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(this.currentWeekStart);
-      date.setDate(this.currentWeekStart.getDate() + i);
-
-      this.weekDays.push({
-        name: dayNames[i],
-        date: date.getDate(),
-        fullDate: new Date(date)
-      });
-    }
-  }
-
-  setMeetingsViewMode(mode: 'calendar' | 'list') {
-    this.meetingsViewMode = mode;
-  }
-
-  previousWeek() {
-    this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
-    this.updateWeekDays();
-  }
-
-  nextWeek() {
-    this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
-    this.updateWeekDays();
-  }
-
-  getWeekLabel(): string {
-    const start = new Date(this.currentWeekStart);
-    const end = new Date(this.currentWeekStart);
-    end.setDate(end.getDate() + 6);
-
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    if (start.getMonth() === end.getMonth()) {
-      return `${monthNames[start.getMonth()]} ${start.getDate()}-${end.getDate()}, ${start.getFullYear()}`;
-    } else if (start.getFullYear() === end.getFullYear()) {
-      return `${monthNames[start.getMonth()]} ${start.getDate()} - ${monthNames[end.getMonth()]} ${end.getDate()}, ${start.getFullYear()}`;
-    } else {
-      return `${monthNames[start.getMonth()]} ${start.getDate()}, ${start.getFullYear()} - ${monthNames[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
-    }
-  }
-
-  getMeetingsForDay(date: Date): MeetingViewModel[] {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    return this.filteredMeetings.filter(meeting => {
-      if (!meeting.startDate) return false;
-      const meetingDate = new Date(meeting.startDate);
-      return meetingDate >= dayStart && meetingDate <= dayEnd;
-    }).sort((a, b) => {
-      const aTime = a.startDate ? new Date(a.startDate).getTime() : 0;
-      const bTime = b.startDate ? new Date(b.startDate).getTime() : 0;
-      return aTime - bTime;
-    });
-  }
-
-  formatTime(date: Date | string | null): string {
-    if (!date) return '';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    const hours = d.getHours();
-    const minutes = d.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-    return `${displayHours}:${displayMinutes} ${ampm}`;
-  }
-
-  isPastMeeting(meeting: MeetingViewModel): boolean {
-    if (!meeting.startDate) return false;
-    return new Date(meeting.startDate) < new Date();
   }
 
   formatDate(value: Date | string | null | undefined): string {
