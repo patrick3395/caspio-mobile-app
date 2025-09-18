@@ -216,6 +216,7 @@ export class CompanyPage implements OnInit {
   contacts: ContactRecord[] = [];
   contactsSearchTerm = '';
   contactGroups: ContactGroup[] = [];
+  private contactSearchDebounce: any = null;
 
   tasks: TaskViewModel[] = [];
   filteredTasks: TaskViewModel[] = [];
@@ -223,7 +224,7 @@ export class CompanyPage implements OnInit {
     search: '',
     status: 'all',
     assignedTo: 'all',
-    scope: 'selected',
+    scope: 'all',
     overdueOnly: false
   };
   taskAssignees: string[] = [];
@@ -468,9 +469,8 @@ export class CompanyPage implements OnInit {
     });
 
     const stagePriority = (stage: StageDefinition) => {
-      const name = (stage.name ?? '').toLowerCase();
-      if (name === 'active') {
-        return -1;
+      if (stage.id === 5) {
+        return -100;
       }
       return stage.sortOrder;
     };
@@ -550,19 +550,11 @@ export class CompanyPage implements OnInit {
   }
   applyTaskFilters() {
     const searchTerm = this.taskFilters.search.trim().toLowerCase();
-    const scope = this.taskFilters.scope;
-    const selectedId = this.selectedCompanyId;
     const statusFilter = this.taskFilters.status;
     const assignedFilter = this.taskFilters.assignedTo;
     const overdueOnly = this.taskFilters.overdueOnly;
 
     this.filteredTasks = this.tasks.filter(task => {
-      if (scope === 'selected') {
-        if (selectedId === null || task.CompanyID !== selectedId) {
-          return false;
-        }
-      }
-
       if (statusFilter === 'completed' && !task.completed) {
         return false;
       }
@@ -879,6 +871,34 @@ export class CompanyPage implements OnInit {
       .filter(part => part.length > 0);
     return parts.length ? parts.join(', ') : 'Address not provided';
   }
+
+  formatStageName(stage: StageDefinition): string {
+    const raw = stage.name?.toString().trim();
+    if (!raw || raw.length === 0) {
+      return `Stage ${stage.id}`;
+    }
+    return raw.replace(/^\d+\s*[-–]\s*/, '').replace(/^\d+\s*/, '');
+  }
+
+  onContactSearchChange(value: string) {
+    this.contactsSearchTerm = value ?? '';
+    if (this.contactSearchDebounce) {
+      clearTimeout(this.contactSearchDebounce);
+    }
+    this.contactSearchDebounce = setTimeout(() => {
+      this.applyContactFilters();
+    }, 150);
+  }
+
+  trackByStage = (_: number, group: StageGroup) => group.stage.id;
+
+  trackByCompany = (_: number, company: CompanyViewModel) => company.CompanyID;
+
+  trackByContactGroup = (_: number, group: ContactGroup) => group.companyId ?? -1;
+
+  trackByContact = (_: number, contact: ContactRecord) => contact.ContactID;
+
+  trackByTask = (_: number, task: TaskViewModel) => task.TaskID;
   private populateStageDefinitions(records: any[]) {
     const definitions = records.map(record => {
       const name = record.Stage ?? record.Name ?? 'No Stage';

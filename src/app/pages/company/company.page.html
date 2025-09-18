@@ -57,73 +57,155 @@
       </ion-segment-button>
     </ion-segment>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
-      <div class="companies-search">
-        <ion-searchbar
-          [(ngModel)]="companyFilters.search"
-          (ionChange)="applyCompanyFilters()"
-          placeholder="Search by company name, city or service area"
-          animated="true">
-        </ion-searchbar>
-      </div>
-      <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
-        <div class="stage-section" *ngFor="let group of stageGroups">
-          <div class="stage-section-header">
-            <h3>{{ group.stage.name?.toLowerCase() === 'active' ? 'Active' : 'StageID ' + group.stage.id }}</h3>
-            <span>{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
-          </div>
-          <ion-accordion-group expand="inset">
-            <ion-accordion *ngFor="let company of group.companies" [value]="'company-' + company.CompanyID">
-              <ion-item slot="header" class="company-rollup-header" [class.selected]="company.CompanyID === selectedCompanyId" (click)="setSelectedCompany(company.CompanyID)">
-                <ion-label>
-                  <h4>{{ company.CompanyName }}</h4>
-                  <p>
-                    {{ company.City || 'Location unknown' }}
-                    <span *ngIf="company.State">• {{ company.State }}</span>
-                  </p>
-                </ion-label>
-                <div class="company-rollup-metrics" slot="end">
-                  <span><ion-icon name="people-outline"></ion-icon>{{ company.contactCount }}</span>
-                  <span><ion-icon name="checkbox-outline"></ion-icon>{{ company.openTasks }}</span>
-                  <span><ion-icon name="chatbubble-ellipses-outline"></ion-icon>{{ company.totalTouches }}</span>
-                </div>
-              </ion-item>
-              <div class="company-rollup-content" slot="content">
-                <div class="company-rollup-grid">
-                  <div class="company-rollup-card">
-                    <h5>Stage</h5>
-                    <p>{{ company.StageName || 'No stage' }}</p>
-                  </div>
-                  <div class="company-rollup-card">
-                    <h5>Phone</h5>
-                    <p>{{ formatPhone(company.Phone) || 'No phone on file' }}</p>
-                  </div>
-                  <div class="company-rollup-card">
-                    <h5>Website</h5>
-                    <p>{{ company.Website || 'No website listed' }}</p>
-                  </div>
-                  <div class="company-rollup-card">
-                    <h5>Address</h5>
-                    <p>{{ buildCompanyAddress(company) }}</p>
-                  </div>
-                  <div class="company-rollup-card">
-                    <h5>Open Tasks</h5>
-                    <p>{{ company.openTasks }} <span *ngIf="company.overdueTasks">( {{ company.overdueTasks }} overdue )</span></p>
-                  </div>
-                  <div class="company-rollup-card">
-                    <h5>Billing</h5>
-                    <p>Total: {{ formatCurrency(company.invoiceTotals.total) }}<br>Outstanding: {{ formatCurrency(company.invoiceTotals.outstanding) }}</p>
-                  </div>
-                </div>
-              </div>
-            </ion-accordion>
-          </ion-accordion-group>
+      <div class="companies-search-container">
+        <div class="search-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <ion-searchbar
+            [(ngModel)]="companyFilters.search"
+            (ionChange)="applyCompanyFilters()"
+            placeholder="Search companies, stages, or contacts"
+            animated="true"
+            class="modern-search">
+          </ion-searchbar>
         </div>
       </div>
+
+      <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
+        <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
+          <div class="stage-header">
+            <div class="stage-title">
+              <div class="stage-icon-wrapper">
+                <ion-icon [name]="getStageIcon(group.stage)" class="stage-icon"></ion-icon>
+              </div>
+              <div class="stage-info">
+                <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
+                <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'Company' : 'Companies' }}</span>
+              </div>
+            </div>
+            <div class="stage-stats">
+              <div class="stat-pill">
+                <span class="stat-value">{{ getTotalContacts(group.companies) }}</span>
+                <span class="stat-label">Contacts</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-value">{{ getTotalTasks(group.companies) }}</span>
+                <span class="stat-label">Tasks</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="companies-list">
+            <div class="company-card-modern"
+                 *ngFor="let company of group.companies; trackBy: trackByCompany"
+                 [class.selected]="company.CompanyID === selectedCompanyId"
+                 (click)="setSelectedCompany(company.CompanyID)">
+
+              <div class="company-card-header">
+                <div class="company-main-info">
+                  <h4 class="company-name">{{ company.CompanyName }}</h4>
+                  <p class="company-location">
+                    <ion-icon name="location" class="inline-icon"></ion-icon>
+                    {{ buildCompanyAddress(company) || 'No address' }}
+                  </p>
+                </div>
+                <button class="expand-btn" (click)="toggleCompanyExpand(company, $event)">
+                  <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                </button>
+              </div>
+
+              <div class="company-metrics">
+                <div class="metric-item">
+                  <ion-icon name="people" class="metric-icon"></ion-icon>
+                  <span class="metric-value">{{ company.contactCount || 0 }}</span>
+                  <span class="metric-label">Contacts</span>
+                </div>
+                <div class="metric-item" [class.has-overdue]="company.overdueTasks > 0">
+                  <ion-icon name="checkmark-circle" class="metric-icon"></ion-icon>
+                  <span class="metric-value">{{ company.openTasks || 0 }}</span>
+                  <span class="metric-label">Tasks</span>
+                </div>
+                <div class="metric-item">
+                  <ion-icon name="chatbubbles" class="metric-icon"></ion-icon>
+                  <span class="metric-value">{{ company.totalTouches || 0 }}</span>
+                  <span class="metric-label">Touches</span>
+                </div>
+                <div class="metric-item">
+                  <ion-icon name="cash" class="metric-icon"></ion-icon>
+                  <span class="metric-value">{{ formatCompactCurrency(company.invoiceTotals?.total || 0) }}</span>
+                  <span class="metric-label">Revenue</span>
+                </div>
+              </div>
+
+              <div class="company-expand-content" *ngIf="isCompanyExpanded(company)">
+                <div class="detail-grid">
+                  <div class="detail-item">
+                    <div class="detail-icon-wrapper">
+                      <ion-icon name="call" class="detail-icon"></ion-icon>
+                    </div>
+                    <div class="detail-content">
+                      <label>Phone</label>
+                      <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
+                    </div>
+                  </div>
+
+                  <div class="detail-item">
+                    <div class="detail-icon-wrapper">
+                      <ion-icon name="globe" class="detail-icon"></ion-icon>
+                    </div>
+                    <div class="detail-content">
+                      <label>Website</label>
+                      <p>{{ company.Website || 'Not provided' }}</p>
+                    </div>
+                  </div>
+
+                  <div class="detail-item">
+                    <div class="detail-icon-wrapper">
+                      <ion-icon name="flag" class="detail-icon"></ion-icon>
+                    </div>
+                    <div class="detail-content">
+                      <label>Stage</label>
+                      <p>{{ company.StageName || 'Unassigned' }}</p>
+                    </div>
+                  </div>
+
+                  <div class="detail-item">
+                    <div class="detail-icon-wrapper">
+                      <ion-icon name="wallet" class="detail-icon"></ion-icon>
+                    </div>
+                    <div class="detail-content">
+                      <label>Outstanding</label>
+                      <p class="text-warning">{{ formatCurrency(company.invoiceTotals?.outstanding || 0) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="company-actions">
+                  <button class="action-btn primary" (click)="viewCompanyDetails(company, $event)">
+                    <ion-icon name="eye"></ion-icon>
+                    View Details
+                  </button>
+                  <button class="action-btn" (click)="editCompany(company, $event)">
+                    <ion-icon name="create"></ion-icon>
+                    Edit
+                  </button>
+                  <button class="action-btn" (click)="addTask(company, $event)">
+                    <ion-icon name="add-circle"></ion-icon>
+                    Add Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <ng-template #emptyCompanies>
-        <div class="empty-tab-state">
-          <ion-icon name="business-outline"></ion-icon>
-          <h3>No companies to display</h3>
-          <p>Adjust your search to find additional companies.</p>
+        <div class="empty-state-modern">
+          <div class="empty-icon-wrapper">
+            <ion-icon name="business"></ion-icon>
+          </div>
+          <h3>No companies found</h3>
+          <p>Try adjusting your search or filters to find companies</p>
         </div>
       </ng-template>
     </div>
@@ -134,15 +216,15 @@
           <p>People linked to your companies</p>
         </div>
         <ion-searchbar
-          [(ngModel)]="contactsSearchTerm"
-          (ionChange)="applyContactFilters()"
+          [value]="contactsSearchTerm"
+          (ionInput)="onContactSearchChange($event.detail.value)"
           placeholder="Search contacts by name"
           animated="true">
         </ion-searchbar>
       </div>
 
       <div class="contact-groups" *ngIf="contactGroups.length; else emptyContacts">
-        <div class="contact-group" *ngFor="let group of contactGroups">
+        <div class="contact-group" *ngFor="let group of contactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
             <h4>{{ group.companyName }}</h4>
             <span>{{ group.contacts.length }} {{ group.contacts.length === 1 ? 'person' : 'people' }}</span>
@@ -157,7 +239,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let contact of group.contacts">
+                <tr *ngFor="let contact of group.contacts; trackBy: trackByContact">
                   <td>
                     <button type="button" class="contact-name-button" (click)="openContactModal(contact)">
                       {{ contact.Name }}
@@ -189,14 +271,6 @@
           <h3>Tasks</h3>
           <p>{{ taskMetrics.outstanding }} open · {{ taskMetrics.overdue }} overdue</p>
         </div>
-        <ion-segment size="small" [(ngModel)]="taskFilters.scope" (ionChange)="applyTaskFilters()">
-          <ion-segment-button value="selected" [disabled]="!selectedCompanyId">
-            <ion-label>Focus company</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All companies</ion-label>
-          </ion-segment-button>
-        </ion-segment>
       </div>
 
       <div class="tasks-filters">
@@ -234,7 +308,7 @@
       </div>
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
-        <ion-card *ngFor="let task of filteredTasks" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
+        <ion-card *ngFor="let task of filteredTasks; trackBy: trackByTask" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
           <ion-item lines="none" class="task-card-header">
             <ion-checkbox
               slot="start"
