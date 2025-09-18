@@ -218,6 +218,9 @@
         </ion-select>
 
         <div class="task-time-tabs">
+          <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
+            Overdue
+          </button>
           <button class="time-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
             Past
           </button>
@@ -276,10 +279,16 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'meetings'" class="tab-content meetings-tab">
-      <div class="section-header">
-        <div>
-          <h3>Meetings</h3>
-          <p>Past and upcoming touchpoints</p>
+      <div class="meetings-view-controls">
+        <div class="view-toggle">
+          <button class="view-btn" [class.active]="meetingsViewMode === 'calendar'" (click)="setMeetingsViewMode('calendar')">
+            <ion-icon name="calendar-outline"></ion-icon>
+            Calendar
+          </button>
+          <button class="view-btn" [class.active]="meetingsViewMode === 'list'" (click)="setMeetingsViewMode('list')">
+            <ion-icon name="list-outline"></ion-icon>
+            List
+          </button>
         </div>
       </div>
 
@@ -303,7 +312,42 @@
         </ion-segment>
       </div>
 
-      <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
+      <!-- Calendar View -->
+      <div *ngIf="filteredMeetings.length && meetingsViewMode === 'calendar'; else emptyMeetings" class="calendar-week-view">
+        <div class="week-navigation">
+          <button class="week-nav-btn" (click)="previousWeek()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+          <span class="week-label">{{ getWeekLabel() }}</span>
+          <button class="week-nav-btn" (click)="nextWeek()">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="week-days">
+          <div class="day-column" *ngFor="let day of weekDays">
+            <div class="day-header">
+              <span class="day-name">{{ day.name }}</span>
+              <span class="day-date">{{ day.date }}</span>
+            </div>
+            <div class="day-meetings">
+              <div class="meeting-item" *ngFor="let meeting of getMeetingsForDay(day.fullDate)"
+                   [class.past]="isPastMeeting(meeting)">
+                <div class="meeting-time">{{ formatTime(meeting.startDate) }}</div>
+                <div class="meeting-details">
+                  <h5>{{ meeting.subject }}</h5>
+                  <p>{{ getCompanyName(meeting.CompanyID) }}</p>
+                </div>
+              </div>
+              <div class="no-meetings" *ngIf="!getMeetingsForDay(day.fullDate).length">
+                No meetings
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- List View -->
+      <div *ngIf="filteredMeetings.length && meetingsViewMode === 'list'" class="timeline">
         <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
           <div class="timeline-marker"></div>
           <div class="timeline-content">
