@@ -219,8 +219,18 @@ export class CompanyPage implements OnInit {
   contactGroups: ContactGroup[] = [];
   private contactSearchDebounce: any = null;
 
+  // Pagination for contacts
+  contactsPerPage = 150;
+  currentContactPage = 1;
+  totalContactPages = 1;
+  paginatedContactGroups: ContactGroup[] = [];
+
   tasks: TaskViewModel[] = [];
   filteredTasks: TaskViewModel[] = [];
+  paginatedTasks: TaskViewModel[] = [];
+  tasksPerPage = 150;
+  currentTaskPage = 1;
+  totalTaskPages = 1;
   taskFilters = {
     search: '',
     status: 'all',
@@ -234,6 +244,10 @@ export class CompanyPage implements OnInit {
 
   meetings: MeetingViewModel[] = [];
   filteredMeetings: MeetingViewModel[] = [];
+  paginatedMeetings: MeetingViewModel[] = [];
+  meetingsPerPage = 150;
+  currentMeetingPage = 1;
+  totalMeetingPages = 1;
   meetingFilters = {
     search: '',
     timeframe: 'upcoming'
@@ -241,6 +255,10 @@ export class CompanyPage implements OnInit {
 
   communications: CommunicationViewModel[] = [];
   filteredCommunications: CommunicationViewModel[] = [];
+  paginatedCommunications: CommunicationViewModel[] = [];
+  communicationsPerPage = 150;
+  currentCommunicationPage = 1;
+  totalCommunicationPages = 1;
   communicationSearchTerm = '';
 
   invoices: InvoiceViewModel[] = [];
@@ -248,6 +266,12 @@ export class CompanyPage implements OnInit {
   openInvoices: InvoicePair[] = [];
   unpaidInvoices: InvoicePair[] = [];
   paidInvoiceGroups: PaidInvoiceGroup[] = [];
+  paginatedOpenInvoices: InvoicePair[] = [];
+  paginatedUnpaidInvoices: InvoicePair[] = [];
+  paginatedPaidGroups: PaidInvoiceGroup[] = [];
+  invoicesPerPage = 150;
+  currentInvoicePage = 1;
+  totalInvoicePages = 1;
   invoiceMetrics: InvoiceTotals = { total: 0, outstanding: 0, paid: 0 };
   visibleInvoiceCount = 0;
 
@@ -568,6 +592,63 @@ export class CompanyPage implements OnInit {
     });
 
     this.contactGroups = groups;
+
+    // Apply pagination
+    this.currentContactPage = 1;
+    this.paginateContacts();
+  }
+
+  paginateContacts() {
+    // Calculate total items (all contacts across all groups)
+    const totalContacts = this.contactGroups.reduce((sum, group) => sum + group.contacts.length, 0);
+    this.totalContactPages = Math.ceil(totalContacts / this.contactsPerPage);
+
+    // Flatten all contacts with their group info
+    const allContactsWithGroup: {group: ContactGroup, contact: ContactRecord}[] = [];
+    this.contactGroups.forEach(group => {
+      group.contacts.forEach(contact => {
+        allContactsWithGroup.push({group, contact});
+      });
+    });
+
+    // Get current page slice
+    const startIdx = (this.currentContactPage - 1) * this.contactsPerPage;
+    const endIdx = startIdx + this.contactsPerPage;
+    const pageContacts = allContactsWithGroup.slice(startIdx, endIdx);
+
+    // Rebuild groups for current page
+    const pageGroupMap = new Map<number | null, ContactRecord[]>();
+    const companyNames = new Map<number | null, string>();
+
+    pageContacts.forEach(item => {
+      const companyId = item.group.companyId;
+      if (!pageGroupMap.has(companyId)) {
+        pageGroupMap.set(companyId, []);
+        companyNames.set(companyId, item.group.companyName);
+      }
+      pageGroupMap.get(companyId)!.push(item.contact);
+    });
+
+    // Create paginated groups
+    this.paginatedContactGroups = Array.from(pageGroupMap.entries()).map(([companyId, contacts]) => ({
+      companyId,
+      companyName: companyNames.get(companyId) || 'Unknown Company',
+      contacts
+    }));
+  }
+
+  nextContactPage() {
+    if (this.currentContactPage < this.totalContactPages) {
+      this.currentContactPage++;
+      this.paginateContacts();
+    }
+  }
+
+  prevContactPage() {
+    if (this.currentContactPage > 1) {
+      this.currentContactPage--;
+      this.paginateContacts();
+    }
   }
   applyTaskFilters() {
     const searchTerm = this.taskFilters.search.trim().toLowerCase();
@@ -613,6 +694,31 @@ export class CompanyPage implements OnInit {
     const overdue = this.tasks.filter(task => task.isOverdue).length;
 
     this.taskMetrics = { total, completed, outstanding, overdue };
+
+    // Apply pagination
+    this.currentTaskPage = 1;
+    this.paginateTasks();
+  }
+
+  paginateTasks() {
+    this.totalTaskPages = Math.ceil(this.filteredTasks.length / this.tasksPerPage);
+    const startIndex = (this.currentTaskPage - 1) * this.tasksPerPage;
+    const endIndex = startIndex + this.tasksPerPage;
+    this.paginatedTasks = this.filteredTasks.slice(startIndex, endIndex);
+  }
+
+  nextTaskPage() {
+    if (this.currentTaskPage < this.totalTaskPages) {
+      this.currentTaskPage++;
+      this.paginateTasks();
+    }
+  }
+
+  prevTaskPage() {
+    if (this.currentTaskPage > 1) {
+      this.currentTaskPage--;
+      this.paginateTasks();
+    }
   }
 
   async toggleTaskCompletion(task: TaskViewModel, completed: boolean) {
@@ -682,6 +788,31 @@ export class CompanyPage implements OnInit {
 
       return haystack.includes(searchTerm);
     });
+
+    // Apply pagination
+    this.currentMeetingPage = 1;
+    this.paginateMeetings();
+  }
+
+  paginateMeetings() {
+    this.totalMeetingPages = Math.ceil(this.filteredMeetings.length / this.meetingsPerPage);
+    const startIndex = (this.currentMeetingPage - 1) * this.meetingsPerPage;
+    const endIndex = startIndex + this.meetingsPerPage;
+    this.paginatedMeetings = this.filteredMeetings.slice(startIndex, endIndex);
+  }
+
+  nextMeetingPage() {
+    if (this.currentMeetingPage < this.totalMeetingPages) {
+      this.currentMeetingPage++;
+      this.paginateMeetings();
+    }
+  }
+
+  prevMeetingPage() {
+    if (this.currentMeetingPage > 1) {
+      this.currentMeetingPage--;
+      this.paginateMeetings();
+    }
   }
 
   applyCommunicationFilters() {
@@ -706,6 +837,31 @@ export class CompanyPage implements OnInit {
       const bTime = b.date ? new Date(b.date).getTime() : 0;
       return bTime - aTime;
     });
+
+    // Apply pagination
+    this.currentCommunicationPage = 1;
+    this.paginateCommunications();
+  }
+
+  paginateCommunications() {
+    this.totalCommunicationPages = Math.ceil(this.filteredCommunications.length / this.communicationsPerPage);
+    const startIndex = (this.currentCommunicationPage - 1) * this.communicationsPerPage;
+    const endIndex = startIndex + this.communicationsPerPage;
+    this.paginatedCommunications = this.filteredCommunications.slice(startIndex, endIndex);
+  }
+
+  nextCommunicationPage() {
+    if (this.currentCommunicationPage < this.totalCommunicationPages) {
+      this.currentCommunicationPage++;
+      this.paginateCommunications();
+    }
+  }
+
+  prevCommunicationPage() {
+    if (this.currentCommunicationPage > 1) {
+      this.currentCommunicationPage--;
+      this.paginateCommunications();
+    }
   }
   categorizeInvoices() {
     const searchTerm = this.invoiceSearchTerm.trim().toLowerCase();
@@ -809,6 +965,49 @@ export class CompanyPage implements OnInit {
     this.paidInvoiceGroups = paidGroups;
     this.visibleInvoiceCount = open.length + unpaid.length + paidPairs.length;
     this.updateInvoiceMetrics();
+
+    // Apply pagination for invoices
+    this.currentInvoicePage = 1;
+    this.paginateInvoices();
+  }
+
+  paginateInvoices() {
+    // Paginate open invoices
+    const openStartIndex = (this.currentInvoicePage - 1) * this.invoicesPerPage;
+    const openEndIndex = openStartIndex + this.invoicesPerPage;
+    this.paginatedOpenInvoices = this.openInvoices.slice(openStartIndex, openEndIndex);
+
+    // Paginate unpaid invoices
+    const unpaidStartIndex = (this.currentInvoicePage - 1) * this.invoicesPerPage;
+    const unpaidEndIndex = unpaidStartIndex + this.invoicesPerPage;
+    this.paginatedUnpaidInvoices = this.unpaidInvoices.slice(unpaidStartIndex, unpaidEndIndex);
+
+    // Paginate paid invoice groups
+    const paidStartIndex = (this.currentInvoicePage - 1) * this.invoicesPerPage;
+    const paidEndIndex = paidStartIndex + this.invoicesPerPage;
+    this.paginatedPaidGroups = this.paidInvoiceGroups.slice(paidStartIndex, paidEndIndex);
+
+    // Calculate total pages based on the category with most items
+    const maxInvoices = Math.max(
+      this.openInvoices.length,
+      this.unpaidInvoices.length,
+      this.paidInvoiceGroups.length
+    );
+    this.totalInvoicePages = Math.ceil(maxInvoices / this.invoicesPerPage);
+  }
+
+  nextInvoicePage() {
+    if (this.currentInvoicePage < this.totalInvoicePages) {
+      this.currentInvoicePage++;
+      this.paginateInvoices();
+    }
+  }
+
+  prevInvoicePage() {
+    if (this.currentInvoicePage > 1) {
+      this.currentInvoicePage--;
+      this.paginateInvoices();
+    }
   }
 
   updateInvoiceMetrics() {

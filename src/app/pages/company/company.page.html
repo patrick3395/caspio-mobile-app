@@ -1,11 +1,11 @@
 ﻿
-<ion-header class="company-header">
-  <ion-toolbar class="company-toolbar">
+<ion-header class="custom-header">
+  <ion-toolbar class="action-toolbar">
     <ion-title>CRM</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content>
+<ion-content [fullscreen]="true">
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
@@ -158,8 +158,11 @@
         </ion-searchbar>
       </div>
 
-      <div class="contact-groups" *ngIf="contactGroups.length; else emptyContacts">
-        <div class="contact-group" *ngFor="let group of contactGroups; trackBy: trackByContactGroup">
+      <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
+        <div class="pagination-info">
+          <span>Page {{ currentContactPage }} of {{ totalContactPages }} • Showing {{ paginatedContactGroups.length }} groups</span>
+        </div>
+        <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
             <h4>{{ group.companyName }}</h4>
             <span>{{ group.contacts.length }} {{ group.contacts.length === 1 ? 'person' : 'people' }}</span>
@@ -190,6 +193,18 @@
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            Previous
+          </button>
+          <span class="page-indicator">Page {{ currentContactPage }} of {{ totalContactPages }}</span>
+          <button class="pagination-btn" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
+            Next
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
         </div>
       </div>
       <ng-template #emptyContacts>
@@ -243,7 +258,7 @@
       </div>
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
-        <ion-card *ngFor="let task of filteredTasks; trackBy: trackByTask" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
+        <ion-card *ngFor="let task of paginatedTasks; trackBy: trackByTask" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
           <ion-item lines="none" class="task-card-header">
             <ion-checkbox
               slot="start"
@@ -266,6 +281,18 @@
             </div>
           </ion-card-content>
         </ion-card>
+      </div>
+      <!-- Pagination controls for Tasks -->
+      <div class="pagination-controls" *ngIf="filteredTasks.length > tasksPerPage">
+        <button (click)="prevTaskPage()" [disabled]="currentTaskPage === 1" class="pagination-btn">
+          <ion-icon name="chevron-back"></ion-icon>
+          Previous
+        </button>
+        <span class="page-info">Page {{ currentTaskPage }} of {{ totalTaskPages }}</span>
+        <button (click)="nextTaskPage()" [disabled]="currentTaskPage === totalTaskPages" class="pagination-btn">
+          Next
+          <ion-icon name="chevron-forward"></ion-icon>
+        </button>
       </div>
       <ng-template #emptyTasks>
         <div class="empty-tab-state">
@@ -304,7 +331,7 @@
       </div>
 
       <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
-        <div class="timeline-item" *ngFor="let meeting of filteredMeetings">
+        <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
           <div class="timeline-marker"></div>
           <div class="timeline-content">
             <div class="timeline-header">
@@ -318,6 +345,18 @@
             </div>
           </div>
         </div>
+      </div>
+      <!-- Pagination controls for Meetings -->
+      <div class="pagination-controls" *ngIf="filteredMeetings.length > meetingsPerPage">
+        <button (click)="prevMeetingPage()" [disabled]="currentMeetingPage === 1" class="pagination-btn">
+          <ion-icon name="chevron-back"></ion-icon>
+          Previous
+        </button>
+        <span class="page-info">Page {{ currentMeetingPage }} of {{ totalMeetingPages }}</span>
+        <button (click)="nextMeetingPage()" [disabled]="currentMeetingPage === totalMeetingPages" class="pagination-btn">
+          Next
+          <ion-icon name="chevron-forward"></ion-icon>
+        </button>
       </div>
       <ng-template #emptyMeetings>
         <div class="empty-tab-state">
@@ -342,7 +381,7 @@
       </div>
 
       <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
-        <div class="communication-card" *ngFor="let comm of filteredCommunications">
+        <div class="communication-card" *ngFor="let comm of paginatedCommunications">
           <div class="communication-header">
             <h4>{{ comm.communicationType }}</h4>
             <span>{{ formatDate(comm.date) }}</span>
@@ -354,6 +393,18 @@
             <span *ngIf="comm.channels.length"><ion-icon name="share-social-outline"></ion-icon>{{ comm.channels.join(', ') }}</span>
           </div>
         </div>
+      </div>
+      <!-- Pagination controls for Communications -->
+      <div class="pagination-controls" *ngIf="filteredCommunications.length > communicationsPerPage">
+        <button (click)="prevCommunicationPage()" [disabled]="currentCommunicationPage === 1" class="pagination-btn">
+          <ion-icon name="chevron-back"></ion-icon>
+          Previous
+        </button>
+        <span class="page-info">Page {{ currentCommunicationPage }} of {{ totalCommunicationPages }}</span>
+        <button (click)="nextCommunicationPage()" [disabled]="currentCommunicationPage === totalCommunicationPages" class="pagination-btn">
+          Next
+          <ion-icon name="chevron-forward"></ion-icon>
+        </button>
       </div>
       <ng-template #emptyCommunications>
         <div class="empty-tab-state">
@@ -461,7 +512,7 @@
             <span>{{ paidInvoiceGroups.length }} {{ paidInvoiceGroups.length === 1 ? 'company' : 'companies' }}</span>
           </div>
           <div class="invoice-paid-groups">
-            <div class="invoice-group-card" *ngFor="let group of paidInvoiceGroups">
+            <div class="invoice-group-card" *ngFor="let group of paginatedPaidGroups">
               <div class="invoice-group-header">
                 <h5>{{ group.companyName }}</h5>
                 <span>{{ group.items.length }} {{ group.items.length === 1 ? 'project' : 'projects' }}</span>
@@ -494,6 +545,19 @@
           </div>
         </div>
       </ng-container>
+
+      <!-- Pagination controls for Invoices -->
+      <div class="pagination-controls" *ngIf="(openInvoices.length || unpaidInvoices.length || paidInvoiceGroups.length) && totalInvoicePages > 1">
+        <button (click)="prevInvoicePage()" [disabled]="currentInvoicePage === 1" class="pagination-btn">
+          <ion-icon name="chevron-back"></ion-icon>
+          Previous
+        </button>
+        <span class="page-info">Page {{ currentInvoicePage }} of {{ totalInvoicePages }}</span>
+        <button (click)="nextInvoicePage()" [disabled]="currentInvoicePage === totalInvoicePages" class="pagination-btn">
+          Next
+          <ion-icon name="chevron-forward"></ion-icon>
+        </button>
+      </div>
 
       <ng-template #emptyInvoices>
         <div class="empty-tab-state">

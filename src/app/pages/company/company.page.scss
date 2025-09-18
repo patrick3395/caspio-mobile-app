@@ -4,21 +4,35 @@
   color: var(--ion-color-dark);
 }
 
-.company-header {
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+// Remove scroll limitations
+ion-content {
+  --overflow: scroll;
+
+  ::ng-deep {
+    .inner-scroll {
+      height: auto !important;
+      min-height: 100% !important;
+      max-height: none !important;
+    }
+  }
 }
 
-.company-toolbar {
-  --padding-start: 16px;
-  --padding-end: 16px;
-  text-align: center;
+.custom-header {
+  ion-toolbar.action-toolbar {
+    --background: linear-gradient(135deg, #f15a27, #ff7b4d);
+    --border-width: 0;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
 
-  ion-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #212529;
-    letter-spacing: 0.5px;
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      text-align: center;
+    }
   }
 }
 
@@ -27,6 +41,8 @@
   flex-direction: column;
   gap: 24px;
   padding: 16px;
+  min-height: 100vh;
+  height: auto;
 }
 
 // Tab button grid styling
@@ -1199,6 +1215,67 @@
   font-size: 2.5rem;
   margin-bottom: 12px;
   color: var(--ion-color-primary);
+}
+
+// Pagination styles
+.pagination-info {
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #f15a27;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background: #e54e1c;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.25);
+  }
+
+  &:disabled {
+    background: #dee2e6;
+    color: #adb5bd;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.page-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #495057;
 }
 
 @media (max-width: 768px) {
