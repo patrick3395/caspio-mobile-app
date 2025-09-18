@@ -1506,14 +1506,25 @@ export class CompanyPage implements OnInit {
         return;
       }
       const summary = this.invoiceSummaryByCompany.get(invoice.CompanyID) ?? { total: 0, outstanding: 0, paid: 0, invoices: 0 };
-      summary.total += invoice.Fee ?? 0;
-      const paid = invoice.Paid ?? 0;
-      summary.paid += paid;
-      const balance = (invoice.Fee ?? 0) - paid;
-      if (balance > 0) {
-        summary.outstanding += balance;
+
+      // Only count positive fees (actual invoices) for revenue total, not negative payments
+      const fee = invoice.Fee ?? 0;
+      if (fee > 0) {
+        summary.total += fee;
+        summary.invoices = (summary.invoices ?? 0) + 1;
+
+        // Calculate outstanding balance for positive invoices
+        const paid = invoice.Paid ?? 0;
+        summary.paid += paid;
+        const balance = fee - paid;
+        if (balance > 0) {
+          summary.outstanding += balance;
+        }
+      } else if (fee < 0) {
+        // Negative fees are payments - add to paid amount
+        summary.paid += Math.abs(fee);
       }
-      summary.invoices = (summary.invoices ?? 0) + 1;
+
       this.invoiceSummaryByCompany.set(invoice.CompanyID, summary);
     });
   }
