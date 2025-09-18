@@ -58,16 +58,13 @@
     </ion-segment>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
       <div class="companies-search-container">
-        <div class="search-wrapper">
-          <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <ion-searchbar
-            [(ngModel)]="companyFilters.search"
-            (ionChange)="applyCompanyFilters()"
-            placeholder="Search companies, stages, or contacts"
-            animated="true"
-            class="modern-search">
-          </ion-searchbar>
-        </div>
+        <ion-searchbar
+          [(ngModel)]="companyFilters.search"
+          (ionChange)="applyCompanyFilters()"
+          placeholder="Search companies"
+          animated="true"
+          class="modern-search">
+        </ion-searchbar>
       </div>
 
       <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
