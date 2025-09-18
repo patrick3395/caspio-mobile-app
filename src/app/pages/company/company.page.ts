@@ -880,7 +880,7 @@ export class CompanyPage implements OnInit {
     return raw.replace(/^\d+\s*[-–]\s*/, '').replace(/^\d+\s*/, '');
   }
 
-  onContactSearchChange(value: string) {
+  onContactSearchChange(value: string | null | undefined) {
     this.contactsSearchTerm = value ?? '';
     if (this.contactSearchDebounce) {
       clearTimeout(this.contactSearchDebounce);
@@ -888,6 +888,77 @@ export class CompanyPage implements OnInit {
     this.contactSearchDebounce = setTimeout(() => {
       this.applyContactFilters();
     }, 150);
+  }
+
+  // Additional helper methods for the new Companies UI
+  formatCompactCurrency(value: number | string | null | undefined): string {
+    const amount = typeof value === 'number' ? value : Number(value ?? 0);
+    if (isNaN(amount)) {
+      return '$0';
+    }
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return `$${Math.round(amount)}`;
+  }
+
+  getStageIcon(stage: string): string {
+    const stageMap: Record<string, string> = {
+      'prospect': 'flag-outline',
+      'lead': 'trending-up-outline',
+      'qualified': 'checkmark-circle-outline',
+      'proposal': 'document-text-outline',
+      'negotiation': 'chatbubbles-outline',
+      'closed won': 'trophy-outline',
+      'closed lost': 'close-circle-outline',
+      'active': 'rocket-outline',
+      'inactive': 'pause-circle-outline'
+    };
+    return stageMap[stage?.toLowerCase()] || 'ellipse-outline';
+  }
+
+  getTotalContacts(companies: CompanyViewModel[]): number {
+    return companies.reduce((sum, c) => sum + (c.contactCount || 0), 0);
+  }
+
+  getTotalTasks(companies: CompanyViewModel[]): number {
+    return companies.reduce((sum, c) => sum + (c.openTasks || 0), 0);
+  }
+
+  private expandedCompanies = new Set<number>();
+
+  isCompanyExpanded(company: CompanyViewModel): boolean {
+    return this.expandedCompanies.has(company.CompanyID);
+  }
+
+  toggleCompanyExpand(company: CompanyViewModel, event: Event): void {
+    event.stopPropagation();
+    if (this.expandedCompanies.has(company.CompanyID)) {
+      this.expandedCompanies.delete(company.CompanyID);
+    } else {
+      this.expandedCompanies.add(company.CompanyID);
+    }
+  }
+
+  viewCompanyDetails(company: CompanyViewModel, event: Event): void {
+    event.stopPropagation();
+    // Navigate to company details page or open modal
+    console.log('View details for:', company.CompanyName);
+  }
+
+  editCompany(company: CompanyViewModel, event: Event): void {
+    event.stopPropagation();
+    // Open edit modal or navigate to edit page
+    console.log('Edit company:', company.CompanyName);
+  }
+
+  addTask(company: CompanyViewModel, event: Event): void {
+    event.stopPropagation();
+    // Open task creation modal
+    console.log('Add task for:', company.CompanyName);
   }
 
   trackByStage = (_: number, group: StageGroup) => group.stage.id;
