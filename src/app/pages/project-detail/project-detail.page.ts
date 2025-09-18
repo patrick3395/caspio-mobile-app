@@ -1632,6 +1632,61 @@ export class ProjectDetailPage implements OnInit {
 
     this.openTemplate(service, event);
   }
+  private async openPdfDocumentForService(service: ServiceSelection): Promise<boolean> {
+    const serviceDocGroup = this.serviceDocuments.find(sd => sd.serviceId === service.serviceId);
+    if (!serviceDocGroup) {
+      return false;
+    }
+
+    const mainPdf = serviceDocGroup.documents.find(doc => this.documentLooksLikePdf(doc));
+    if (mainPdf) {
+      await this.viewDocument(mainPdf);
+      return true;
+    }
+
+    for (const doc of serviceDocGroup.documents) {
+      const pdfAdditional = doc.additionalFiles?.find(file => this.additionalFileLooksLikePdf(file));
+      if (pdfAdditional) {
+        await this.viewAdditionalDocument(pdfAdditional);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private documentLooksLikePdf(doc: DocumentItem | undefined): boolean {
+    if (!doc) {
+      return false;
+    }
+
+    if (this.stringLooksLikePdf(doc.linkName) || this.stringLooksLikePdf(doc.filename) || this.stringLooksLikePdf(doc.attachmentUrl)) {
+      return true;
+    }
+
+    if (doc.title && doc.title.toLowerCase().includes('pdf')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private additionalFileLooksLikePdf(file: any): boolean {
+    if (!file) {
+      return false;
+    }
+
+    return this.stringLooksLikePdf(file.linkName) || this.stringLooksLikePdf(file.attachmentUrl);
+  }
+
+  private stringLooksLikePdf(value?: string | null): boolean {
+    if (!value) {
+      return false;
+    }
+
+    const lower = value.toLowerCase();
+    return lower.endsWith('.pdf') || lower.includes('.pdf') || lower.includes('application/pdf');
+  }
 
   // Template navigation - Fixed double-click issue
   openTemplate(service: ServiceSelection, event?: Event, options?: { openPdf?: boolean }) {
@@ -2567,6 +2622,13 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
+    if (this.isReadOnly) {
+      const openedPdf = await this.openPdfDocumentForService(service);
+      if (openedPdf) {
+        return;
+      }
+    }
+
     // Fallback to opening the template directly for other service types
     this.openTemplate(service, undefined, { openPdf: true });
   }
@@ -2960,3 +3022,4 @@ Time: ${debugInfo.timestamp}
     }
   }
 }
+
