@@ -2,6 +2,7 @@ import { Component, Input, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, Platform, AlertController, ToastController } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
+import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
 // jsPDF is now lazy-loaded when needed
 
@@ -1186,6 +1187,33 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     
     try {
       console.log('Loading image for PDF:', url);
+
+      let caspioFilePath: string | null = null;
+      if (url && url.startsWith('/')) {
+        caspioFilePath = url;
+      } else if (url) {
+        const match = url.match(/\/rest\/v2\/files(\/[^?]+)/i);
+        if (match && match[1]) {
+          caspioFilePath = match[1];
+        } else if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('assets/')) {
+          caspioFilePath = url.startsWith('/') ? url : `/${url}`;
+        }
+      }
+
+      if (caspioFilePath) {
+        try {
+          const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(caspioFilePath));
+          if (imageData && imageData.startsWith('data:')) {
+            this.imageCache.set(url, imageData);
+            if (caspioFilePath) {
+              this.imageCache.set(caspioFilePath, imageData);
+            }
+            return imageData;
+          }
+        } catch (filesApiError) {
+          console.error('Failed to load image via Files API:', filesApiError);
+        }
+      }
       
       // Handle different types of URLs
       if (url.includes('blob:')) {
@@ -1208,7 +1236,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           if (!response.ok) {
             console.error('Failed to fetch image:', response.status, response.statusText);
             // Try to refresh token and retry once
-            const token = this.caspioService.getCurrentToken();
+            const token = await firstValueFrom(this.caspioService.getValidToken());
             if (token) {
               const newUrl = url.replace(/access_token=[^&]+/, `access_token=${token}`);
               const retryResponse = await fetch(newUrl, {
@@ -1494,3 +1522,4 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     console.log(`Images still loading: ${this.imagesLoading}`);
   }
 }
+

@@ -2568,21 +2568,27 @@ Time: ${debugInfo.timestamp}
 
   async generateServicePDF() {
     const templateServices = this.getServicesForTemplates();
+    const savedServices = templateServices.filter(service => !!service.serviceId);
 
-    if (!templateServices || templateServices.length === 0) {
+    if ((!templateServices || templateServices.length === 0) && (!savedServices || savedServices.length === 0)) {
       await this.showToast('No templates available for PDF generation', 'warning');
       return;
     }
 
-    if (templateServices.length === 1) {
-      await this.generatePDFForService(templateServices[0]);
+    if (savedServices.length === 0) {
+      await this.showToast('Save the template service before generating a PDF', 'warning');
+      return;
+    }
+
+    if (savedServices.length === 1) {
+      await this.generatePDFForService(savedServices[0]);
       return;
     }
 
     const alert = await this.alertController.create({
       header: 'Select Template',
       message: 'Choose a template to open its PDF report.',
-      inputs: templateServices.map((service, index) => ({
+      inputs: savedServices.map((service, index) => ({
         type: 'radio',
         label: `${service.typeName} - ${this.formatDate(service.dateOfInspection)}`,
         value: index,
@@ -2595,18 +2601,31 @@ Time: ${debugInfo.timestamp}
         },
         {
           text: 'Open PDF',
-          handler: (selectedIndex) => {
-            const selectedService = templateServices[selectedIndex];
-            this.generatePDFForService(selectedService);
+          handler: async (selectedIndex) => {
+            const index = typeof selectedIndex === 'number' ? selectedIndex : parseInt((selectedIndex as string), 10);
+            const selectedService = savedServices[index];
+
+            if (!selectedService) {
+              await this.showToast('Unable to determine which template to open. Please try again.', 'danger');
+              return false;
+            }
+
+            await this.generatePDFForService(selectedService);
+            return true;
           }
-        }
-      ]
+        },
+      ],
     });
 
     await alert.present();
   }
 
-  async generatePDFForService(service: ServiceSelection) {
+  async generatePDFForService(service?: ServiceSelection) {
+    if (!service) {
+      await this.showToast('Select a template to generate the PDF', 'warning');
+      return;
+    }
+
     if (!service.serviceId) {
       await this.showToast('Please save the service before generating a PDF', 'warning');
       return;
