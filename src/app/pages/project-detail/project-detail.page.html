@@ -369,7 +369,7 @@
       <div class="templates-container">
         <div *ngFor="let service of getServicesForTemplates()" 
              class="template-bar" 
-             (click)="openTemplate(service, $event)">
+             (click)="handleTemplateClick(service, $event)">
           
           <!-- Progress fill background -->
           <div class="template-progress" 

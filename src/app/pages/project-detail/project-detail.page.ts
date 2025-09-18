@@ -1619,6 +1619,20 @@ export class ProjectDetailPage implements OnInit {
     this.selectedServiceDoc = null;
   }
 
+  handleTemplateClick(service: ServiceSelection, event?: Event): void {
+    if (this.isReadOnly) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      this.generatePDFForService(service);
+      return;
+    }
+
+    this.openTemplate(service, event);
+  }
+
   // Template navigation - Fixed double-click issue
   openTemplate(service: ServiceSelection, event?: Event, options?: { openPdf?: boolean }) {
     // Prevent any event bubbling

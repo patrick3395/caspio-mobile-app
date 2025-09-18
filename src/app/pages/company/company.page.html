@@ -409,17 +409,21 @@
       </div>
 
       <div class="invoice-summary">
-        <div class="summary-pill">
-          <span>Total</span>
-          <strong>{{ formatCurrency(invoiceMetrics.total) }}</strong>
+        <div class="summary-row">
+          <div class="summary-pill">
+            <span>Total</span>
+            <strong>{{ formatCurrency(invoiceMetrics.total) }}</strong>
+          </div>
+          <div class="summary-pill success">
+            <span>Paid</span>
+            <strong>{{ formatCurrency(invoiceMetrics.paid) }}</strong>
+          </div>
         </div>
-        <div class="summary-pill warning">
-          <span>Outstanding</span>
-          <strong>{{ formatCurrency(invoiceMetrics.outstanding) }}</strong>
-        </div>
-        <div class="summary-pill success">
-          <span>Paid</span>
-          <strong>{{ formatCurrency(invoiceMetrics.paid) }}</strong>
+        <div class="summary-row">
+          <div class="summary-pill warning full-width">
+            <span>Outstanding</span>
+            <strong>{{ formatCurrency(invoiceMetrics.outstanding) }}</strong>
+          </div>
         </div>
       </div>
 

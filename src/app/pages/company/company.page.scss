@@ -1228,8 +1228,17 @@ ion-content {
 
 .invoice-summary {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 .summary-pill {
@@ -1240,6 +1249,13 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 120px;
+  align-items: center;
+  text-align: center;
+
+  &.full-width {
+    min-width: 200px;
+  }
 }
 
 .summary-pill.warning {
