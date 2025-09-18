@@ -494,7 +494,7 @@
                 {{ displayField(invoice, invoiceFieldMap.status, 'Open') }}
               </span>
             </td>
-            <td class="numeric">{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, 0)) }}</td>
+            <td class="numeric">{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, '0')) }}</td>
           </tr>
         </tbody>
       </table>
@@ -517,7 +517,7 @@
           </div>
           <div class="card-row">
             <span>Amount</span>
-            <strong>{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, 0)) }}</strong>
+            <strong>{{ formatCurrency(displayField(invoice, invoiceFieldMap.amount, '0')) }}</strong>
           </div>
         </ion-card-content>
       </ion-card>

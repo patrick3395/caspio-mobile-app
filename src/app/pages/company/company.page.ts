@@ -112,7 +112,7 @@ export class CompanyPage implements OnInit {
     this.loadCompanyData();
   }
 
-  private async loadCompanyData() {
+  async loadCompanyData() {
     await Promise.all([
       this.loadCompanyProfile(),
       this.loadUsers(),
