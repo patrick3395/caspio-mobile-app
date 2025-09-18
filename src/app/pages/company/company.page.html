@@ -73,124 +73,79 @@
       <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
         <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
           <div class="stage-header">
-            <div class="stage-title">
-              <div class="stage-icon-wrapper">
-                <ion-icon [name]="getStageIcon(group.stage.name)" class="stage-icon"></ion-icon>
-              </div>
-              <div class="stage-info">
-                <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
-                <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'Company' : 'Companies' }}</span>
-              </div>
-            </div>
-            <div class="stage-stats">
-              <div class="stat-pill">
-                <span class="stat-value">{{ getTotalContacts(group.companies) }}</span>
-                <span class="stat-label">Contacts</span>
-              </div>
-              <div class="stat-pill">
-                <span class="stat-value">{{ getTotalTasks(group.companies) }}</span>
-                <span class="stat-label">Tasks</span>
-              </div>
+            <div class="stage-info">
+              <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
+              <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
             </div>
           </div>
 
           <div class="companies-list">
-            <div class="company-card-modern"
+            <div class="company-rollup"
                  *ngFor="let company of group.companies; trackBy: trackByCompany"
                  [class.selected]="company.CompanyID === selectedCompanyId"
-                 (click)="setSelectedCompany(company.CompanyID)">
+                 [class.expanded]="isCompanyExpanded(company)">
 
-              <div class="company-card-header">
-                <div class="company-main-info">
+              <div class="rollup-header" (click)="toggleCompanyExpand(company, $event)">
+                <div class="company-info">
                   <h4 class="company-name">{{ company.CompanyName }}</h4>
-                  <p class="company-location">
-                    <ion-icon name="location" class="inline-icon"></ion-icon>
-                    {{ buildCompanyAddress(company) || 'No address' }}
-                  </p>
+                  <p class="company-location">{{ buildCompanyAddress(company) || 'No address' }}</p>
                 </div>
-                <button class="expand-btn" (click)="toggleCompanyExpand(company, $event)">
-                  <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                </button>
-              </div>
-
-              <div class="company-metrics">
-                <div class="metric-item">
-                  <ion-icon name="people" class="metric-icon"></ion-icon>
-                  <span class="metric-value">{{ company.contactCount || 0 }}</span>
-                  <span class="metric-label">Contacts</span>
-                </div>
-                <div class="metric-item" [class.has-overdue]="company.overdueTasks > 0">
-                  <ion-icon name="checkmark-circle" class="metric-icon"></ion-icon>
-                  <span class="metric-value">{{ company.openTasks || 0 }}</span>
-                  <span class="metric-label">Tasks</span>
-                </div>
-                <div class="metric-item">
-                  <ion-icon name="chatbubbles" class="metric-icon"></ion-icon>
-                  <span class="metric-value">{{ company.totalTouches || 0 }}</span>
-                  <span class="metric-label">Touches</span>
-                </div>
-                <div class="metric-item">
-                  <ion-icon name="cash" class="metric-icon"></ion-icon>
-                  <span class="metric-value">{{ formatCompactCurrency(company.invoiceTotals?.total || 0) }}</span>
-                  <span class="metric-label">Revenue</span>
-                </div>
-              </div>
-
-              <div class="company-expand-content" *ngIf="isCompanyExpanded(company)">
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <div class="detail-icon-wrapper">
-                      <ion-icon name="call" class="detail-icon"></ion-icon>
-                    </div>
-                    <div class="detail-content">
-                      <label>Phone</label>
-                      <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
-                    </div>
+                <div class="rollup-metrics">
+                  <div class="metric-badge">
+                    <ion-icon name="people-outline"></ion-icon>
+                    <span>{{ company.contactCount || 0 }}</span>
                   </div>
-
-                  <div class="detail-item">
-                    <div class="detail-icon-wrapper">
-                      <ion-icon name="globe" class="detail-icon"></ion-icon>
-                    </div>
-                    <div class="detail-content">
-                      <label>Website</label>
-                      <p>{{ company.Website || 'Not provided' }}</p>
-                    </div>
+                  <div class="metric-badge" [class.warning]="company.overdueTasks > 0">
+                    <ion-icon name="checkmark-circle-outline"></ion-icon>
+                    <span>{{ company.openTasks || 0 }}</span>
                   </div>
-
-                  <div class="detail-item">
-                    <div class="detail-icon-wrapper">
-                      <ion-icon name="flag" class="detail-icon"></ion-icon>
-                    </div>
-                    <div class="detail-content">
-                      <label>Stage</label>
-                      <p>{{ company.StageName || 'Unassigned' }}</p>
-                    </div>
+                  <div class="metric-badge">
+                    <ion-icon name="cash-outline"></ion-icon>
+                    <span>{{ formatCompactCurrency(company.invoiceTotals?.total || 0) }}</span>
                   </div>
-
-                  <div class="detail-item">
-                    <div class="detail-icon-wrapper">
-                      <ion-icon name="wallet" class="detail-icon"></ion-icon>
-                    </div>
-                    <div class="detail-content">
-                      <label>Outstanding</label>
-                      <p class="text-warning">{{ formatCurrency(company.invoiceTotals?.outstanding || 0) }}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="company-actions">
-                  <button class="action-btn primary" (click)="viewCompanyDetails(company, $event)">
-                    <ion-icon name="eye"></ion-icon>
-                    View Details
+                  <button class="expand-toggle" (click)="toggleCompanyExpand(company, $event)">
+                    <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
                   </button>
+                </div>
+              </div>
+
+              <div class="rollup-content" *ngIf="isCompanyExpanded(company)">
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Phone</label>
+                    <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Website</label>
+                    <p class="truncate">{{ company.Website || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Stage</label>
+                    <p>{{ company.StageName || 'Unassigned' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Total Revenue</label>
+                    <p>{{ formatCurrency(company.invoiceTotals?.total || 0) }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Outstanding</label>
+                    <p class="text-warning">{{ formatCurrency(company.invoiceTotals?.outstanding || 0) }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Touches</label>
+                    <p>{{ company.totalTouches || 0 }} total</p>
+                  </div>
+                </div>
+                <div class="rollup-actions">
                   <button class="action-btn" (click)="editCompany(company, $event)">
-                    <ion-icon name="create"></ion-icon>
-                    Edit
+                    <ion-icon name="create-outline"></ion-icon>
+                    <span>Edit</span>
                   </button>
                   <button class="action-btn" (click)="addTask(company, $event)">
-                    <ion-icon name="add-circle"></ion-icon>
-                    Add Task
+                    <ion-icon name="add-circle-outline"></ion-icon>
+                    <span>Add Task</span>
                   </button>
                 </div>
               </div>
