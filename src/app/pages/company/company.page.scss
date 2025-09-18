@@ -545,19 +545,22 @@
 
 .company-rollup {
   background: #ffffff;
-  border: 1px solid #dee2e6;
+  border: 2px solid #495057;
   border-radius: 12px;
   transition: all 0.2s ease;
   overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    border-color: #ced4da;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #212529;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateX(2px);
   }
 
   &.selected {
     border-color: #f15a27;
-    border-left: 3px solid #f15a27;
+    border-left: 4px solid #f15a27;
+    background: linear-gradient(to right, rgba(241, 90, 39, 0.03), transparent);
   }
 
   &.expanded {

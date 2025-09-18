@@ -95,10 +95,6 @@
                     <ion-icon name="people-outline"></ion-icon>
                     <span>{{ company.contactCount || 0 }}</span>
                   </div>
-                  <div class="metric-badge" [class.warning]="company.overdueTasks > 0">
-                    <ion-icon name="checkmark-circle-outline"></ion-icon>
-                    <span>{{ company.openTasks || 0 }}</span>
-                  </div>
                   <div class="metric-badge">
                     <ion-icon name="cash-outline"></ion-icon>
                     <span>{{ formatCompactCurrency(company.invoiceTotals?.total || 0) }}</span>

@@ -483,11 +483,8 @@ export class CompanyPage implements OnInit {
       }))
       .filter(group => group.companies.length > 0)
       .sort((a, b) => {
-        const priorityDiff = stagePriority(a.stage) - stagePriority(b.stage);
-        if (priorityDiff !== 0) {
-            return priorityDiff;
-        }
-        return a.stage.name.localeCompare(b.stage.name);
+        // Sort by StageID from highest to lowest (Active should be first)
+        return b.stage.id - a.stage.id;
       });
 
     this.stageSummary = this.stageGroups.map(group => ({
