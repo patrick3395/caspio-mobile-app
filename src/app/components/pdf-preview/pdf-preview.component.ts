@@ -44,29 +44,17 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     this.contentReady = false;
     
     this.hasElevationData = this.elevationData && this.elevationData.length > 0;
-    console.log('PDF Preview initialized with data:', {
-      projectData: this.projectData,
-      structuralDataCount: this.structuralData?.length || 0,
-      elevationDataCount: this.elevationData?.length || 0,
-      serviceData: this.serviceData
-    });
     
-    // Debug FDF photos in elevation data
+    // Process FDF photos in elevation data if needed
     if (this.elevationData && this.elevationData.length > 0) {
-      console.log('[PDF Preview] Elevation data rooms with FDF photos:');
       this.elevationData.forEach(room => {
-        if (room.fdfPhotos) {
-          console.log(`[PDF Preview] Room ${room.name} FDF photos:`, room.fdfPhotos);
-        } else {
-          console.log(`[PDF Preview] Room ${room.name} has no FDF photos`);
-        }
+        // FDF photos will be processed during PDF generation
       });
     }
     
     // Check if primary photo was preloaded
     if (this.projectData?.primaryPhotoBase64) {
       this.primaryPhotoData = this.projectData.primaryPhotoBase64;
-      console.log('Using preloaded primary photo');
     } else {
       // Load primary photo if it's a Caspio file
       await this.loadPrimaryPhotoIfNeeded();
@@ -75,7 +63,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     // Wait a moment for Angular to render the template
     setTimeout(() => {
       this.contentReady = true;
-      console.log('PDF content marked as ready');
     }, 500);
   }
   
@@ -84,7 +71,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     if (!this.contentReady) {
       setTimeout(() => {
         this.contentReady = true;
-        console.log('PDF content ready after view init');
       }, 1000);
     }
   }
@@ -93,23 +79,19 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   
   async loadPrimaryPhotoIfNeeded() {
     if (!this.projectData?.primaryPhoto) {
-      console.log('No primary photo to load');
       return;
     }
     
     const primaryPhoto = this.projectData.primaryPhoto;
-    console.log('Primary photo value:', primaryPhoto);
     
     // If it's a Caspio file path (starts with /), load it as base64
     if (typeof primaryPhoto === 'string' && primaryPhoto.startsWith('/')) {
       this.primaryPhotoLoading = true;
       try {
-        console.log('Loading primary photo from Caspio Files API:', primaryPhoto);
         const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
         
         if (imageData && imageData.startsWith('data:')) {
           this.primaryPhotoData = imageData;
-          console.log('✅ Primary photo loaded successfully as base64');
         } else {
           console.error('Failed to load primary photo - invalid data received');
         }
@@ -123,9 +105,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     } else if (typeof primaryPhoto === 'string' && (primaryPhoto.startsWith('data:') || primaryPhoto.startsWith('http'))) {
       // Already a usable URL or data URL
       this.primaryPhotoData = primaryPhoto;
-      console.log('Primary photo is already a valid URL/data URL');
     } else {
-      console.log('Primary photo format not recognized:', primaryPhoto);
       this.primaryPhotoData = 'assets/img/project-placeholder.svg';
     }
   }
@@ -183,43 +163,30 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   
   getPhotoUrl(photo: any): string {
     if (!photo) {
-      console.log('No photo provided');
       return 'assets/img/photo-placeholder.svg';
     }
-    
+
     // Prioritize displayUrl (annotated version) over regular url, matching the thumbnail behavior
     const photoPath = photo.displayUrl || photo.url || photo.Photo || photo.Attachment || photo.filePath || photo;
-    
-    console.log('Processing photo:', { 
-      original: photo, 
-      hasDisplayUrl: !!photo.displayUrl,
-      hasAnnotations: !!photo.hasAnnotations,
-      extracted: photoPath,
-      type: typeof photoPath 
-    });
-    
+
     // Data URL (base64)
     if (typeof photoPath === 'string' && photoPath.startsWith('data:')) {
-      console.log('Using base64 data URL');
       return photoPath;
     }
-    
+
     // Already a full URL or blob URL
     if (typeof photoPath === 'string' && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
-      console.log('Using full URL:', photoPath);
       return photoPath;
     }
-    
+
     // Caspio file path (shouldn't happen anymore since we convert to base64, but keep as fallback)
     if (typeof photoPath === 'string' && photoPath.startsWith('/')) {
       const account = this.caspioService.getAccountID();
       const token = this.caspioService.getCurrentToken() || '';
       const photoUrl = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-      console.log('Constructed Caspio URL:', photoUrl);
       return photoUrl;
     }
-    
-    console.log('Using fallback or direct path:', photoPath);
+
     return photoPath || 'assets/img/photo-placeholder.svg';
   }
 
@@ -387,7 +354,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         }
       }
     } catch (error) {
-      console.log('Primary photo not available');
     }
 
     const boxY = imageBottom + 24;
@@ -810,7 +776,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             }
           }
         } catch (error) {
-          console.log('Photo not available:', error);
         }
       }
       
@@ -879,7 +844,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         
         try {
           const imgUrl = this.getPhotoUrl(photo);
-          console.log(`Loading photo ${i + 1}/${item.photos.length} for ${item.name}`);
           const imgData = await this.loadImage(imgUrl);
           
           if (imgData) {
@@ -1113,7 +1077,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           }
         }
       } catch (error) {
-        console.log('Gallery photo not available');
       }
       
       photoCount++;
@@ -1169,7 +1132,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     }
     
     try {
-      console.log('Loading image for PDF:', url);
 
       let caspioFilePath: string | null = null;
       if (url && url.startsWith('/')) {
@@ -1207,7 +1169,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // For Caspio images with access token, fetch the image as blob first
       if (url.includes('caspio.com') && url.includes('access_token')) {
         try {
-          console.log('Fetching Caspio image with token...');
           
           // Fetch the image with proper headers
           const response = await fetch(url, {
@@ -1242,7 +1203,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Cache the result
           this.imageCache.set(url, dataUrl);
           
-          console.log('✅ Caspio image loaded successfully');
           return dataUrl;
         } catch (fetchError) {
           console.error('Error fetching Caspio image:', fetchError);
@@ -1283,7 +1243,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
               ctx.drawImage(img, 0, 0, width, height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Slightly lower quality for smaller file
               this.imageCache.set(url, dataUrl);
-              console.log('✅ Image loaded successfully');
               resolve(dataUrl);
             } else {
               console.error('Could not get canvas context');
@@ -1490,7 +1449,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   handleImageLoad(event: any) {
     event.target.classList.remove('loading');
     this.primaryPhotoLoading = false;
-    console.log('Image loaded successfully');
     
     // Decrement loading counter and check if we should dismiss
     if (this.imagesLoading > 0) {
@@ -1502,7 +1460,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   private checkAndDismissLoading() {
     // Placeholder method to check and dismiss loading if needed
     // Can be implemented later if loading state management is required
-    console.log(`Images still loading: ${this.imagesLoading}`);
   }
 }
 
