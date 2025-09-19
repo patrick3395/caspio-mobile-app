@@ -4,14 +4,6 @@
     <ion-buttons slot="end">
       <button
         type="button"
-        class="toolbar-btn"
-        (click)="checkForUpdates()"
-        aria-label="Refresh projects"
-      >
-        <ion-icon name="refresh-outline"></ion-icon>
-      </button>
-      <button
-        type="button"
         class="toolbar-btn primary"
         (click)="createNewProject()"
         aria-label="Add project"
@@ -31,23 +23,6 @@
 </ion-header>
 
 <ion-content class="projects-content">
-  <!-- LIVE UPDATE BANNER -->
-  <div style="background: linear-gradient(45deg, #F15A27, #69635D); color: white; padding: 20px; text-align: center; font-weight: bold; font-size: 18px;">
-    📱 Version {{ getAppVersion() }} - Image Loading Fixed
-    <br>
-    <span style="font-size: 14px;">🔄 BUILD: {{ getCurrentTimestamp() }} | 👤 {{ getUserInfo() }}</span>
-    <br>
-    <span style="font-size: 12px; color: #FFE082;">🖼️ Fixed: Using Files API with base64 like Structural Systems</span>
-  </div>
-  
-  <style>
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.8; }
-      100% { opacity: 1; }
-    }
-  </style>
-  
   <div class="projects-container">
     <!-- Loading state -->
     <div *ngIf="loading" class="loading-container">

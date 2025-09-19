@@ -398,8 +398,13 @@ export class ProjectDetailPage implements OnInit {
       console.log('✅ Existing services loaded and matched with offers:', this.selectedServices);
 
       // Trigger progress calculation for Engineers Foundation services
+      let foundEngineersFoundation = false;
       this.selectedServices.forEach(service => {
         if (service.typeName === 'Engineers Foundation Evaluation' && service.serviceId) {
+          foundEngineersFoundation = true;
+          // Show toast that we're calculating
+          this.showToast(`Calculating progress for Engineers Foundation...`, 'info');
+
           // Pre-calculate progress to populate cache
           this.calculateEngineersFoundationProgress(service).then(progress => {
             const cacheKey = `${this.projectId}_${service.serviceId}`;
@@ -409,11 +414,18 @@ export class ProjectDetailPage implements OnInit {
             };
             // Trigger change detection to update the view
             this.changeDetectorRef.detectChanges();
+
+            // Show result in toast
+            this.showToast(`Engineers Foundation progress: ${progress}%`, 'success');
           }).catch(error => {
-            console.error('Error pre-calculating progress for service:', service.serviceId, error);
+            this.showToast(`Error calculating progress: ${error.message}`, 'danger');
           });
         }
       });
+
+      if (!foundEngineersFoundation) {
+        console.log('No Engineers Foundation services found');
+      }
 
       this.updateDocumentsList();
     } catch (error) {
@@ -2194,26 +2206,22 @@ Troubleshooting:
 
   private async calculateEngineersFoundationProgress(service: any): Promise<number> {
     try {
-      if (!service.serviceId) return 0;
+      if (!service.serviceId) {
+        return 0;
+      }
 
-      // We'll calculate based on three main sections:
-      // 1. Project Information (check if service record has required fields)
-      // 2. Structural Systems (check if any visuals are selected)
-      // 3. Elevation Plot (check if any rooms are created)
-
+      let debugInfo = `Service ID: ${service.serviceId}\n\n`;
       let projectProgress = 0;
       let structuralProgress = 0;
       let elevationProgress = 0;
 
       // 1. Check project information completion
-      // Check if the service record has key fields filled
       const serviceData: any = await this.caspioService.get(
         `/tables/Services/records?q.where=PK_ID=${service.serviceId}`
       ).toPromise();
 
       if (serviceData?.ResultSet?.[0]) {
         const record = serviceData.ResultSet[0];
-        // Count filled required fields
         const requiredFields = ['DateOfInspection', 'FirstFoundationType'];
         let filledFields = 0;
 
@@ -2223,38 +2231,49 @@ Troubleshooting:
           }
         }
 
-        // Basic project info is considered complete if we have a service record
         projectProgress = requiredFields.length > 0 ?
           Math.round((filledFields / requiredFields.length) * 100) : 100;
+        debugInfo += `Project: ${filledFields}/${requiredFields.length} fields = ${projectProgress}%\n`;
+      } else {
+        debugInfo += `Project: No service record found = 0%\n`;
       }
 
       // 2. Check structural systems completion
-      // Check if any visuals are selected for this service
       const visualsData: any = await this.caspioService.get(
         `/tables/Services_Visuals/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
       if (visualsData?.ResultSet && visualsData.ResultSet.length > 0) {
-        // If we have any visuals, consider it at least partially complete
-        // For a more accurate calculation, we'd need to check against required visuals
-        // but for now, having any visuals means some progress
-        structuralProgress = Math.min(100, visualsData.ResultSet.length * 10); // Cap at 100%
+        structuralProgress = Math.min(100, visualsData.ResultSet.length * 10);
+        debugInfo += `Structural: ${visualsData.ResultSet.length} visuals = ${structuralProgress}%\n`;
+      } else {
+        debugInfo += `Structural: No visuals found = 0%\n`;
       }
 
       // 3. Check elevation plot completion
-      // Check if any rooms are created for this service
       const roomsData: any = await this.caspioService.get(
         `/tables/Services_Rooms/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
       if (roomsData?.ResultSet && roomsData.ResultSet.length > 0) {
-        // If we have rooms, consider elevation plot as having progress
-        elevationProgress = Math.min(100, roomsData.ResultSet.length * 20); // Cap at 100%
+        elevationProgress = Math.min(100, roomsData.ResultSet.length * 20);
+        debugInfo += `Elevation: ${roomsData.ResultSet.length} rooms = ${elevationProgress}%\n`;
+      } else {
+        debugInfo += `Elevation: No rooms found = 0%\n`;
       }
 
-      // Calculate average of all three sections
+      // Calculate average
       const sections = [projectProgress, structuralProgress, elevationProgress];
       const average = Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
+      debugInfo += `\nAverage: ${average}%`;
+
+      // Show debug alert
+      const alert = await this.alertController.create({
+        header: 'Progress Debug Info',
+        message: debugInfo.replace(/\n/g, '<br>'),
+        buttons: ['OK']
+      });
+      await alert.present();
 
       return average;
     } catch (error) {
