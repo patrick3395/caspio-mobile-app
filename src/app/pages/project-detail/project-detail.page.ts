@@ -353,10 +353,10 @@ export class ProjectDetailPage implements OnInit {
       // Use actual ProjectID from project data for querying services
       const projectId = this.project?.ProjectID || this.projectId;
       const services = await this.caspioService.getServicesByProject(projectId).toPromise();
-      
+
       console.log('🔍 Loading existing services:', services);
       console.log('🔍 Available offers for matching:', this.availableOffers);
-      
+
       // Convert existing services to our selection format
       this.selectedServices = (services || []).map((service: any) => {
         // Find offer by TypeID (Services table doesn't have OffersID)
@@ -396,6 +396,25 @@ export class ProjectDetailPage implements OnInit {
       });
       
       console.log('✅ Existing services loaded and matched with offers:', this.selectedServices);
+
+      // Trigger progress calculation for Engineers Foundation services
+      this.selectedServices.forEach(service => {
+        if (service.typeName === 'Engineers Foundation Evaluation' && service.serviceId) {
+          // Pre-calculate progress to populate cache
+          this.calculateEngineersFoundationProgress(service).then(progress => {
+            const cacheKey = `${this.projectId}_${service.serviceId}`;
+            this.templateProgressCache[cacheKey] = {
+              progress,
+              timestamp: Date.now()
+            };
+            // Trigger change detection to update the view
+            this.changeDetectorRef.detectChanges();
+          }).catch(error => {
+            console.error('Error pre-calculating progress for service:', service.serviceId, error);
+          });
+        }
+      });
+
       this.updateDocumentsList();
     } catch (error) {
       console.error('Error loading existing services:', error);
@@ -2036,9 +2055,27 @@ Troubleshooting:
     */
   }
 
+  getCompanyName(): string {
+    if (!this.project) return 'Not specified';
+
+    // Company ID to name mapping
+    const companyIDToName: { [key: number]: string } = {
+      1: 'Noble Property Inspections'
+      // Add more companies here as needed
+    };
+
+    const companyId = this.project.CompanyID || this.project.Company_ID;
+    if (companyId && companyIDToName[companyId]) {
+      return companyIDToName[companyId];
+    }
+
+    // If no mapping found, return a default or the ID itself
+    return companyId ? `Company ${companyId}` : 'Not specified';
+  }
+
   getCityStateZip(): string {
     if (!this.project) return 'Not specified';
-    
+
     // State ID to abbreviation mapping
     const stateIDToAbbreviation: { [key: number]: string } = {
       1: 'TX',    // Texas
@@ -2113,34 +2150,36 @@ Troubleshooting:
     });
   }
 
+  // Cache for template progress to avoid repeated API calls
+  private templateProgressCache: { [key: string]: { progress: number; timestamp: number } } = {};
+  private readonly CACHE_DURATION = 60000; // 1 minute cache
+
   getTemplateProgress(service: any): number {
-    // Calculate actual progress based on template sections
-    // For Engineers Foundation Evaluation, we average the sections
-    
-    if (service.typeName === 'Engineers Foundation Evaluation') {
-      // Get stored progress values from localStorage (if available)
-      // These are set when user fills out the template form
-      const storageKey = `template_progress_${this.projectId}_${service.serviceId}`;
-      const storedProgress = localStorage.getItem(storageKey);
-      
-      if (storedProgress) {
-        const progress = JSON.parse(storedProgress);
-        const projectProgress = progress.project || 0;
-        const structuralProgress = progress.structural || 0;
-        const elevationProgress = progress.elevation || 0;
-        
-        // Calculate average of all three sections
-        const sections = [projectProgress, structuralProgress, elevationProgress];
-        const average = Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
-        
-        return average;
+    // For Engineers Foundation Evaluation, check actual data completion
+    if (service.typeName === 'Engineers Foundation Evaluation' && service.serviceId) {
+      // Check cache first
+      const cacheKey = `${this.projectId}_${service.serviceId}`;
+      const cached = this.templateProgressCache[cacheKey];
+      const now = Date.now();
+
+      if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+        return cached.progress;
       }
-      
-      // Default: if no stored progress, return 0
-      return 0;
+
+      // Start async calculation but return cached or default immediately
+      this.calculateEngineersFoundationProgress(service).then(progress => {
+        this.templateProgressCache[cacheKey] = { progress, timestamp: now };
+        // Trigger change detection to update the view
+        this.changeDetectorRef.detectChanges();
+      }).catch(error => {
+        console.error('Error calculating template progress:', error);
+      });
+
+      // Return cached value or 0 while loading
+      return cached?.progress || 0;
     }
-    
-    // Default progress values for other service types
+
+    // Default progress values for other service types (for demo purposes)
     const serviceProgress: { [key: string]: number } = {
       'Home Inspection Report': 75,
       'Roof Inspection': 20,
@@ -2148,9 +2187,94 @@ Troubleshooting:
       'Electrical Inspection': 45,
       'Plumbing Inspection': 60
     };
-    
+
     // Return the progress for this service, or 0 if not found
     return serviceProgress[service.typeName] || 0;
+  }
+
+  private async calculateEngineersFoundationProgress(service: any): Promise<number> {
+    try {
+      if (!service.serviceId) return 0;
+
+      // We'll calculate based on three main sections:
+      // 1. Project Information (check if service record has required fields)
+      // 2. Structural Systems (check if any visuals are selected)
+      // 3. Elevation Plot (check if any rooms are created)
+
+      let projectProgress = 0;
+      let structuralProgress = 0;
+      let elevationProgress = 0;
+
+      // 1. Check project information completion
+      // Check if the service record has key fields filled
+      const serviceData = await this.caspioService.get(
+        `/tables/Services/records?q.where=PK_ID=${service.serviceId}`
+      ).toPromise();
+
+      if (serviceData?.ResultSet?.[0]) {
+        const record = serviceData.ResultSet[0];
+        // Count filled required fields
+        const requiredFields = ['DateOfInspection', 'FirstFoundationType'];
+        let filledFields = 0;
+
+        for (const field of requiredFields) {
+          if (record[field] && record[field] !== '') {
+            filledFields++;
+          }
+        }
+
+        // Basic project info is considered complete if we have a service record
+        projectProgress = requiredFields.length > 0 ?
+          Math.round((filledFields / requiredFields.length) * 100) : 100;
+      }
+
+      // 2. Check structural systems completion
+      // Check if any visuals are selected for this service
+      const visualsData = await this.caspioService.get(
+        `/tables/Services_Visuals/records?q.where=ServiceID=${service.serviceId}`
+      ).toPromise();
+
+      if (visualsData?.ResultSet && visualsData.ResultSet.length > 0) {
+        // If we have any visuals, consider it at least partially complete
+        // For a more accurate calculation, we'd need to check against required visuals
+        // but for now, having any visuals means some progress
+        structuralProgress = Math.min(100, visualsData.ResultSet.length * 10); // Cap at 100%
+      }
+
+      // 3. Check elevation plot completion
+      // Check if any rooms are created for this service
+      const roomsData = await this.caspioService.get(
+        `/tables/Services_Rooms/records?q.where=ServiceID=${service.serviceId}`
+      ).toPromise();
+
+      if (roomsData?.ResultSet && roomsData.ResultSet.length > 0) {
+        // If we have rooms, consider elevation plot as having progress
+        elevationProgress = Math.min(100, roomsData.ResultSet.length * 20); // Cap at 100%
+      }
+
+      // Calculate average of all three sections
+      const sections = [projectProgress, structuralProgress, elevationProgress];
+      const average = Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
+
+      return average;
+    } catch (error) {
+      console.error('Error calculating template progress:', error);
+      // Fall back to localStorage method if API fails
+      const storageKey = `template_progress_${this.projectId}_${service.serviceId}`;
+      const storedProgress = localStorage.getItem(storageKey);
+
+      if (storedProgress) {
+        const progress = JSON.parse(storedProgress);
+        const projectProgress = progress.project || 0;
+        const structuralProgress = progress.structural || 0;
+        const elevationProgress = progress.elevation || 0;
+
+        const sections = [projectProgress, structuralProgress, elevationProgress];
+        return Math.round(sections.reduce((sum, val) => sum + val, 0) / sections.length);
+      }
+
+      return 0;
+    }
   }
 
   private isTemplateComplete(service: ServiceSelection): boolean {

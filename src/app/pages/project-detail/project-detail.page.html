@@ -53,7 +53,12 @@
     <!-- Project Information Section -->
     <div class="info-section">
       <h2 class="section-title">Project Information</h2>
-      
+
+      <div class="info-row">
+        <span class="info-label">Company:</span>
+        <span class="info-value">{{ getCompanyName() }}</span>
+      </div>
+
       <div class="info-row">
         <span class="info-label">Address:</span>
         <span class="info-value">{{ project.Address || 'Not specified' }}</span>
