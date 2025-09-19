@@ -2064,7 +2064,7 @@ Troubleshooting:
       // Add more companies here as needed
     };
 
-    const companyId = this.project.CompanyID || this.project.Company_ID;
+    const companyId = Number(this.project.CompanyID || this.project.Company_ID);
     if (companyId && companyIDToName[companyId]) {
       return companyIDToName[companyId];
     }
@@ -2207,7 +2207,7 @@ Troubleshooting:
 
       // 1. Check project information completion
       // Check if the service record has key fields filled
-      const serviceData = await this.caspioService.get(
+      const serviceData: any = await this.caspioService.get(
         `/tables/Services/records?q.where=PK_ID=${service.serviceId}`
       ).toPromise();
 
@@ -2230,7 +2230,7 @@ Troubleshooting:
 
       // 2. Check structural systems completion
       // Check if any visuals are selected for this service
-      const visualsData = await this.caspioService.get(
+      const visualsData: any = await this.caspioService.get(
         `/tables/Services_Visuals/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
@@ -2243,7 +2243,7 @@ Troubleshooting:
 
       // 3. Check elevation plot completion
       // Check if any rooms are created for this service
-      const roomsData = await this.caspioService.get(
+      const roomsData: any = await this.caspioService.get(
         `/tables/Services_Rooms/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
