@@ -147,6 +147,7 @@ ion-item-option {
   padding-right: 4px;
   min-width: 48px;
   height: 100%;
+  position: relative;
 }
 
 .project-id {
@@ -257,5 +258,8 @@ ion-item-option {
   font-size: 20px;
   color: rgba(105, 99, 93, 0.6);
   pointer-events: none;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
 }
-

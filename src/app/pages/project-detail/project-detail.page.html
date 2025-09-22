@@ -82,11 +82,10 @@
 
     <!-- Service Selection Section -->
     <div class="info-section">
-      <div class="section-header-with-button">
-        <h2 class="section-title services-title">Services</h2>
-        <ion-button *ngIf="isReadOnly" 
-                    size="small" 
-                    fill="outline" 
+      <h2 class="section-title">Services</h2>
+      <div class="section-button-area" *ngIf="isReadOnly">
+        <ion-button size="small"
+                    fill="outline"
                     color="primary"
                     (click)="addAdditionalService()">
           <ion-icon name="add-circle-outline" slot="start"></ion-icon>
