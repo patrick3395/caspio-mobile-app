@@ -188,9 +188,9 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       position:relative;
       
       .date-input{
-        width:100%;
-        max-width:150px;
-        padding:6px 10px;
+        width:auto;
+        min-width:110px;
+        padding:6px 8px;
         border:1px solid $border;
         border-radius:4px;
         font-size:13px;

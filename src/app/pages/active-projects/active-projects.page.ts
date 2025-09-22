@@ -18,7 +18,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.487'; // Update this to match package.json version
+  appVersion = '1.4.488'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Lazy loading configuration
@@ -524,6 +524,11 @@ URL Attempted: ${imgUrl}`;
     // Navigate to new project page
     console.log('Create new project clicked');
     this.router.navigate(['/new-project']);
+  }
+
+  async refreshProjects() {
+    console.log('Manual refresh triggered');
+    await this.checkForUpdates();
   }
 
   async checkForUpdates() {

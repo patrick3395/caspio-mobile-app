@@ -66,6 +66,30 @@
   --background: var(--noble-light-gray);
 }
 
+.version-banner {
+  background: linear-gradient(135deg, var(--noble-orange), #ff8c4d);
+  color: white;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  .version-text {
+    font-weight: 600;
+  }
+
+  .separator {
+    margin: 0 10px;
+    opacity: 0.8;
+  }
+
+  .user-info {
+    opacity: 0.95;
+  }
+}
+
 .projects-container {
   padding: 16px;
   max-width: 600px;
@@ -115,11 +139,12 @@ ion-item-option {
 .project-id {
   position: absolute;
   top: 8px;
-  right: 28px; // Adjusted to account for chevron arrow space
+  right: 12px;
   font-size: 10px;
   color: var(--noble-gray);
   font-weight: 400;
   opacity: 0.7;
+  z-index: 1;
 }
 
 .project-image {

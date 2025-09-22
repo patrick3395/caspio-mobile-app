@@ -4,6 +4,14 @@
     <ion-buttons slot="end">
       <button
         type="button"
+        class="toolbar-btn"
+        (click)="refreshProjects()"
+        aria-label="Refresh projects"
+      >
+        <ion-icon name="refresh-outline"></ion-icon>
+      </button>
+      <button
+        type="button"
         class="toolbar-btn primary"
         (click)="createNewProject()"
         aria-label="Add project"
@@ -23,6 +31,13 @@
 </ion-header>
 
 <ion-content class="projects-content">
+  <!-- Version Banner -->
+  <div class="version-banner">
+    <span class="version-text">Version {{ appVersion }}</span>
+    <span class="separator">|</span>
+    <span class="user-info">{{ getUserInfo() }}</span>
+  </div>
+
   <div class="projects-container">
     <!-- Loading state -->
     <div *ngIf="loading" class="loading-container">
@@ -54,7 +69,7 @@
             <div class="project-details">
               <div class="project-address">{{ project.Address }}</div>
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-              <div class="project-date" *ngIf="project.Date">Created: {{ formatCreatedDate(project.Date) }}</div>
+              <div class="project-date" *ngIf="project.Date">{{ formatCreatedDate(project.Date) }}</div>
             </div>
           </div>
         </ion-item>
