@@ -459,6 +459,40 @@ export class ProjectsService {
     );
   }
 
+  // Update project status (for soft delete)
+  updateProjectStatus(projectId: string | undefined, statusId: number): Observable<any> {
+    if (!projectId) {
+      return throwError(() => new Error('No project ID provided'));
+    }
+
+    return this.caspioService.authenticate().pipe(
+      switchMap(() => {
+        const account = this.caspioService.getAccountID();
+        const token = this.caspioService.getCurrentToken();
+        const url = `https://${account}.caspio.com/rest/v2/tables/Projects/records?q.where=PK_ID=${projectId}`;
+
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
+
+        const updateData = {
+          StatusID: statusId
+        };
+
+        return this.http.put(url, updateData, { headers }).pipe(
+          tap(() => {
+            console.log(`Project ${projectId} status updated to ${statusId}`);
+          }),
+          catchError(error => {
+            console.error('Error updating project status:', error);
+            return throwError(() => error);
+          })
+        );
+      })
+    );
+  }
+
   // Fetch newly created project immediately
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
     // Caspio is instantaneous, fetch immediately

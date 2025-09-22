@@ -75,6 +75,7 @@ img{width:100%;height:100%;object-fit:cover}}
 
 .info-section{padding:20px;background:$white;margin-bottom:10px;border-bottom:1px solid $border;
 .section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
+.services-title{border-bottom:2px solid $orange !important;}
 .section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
 .section-title{margin:0;padding:0;border:none}
 ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
@@ -125,17 +126,15 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     }
     .col-service{text-align:left;color:$gray !important;}
     .col-date{
-      text-align:center;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      text-align:right;
+      padding-right:20px;
     }
     .col-actions{text-align:center;}
   }
   
   .service-row-container{
     &:not(:last-child){
-      border-bottom:2px solid $border;
+      border-bottom:2px solid $orange;
     }
   }
   
@@ -182,9 +181,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     .col-date{
       display:flex;
       align-items:center;
-      justify-content:center;
+      justify-content:flex-end;
       gap:8px;
       position:relative;
+      padding-right:20px;
       
       .date-input{
         width:100%;
@@ -302,7 +302,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .doc-service{font-weight:600;display:flex;align-items:center;padding-top:20px!important;word-break:break-word;min-width:0;
 >div{overflow:hidden;word-wrap:break-word;word-break:break-word;white-space:normal;max-width:100%;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
 .instance-badge{flex-shrink:0}}}
-// Service name IN REQUIRED DOCS TABLE turns green when ALL required docs are uploaded
+// Service name IN REQUIRED DOCS TABLE shows in black - no green colors
 .doc-service > div.all-docs-uploaded{color:#28a745 !important;font-weight:700 !important;}
 .doc-title{word-break:break-word;min-width:0;
 .doc-title-content{display:flex;flex-direction:column;gap:4px;word-break:break-word;min-width:0}
@@ -332,7 +332,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 }
 .doc-subtitle{margin-top:2px}
-.remove-doc-link{color:#dc3545;font-size:10px;cursor:pointer;text-decoration:none}}
+.remove-doc-link{color:$orange;font-size:10px;cursor:pointer;text-decoration:none}}
 .doc-content{
   padding: 12px;
   
@@ -499,7 +499,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 
 .remove-doc-link,.add-doc-link{color:#007bff;text-decoration:none;font-size:12px;cursor:pointer}
-.remove-doc-link{color:#dc3545;margin-left:10px}
+.remove-doc-link{color:$orange;margin-left:10px}
 
 // Removed service-item.has-documents - no green in service selector
 

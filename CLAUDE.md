@@ -23,7 +23,7 @@
 - NEVER rely on console.log alone - user cannot see it
 - Always provide fallback clipboard methods for WebView compatibility
 
-## CURRENT APP STATE (as of December 2024 - v1.4.214)
+## CURRENT APP STATE (as of January 2025 - v1.4.487)
 
 ### ✅ Working Features:
 - **Photo Upload System**: Complete photo upload to Services_Visuals_Attach using VisualID
@@ -683,3 +683,18 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
   - 100ms delay after toast to ensure UI updates
   - Both addEventListener and onclick methods for redundancy
 - **Result**: Back button now properly navigates to project page, PDF button generates PDFs without issues
+
+## 25. UI Improvements for Active Projects and Project Detail Pages (v1.4.487 - January 2025):
+
+### Active Projects Page Fixes:
+- **Enlarged House Image**: Increased from 60x60px to 80x80px to better fill white space
+- **Replaced "Active Project" Label**: Now shows address on line 1, city/state/zip on line 2, and created date on line 3
+- **Added Project Deletion**: Implemented swipe-left deletion with soft delete (StatusID set to 0)
+- **Added Project ID Display**: Shows #ProjectID in small text at top-right of each project item
+
+### Project Detail Page Fixes:
+- **Added Orange Line Under Services**: Services section now has orange underline consistent with other sections
+- **Removed Blue Styling**: Changed all blue/primary colors to black for consistency
+- **Aligned Inspection Date**: Changed from center to right-aligned for better visual alignment
+- **Fixed Red Colors**: Changed all red/danger colors (trash icons, borders) to orange theme
+- **Retitled Table**: Changed "Selected Services & Inspection Dates" to simply "Selected Services"

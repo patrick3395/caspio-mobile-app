@@ -38,15 +38,27 @@
 
     <!-- Projects list -->
     <div *ngIf="!loading && !error" class="projects-list">
-      <div class="project-item" *ngFor="let project of displayedProjects" [routerLink]="['/project', project.PK_ID]">
-        <div class="project-image">
-          <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
-        </div>
-        <div class="project-details">
-          <div class="project-address">{{ formatAddress(project) }}</div>
-          <div class="project-status">Active Project</div>
-        </div>
-      </div>
+      <ion-item-sliding *ngFor="let project of displayedProjects">
+        <ion-item-options side="start">
+          <ion-item-option color="danger" (click)="deleteProject(project)">
+            <ion-icon slot="icon-only" name="trash"></ion-icon>
+          </ion-item-option>
+        </ion-item-options>
+
+        <ion-item class="project-item" button [routerLink]="['/project', project.PK_ID]" lines="none">
+          <div class="project-content">
+            <div class="project-id">#{{ project.PK_ID }}</div>
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ project.Address }}</div>
+              <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+              <div class="project-date" *ngIf="project.Date">Created: {{ formatCreatedDate(project.Date) }}</div>
+            </div>
+          </div>
+        </ion-item>
+      </ion-item-sliding>
 
       <!-- Empty state -->
       <div *ngIf="projects.length === 0" class="empty-state">

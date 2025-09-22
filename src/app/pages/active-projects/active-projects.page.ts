@@ -18,7 +18,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.486'; // Update this to match package.json version
+  appVersion = '1.4.487'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Lazy loading configuration
@@ -322,6 +322,80 @@ export class ActiveProjectsPage implements OnInit {
     if (project.City) parts.push(project.City);
     if (project.State) parts.push(project.State);
     return parts.join(', ');
+  }
+
+  formatCityStateZip(project: Project): string {
+    const parts = [];
+    if (project.City) parts.push(project.City);
+    if (project.State) parts.push(project.State);
+    if (project.Zip) parts.push(project.Zip);
+    return parts.join(', ');
+  }
+
+  formatCreatedDate(dateString: string): string {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  async deleteProject(project: Project) {
+    const alert = await this.alertController.create({
+      header: 'Delete Project',
+      message: `Are you sure you want to delete the project at ${project.Address}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          handler: async () => {
+            await this.performProjectDeletion(project);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async performProjectDeletion(project: Project) {
+    const loading = await this.alertController.create({
+      message: 'Deleting project...'
+    });
+    await loading.present();
+
+    try {
+      // Soft delete by setting StatusID to 0
+      await this.projectsService.updateProjectStatus(project.PK_ID, 0).toPromise();
+
+      // Remove from displayed list
+      this.projects = this.projects.filter(p => p.PK_ID !== project.PK_ID);
+      this.displayedProjects = this.displayedProjects.filter(p => p.PK_ID !== project.PK_ID);
+
+      await loading.dismiss();
+
+      const toast = await this.alertController.create({
+        message: 'Project deleted successfully',
+        buttons: ['OK']
+      });
+      await toast.present();
+      setTimeout(() => toast.dismiss(), 2000);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      await loading.dismiss();
+
+      const errorAlert = await this.alertController.create({
+        header: 'Error',
+        message: 'Failed to delete project. Please try again.',
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+    }
   }
 
   async onProjectImageError(event: any, project: Project) {
