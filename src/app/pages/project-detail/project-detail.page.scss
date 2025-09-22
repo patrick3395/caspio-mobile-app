@@ -75,9 +75,8 @@ img{width:100%;height:100%;object-fit:cover}}
 
 .info-section{padding:20px;background:$white;margin-bottom:10px;border-bottom:1px solid $border;
 .section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
-.services-title{border-bottom:2px solid $orange !important;}
 .section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
-.section-title{margin:0;padding:0;border:none}
+.section-title{margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;

@@ -60,7 +60,7 @@
           </ion-item-option>
         </ion-item-options>
 
-        <ion-item class="project-item" button [routerLink]="['/project', project.PK_ID]" lines="none">
+        <ion-item class="project-item" button [routerLink]="['/project', project.PK_ID]" lines="none" detail="false">
           <div class="project-content">
             <div class="project-image">
               <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
@@ -73,6 +73,7 @@
           </div>
           <div class="project-meta" slot="end">
             <div class="project-id">#{{ project.PK_ID }}</div>
+            <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
           </div>
         </ion-item>
       </ion-item-sliding>
@@ -92,4 +93,3 @@
     </ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
-
