@@ -370,8 +370,8 @@ export class ActiveProjectsPage implements OnInit {
     await loading.present();
 
     try {
-      // Soft delete by setting StatusID to 0
-      await this.projectsService.updateProjectStatus(project.PK_ID, 0).toPromise();
+      // Soft delete by setting StatusID to 5
+      await this.projectsService.updateProjectStatus(project.PK_ID, 5).toPromise();
 
       // Remove from displayed list
       this.projects = this.projects.filter(p => p.PK_ID !== project.PK_ID);

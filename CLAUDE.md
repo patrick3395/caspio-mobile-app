@@ -689,7 +689,7 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 ### Active Projects Page Fixes:
 - **Enlarged House Image**: Increased from 60x60px to 80x80px to better fill white space
 - **Replaced "Active Project" Label**: Now shows address on line 1, city/state/zip on line 2, and created date on line 3
-- **Added Project Deletion**: Implemented swipe-left deletion with soft delete (StatusID set to 0)
+- **Added Project Deletion**: Implemented swipe-left deletion with soft delete (StatusID set to 5)
 - **Added Project ID Display**: Shows #ProjectID in small text at top-right of each project item
 
 ### Project Detail Page Fixes:

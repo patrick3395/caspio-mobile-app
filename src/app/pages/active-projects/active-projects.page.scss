@@ -89,8 +89,8 @@ ion-item-option {
 
 .project-item {
   --padding-start: 0;
-  --padding-end: 0;
-  --inner-padding-end: 0;
+  --padding-end: 8px;
+  --inner-padding-end: 16px;
   --background: var(--noble-white);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -115,7 +115,7 @@ ion-item-option {
 .project-id {
   position: absolute;
   top: 8px;
-  right: 12px;
+  right: 28px; // Adjusted to account for chevron arrow space
   font-size: 10px;
   color: var(--noble-gray);
   font-weight: 400;

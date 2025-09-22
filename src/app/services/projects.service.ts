@@ -459,7 +459,7 @@ export class ProjectsService {
     );
   }
 
-  // Update project status (for soft delete)
+  // Update project status (for soft delete - StatusID 5 = deleted)
   updateProjectStatus(projectId: string | undefined, statusId: number): Observable<any> {
     if (!projectId) {
       return throwError(() => new Error('No project ID provided'));

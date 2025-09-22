@@ -39,7 +39,7 @@
     <!-- Projects list -->
     <div *ngIf="!loading && !error" class="projects-list">
       <ion-item-sliding *ngFor="let project of displayedProjects">
-        <ion-item-options side="start">
+        <ion-item-options side="end">
           <ion-item-option color="danger" (click)="deleteProject(project)">
             <ion-icon slot="icon-only" name="trash"></ion-icon>
           </ion-item-option>
