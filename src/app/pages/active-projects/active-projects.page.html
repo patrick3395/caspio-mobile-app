@@ -62,7 +62,6 @@
 
         <ion-item class="project-item" button [routerLink]="['/project', project.PK_ID]" lines="none">
           <div class="project-content">
-            <div class="project-id">#{{ project.PK_ID }}</div>
             <div class="project-image">
               <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
             </div>
@@ -71,6 +70,7 @@
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
               <div class="project-date" *ngIf="project.Date">{{ formatCreatedDate(project.Date) }}</div>
             </div>
+            <div class="project-id">#{{ project.PK_ID }}</div>
           </div>
         </ion-item>
       </ion-item-sliding>
@@ -90,3 +90,4 @@
     </ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
+

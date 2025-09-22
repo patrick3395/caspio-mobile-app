@@ -126,10 +126,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     }
     .col-service{text-align:left;color:$gray !important;}
     .col-date{
-      text-align:center;
+      text-align:left;
       display:flex;
       align-items:center;
-      justify-content:center;
+      justify-content:flex-start;
     }
     .col-actions{text-align:center;}
   }
@@ -183,9 +183,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     .col-date{
       display:flex;
       align-items:center;
-      justify-content:center;
+      justify-content:flex-start;
       gap:8px;
       position:relative;
+      padding-right:28px;
       
       .date-input{
         width:auto;
@@ -208,7 +209,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       
       .saving-indicator, .saved-indicator{
         position:absolute;
-        right:-20px;
+        right:12px;
       }
     }
     
