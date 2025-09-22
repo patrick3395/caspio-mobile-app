@@ -70,6 +70,8 @@
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
               <div class="project-date" *ngIf="project.Date">{{ formatCreatedDate(project.Date) }}</div>
             </div>
+          </div>
+          <div class="project-meta" slot="end">
             <div class="project-id">#{{ project.PK_ID }}</div>
           </div>
         </ion-item>
