@@ -94,7 +94,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
-  private templateLoader?: HTMLIonLoadingElement;
+  private templateLoader?: HTMLIonLoadingElement | HTMLIonAlertElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
@@ -8468,8 +8468,10 @@ Stack: ${error?.stack}`;
         cssClass: 'template-loading-alert'
       });
 
-      await this.templateLoader.present();
-      this.templateLoaderPresented = true;
+      if (this.templateLoader) {
+        await this.templateLoader.present();
+        this.templateLoaderPresented = true;
+      }
 
     } catch (error) {
       console.error('[TemplateLoader] Failed to present loading overlay:', error);

@@ -87,7 +87,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
   private thumbnailCache = new Map<string, Promise<string | null>>(); // Cache loaded base64 images
-  private templateLoader?: HTMLIonLoadingElement;
+  private templateLoader?: HTMLIonLoadingElement | HTMLIonAlertElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
@@ -8171,8 +8171,10 @@ Stack: ${error?.stack}`;
         cssClass: 'template-loading-alert'
       });
 
-      await this.templateLoader.present();
-      this.templateLoaderPresented = true;
+      if (this.templateLoader) {
+        await this.templateLoader.present();
+        this.templateLoaderPresented = true;
+      }
 
     } catch (error) {
       console.error('[TemplateLoader] Failed to present loading overlay:', error);
