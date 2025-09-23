@@ -205,7 +205,6 @@ export class ProjectDetailPage implements OnInit {
         types = await this.caspioService.getServiceTypes().toPromise();
       } catch (error) {
         console.error('❌ Failed to load types:', error);
-        await this.showDebugAlert('Types Load Error', `Failed to load types: ${error}\n\nThis might be due to the Icon field. Check if the Type table has an Icon column.`);
       }
 
       try {
@@ -366,10 +365,6 @@ export class ProjectDetailPage implements OnInit {
       const types = await this.caspioService.getServiceTypes().toPromise();
       console.log('🔍 DEBUG: Types received:', types);
 
-      // Debug popup for icon data
-      const iconDebug = `Icon Debug:\nFirst Type: ${types?.[0]?.TypeName}\nIcon field: ${types?.[0]?.Icon || 'NO ICON FIELD'}\nTotal types: ${types?.length}`;
-      await this.showDebugAlert('Icon Field Check', iconDebug);
-      
       // Merge offer data with type names
       const processedOffers = (offers || []).map((offer: any) => {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
@@ -379,11 +374,6 @@ export class ProjectDetailPage implements OnInit {
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || ''
         };
-        // Only show debug for first few to avoid too many popups
-        if (processedOffers.length < 3) {
-          const iconInfo = `Type: ${result.TypeName}\nIcon: ${result.TypeIcon || 'EMPTY'}\nHas Icon: ${!!result.TypeIcon}`;
-          this.showToast(iconInfo, 'info');
-        }
         return result;
       });
       
@@ -895,17 +885,10 @@ export class ProjectDetailPage implements OnInit {
     });
 
     // Debug: Show first service icon data
-    if (filtered.length > 0 && !this.iconDebugShown) {
-      this.iconDebugShown = true;
-      const first = filtered[0];
-      const debugMsg = `Reports Section Debug:\nService: ${first.typeName}\nIcon Path: ${first.typeIcon || 'NO ICON'}\nType ID: ${first.typeId}`;
-      this.showDebugAlert('Reports Icon Status', debugMsg);
-    }
 
     return filtered;
   }
 
-  private iconDebugShown = false;
 
   formatDateForInput(dateString: string): string {
     if (!dateString) return new Date().toISOString().split('T')[0];

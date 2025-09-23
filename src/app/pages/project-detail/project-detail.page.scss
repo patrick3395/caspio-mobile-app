@@ -292,17 +292,15 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 // Service bar styling - full width header for each service
 .service-bar {
-  background: linear-gradient(135deg, #e0e0e0, #d0d0d0);
-  padding: 18px 20px;
+  background: linear-gradient(135deg, #d8d8d8, #c0c0c0);
+  padding: 16px 20px;
   font-weight: 700;
   font-size: 16px;
   color: #2c2c2c;
-  border-bottom: 3px solid #bbb;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 56px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-bottom: 2px solid #999;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 
   &.all-docs-uploaded {
     color: #28a745;
@@ -313,33 +311,28 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   .instance-badge {
     background: #6c757d;
     color: white;
-    padding: 3px 10px;
+    padding: 2px 8px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
+    margin-left: 8px;
+    display: inline-block;
   }
 }
 
 // Service documents container
 .service-documents {
-  padding: 20px;
-  background: #fafafa;
-  border-left: 3px solid transparent;
-
-  .service-bar.all-docs-uploaded + & {
-    border-left-color: #28a745;
-  }
+  padding: 0;
+  background: white;
 }
 
 // Document group separator (between services)
 .service-doc-group {
-  &:not(:last-child) {
-    border-bottom: 5px solid #ccc;
-    margin-bottom: 0;
-  }
+  display: block;
+  width: 100%;
 
   &:not(:first-child) {
-    margin-top: 0;
+    border-top: 3px solid #999;
   }
 }
 
@@ -351,35 +344,42 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 >*{padding:12px;font-size:14px}}
 
 .documents-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden;max-width:100%;
+
 .doc-row{
   min-height:48px;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid #e8e8e8;
-  padding: 14px 0;
-  margin-left: 20px;
-  position: relative;
+  padding: 12px 20px;
+  background: white;
 
   &:last-child {
     border-bottom: none;
   }
 
-  &:before {
-    content: '•';
-    position: absolute;
-    left: -15px;
-    top: 14px;
-    color: #999;
-    font-size: 16px;
-  }
-
-  &.uploaded:before {
-    content: '✓';
-    color: #28a745;
+  &:hover {
+    background: #f8f8f8;
   }
 
   .doc-content {
-    padding-left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
+    gap: 16px;
+  }
+
+  .doc-title-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .doc-icon-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
   }
 }
 .doc-title{word-break:break-word;min-width:0;
