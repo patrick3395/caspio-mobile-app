@@ -5,6 +5,21 @@ import { IonicModule, ModalController } from '@ionic/angular';
 import * as fabric from 'fabric';
 import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 
+let fabricInitialized = false;
+
+async function ensureFabricLoaded(): Promise<void> {
+  if (fabricInitialized) {
+    return;
+  }
+
+  if (!(fabric as any)?.Canvas) {
+    const module = await import('fabric');
+    Object.assign(fabric, module);
+  }
+
+  fabricInitialized = true;
+}
+
 @Component({
   selector: 'app-fabric-photo-annotator',
   standalone: true,

@@ -49,25 +49,21 @@
           Completed ({{ completedProjects.length }})
         </h3>
         <div class="projects-list">
-          <ion-virtual-scroll [items]="completedProjects" approxItemHeight="112px" [trackBy]="trackByProject">
-            <ng-container *virtualItem="let project">
-              <div class="project-item" (click)="selectProject(project)">
-                <div class="project-image">
-                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-                </div>
-                <div class="project-details">
-                  <div class="project-address">{{ formatAddress(project) }}</div>
-                  <div class="project-info">
-                    <span class="project-id">{{ formatProjectId(project) }}</span>
-                    <span class="status-text completed">Completed</span>
-                  </div>
-                  <div class="project-date" *ngIf="project['DateCompleted']">
-                    Completed: {{ project['DateCompleted'] | date:'shortDate' }}
-                  </div>
-                </div>
+          <div class="project-item" *ngFor="let project of completedProjects; trackBy: trackByProject" (click)="selectProject(project)">
+            <div class="project-image">
+              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+            </div>
+            <div class="project-details">
+              <div class="project-address">{{ formatAddress(project) }}</div>
+              <div class="project-info">
+                <span class="project-id">{{ formatProjectId(project) }}</span>
+                <span class="status-text completed">Completed</span>
               </div>
-            </ng-container>
-          </ion-virtual-scroll>
+              <div class="project-date" *ngIf="project['DateCompleted']">
+                Completed: {{ project['DateCompleted'] | date:'shortDate' }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

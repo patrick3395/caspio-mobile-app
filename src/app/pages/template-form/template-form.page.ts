@@ -6,7 +6,9 @@ import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
 import { Subject, timer } from 'rxjs';
-import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';\n\ntype DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
+
+type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
 @Component({
   selector: 'app-template-form',
@@ -811,8 +813,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         const reader = new FileReader();
         reader.onload = async (e: any) => {
           await loading.dismiss();
+          const DocumentViewerComponent = await this.loadDocumentViewer();
           const modal = await this.modalController.create({
-            const DocumentViewerComponent = await this.loadDocumentViewer();
             component: DocumentViewerComponent,
             componentProps: {
               fileUrl: e.target.result,
@@ -845,8 +847,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
               
               if (pdfData) {
                 console.log('PDF data loaded, opening viewer...');
+                const DocumentViewerComponent = await this.loadDocumentViewer();
                 const modal = await this.modalController.create({
-                  const DocumentViewerComponent = await this.loadDocumentViewer();
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: pdfData,
@@ -865,8 +867,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
               
               if (imageData) {
                 console.log('Image data loaded, opening viewer...');
+                const DocumentViewerComponent = await this.loadDocumentViewer();
                 const modal = await this.modalController.create({
-                  const DocumentViewerComponent = await this.loadDocumentViewer();
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: imageData,

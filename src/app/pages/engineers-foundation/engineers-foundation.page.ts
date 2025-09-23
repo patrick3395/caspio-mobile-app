@@ -4192,6 +4192,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Create the modal with animation disabled for first attempt to prevent conflicts
       console.log('[v1.4.390] Creating PDF modal...');
 
+      const PdfPreviewComponent = await this.loadPdfPreview();
+
       // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
         console.error('[v1.4.390] PdfPreviewComponent is not available!');
@@ -4207,7 +4209,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         });
 
         modal = await this.modalController.create({
-          const PdfPreviewComponent = await this.loadPdfPreview();
           component: PdfPreviewComponent,
           componentProps: {
             projectData: projectInfo,

@@ -122,7 +122,7 @@ export class AllProjectsPage implements OnInit {
     });
   }
 
-  handleSearchTermChange(term: string) {
+  handleSearchTermChange(term: string | null | undefined) {
     this.searchTerm = term ?? "";
     this.rebuildBuckets();
   }

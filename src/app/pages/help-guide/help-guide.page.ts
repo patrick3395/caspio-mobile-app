@@ -185,8 +185,8 @@ export class HelpGuidePage implements OnInit {
   async openFile(file: FileItem) {
     const url = await this.getFileUrl(file.FileFile);
     if (url) {
+      const DocumentViewerComponent = await this.loadDocumentViewer();
       const modal = await this.modalController.create({
-        const DocumentViewerComponent = await this.loadDocumentViewer();
         component: DocumentViewerComponent,
         componentProps: {
           fileUrl: url,
