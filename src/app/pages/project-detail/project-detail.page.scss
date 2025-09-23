@@ -307,34 +307,28 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     vertical-align: middle;
   }
 
-  .support-doc-row.doc-row .doc-title-cell,
-  .support-doc-row.doc-row.no-docs .doc-title-cell {
-    background: #e5e5e5;
+  .service-header {
+    background: #e0e0e0;
     font-weight: 600;
     color: #333;
+    font-size: 15px;
   }
 
-  .support-doc-row.add-row .doc-title-cell {
-    background: #f8f8f8;
-    font-weight: 500;
-    color: #333;
-  }
-
-  .doc-title-cell {
-    width: 70%;
+  .doc-info-cell {
+    width: 75%;
   }
 
   .doc-actions-cell {
-    width: 30%;
+    width: 25%;
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     text-align: right;
 
     ion-button {
-      --padding-start: 4px;
-      --padding-end: 4px;
+      --padding-start: 2px;
+      --padding-end: 2px;
       margin: 0;
 
       ion-icon {
@@ -345,8 +339,40 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
     .no-docs-text {
       font-size: 13px;
-      color: #666;
+      color: #777;
     }
+  }
+
+  .doc-title {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+  }
+
+  .doc-filename {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .doc-status {
+    font-size: 12px;
+    color: #999;
+  }
+
+  .support-doc-row.doc-row {
+    background: #f9f9f9;
+  }
+
+  .support-doc-row.doc-row.pending {
+    background: #fffaf2;
+  }
+
+  .support-doc-row.doc-row.no-docs {
+    background: #f5f5f5;
+  }
+
+  .support-doc-row.add-row {
+    background: #ffffff;
   }
 
   .add-doc-link {
@@ -360,8 +386,11 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     cursor: default;
     pointer-events: none;
   }
-}
 
+  .add-doc-actions {
+    min-width: 40px;
+  }
+}
 .template-header{display:grid;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
 >div{padding:12px;display:flex;align-items:center}}
 .template-header{grid-template-columns:2fr 1fr 1fr}
@@ -633,3 +662,4 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     max-height: 100%;
   }
 }
+

@@ -8452,34 +8452,47 @@ Stack: ${error?.stack}`;
     this.templateLoadStart = Date.now();
 
     try {
-      // Create loading with a cancel button
+      // Create a standard loading spinner
       this.templateLoader = await this.loadingController.create({
-        message: `
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <div>${message}</div>
-            <ion-button
-              size="small"
-              color="light"
-              style="margin-top: 10px;"
-              onclick="document.dispatchEvent(new CustomEvent('cancelTemplateLoading'))">
-              Cancel
-            </ion-button>
-          </div>
-        `,
+        message: message,
         backdropDismiss: false,
         cssClass: 'template-loading-overlay',
-        spinner: 'crescent'
+        spinner: 'crescent',
+        duration: 0 // No auto-dismiss
       });
-
-      // Listen for cancel event
-      const cancelHandler = async () => {
-        document.removeEventListener('cancelTemplateLoading', cancelHandler);
-        await this.handleLoadingCancel();
-      };
-      document.addEventListener('cancelTemplateLoading', cancelHandler);
 
       await this.templateLoader.present();
       this.templateLoaderPresented = true;
+
+      // Add a cancel button after a short delay to allow users to cancel if it's taking too long
+      setTimeout(async () => {
+        if (this.templateLoaderPresented) {
+          // Show an alert with cancel option
+          const cancelAlert = await this.alertController.create({
+            header: 'Still Loading...',
+            message: 'The template is taking longer than expected. Would you like to cancel?',
+            buttons: [
+              {
+                text: 'Keep Waiting',
+                role: 'cancel'
+              },
+              {
+                text: 'Cancel Loading',
+                handler: async () => {
+                  await this.handleLoadingCancel();
+                }
+              }
+            ],
+            backdropDismiss: false
+          });
+
+          // Only show if still loading
+          if (this.templateLoaderPresented) {
+            await cancelAlert.present();
+          }
+        }
+      }, 5000); // Show cancel option after 5 seconds
+
     } catch (error) {
       console.error('[TemplateLoader] Failed to present loading overlay:', error);
       this.templateLoaderPresented = false;

@@ -253,49 +253,60 @@
       <!-- Documents table -->
       <table *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
         <tbody *ngFor="let serviceDoc of serviceDocuments" class="support-doc-group">
-          <ng-container *ngIf="serviceDoc.documents.length > 0; else noDocumentsRow">
-            <ng-container *ngFor="let doc of serviceDoc.documents">
-              <tr class="support-doc-row doc-row" [class.no-docs]="!doc.uploaded">
-                <td class="doc-title-cell">
-                  {{ doc.title || serviceDoc.serviceName }}
-                </td>
-                <td class="doc-actions-cell">
-                  <ng-container *ngIf="doc.uploaded; else pendingDoc">
-                    <ion-button size="small" fill="clear" color="dark" (click)="viewDocument(doc)">
-                      <ion-icon name="eye-outline"></ion-icon>
-                    </ion-button>
-                    <ion-button size="small" fill="clear" color="dark" *ngIf="!isReadOnly"
-                                (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)">
-                      <ion-icon name="trash-outline"></ion-icon>
-                    </ion-button>
-                  </ng-container>
-                  <ng-template #pendingDoc>
-                    <span class="no-docs-text" *ngIf="isReadOnly">Awaiting upload</span>
-                    <ion-button size="small" fill="clear" color="primary" *ngIf="!isReadOnly"
-                                (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                      <ion-icon name="cloud-upload-outline"></ion-icon>
-                    </ion-button>
-                  </ng-template>
-                </td>
-              </tr>
-            </ng-container>
-          </ng-container>
-          <ng-template #noDocumentsRow>
-            <tr class="support-doc-row doc-row no-docs">
-              <td class="doc-title-cell">
-                {{ serviceDoc.serviceName }}
+          <tr class="support-doc-row service-row">
+            <td class="service-header" colspan="2">
+              {{ serviceDoc.serviceName }}
+            </td>
+          </tr>
+
+          <ng-container *ngIf="serviceDoc.documents.length > 0; else noServiceDocuments">
+            <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents" [class.pending]="!doc.uploaded">
+              <td class="doc-info-cell">
+                <div class="doc-title">{{ doc.title }}</div>
+                <div class="doc-filename" *ngIf="doc.uploaded && (doc.linkName || doc.filename)">
+                  {{ doc.linkName || doc.filename }}
+                </div>
+                <div class="doc-status" *ngIf="!doc.uploaded && isReadOnly">
+                  Awaiting upload
+                </div>
               </td>
               <td class="doc-actions-cell">
+                <ng-container *ngIf="doc.uploaded; else pendingDoc">
+                  <ion-button size="small" fill="clear" color="dark" (click)="viewDocument(doc)">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </ion-button>
+                  <ion-button size="small" fill="clear" color="dark" *ngIf="!isReadOnly"
+                              (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </ion-button>
+                </ng-container>
+                <ng-template #pendingDoc>
+                  <ion-button size="small" fill="clear" color="primary" *ngIf="!isReadOnly"
+                              (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                  </ion-button>
+                </ng-template>
+              </td>
+            </tr>
+          </ng-container>
+
+          <ng-template #noServiceDocuments>
+            <tr class="support-doc-row doc-row no-docs">
+              <td class="doc-info-cell">
                 <span class="no-docs-text">No documents uploaded</span>
+              </td>
+              <td class="doc-actions-cell">
+                <span class="no-docs-text">--</span>
               </td>
             </tr>
           </ng-template>
+
           <tr class="support-doc-row add-row">
-            <td class="doc-title-cell">
+            <td class="doc-info-cell">
               <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocuments(serviceDoc)">+ Add Document</a>
               <span *ngIf="isReadOnly" class="add-doc-link disabled">+ Add Document</span>
             </td>
-            <td class="doc-actions-cell"></td>
+            <td class="doc-actions-cell add-doc-actions"></td>
           </tr>
         </tbody>
       </table>
@@ -354,3 +365,4 @@
 
 <!-- Hidden file input for photo replacement - no capture attribute for iOS native picker -->
 <input #photoInput type="file" accept="image/*" style="display: none" (change)="onPhotoSelected($event)">
+
