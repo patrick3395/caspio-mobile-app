@@ -288,77 +288,122 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 }
 
-// Documents table styling to match screenshot
+// Documents table styling to match exact screenshot
 .documents-table {
   width: 100%;
   border-collapse: collapse;
-  border: 2px solid #333;
+  border: 1px solid #ccc;
   margin-top: 10px;
   background: white;
 
-  // Service header row
-  .service-header-row {
-    .service-bar {
-      background: #6c757d;
-      color: white;
-      font-weight: 700;
-      font-size: 15px;
-      padding: 12px 16px;
-      border: 1px solid #333;
-      text-align: left;
+  td {
+    border: 1px solid #ccc;
+    padding: 12px;
+    vertical-align: top;
+  }
 
-      &.all-docs-uploaded {
-        background: #28a745;
-        color: white;
-      }
+  // Service name cell (left column)
+  .service-name-cell {
+    width: 30%;
+    background: #6c757d;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
 
-      .instance-badge {
-        background: rgba(255,255,255,0.2);
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        margin-left: 8px;
+    .service-name-content {
+      margin-bottom: 20px;
+    }
+
+    .service-icons {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      display: flex;
+      gap: 8px;
+
+      ion-button {
+        --padding-start: 4px;
+        --padding-end: 4px;
+        margin: 0;
+
+        ion-icon {
+          color: white;
+          font-size: 20px;
+        }
       }
     }
   }
 
-  // Document rows
-  .doc-row {
-    td {
-      border: 1px solid #333;
-      padding: 10px 16px;
-      vertical-align: middle;
+  // Document cell (right column)
+  .doc-cell {
+    width: 70%;
+    background: white;
+
+    .no-docs-text {
+      color: #999;
+      font-style: italic;
     }
 
-    .doc-name {
-      width: 70%;
-      font-size: 14px;
-    }
+    .uploaded-doc {
+      .doc-title {
+        font-weight: 500;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
 
-    .doc-actions {
-      width: 30%;
-      text-align: right;
+        .check-icon {
+          color: #28a745;
+          font-size: 16px;
+        }
+      }
 
-      .doc-icon-actions {
+      .doc-filename {
+        color: #666;
+        font-size: 13px;
+        margin-left: 22px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        ion-icon {
+          font-size: 14px;
+        }
+      }
+
+      .upload-another {
+        color: #ff6b35;
+        text-decoration: none;
+        font-size: 14px;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        justify-content: flex-end;
+        gap: 4px;
+        margin-left: 22px;
+        cursor: pointer;
+
+        ion-icon {
+          font-size: 16px;
+        }
+
+        &:hover {
+          text-decoration: underline;
+        }
       }
     }
 
-    &:hover {
-      background: #f8f8f8;
-    }
-  }
+    .pending-doc {
+      .doc-title {
+        margin-bottom: 8px;
+      }
 
-  // Add document row
-  .add-doc-row {
-    td {
-      border: 1px solid #333;
-      padding: 10px 16px;
+      ion-button {
+        --padding-start: 0;
+        --padding-end: 8px;
+        font-size: 14px;
+        height: auto;
+      }
     }
 
     .add-doc-link {
@@ -366,6 +411,9 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       text-decoration: none;
       font-size: 14px;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
 
       &:hover {
         text-decoration: underline;
