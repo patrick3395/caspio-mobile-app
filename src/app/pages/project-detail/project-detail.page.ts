@@ -1023,22 +1023,22 @@ export class ProjectDetailPage implements OnInit {
       }
       // NO FALLBACK - only use templates from database
       
-      // Create the service document group
+      // Create the service document group (but don't set documents yet)
       const serviceDocGroup = {
         serviceId: service.serviceId || service.instanceId,
         serviceName: service.typeName,
         typeId: service.typeId,
         instanceNumber: this.getServiceInstanceNumber(service),
-        documents: documents
+        documents: [] as DocumentItem[]  // Will set this after all documents are added
       };
-      
-      console.log(`📋 Service document group for ${service.typeName}:`, {
+
+      console.log(`📋 Processing documents for ${service.typeName}:`, {
         serviceId: serviceDocGroup.serviceId,
         documentCount: documents.length,
         documentTitles: documents.map(d => d.title),
         fromTemplates: requiredTemplates.length > 0
       });
-      
+
       // Add back any pending documents and check if they've been uploaded
       const pending = pendingDocs.get(serviceDocGroup.serviceId);
       if (pending) {
@@ -1132,8 +1132,8 @@ export class ProjectDetailPage implements OnInit {
               attachmentUrl: a.Attachment
             }))
           } as any;
-          serviceDocGroup.documents.push(docItem);
-          
+          documents.push(docItem);
+
           // Add to accountedTitles to prevent duplicates in next iteration
           accountedTitles.add(title);
         } else {
@@ -1141,9 +1141,12 @@ export class ProjectDetailPage implements OnInit {
         }
       }
       
+      // Now that all documents are collected, set them on the service doc group
+      serviceDocGroup.documents = documents;
+
       // Check for duplicate service documents before adding
       const existingServiceDocIndex = this.serviceDocuments.findIndex(
-        sd => sd.serviceId === serviceDocGroup.serviceId && 
+        sd => sd.serviceId === serviceDocGroup.serviceId &&
              sd.serviceName === serviceDocGroup.serviceName
       );
       
@@ -1424,7 +1427,6 @@ export class ProjectDetailPage implements OnInit {
               doc.linkName = undefined;
               
               await loading.dismiss();
-              await this.showToast('Document deleted successfully', 'success');
               
               // Refresh the project to ensure consistency
               await this.loadProject();
@@ -1488,7 +1490,6 @@ export class ProjectDetailPage implements OnInit {
               }
               
               await loading.dismiss();
-              await this.showToast('Document deleted successfully', 'success');
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
