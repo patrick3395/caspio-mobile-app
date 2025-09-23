@@ -340,6 +340,12 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
         font-size: 18px;
         color: #3d3d3d;
       }
+
+      &.orange-icon {
+        ion-icon {
+          color: #F15A27;
+        }
+      }
     }
 
     .no-docs-text {
