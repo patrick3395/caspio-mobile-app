@@ -317,6 +317,10 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   .doc-info-cell {
     width: 75%;
     border-right: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
   }
 
   .doc-actions-cell {
@@ -344,15 +348,26 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       color: #777;
     }
   }
+
   .doc-title {
     font-weight: 500;
     color: #333;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 100%;
   }
 
   .doc-filename {
     font-size: 12px;
     color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 100%;
   }
 
   .doc-status {
