@@ -2204,9 +2204,12 @@ Troubleshooting:
     const account = this.caspioService.getAccountID();
     const token = this.caspioService.getCurrentToken();
 
-    // Encode the path properly
-    const encodedPath = encodeURIComponent(iconPath);
-    return `https://${account}.caspio.com/rest/v2/files${iconPath.startsWith('/') ? '' : '/'}${encodedPath}?access_token=${token}`;
+    // Ensure path starts with /
+    const cleanPath = iconPath.startsWith('/') ? iconPath : '/' + iconPath;
+
+    // Don't encode the entire path - only encode individual segments if needed
+    // The Caspio Files API expects the path as-is, with spaces and special characters
+    return `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
   }
 
   getTemplateProgress(service: any): number {
@@ -2385,7 +2388,8 @@ Troubleshooting:
   }
 
   onIconError(event: any, service: any) {
-    const debugInfo = `Icon Load Error:\nService: ${service.typeName}\nIcon Path: ${service.typeIcon}\nURL Attempted: ${event.target?.src}`;
+    const iconUrl = this.getIconUrl(service.typeIcon);
+    const debugInfo = `Icon Load Error:\nService: ${service.typeName}\nIcon Path: ${service.typeIcon}\nConstructed URL: ${iconUrl}\nURL Attempted: ${event.target?.src}`;
     this.showDebugAlert('Icon Error', debugInfo);
   }
 

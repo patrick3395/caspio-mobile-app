@@ -376,7 +376,8 @@ export class CaspioService {
 
   // Service Types methods
   getServiceTypes(): Observable<any[]> {
-    return this.get<any>('/tables/Type/records').pipe(
+    // Explicitly select fields to ensure Icon is included
+    return this.get<any>('/tables/Type/records?q.select=PK_ID,TypeID,TypeName,Type,TypeShort,Icon').pipe(
       map(response => response.Result || [])
     );
   }
