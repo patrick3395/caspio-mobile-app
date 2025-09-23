@@ -97,8 +97,7 @@
           <!-- Service name and info overlay -->
           <div class="template-content">
             <div class="template-name">
-              <img *ngIf="service.typeIcon" [src]="getIconUrl(service.typeIcon)" class="report-icon" alt="" (error)="onIconError($event, service)">
-              <span *ngIf="!service.typeIcon" style="color: red; font-size: 10px;">[No Icon]</span>
+              <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
               {{ service.typeName }}
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 (Instance {{ getServiceInstanceNumber(service) }})

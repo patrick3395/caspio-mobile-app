@@ -18,7 +18,8 @@ interface ServiceSelection {
   offersId: string;
   typeId: string;
   typeName: string;
-  typeIcon?: string; // Icon from Types table
+  typeIcon?: string; // Icon path from Types table
+  typeIconUrl?: string; // Base64 data URL for the icon
   dateOfInspection: string;
   saving?: boolean;
   saved?: boolean;
@@ -235,9 +236,13 @@ export class ProjectDetailPage implements OnInit {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
-          TypeIcon: type?.Icon || ''
+          TypeIcon: type?.Icon || '',
+          TypeIconUrl: ''  // Will be loaded asynchronously
         };
       });
+
+      // Load icon images asynchronously like Engineers Foundation does
+      this.loadIconImages();
 
       // Process existing services
       this.selectedServices = (services || []).map((service: any) => {
@@ -249,6 +254,7 @@ export class ProjectDetailPage implements OnInit {
           typeId: service.TypeID,
           typeName: offer?.TypeName || 'Unknown Service',
           typeIcon: offer?.TypeIcon || '',
+          typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString()
         };
       });
@@ -735,6 +741,7 @@ export class ProjectDetailPage implements OnInit {
         typeId: offer.TypeID,
         typeName: offer.TypeName || offer.Service_Name || 'Service',
         typeIcon: offer.TypeIcon || '',
+        typeIconUrl: offer.TypeIconUrl || '',  // Include the pre-loaded base64 icon
         dateOfInspection: serviceData.DateOfInspection
       };
       
@@ -2237,28 +2244,34 @@ Troubleshooting:
   private templateProgressCache: { [key: string]: { progress: number; timestamp: number } } = {};
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
+  async loadIconImages() {
+    // Load icon images asynchronously using the same method as Engineers Foundation template
+    for (const offer of this.availableOffers) {
+      if (offer.TypeIcon && offer.TypeIcon.startsWith('/')) {
+        try {
+          // Use the same getImageFromFilesAPI method that Engineers Foundation uses for thumbnails
+          const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
+          if (imageData && imageData.startsWith('data:')) {
+            // Store the base64 data URL
+            offer.TypeIconUrl = imageData;
+
+            // Update any existing services that use this offer
+            this.selectedServices.forEach(service => {
+              if (service.typeId === offer.TypeID) {
+                service.typeIconUrl = imageData;
+              }
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to load icon for ${offer.TypeName}:`, error);
+        }
+      }
+    }
+  }
+
   getIconUrl(iconPath: string): string {
-    if (!iconPath) {
-      return '';
-    }
-
-    // If it's already a full URL, return as-is
-    if (iconPath.startsWith('http://') || iconPath.startsWith('https://')) {
-      return iconPath;
-    }
-
-    // If it's a Caspio file path, construct the URL
-    const account = this.caspioService.getAccountID();
-    const token = this.caspioService.getCurrentToken();
-
-    // Remove leading slash if present for encoding
-    let pathToEncode = iconPath.startsWith('/') ? iconPath.substring(1) : iconPath;
-
-    // URL encode the path to handle spaces and special characters
-    const encodedPath = encodeURIComponent(pathToEncode);
-
-    // Construct the full URL with encoded path
-    return `https://${account}.caspio.com/rest/v2/files/${encodedPath}?access_token=${token}`;
+    // This method is no longer needed - we'll use the pre-loaded base64 URLs instead
+    return '';
   }
 
   getTemplateProgress(service: any): number {
@@ -2437,9 +2450,9 @@ Troubleshooting:
   }
 
   onIconError(event: any, service: any) {
-    const iconUrl = this.getIconUrl(service.typeIcon);
-    const debugInfo = `Icon Load Error:\nService: ${service.typeName}\nIcon Path: ${service.typeIcon}\nConstructed URL: ${iconUrl}\nURL Attempted: ${event.target?.src}`;
-    this.showDebugAlert('Icon Error', debugInfo);
+    // This should rarely be called now since we're using pre-loaded base64 URLs
+    console.error('Icon failed to load for service:', service.typeName);
+    event.target.style.display = 'none'; // Hide broken image
   }
 
   private async showToast(message: string, color: string = 'primary') {
