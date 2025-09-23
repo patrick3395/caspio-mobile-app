@@ -1501,6 +1501,8 @@ export class ProjectDetailPage implements OnInit {
     // If doc has an attachId, fetch the actual file from Caspio
     if (doc.attachId) {
       try {
+        let cancelled = false;
+
         // Create loading alert with cancel button
         const loading = await this.alertController.create({
           header: 'Loading Document',
@@ -1508,8 +1510,10 @@ export class ProjectDetailPage implements OnInit {
           buttons: [
             {
               text: 'Cancel',
+              role: 'cancel',
               handler: () => {
                 console.log('Document loading cancelled by user');
+                cancelled = true;
                 return true; // Allow dismissal
               }
             }
@@ -1518,9 +1522,12 @@ export class ProjectDetailPage implements OnInit {
         });
         await loading.present();
 
-        let cancelled = false;
-        loading.onDidDismiss().then(() => {
-          cancelled = true;
+        // Set up the cancel flag only if user clicks cancel
+        loading.onDidDismiss().then((result) => {
+          // Only mark as cancelled if the user clicked the cancel button
+          if (result.role === 'cancel' || result.data === 'cancelled') {
+            cancelled = true;
+          }
         });
 
         // Get the main attachment
@@ -1533,15 +1540,21 @@ export class ProjectDetailPage implements OnInit {
           return null;
         });
 
-        await loading.dismiss();
+        // Dismiss the loading dialog
+        try {
+          await loading.dismiss();
+        } catch (e) {
+          // Already dismissed
+        }
 
         // If cancelled or failed, return early
-        if (cancelled || !attachment) {
-          if (cancelled) {
-            console.log('Document loading was cancelled');
-          } else {
-            await this.showToast('Failed to load document', 'danger');
-          }
+        if (cancelled) {
+          console.log('Document loading was cancelled by user');
+          return;
+        }
+
+        if (!attachment) {
+          await this.showToast('Failed to load document', 'danger');
           return;
         }
 
@@ -1605,6 +1618,8 @@ export class ProjectDetailPage implements OnInit {
     // View ONLY the selected additional document
     if (additionalFile && additionalFile.attachId) {
       try {
+        let cancelled = false;
+
         // Create loading alert with cancel button
         const loading = await this.alertController.create({
           header: 'Loading Document',
@@ -1612,8 +1627,10 @@ export class ProjectDetailPage implements OnInit {
           buttons: [
             {
               text: 'Cancel',
+              role: 'cancel',
               handler: () => {
                 console.log('Document loading cancelled by user');
+                cancelled = true;
                 return true; // Allow dismissal
               }
             }
@@ -1622,9 +1639,12 @@ export class ProjectDetailPage implements OnInit {
         });
         await loading.present();
 
-        let cancelled = false;
-        loading.onDidDismiss().then(() => {
-          cancelled = true;
+        // Set up the cancel flag only if user clicks cancel
+        loading.onDidDismiss().then((result) => {
+          // Only mark as cancelled if the user clicked the cancel button
+          if (result.role === 'cancel' || result.data === 'cancelled') {
+            cancelled = true;
+          }
         });
 
         // Get only this specific attachment
@@ -1636,15 +1656,21 @@ export class ProjectDetailPage implements OnInit {
           return null;
         });
 
-        await loading.dismiss();
+        // Dismiss the loading dialog
+        try {
+          await loading.dismiss();
+        } catch (e) {
+          // Already dismissed
+        }
 
         // If cancelled or failed, return early
-        if (cancelled || !attachment) {
-          if (cancelled) {
-            console.log('Document loading was cancelled');
-          } else {
-            await this.showToast('Failed to load document', 'danger');
-          }
+        if (cancelled) {
+          console.log('Document loading was cancelled by user');
+          return;
+        }
+
+        if (!attachment) {
+          await this.showToast('Failed to load document', 'danger');
           return;
         }
 
