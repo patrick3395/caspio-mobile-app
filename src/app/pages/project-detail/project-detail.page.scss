@@ -396,16 +396,16 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     background: $white;
 
     &:nth-child(even) {
-      background: lighten($light-gray, 5%);
+      background: #fafafa;  // Light gray for alternating rows
     }
   }
 
   .support-doc-row.doc-row.pending {
-    background: lighten($warning, 45%);
+    background: #fff9f2;  // Light orange/warning background
   }
 
   .support-doc-row.doc-row.no-docs {
-    background: lighten($light-gray, 3%);
+    background: #f8f8f8;  // Very light gray
   }
 
   .support-doc-row.add-row {
