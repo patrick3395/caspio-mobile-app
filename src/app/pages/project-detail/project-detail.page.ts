@@ -2251,12 +2251,14 @@ Troubleshooting:
     const account = this.caspioService.getAccountID();
     const token = this.caspioService.getCurrentToken();
 
-    // Ensure path starts with /
-    const cleanPath = iconPath.startsWith('/') ? iconPath : '/' + iconPath;
+    // Remove leading slash if present for encoding
+    let pathToEncode = iconPath.startsWith('/') ? iconPath.substring(1) : iconPath;
 
-    // Don't encode the entire path - only encode individual segments if needed
-    // The Caspio Files API expects the path as-is, with spaces and special characters
-    return `https://${account}.caspio.com/rest/v2/files${cleanPath}?access_token=${token}`;
+    // URL encode the path to handle spaces and special characters
+    const encodedPath = encodeURIComponent(pathToEncode);
+
+    // Construct the full URL with encoded path
+    return `https://${account}.caspio.com/rest/v2/files/${encodedPath}?access_token=${token}`;
   }
 
   getTemplateProgress(service: any): number {
