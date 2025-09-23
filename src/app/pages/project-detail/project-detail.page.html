@@ -251,33 +251,32 @@
       </div>
       
       <!-- Documents table -->
-      <div *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
-
+      <table *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
         <!-- Dynamic documents based on selected services -->
-        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
+        <tbody *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
           <!-- Service name as a full-width bar -->
-          <div class="service-bar" [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
-            {{ serviceDoc.serviceName }}
-            <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
-              #{{ serviceDoc.instanceNumber }}
-            </span>
-          </div>
+          <tr class="service-header-row">
+            <td colspan="2" class="service-bar" [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
+              {{ serviceDoc.serviceName }}
+              <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
+                #{{ serviceDoc.instanceNumber }}
+              </span>
+            </td>
+          </tr>
+          <!-- Show if no documents -->
+          <tr class="doc-row" *ngIf="serviceDoc.documents.length === 0">
+            <td class="doc-name">
+              <span style="color: #666; font-style: italic;">No required documents</span>
+            </td>
+            <td class="doc-actions"></td>
+          </tr>
 
-          <!-- Documents section under the service bar -->
-          <div class="service-documents">
-            <!-- Show if no documents -->
-            <div class="doc-row" *ngIf="serviceDoc.documents.length === 0">
-              <div class="doc-content">
-                <span style="color: #666; font-style: italic;">No required documents</span>
-              </div>
-            </div>
-
-            <!-- List each document -->
-            <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last"
-                 class="doc-row"
-                 [class.uploaded]="doc.uploaded">
-              <div class="doc-content">
-                <div class="doc-title-content">
+          <!-- List each document -->
+          <tr *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last"
+              class="doc-row"
+              [class.uploaded]="doc.uploaded">
+            <td class="doc-name">
+              <div class="doc-title-content">
                 <span [class.uploaded-text]="doc.uploaded">
                   <ion-icon *ngIf="doc.uploaded" name="checkmark-circle" class="upload-check"></ion-icon>
                   {{ doc.title }}
@@ -289,19 +288,19 @@
                   </a>
                 </div>
               </div>
-              
+
               <!-- Upload button for documents without files -->
-              <ion-button 
+              <ion-button
                 *ngIf="!doc.uploaded && !isReadOnly"
-                size="small" 
-                fill="clear" 
-                color="primary" 
+                size="small"
+                fill="clear"
+                color="primary"
                 class="sleek-upload-btn"
                 (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                 <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
                 Upload Document
               </ion-button>
-              
+
               <!-- Show uploaded document details -->
               <div *ngIf="doc.uploaded" class="uploaded-doc-info">
                 <!-- First file -->
@@ -358,20 +357,34 @@
                   Upload Another
                 </ion-button>
               </div>
+            </td>
+            <td class="doc-actions">
+              <div class="doc-icon-actions">
+                <ion-button *ngIf="doc.uploaded" size="small" fill="clear" color="primary"
+                            (click)="viewDocument(doc)"
+                            title="View">
+                  <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+                <ion-button *ngIf="doc.uploaded && !isReadOnly" size="small" fill="clear" style="--color: #F15A27;"
+                            (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)"
+                            title="Delete">
+                  <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                </ion-button>
               </div>
-            </div>
+            </td>
+          </tr>
 
-            <!-- Add optional documents link -->
-            <div class="doc-row add-doc-row" *ngIf="!isReadOnly">
-              <div class="doc-content">
-                <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
-                  + Add Document
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          <!-- Add optional documents link -->
+          <tr class="add-doc-row" *ngIf="!isReadOnly">
+            <td class="doc-name">
+              <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
+                + Add Document
+              </a>
+            </td>
+            <td class="doc-actions"></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
