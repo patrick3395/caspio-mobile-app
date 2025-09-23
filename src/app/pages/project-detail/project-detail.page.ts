@@ -958,29 +958,20 @@ export class ProjectDetailPage implements OnInit {
 
   // Document management methods
   updateDocumentsList() {
-    // Store existing manually added documents before rebuilding
-    const existingManualDocs: Map<string, DocumentItem[]> = new Map();
+    // Store ALL pending (non-uploaded) documents before rebuilding
+    const pendingDocs: Map<string, DocumentItem[]> = new Map();
     for (const serviceDoc of this.serviceDocuments) {
-      const manualDocs = serviceDoc.documents.filter(doc => {
-        // Check if this is a manually added document
-        // It won't have a templateId, or it's not in the templates
-        const isFromTemplate = this.attachTemplates.some(t => 
-          t.TypeID === parseInt(serviceDoc.typeId) && 
-          t.Title === doc.title
-        );
-        // Only documents not from templates are considered manual
-        return !isFromTemplate;
-      });
-      if (manualDocs.length > 0) {
-        console.log(`📝 Preserving manual docs for ${serviceDoc.serviceName}:`, manualDocs.map(d => d.title));
-        existingManualDocs.set(serviceDoc.serviceId, manualDocs);
+      const pending = serviceDoc.documents.filter(doc => !doc.uploaded);
+      if (pending.length > 0) {
+        console.log(`📝 Preserving pending docs for ${serviceDoc.serviceName}:`, pending.map(d => d.title));
+        pendingDocs.set(serviceDoc.serviceId, pending);
       }
     }
     
     console.log('🔄 DEBUG: Starting loadRequiredDocumentsFromAttach');
     console.log('  - Selected services count:', this.selectedServices.length);
     console.log('  - Previous serviceDocuments count:', this.serviceDocuments.length);
-    console.log('  - Manual docs preserved:', Array.from(existingManualDocs.entries()).map(([id, docs]) => ({ serviceId: id, count: docs.length })));
+    console.log('  - Pending docs preserved:', Array.from(pendingDocs.entries()).map(([id, docs]) => ({ serviceId: id, count: docs.length })));
     
     this.serviceDocuments = [];
     
@@ -1048,36 +1039,18 @@ export class ProjectDetailPage implements OnInit {
         fromTemplates: requiredTemplates.length > 0
       });
       
-      // Add back any manually added documents AND check for their attachments
-      const manualDocs = existingManualDocs.get(serviceDocGroup.serviceId);
-      if (manualDocs) {
-        console.log(`📋 Adding back ${manualDocs.length} manual docs to ${service.typeName}`);
-        // Check if any of these manual docs now have attachments
-        for (const manualDoc of manualDocs) {
-          // Find ALL attachments for this type and title - EXACT match on title
-          const attachments = this.existingAttachments.filter(a => 
-            a.TypeID === parseInt(service.typeId) && 
-            a.Title === manualDoc.title  // Exact match on the document title
-          );
-          
-          if (attachments.length > 0) {
-            console.log(`  ✓ Manual doc "${manualDoc.title}" has ${attachments.length} attachment(s)`);
-            // Update the manual doc with attachment info
-            manualDoc.attachId = attachments[0].AttachID;
-            manualDoc.uploaded = true;
-            manualDoc.filename = attachments[0].Link;
-            manualDoc.linkName = attachments[0].Link;
-            manualDoc.attachmentUrl = attachments[0].Attachment;
-            manualDoc.additionalFiles = attachments.slice(1).map(a => ({
-              attachId: a.AttachID,
-              linkName: a.Link,
-              attachmentUrl: a.Attachment
-            }));
-          } else {
-            console.log(`  - Manual doc "${manualDoc.title}" has no attachments yet`);
+      // Add back any pending documents that haven't been uploaded yet
+      const pending = pendingDocs.get(serviceDocGroup.serviceId);
+      if (pending) {
+        console.log(`📋 Adding back ${pending.length} pending docs to ${service.typeName}`);
+        // Add all pending documents back to the list
+        for (const pendingDoc of pending) {
+          // Only add if not already in the list (avoid duplicates)
+          const exists = documents.some(d => d.title === pendingDoc.title && !d.uploaded);
+          if (!exists) {
+            documents.push(pendingDoc);
           }
         }
-        serviceDocGroup.documents.push(...manualDocs);
       }
       
       // Also check for any attachments that don't match template or default documents
@@ -1454,7 +1427,6 @@ export class ProjectDetailPage implements OnInit {
       const index = serviceDoc.documents.indexOf(doc);
       if (index > -1) {
         serviceDoc.documents.splice(index, 1);
-        await this.showToast('Document removed', 'success');
       }
     }
   }
