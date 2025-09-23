@@ -464,7 +464,8 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 .template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
 
-.template-name{font-size:16px;font-weight:600;color:$dark;
+.template-name{font-size:16px;font-weight:600;color:$dark;display:flex;align-items:center;gap:8px;
+.report-icon{width:20px;height:20px;object-fit:contain;}
 .template-instance{font-weight:400;color:$gray;font-size:14px;margin-left:8px}}
 
 .template-status{display:flex;align-items:center;gap:20px;

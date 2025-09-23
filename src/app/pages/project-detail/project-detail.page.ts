@@ -18,6 +18,7 @@ interface ServiceSelection {
   offersId: string;
   typeId: string;
   typeName: string;
+  typeIcon?: string; // Icon from Types table
   dateOfInspection: string;
   saving?: boolean;
   saved?: boolean;
@@ -318,7 +319,8 @@ export class ProjectDetailPage implements OnInit {
         const result = {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
-          TypeShort: type?.TypeShort || ''
+          TypeShort: type?.TypeShort || '',
+          TypeIcon: type?.Icon || ''
         };
         console.log('🔍 DEBUG: Processed offer:', result);
         return result;
@@ -391,6 +393,7 @@ export class ProjectDetailPage implements OnInit {
           offersId: offer?.OffersID || '', // Get OffersID from the matched offer
           typeId: service.TypeID.toString(),
           typeName: offer?.TypeName || offer?.Service_Name || 'Service',
+          typeIcon: offer?.TypeIcon || '',
           dateOfInspection: service.DateOfInspection || new Date().toISOString()
         };
       });
@@ -676,6 +679,7 @@ export class ProjectDetailPage implements OnInit {
         offersId: offer.OffersID || offer.PK_ID,
         typeId: offer.TypeID,
         typeName: offer.TypeName || offer.Service_Name || 'Service',
+        typeIcon: offer.TypeIcon || '',
         dateOfInspection: serviceData.DateOfInspection
       };
       
@@ -2165,6 +2169,25 @@ Troubleshooting:
   // Cache for template progress to avoid repeated API calls
   private templateProgressCache: { [key: string]: { progress: number; timestamp: number } } = {};
   private readonly CACHE_DURATION = 60000; // 1 minute cache
+
+  getIconUrl(iconPath: string): string {
+    if (!iconPath) {
+      return '';
+    }
+
+    // If it's already a full URL, return as-is
+    if (iconPath.startsWith('http://') || iconPath.startsWith('https://')) {
+      return iconPath;
+    }
+
+    // If it's a Caspio file path, construct the URL
+    const account = this.caspioService.getAccountID();
+    const token = this.caspioService.getCurrentToken();
+
+    // Encode the path properly
+    const encodedPath = encodeURIComponent(iconPath);
+    return `https://${account}.caspio.com/rest/v2/files${iconPath.startsWith('/') ? '' : '/'}${encodedPath}?access_token=${token}`;
+  }
 
   getTemplateProgress(service: any): number {
     // For Engineers Foundation Evaluation, check actual data completion

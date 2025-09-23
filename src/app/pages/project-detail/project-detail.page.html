@@ -82,17 +82,7 @@
 
     <!-- Reports Section -->
     <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
-      <div class="section-header-with-button">
-        <h2 class="section-title">Reports</h2>
-        <ion-button
-          *ngIf="!isReadOnly"
-          size="small"
-          color="tertiary"
-          (click)="generateServicePDF()">
-          <ion-icon name="document-text-outline" slot="start"></ion-icon>
-          Generate PDF Report
-        </ion-button>
-      </div>
+      <h2 class="section-title">Reports</h2>
 
       <div class="templates-container">
         <div *ngFor="let service of getServicesForTemplates()"
@@ -107,20 +97,13 @@
           <!-- Service name and info overlay -->
           <div class="template-content">
             <div class="template-name">
+              <img *ngIf="service.typeIcon" [src]="getIconUrl(service.typeIcon)" class="report-icon" alt="">
               {{ service.typeName }}
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 (Instance {{ getServiceInstanceNumber(service) }})
               </span>
             </div>
 
-            <div class="template-status">
-              <span class="template-percentage"
-                    [class.complete]="getTemplateProgress(service) === 100"
-                    [class.high]="getTemplateProgress(service) >= 75 && getTemplateProgress(service) < 100"
-                    [class.medium]="getTemplateProgress(service) >= 50 && getTemplateProgress(service) < 75"
-                    [class.low]="getTemplateProgress(service) > 0 && getTemplateProgress(service) < 50"
-                    [class.empty]="getTemplateProgress(service) === 0">{{ getTemplateProgress(service) }}%</span>
-            </div>
           </div>
         </div>
       </div>
