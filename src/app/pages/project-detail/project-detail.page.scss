@@ -292,133 +292,73 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .documents-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid #ccc;
+  border: 1px solid #3d3d3d;
   margin-top: 10px;
   background: white;
 
-  td {
-    border: 1px solid #ccc;
-    padding: 12px;
-    vertical-align: top;
+  tbody {
+    border-bottom: 1px solid #3d3d3d;
   }
 
-  // Service name cell (left column)
-  .service-name-cell {
-    width: 30%;
-    background: #6c757d;
-    color: white;
-    font-weight: 600;
+  td {
+    border: 1px solid #3d3d3d;
+    padding: 10px 12px;
     font-size: 14px;
-    position: relative;
+    vertical-align: middle;
+  }
 
-    .service-name-content {
-      margin-bottom: 20px;
-    }
+  .support-doc-row.doc-row .doc-title-cell,
+  .support-doc-row.doc-row.no-docs .doc-title-cell {
+    background: #e5e5e5;
+    font-weight: 600;
+    color: #333;
+  }
 
-    .service-icons {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      display: flex;
-      gap: 8px;
+  .support-doc-row.add-row .doc-title-cell {
+    background: #f8f8f8;
+    font-weight: 500;
+    color: #333;
+  }
 
-      ion-button {
-        --padding-start: 4px;
-        --padding-end: 4px;
-        margin: 0;
+  .doc-title-cell {
+    width: 70%;
+  }
 
-        ion-icon {
-          color: white;
-          font-size: 20px;
-        }
+  .doc-actions-cell {
+    width: 30%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    text-align: right;
+
+    ion-button {
+      --padding-start: 4px;
+      --padding-end: 4px;
+      margin: 0;
+
+      ion-icon {
+        font-size: 18px;
+        color: #3d3d3d;
       }
     }
-  }
-
-  // Document cell (right column)
-  .doc-cell {
-    width: 70%;
-    background: white;
 
     .no-docs-text {
-      color: #999;
-      font-style: italic;
+      font-size: 13px;
+      color: #666;
     }
+  }
 
-    .uploaded-doc {
-      .doc-title {
-        font-weight: 500;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+  .add-doc-link {
+    color: var(--noble-orange, #F15A27);
+    font-weight: 600;
+    text-decoration: none;
+  }
 
-        .check-icon {
-          color: #28a745;
-          font-size: 16px;
-        }
-      }
-
-      .doc-filename {
-        color: #666;
-        font-size: 13px;
-        margin-left: 22px;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-
-        ion-icon {
-          font-size: 14px;
-        }
-      }
-
-      .upload-another {
-        color: #ff6b35;
-        text-decoration: none;
-        font-size: 14px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-left: 22px;
-        cursor: pointer;
-
-        ion-icon {
-          font-size: 16px;
-        }
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
-    }
-
-    .pending-doc {
-      .doc-title {
-        margin-bottom: 8px;
-      }
-
-      ion-button {
-        --padding-start: 0;
-        --padding-end: 8px;
-        font-size: 14px;
-        height: auto;
-      }
-    }
-
-    .add-doc-link {
-      color: #007bff;
-      text-decoration: none;
-      font-size: 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
+  .add-doc-link.disabled {
+    color: #bbb;
+    cursor: default;
+    pointer-events: none;
   }
 }
 
