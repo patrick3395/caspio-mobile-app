@@ -189,7 +189,7 @@ export class ProjectDetailPage implements OnInit {
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
 
       // Now load everything else with individual error handling
-      let offers, types, services, attachTemplates, existingAttachments;
+      let offers: any, types: any, services: any, attachTemplates: any, existingAttachments: any;
 
       try {
         console.log('📍 Loading offers for company 1...');
