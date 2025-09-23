@@ -252,42 +252,31 @@
       
       <!-- Documents table -->
       <div *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
-        <div class="doc-header">
-          <div>Service</div>
-          <div>Document</div>
-        </div>
-        
+
         <!-- Dynamic documents based on selected services -->
-        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group" [attr.data-row-count]="serviceDoc.documents.length + 1">
-          <!-- Always show service name, even if no documents -->
-          <div class="doc-row" *ngIf="serviceDoc.documents.length === 0">
-            <div class="doc-service" [style.grid-row]="'span 2'">
-              <div [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
-                {{ serviceDoc.serviceName }}
-                <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
-                  #{{ serviceDoc.instanceNumber }}
-                </span>
-              </div>
-            </div>
-            <div class="doc-content">
-              <span style="color: #666; font-style: italic;">No required documents</span>
-            </div>
+        <div *ngFor="let serviceDoc of serviceDocuments" class="service-doc-group">
+          <!-- Service name as a full-width bar -->
+          <div class="service-bar" [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
+            {{ serviceDoc.serviceName }}
+            <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
+              #{{ serviceDoc.instanceNumber }}
+            </span>
           </div>
-          
-          <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last" 
-               class="doc-row" 
-               [class.uploaded]="doc.uploaded"
-               [class.first-row]="isFirst">
-            <div class="doc-service" *ngIf="isFirst" [style.grid-row]="'span ' + (serviceDoc.documents.length + 1)">
-              <div [class.all-docs-uploaded]="areAllRequiredDocsUploaded(serviceDoc)">
-                {{ serviceDoc.serviceName }}
-                <span *ngIf="serviceDoc.instanceNumber > 1" class="instance-badge">
-                  #{{ serviceDoc.instanceNumber }}
-                </span>
+
+          <!-- Documents section under the service bar -->
+          <div class="service-documents">
+            <!-- Show if no documents -->
+            <div class="doc-row" *ngIf="serviceDoc.documents.length === 0">
+              <div class="doc-content">
+                <span style="color: #666; font-style: italic;">No required documents</span>
               </div>
             </div>
-            <div class="doc-service-placeholder" *ngIf="!isFirst"></div>
-            <div class="doc-content">
+
+            <!-- List each document -->
+            <div *ngFor="let doc of serviceDoc.documents; let isFirst = first; let isLast = last"
+                 class="doc-row"
+                 [class.uploaded]="doc.uploaded">
+              <div class="doc-content">
               <div class="doc-title-content">
                 <span [class.uploaded-text]="doc.uploaded">
                   <ion-icon *ngIf="doc.uploaded" name="checkmark-circle" class="upload-check"></ion-icon>
@@ -370,15 +359,14 @@
                 </ion-button>
               </div>
             </div>
-          </div>
-          
-          <!-- Add optional documents link -->
-          <div class="doc-row add-doc-row" *ngIf="!isReadOnly">
-            <div></div>
-            <div class="doc-content">
-              <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
-                + Add Document
-              </a>
+
+            <!-- Add optional documents link -->
+            <div class="doc-row add-doc-row" *ngIf="!isReadOnly">
+              <div class="doc-content">
+                <a (click)="showOptionalDocuments(serviceDoc)" class="add-doc-link">
+                  + Add Document
+                </a>
+              </div>
             </div>
           </div>
         </div>

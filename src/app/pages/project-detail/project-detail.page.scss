@@ -290,24 +290,69 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 .documents-table,.templates-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden}
 
-.doc-header,.template-header{display:grid;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
->div{padding:12px;display:flex;align-items:center}}
+// Service bar styling - full width header for each service
+.service-bar {
+  background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #333;
+  border-bottom: 2px solid $border;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
-.doc-header{grid-template-columns:30% 70%;
->div:first-child{font-weight:700}}
+  &.all-docs-uploaded {
+    color: #28a745;
+    background: linear-gradient(135deg, #f0f8f0, #e8f5e8);
+  }
+
+  .instance-badge {
+    background: #6c757d;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
+// Service documents container
+.service-documents {
+  padding: 16px;
+  background: white;
+}
+
+// Document group separator (between services)
+.service-doc-group {
+  &:not(:last-child) {
+    border-bottom: 3px solid $border;
+  }
+}
+
+.template-header{display:grid;background:$light-gray;font-weight:600;font-size:14px;border-bottom:2px solid $border;
+>div{padding:12px;display:flex;align-items:center}}
 .template-header{grid-template-columns:2fr 1fr 1fr}
 
 .doc-row,.template-row{display:grid;border-bottom:1px solid $border;
 >*{padding:12px;font-size:14px}}
 
 .documents-table{margin-top:10px;border:1px solid $border;border-radius:8px;overflow:hidden;max-width:100%;
-.doc-row{min-height:48px;
->div{font-size:14px;padding:10px 12px;overflow:hidden;word-wrap:break-word}
-.doc-service{font-weight:600;display:flex;align-items:center;padding-top:20px!important;word-break:break-word;min-width:0;
->div{overflow:hidden;word-wrap:break-word;word-break:break-word;white-space:normal;max-width:100%;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
-.instance-badge{flex-shrink:0}}}
-// Service name IN REQUIRED DOCS TABLE shows in black - no green colors
-.doc-service > div.all-docs-uploaded{color:#28a745 !important;font-weight:700 !important;}
+.doc-row{
+  min-height:48px;
+  display: block;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .doc-content {
+    padding-left: 0;
+    width: 100%;
+  }
+}
 .doc-title{word-break:break-word;min-width:0;
 .doc-title-content{display:flex;flex-direction:column;gap:4px;word-break:break-word;min-width:0}
 .uploaded-text{
