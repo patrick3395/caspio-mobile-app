@@ -292,41 +292,54 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
 // Service bar styling - full width header for each service
 .service-bar {
-  background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
-  padding: 12px 16px;
+  background: linear-gradient(135deg, #e0e0e0, #d0d0d0);
+  padding: 18px 20px;
   font-weight: 700;
-  font-size: 15px;
-  color: #333;
-  border-bottom: 2px solid $border;
+  font-size: 16px;
+  color: #2c2c2c;
+  border-bottom: 3px solid #bbb;
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 56px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 
   &.all-docs-uploaded {
     color: #28a745;
-    background: linear-gradient(135deg, #f0f8f0, #e8f5e8);
+    background: linear-gradient(135deg, #e8f5e8, #d4edd4);
+    border-bottom-color: #28a745;
   }
 
   .instance-badge {
     background: #6c757d;
     color: white;
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 12px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
   }
 }
 
 // Service documents container
 .service-documents {
-  padding: 16px;
-  background: white;
+  padding: 20px;
+  background: #fafafa;
+  border-left: 3px solid transparent;
+
+  .service-bar.all-docs-uploaded + & {
+    border-left-color: #28a745;
+  }
 }
 
 // Document group separator (between services)
 .service-doc-group {
   &:not(:last-child) {
-    border-bottom: 3px solid $border;
+    border-bottom: 5px solid #ccc;
+    margin-bottom: 0;
+  }
+
+  &:not(:first-child) {
+    margin-top: 0;
   }
 }
 
@@ -341,11 +354,27 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .doc-row{
   min-height:48px;
   display: block;
-  border-bottom: 1px solid #f0f0f0;
-  padding: 12px 0;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 14px 0;
+  margin-left: 20px;
+  position: relative;
 
   &:last-child {
     border-bottom: none;
+  }
+
+  &:before {
+    content: '•';
+    position: absolute;
+    left: -15px;
+    top: 14px;
+    color: #999;
+    font-size: 16px;
+  }
+
+  &.uploaded:before {
+    content: '✓';
+    color: #28a745;
   }
 
   .doc-content {
