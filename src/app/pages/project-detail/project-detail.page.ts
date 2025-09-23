@@ -1039,24 +1039,44 @@ export class ProjectDetailPage implements OnInit {
         fromTemplates: requiredTemplates.length > 0
       });
       
-      // Add back any pending documents that haven't been uploaded yet
+      // Add back any pending documents and check if they've been uploaded
       const pending = pendingDocs.get(serviceDocGroup.serviceId);
       if (pending) {
         console.log(`📋 Adding back ${pending.length} pending docs to ${service.typeName}`);
         // Add all pending documents back to the list
         for (const pendingDoc of pending) {
-          // Only add if not already in the list (avoid duplicates)
-          const exists = documents.some(d => d.title === pendingDoc.title && !d.uploaded);
-          if (!exists) {
-            documents.push(pendingDoc);
+          // Check if this pending document has now been uploaded
+          const uploadedAttachment = this.existingAttachments.find(a =>
+            a.TypeID === parseInt(service.typeId) &&
+            a.Title === pendingDoc.title
+          );
+
+          if (uploadedAttachment) {
+            // Document has been uploaded! Update it with attachment info
+            console.log(`✅ Pending doc "${pendingDoc.title}" has been uploaded`);
+            const updatedDoc = {
+              ...pendingDoc,
+              uploaded: true,
+              attachId: uploadedAttachment.AttachID,
+              filename: uploadedAttachment.Link,
+              linkName: uploadedAttachment.Link,
+              attachmentUrl: uploadedAttachment.Attachment
+            };
+            documents.push(updatedDoc);
+          } else {
+            // Still pending, add as-is if not already in the list
+            const exists = documents.some(d => d.title === pendingDoc.title);
+            if (!exists) {
+              documents.push(pendingDoc);
+            }
           }
         }
       }
       
       // Also check for any attachments that don't match template or default documents
       // These could be manually added docs that were uploaded
-      // Build a Set of titles that are already accounted for
-      const accountedTitles = new Set(serviceDocGroup.documents.map(d => d.title));
+      // Build a Set of titles that are already accounted for - need to rebuild after adding pending docs
+      const accountedTitles = new Set(documents.map(d => d.title));
       
       console.log(`📊 Documents already accounted for in ${service.typeName}:`, Array.from(accountedTitles));
       console.log(`📎 Existing attachments for TypeID ${service.typeId}:`, 
