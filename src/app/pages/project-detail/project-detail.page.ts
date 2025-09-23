@@ -1447,6 +1447,18 @@ export class ProjectDetailPage implements OnInit {
     await confirm.present();
   }
 
+  async removePendingDocument(serviceId: string, doc: DocumentItem) {
+    // Find the service in serviceDocuments and remove the pending document
+    const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
+    if (serviceDoc) {
+      const index = serviceDoc.documents.indexOf(doc);
+      if (index > -1) {
+        serviceDoc.documents.splice(index, 1);
+        await this.showToast('Document removed', 'success');
+      }
+    }
+  }
+
   async deleteAdditionalFile(serviceId: string, additionalFile: any) {
     // Show confirmation
     const confirm = await this.alertController.create({

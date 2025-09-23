@@ -285,6 +285,10 @@
                               (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                     <ion-icon name="cloud-upload-outline"></ion-icon>
                   </ion-button>
+                  <ion-button size="small" fill="clear" color="dark" *ngIf="!isReadOnly"
+                              (click)="removePendingDocument(serviceDoc.serviceId, doc)">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </ion-button>
                 </ng-template>
               </td>
             </tr>
