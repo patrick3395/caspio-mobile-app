@@ -10,9 +10,15 @@
 
 <ion-content>
   <!-- Loading state -->
-  <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading project...</p>
+  <div *ngIf="loading" class="project-skeleton">
+    <ion-skeleton-text animated class="skeleton-hero"></ion-skeleton-text>
+    <div class="skeleton-section" *ngFor="let _ of [0,1,2,3]">
+      <ion-skeleton-text animated class="skeleton-title"></ion-skeleton-text>
+      <div class="skeleton-row" *ngFor="let __ of [0,1,2]">
+        <ion-skeleton-text animated class="skeleton-label"></ion-skeleton-text>
+        <ion-skeleton-text animated class="skeleton-value"></ion-skeleton-text>
+      </div>
+    </div>
   </div>
 
   <!-- Error state -->
@@ -85,7 +91,7 @@
       <h2 class="section-title">Reports</h2>
 
       <div class="templates-container">
-        <div *ngFor="let service of getServicesForTemplates()"
+        <div *ngFor="let service of getServicesForTemplates(); trackBy: trackTemplateService"
              class="template-bar"
              (click)="handleTemplateClick(service, $event)">
 
@@ -252,7 +258,7 @@
       
       <!-- Documents table -->
       <table *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
-        <tbody *ngFor="let serviceDoc of serviceDocuments" class="support-doc-group">
+        <tbody *ngFor="let serviceDoc of serviceDocuments; trackBy: trackServiceDocument" class="support-doc-group">
           <tr class="support-doc-row service-row">
             <td class="service-header" colspan="2">
               {{ serviceDoc.serviceName }}
@@ -260,7 +266,7 @@
           </tr>
 
           <ng-container *ngIf="serviceDoc.documents.length > 0; else noServiceDocuments">
-            <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents" [class.pending]="!doc.uploaded">
+            <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents; trackBy: trackDocument" [class.pending]="!doc.uploaded">
               <td class="doc-info-cell">
                 <div class="doc-title">{{ doc.title }}</div>
                 <div class="doc-filename" *ngIf="doc.uploaded && (doc.linkName || doc.filename)">

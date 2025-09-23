@@ -18,6 +18,7 @@
   <div class="search-container">
     <ion-searchbar 
       [(ngModel)]="searchTerm" 
+      (ionInput)="handleSearchTermChange($event.detail.value)"
       placeholder="Search by address..."
       class="enhanced-search-bar"
       showClearButton="focus"
@@ -42,38 +43,42 @@
     <div *ngIf="!loading && !error">
       
       <!-- Completed Projects Section -->
-      <div class="status-section" *ngIf="getProjectsByStatus(2).length > 0">
+      <div class="status-section" *ngIf="completedProjects.length">
         <h3 class="section-title">
           <ion-icon name="checkmark-circle" color="success"></ion-icon>
-          Completed ({{ getProjectsByStatus(2).length }})
+          Completed ({{ completedProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of getProjectsByStatus(2)" (click)="selectProject(project)">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-            </div>
-            <div class="project-details">
-              <div class="project-address">{{ formatAddress(project) }}</div>
-              <div class="project-info">
-                <span class="project-id">{{ formatProjectId(project) }}</span>
-                <span class="status-text completed">Completed</span>
+          <ion-virtual-scroll [items]="completedProjects" approxItemHeight="112px" [trackBy]="trackByProject">
+            <ng-container *virtualItem="let project">
+              <div class="project-item" (click)="selectProject(project)">
+                <div class="project-image">
+                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                </div>
+                <div class="project-details">
+                  <div class="project-address">{{ formatAddress(project) }}</div>
+                  <div class="project-info">
+                    <span class="project-id">{{ formatProjectId(project) }}</span>
+                    <span class="status-text completed">Completed</span>
+                  </div>
+                  <div class="project-date" *ngIf="project['DateCompleted']">
+                    Completed: {{ project['DateCompleted'] | date:'shortDate' }}
+                  </div>
+                </div>
               </div>
-              <div class="project-date" *ngIf="project['DateCompleted']">
-                Completed: {{ project['DateCompleted'] | date:'shortDate' }}
-              </div>
-            </div>
-          </div>
+            </ng-container>
+          </ion-virtual-scroll>
         </div>
       </div>
 
       <!-- On Hold Projects Section -->
-      <div class="status-section" *ngIf="getProjectsByStatus(4).length > 0">
+      <div class="status-section" *ngIf="onHoldProjects.length">
         <h3 class="section-title">
           <ion-icon name="pause-circle" color="warning"></ion-icon>
-          On Hold ({{ getProjectsByStatus(4).length }})
+          On Hold ({{ onHoldProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of getProjectsByStatus(4)" (click)="selectProject(project)">
+          <div class="project-item" *ngFor="let project of onHoldProjects; trackBy: trackByProject" (click)="selectProject(project)">
             <div class="project-image">
               <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
             </div>
@@ -92,13 +97,13 @@
       </div>
 
       <!-- Cancelled Projects Section -->
-      <div class="status-section" *ngIf="getProjectsByStatus(3).length > 0">
+      <div class="status-section" *ngIf="cancelledProjects.length">
         <h3 class="section-title">
           <ion-icon name="close-circle" color="danger"></ion-icon>
-          Cancelled ({{ getProjectsByStatus(3).length }})
+          Cancelled ({{ cancelledProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of getProjectsByStatus(3)" (click)="selectProject(project)">
+          <div class="project-item" *ngFor="let project of cancelledProjects; trackBy: trackByProject" (click)="selectProject(project)">
             <div class="project-image">
               <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
             </div>
@@ -117,13 +122,13 @@
       </div>
 
       <!-- Other/Archived Projects Section -->
-      <div class="status-section" *ngIf="getOtherProjects().length > 0">
+      <div class="status-section" *ngIf="archivedProjects.length">
         <h3 class="section-title">
           <ion-icon name="archive" color="medium"></ion-icon>
-          Archived ({{ getOtherProjects().length }})
+          Archived ({{ archivedProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of getOtherProjects()" (click)="selectProject(project)">
+          <div class="project-item" *ngFor="let project of archivedProjects; trackBy: trackByProject" (click)="selectProject(project)">
             <div class="project-image">
               <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
             </div>
@@ -142,7 +147,7 @@
       </div>
 
       <!-- Empty state -->
-      <div class="empty-state" *ngIf="projects.length === 0">
+      <div class="empty-state" *ngIf="filteredProjects.length === 0">
         <ion-icon name="folder-open-outline"></ion-icon>
         <p>No projects found</p>
       </div>

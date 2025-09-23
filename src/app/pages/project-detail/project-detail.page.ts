@@ -5,12 +5,13 @@ import { CaspioService } from '../../services/caspio.service';
 import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
-import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { ImageCompressionService } from '../../services/image-compression.service';
-import { PdfPreviewComponent } from '../../components/pdf-preview/pdf-preview.component';
 import { EngineersFoundationDataService } from '../engineers-foundation/engineers-foundation-data.service';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+
+type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
+type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 
 interface ServiceSelection {
   instanceId: string;
@@ -93,6 +94,27 @@ export class ProjectDetailPage implements OnInit {
   
   // Navigation flag to prevent double-clicks
   isNavigating = false;
+
+  private documentViewerComponent?: DocumentViewerCtor;
+  private pdfPreviewComponent?: PdfPreviewCtor;
+  private templateServicesCache: ServiceSelection[] = [];
+  private templateServicesCacheKey = '';
+
+  private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
+    if (!this.documentViewerComponent) {
+      const module = await import('../../components/document-viewer/document-viewer.component');
+      this.documentViewerComponent = module.DocumentViewerComponent;
+    }
+    return this.documentViewerComponent;
+  }
+
+  private async loadPdfPreview(): Promise<PdfPreviewCtor> {
+    if (!this.pdfPreviewComponent) {
+      const module = await import('../../components/pdf-preview/pdf-preview.component');
+      this.pdfPreviewComponent = module.PdfPreviewComponent;
+    }
+    return this.pdfPreviewComponent;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -875,18 +897,33 @@ export class ProjectDetailPage implements OnInit {
   }
 
   getServicesForTemplates(): ServiceSelection[] {
-    // Filter out services that don't need templates
-    const filtered = this.selectedServices.filter(service => {
-      const name = service.typeName?.toLowerCase() || '';
-      // Exclude Defect Cost Report and Engineers Inspection Review
-      return !name.includes('defect cost report') &&
-             !name.includes('engineers inspection review') &&
-             !name.includes('engineer\'s inspection review');
-    });
+    const cacheKey = this.selectedServices
+      .map(service => `${service.offersId}:${service.instanceId}:${service.serviceId ?? ''}`)
+      .join('|');
 
-    // Debug: Show first service icon data
+    if (cacheKey !== this.templateServicesCacheKey) {
+      this.templateServicesCacheKey = cacheKey;
+      this.templateServicesCache = this.selectedServices.filter(service => {
+        const name = service.typeName?.toLowerCase() || '';
+        return !name.includes('defect cost report') &&
+               !name.includes('engineers inspection review') &&
+               !name.includes("engineer's inspection review");
+      });
+    }
 
-    return filtered;
+    return this.templateServicesCache;
+  }
+
+  trackTemplateService(_: number, service: ServiceSelection) {
+    return `${service.offersId}-${service.instanceId}`;
+  }
+
+  trackServiceDocument(_: number, group: ServiceDocumentGroup) {
+    return `${group.serviceId}-${group.instanceNumber}`;
+  }
+
+  trackDocument(_: number, doc: DocumentItem) {
+    return doc.attachId || doc.title;
   }
 
 
@@ -1582,6 +1619,7 @@ export class ProjectDetailPage implements OnInit {
           if (isPDF) {
             console.log('📑 Opening PDF with DocumentViewerComponent');
             // Use DocumentViewerComponent for PDFs
+            const DocumentViewerComponent = await this.loadDocumentViewer();
             const modal = await this.modalController.create({
               component: DocumentViewerComponent,
               componentProps: {
@@ -1698,6 +1736,7 @@ export class ProjectDetailPage implements OnInit {
           if (isPDF) {
             console.log('📑 Opening PDF with DocumentViewerComponent');
             // Use DocumentViewerComponent for PDFs
+            const DocumentViewerComponent = await this.loadDocumentViewer();
             const modal = await this.modalController.create({
               component: DocumentViewerComponent,
               componentProps: {
@@ -3422,6 +3461,7 @@ Time: ${debugInfo.timestamp}
 
   private async presentPdfModal(projectInfo: any, structuralData: any[], elevationData: any[], serviceRecord: any): Promise<void> {
     try {
+      const PdfPreviewComponent = await this.loadPdfPreview();
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
         componentProps: {

@@ -27,7 +27,15 @@ ion-header {
 
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
-.loading-container,.error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
+.error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
+
+.project-skeleton{display:grid;gap:16px;padding:16px;background:$light-gray;}
+.project-skeleton .skeleton-hero{height:200px;border-radius:16px;}
+.project-skeleton .skeleton-section{background:$white;border-radius:12px;padding:16px;display:grid;gap:12px;box-shadow:0 2px 6px rgba(0,0,0,0.04);}
+.project-skeleton .skeleton-title{width:40%;height:18px;}
+.project-skeleton .skeleton-row{display:grid;grid-template-columns:120px 1fr;gap:12px;}
+.project-skeleton .skeleton-label,.project-skeleton .skeleton-value{height:14px;}
+
 
 // Template loading popup
 ::ng-deep .template-loading {

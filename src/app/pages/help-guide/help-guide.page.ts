@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
-import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
+
+type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
 interface FileItem {
   FileID: number;
@@ -33,6 +34,16 @@ export class HelpGuidePage implements OnInit {
   error = '';
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
   selectedTab = 'help'; // Default to help tab
+  private documentViewerComponent?: DocumentViewerCtor;
+
+
+  private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
+    if (!this.documentViewerComponent) {
+      const module = await import('../../components/document-viewer/document-viewer.component');
+      this.documentViewerComponent = module.DocumentViewerComponent;
+    }
+    return this.documentViewerComponent;
+  }
 
   constructor(
     private caspioService: CaspioService,
@@ -175,6 +186,7 @@ export class HelpGuidePage implements OnInit {
     const url = await this.getFileUrl(file.FileFile);
     if (url) {
       const modal = await this.modalController.create({
+        const DocumentViewerComponent = await this.loadDocumentViewer();
         component: DocumentViewerComponent,
         componentProps: {
           fileUrl: url,
@@ -214,3 +226,4 @@ export class HelpGuidePage implements OnInit {
     event.target.src = 'assets/img/video-placeholder.png';
   }
 }
+

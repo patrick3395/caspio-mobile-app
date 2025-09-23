@@ -284,11 +284,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('🎨 [v1.4.237 FABRIC] Initializing Fabric.js photo annotator');
-    console.log('📥 [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('ðŸŽ¨ [v1.4.237 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('ðŸ“¥ [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
   }
   
-  ngAfterViewInit() {
+  async ngAfterViewInit() {
+    await ensureFabricLoaded();
     setTimeout(() => this.initializeFabricCanvas(), 100);
     
     // Add keyboard listener for delete key
@@ -308,12 +309,13 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.canvas.remove(activeObject);
         this.canvas.discardActiveObject();
         this.canvas.renderAll();
-        console.log('🗑️ Deleted selected annotation');
+        console.log('ðŸ—‘ï¸ Deleted selected annotation');
       }
     }
   }
   
   async initializeFabricCanvas() {
+    await ensureFabricLoaded();
     if (!this.canvasElement) {
       console.error('Canvas element not found');
       return;
@@ -358,12 +360,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             : Object.keys(this.existingAnnotations).length > 0;
             
           if (hasAnnotations) {
-            console.log('📋 [v1.4.237 FABRIC] Found existing annotations to load:', this.existingAnnotations);
+            console.log('ðŸ“‹ [v1.4.237 FABRIC] Found existing annotations to load:', this.existingAnnotations);
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
         
-        console.log('✅ [v1.4.237 FABRIC] Canvas initialized with image');
+        console.log('âœ… [v1.4.237 FABRIC] Canvas initialized with image');
       });
     }
     
@@ -558,7 +560,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
       this.isDrawing = false;
       
-      console.log(`📊 [v1.4.233 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
+      console.log(`ðŸ“Š [v1.4.233 FABRIC] Total annotations: ${this.getAnnotationCount()}`);
     });
     
     // Add double-click handler for editing text
@@ -647,7 +649,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         }
       });
       this.canvas.renderAll();
-      console.log(`✋ [v1.4.252] Selection mode enabled - ${this.canvas.getObjects().length} objects selectable`);
+      console.log(`âœ‹ [v1.4.252] Selection mode enabled - ${this.canvas.getObjects().length} objects selectable`);
     } else {
       // Disable selection for drawing tools
       this.canvas.isDrawingMode = false;
@@ -658,7 +660,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.canvas.renderAll();
     }
     
-    console.log(`🔧 [v1.4.252] Tool selected: ${tool}`);
+    console.log(`ðŸ”§ [v1.4.252] Tool selected: ${tool}`);
   }
   
   selectTool(event: any) {
@@ -672,7 +674,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (this.canvas.freeDrawingBrush) {
       this.canvas.freeDrawingBrush.color = this.currentColor;
     }
-    console.log(`🎨 [v1.4.233 FABRIC] Color changed to: ${this.currentColor}`);
+    console.log(`ðŸŽ¨ [v1.4.233 FABRIC] Color changed to: ${this.currentColor}`);
   }
   
   undo() {
@@ -682,7 +684,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       const lastObject = objects[objects.length - 1];
       if (!(lastObject instanceof fabric.Image)) {
         this.canvas.remove(lastObject);
-        console.log(`↩️ [v1.4.233 FABRIC] Undo - removed last annotation`);
+        console.log(`â†©ï¸ [v1.4.233 FABRIC] Undo - removed last annotation`);
       }
     }
   }
@@ -696,7 +698,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
     });
     this.canvas.renderAll();
-    console.log(`🗑️ [v1.4.233 FABRIC] Cleared all annotations`);
+    console.log(`ðŸ—‘ï¸ [v1.4.233 FABRIC] Cleared all annotations`);
   }
   
   deleteSelected() {
@@ -705,9 +707,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.canvas.remove(activeObject);
       this.canvas.discardActiveObject();
       this.canvas.renderAll();
-      console.log('🗑️ Deleted selected annotation');
+      console.log('ðŸ—‘ï¸ Deleted selected annotation');
     } else {
-      console.log('⚠️ No annotation selected to delete');
+      console.log('âš ï¸ No annotation selected to delete');
     }
   }
   
@@ -769,7 +771,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             this.canvas.backgroundImage = img;
             this.canvas.renderAll();
 
-            console.log('✅ [Annotations] Background image restored');
+            console.log('âœ… [Annotations] Background image restored');
           }).catch(error => console.error('[Annotations] Failed to restore background image', error));
         }
 
@@ -794,14 +796,14 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           this.canvas.selection = true;
           this.canvas.renderAll();
 
-          console.log('✅ [Annotations] Loaded ' + annotationObjects.length + ' annotations into edit mode');
+          console.log('âœ… [Annotations] Loaded ' + annotationObjects.length + ' annotations into edit mode');
         }, 500);
       });
 
       this.currentTool = 'select';
       this.setTool('select');
     } catch (error) {
-      console.error('❌ [Annotations] Error loading existing annotations:', error);
+      console.error('âŒ [Annotations] Error loading existing annotations:', error);
     }
   }
   async save() {

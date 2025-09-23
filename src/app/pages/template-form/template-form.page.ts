@@ -5,9 +5,8 @@ import { IonicModule, ModalController, ToastController, LoadingController } from
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
-import { DocumentViewerComponent } from '../../components/document-viewer/document-viewer.component';
 import { Subject, timer } from 'rxjs';
-import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';\n\ntype DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
 @Component({
   selector: 'app-template-form',
@@ -29,6 +28,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   private autoSaveSubject = new Subject<{field: string, value: any}>();
   saveStatus: string = '';
   saveStatusType: 'info' | 'success' | 'error' = 'info';
+
+  private documentViewerComponent?: DocumentViewerCtor;
+
   
   // Field completion tracking
   fieldStates: { [key: string]: boolean } = {};
@@ -126,6 +128,14 @@ export class TemplateFormPage implements OnInit, OnDestroy {
 
   selectedFiles: { [key: string]: File | null } = {};
 
+  private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
+    if (!this.documentViewerComponent) {
+      const module = await import('../../components/document-viewer/document-viewer.component');
+      this.documentViewerComponent = module.DocumentViewerComponent;
+    }
+    return this.documentViewerComponent;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private caspioService: CaspioService,
@@ -150,7 +160,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     this.offersId = this.route.snapshot.paramMap.get('offersId') || '';
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     
-    console.log('📋 Template Form initialized with:', {
+    console.log('Ã°Å¸â€œâ€¹ Template Form initialized with:', {
       offersId: this.offersId,
       projectId: this.projectId
     });
@@ -183,7 +193,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (!this.documentAttachIds) this.documentAttachIds = {};
     if (!this.additionalDocuments) this.additionalDocuments = [];
     
-    console.log('📄 Document tracking initialized:', this.documentStatus);
+    console.log('Ã°Å¸â€œâ€ž Document tracking initialized:', this.documentStatus);
   }
   
   ngOnDestroy() {
@@ -425,7 +435,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
           
           if (result?.success) {
             this.showSaveStatus('File uploaded', 'success');
-            console.log('✅ File uploaded successfully:', result);
+            console.log('Ã¢Å“â€¦ File uploaded successfully:', result);
           } else {
             this.showSaveStatus('Upload failed', 'error');
           }
@@ -577,7 +587,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       await this.serviceEfeService.updateField(this.currentServiceID, dbField, value).toPromise();
       
       this.showSaveStatus('Saved', 'success');
-      console.log(`✅ Auto-saved ${fieldName}: ${value}`);
+      console.log(`Ã¢Å“â€¦ Auto-saved ${fieldName}: ${value}`);
     } catch (error) {
       console.error('Auto-save error:', error);
       this.showSaveStatus('Save failed', 'error');
@@ -711,7 +721,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log(`📄 Document selected for ${docType}:`, file.name);
+    console.log(`Ã°Å¸â€œâ€ž Document selected for ${docType}:`, file.name);
     
     // Immediately update UI to show file is selected
     this.documentNames[docType] = file.name;
@@ -747,22 +757,22 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         ).toPromise();
         
         if (response) {
-          console.log('✅ Document uploaded to Caspio:', response);
+          console.log('Ã¢Å“â€¦ Document uploaded to Caspio:', response);
           this.documentAttachIds[docType] = response.AttachID || response.id;
           // Update the link name to show what was uploaded
           this.documentNames[docType] = `${linkTitle} - ${file.name}`;
           this.showSaveStatus(`${linkTitle} uploaded successfully`, 'success');
         } else {
-          console.log('⚠️ Upload response empty, keeping local status');
+          console.log('Ã¢Å¡Â Ã¯Â¸Â Upload response empty, keeping local status');
           this.showSaveStatus('Document saved locally', 'info');
         }
       } catch (error) {
-        console.error('⚠️ Could not upload to Caspio, keeping local:', error);
+        console.error('Ã¢Å¡Â Ã¯Â¸Â Could not upload to Caspio, keeping local:', error);
         // Keep the document marked as uploaded locally even if Caspio upload fails
         this.showSaveStatus('Document saved locally', 'info');
       }
     } else {
-      console.log('📦 No project ID yet, document will be uploaded when project is saved');
+      console.log('Ã°Å¸â€œÂ¦ No project ID yet, document will be uploaded when project is saved');
       this.showSaveStatus('Document saved locally', 'info');
     }
     
@@ -802,6 +812,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         reader.onload = async (e: any) => {
           await loading.dismiss();
           const modal = await this.modalController.create({
+            const DocumentViewerComponent = await this.loadDocumentViewer();
             component: DocumentViewerComponent,
             componentProps: {
               fileUrl: e.target.result,
@@ -835,6 +846,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
               if (pdfData) {
                 console.log('PDF data loaded, opening viewer...');
                 const modal = await this.modalController.create({
+                  const DocumentViewerComponent = await this.loadDocumentViewer();
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: pdfData,
@@ -854,6 +866,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
               if (imageData) {
                 console.log('Image data loaded, opening viewer...');
                 const modal = await this.modalController.create({
+                  const DocumentViewerComponent = await this.loadDocumentViewer();
                   component: DocumentViewerComponent,
                   componentProps: {
                     fileUrl: imageData,
@@ -937,7 +950,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
 
   replaceDocument(docType: string) {
-    console.log(`🔄 Replacing document: ${docType}`);
+    console.log(`Ã°Å¸â€â€ž Replacing document: ${docType}`);
     
     // Clear the file input first to allow selecting the same file
     const fileInput = document.getElementById(docType) as HTMLInputElement;
@@ -956,9 +969,9 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (attachId) {
       try {
         await this.caspioService.deleteAttachment(attachId.toString()).toPromise();
-        console.log(`✅ Document ${docType} deleted`);
+        console.log(`Ã¢Å“â€¦ Document ${docType} deleted`);
       } catch (error) {
-        console.error('❌ Failed to delete document:', error);
+        console.error('Ã¢ÂÅ’ Failed to delete document:', error);
       }
     }
     
@@ -983,3 +996,4 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     this.additionalDocuments.splice(index, 1);
   }
 }
+

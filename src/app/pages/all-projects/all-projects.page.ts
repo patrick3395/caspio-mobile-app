@@ -13,6 +13,11 @@ import { environment } from '../../../environments/environment';
 })
 export class AllProjectsPage implements OnInit {
   projects: Project[] = [];
+  filteredProjects: Project[] = [];
+  completedProjects: Project[] = [];
+  onHoldProjects: Project[] = [];
+  cancelledProjects: Project[] = [];
+  archivedProjects: Project[] = [];
   loading = false;
   error = '';
   currentUser: any = null;
@@ -105,6 +110,7 @@ export class AllProjectsPage implements OnInit {
         this.projects = allProjects.filter(p => 
           p.StatusID !== 1 && p.StatusID !== '1' && p.Status !== 'Active'
         );
+        this.rebuildBuckets();
         this.loading = false;
         console.log(`Non-active projects loaded for CompanyID ${companyId}:`, this.projects);
       },
@@ -116,33 +122,36 @@ export class AllProjectsPage implements OnInit {
     });
   }
 
-  getFilteredProjects(): Project[] {
-    if (!this.searchTerm) {
-      return this.projects;
-    }
-    
-    const term = this.searchTerm.toLowerCase();
-    return this.projects.filter(project => 
-      project.Address && project.Address.toLowerCase().includes(term)
+  handleSearchTermChange(term: string) {
+    this.searchTerm = term ?? "";
+    this.rebuildBuckets();
+  }
+
+  private rebuildBuckets() {
+    const term = this.searchTerm.trim().toLowerCase();
+    const filtered = term
+      ? this.projects.filter(project => (
+          project.Address && project.Address.toLowerCase().includes(term)
+        ) || (
+          project.City && project.City.toLowerCase().includes(term)
+        ))
+      : [...this.projects];
+
+    this.filteredProjects = filtered;
+    this.completedProjects = this.filterByStatus(filtered, 2);
+    this.onHoldProjects = this.filterByStatus(filtered, 4);
+    this.cancelledProjects = this.filterByStatus(filtered, 3);
+    this.archivedProjects = filtered.filter(project =>
+      ![2, 3, 4].includes(Number(project.StatusID))
     );
   }
 
-  // Get projects by specific status
-  getProjectsByStatus(statusId: number): Project[] {
-    const filtered = this.getFilteredProjects();
-    return filtered.filter(p => 
-      p.StatusID === statusId || p.StatusID === statusId.toString()
-    );
+  private filterByStatus(projects: Project[], statusId: number): Project[] {
+    return projects.filter(project => Number(project.StatusID) === statusId);
   }
 
-  // Get projects with other/unknown status
-  getOtherProjects(): Project[] {
-    const filtered = this.getFilteredProjects();
-    return filtered.filter(p => 
-      p.StatusID !== 2 && p.StatusID !== '2' &&
-      p.StatusID !== 3 && p.StatusID !== '3' &&
-      p.StatusID !== 4 && p.StatusID !== '4'
-    );
+  trackByProject(_: number, project: Project) {
+    return project.PK_ID || project.ProjectID;
   }
 
   // Format address for display
