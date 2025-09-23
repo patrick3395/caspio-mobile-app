@@ -8155,12 +8155,31 @@ Stack: ${error?.stack}`;
     this.templateLoadStart = Date.now();
 
     try {
+      // Create loading with a cancel button
       this.templateLoader = await this.loadingController.create({
-        message,
+        message: `
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <div>${message}</div>
+            <ion-button
+              size="small"
+              color="light"
+              style="margin-top: 10px;"
+              onclick="document.dispatchEvent(new CustomEvent('cancelTemplateLoading'))">
+              Cancel
+            </ion-button>
+          </div>
+        `,
         backdropDismiss: false,
         cssClass: 'template-loading-overlay',
         spinner: 'crescent'
       });
+
+      // Listen for cancel event
+      const cancelHandler = async () => {
+        document.removeEventListener('cancelTemplateLoading', cancelHandler);
+        await this.handleLoadingCancel();
+      };
+      document.addEventListener('cancelTemplateLoading', cancelHandler);
 
       await this.templateLoader.present();
       this.templateLoaderPresented = true;
@@ -8170,10 +8189,35 @@ Stack: ${error?.stack}`;
     }
   }
 
+  private async handleLoadingCancel(): Promise<void> {
+    console.log('Template loading cancelled by user');
+
+    // Dismiss the loader
+    if (this.templateLoader) {
+      await this.templateLoader.dismiss();
+      this.templateLoaderPresented = false;
+    }
+
+    // Navigate back
+    await this.navController.back();
+
+    // Show cancellation message
+    const toast = await this.toastController.create({
+      message: 'Template loading cancelled',
+      duration: 2000,
+      position: 'top',
+      color: 'warning'
+    });
+    await toast.present();
+  }
+
   private async dismissTemplateLoader(): Promise<void> {
     if (!this.templateLoaderPresented) {
       return;
     }
+
+    // Remove cancel event listener if it exists
+    document.removeEventListener('cancelTemplateLoading', () => {});
 
     const elapsed = Date.now() - this.templateLoadStart;
     const remaining = this.templateLoaderMinDuration - elapsed;
