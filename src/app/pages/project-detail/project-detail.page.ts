@@ -312,6 +312,10 @@ export class ProjectDetailPage implements OnInit {
       console.log('🔍 DEBUG: Fetching service types...');
       const types = await this.caspioService.getServiceTypes().toPromise();
       console.log('🔍 DEBUG: Types received:', types);
+
+      // Debug popup for icon data
+      const iconDebug = `Icon Debug:\nFirst Type: ${types?.[0]?.TypeName}\nIcon field: ${types?.[0]?.Icon || 'NO ICON FIELD'}\nTotal types: ${types?.length}`;
+      await this.showDebugAlert('Icon Field Check', iconDebug);
       
       // Merge offer data with type names
       const processedOffers = (offers || []).map((offer: any) => {
@@ -322,7 +326,11 @@ export class ProjectDetailPage implements OnInit {
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || ''
         };
-        console.log('🔍 DEBUG: Processed offer:', result);
+        // Only show debug for first few to avoid too many popups
+        if (processedOffers.length < 3) {
+          const iconInfo = `Type: ${result.TypeName}\nIcon: ${result.TypeIcon || 'EMPTY'}\nHas Icon: ${!!result.TypeIcon}`;
+          this.showToast(iconInfo, 'info');
+        }
         return result;
       });
       
@@ -824,14 +832,26 @@ export class ProjectDetailPage implements OnInit {
 
   getServicesForTemplates(): ServiceSelection[] {
     // Filter out services that don't need templates
-    return this.selectedServices.filter(service => {
+    const filtered = this.selectedServices.filter(service => {
       const name = service.typeName?.toLowerCase() || '';
       // Exclude Defect Cost Report and Engineers Inspection Review
-      return !name.includes('defect cost report') && 
+      return !name.includes('defect cost report') &&
              !name.includes('engineers inspection review') &&
              !name.includes('engineer\'s inspection review');
     });
+
+    // Debug: Show first service icon data
+    if (filtered.length > 0 && !this.iconDebugShown) {
+      this.iconDebugShown = true;
+      const first = filtered[0];
+      const debugMsg = `Reports Section Debug:\nService: ${first.typeName}\nIcon Path: ${first.typeIcon || 'NO ICON'}\nType ID: ${first.typeId}`;
+      this.showDebugAlert('Reports Icon Status', debugMsg);
+    }
+
+    return filtered;
   }
+
+  private iconDebugShown = false;
 
   formatDateForInput(dateString: string): string {
     if (!dateString) return new Date().toISOString().split('T')[0];
@@ -2339,6 +2359,34 @@ Troubleshooting:
 
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private async showDebugAlert(title: string, message: string) {
+    const alert = await this.alertController.create({
+      header: title,
+      message: message.replace(/\n/g, '<br>'),
+      buttons: [
+        {
+          text: 'Copy Debug Info',
+          handler: () => {
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(message);
+            }
+            return false;
+          }
+        },
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  onIconError(event: any, service: any) {
+    const debugInfo = `Icon Load Error:\nService: ${service.typeName}\nIcon Path: ${service.typeIcon}\nURL Attempted: ${event.target?.src}`;
+    this.showDebugAlert('Icon Error', debugInfo);
   }
 
   private async showToast(message: string, color: string = 'primary') {
