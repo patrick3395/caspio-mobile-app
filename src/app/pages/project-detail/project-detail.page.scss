@@ -316,10 +316,12 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
   .doc-info-cell {
     width: 75%;
+    border-right: none;
   }
 
   .doc-actions-cell {
     width: 25%;
+    border-left: none;
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -342,7 +344,6 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       color: #777;
     }
   }
-
   .doc-title {
     font-weight: 500;
     color: #333;
@@ -662,4 +663,3 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     max-height: 100%;
   }
 }
-

@@ -8155,46 +8155,24 @@ Stack: ${error?.stack}`;
     this.templateLoadStart = Date.now();
 
     try {
-      // Create a standard loading spinner
-      this.templateLoader = await this.loadingController.create({
-        message: message,
+      // Create loading popup with cancel button
+      this.templateLoader = await this.alertController.create({
+        header: message,
+        message: 'Loading template data...',
+        buttons: [
+          {
+            text: 'Cancel',
+            handler: async () => {
+              await this.handleLoadingCancel();
+            }
+          }
+        ],
         backdropDismiss: false,
-        cssClass: 'template-loading-overlay',
-        spinner: 'crescent',
-        duration: 0 // No auto-dismiss
+        cssClass: 'template-loading-alert'
       });
 
       await this.templateLoader.present();
       this.templateLoaderPresented = true;
-
-      // Add a cancel button after a short delay to allow users to cancel if it's taking too long
-      setTimeout(async () => {
-        if (this.templateLoaderPresented) {
-          // Show an alert with cancel option
-          const cancelAlert = await this.alertController.create({
-            header: 'Still Loading...',
-            message: 'The template is taking longer than expected. Would you like to cancel?',
-            buttons: [
-              {
-                text: 'Keep Waiting',
-                role: 'cancel'
-              },
-              {
-                text: 'Cancel Loading',
-                handler: async () => {
-                  await this.handleLoadingCancel();
-                }
-              }
-            ],
-            backdropDismiss: false
-          });
-
-          // Only show if still loading
-          if (this.templateLoaderPresented) {
-            await cancelAlert.present();
-          }
-        }
-      }, 5000); // Show cancel option after 5 seconds
 
     } catch (error) {
       console.error('[TemplateLoader] Failed to present loading overlay:', error);
