@@ -162,42 +162,83 @@ export class ProjectDetailPage implements OnInit {
   async fetchProjectOptimized() {
     this.loading = true;
     this.error = '';
-    
+
     try {
       // First get the project data to determine the actual ProjectID
+      console.log('📍 Loading project with ID:', this.projectId);
       const projectData = await this.projectsService.getProjectById(this.projectId).toPromise();
-      this.project = projectData || null;
-      
+
+      if (!projectData) {
+        console.error('❌ No project data returned for ID:', this.projectId);
+        this.error = 'Failed to load project';
+        this.loading = false;
+
+        // Show debug alert on mobile
+        await this.showDebugAlert('Project Load Error',
+          `No project found with ID: ${this.projectId}\n\nPlease check if the project exists and you have permission to access it.`);
+        return;
+      }
+
+      this.project = projectData;
+      console.log('✅ Project loaded:', projectData);
+
       const actualProjectId = projectData?.ProjectID || this.projectId;
       const statusId = projectData?.StatusID;
       const isCompletedProject = this.isCompletedStatus(statusId);
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
-      
-      // Now load everything else in parallel
-      const [offers, types, services, attachTemplates, existingAttachments] = await Promise.all([
-        // Get offers for company
-        this.caspioService.getOffersByCompany('1').toPromise(),
-        // Get service types
-        this.caspioService.getServiceTypes().toPromise(),
-        // Get existing services for this project
-        this.caspioService.getServicesByProject(actualProjectId).toPromise(),
-        // Get attach templates
-        this.caspioService.getAttachTemplates().toPromise(),
-        // Get existing attachments
-        this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
-      ]);
-      
+
+      // Now load everything else with individual error handling
+      let offers, types, services, attachTemplates, existingAttachments;
+
+      try {
+        console.log('📍 Loading offers for company 1...');
+        offers = await this.caspioService.getOffersByCompany('1').toPromise();
+      } catch (error) {
+        console.error('❌ Failed to load offers:', error);
+        await this.showDebugAlert('Offers Load Error', `Failed to load offers: ${error}`);
+      }
+
+      try {
+        console.log('📍 Loading service types...');
+        types = await this.caspioService.getServiceTypes().toPromise();
+      } catch (error) {
+        console.error('❌ Failed to load types:', error);
+        await this.showDebugAlert('Types Load Error', `Failed to load types: ${error}\n\nThis might be due to the Icon field. Check if the Type table has an Icon column.`);
+      }
+
+      try {
+        console.log('📍 Loading existing services...');
+        services = await this.caspioService.getServicesByProject(actualProjectId).toPromise();
+      } catch (error) {
+        console.error('❌ Failed to load services:', error);
+      }
+
+      try {
+        console.log('📍 Loading attach templates...');
+        attachTemplates = await this.caspioService.getAttachTemplates().toPromise();
+      } catch (error) {
+        console.error('❌ Failed to load attach templates:', error);
+      }
+
+      try {
+        console.log('📍 Loading existing attachments...');
+        existingAttachments = await this.caspioService.getAttachmentsByProject(actualProjectId).toPromise();
+      } catch (error) {
+        console.error('❌ Failed to load attachments:', error);
+      }
+
       // Process offers and types
       this.availableOffers = (offers || []).map((offer: any) => {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         return {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
-          TypeShort: type?.TypeShort || ''
+          TypeShort: type?.TypeShort || '',
+          TypeIcon: type?.Icon || ''
         };
       });
-      
+
       // Process existing services
       this.selectedServices = (services || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
@@ -207,29 +248,35 @@ export class ProjectDetailPage implements OnInit {
           offersId: offer?.OffersID || offer?.PK_ID || '',
           typeId: service.TypeID,
           typeName: offer?.TypeName || 'Unknown Service',
+          typeIcon: offer?.TypeIcon || '',
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString()
         };
       });
-      
+
       // Process attach templates
       this.attachTemplates = attachTemplates || [];
-      
+
       // Process existing attachments
       this.existingAttachments = existingAttachments || [];
-      
+
       // Update documents
       this.updateDocumentsList();
-      
+
       // Load PrimaryPhoto if needed (async, don't wait)
       if (this.project?.['PrimaryPhoto'] && this.project['PrimaryPhoto'].startsWith('/')) {
         this.loadProjectImageData();
       }
-      
+
       this.loading = false;
       this.loadingServices = false;
-      
-    } catch (error) {
-      console.error('Error loading project:', error);
+
+    } catch (error: any) {
+      console.error('❌ Error in fetchProjectOptimized:', error);
+
+      // Detailed debug alert for mobile
+      const errorDetails = `Error loading project:\n\nProject ID: ${this.projectId}\n\nError: ${error?.message || error}\n\nStatus: ${error?.status}\n\nDetails: ${JSON.stringify(error?.error || error)}`;
+      await this.showDebugAlert('Project Load Error', errorDetails);
+
       this.error = 'Failed to load project';
       this.loading = false;
       this.loadingServices = false;
