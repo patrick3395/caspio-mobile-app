@@ -292,6 +292,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 .documents-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   border: 1px solid #3d3d3d;
   margin-top: 10px;
   background: white;
@@ -331,6 +332,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     align-items: center;
     gap: 6px;
     text-align: right;
+    white-space: nowrap;
 
     ion-button {
       --padding-start: 2px;
@@ -348,7 +350,6 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
       color: #777;
     }
   }
-
   .doc-title {
     font-weight: 500;
     color: #333;

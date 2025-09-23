@@ -1501,17 +1501,50 @@ export class ProjectDetailPage implements OnInit {
     // If doc has an attachId, fetch the actual file from Caspio
     if (doc.attachId) {
       try {
-        const loading = await this.loadingController.create({
-          message: 'Loading document...'
+        // Create loading alert with cancel button
+        const loading = await this.alertController.create({
+          header: 'Loading Document',
+          message: 'Loading document...',
+          buttons: [
+            {
+              text: 'Cancel',
+              handler: () => {
+                console.log('Document loading cancelled by user');
+                return true; // Allow dismissal
+              }
+            }
+          ],
+          backdropDismiss: false
         });
         await loading.present();
-        
+
+        let cancelled = false;
+        loading.onDidDismiss().then(() => {
+          cancelled = true;
+        });
+
         // Get the main attachment
         console.log('📄 Loading attachment with ID:', doc.attachId);
-        const attachment = await this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
-        
+        const attachmentPromise = this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
+
+        // Wait for the attachment to load
+        const attachment = await attachmentPromise.catch(error => {
+          console.error('Error loading attachment:', error);
+          return null;
+        });
+
         await loading.dismiss();
-        
+
+        // If cancelled or failed, return early
+        if (cancelled || !attachment) {
+          if (cancelled) {
+            console.log('Document loading was cancelled');
+          } else {
+            await this.showToast('Failed to load document', 'danger');
+          }
+          return;
+        }
+
         if (attachment && attachment.Attachment) {
           const filename = doc.linkName || doc.filename || 'document';
           const fileUrl = attachment.Attachment;
@@ -1572,16 +1605,49 @@ export class ProjectDetailPage implements OnInit {
     // View ONLY the selected additional document
     if (additionalFile && additionalFile.attachId) {
       try {
-        const loading = await this.loadingController.create({
-          message: 'Loading document...'
+        // Create loading alert with cancel button
+        const loading = await this.alertController.create({
+          header: 'Loading Document',
+          message: 'Loading document...',
+          buttons: [
+            {
+              text: 'Cancel',
+              handler: () => {
+                console.log('Document loading cancelled by user');
+                return true; // Allow dismissal
+              }
+            }
+          ],
+          backdropDismiss: false
         });
         await loading.present();
-        
+
+        let cancelled = false;
+        loading.onDidDismiss().then(() => {
+          cancelled = true;
+        });
+
         // Get only this specific attachment
-        const attachment = await this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
-        
+        const attachmentPromise = this.caspioService.getAttachmentWithImage(additionalFile.attachId).toPromise();
+
+        // Wait for the attachment to load
+        const attachment = await attachmentPromise.catch(error => {
+          console.error('Error loading attachment:', error);
+          return null;
+        });
+
         await loading.dismiss();
-        
+
+        // If cancelled or failed, return early
+        if (cancelled || !attachment) {
+          if (cancelled) {
+            console.log('Document loading was cancelled');
+          } else {
+            await this.showToast('Failed to load document', 'danger');
+          }
+          return;
+        }
+
         if (attachment && attachment.Attachment) {
           const filename = additionalFile.linkName || 'document';
           const fileUrl = attachment.Attachment;
