@@ -318,28 +318,23 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   .doc-info-cell {
     width: 75%;
     border-right: none;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
     overflow: hidden;
-    flex: 1 1 auto;
     min-width: 0;
   }
 
   .doc-actions-cell {
     width: 25%;
     border-left: none;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 6px;
     text-align: right;
     white-space: nowrap;
+    vertical-align: middle;
 
     ion-button {
       --padding-start: 2px;
       --padding-end: 2px;
-      margin: 0;
+      margin: 0 2px;
+      display: inline-block;
+      vertical-align: middle;
 
       ion-icon {
         font-size: 18px;
@@ -361,7 +356,6 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     text-overflow: ellipsis;
     white-space: nowrap;
     display: block;
-    max-width: 100%;
   }
 
   .doc-filename {
@@ -371,7 +365,6 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     text-overflow: ellipsis;
     white-space: nowrap;
     display: block;
-    max-width: 100%;
   }
   .doc-status {
     font-size: 12px;
