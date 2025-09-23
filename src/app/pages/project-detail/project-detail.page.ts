@@ -1420,16 +1420,23 @@ export class ProjectDetailPage implements OnInit {
                 await this.caspioService.deleteAttachment(doc.attachId).toPromise();
               }
               
+              // Remove the attachment from our local list
+              const attachIndex = this.existingAttachments.findIndex(a => a.AttachID === doc.attachId);
+              if (attachIndex > -1) {
+                this.existingAttachments.splice(attachIndex, 1);
+              }
+
               // Clear the document data
               doc.uploaded = false;
               doc.attachId = undefined;
               doc.filename = undefined;
               doc.linkName = undefined;
-              
+              doc.attachmentUrl = undefined;
+
               await loading.dismiss();
-              
-              // Refresh the project to ensure consistency
-              await this.loadProject();
+
+              // Just update the documents list without reloading the entire page
+              this.updateDocumentsList();
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
