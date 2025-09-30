@@ -8456,7 +8456,7 @@ Stack: ${error?.stack}`;
     return this.thumbnailCache.get(photoPath)!;
   }
 
-  private async presentTemplateLoader(message: string = 'Loading Template'): Promise<void> {
+  private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
     if (this.templateLoaderPresented) {
       return;
     }
@@ -8467,7 +8467,7 @@ Stack: ${error?.stack}`;
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
-        message: 'Loading template data...',
+        message: 'Loading report data...',
         buttons: [
           {
             text: 'Cancel',
@@ -8540,22 +8540,72 @@ Stack: ${error?.stack}`;
     await this.loadPhotosForVisualByKey(String(visualId), String(visualId), rawVisualId);
   }
 
+  // Handle Year Built changes - restrict to 4 digits
+  onYearBuiltChange(value: string) {
+    // Remove non-numeric characters
+    const numericValue = value.replace(/\D/g, '');
+
+    // Limit to 4 digits
+    const limitedValue = numericValue.slice(0, 4);
+
+    // Update the model
+    this.projectData.YearBuilt = limitedValue;
+
+    // Save and trigger auto-save
+    this.onProjectFieldChange('YearBuilt', limitedValue);
+  }
+
+  // Format Year Built on blur
+  formatYearBuilt() {
+    if (this.projectData.YearBuilt) {
+      // Ensure it's exactly 4 digits or empty
+      const year = this.projectData.YearBuilt.replace(/\D/g, '').slice(0, 4);
+      this.projectData.YearBuilt = year;
+    }
+  }
+
+  // Handle Square Feet changes - restrict to numbers only
+  onSquareFeetChange(value: string) {
+    // Remove non-numeric characters and commas
+    const numericValue = value.replace(/[^\d]/g, '');
+
+    // Update the model without commas (for internal storage)
+    this.projectData.SquareFeet = numericValue;
+
+    // Save and trigger auto-save
+    this.onProjectFieldChange('SquareFeet', numericValue);
+  }
+
+  // Format Square Feet with commas on blur
+  formatSquareFeet() {
+    if (this.projectData.SquareFeet) {
+      // Remove any existing commas
+      const numericValue = this.projectData.SquareFeet.replace(/[^\d]/g, '');
+
+      // Add commas
+      const formattedValue = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+      // Update the display value
+      this.projectData.SquareFeet = formattedValue;
+    }
+  }
+
   // Handle project field changes
   onProjectFieldChange(fieldName: string, value: any) {
     console.log(`Project field changed: ${fieldName} = ${value}`);
-    
+
     // Update the project data
     if (this.projectData) {
       this.projectData[fieldName] = value;
     }
-    
+
     // Save to localStorage for persistence across all services
     const projectDataKey = `projectData_${this.projectId}`;
     localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
-    
+
     // Update progress tracking
     this.updateProgressTracking();
-    
+
     // Trigger auto-save to Projects table
     this.autoSaveProjectField(fieldName, value);
   }

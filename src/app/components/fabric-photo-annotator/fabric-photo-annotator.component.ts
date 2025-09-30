@@ -81,11 +81,24 @@ async function ensureFabricLoaded(): Promise<void> {
           <span>Undo</span>
         </button>
         <button class="action-btn clear-btn" (click)="clearAll()" title="Clear All">
-          <ion-icon name="trash-outline"></ion-icon>
+          <ion-icon name="brush-outline"></ion-icon>
           <span>Clear</span>
         </button>
       </div>
-      
+
+      <!-- Caption input bar -->
+      <div class="caption-bar">
+        <ion-item lines="none" style="--background: transparent; --padding-start: 0; --inner-padding-end: 0;">
+          <ion-label position="stacked" style="margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #666;">Photo Caption</ion-label>
+          <ion-input
+            [(ngModel)]="photoCaption"
+            placeholder="Add a caption for this photo..."
+            maxlength="255"
+            style="font-size: 14px;">
+          </ion-input>
+        </ion-item>
+      </div>
+
     </ion-content>
   `,
   styles: [`
@@ -180,7 +193,18 @@ async function ensureFabricLoaded(): Promise<void> {
     .action-btn span {
       font-size: 14px;
     }
-    
+
+    .caption-bar {
+      position: absolute;
+      bottom: 80px;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.98);
+      border-top: 1px solid rgba(0,0,0,0.1);
+      z-index: 99;
+    }
+
     .tool-btn:hover {
       background: white;
       transform: scale(1.05);
@@ -285,7 +309,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   @Input() imageFile?: File;
   @Input() existingAnnotations?: any[] = [];
   @Input() isReEdit?: boolean = false;
-  
+  @Input() photoData?: any;
+
   private canvas!: fabric.Canvas;
   currentTool = 'arrow';
   currentColor = '#FF0000';
@@ -293,14 +318,24 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   private isDrawing = false;
   private colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#000000', '#FFFFFF'];
   private colorIndex = 0;
-  
+  photoCaption = '';
+
   constructor(
     private modalController: ModalController
   ) {}
   
   ngOnInit() {
     console.log('ðŸŽ¨ [v1.4.237 FABRIC] Initializing Fabric.js photo annotator');
-    console.log('ðŸ“¥ [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('ðŸ"¥ [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
+
+    // Load existing caption from photoData if available
+    if (this.photoData?.Annotation) {
+      this.photoCaption = this.photoData.Annotation;
+    } else if (this.photoData?.annotation) {
+      this.photoCaption = this.photoData.annotation;
+    } else if (this.photoData?.caption) {
+      this.photoCaption = this.photoData.caption;
+    }
   }
   
   async ngAfterViewInit() {
@@ -858,7 +893,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       annotationJson,
       compressedAnnotationData,
       annotationCount: this.getAnnotationCount(),
-      originalBlob
+      originalBlob,
+      caption: this.photoCaption
     });
   }
   private async dataUrlToBlob(dataUrl: string): Promise<Blob> {

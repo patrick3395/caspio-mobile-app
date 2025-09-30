@@ -100,7 +100,7 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
             <span class="btn-label">Undo</span>
           </button>
           <button (click)="clearAnnotations()" class="action-btn clear" title="Clear All">
-            <ion-icon name="trash-outline"></ion-icon>
+            <ion-icon name="brush-outline"></ion-icon>
             <span class="btn-label">Clear All</span>
           </button>
         </div>
@@ -147,7 +147,7 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
   `,
   styles: [`
     .annotation-toolbar {
-      background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+      background: #f0f0f0;
       padding: 12px 16px;
       border-bottom: 1px solid rgba(0,0,0,0.08);
       display: flex;
@@ -179,14 +179,14 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     }
     
     .dropdown-toggle:hover {
-      background: #f5f5f5;
-      border-color: #F15A27;
+      background: #e0e0e0;
+      border-color: #999;
     }
-    
+
     .dropdown-toggle.active {
-      background: #FFF5F2;
-      border-color: #F15A27;
-      color: #F15A27;
+      background: #e0e0e0;
+      border-color: #999;
+      color: #333;
     }
     
     .dropdown-toggle ion-icon {
@@ -377,23 +377,23 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     }
     
     .action-btn.undo:hover:not(:disabled) {
-      background: rgba(241, 90, 39, 0.1);
-      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.2);
+      background: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
-    
+
     .action-btn.undo:hover:not(:disabled) .btn-label,
     .action-btn.undo:hover:not(:disabled) ion-icon {
-      color: #F15A27;
+      color: #000000;
     }
-    
+
     .action-btn.clear:hover {
-      background: rgba(239, 71, 111, 0.1);
-      box-shadow: 0 4px 12px rgba(239, 71, 111, 0.2);
+      background: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
-    
+
     .action-btn.clear:hover .btn-label,
     .action-btn.clear:hover ion-icon {
-      color: #EF476F;
+      color: #000000;
     }
     
     .action-btn.delete:hover:not(.active) {
@@ -1357,19 +1357,7 @@ export class PhotoAnnotatorComponent implements OnInit {
     const annotationCount = this.annotationObjects ? this.annotationObjects.length : 0;
     console.log(`🔍 [v1.4.221] Drawing debug overlays - annotationObjects exists: ${!!this.annotationObjects}, count: ${annotationCount}`);
     
-    // Draw version indicator in bottom-right
-    this.annotationCtx.fillStyle = 'rgba(255, 0, 0, 0.9)';
-    this.annotationCtx.fillRect(canvas.width - 150, canvas.height - 35, 145, 30);
-    this.annotationCtx.fillStyle = '#FFFFFF';
-    this.annotationCtx.font = 'bold 14px Arial';
-    this.annotationCtx.fillText('[v1.4.221 FIXED]', canvas.width - 145, canvas.height - 15);
-    
-    // Draw annotation count in top-left
-    this.annotationCtx.fillStyle = 'rgba(0, 128, 0, 0.9)';
-    this.annotationCtx.fillRect(10, 10, 250, 35);
-    this.annotationCtx.fillStyle = '#FFFFFF';
-    this.annotationCtx.font = 'bold 14px Arial';
-    this.annotationCtx.fillText(`[v1.4.221] Total: ${annotationCount} annotations`, 15, 30);
+    // Debug overlays removed - clean production UI
   }
   
   private verifyAnnotationsVisible() {

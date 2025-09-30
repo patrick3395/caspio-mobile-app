@@ -344,7 +344,7 @@ ion-content {
     }
 
     .required {
-      color: #ff4444;
+      color: var(--noble-orange);
       font-size: 12px;
       margin-left: 1px;
       vertical-align: super;
@@ -425,16 +425,16 @@ ion-content {
   
   &.filled {
     .styled-input {
-      background: linear-gradient(135deg, #fffbf8 0%, #ffffff 100%);
-      border-color: var(--noble-orange);
+      background: #ffffff;
+      border-color: #ddd;
+      color: #000000;
     }
-    
+
     label {
-      color: var(--noble-orange);
-      
+      color: #000000;
+
       ion-icon {
-        color: var(--noble-orange);
-        animation: pulse 2s infinite;
+        color: #000000;
       }
     }
   }
