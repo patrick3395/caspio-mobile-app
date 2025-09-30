@@ -26,7 +26,7 @@ interface HelpItem {
   template: `
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ title || 'Help Information' }}</ion-title>
+        <ion-title class="help-modal-title">{{ title || 'Help Information' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="dismiss()">
             <ion-icon name="close"></ion-icon>
@@ -55,7 +55,6 @@ interface HelpItem {
       <div *ngIf="!loading && !error" class="help-content">
         <!-- Description Section -->
         <div *ngIf="helpText" class="help-description-section">
-          <h3>Description</h3>
           <div class="help-text">
             <div [innerHTML]="helpText"></div>
           </div>
@@ -63,25 +62,22 @@ interface HelpItem {
 
         <!-- Help Items Table (Dos and Don'ts) -->
         <div *ngIf="helpItems && helpItems.length > 0" class="help-items-section">
-          <h3>Guidelines</h3>
           <div class="help-items-table">
             <div class="help-item-row" *ngFor="let item of helpItems">
               <div class="item-type" [class.do-type]="item.ItemType === 'Do'"
                    [class.dont-type]="item.ItemType === 'Dont' || item.ItemType === 'Don\\'t'"
                    [class.tip-type]="item.ItemType === 'Tip'">
-                <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle" style="color: #4CAF50; font-size: 20px;"></ion-icon>
-                <ion-icon *ngIf="item.ItemType === 'Dont' || item.ItemType === 'Don\\'t'" name="close-circle" style="color: #f44336; font-size: 20px;"></ion-icon>
-                <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb" style="color: #FFC107; font-size: 20px;"></ion-icon>
-                <span class="type-label" [style.color]="(item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? '#f44336' : null">{{ (item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? 'Don\\'t' : item.ItemType }}</span>
+                <ion-icon *ngIf="item.ItemType === 'Do'" name="checkmark-circle"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Dont' || item.ItemType === 'Don\\'t'" name="close-circle"></ion-icon>
+                <ion-icon *ngIf="item.ItemType === 'Tip'" name="bulb"></ion-icon>
               </div>
-              <div class="item-content" [style.color]="(item.ItemType === 'Dont' || item.ItemType === 'Don\\'t') ? '#f44336' : null">{{ item.Item }}</div>
+              <div class="item-content">{{ item.Item }}</div>
             </div>
           </div>
         </div>
 
         <!-- Help Images -->
         <div *ngIf="helpImages && helpImages.length > 0" class="help-images-section">
-          <h3>Related Images</h3>
           <div class="images-grid">
             <div *ngFor="let image of helpImages" class="image-container">
               <img [src]="image.imageUrl || 'assets/img/photo-placeholder.svg'"
@@ -103,6 +99,13 @@ interface HelpItem {
     </ion-content>
   `,
   styles: [`
+    .help-modal-title {
+      font-size: 16px !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+
     .help-modal-content {
       --padding-start: 16px;
       --padding-end: 16px;
@@ -140,17 +143,6 @@ interface HelpItem {
       border: 1px solid #e0e0e0;
     }
 
-    /* Common header styling for all sections */
-    .help-description-section h3,
-    .help-items-section h3,
-    .help-images-section h3 {
-      color: var(--ion-color-primary);
-      margin-bottom: 16px;
-      font-size: 20px;
-      font-weight: 600;
-      margin-top: 0;
-    }
-
     .help-text {
       line-height: 1.6;
       font-size: 16px;
@@ -186,34 +178,25 @@ interface HelpItem {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      min-width: 100px;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 8px;
+      min-width: 40px;
+      flex-shrink: 0;
+      padding: 4px;
     }
 
     .item-type ion-icon {
-      font-size: 20px;
+      font-size: 24px;
     }
 
-    .do-type {
+    .do-type ion-icon {
       color: #4CAF50;
     }
 
-    .dont-type {
-      color: #f44336;
+    .dont-type ion-icon {
+      color: #333;
     }
 
-    .tip-type {
+    .tip-type ion-icon {
       color: #FFC107;
-    }
-
-    .type-label {
-      text-transform: uppercase;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      font-weight: 700;
     }
 
     .item-content {
@@ -497,13 +480,76 @@ export class HelpModalComponent implements OnInit {
   }
 
   async viewImage(image: HelpImage) {
-    // You could implement a full-screen image viewer here
-    // For now, just open in a new tab/window
-    console.log('[HelpModal v1.4.402] viewImage called with:', image);
+    console.log('[HelpModal v1.4.494] viewImage called with:', image);
     const imageUrl = image.imageUrl || 'assets/img/photo-placeholder.svg';
-    console.log('[HelpModal v1.4.402] Opening image URL (length):', imageUrl.length);
-    window.open(imageUrl, '_blank');
+
+    // Create a full-screen image modal
+    const modal = await this.modalController.create({
+      component: ImageViewerModal,
+      componentProps: {
+        imageUrl: imageUrl
+      },
+      cssClass: 'fullscreen-image-modal'
+    });
+
+    await modal.present();
   }
+
+  dismiss() {
+    this.modalController.dismiss();
+  }
+}
+
+// Simple Image Viewer Modal Component
+@Component({
+  selector: 'app-image-viewer-modal',
+  template: `
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button (click)="dismiss()">
+            <ion-icon name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="image-viewer-content">
+      <div class="image-wrapper">
+        <img [src]="imageUrl" alt="Full size image" (click)="dismiss()">
+      </div>
+    </ion-content>
+  `,
+  styles: [`
+    .image-viewer-content {
+      --background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-wrapper {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      cursor: pointer;
+    }
+  `],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
+})
+export class ImageViewerModal {
+  @Input() imageUrl!: string;
+
+  constructor(private modalController: ModalController) {}
 
   dismiss() {
     this.modalController.dismiss();
