@@ -5683,7 +5683,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const alert = await this.alertController.create({
-      header: 'View Details' + (item.required ? ' (Required)' : ''),
+      header: 'Edit Statement' + (item.required ? ' (Required)' : ''),
       cssClass: 'text-editor-modal',
       inputs: inputs,
       buttons: [

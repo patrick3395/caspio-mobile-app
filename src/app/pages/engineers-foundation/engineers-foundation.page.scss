@@ -91,7 +91,15 @@ ion-toolbar {
   border-radius: 8px;
   margin-bottom: 12px;
   border: 1px solid #e0e0e0;
-  
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f9f9f9;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
   .item-header {
     margin-bottom: 8px;
     
@@ -1025,15 +1033,7 @@ ion-content {
                   display: -webkit-box;
                   -webkit-line-clamp: 2;
                   -webkit-box-orient: vertical;
-                  
-                  &.clickable {
-                    cursor: pointer;
-                    
-                    &:hover {
-                      color: var(--noble-orange);
-                      text-decoration: underline;
-                    }
-                  }
+                  pointer-events: none; // Prevent text from being clickable
                 }
               }
             }
