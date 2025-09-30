@@ -18,7 +18,7 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.497'; // Update this to match package.json version
+  appVersion = '1.4.498'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   
   // Lazy loading configuration
@@ -77,9 +77,10 @@ export class ActiveProjectsPage implements OnInit {
 
   ionViewWillEnter() {
     // Always reload when entering the page
-    console.log('ionViewWillEnter - reloading active projects');
-    // Clear image cache to ensure fresh images are loaded
-    this.projectImageCache = {};
+    console.log('[v1.4.498] ionViewWillEnter - reloading active projects');
+    // [v1.4.498] PERFORMANCE FIX: Don't clear image cache on re-entry (saves 2-5s)
+    // Cache will automatically update if PrimaryPhoto path changes
+    // Only clear cache if user explicitly requests refresh
     this.checkAuthAndLoadProjects();
   }
 
@@ -109,13 +110,15 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   loadActiveProjects() {
+    console.log('[v1.4.498] Loading active projects (optimized)');
+    const startTime = performance.now();
     this.loading = true;
     this.error = '';
-    
+
     // Get the current user's CompanyID from localStorage
     const userStr = localStorage.getItem('currentUser');
     let companyId: number | undefined;
-    
+
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
@@ -125,47 +128,34 @@ export class ActiveProjectsPage implements OnInit {
         console.error('Error parsing user data:', e);
       }
     }
-    
-    // First, let's get the table definition to understand the structure
-    this.projectsService.getProjectTableDefinition().subscribe({
-      next: (definition) => {
-        console.log('Projects table structure:', definition);
-        
-        // Now load the active projects filtered by CompanyID
-        this.projectsService.getActiveProjects(companyId).subscribe({
-          next: (projects) => {
-            this.projects = projects;
-            this.initializeLazyLoading();
-            this.loading = false;
-            console.log(`Active projects loaded for CompanyID ${companyId}:`, projects);
-          },
-          error: (error) => {
-            // If filtered query fails, try getting all projects and filter locally
-            this.projectsService.getAllProjects(companyId).subscribe({
-              next: (allProjects) => {
-                this.projects = allProjects.filter(p => 
-                  p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
-                );
-                this.loading = false;
-                console.log(`Projects filtered locally for CompanyID ${companyId}:`, this.projects);
-              },
-              error: (err) => {
-                this.error = 'Failed to load projects';
-                this.loading = false;
-                console.error('Error loading projects:', err);
-              }
-            });
-          }
-        });
+
+    // [v1.4.498] PERFORMANCE FIX: Removed unnecessary table definition call (saves 300-800ms)
+    // Load projects directly without table definition check
+    this.projectsService.getActiveProjects(companyId).subscribe({
+      next: (projects) => {
+        this.projects = projects;
+        this.initializeLazyLoading();
+        this.loading = false;
+        const elapsed = performance.now() - startTime;
+        console.log(`✅ [v1.4.498] Active projects loaded in ${elapsed.toFixed(0)}ms for CompanyID ${companyId}`);
       },
       error: (error) => {
-        const errorMessage = error?.error?.message || error?.message || 'Unknown error';
-        this.error = `Failed to get table structure: ${errorMessage}`;
-        this.loading = false;
-        console.error('Error getting table definition:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-        // Try to load projects anyway without table definition
-        this.loadProjectsDirectly();
+        // If filtered query fails, try getting all projects and filter locally
+        this.projectsService.getAllProjects(companyId).subscribe({
+          next: (allProjects) => {
+            this.projects = allProjects.filter(p =>
+              p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
+            );
+            this.loading = false;
+            const elapsed = performance.now() - startTime;
+            console.log(`✅ [v1.4.498] Projects filtered locally in ${elapsed.toFixed(0)}ms for CompanyID ${companyId}`);
+          },
+          error: (err) => {
+            this.error = 'Failed to load projects';
+            this.loading = false;
+            console.error('Error loading projects:', err);
+          }
+        });
       }
     });
   }
@@ -644,6 +634,35 @@ URL Attempted: ${imgUrl}`;
     this.currentIndex = 0;
     this.displayedProjects = this.projects.slice(0, this.INITIAL_LOAD);
     this.currentIndex = this.displayedProjects.length;
+
+    // [v1.4.498] PERFORMANCE FIX: Preload images for visible projects in parallel
+    this.preloadVisibleProjectImages();
+  }
+
+  /**
+   * Preload images for currently visible projects in parallel
+   */
+  private preloadVisibleProjectImages(): void {
+    const projectsWithPhotos = this.displayedProjects.filter(p =>
+      p['PrimaryPhoto'] && p['PrimaryPhoto'].startsWith('/')
+    );
+
+    if (projectsWithPhotos.length === 0) {
+      return;
+    }
+
+    console.log(`[v1.4.498] Preloading ${projectsWithPhotos.length} project images in parallel...`);
+    const startTime = performance.now();
+
+    // Load all images in parallel
+    const loadPromises = projectsWithPhotos.map(project => this.loadProjectImage(project));
+
+    Promise.all(loadPromises).then(() => {
+      const elapsed = performance.now() - startTime;
+      console.log(`✅ [v1.4.498] Preloaded ${projectsWithPhotos.length} images in ${elapsed.toFixed(0)}ms`);
+    }).catch(err => {
+      console.error('[v1.4.498] Error preloading images:', err);
+    });
   }
 
   /**

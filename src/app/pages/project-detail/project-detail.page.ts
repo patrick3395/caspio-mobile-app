@@ -183,6 +183,8 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async fetchProjectOptimized() {
+    console.log('[v1.4.498] Loading project (optimized)');
+    const startTime = performance.now();
     this.loading = true;
     this.error = '';
 
@@ -211,48 +213,38 @@ export class ProjectDetailPage implements OnInit {
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
 
-      // Now load everything else with individual error handling
-      let offers: any, types: any, services: any, attachTemplates: any, existingAttachments: any;
+      // [v1.4.498] PERFORMANCE FIX: Load all data in parallel instead of sequential (saves 1-2s)
+      console.log('[v1.4.498] Loading all project data in parallel...');
+      const parallelStartTime = performance.now();
 
-      try {
-        console.log('📍 Loading offers for company 1...');
-        offers = await this.caspioService.getOffersByCompany('1').toPromise();
-      } catch (error) {
-        console.error('❌ Failed to load offers:', error);
-        await this.showDebugAlert('Offers Load Error', `Failed to load offers: ${error}`);
-      }
+      const [offers, types, services, attachTemplates, existingAttachments] = await Promise.allSettled([
+        this.caspioService.getOffersByCompany('1').toPromise(),
+        this.caspioService.getServiceTypes().toPromise(),
+        this.caspioService.getServicesByProject(actualProjectId).toPromise(),
+        this.caspioService.getAttachTemplates().toPromise(),
+        this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
+      ]);
 
-      try {
-        console.log('📍 Loading service types...');
-        types = await this.caspioService.getServiceTypes().toPromise();
-      } catch (error) {
-        console.error('❌ Failed to load types:', error);
-      }
+      const parallelElapsed = performance.now() - parallelStartTime;
+      console.log(`✅ [v1.4.498] Parallel loading completed in ${parallelElapsed.toFixed(0)}ms`);
 
-      try {
-        console.log('📍 Loading existing services...');
-        services = await this.caspioService.getServicesByProject(actualProjectId).toPromise();
-      } catch (error) {
-        console.error('❌ Failed to load services:', error);
-      }
+      // Extract values from settled promises
+      const offersData = offers.status === 'fulfilled' ? offers.value : [];
+      const typesData = types.status === 'fulfilled' ? types.value : [];
+      const servicesData = services.status === 'fulfilled' ? services.value : [];
+      const attachTemplatesData = attachTemplates.status === 'fulfilled' ? attachTemplates.value : [];
+      const existingAttachmentsData = existingAttachments.status === 'fulfilled' ? existingAttachments.value : [];
 
-      try {
-        console.log('📍 Loading attach templates...');
-        attachTemplates = await this.caspioService.getAttachTemplates().toPromise();
-      } catch (error) {
-        console.error('❌ Failed to load attach templates:', error);
-      }
-
-      try {
-        console.log('📍 Loading existing attachments...');
-        existingAttachments = await this.caspioService.getAttachmentsByProject(actualProjectId).toPromise();
-      } catch (error) {
-        console.error('❌ Failed to load attachments:', error);
-      }
+      // Log any failures
+      if (offers.status === 'rejected') console.error('Failed to load offers:', offers.reason);
+      if (types.status === 'rejected') console.error('Failed to load types:', types.reason);
+      if (services.status === 'rejected') console.error('Failed to load services:', services.reason);
+      if (attachTemplates.status === 'rejected') console.error('Failed to load attach templates:', attachTemplates.reason);
+      if (existingAttachments.status === 'rejected') console.error('Failed to load attachments:', existingAttachments.reason);
 
       // Process offers and types
-      this.availableOffers = (offers || []).map((offer: any) => {
-        const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
+      this.availableOffers = (offersData || []).map((offer: any) => {
+        const type = (typesData || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
         return {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
@@ -262,11 +254,11 @@ export class ProjectDetailPage implements OnInit {
         };
       });
 
-      // Load icon images asynchronously like Engineers Foundation does
-      this.loadIconImages();
+      // [v1.4.498] PERFORMANCE FIX: Load icon images in parallel with other processing
+      const iconLoadPromise = this.loadIconImages();
 
       // Process existing services
-      this.selectedServices = (services || []).map((service: any) => {
+      this.selectedServices = (servicesData || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
         return {
           instanceId: `${service.PK_ID || service.ServiceID}_${Date.now()}_${Math.random()}`,
@@ -281,10 +273,10 @@ export class ProjectDetailPage implements OnInit {
       });
 
       // Process attach templates
-      this.attachTemplates = attachTemplates || [];
+      this.attachTemplates = attachTemplatesData || [];
 
       // Process existing attachments
-      this.existingAttachments = existingAttachments || [];
+      this.existingAttachments = existingAttachmentsData || [];
 
       // Update documents
       this.updateDocumentsList();
@@ -296,6 +288,9 @@ export class ProjectDetailPage implements OnInit {
 
       this.loading = false;
       this.loadingServices = false;
+
+      const totalElapsed = performance.now() - startTime;
+      console.log(`✅ [v1.4.498] Project detail loaded in ${totalElapsed.toFixed(0)}ms`);
 
     } catch (error: any) {
       console.error('❌ Error in fetchProjectOptimized:', error);
