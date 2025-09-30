@@ -26,15 +26,15 @@ async function ensureFabricLoaded(): Promise<void> {
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
     <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
+      <ion-toolbar style="--background: #f0f0f0;">
         <ion-buttons slot="start">
-          <ion-button (click)="dismiss()" style="color: white;">
+          <ion-button (click)="dismiss()" style="color: #333;">
             <ion-icon name="arrow-back-outline" style="font-size: 24px;"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title style="color: white; font-weight: 500; text-align: center;">Photo Editor</ion-title>
+        <ion-title style="color: #333; font-weight: 500; text-align: center;">Photo Editor</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="save()" style="color: white;">
+          <ion-button (click)="save()" style="color: #333;">
             <ion-icon name="checkmark-outline" style="font-size: 28px; font-weight: bold;"></ion-icon>
           </ion-button>
         </ion-buttons>
@@ -67,11 +67,6 @@ async function ensureFabricLoaded(): Promise<void> {
       
       <div class="canvas-container" #canvasContainer>
         <canvas #fabricCanvas></canvas>
-        
-        <!-- Debug Info -->
-        <div class="debug-info">
-          <span class="version-badge">v1.4.269</span>
-        </div>
       </div>
       
       <!-- Bottom toolbar with undo and clear actions -->
@@ -108,7 +103,7 @@ async function ensureFabricLoaded(): Promise<void> {
       left: 0;
       right: 0;
       padding: 12px;
-      background: linear-gradient(180deg, #F15A27 0%, #e54d1c 100%);
+      background: #f0f0f0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       display: flex;
       justify-content: center;
@@ -133,14 +128,14 @@ async function ensureFabricLoaded(): Promise<void> {
     
     .tool-btn {
       background: rgba(255,255,255,0.95);
-      border: 2px solid rgba(255,255,255,1);
+      border: 2px solid #e0e0e0;
       border-radius: 10px;
       width: 48px;
       height: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #F15A27;
+      color: #666;
       cursor: pointer;
       transition: all 0.2s;
       position: relative;
@@ -167,23 +162,23 @@ async function ensureFabricLoaded(): Promise<void> {
     }
     
     .undo-btn {
-      border-color: #4CAF50;
-      color: #4CAF50;
+      border-color: #333;
+      color: #333;
     }
-    
+
     .undo-btn:hover {
-      background: #f1f8f4;
-      border-color: #45a049;
+      background: #f5f5f5;
+      border-color: #000;
     }
-    
+
     .clear-btn {
-      border-color: #f44336;
-      color: #f44336;
+      border-color: #333;
+      color: #333;
     }
-    
+
     .clear-btn:hover {
-      background: #ffebee;
-      border-color: #da190b;
+      background: #f5f5f5;
+      border-color: #000;
     }
     
     .action-btn ion-icon {
@@ -209,14 +204,15 @@ async function ensureFabricLoaded(): Promise<void> {
       background: white;
       transform: scale(1.05);
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      border-color: #999;
     }
-    
+
     .tool-btn.active {
-      background: white;
-      border-color: #d44a1a;
+      background: #e0e0e0;
+      border-color: #666;
       border-width: 3px;
-      box-shadow: 0 4px 12px rgba(241,90,39,0.4);
-      color: #d44a1a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      color: #333;
     }
     
     .tool-btn:disabled {
@@ -239,7 +235,7 @@ async function ensureFabricLoaded(): Promise<void> {
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      border: 2px solid #F15A27;
+      border: 2px solid #999;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     

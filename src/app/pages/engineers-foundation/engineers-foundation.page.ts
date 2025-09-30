@@ -5608,20 +5608,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Add appropriate input based on AnswerType
     if (item.answerType === 1) {
-      // Yes/No toggle
+      // Yes/No toggle - use originalText for display text
+      const currentText = item.originalText || item.text || '';
+
+      // Add a read-only textarea showing the original text
+      if (currentText) {
+        inputs.push({
+          name: 'originalDescription',
+          type: 'textarea',
+          placeholder: 'Description',
+          value: currentText,
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 6,
+            readonly: true
+          }
+        });
+      }
+
+      // Add Yes/No radio buttons for the answer
       inputs.push({
         name: 'description',
         type: 'radio',
         label: 'Yes',
         value: 'Yes',
-        checked: item.text === 'Yes'
+        checked: item.answer === 'Yes'
       });
       inputs.push({
         name: 'description',
         type: 'radio',
         label: 'No',
         value: 'No',
-        checked: item.text === 'No'
+        checked: item.answer === 'No'
       });
     } else if (item.answerType === 2) {
       // Dropdown from Services_Visuals_Drop
@@ -6834,7 +6852,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Update existing photo attachment with optional annotations
-  async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
+  async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File, caption?: string): Promise<void> {
     try {
       console.log('Ã°Å¸â€Â [v1.4.340] updatePhotoAttachment called with:');
       console.log('  attachId:', attachId);
@@ -7267,7 +7285,13 @@ Original File: ${originalFile?.name || 'None'}`;
       if (role === 'cancel') {
         throw new Error('Update cancelled by user');
       } */
-      
+
+      // Add caption to updateData if provided
+      if (caption !== undefined) {
+        updateData.Annotation = caption;
+        console.log('Ã°Å¸â€Å" Adding caption to update:', caption);
+      }
+
       // CRITICAL: Check if we have any data to update
       if (Object.keys(updateData).length === 0) {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â No data to update - updateData is empty');
@@ -7759,7 +7783,7 @@ Stack: ${error?.stack}`;
               }
               
               // Update the existing attachment with annotations
-              await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile);
+              await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile, data.caption);
             
               // Update the local photo data
               const photoIndex = this.visualPhotos[visualId]?.findIndex(
@@ -7951,7 +7975,7 @@ Stack: ${error?.stack}`;
           
           try {
             // Update the existing attachment with annotations and original
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile);
+            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile, data.caption);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(
