@@ -338,19 +338,39 @@
 
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
-      <div class="section-header" data-section="structural" (click)="toggleSection('structural')">
-        <div class="section-info">
+      <div class="section-header" data-section="structural">
+        <div class="section-info"
+             (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
+             style="flex: 1;"
+             [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'"
+             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <div class="section-title">
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
         </div>
-        <div class="section-toggle">
+        <!-- Structural Systems Status Dropdown -->
+        <div class="structural-status-dropdown" (click)="$event.stopPropagation()">
+          <select [(ngModel)]="serviceData.StructuralSystemsStatus"
+                  (ngModelChange)="onStructuralSystemsStatusChange($event)"
+                  class="structural-status-select"
+                  (click)="$event.stopPropagation()">
+            <option value="">Select Status</option>
+            <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
+            <option value="Completed">Completed</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Not Applicable">Not Applicable</option>
+          </select>
+        </div>
+        <div class="section-toggle"
+             (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
+             [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'"
+             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
       </div>
 
-      <div class="section-content" *ngIf="expandedSections['structural']">
+      <div class="section-content" *ngIf="expandedSections['structural'] && !isStructuralSystemsDisabled()">
         <!-- Visual Categories from Services_Visuals_Templates -->
         <div class="categories-container" *ngIf="visualCategories.length > 0">
           
@@ -834,9 +854,9 @@
               
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
-                
-                <!-- Flooring Difference Factor Section -->
-                <div class="room-section-delimiter">
+
+                <!-- Flooring Difference Factor Section (hidden for Base Station) -->
+                <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
                   <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
                           (click)="openHelp(1, 'FDF Help')"
@@ -845,9 +865,9 @@
                     <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                   </button>
                 </div>
-                
-                <!-- Flooring Difference Factor dropdown - compact inline -->
-                <div class="fdf-dropdown-container">
+
+                <!-- Flooring Difference Factor dropdown - compact inline (hidden for Base Station) -->
+                <div class="fdf-dropdown-container" *ngIf="room.RoomName !== 'Base Station'">
                   <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
                     <ion-label style="font-size: 13px; font-weight: 600;">FDF:</ion-label>
                     <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf"
@@ -861,9 +881,9 @@
                     </ion-select>
                   </ion-item>
                 </div>
-                
-                <!-- FDF Photos Section -->
-                <div class="fdf-photos-container" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
+
+                <!-- FDF Photos Section (hidden for Base Station) -->
+                <div class="fdf-photos-container" *ngIf="room.RoomName !== 'Base Station'" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
                   <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
                   <div style="display: flex; gap: 8px;">
                     <!-- Top Photo Column -->

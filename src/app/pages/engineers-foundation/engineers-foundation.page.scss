@@ -756,7 +756,56 @@ ion-content {
   &.expanded .section-header .section-toggle ion-icon {
     transform: rotate(180deg);
   }
-  
+
+  // Structural Systems Status Dropdown in Header
+  .structural-status-dropdown {
+    margin: 0 12px;
+
+    .structural-status-select {
+      min-width: 140px;
+      max-width: 200px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+      padding-right: 32px;
+
+      &:hover {
+        border-color: var(--noble-orange);
+        box-shadow: 0 2px 6px rgba(241, 90, 39, 0.15);
+      }
+
+      &:focus {
+        outline: none;
+        border-color: var(--noble-orange);
+        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+      }
+
+      option {
+        padding: 8px;
+        font-size: 13px;
+      }
+
+      // Highlight when value is selected
+      &:not([value=""]) {
+        background-color: #fff8f5;
+        border-color: var(--noble-orange);
+        color: var(--noble-orange);
+        font-weight: 600;
+      }
+    }
+  }
+
   .section-content {
     padding: 16px;
     background: white;

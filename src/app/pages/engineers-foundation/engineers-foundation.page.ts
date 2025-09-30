@@ -3032,6 +3032,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.expandedSections[section] = !this.expandedSections[section];
   }
 
+  // Check if Structural Systems section should be disabled
+  isStructuralSystemsDisabled(): boolean {
+    return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
+  }
+
+  // Handle Structural Systems status change
+  onStructuralSystemsStatusChange(value: string) {
+    console.log(`[v1.4.501] Structural Systems status changed: ${value}`);
+
+    // If set to "Provided in Home Inspection Report", collapse the section
+    if (value === 'Provided in Home Inspection Report') {
+      this.expandedSections['structural'] = false;
+    }
+
+    // Call the regular service field change handler
+    this.onServiceFieldChange('StructuralSystemsStatus', value);
+  }
+
   scrollToSection(section: string) {
     // Find the section header element
     const sectionElement = document.querySelector(`.section-header[data-section="${section}"]`);
