@@ -335,16 +335,8 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     font-weight: 600;
     color: $gray;
     font-size: 15px;
-    border-bottom: 3px solid $dark;
-    border-top: 3px solid $dark;
-
-    &:first-child {
-      border-left: 3px solid $dark;
-    }
-
-    &:last-child {
-      border-right: 3px solid $dark;
-    }
+    border: 3px solid #999;
+    border-radius: 8px;
   }
 
   .doc-info-cell {

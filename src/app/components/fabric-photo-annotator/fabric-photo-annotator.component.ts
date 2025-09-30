@@ -1,7 +1,7 @@
 import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import * as fabric from 'fabric';
 import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 
@@ -81,17 +81,14 @@ async function ensureFabricLoaded(): Promise<void> {
         </button>
       </div>
 
-      <!-- Caption input bar -->
+      <!-- Caption button bar -->
       <div class="caption-bar">
-        <ion-item lines="none" style="--background: transparent; --padding-start: 0; --inner-padding-end: 0;">
-          <ion-label position="stacked" style="margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #666;">Photo Caption</ion-label>
-          <ion-input
-            [(ngModel)]="photoCaption"
-            placeholder="Add a caption for this photo..."
-            maxlength="255"
-            style="font-size: 14px;">
-          </ion-input>
-        </ion-item>
+        <button class="caption-button" (click)="openCaptionPopup()">
+          <ion-icon name="text-outline"></ion-icon>
+          <span>{{ photoCaption ? 'Edit Caption' : 'Add Caption' }}</span>
+          <span *ngIf="photoCaption" class="caption-indicator">✓</span>
+        </button>
+        <p *ngIf="photoCaption" class="caption-preview">{{ photoCaption }}</p>
       </div>
 
     </ion-content>
@@ -198,6 +195,54 @@ async function ensureFabricLoaded(): Promise<void> {
       background: rgba(255,255,255,0.98);
       border-top: 1px solid rgba(0,0,0,0.1);
       z-index: 99;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .caption-button {
+      width: 100%;
+      padding: 12px 16px;
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .caption-button:hover {
+      background: #f5f5f5;
+      border-color: #999;
+    }
+
+    .caption-button ion-icon {
+      font-size: 20px;
+      color: #666;
+    }
+
+    .caption-indicator {
+      margin-left: auto;
+      color: #4CAF50;
+      font-size: 16px;
+    }
+
+    .caption-preview {
+      margin: 0;
+      padding: 8px 12px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #666;
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .tool-btn:hover {
@@ -317,7 +362,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   photoCaption = '';
 
   constructor(
-    private modalController: ModalController
+    private modalController: ModalController,
+    private alertController: AlertController
   ) {}
   
   ngOnInit() {
@@ -852,6 +898,39 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       console.error('âŒ [Annotations] Error loading existing annotations:', error);
     }
   }
+  async openCaptionPopup() {
+    const alert = await this.alertController.create({
+      header: 'Photo Caption',
+      inputs: [
+        {
+          name: 'caption',
+          type: 'textarea',
+          placeholder: 'Enter caption for this photo...',
+          value: this.photoCaption,
+          attributes: {
+            maxlength: 255,
+            rows: 3
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: (data) => {
+            this.photoCaption = data.caption || '';
+            console.log('📝 Caption updated:', this.photoCaption);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
   async save() {
     const dataUrl = this.canvas.toDataURL({
       format: 'jpeg',
