@@ -8320,8 +8320,9 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('Ã°Å¸â€â€ž [v1.4.386] Loading Structural Systems photos...');
-    
+    console.log('🔄 [v1.4.488] Loading Structural Systems photos in parallel...');
+    const startTime = performance.now();
+
     // [v1.4.386] Check for duplicate visualIds
     const visualIdToKeys: { [visualId: string]: string[] } = {};
     for (const key in this.visualRecordIds) {
@@ -8331,30 +8332,33 @@ Stack: ${error?.stack}`;
       }
       visualIdToKeys[visualId].push(key);
     }
-    
+
     // Log any duplicate visualIds
     for (const visualId in visualIdToKeys) {
       if (visualIdToKeys[visualId].length > 1) {
-        console.warn(`[v1.4.386] WARNING: VisualID ${visualId} is used by multiple keys:`, visualIdToKeys[visualId]);
+        console.warn(`[v1.4.488] WARNING: VisualID ${visualId} is used by multiple keys:`, visualIdToKeys[visualId]);
       }
     }
-    
-    // Load photos for each KEY, not just visualId
-    for (const key in this.visualRecordIds) {
+
+    // [v1.4.488] PERFORMANCE FIX: Load all photos in parallel instead of sequential
+    // Removed 50ms delay between each visual - saves 1-2 seconds
+    const loadPromises = Object.keys(this.visualRecordIds).map(key => {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
-      
+
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        console.log(`[v1.4.386] Loading photos for key: ${key}, visualId: ${visualId}`);
-        // Load photos and store them by KEY, not just visualId
-        await this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
-        
-        // Small delay between visuals to prevent race conditions
-        await new Promise(resolve => setTimeout(resolve, 50));
+        console.log(`[v1.4.488] Queuing photos for key: ${key}, visualId: ${visualId}`);
+        return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
       }
-    }
-    
-    console.log('Ã¢Å“â€¦ [v1.4.386] All Structural Systems photos loaded');
+      return Promise.resolve();
+    });
+
+    // Wait for all photos to load in parallel
+    await Promise.all(loadPromises);
+
+    const elapsed = performance.now() - startTime;
+    console.log(`✅ [v1.4.488] All Structural Systems photos loaded in ${elapsed.toFixed(0)}ms`);
+    this.changeDetectorRef.detectChanges(); // Single change detection after all photos loaded
   }
   
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
@@ -8370,7 +8374,7 @@ Stack: ${error?.stack}`;
       }
 
       console.log(`[v1.4.386] Found ${attachments.length} photos for KEY ${key} (VisualID ${visualId})`);
-
+      // [v1.4.488] Change detection moved to end of loadExistingPhotos for better performance
       const photoRecords = attachments.map(att => this.buildPhotoRecord(att));
       this.visualPhotos[key] = photoRecords;
       this.changeDetectorRef.detectChanges();
