@@ -190,7 +190,7 @@ ion-content {
 }
 
 .offline-banner {
-  display: flex;
+  display: none; // Removed - not needed
   align-items: center;
   gap: 12px;
   background: rgba(241, 90, 39, 0.1);
@@ -297,6 +297,7 @@ ion-content {
 }
 
 .save-status {
+  display: none; // Disabled - no save status banner needed
   position: fixed;
   top: 70px;
   right: 24px;

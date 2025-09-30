@@ -17,17 +17,6 @@
 
 <ion-content>
   <div class="template-container">
-    <!-- Version Header -->
-    <div class="offline-banner" *ngIf="manualOffline">
-      <ion-icon name="cloud-offline"></ion-icon>
-      <div class="offline-text">
-        <span>Offline mode enabled. Auto-sync is paused until this is disabled.</span>
-      </div>
-      <button class="enable-sync-btn" (click)="toggleManualOffline()">
-        <ion-icon name="cloud-upload"></ion-icon>
-        Enable Auto-Sync
-      </button>
-    </div>
 
     <!-- Project Information Section (Shared across all services) -->
     <div class="section-card">

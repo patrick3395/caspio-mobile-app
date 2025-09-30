@@ -4539,8 +4539,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
-    this.saveStatus = message;
-    this.saveStatusType = type;
+    // Disabled - no save status banner needed
+    // this.saveStatus = message;
+    // this.saveStatusType = type;
 
     setTimeout(() => {
       this.saveStatus = '';
