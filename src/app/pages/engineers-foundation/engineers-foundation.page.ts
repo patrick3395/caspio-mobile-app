@@ -4352,18 +4352,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private updateOfflineBanner(): void {
-    if (!this.isOnline) {
-      this.updateQueueStatus();
-      this.offlineMessage = this.manualOffline
-        ? 'Manual offline mode enabled. Auto-save is paused until you resume syncing.'
-        : 'You are offline. Changes are saved locally and will sync automatically when back online.';
-      this.showOfflineBanner = true;
-    } else {
-      this.showOfflineBanner = false;
-      this.offlineMessage = '';
-      this.queuedChanges = 0;
-      this.queuedChangesLabel = '';
-    }
+    // Disabled - no banners needed, just the bottom toggle button
+    this.showOfflineBanner = false;
+    this.offlineMessage = '';
+    this.queuedChanges = 0;
+    this.queuedChangesLabel = '';
   }
 
   private updateQueueStatus(): void {
@@ -4531,11 +4524,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.offlineService.setManualOffline(newState);
     this.manualOffline = newState;
     this.updateOfflineBanner();
-
-    const toastMessage = newState
-      ? 'Manual offline mode enabled. Changes will queue until you resume.'
-      : 'Auto-save resumed. Queued changes will sync shortly.';
-    this.showToast(toastMessage, newState ? 'warning' : 'success');
+    // No toast needed - button state is self-explanatory
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
