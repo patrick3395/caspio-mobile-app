@@ -28,14 +28,14 @@ async function ensureFabricLoaded(): Promise<void> {
     <ion-header>
       <ion-toolbar style="--background: #f0f0f0;">
         <ion-buttons slot="start">
-          <ion-button (click)="dismiss()" style="color: #333;">
-            <ion-icon name="arrow-back-outline" style="font-size: 24px;"></ion-icon>
+          <ion-button (click)="dismiss()" style="color: #000;">
+            <ion-icon name="arrow-back-outline" style="font-size: 24px; color: #000;"></ion-icon>
           </ion-button>
         </ion-buttons>
         <ion-title style="color: #333; font-weight: 500; text-align: center;">Photo Editor</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="save()" style="color: #333;">
-            <ion-icon name="checkmark-outline" style="font-size: 28px; font-weight: bold;"></ion-icon>
+          <ion-button (click)="save()" style="color: #000;">
+            <ion-icon name="checkmark-outline" style="font-size: 28px; font-weight: bold; color: #000;"></ion-icon>
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -367,16 +367,22 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('ðŸŽ¨ [v1.4.237 FABRIC] Initializing Fabric.js photo annotator');
-    console.log('ðŸ"¥ [v1.4.237 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('ðŸŽ¨ [v1.4.488 FABRIC] Initializing Fabric.js photo annotator');
+    console.log('ðŸ"¥ [v1.4.488 FABRIC] Existing annotations:', this.existingAnnotations);
+    console.log('ðŸ"¸ [v1.4.488 FABRIC] Photo data:', this.photoData);
 
     // Load existing caption from photoData if available
     if (this.photoData?.Annotation) {
       this.photoCaption = this.photoData.Annotation;
+      console.log('ðŸ"� [v1.4.488] Loaded caption from Annotation:', this.photoCaption);
     } else if (this.photoData?.annotation) {
       this.photoCaption = this.photoData.annotation;
+      console.log('ðŸ"� [v1.4.488] Loaded caption from annotation:', this.photoCaption);
     } else if (this.photoData?.caption) {
       this.photoCaption = this.photoData.caption;
+      console.log('ðŸ"� [v1.4.488] Loaded caption from caption:', this.photoCaption);
+    } else {
+      console.log('âš ï¸ [v1.4.488] No caption found in photoData');
     }
   }
   

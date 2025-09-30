@@ -7796,6 +7796,12 @@ Stack: ${error?.stack}`;
                 this.visualPhotos[visualId][photoIndex].url = newUrl;
                 this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
                 this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+                // Update caption if provided
+                if (data.caption !== undefined) {
+                  this.visualPhotos[visualId][photoIndex].caption = data.caption;
+                  this.visualPhotos[visualId][photoIndex].Annotation = data.caption;
+                  console.log('Ã°Å¸â€Å" Updated caption in local photo object:', data.caption);
+                }
                 // Store annotations in the photo object
                 if (annotationsData) {
                   this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
@@ -7805,7 +7811,7 @@ Stack: ${error?.stack}`;
                   } else {
                     this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
                   }
-                  console.log('Ã¢Å“â€¦ Updated rawDrawingsString for future re-edits in quickAnnotate');
+                  console.log('Ã¢Å"â€¦ Updated rawDrawingsString for future re-edits in quickAnnotate');
                 }
               }
               
@@ -7994,15 +8000,22 @@ Stack: ${error?.stack}`;
               const newUrl = URL.createObjectURL(data.annotatedBlob);
               this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
               // Don't overwrite thumbnailUrl if it has base64 data - only set if undefined
-              if (!this.visualPhotos[visualId][photoIndex].thumbnailUrl || 
+              if (!this.visualPhotos[visualId][photoIndex].thumbnailUrl ||
                   this.visualPhotos[visualId][photoIndex].thumbnailUrl.startsWith('blob:')) {
                 this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
               }
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
-              
+
+              // Update caption if provided
+              if (data.caption !== undefined) {
+                this.visualPhotos[visualId][photoIndex].caption = data.caption;
+                this.visualPhotos[visualId][photoIndex].Annotation = data.caption;
+                console.log('Ã°Å¸â€Å" Updated caption in local photo object (viewPhoto):', data.caption);
+              }
+
               // Keep the original URL intact in the url field
               // DO NOT change this.visualPhotos[visualId][photoIndex].url!
-              
+
               // Store annotations in the photo object
               if (annotationsData) {
                 this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
@@ -8013,7 +8026,7 @@ Stack: ${error?.stack}`;
                 } else {
                   this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
                 }
-                console.log('Ã¢Å“â€¦ Updated rawDrawingsString for future re-edits');
+                console.log('Ã¢Å"â€¦ Updated rawDrawingsString for future re-edits');
               }
               
               console.log(`Ã°Å¸â€œÂ¸ [v1.4.303] Photo URLs after annotation:`);
