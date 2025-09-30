@@ -18,7 +18,7 @@
 <ion-content>
   <div class="template-container">
     <!-- Version Header -->
-    <div class="version-header">Version 1.4.491 - Square Feet numeric input with comma formatting</div>
+    <div class="version-header">Version 1.4.492 - Comments renamed to General Information</div>
 
     <div class="sync-control-bar">
       <button
@@ -391,16 +391,16 @@
               </ion-item>
               
               <div class="category-content" slot="content">
-                <!-- Comments Section -->
+                <!-- General Information Section -->
                 <div class="type-section" *ngIf="organizedData[category] && organizedData[category].comments">
                   <h4 class="type-header">
-                    Comments
-                    <button class="add-visual-btn" (click)="addCustomVisual(category, 'Comment')" title="Add custom comment">
+                    General Information
+                    <button class="add-visual-btn" (click)="addCustomVisual(category, 'Comment')" title="Add custom general information">
                       <ion-icon name="add-circle-outline"></ion-icon>
                     </button>
                   </h4>
                   <div *ngIf="organizedData[category].comments.length === 0" class="no-items-message">
-                    No comments yet. Click + to add one.
+                    No general information yet. Click + to add one.
                   </div>
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
