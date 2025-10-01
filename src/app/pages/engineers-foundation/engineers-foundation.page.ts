@@ -883,60 +883,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Set Weather Conditions options
         if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
           this.weatherConditionsOptions = optionsByService['WeatherConditions'];
+          if (!this.weatherConditionsOptions.includes('Other')) {
+            this.weatherConditionsOptions.push('Other');
+          }
           console.log('Weather Conditions options:', this.weatherConditionsOptions);
         }
-        
+
         // Set Outdoor Temperature options
         if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
           this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
+          if (!this.outdoorTemperatureOptions.includes('Other')) {
+            this.outdoorTemperatureOptions.push('Other');
+          }
           console.log('Outdoor Temperature options:', this.outdoorTemperatureOptions);
         }
-        
+
         // Set Occupancy Furnishings options
         if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
           this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
+          if (!this.occupancyFurnishingsOptions.includes('Other')) {
+            this.occupancyFurnishingsOptions.push('Other');
+          }
           console.log('Occupancy Furnishings options:', this.occupancyFurnishingsOptions);
         }
-        
+
         // Set InAttendance options
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
+          if (!this.inAttendanceOptions.includes('Other')) {
+            this.inAttendanceOptions.push('Other');
+          }
           console.log('InAttendance options:', this.inAttendanceOptions);
         }
-        
+
         // Set FirstFoundationType options
         if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
           this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
+          if (!this.firstFoundationTypeOptions.includes('Other')) {
+            this.firstFoundationTypeOptions.push('Other');
+          }
           console.log('FirstFoundationType options:', this.firstFoundationTypeOptions);
         }
-        
+
         // Set SecondFoundationType options
         if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
           this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+          if (!this.secondFoundationTypeOptions.includes('Other')) {
+            this.secondFoundationTypeOptions.push('Other');
+          }
           console.log('SecondFoundationType options:', this.secondFoundationTypeOptions);
         }
-        
+
         // Set ThirdFoundationType options
         if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
           this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+          if (!this.thirdFoundationTypeOptions.includes('Other')) {
+            this.thirdFoundationTypeOptions.push('Other');
+          }
           console.log('ThirdFoundationType options:', this.thirdFoundationTypeOptions);
         }
-        
+
         // Set SecondFoundationRooms options
         if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
           this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+          if (!this.secondFoundationRoomsOptions.includes('Other')) {
+            this.secondFoundationRoomsOptions.push('Other');
+          }
           console.log('SecondFoundationRooms options:', this.secondFoundationRoomsOptions);
         }
-        
+
         // Set ThirdFoundationRooms options
         if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
           this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
+            this.thirdFoundationRoomsOptions.push('Other');
+          }
           console.log('ThirdFoundationRooms options:', this.thirdFoundationRoomsOptions);
         }
-        
+
         // Set OwnerOccupantInterview options
         if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
           this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
+          if (!this.ownerOccupantInterviewOptions.includes('Other')) {
+            this.ownerOccupantInterviewOptions.push('Other');
+          }
           console.log('OwnerOccupantInterview options:', this.ownerOccupantInterviewOptions);
         }
       }
