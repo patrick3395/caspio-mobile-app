@@ -1,10 +1,14 @@
 import { Component, Input, ViewChild, ElementRef } from '@angular/core';
-import { ModalController, AlertController } from '@ionic/angular';
+import { ModalController, AlertController, IonicModule } from '@ionic/angular';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-add-custom-visual-modal',
   templateUrl: './add-custom-visual-modal.component.html',
-  styleUrls: ['./add-custom-visual-modal.component.scss']
+  styleUrls: ['./add-custom-visual-modal.component.scss'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, IonicModule]
 })
 export class AddCustomVisualModalComponent {
   @Input() kind: string = 'Comment'; // Comment, Limitation, or Deficiency
