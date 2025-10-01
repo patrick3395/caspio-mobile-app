@@ -2754,7 +2754,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomRecordIds[roomName] = '__pending__'; // Mark as pending
         this.savingRooms[roomName] = false;
         // Success - room is queued and ready for points to be added
-        return;
+        console.log(`✅ Room "${roomName}" queued successfully (Auto-Save off)`);
+        return; // Exit early - room is ready for use
       }
 
       // Only wrap API call in try-catch (not the offline logic)
@@ -2785,11 +2786,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } finally {
         this.savingRooms[roomName] = false;
       }
-      
+
       // Success toast removed per user request
     } catch (error) {
-      console.error('Error adding room template:', error);
-      await this.showToast('Failed to add room', 'danger');
+      console.error('Error in addRoomTemplate:', error);
+      // Only show error toast if NOT in offline mode
+      if (!this.manualOffline) {
+        await this.showToast('Failed to add room', 'danger');
+      }
     }
   }
   
