@@ -6897,27 +6897,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Create custom visual with photos
   async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null) {
-    // IMMEDIATE debug to verify function is called
-    const startAlert = await this.alertController.create({
-      header: 'Function Called',
-      message: `Creating ${kind} for ${category}<br>Name: ${name}<br>ServiceID: ${this.serviceId}`,
-      buttons: ['OK']
-    });
-    await startAlert.present();
-
     try {
       const serviceId = this.serviceId;
       if (!serviceId) {
         await this.showToast('Service ID not found', 'danger');
         return;
       }
-      
+
       const serviceIdNum = parseInt(serviceId, 10);
       if (isNaN(serviceIdNum)) {
         await this.showToast('Invalid Service ID', 'danger');
         return;
       }
-      
+
       const visualData: ServicesVisualRecord = {
         ServiceID: serviceIdNum,
         Category: category,
@@ -6926,7 +6918,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         Text: text,
         Notes: ''
       };
-      
+
+      // Check offline mode BEFORE making API calls
+      const currentlyOnline = this.offlineService.isOnline();
+      const manualOffline = this.offlineService.isManualOffline();
+
+      // Generate a temporary ID for the custom visual
+      const tempId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const key = `${category}_${tempId}`;
+
+      // If offline, queue the visual creation
+      if (!currentlyOnline || manualOffline) {
+        // Add to local data structure immediately with temp ID
+        if (!this.organizedData[category]) {
+          this.organizedData[category] = {
+            comments: [],
+            limitations: [],
+            deficiencies: []
+          };
+        }
+
+        const customItem = {
+          id: tempId,
+          name: name,
+          text: text,
+          isCustom: true
+        };
+
+        // Add to appropriate array
+        const kindKey = kind.toLowerCase() + 's';
+        if (kindKey === 'comments') {
+          this.organizedData[category].comments.push(customItem);
+        } else if (kindKey === 'limitations') {
+          this.organizedData[category].limitations.push(customItem);
+        } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
+          this.organizedData[category].deficiencies.push(customItem);
+        }
+
+        // Mark as pending
+        this.visualRecordIds[key] = '__pending__';
+        this.selectedItems[key] = true;
+
+        // Queue for later creation
+        this.pendingVisualCreates[key] = {
+          category,
+          templateId: tempId,
+          data: visualData
+        };
+
+        // Update categoryData
+        if (!this.categoryData[category]) {
+          this.categoryData[category] = {};
+        }
+        this.categoryData[category][tempId] = {
+          selected: true,
+          ...customItem
+        };
+
+        this.changeDetectorRef.detectChanges();
+        await this.showToast('Visual queued and will save when auto-sync resumes.', 'warning');
+        return;
+      }
+
+      // Online mode - proceed with API call
       const loading = await this.loadingController.create({
         message: 'Creating visual...'
       });
@@ -6936,17 +6990,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
 
-        // Dismiss loading BEFORE showing debug alerts
         await loading.dismiss();
-
-        // Debug response
-        const responseAlert = await this.alertController.create({
-          header: 'API Response',
-          message: `<pre>${JSON.stringify(response, null, 2)}</pre>`,
-          buttons: ['OK']
-        });
-        await responseAlert.present();
-        await responseAlert.onDidDismiss();
 
         // Extract VisualID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
@@ -6962,15 +7006,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else if (response) {
           visualId = String(response);
         }
-
-        // Debug extracted ID
-        const idAlert = await this.alertController.create({
-          header: 'Extracted VisualID',
-          message: `VisualID: ${visualId}`,
-          buttons: ['OK']
-        });
-        await idAlert.present();
-        await idAlert.onDidDismiss();
 
         if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
           throw new Error('No VisualID returned from server');
