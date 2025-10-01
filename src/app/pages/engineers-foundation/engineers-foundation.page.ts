@@ -2367,7 +2367,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             roomData.Notes = this.roomElevationData[roomName].notes;
           }
         }
-        
+
+        // Check if offline mode is enabled
+        if (this.manualOffline) {
+          console.log(`[Offline] Queuing room selection for ${roomName}`);
+          this.pendingRoomCreates[roomName] = roomData;
+          this.selectedRooms[roomName] = true;
+          this.expandedRooms[roomName] = true;
+          this.roomRecordIds[roomName] = '__pending__';
+          this.savingRooms[roomName] = false;
+          this.changeDetectorRef.detectChanges();
+          return;
+        }
+
         // Create room directly without debug popup
         try {
           const response = await this.caspioService.createServicesRoom(roomData).toPromise();
@@ -2386,12 +2398,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         } catch (err: any) {
           console.error('Room creation error:', err);
-          await this.showToast('Failed to create room', 'danger');
+          if (!this.manualOffline) {
+            await this.showToast('Failed to create room', 'danger');
+          }
           this.selectedRooms[roomName] = false;
         }
       } catch (error: any) {
         console.error('Error toggling room selection:', error);
-        await this.showToast('Failed to update room selection', 'danger');
+        if (!this.manualOffline) {
+          await this.showToast('Failed to update room selection', 'danger');
+        }
         this.selectedRooms[roomName] = false;
         if (event && event.target) {
           event.target.checked = false; // Revert checkbox visually on error
