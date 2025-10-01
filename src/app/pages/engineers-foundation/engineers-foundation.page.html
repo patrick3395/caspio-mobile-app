@@ -1012,14 +1012,16 @@
                       </button>
                       <!-- Top Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top"
-                           style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'" 
-                             style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
-                             (click)="viewFDFPhoto(room.RoomName, 'Top')"
-                             alt="Top">
-                        <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Top', $event)" title="Delete">
-                          <ion-icon name="close"></ion-icon>
-                        </button>
+                           style="margin-top: 8px; display: inline-block;">
+                        <div class="image-preview">
+                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                               width="100" height="80"
+                               (click)="viewFDFPhoto(room.RoomName, 'Top')"
+                               alt="Top">
+                          <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Top', $event)" title="Delete">
+                            <ion-icon name="close"></ion-icon>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     
@@ -1034,14 +1036,16 @@
                       </button>
                       <!-- Bottom Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom"
-                           style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'" 
-                             style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
-                             (click)="viewFDFPhoto(room.RoomName, 'Bottom')"
-                             alt="Bottom">
-                        <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event)" title="Delete">
-                          <ion-icon name="close"></ion-icon>
-                        </button>
+                           style="margin-top: 8px; display: inline-block;">
+                        <div class="image-preview">
+                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                               width="100" height="80"
+                               (click)="viewFDFPhoto(room.RoomName, 'Bottom')"
+                               alt="Bottom">
+                          <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event)" title="Delete">
+                            <ion-icon name="close"></ion-icon>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     
@@ -1056,14 +1060,16 @@
                       </button>
                       <!-- Threshold Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold"
-                           style="position: relative; margin-top: 8px; display: inline-block;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'" 
-                             style="width: 100%; max-width: 100px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer;"
-                             (click)="viewFDFPhoto(room.RoomName, 'Threshold')"
-                             alt="Threshold">
-                        <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event)" title="Delete">
-                          <ion-icon name="close"></ion-icon>
-                        </button>
+                           style="margin-top: 8px; display: inline-block;">
+                        <div class="image-preview">
+                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                               width="100" height="80"
+                               (click)="viewFDFPhoto(room.RoomName, 'Threshold')"
+                               alt="Threshold">
+                          <button class="delete-btn" (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event)" title="Delete">
+                            <ion-icon name="close"></ion-icon>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
