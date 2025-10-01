@@ -4779,12 +4779,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.manualOffline = newState;
     this.updateOfflineBanner();
 
-    // If turning auto-save back ON, process pending rooms and points
+    // If turning auto-save back ON, process ALL pending items
     if (wasOffline && !newState) {
-      console.log('[v1.4.504] Auto-Save enabled - processing pending rooms and points');
+      console.log('[v1.4.528] Auto-Save enabled - processing all pending items');
       this.processPendingRoomsAndPoints();
+      this.processAllPendingVisuals();
     }
     // No toast needed - button state is self-explanatory
+  }
+
+  /**
+   * Process all pending visual creations and photo uploads
+   * Called when auto-sync is turned back on
+   */
+  private async processAllPendingVisuals(): Promise<void> {
+    console.log('[v1.4.528] Processing pending visuals and photos');
+
+    // First, create any pending visual records
+    await this.processPendingVisualCreates();
+
+    // Then, process any pending photo uploads for visuals that now have IDs
+    const keys = Object.keys(this.pendingPhotoUploads);
+    for (const key of keys) {
+      const visualId = this.visualRecordIds[key];
+      if (visualId && visualId !== '__pending__') {
+        console.log(`[v1.4.528] Processing pending photos for ${key}, VisualID: ${visualId}`);
+        await this.processPendingPhotoUploadsForKey(key);
+      } else {
+        console.log(`[v1.4.528] Skipping photos for ${key} - no VisualID yet (${visualId})`);
+      }
+    }
+
+    await this.showToast('Synced custom visuals and photos', 'success');
   }
 
   /**
