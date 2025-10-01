@@ -213,6 +213,12 @@ ion-action-sheet {
   }
 }
 
+// Textarea cursor color
+ion-textarea {
+  caret-color: #000 !important;
+  --color: #000;
+}
+
 // Photo Source Action Sheet (iOS Style)
 .photo-source-sheet {
   .action-sheet-wrapper {

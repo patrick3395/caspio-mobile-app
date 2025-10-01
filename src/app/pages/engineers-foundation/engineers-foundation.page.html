@@ -1132,8 +1132,8 @@
                 <!-- Add point button at bottom right (hidden for Base Station) -->
                 <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="room.RoomName !== 'Base Station'">
                   <button class="add-point-button" (click)="addCustomPoint(room.RoomName)"
-                            style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
-                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
+                            style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
+                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
                       Add Point
                     </button>
                   </div>
@@ -1158,9 +1158,9 @@
           
           <!-- Add Room button - always show at bottom -->
           <div class="add-room-container" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
-            <button class="add-room-button" (click)="showAddRoomDialog()" 
-                    style="background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 2px dashed #999; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.3s ease;">
-              <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px;"></ion-icon>
+            <button class="add-room-button" (click)="showAddRoomDialog()"
+                    style="background: white; border: 1px solid #ddd; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #000; transition: all 0.3s ease;">
+              <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px; color: #000;"></ion-icon>
               Add Room
             </button>
           </div>

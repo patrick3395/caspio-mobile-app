@@ -959,7 +959,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       '1"',
       '1.25"',
       '1.5"',
-      '2"'
+      '2"',
+      'Other'
     ];
     console.log('FDF options loaded (hardcoded):', this.fdfOptions);
   }
