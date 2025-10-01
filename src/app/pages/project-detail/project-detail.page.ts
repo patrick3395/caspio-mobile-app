@@ -1819,9 +1819,41 @@ export class ProjectDetailPage implements OnInit {
     this.selectedServiceDoc = null;
   }
 
+  async promptForCustomDocument() {
+    const alert = await this.alertController.create({
+      header: 'Custom Document',
+      message: 'Enter a name for your custom document',
+      inputs: [
+        {
+          name: 'documentName',
+          type: 'text',
+          placeholder: 'e.g., Cubicasa, Floor Plan, etc.'
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Add',
+          handler: (data) => {
+            if (data.documentName && data.documentName.trim()) {
+              this.addCustomDocument(data.documentName.trim());
+              return true;
+            }
+            return false;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
   async addCustomDocument(documentName: string) {
     if (!this.selectedServiceDoc || !documentName || !documentName.trim()) return;
-    
+
     // Add custom document to the service's document list
     this.selectedServiceDoc.documents.push({
       title: documentName.trim(),
@@ -1829,7 +1861,7 @@ export class ProjectDetailPage implements OnInit {
       uploaded: false,
       templateId: undefined  // No template for custom documents
     });
-    
+
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
   }

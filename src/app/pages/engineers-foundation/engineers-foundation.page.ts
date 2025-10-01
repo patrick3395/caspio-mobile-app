@@ -113,6 +113,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private pendingVisualKeys: Set<string> = new Set();
   private pendingPhotoUploads: { [key: string]: PendingPhotoUpload[] } = {};
   private pendingVisualCreates: { [key: string]: PendingVisualCreate } = {};
+  private pendingRoomCreates: { [roomName: string]: any } = {}; // Queue room creation when offline
+  private pendingPointCreates: { [key: string]: any } = {}; // Queue point creation with room dependency
   
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
@@ -1479,15 +1481,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.showToast('Please save the room first', 'warning');
         return;
       }
-      
+
+      // If room is pending, cannot take photos yet
+      if (roomId === '__pending__') {
+        await this.showToast('Room is queued for creation. Please enable Auto-Save first.', 'warning');
+        return;
+      }
+
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.roomPointIds[pointKey];
-      
-      if (!pointId) {
+
+      if (!pointId || pointId === '__pending__') {
+        // If offline, cannot proceed
+        if (this.manualOffline) {
+          await this.showToast('Please enable Auto-Save to take photos', 'warning');
+          return;
+        }
+
         // Need to create point - do it quickly and silently
         const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
-        
+
         if (existingPoint) {
           // Point already exists, use its PointID (NOT PK_ID!)
           pointId = existingPoint.PointID || existingPoint.PK_ID;
@@ -1499,10 +1513,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             RoomID: parseInt(roomId),
             PointName: point.name
           };
-          
+
           console.log('Creating Services_Rooms_Points record:', pointData);
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
-          
+
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
@@ -1513,7 +1527,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
       }
-      
+
       this.currentRoomPointContext = {
         roomName,
         point,
@@ -2639,24 +2653,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Automatically select the room (create Services_Rooms record)
       this.savingRooms[roomName] = true;
-      
+
       try {
         // Create room in Services_Rooms
         const serviceIdNum = parseInt(this.serviceId, 10);
-        
+
         // Validate ServiceID
         if (!this.serviceId || isNaN(serviceIdNum)) {
           await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
           this.savingRooms[roomName] = false;
           return;
         }
-        
+
         // Send ServiceID and RoomName
         const roomData: any = {
           ServiceID: serviceIdNum,
           RoomName: roomName
         };
-        
+
         // Include FDF and Notes if they exist
         if (this.roomElevationData[roomName]) {
           if (this.roomElevationData[roomName].fdf) {
@@ -2666,21 +2680,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             roomData.Notes = this.roomElevationData[roomName].notes;
           }
         }
-        
-        // Create room directly
-        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
-        
-        if (response) {
-          // Use RoomID from the response, NOT PK_ID
-          const roomId = response.RoomID || response.roomId;
-          if (!roomId) {
-            console.error('No RoomID in response:', response);
-            throw new Error('RoomID not found in response');
-          }
-          this.roomRecordIds[roomName] = roomId;
+
+        // Check if offline mode is enabled
+        if (this.manualOffline) {
+          // Queue the room creation for later
+          console.log(`[v1.4.504] Queuing room creation for ${roomName} (Auto-Save off)`);
+          this.pendingRoomCreates[roomName] = roomData;
           this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = true; // Expand when newly added
-          console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+          this.expandedRooms[roomName] = true;
+          this.roomRecordIds[roomName] = '__pending__'; // Mark as pending
+          // Don't show error toast - this is expected behavior
+        } else {
+          // Create room directly
+          const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+
+          if (response) {
+            // Use RoomID from the response, NOT PK_ID
+            const roomId = response.RoomID || response.roomId;
+            if (!roomId) {
+              console.error('No RoomID in response:', response);
+              throw new Error('RoomID not found in response');
+            }
+            this.roomRecordIds[roomName] = roomId;
+            this.selectedRooms[roomName] = true;
+            this.expandedRooms[roomName] = true; // Expand when newly added
+            console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+          }
         }
       } catch (error: any) {
         console.error('Room creation error:', error);
@@ -2772,30 +2797,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Create the point in the database if room is already saved
             const roomId = this.roomRecordIds[roomName];
             if (roomId) {
-              try {
-                const pointData = {
-                  RoomID: parseInt(roomId),
-                  PointName: pointName
+              const pointKey = `${roomName}_${pointName}`;
+
+              // Check if room is pending or if offline mode is enabled
+              if (roomId === '__pending__' || this.manualOffline) {
+                // Queue the point creation - it depends on the room being created first
+                console.log(`[v1.4.504] Queuing point creation for ${pointName} in ${roomName} (Auto-Save off or room pending)`);
+                this.pendingPointCreates[pointKey] = {
+                  roomName,
+                  pointName,
+                  dependsOnRoom: roomName // Track dependency
                 };
-                
-                const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
-                if (response && (response.PointID || response.PK_ID)) {
-                  const pointId = response.PointID || response.PK_ID;
-                  const pointKey = `${roomName}_${pointName}`;
-                  this.roomPointIds[pointKey] = pointId;
-                  console.log(`Created custom point with PointID: ${pointId}`);
+                this.roomPointIds[pointKey] = '__pending__';
+              } else {
+                try {
+                  const pointData = {
+                    RoomID: parseInt(roomId),
+                    PointName: pointName
+                  };
+
+                  const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+                  if (response && (response.PointID || response.PK_ID)) {
+                    const pointId = response.PointID || response.PK_ID;
+                    this.roomPointIds[pointKey] = pointId;
+                    console.log(`Created custom point with PointID: ${pointId}`);
+                  }
+                } catch (error) {
+                  console.error('Error creating custom point:', error);
+                  await this.showToast('Failed to create point', 'danger');
+                  // Remove from UI if creation failed
+                  const index = this.roomElevationData[roomName].elevationPoints.findIndex(
+                    (p: any) => p.name === pointName
+                  );
+                  if (index > -1) {
+                    this.roomElevationData[roomName].elevationPoints.splice(index, 1);
+                  }
+                  return false;
                 }
-              } catch (error) {
-                console.error('Error creating custom point:', error);
-                await this.showToast('Failed to create point', 'danger');
-                // Remove from UI if creation failed
-                const index = this.roomElevationData[roomName].elevationPoints.findIndex(
-                  (p: any) => p.name === pointName
-                );
-                if (index > -1) {
-                  this.roomElevationData[roomName].elevationPoints.splice(index, 1);
-                }
-                return false;
               }
             }
             
@@ -4539,10 +4577,95 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   toggleManualOffline(): void {
     const newState = !this.manualOffline;
+    const wasOffline = this.manualOffline;
     this.offlineService.setManualOffline(newState);
     this.manualOffline = newState;
     this.updateOfflineBanner();
+
+    // If turning auto-save back ON, process pending rooms and points
+    if (wasOffline && !newState) {
+      console.log('[v1.4.504] Auto-Save enabled - processing pending rooms and points');
+      this.processPendingRoomsAndPoints();
+    }
     // No toast needed - button state is self-explanatory
+  }
+
+  /**
+   * Process pending room and point creations in the correct order
+   * Rooms must be created first, then their associated points
+   */
+  private async processPendingRoomsAndPoints(): Promise<void> {
+    try {
+      // Step 1: Create all pending rooms first
+      const roomNames = Object.keys(this.pendingRoomCreates);
+      if (roomNames.length > 0) {
+        console.log(`[v1.4.504] Creating ${roomNames.length} pending rooms...`);
+
+        for (const roomName of roomNames) {
+          const roomData = this.pendingRoomCreates[roomName];
+          try {
+            console.log(`[v1.4.504] Creating room: ${roomName}`);
+            const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+
+            if (response) {
+              const roomId = response.RoomID || response.roomId;
+              if (roomId) {
+                this.roomRecordIds[roomName] = roomId;
+                delete this.pendingRoomCreates[roomName];
+                console.log(`✅ [v1.4.504] Room created: ${roomName}, RoomID: ${roomId}`);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ [v1.4.504] Failed to create room ${roomName}:`, error);
+            await this.showToast(`Failed to create room: ${roomName}`, 'danger');
+          }
+        }
+      }
+
+      // Step 2: Create pending points for rooms that now have IDs
+      const pointKeys = Object.keys(this.pendingPointCreates);
+      if (pointKeys.length > 0) {
+        console.log(`[v1.4.504] Creating ${pointKeys.length} pending points...`);
+
+        for (const pointKey of pointKeys) {
+          const pointInfo = this.pendingPointCreates[pointKey];
+          const roomId = this.roomRecordIds[pointInfo.roomName];
+
+          // Only create point if room was successfully created
+          if (roomId && roomId !== '__pending__') {
+            try {
+              const pointData = {
+                RoomID: parseInt(roomId),
+                PointName: pointInfo.pointName
+              };
+
+              console.log(`[v1.4.504] Creating point: ${pointInfo.pointName} for room: ${pointInfo.roomName}`);
+              const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+
+              if (response && (response.PointID || response.PK_ID)) {
+                const pointId = response.PointID || response.PK_ID;
+                this.roomPointIds[pointKey] = pointId;
+                delete this.pendingPointCreates[pointKey];
+                console.log(`✅ [v1.4.504] Point created: ${pointInfo.pointName}, PointID: ${pointId}`);
+              }
+            } catch (error) {
+              console.error(`❌ [v1.4.504] Failed to create point ${pointInfo.pointName}:`, error);
+              await this.showToast(`Failed to create point: ${pointInfo.pointName}`, 'danger');
+            }
+          } else {
+            console.warn(`[v1.4.504] Skipping point ${pointInfo.pointName} - room ${pointInfo.roomName} not yet created`);
+          }
+        }
+      }
+
+      if (roomNames.length > 0 || pointKeys.length > 0) {
+        await this.showToast('Queued rooms and points created successfully', 'success');
+      }
+
+    } catch (error) {
+      console.error('[v1.4.504] Error processing pending rooms and points:', error);
+      await this.showToast('Some items failed to sync', 'danger');
+    }
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {

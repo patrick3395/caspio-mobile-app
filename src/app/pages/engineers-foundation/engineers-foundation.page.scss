@@ -759,13 +759,12 @@ ion-content {
 
   // Structural Systems Status Dropdown in Header
   .structural-status-dropdown {
-    margin: 0 12px;
+    margin: 0 8px;
 
     .structural-status-select {
-      min-width: 140px;
-      max-width: 200px;
-      padding: 6px 12px;
-      font-size: 13px;
+      width: 70px; // Compact width to align chevron with other sections
+      padding: 4px 8px;
+      font-size: 11px;
       font-weight: 500;
       color: #333;
       background: white;
@@ -776,9 +775,12 @@ ion-content {
       appearance: none;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 8px center;
-      background-size: 16px;
-      padding-right: 32px;
+      background-position: right 4px center;
+      background-size: 14px;
+      padding-right: 22px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
 
       &:hover {
         border-color: var(--noble-orange);
@@ -794,6 +796,7 @@ ion-content {
       option {
         padding: 8px;
         font-size: 13px;
+        white-space: normal; // Allow text wrapping in dropdown options
       }
 
       // Highlight when value is selected
