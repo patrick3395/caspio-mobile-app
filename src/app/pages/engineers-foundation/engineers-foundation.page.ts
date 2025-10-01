@@ -7025,7 +7025,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.pendingPhotoUploads[key].push({
               file: file,
               visualId: '__pending__',
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              isBatchUpload: files.length > 1,
+              tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
             });
           }
         }
