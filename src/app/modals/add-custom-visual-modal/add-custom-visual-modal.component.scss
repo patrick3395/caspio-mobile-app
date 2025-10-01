@@ -1,19 +1,93 @@
+// Sleek modal styling matching photo editor
+ion-header {
+  ion-toolbar {
+    --background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    --color: white;
+
+    ion-title {
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    ion-button {
+      --color: white;
+
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
+}
+
+ion-content {
+  --background: #f8f8f8;
+}
+
 .form-container {
   max-width: 600px;
   margin: 0 auto;
+  padding: 20px 16px;
+}
+
+// Sleek input fields
+ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --background: white;
+  --border-radius: 12px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+
+  ion-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 8px;
+  }
+
+  ion-input, ion-textarea {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    font-size: 15px;
+  }
 }
 
 .photos-section {
-  margin-top: 20px;
-  padding: 16px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  margin-top: 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 
   h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 16px 0;
     font-size: 16px;
     font-weight: 600;
     color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &:before {
+      content: '📷';
+      font-size: 20px;
+    }
+  }
+
+  ion-button {
+    --background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    --border-radius: 10px;
+    --box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+    font-weight: 600;
+    text-transform: none;
+    height: 48px;
+    margin-bottom: 16px;
+
+    &:hover {
+      --box-shadow: 0 6px 16px rgba(255, 107, 53, 0.4);
+    }
   }
 }
 
@@ -27,11 +101,17 @@
 .photo-preview-item {
   position: relative;
   width: 100%;
-  padding-top: 100%; // 1:1 aspect ratio
-  border-radius: 8px;
+  padding-top: 100%;
+  border-radius: 10px;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: #f0f0f0;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
 
   img {
     position: absolute;
@@ -48,11 +128,19 @@
     right: 4px;
     --padding-start: 4px;
     --padding-end: 4px;
+    --background: rgba(255, 107, 53, 0.9);
+    --color: white;
     min-width: auto;
     height: 28px;
+    border-radius: 50%;
+    backdrop-filter: blur(4px);
 
     ion-icon {
-      font-size: 24px;
+      font-size: 20px;
+    }
+
+    &:hover {
+      --background: #ff6b35;
     }
   }
 }
@@ -60,19 +148,39 @@
 .photo-count {
   margin-top: 12px;
   font-size: 14px;
+  font-weight: 500;
   color: #666;
   text-align: center;
+  padding: 8px;
+  background: #f8f8f8;
+  border-radius: 6px;
 }
 
-ion-item {
-  --padding-start: 0;
-  --inner-padding-end: 0;
-  margin-bottom: 16px;
-}
-
+// Sleek footer with gradient buttons
 ion-footer {
   ion-toolbar {
+    --background: white;
+    --border-color: #e0e0e0;
     --padding-start: 16px;
     --padding-end: 16px;
+    padding: 12px 0;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+
+    ion-button {
+      font-weight: 600;
+      text-transform: none;
+      height: 44px;
+      min-width: 100px;
+
+      &[color="primary"] {
+        --background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+        --border-radius: 10px;
+        --box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+      }
+
+      &[color="medium"] {
+        --color: #666;
+      }
+    }
   }
 }
