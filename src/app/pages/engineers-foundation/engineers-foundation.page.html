@@ -466,7 +466,7 @@
         <div class="categories-container" *ngIf="visualCategories.length > 0">
           
           <!-- Category Accordion -->
-          <ion-accordion-group #visualAccordionGroup (ionChange)="onAccordionChange($event)">
+          <ion-accordion-group #visualAccordionGroup multiple="true" (ionChange)="onAccordionChange($event)">
             <ion-accordion *ngFor="let category of visualCategories; trackBy: trackByCategory" [value]="category">
               <ion-item slot="header" color="light">
                 <ion-label>

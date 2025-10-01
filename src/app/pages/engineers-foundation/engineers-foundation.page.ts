@@ -3484,6 +3484,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Track which accordions are expanded
   onAccordionChange(event: any) {
     console.log('Accordion changed:', event.detail.value);
+
+    // Lock scroll position to prevent jumping when accordion opens
+    const currentScrollY = window.scrollY;
+
     if (event.detail.value) {
       // Store the expanded accordion value
       this.expandedAccordions = Array.isArray(event.detail.value)
@@ -3492,6 +3496,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } else {
       this.expandedAccordions = [];
     }
+
+    // Restore scroll position after accordion DOM updates
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 10);
   }
   
   onRoomAccordionChange(event: any) {
@@ -6922,10 +6931,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         message: 'Creating visual...'
       });
       await loading.present();
-      
+
       try {
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+
+        // Dismiss loading BEFORE showing debug alerts
+        await loading.dismiss();
 
         // Debug response
         const responseAlert = await this.alertController.create({
@@ -7005,9 +7017,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           selected: true,
           ...customItem
         };
-        
-        await loading.dismiss();
-        
+
+        // Loading already dismissed above before debug alerts
+
         // Upload photos if provided
         if (files && files.length > 0) {
           const uploadLoading = await this.loadingController.create({
