@@ -3485,8 +3485,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   onAccordionChange(event: any) {
     console.log('Accordion changed:', event.detail.value);
 
-    // Store current scroll position before change
-    const previousScroll = window.pageYOffset || document.documentElement.scrollTop;
+    // Capture scroll position IMMEDIATELY
+    const savedScroll = window.scrollY;
+
+    // Create a scroll lock that will override any Ionic scroll attempts
+    const scrollLock = () => {
+      window.scrollTo(0, savedScroll);
+    };
+
+    // Add scroll listener to prevent ANY scrolling during accordion animation
+    window.addEventListener('scroll', scrollLock, { passive: false });
 
     if (event.detail.value) {
       // Store the expanded accordion value
@@ -3497,12 +3505,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.expandedAccordions = [];
     }
 
-    // Restore scroll position after DOM updates - use requestAnimationFrame for immediate effect
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, previousScroll);
-      });
-    });
+    // Keep scroll locked for the duration of the animation (300ms is Ionic's default)
+    setTimeout(() => {
+      window.removeEventListener('scroll', scrollLock);
+    }, 350);
   }
   
   onRoomAccordionChange(event: any) {
