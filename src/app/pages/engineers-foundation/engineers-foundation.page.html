@@ -948,9 +948,9 @@
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
                   <!-- Collapse/expand icon in header when room is selected -->
-                  <ion-icon *ngIf="isRoomSelected(room.RoomName)" 
+                  <ion-icon *ngIf="isRoomSelected(room.RoomName)"
                             slot="end"
-                            [name]="isRoomExpanded(room.RoomName) ? 'chevron-up-circle' : 'chevron-down-circle'"
+                            [name]="isRoomExpanded(room.RoomName) ? 'chevron-up' : 'chevron-down'"
                             (click)="handleRoomExpandClick(room.RoomName, $event)"
                             style="cursor: pointer; font-size: 24px; color: var(--ion-color-medium);">
                   </ion-icon>
