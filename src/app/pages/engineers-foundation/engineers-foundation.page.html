@@ -942,7 +942,7 @@
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
                     <h3>
                       {{ room.RoomName }}
-                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'">*</span>
+                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'" style="color: #F15A27 !important;">*</span>
                     </h3>
                     <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
                   </ion-label>
@@ -962,7 +962,7 @@
 
                 <!-- Flooring Difference Factor Section (hidden for Base Station) -->
                 <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
-                  <span class="delimiter-label">Flooring Difference Factor<span class="required-indicator">*</span></span>
+                  <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
                           (click)="openHelp(1, 'FDF Help')"
                           title="FDF Help"
@@ -974,7 +974,7 @@
                 <!-- Flooring Difference Factor dropdown - compact inline (hidden for Base Station) -->
                 <div class="fdf-dropdown-container" *ngIf="room.RoomName !== 'Base Station'">
                   <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
-                    <ion-label style="font-size: 13px; font-weight: 600;">FDF:</ion-label>
+                    <ion-label style="font-size: 13px; font-weight: 600;">FDF:<span style="color: #F15A27; margin-left: 2px;">*</span></ion-label>
                     <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf"
                                 placeholder="Select"
                                 interface="popover"
