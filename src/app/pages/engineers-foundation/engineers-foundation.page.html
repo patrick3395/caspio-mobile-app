@@ -979,8 +979,9 @@
                                 placeholder="Select"
                                 interface="popover"
                                 (ionChange)="onFDFChange(room.RoomName)"
+                                class="fdf-select"
                                 style="max-width: 150px;">
-                      <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
+                      <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option" class="fdf-option">
                         {{ option }}
                       </ion-select-option>
                     </ion-select>

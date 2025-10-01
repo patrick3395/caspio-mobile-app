@@ -3,6 +3,15 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// FDF Dropdown Options - smaller text
+.fdf-select {
+  font-size: 11px !important;
+}
+
+.fdf-option {
+  font-size: 11px !important;
+}
+
 // Auto-Sync OFF Warning Banner - Fixed at top
 .offline-warning-banner-fixed {
   position: sticky;

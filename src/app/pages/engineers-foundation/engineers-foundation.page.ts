@@ -949,8 +949,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
     try {
-      // Set default options first - starting with Same Elevation and Same Flooring
-      const defaultOptions = ['Same Elevation', 'Same Flooring', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      // Set default options first - starting with Same Elevation and Same Flooring and Elevation
+      const defaultOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
       this.fdfOptions = defaultOptions;
       
       // Try to load room-specific options from Services_Rooms_Drop table
@@ -1008,7 +1008,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('Error loading FDF options:', error);
       // Default options on error
-      this.fdfOptions = ['Same Elevation', 'Same Flooring', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      this.fdfOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
     }
   }
   
