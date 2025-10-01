@@ -1,0 +1,89 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Add {{ kind }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="form-container">
+    <!-- Name Input -->
+    <ion-item>
+      <ion-label position="stacked">Title/Name <span style="color: red;">*</span></ion-label>
+      <ion-input
+        [(ngModel)]="name"
+        placeholder="Enter title/name"
+        type="text">
+      </ion-input>
+    </ion-item>
+
+    <!-- Description Input -->
+    <ion-item>
+      <ion-label position="stacked">Description (Optional)</ion-label>
+      <ion-textarea
+        [(ngModel)]="description"
+        placeholder="Enter description"
+        rows="4">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Photos Section -->
+    <div class="photos-section">
+      <h3>Photos (Optional)</h3>
+
+      <!-- Add Photos Button -->
+      <ion-button expand="block" (click)="addPhotos()" color="primary">
+        <ion-icon name="camera" slot="start"></ion-icon>
+        Add Photos
+      </ion-button>
+
+      <!-- Hidden File Input -->
+      <input
+        #fileInput
+        type="file"
+        accept="image/*"
+        multiple
+        (change)="onFileSelected($event)"
+        style="display: none;">
+
+      <!-- Photo Previews -->
+      <div class="photo-previews" *ngIf="photoPreviewUrls.length > 0">
+        <div class="photo-preview-item" *ngFor="let url of photoPreviewUrls; let i = index">
+          <img [src]="url" alt="Photo preview">
+          <ion-button
+            size="small"
+            fill="clear"
+            color="danger"
+            class="remove-button"
+            (click)="removePhoto(i)">
+            <ion-icon name="close-circle"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
+      <p class="photo-count" *ngIf="selectedFiles.length > 0">
+        {{ selectedFiles.length }} photo(s) selected
+      </p>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()" color="medium">
+        Cancel
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="save()" color="primary" [strong]="true">
+        <ion-icon name="checkmark" slot="start"></ion-icon>
+        Save
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

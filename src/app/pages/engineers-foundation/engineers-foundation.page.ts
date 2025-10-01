@@ -6844,79 +6844,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     `);
   }
   
-  // Add custom visual comment
+  // Add custom visual comment with photo support
   async addCustomVisual(category: string, kind: string) {
-    const alert = await this.alertController.create({
-      header: `Add ${kind}`,
-      inputs: [
-        {
-          name: 'name',
-          type: 'text',
-          placeholder: 'Enter title/name',
-          attributes: {
-            required: true
-          }
-        },
-        {
-          name: 'description',
-          type: 'textarea',
-          placeholder: 'Enter description (optional)',
-          attributes: {
-            rows: 4
-          }
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Add',
-          handler: async (data) => {
-            if (!data.name || !data.name.trim()) {
-              await this.showToast('Please enter a name', 'warning');
-              return false;
-            }
+    // Dynamically import the modal component
+    const { AddCustomVisualModalComponent } = await import('../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
 
-            // Create the visual and get the created item info
-            const createdItemInfo = await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', null);
-
-            // After creating, ask if user wants to add photos
-            if (createdItemInfo) {
-              setTimeout(async () => {
-                const photoAlert = await this.alertController.create({
-                  header: 'Add Photos?',
-                  message: `${kind} created successfully. Would you like to add photos now?`,
-                  buttons: [
-                    {
-                      text: 'Skip',
-                      role: 'cancel'
-                    },
-                    {
-                      text: 'Add Photos',
-                      handler: () => {
-                        // Trigger photo upload for the newly created item
-                        this.addAnotherPhoto(category, createdItemInfo.itemId);
-                      }
-                    }
-                  ]
-                });
-                await photoAlert.present();
-              }, 300);
-            }
-
-            return true;
-          }
-        }
-      ]
+    const modal = await this.modalController.create({
+      component: AddCustomVisualModalComponent,
+      componentProps: {
+        kind: kind,
+        category: category
+      }
     });
 
-    await alert.present();
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.name) {
+      // Convert FileList to array if needed
+      const files = data.files && data.files.length > 0 ? data.files : null;
+
+      // Create the visual with photos
+      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files);
+    }
   }
   
   // Create custom visual with photos
-  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | null) {
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null) {
     try {
       const serviceId = this.serviceId;
       if (!serviceId) {

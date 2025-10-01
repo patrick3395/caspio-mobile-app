@@ -1,0 +1,78 @@
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.photos-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+
+  h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.photo-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.photo-preview-item {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; // 1:1 aspect ratio
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+  img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-button {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    --padding-start: 4px;
+    --padding-end: 4px;
+    min-width: auto;
+    height: 28px;
+
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+}
+
+.photo-count {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 16px;
+}
+
+ion-footer {
+  ion-toolbar {
+    --padding-start: 16px;
+    --padding-end: 16px;
+  }
+}
