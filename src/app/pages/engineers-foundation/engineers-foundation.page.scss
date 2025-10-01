@@ -3,6 +3,75 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// Auto-Sync OFF Warning Banner - Fixed at top
+.offline-warning-banner-fixed {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #6c757d;
+  color: white;
+  padding: 10px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+
+  ion-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .warning-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    strong {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    span {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+  }
+
+  .enable-sync-btn {
+    background: white;
+    color: #6c757d;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: #f5f5f5;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
+// Add top padding to template container when banner is shown
+.template-container.has-banner {
+  padding-top: 0;
+}
+
 // PDF Header Button
 .pdf-header-button {
   background: transparent;

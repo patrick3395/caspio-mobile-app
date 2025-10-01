@@ -3262,13 +3262,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   onStructuralSystemsStatusChange(value: string) {
     console.log(`[v1.4.501] Structural Systems status changed: ${value}`);
 
+    // Store in local serviceData with the UI property name
+    this.serviceData.StructuralSystemsStatus = value;
+
     // If set to "Provided in Home Inspection Report", collapse the section
     if (value === 'Provided in Home Inspection Report') {
       this.expandedSections['structural'] = false;
     }
 
-    // Call the regular service field change handler
-    this.onServiceFieldChange('StructuralSystemsStatus', value);
+    // Save to Services table using the correct database column name "StructStat"
+    this.autoSaveServiceField('StructStat', value);
   }
 
   scrollToSection(section: string) {
@@ -6974,6 +6977,56 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           selected: true,
           ...customItem
         };
+
+        // Handle photos if provided - store as base64 for offline mode
+        if (files && files.length > 0) {
+          const photoPromises: Promise<any>[] = [];
+
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const promise = new Promise<void>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e: any) => {
+                const base64Image = e.target.result;
+
+                // Store photo in visualPhotos with key for later upload
+                if (!this.visualPhotos[key]) {
+                  this.visualPhotos[key] = [];
+                }
+
+                this.visualPhotos[key].push({
+                  url: base64Image,
+                  thumbnailUrl: base64Image,
+                  file: file, // Keep original file for upload later
+                  pending: true
+                });
+
+                resolve();
+              };
+              reader.readAsDataURL(file);
+            });
+            photoPromises.push(promise);
+          }
+
+          // Wait for all photos to be converted to base64
+          await Promise.all(photoPromises);
+
+          // Store files for later upload
+          if (!this.pendingPhotoUploads) {
+            this.pendingPhotoUploads = {};
+          }
+          if (!this.pendingPhotoUploads[key]) {
+            this.pendingPhotoUploads[key] = [];
+          }
+
+          for (const file of files) {
+            this.pendingPhotoUploads[key].push({
+              file: file,
+              visualId: '__pending__',
+              timestamp: Date.now()
+            });
+          }
+        }
 
         this.changeDetectorRef.detectChanges();
         await this.showToast('Visual queued and will save when auto-sync resumes.', 'warning');

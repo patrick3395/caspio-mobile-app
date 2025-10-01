@@ -16,7 +16,20 @@
 </ion-header>
 
 <ion-content>
-  <div class="template-container">
+  <!-- Auto-Sync OFF Warning Banner - Fixed at top -->
+  <div class="offline-warning-banner-fixed" *ngIf="manualOffline">
+    <ion-icon name="warning"></ion-icon>
+    <div class="warning-content">
+      <strong>Auto-Sync is OFF</strong>
+      <span>Changes saved locally</span>
+    </div>
+    <button class="enable-sync-btn" (click)="toggleManualOffline()">
+      <ion-icon name="cloud-upload"></ion-icon>
+      Enable
+    </button>
+  </div>
+
+  <div class="template-container" [class.has-banner]="manualOffline">
 
     <!-- Project Information Section (Shared across all services) -->
     <div class="section-card">
@@ -452,6 +465,7 @@
                     (click)="$event.stopPropagation()">
               <option value="">Select Status</option>
               <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
+              <option value="Completed Here">Completed Here</option>
             </select>
           </div>
         </div>
