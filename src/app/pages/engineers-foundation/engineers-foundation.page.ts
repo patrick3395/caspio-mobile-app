@@ -6927,40 +6927,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await loading.present();
       
       try {
-        // Create the visual record
-        console.log('📤 Attempting to create visual with data:', visualData);
+        // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
+        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
 
-        let response;
-        try {
-          response = await firstValueFrom(this.caspioService.createServicesVisual(visualData));
-          console.log('✅ Custom visual created, response:', response);
-        } catch (apiError: any) {
-          console.error('❌ API call failed:', apiError);
+        // Extract VisualID using the SAME logic as line 4744-4754
+        let visualId: string | null = null;
 
-          // Show API error details
-          const errorDebug = await this.alertController.create({
-            header: 'Debug: API Error',
-            message: `<pre>Status: ${apiError?.status}\nMessage: ${apiError?.message}\nError: ${JSON.stringify(apiError?.error, null, 2)}</pre>`,
-            buttons: ['OK']
-          });
-          await errorDebug.present();
-          throw apiError;
+        if (Array.isArray(response) && response.length > 0) {
+          visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+        } else if (response && typeof response === 'object') {
+          if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+            visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+          } else {
+            visualId = String(response.VisualID || response.PK_ID || response.id || '');
+          }
+        } else if (response) {
+          visualId = String(response);
         }
 
-        // Debug popup to show actual response
-        const debugAlert = await this.alertController.create({
-          header: 'Debug: API Response',
-          message: `<pre>${JSON.stringify(response, null, 2)}</pre>`,
-          buttons: ['OK']
-        });
-        await debugAlert.present();
-
-        // Use VisualID from response
-        const visualId = response?.VisualID || response?.PK_ID;
-        console.log('🔑 VisualID extracted:', visualId);
-        if (!visualId) {
-          console.error('❌ No VisualID in response:', response);
-          throw new Error('Server did not return a VisualID');
+        if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
+          throw new Error('No VisualID returned from server');
         }
         
         // Add to local data structure
