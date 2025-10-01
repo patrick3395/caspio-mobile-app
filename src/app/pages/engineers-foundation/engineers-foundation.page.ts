@@ -550,11 +550,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const serviceResponse = await this.foundationData.getService(this.serviceId);
       if (serviceResponse) {
         this.serviceData = serviceResponse;
-        // Ensure StructuralSystemsStatus is initialized to empty string if null/undefined
-        if (!this.serviceData.StructuralSystemsStatus) {
+        // Map database column StructStat to UI property StructuralSystemsStatus
+        if (serviceResponse.StructStat) {
+          this.serviceData.StructuralSystemsStatus = serviceResponse.StructStat;
+        } else {
           this.serviceData.StructuralSystemsStatus = '';
         }
-        console.log('Service data loaded:', this.serviceData);
+        console.log('[v1.4.529] Service data loaded:', this.serviceData);
+        console.log('[v1.4.529] Structural Systems Status:', this.serviceData.StructuralSystemsStatus);
         console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
         
         // TypeID loaded from service data
