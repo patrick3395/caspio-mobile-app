@@ -2654,58 +2654,64 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Automatically select the room (create Services_Rooms record)
       this.savingRooms[roomName] = true;
 
+      // Validate ServiceID first
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (!this.serviceId || isNaN(serviceIdNum)) {
+        await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+        this.savingRooms[roomName] = false;
+        // Remove from templates if validation failed
+        const index = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+        if (index > -1) {
+          this.roomTemplates.splice(index, 1);
+        }
+        return;
+      }
+
+      // Prepare room data
+      const roomData: any = {
+        ServiceID: serviceIdNum,
+        RoomName: roomName
+      };
+
+      // Include FDF and Notes if they exist
+      if (this.roomElevationData[roomName]) {
+        if (this.roomElevationData[roomName].fdf) {
+          roomData.FDF = this.roomElevationData[roomName].fdf;
+        }
+        if (this.roomElevationData[roomName].notes) {
+          roomData.Notes = this.roomElevationData[roomName].notes;
+        }
+      }
+
+      // Check if offline mode is enabled - handle BEFORE try-catch
+      if (this.manualOffline) {
+        // Queue the room creation for later
+        console.log(`[v1.4.505] Queuing room creation for ${roomName} (Auto-Save off)`);
+        this.pendingRoomCreates[roomName] = roomData;
+        this.selectedRooms[roomName] = true;
+        this.expandedRooms[roomName] = true;
+        this.roomRecordIds[roomName] = '__pending__'; // Mark as pending
+        this.savingRooms[roomName] = false;
+        // Success - room is queued and ready for points to be added
+        return;
+      }
+
+      // Only wrap API call in try-catch (not the offline logic)
       try {
-        // Create room in Services_Rooms
-        const serviceIdNum = parseInt(this.serviceId, 10);
+        // Create room directly when online
+        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
 
-        // Validate ServiceID
-        if (!this.serviceId || isNaN(serviceIdNum)) {
-          await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
-          this.savingRooms[roomName] = false;
-          return;
-        }
-
-        // Send ServiceID and RoomName
-        const roomData: any = {
-          ServiceID: serviceIdNum,
-          RoomName: roomName
-        };
-
-        // Include FDF and Notes if they exist
-        if (this.roomElevationData[roomName]) {
-          if (this.roomElevationData[roomName].fdf) {
-            roomData.FDF = this.roomElevationData[roomName].fdf;
+        if (response) {
+          // Use RoomID from the response, NOT PK_ID
+          const roomId = response.RoomID || response.roomId;
+          if (!roomId) {
+            console.error('No RoomID in response:', response);
+            throw new Error('RoomID not found in response');
           }
-          if (this.roomElevationData[roomName].notes) {
-            roomData.Notes = this.roomElevationData[roomName].notes;
-          }
-        }
-
-        // Check if offline mode is enabled
-        if (this.manualOffline) {
-          // Queue the room creation for later
-          console.log(`[v1.4.504] Queuing room creation for ${roomName} (Auto-Save off)`);
-          this.pendingRoomCreates[roomName] = roomData;
+          this.roomRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = true;
-          this.roomRecordIds[roomName] = '__pending__'; // Mark as pending
-          // Don't show error toast - this is expected behavior
-        } else {
-          // Create room directly
-          const response = await this.caspioService.createServicesRoom(roomData).toPromise();
-
-          if (response) {
-            // Use RoomID from the response, NOT PK_ID
-            const roomId = response.RoomID || response.roomId;
-            if (!roomId) {
-              console.error('No RoomID in response:', response);
-              throw new Error('RoomID not found in response');
-            }
-            this.roomRecordIds[roomName] = roomId;
-            this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = true; // Expand when newly added
-            console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
-          }
+          this.expandedRooms[roomName] = true; // Expand when newly added
+          console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
         }
       } catch (error: any) {
         console.error('Room creation error:', error);

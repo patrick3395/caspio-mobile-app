@@ -338,30 +338,27 @@
 
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
-      <div class="section-header" data-section="structural">
+      <div class="section-header" data-section="structural" (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
+           [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'">
         <div class="section-info"
-             (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
              style="flex: 1;"
-             [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <div class="section-title">
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
-        </div>
-        <!-- Structural Systems Status Dropdown -->
-        <div class="structural-status-dropdown" (click)="$event.stopPropagation()">
-          <select [(ngModel)]="serviceData.StructuralSystemsStatus"
-                  (ngModelChange)="onStructuralSystemsStatusChange($event)"
-                  class="structural-status-select"
-                  (click)="$event.stopPropagation()">
-            <option value="">Select</option>
-            <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
-          </select>
+          <!-- Structural Systems Status Dropdown - positioned as subtitle -->
+          <div class="structural-status-subtitle" (click)="$event.stopPropagation()">
+            <select [(ngModel)]="serviceData.StructuralSystemsStatus"
+                    (ngModelChange)="onStructuralSystemsStatusChange($event)"
+                    class="structural-status-select"
+                    (click)="$event.stopPropagation()">
+              <option value="">Select status...</option>
+              <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
+            </select>
+          </div>
         </div>
         <div class="section-toggle"
-             (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
-             [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
