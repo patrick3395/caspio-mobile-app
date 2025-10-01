@@ -948,68 +948,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
-    try {
-      // Set default options first - starting with Same Elevation and Same Flooring and Elevation
-      const defaultOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
-      this.fdfOptions = defaultOptions;
-      
-      // Try to load room-specific options from Services_Rooms_Drop table
-      try {
-        const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
-        
-        if (dropdownData && dropdownData.length > 0) {
-          // Group dropdown options by RoomName
-          const optionsByRoom: { [roomName: string]: string[] } = {};
-          
-          dropdownData.forEach((row: any) => {
-            // Use RoomsName field (with 's')
-            const roomName = row.RoomsName || row.RoomName;
-            const dropdownValue = row.Dropdown;
-            
-            if (roomName && dropdownValue) {
-              if (!optionsByRoom[roomName]) {
-                optionsByRoom[roomName] = [];
-              }
-              // Add unique dropdown values for this room
-              if (!optionsByRoom[roomName].includes(dropdownValue)) {
-                optionsByRoom[roomName].push(dropdownValue);
-              }
-            }
-          });
-          
-          // Store room-specific options
-          this.roomFdfOptions = optionsByRoom;
-          
-          // If there are FDF-specific options, use those as default
-          if (optionsByRoom['FDF'] && optionsByRoom['FDF'].length > 0) {
-            // Sort FDF options properly (None first, then numeric)
-            this.fdfOptions = optionsByRoom['FDF'].sort((a, b) => {
-              if (a === 'None') return -1;
-              if (b === 'None') return 1;
-              
-              // Try to parse as numbers for proper numeric sorting
-              const quotePattern = /["']/g;
-              const aNum = parseFloat(a.replace(quotePattern, ''));
-              const bNum = parseFloat(b.replace(quotePattern, ''));
-              
-              if (!isNaN(aNum) && !isNaN(bNum)) {
-                return aNum - bNum;
-              }
-              return a.localeCompare(b);
-            });
-          }
-          
-          console.log('Room-specific FDF options loaded:', this.roomFdfOptions);
-          console.log('Default FDF options:', this.fdfOptions);
-        }
-      } catch (tableError) {
-        console.log('Could not load custom FDF options, using defaults:', tableError);
-      }
-    } catch (error) {
-      console.error('Error loading FDF options:', error);
-      // Default options on error
-      this.fdfOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
-    }
+    // Use fixed hardcoded options only - do not load from database
+    this.fdfOptions = [
+      'Same Elevation',
+      'Same Flooring and Elevation',
+      'None',
+      '1/4"',
+      '1/2"',
+      '3/4"',
+      '1"',
+      '1.25"',
+      '1.5"',
+      '2"'
+    ];
+    console.log('FDF options loaded (hardcoded):', this.fdfOptions);
   }
   
   // Load dropdown options for visual templates from Services_Visuals_Drop table
@@ -1107,21 +1059,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Get FDF options for a specific room
   getFDFOptionsForRoom(roomName: string): string[] {
-    // Check if room-specific options exist
-    if (this.roomFdfOptions[roomName] && this.roomFdfOptions[roomName].length > 0) {
-      const options = [...this.roomFdfOptions[roomName]];
-      // Add "Other" if not already present
-      if (!options.includes('Other')) {
-        options.push('Other');
-      }
-      return options;
-    }
-    // Fall back to default options
-    const options = [...this.fdfOptions];
-    if (!options.includes('Other')) {
-      options.push('Other');
-    }
-    return options;
+    // Always return the same hardcoded options for all rooms
+    return [...this.fdfOptions];
   }
   
   // Handle FDF selection change
