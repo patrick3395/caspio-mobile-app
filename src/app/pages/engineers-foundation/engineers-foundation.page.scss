@@ -3,13 +3,15 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
-// FDF Dropdown Options - smaller text
+// FDF Dropdown Options - smaller text with black color
 .fdf-select {
   font-size: 11px !important;
+  color: #000 !important;
 }
 
 .fdf-option {
   font-size: 11px !important;
+  color: #000 !important;
 }
 
 // Auto-Sync OFF Warning Banner - Fixed at top
@@ -1449,7 +1451,7 @@ ion-content {
   align-items: center;
   margin-bottom: 10px;
   padding: 0;
-  
+
   .delimiter-label {
     font-size: 12px;
     font-weight: 600;
@@ -1459,12 +1461,10 @@ ion-content {
     padding-right: 10px;
     white-space: nowrap;
   }
-  
+
+  // Remove the top line - keep only border-bottom
   &::after {
-    content: '';
-    flex-grow: 1;
-    height: 1px;
-    background: #e0e0e0;
+    content: none;
     margin-left: 10px;
   }
 }

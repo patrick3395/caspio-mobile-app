@@ -944,7 +944,7 @@
                       {{ room.RoomName }}
                       <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'" style="color: #F15A27 !important;">*</span>
                     </h3>
-                    <p class="item-text">{{ room.PointCount || 0 }} measurement points</p>
+                    <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
                   <!-- Collapse/expand icon in header when room is selected -->

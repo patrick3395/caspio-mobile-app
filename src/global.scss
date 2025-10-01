@@ -205,8 +205,8 @@ ion-toast {
 // Action Sheet
 ion-action-sheet {
   .action-sheet-button {
-    color: var(--noble-dark-gray);
-    
+    color: #000 !important; // Black text for all action sheet options
+
     &.action-sheet-destructive {
       color: var(--ion-color-danger);
     }
