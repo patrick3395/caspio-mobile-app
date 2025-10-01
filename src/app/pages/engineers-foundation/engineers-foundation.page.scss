@@ -2029,7 +2029,7 @@ ion-content {
             }
           }
 
-          // FDF Photo preview with delete button
+          // FDF Photo preview with delete button - matches Structural Systems styling
           .fdf-photos-container {
             .image-preview {
               position: relative;
@@ -2049,39 +2049,38 @@ ion-content {
               }
 
               .delete-btn {
-                position: absolute !important;
-                top: 2px !important;
-                right: 2px !important;
-                width: 18px !important;
-                height: 18px !important;
-                border-radius: 50% !important;
-                background: rgba(255, 255, 255, 0.9) !important;
-                border: 1px solid rgba(0, 0, 0, 0.2) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: pointer !important;
-                transition: all 0.3s ease !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                z-index: 10 !important;
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.9);
+                border: 1px solid rgba(0, 0, 0, 0.2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                padding: 0;
+                z-index: 10;
 
                 ion-icon {
-                  font-size: 12px !important;
-                  color: #333 !important;
+                  font-size: 12px;
+                  color: #333;
                 }
 
                 &:hover {
-                  background: rgba(255, 59, 48, 0.9) !important;
-                  border-color: rgba(255, 59, 48, 1) !important;
+                  background: rgba(255, 59, 48, 0.9);
+                  border-color: rgba(255, 59, 48, 1);
 
                   ion-icon {
-                    color: white !important;
+                    color: white;
                   }
                 }
 
                 &:active {
-                  transform: scale(0.9) !important;
+                  transform: scale(0.9);
                 }
               }
             }

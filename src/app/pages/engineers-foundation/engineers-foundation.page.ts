@@ -3229,6 +3229,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           mapping.options.push(value);
         }
         console.log(`Loaded custom value "${value}" for ${mapping.fieldName}`);
+
+        // CRITICAL FIX: Also populate customOtherValues so the text input shows the custom value
+        // Change the dropdown value to "Other" and store the custom text
+        this.customOtherValues[mapping.fieldName] = value;
+        mapping.dataSource[mapping.fieldName] = 'Other';
       }
     });
   }
