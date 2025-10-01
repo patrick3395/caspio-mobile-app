@@ -3497,10 +3497,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.expandedAccordions = [];
     }
 
-    // Restore scroll position after accordion animation completes
-    setTimeout(() => {
-      window.scrollTo({ top: previousScroll, behavior: 'auto' });
-    }, 0);
+    // Restore scroll position after DOM updates - use requestAnimationFrame for immediate effect
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, previousScroll);
+      });
+    });
   }
   
   onRoomAccordionChange(event: any) {
