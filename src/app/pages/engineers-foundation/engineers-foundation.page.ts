@@ -1145,8 +1145,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // Handle FDF "Other" custom value change
-  async onFDFOtherChange(roomName: string, customValue: string) {
+  // Handle FDF "Other" custom value change (called on blur)
+  async onFDFOtherBlur(roomName: string) {
+    const customValue = this.customOtherValues['FDF_' + roomName];
+
+    if (!customValue || !customValue.trim()) {
+      console.log(`No custom FDF value entered for ${roomName}`);
+      return;
+    }
+
     const roomId = this.roomRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Room must be saved first', 'warning');
@@ -1154,7 +1161,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
-      console.log(`Custom FDF value for ${roomName}: ${customValue}`);
+      console.log(`Saving custom FDF value for ${roomName}: ${customValue}`);
 
       // Update Services_Rooms record with custom FDF value
       const updateData = { FDF: customValue };
@@ -3135,11 +3142,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
   }
 
-  // Handle custom "Other" value changes
-  async onCustomOtherChange(fieldName: string, customValue: string) {
-    // When user types in the custom "Other" field, save the custom value to Caspio
-    // The actual value sent to Caspio will be the custom text, not "Other"
-    console.log(`Custom "Other" value for ${fieldName}: ${customValue}`);
+  // Handle custom "Other" value changes (called on blur, not on every keystroke)
+  async onCustomOtherBlur(fieldName: string) {
+    const customValue = this.customOtherValues[fieldName];
+
+    if (!customValue || !customValue.trim()) {
+      console.log(`No custom value entered for ${fieldName}`);
+      return;
+    }
+
+    console.log(`Saving custom "Other" value for ${fieldName}: ${customValue}`);
 
     // Determine if this is a service field or project field
     const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
