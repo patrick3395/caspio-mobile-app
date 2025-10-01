@@ -107,17 +107,20 @@ ion-toolbar {
 
 // FDF Photo Buttons
 .fdf-photo-button {
+  color: #333 !important; // Black text
+
   &:hover {
     background: #f0f0f0 !important;
     border-color: #999 !important;
   }
-  
+
   &:active {
     background: #e0e0e0 !important;
   }
-  
+
   ion-icon {
     vertical-align: middle;
+    color: #333 !important; // Black icons
   }
 }
 
@@ -179,7 +182,7 @@ ion-toolbar {
       margin: 0;
       
       .required-indicator {
-        color: #e74c3c;
+        color: var(--noble-orange);
         font-weight: bold;
         margin-left: 4px;
       }
@@ -677,7 +680,7 @@ ion-content {
           color: #333;
           
           .required-indicator {
-            color: #f44336;
+            color: var(--noble-orange);
             margin-left: 4px;
             font-weight: normal;
           }
@@ -829,6 +832,7 @@ ion-content {
   // Structural Systems Status Dropdown - positioned as subtitle
   .structural-status-subtitle {
     margin-top: 6px;
+    margin-left: 36px; // Align with text (24px icon + 12px gap)
 
     .structural-status-select {
       width: auto;
@@ -1107,7 +1111,7 @@ ion-content {
                   margin-bottom: 4px;
                   
                   .required-indicator {
-                    color: #e74c3c;
+                    color: var(--noble-orange);
                     font-weight: bold;
                     margin-left: 4px;
                   }

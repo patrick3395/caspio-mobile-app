@@ -949,8 +949,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
     try {
-      // Set default options first
-      const defaultOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      // Set default options first - starting with Same Elevation and Same Flooring and Elevation
+      const defaultOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
       this.fdfOptions = defaultOptions;
       
       // Try to load room-specific options from Services_Rooms_Drop table
@@ -1008,7 +1008,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('Error loading FDF options:', error);
       // Default options on error
-      this.fdfOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
+      this.fdfOptions = ['Same Elevation', 'Same Flooring and Elevation', 'None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
     }
   }
   
@@ -4725,21 +4725,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
 
-    // Show result alert
-    const resultAlert = await this.alertController.create({
-      header: successCount > 0 ? '✅ Upload Complete' : '❌ Upload Failed',
-      message: `
-        <div style="text-align: left;">
-          <strong>Key:</strong> ${key}<br>
-          <strong>VisualID:</strong> ${visualIdNum}<br>
-          <strong>Success:</strong> ${successCount}<br>
-          <strong>Failed:</strong> ${failCount}
-        </div>
-      `,
-      buttons: ['OK']
-    });
-    await resultAlert.present();
-
+    // Only show error message if there were failures
     if (failCount > 0) {
       await this.showToast(`${failCount} photo(s) failed to sync`, 'danger');
     }
@@ -4837,30 +4823,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Called when auto-sync is turned back on
    */
   private async processAllPendingVisuals(): Promise<void> {
-    console.log('[v1.4.530] Processing pending visuals and photos');
-
-    // Show debug alert with what's pending
-    const pendingVisualKeys = Object.keys(this.pendingVisualCreates);
-    const pendingPhotoKeys = Object.keys(this.pendingPhotoUploads);
-
-    const debugAlert = await this.alertController.create({
-      header: '🔄 Processing Pending Items',
-      message: `
-        <div style="text-align: left;">
-          <strong>Pending Visuals:</strong> ${pendingVisualKeys.length}<br>
-          ${pendingVisualKeys.map(k => `- ${k}`).join('<br>')}<br><br>
-          <strong>Pending Photo Uploads:</strong> ${pendingPhotoKeys.length}<br>
-          ${pendingPhotoKeys.map(k => {
-            const count = this.pendingPhotoUploads[k]?.length || 0;
-            return `- ${k}: ${count} photo(s)`;
-          }).join('<br>')}
-        </div>
-      `,
-      buttons: ['OK']
-    });
-
-    await debugAlert.present();
-    await debugAlert.onDidDismiss();
+    console.log('[v1.4.533] Processing pending visuals and photos');
 
     // First, create any pending visual records
     await this.processPendingVisualCreates();
@@ -4901,7 +4864,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[v1.4.531] Photos reloaded with AttachIDs');
     }
 
-    await this.showToast('Synced custom visuals and photos', 'success');
+    // Success - no toast needed
   }
 
   /**
@@ -6619,7 +6582,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       
       // Show popup with data to be sent (skip for batch uploads)
-      if (!isBatchUpload) {
+      // Removed debug popup - proceed directly with upload
+      await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, isBatchUpload, annotationData, originalPhoto, tempId);
+
+      if (false && !isBatchUpload) {
         const alert = await this.alertController.create({
           header: 'Services_Visuals_Attach Upload Debug',
         message: `
@@ -6690,39 +6656,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     tempPhotoId?: string
   ) {
     try {
-      // Show debug popup for what we're sending (only for single uploads)
-      if (!isBatchUpload) {
-        const debugData = {
-          visualId: visualIdNum,
-          fileName: photo.name,
-          fileSize: `${(photo.size / 1024).toFixed(2)} KB`,
-          fileType: photo.type,
-          hasAnnotations: !!annotationData,
-          hasOriginalPhoto: !!originalPhoto,
-          originalFileName: originalPhoto?.name || 'None',
-          endpoint: 'Services_Visuals_Attach',
-          method: 'Files API (2-step upload)'
-        };
-        
-        const debugAlert = await this.alertController.create({
-          header: 'Ã°Å¸â€œÂ¤ Structural Systems Upload',
-          message: `
-            <strong>Sending:</strong><br>
-            VisualID: ${debugData.visualId}<br>
-            File: ${debugData.fileName}<br>
-            Size: ${debugData.fileSize}<br>
-            Type: ${debugData.fileType}<br>
-            Annotations: ${debugData.hasAnnotations ? 'Yes' : 'No'}<br>
-            Original: ${debugData.originalFileName}<br><br>
-            <strong>Endpoint:</strong> ${debugData.endpoint}<br>
-            <strong>Method:</strong> ${debugData.method}
-          `,
-          buttons: ['OK']
-        });
-        
-        await debugAlert.present();
-        const { role } = await debugAlert.onDidDismiss();
-      }
+      // Debug logging (no popup)
+      console.log('[v1.4.533] Uploading photo:', {
+        visualId: visualIdNum,
+        fileName: photo.name,
+        fileSize: `${(photo.size / 1024).toFixed(2)} KB`,
+        hasAnnotations: !!annotationData,
+        hasOriginalPhoto: !!originalPhoto
+      });
       
       // Prepare the Drawings field data (annotation JSON)
       let drawingsData = annotationData ? JSON.stringify(annotationData) : EMPTY_COMPRESSED_ANNOTATIONS;
@@ -6762,49 +6703,52 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           hasAnnotations: !!annotationData,
           timestamp: new Date().toISOString()
         };
-        
-        const errorAlert = await this.alertController.create({
-          header: 'Ã¢ÂÅ’ Structural Systems Upload Failed',
-          message: `
-            <div style="text-align: left; font-size: 12px;">
-              <strong style="color: red;">Error Details:</strong><br>
-              Message: ${errorDetails.message}<br>
-              Status: ${errorDetails.status}<br>
-              Status Text: ${errorDetails.statusText}<br><br>
-              
-              <strong>Request Info:</strong><br>
-              VisualID: ${errorDetails.visualId}<br>
-              File: ${errorDetails.fileName}<br>
-              Size: ${(errorDetails.fileSize / 1024).toFixed(2)} KB<br>
-              Has Annotations: ${errorDetails.hasAnnotations}<br><br>
-              
-              <strong>API Response:</strong><br>
-              <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;">
-                ${JSON.stringify(errorDetails.error, null, 2)}
-              </div><br>
-              
-              <strong>Time:</strong> ${errorDetails.timestamp}
-            </div>
-          `,
-          buttons: [
-            {
-              text: 'Copy Error Details',
-              handler: () => {
-                const errorText = JSON.stringify(errorDetails, null, 2);
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(errorText);
-                  this.showToast('Error details copied to clipboard', 'success');
-                }
-              }
-            },
-            {
-              text: 'OK',
-              role: 'cancel'
-            }
-          ]
-        });
-        
-        await errorAlert.present();
+
+        // Show simple error toast instead of detailed popup
+        await this.showToast('Failed to upload photo', 'danger');
+
+//         const errorAlert = await this.alertController.create({
+//           header: 'Ã¢ÂÅ’ Structural Systems Upload Failed',
+//           message: `
+//             <div style="text-align: left; font-size: 12px;">
+//               <strong style="color: red;">Error Details:</strong><br>
+//               Message: ${errorDetails.message}<br>
+//               Status: ${errorDetails.status}<br>
+//               Status Text: ${errorDetails.statusText}<br><br>
+//               
+//               <strong>Request Info:</strong><br>
+//               VisualID: ${errorDetails.visualId}<br>
+//               File: ${errorDetails.fileName}<br>
+//               Size: ${(errorDetails.fileSize / 1024).toFixed(2)} KB<br>
+//               Has Annotations: ${errorDetails.hasAnnotations}<br><br>
+//               
+//               <strong>API Response:</strong><br>
+//               <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;">
+//                 ${JSON.stringify(errorDetails.error, null, 2)}
+//               </div><br>
+//               
+//               <strong>Time:</strong> ${errorDetails.timestamp}
+//             </div>
+//           `,
+//           buttons: [
+//             {
+//               text: 'Copy Error Details',
+//               handler: () => {
+//                 const errorText = JSON.stringify(errorDetails, null, 2);
+//                 if (navigator.clipboard) {
+//                   navigator.clipboard.writeText(errorText);
+//                   this.showToast('Error details copied to clipboard', 'success');
+//                 }
+//               }
+//             },
+//             {
+//               text: 'OK',
+//               role: 'cancel'
+//             }
+//           ]
+//         });
+//         
+//         await errorAlert.present();
         throw uploadError; // Re-throw to handle in outer catch
       }
       

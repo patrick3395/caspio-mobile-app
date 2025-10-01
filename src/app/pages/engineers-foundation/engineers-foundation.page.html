@@ -962,7 +962,7 @@
 
                 <!-- Flooring Difference Factor Section (hidden for Base Station) -->
                 <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
-                  <span class="delimiter-label">Flooring Difference Factor</span>
+                  <span class="delimiter-label">Flooring Difference Factor<span class="required-indicator">*</span></span>
                   <button type="button"
                           (click)="openHelp(1, 'FDF Help')"
                           title="FDF Help"
@@ -1125,12 +1125,12 @@
                   </div>
                 </div>
 
-                <!-- Add custom point button at bottom right -->
-                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                  <button class="add-point-button" (click)="addCustomPoint(room.RoomName)" 
+                <!-- Add point button at bottom right (hidden for Base Station) -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="room.RoomName !== 'Base Station'">
+                  <button class="add-point-button" (click)="addCustomPoint(room.RoomName)"
                             style="background: #f0f0f0; border: 1px dashed #999; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px;">
                       <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle;"></ion-icon>
-                      Add Custom Point
+                      Add Point
                     </button>
                   </div>
 
