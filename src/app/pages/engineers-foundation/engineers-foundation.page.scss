@@ -888,11 +888,15 @@ ion-content {
   }
   
   ion-accordion-group {
+    // Disable auto-scroll when accordion opens
+    scroll-behavior: auto !important;
+
     ion-accordion {
       border: 1px solid #e0e0e0;
       border-radius: 8px;
       margin-bottom: 10px;
       overflow: visible;
+      scroll-margin: 0 !important;
       
       ion-item[slot="header"] {
         --background: #f9f9f9;

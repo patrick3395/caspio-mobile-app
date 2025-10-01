@@ -3486,8 +3486,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('Accordion changed:', event.detail.value);
     if (event.detail.value) {
       // Store the expanded accordion value
-      this.expandedAccordions = Array.isArray(event.detail.value) 
-        ? event.detail.value 
+      this.expandedAccordions = Array.isArray(event.detail.value)
+        ? event.detail.value
         : [event.detail.value];
     } else {
       this.expandedAccordions = [];
