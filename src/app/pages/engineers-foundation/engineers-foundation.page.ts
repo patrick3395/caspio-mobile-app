@@ -40,6 +40,8 @@ interface PendingPhotoUpload {
   originalPhoto?: File | null;
   isBatchUpload: boolean;
   tempId: string;
+  visualId?: string;
+  timestamp?: number;
 }
 
 
