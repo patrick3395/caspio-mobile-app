@@ -6917,12 +6917,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       try {
         // Create the visual record
+        console.log('📤 Attempting to create visual with data:', visualData);
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-        console.log('Ã¢Å“â€¦ Custom visual created:', response);
-        
+        console.log('✅ Custom visual created, response:', response);
+
         // Use VisualID from response
         const visualId = response?.VisualID || response?.PK_ID;
+        console.log('🔑 VisualID extracted:', visualId);
         if (!visualId) {
+          console.error('❌ No VisualID in response:', response);
           throw new Error('No VisualID returned from server');
         }
         
@@ -7013,10 +7016,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           key: key
         };
 
-      } catch (error) {
-        console.error('Error creating custom visual:', error);
+      } catch (error: any) {
+        console.error('❌ Error creating custom visual:', error);
+        console.error('Error details:', {
+          message: error?.message,
+          status: error?.status,
+          error: error?.error,
+          full: error
+        });
         await loading.dismiss();
-        await this.showToast('Failed to add visual', 'danger');
+
+        // Show more detailed error message
+        const errorMsg = error?.error?.Message || error?.message || 'Failed to add visual';
+        await this.showToast(errorMsg, 'danger');
         return null;
       }
     } catch (error) {
