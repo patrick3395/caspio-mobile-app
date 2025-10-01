@@ -6791,16 +6791,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               await this.showToast('Please enter a name', 'warning');
               return false;
             }
-            
-            // Create the visual without photos initially
-            await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', null);
-            
+
+            // Create the visual and get the created item info
+            const createdItemInfo = await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', null);
+
+            // After creating, ask if user wants to add photos
+            if (createdItemInfo) {
+              setTimeout(async () => {
+                const photoAlert = await this.alertController.create({
+                  header: 'Add Photos?',
+                  message: `${kind} created successfully. Would you like to add photos now?`,
+                  buttons: [
+                    {
+                      text: 'Skip',
+                      role: 'cancel'
+                    },
+                    {
+                      text: 'Add Photos',
+                      handler: () => {
+                        // Trigger photo upload for the newly created item
+                        this.addAnotherPhoto(category, createdItemInfo.itemId);
+                      }
+                    }
+                  ]
+                });
+                await photoAlert.present();
+              }, 300);
+            }
+
             return true;
           }
         }
       ]
     });
-    
+
     await alert.present();
   }
   
@@ -6923,14 +6947,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Trigger change detection
         this.changeDetectorRef.detectChanges();
-        
+
+        // Return the created item info for photo upload
+        return {
+          itemId: customItem.id,
+          visualId: String(visualId),
+          key: key
+        };
+
       } catch (error) {
         console.error('Error creating custom visual:', error);
         await loading.dismiss();
         await this.showToast('Failed to add visual', 'danger');
+        return null;
       }
     } catch (error) {
       console.error('Error in createCustomVisualWithPhotos:', error);
+      return null;
     }
   }
   
