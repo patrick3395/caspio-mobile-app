@@ -484,11 +484,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async loadProjectData() {
     if (!this.projectId) return;
-    
+
     try {
       this.projectData = await this.foundationData.getProject(this.projectId);
       console.log('Project data loaded:', this.projectData);
-      
+
+      // Check for custom values and add them to dropdown options
+      this.loadCustomValuesIntoDropdowns();
+
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
       console.error('Error loading project data:', error);
@@ -3163,12 +3166,80 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                            'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
     const projectFields = ['TypeOfBuilding', 'Style'];
 
-    // Save to Caspio with the custom value
+    // Update the local field value with custom text (so dropdown shows it)
     if (serviceFields.includes(fieldName)) {
+      this.serviceData[fieldName] = customValue;
+      // Also add to dropdown options if not already there
+      this.addCustomOptionToDropdown(fieldName, customValue);
       await this.onServiceFieldChange(fieldName, customValue);
     } else if (projectFields.includes(fieldName)) {
+      this.projectData[fieldName] = customValue;
+      // Also add to dropdown options if not already there
+      this.addCustomOptionToDropdown(fieldName, customValue);
       await this.onProjectFieldChange(fieldName, customValue);
     }
+  }
+
+  // Add custom value to dropdown options so it displays correctly
+  addCustomOptionToDropdown(fieldName: string, customValue: string) {
+    const dropdownMap: { [key: string]: string[] } = {
+      'InAttendance': this.inAttendanceOptions,
+      'WeatherConditions': this.weatherConditionsOptions,
+      'OutdoorTemperature': this.outdoorTemperatureOptions,
+      'OccupancyFurnishings': this.occupancyFurnishingsOptions,
+      'FirstFoundationType': this.firstFoundationTypeOptions,
+      'SecondFoundationType': this.secondFoundationTypeOptions,
+      'ThirdFoundationType': this.thirdFoundationTypeOptions,
+      'SecondFoundationRooms': this.secondFoundationRoomsOptions,
+      'ThirdFoundationRooms': this.thirdFoundationRoomsOptions,
+      'OwnerOccupantInterview': this.ownerOccupantInterviewOptions,
+      'TypeOfBuilding': this.typeOfBuildingOptions,
+      'Style': this.styleOptions
+    };
+
+    const options = dropdownMap[fieldName];
+    if (options && !options.includes(customValue)) {
+      // Add before "Other" option
+      const otherIndex = options.indexOf('Other');
+      if (otherIndex > -1) {
+        options.splice(otherIndex, 0, customValue);
+      } else {
+        options.push(customValue);
+      }
+      console.log(`Added custom value "${customValue}" to ${fieldName} dropdown options`);
+    }
+  }
+
+  // Load custom values from database into dropdown options (called after loading data)
+  loadCustomValuesIntoDropdowns() {
+    const fieldMappings = [
+      { fieldName: 'InAttendance', dataSource: this.serviceData, options: this.inAttendanceOptions },
+      { fieldName: 'WeatherConditions', dataSource: this.serviceData, options: this.weatherConditionsOptions },
+      { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, options: this.outdoorTemperatureOptions },
+      { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, options: this.occupancyFurnishingsOptions },
+      { fieldName: 'FirstFoundationType', dataSource: this.serviceData, options: this.firstFoundationTypeOptions },
+      { fieldName: 'SecondFoundationType', dataSource: this.serviceData, options: this.secondFoundationTypeOptions },
+      { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, options: this.thirdFoundationTypeOptions },
+      { fieldName: 'SecondFoundationRooms', dataSource: this.serviceData, options: this.secondFoundationRoomsOptions },
+      { fieldName: 'ThirdFoundationRooms', dataSource: this.serviceData, options: this.thirdFoundationRoomsOptions },
+      { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, options: this.ownerOccupantInterviewOptions },
+      { fieldName: 'TypeOfBuilding', dataSource: this.projectData, options: this.typeOfBuildingOptions },
+      { fieldName: 'Style', dataSource: this.projectData, options: this.styleOptions }
+    ];
+
+    fieldMappings.forEach(mapping => {
+      const value = mapping.dataSource?.[mapping.fieldName];
+      if (value && value.trim() !== '' && !mapping.options.includes(value)) {
+        // This is a custom value not in the standard options - add it
+        const otherIndex = mapping.options.indexOf('Other');
+        if (otherIndex > -1) {
+          mapping.options.splice(otherIndex, 0, value);
+        } else {
+          mapping.options.push(value);
+        }
+        console.log(`Loaded custom value "${value}" for ${mapping.fieldName}`);
+      }
+    });
   }
 
   // Handle Structural Systems status change
