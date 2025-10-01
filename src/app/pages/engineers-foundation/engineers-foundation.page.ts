@@ -6930,7 +6930,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         let response;
         try {
-          response = await this.caspioService.createServicesVisual(visualData).toPromise();
+          response = await firstValueFrom(this.caspioService.createServicesVisual(visualData));
           console.log('✅ Custom visual created, response:', response);
         } catch (apiError: any) {
           console.error('❌ API call failed:', apiError);
