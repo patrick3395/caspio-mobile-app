@@ -6918,8 +6918,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         // Create the visual record
         console.log('📤 Attempting to create visual with data:', visualData);
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-        console.log('✅ Custom visual created, response:', response);
+
+        let response;
+        try {
+          response = await this.caspioService.createServicesVisual(visualData).toPromise();
+          console.log('✅ Custom visual created, response:', response);
+        } catch (apiError: any) {
+          console.error('❌ API call failed:', apiError);
+
+          // Show API error details
+          const errorDebug = await this.alertController.create({
+            header: 'Debug: API Error',
+            message: `<pre>Status: ${apiError?.status}\nMessage: ${apiError?.message}\nError: ${JSON.stringify(apiError?.error, null, 2)}</pre>`,
+            buttons: ['OK']
+          });
+          await errorDebug.present();
+          throw apiError;
+        }
 
         // Debug popup to show actual response
         const debugAlert = await this.alertController.create({
