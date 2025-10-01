@@ -4890,10 +4890,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const visualId = this.visualRecordIds[key];
         if (visualId && visualId !== '__pending__') {
           try {
-            console.log(`[v1.4.531] Reloading photos for ${key}, VisualID: ${visualId}`);
-            await this.loadPhotosForVisualByKey(key);
+            console.log(`[v1.4.533] Reloading photos for ${key}, VisualID: ${visualId}`);
+            await this.loadPhotosForVisualByKey(key, visualId, visualId);
           } catch (error) {
-            console.error(`[v1.4.531] Failed to reload photos for ${key}:`, error);
+            console.error(`[v1.4.533] Failed to reload photos for ${key}:`, error);
           }
         }
       }
