@@ -6921,12 +6921,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
         console.log('✅ Custom visual created, response:', response);
 
+        // Debug popup to show actual response
+        const debugAlert = await this.alertController.create({
+          header: 'Debug: API Response',
+          message: `<pre>${JSON.stringify(response, null, 2)}</pre>`,
+          buttons: ['OK']
+        });
+        await debugAlert.present();
+
         // Use VisualID from response
         const visualId = response?.VisualID || response?.PK_ID;
         console.log('🔑 VisualID extracted:', visualId);
         if (!visualId) {
           console.error('❌ No VisualID in response:', response);
-          throw new Error('No VisualID returned from server');
+          throw new Error('Server did not return a VisualID');
         }
         
         // Add to local data structure
