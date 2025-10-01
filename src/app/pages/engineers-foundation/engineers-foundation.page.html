@@ -90,6 +90,15 @@
                 <option value="">Select who was present</option>
                 <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
               </select>
+              <!-- Custom text input for "Other" -->
+              <input *ngIf="serviceData.InAttendance === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['InAttendance']"
+                     (ngModelChange)="onCustomOtherChange('InAttendance', $event)"
+                     name="InAttendanceOther"
+                     placeholder="Please specify..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -146,6 +155,14 @@
                 <option value="">Select type</option>
                 <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="projectData.TypeOfBuilding === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['TypeOfBuilding']"
+                     (ngModelChange)="onCustomOtherChange('TypeOfBuilding', $event)"
+                     name="TypeOfBuildingOther"
+                     placeholder="Please specify building type..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
 
             <!-- Style -->
@@ -161,6 +178,14 @@
                 <option value="">Select style</option>
                 <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="projectData.Style === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['Style']"
+                     (ngModelChange)="onCustomOtherChange('Style', $event)"
+                     name="StyleOther"
+                     placeholder="Please specify style..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
 
             <!-- Occupancy Furnishings -->
@@ -176,6 +201,14 @@
                 <option value="">Select status</option>
                 <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.OccupancyFurnishings === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['OccupancyFurnishings']"
+                     (ngModelChange)="onCustomOtherChange('OccupancyFurnishings', $event)"
+                     name="OccupancyFurnishingsOther"
+                     placeholder="Please specify occupancy status..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -201,6 +234,14 @@
                 <option value="">Select weather</option>
                 <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.WeatherConditions === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['WeatherConditions']"
+                     (ngModelChange)="onCustomOtherChange('WeatherConditions', $event)"
+                     name="WeatherConditionsOther"
+                     placeholder="Please specify weather conditions..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
 
             <!-- Outdoor Temperature -->
@@ -216,6 +257,14 @@
                 <option value="">Select temperature</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.OutdoorTemperature === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['OutdoorTemperature']"
+                     (ngModelChange)="onCustomOtherChange('OutdoorTemperature', $event)"
+                     name="OutdoorTemperatureOther"
+                     placeholder="Please specify temperature..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -248,8 +297,16 @@
                 <option value="">Select type</option>
                 <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.FirstFoundationType === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['FirstFoundationType']"
+                     (ngModelChange)="onCustomOtherChange('FirstFoundationType', $event)"
+                     name="FirstFoundationTypeOther"
+                     placeholder="Please specify foundation type..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
-            
+
             <!-- Second Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.SecondFoundationType">
               <label class="has-help">
@@ -271,11 +328,19 @@
                 <option value="">Select type (if applicable)</option>
                 <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.SecondFoundationType === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['SecondFoundationType']"
+                     (ngModelChange)="onCustomOtherChange('SecondFoundationType', $event)"
+                     name="SecondFoundationTypeOther"
+                     placeholder="Please specify foundation type..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
-            
+
             <!-- Second Foundation Rooms -->
             <div class="form-group" [class.filled]="serviceData.SecondFoundationRooms"
-                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None'">
+                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== 'Other'">
               <label>
                 <ion-icon name="home-outline"></ion-icon>
                 Second Foundation Rooms
@@ -286,11 +351,19 @@
                 <option value="">Select rooms</option>
                 <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.SecondFoundationRooms === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['SecondFoundationRooms']"
+                     (ngModelChange)="onCustomOtherChange('SecondFoundationRooms', $event)"
+                     name="SecondFoundationRoomsOther"
+                     placeholder="Please specify rooms..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
-            
+
             <!-- Third Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.ThirdFoundationType"
-                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
+                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== '' && serviceData.SecondFoundationType !== 'Other'">
               <label>
                 <ion-icon name="construct-outline"></ion-icon>
                 Third Foundation Type
@@ -301,11 +374,19 @@
                 <option value="">Select type (if applicable)</option>
                 <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.ThirdFoundationType === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['ThirdFoundationType']"
+                     (ngModelChange)="onCustomOtherChange('ThirdFoundationType', $event)"
+                     name="ThirdFoundationTypeOther"
+                     placeholder="Please specify foundation type..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
 
             <!-- Third Foundation Rooms -->
             <div class="form-group" [class.filled]="serviceData.ThirdFoundationRooms"
-                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None'">
+                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None' && serviceData.ThirdFoundationType !== 'Other'">
               <label>
                 <ion-icon name="home-outline"></ion-icon>
                 Third Foundation Rooms
@@ -316,8 +397,16 @@
                 <option value="">Select rooms</option>
                 <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.ThirdFoundationRooms === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['ThirdFoundationRooms']"
+                     (ngModelChange)="onCustomOtherChange('ThirdFoundationRooms', $event)"
+                     name="ThirdFoundationRoomsOther"
+                     placeholder="Please specify rooms..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
-            
+
             <!-- Owner/Occupant Interview -->
             <div class="form-group" [class.filled]="serviceData.OwnerOccupantInterview">
               <label>
@@ -330,6 +419,14 @@
                 <option value="">Select status</option>
                 <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
               </select>
+              <input *ngIf="serviceData.OwnerOccupantInterview === 'Other'"
+                     type="text"
+                     [(ngModel)]="customOtherValues['OwnerOccupantInterview']"
+                     (ngModelChange)="onCustomOtherChange('OwnerOccupantInterview', $event)"
+                     name="OwnerOccupantInterviewOther"
+                     placeholder="Please specify..."
+                     class="styled-input"
+                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -353,7 +450,7 @@
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
                     class="structural-status-select"
                     (click)="$event.stopPropagation()">
-              <option value="">Select status...</option>
+              <option value="">Select Status</option>
               <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
             </select>
           </div>
@@ -874,6 +971,15 @@
                       </ion-select-option>
                     </ion-select>
                   </ion-item>
+                  <!-- Custom text input for FDF "Other" -->
+                  <div *ngIf="roomElevationData[room.RoomName].fdf === 'Other'" style="margin-top: 8px;">
+                    <input type="text"
+                           [(ngModel)]="customOtherValues['FDF_' + room.RoomName]"
+                           (ngModelChange)="onFDFOtherChange(room.RoomName, $event)"
+                           [name]="'FDF_' + room.RoomName + '_Other'"
+                           placeholder="Please specify FDF value..."
+                           class="styled-input">
+                  </div>
                 </div>
 
                 <!-- FDF Photos Section (hidden for Base Station) -->

@@ -191,7 +191,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Project dropdown options from Projects_Drop table
   typeOfBuildingOptions: string[] = [];
   styleOptions: string[] = [];
-  
+
+  // Custom "Other" values storage
+  customOtherValues: { [fieldName: string]: string } = {};
+
   // UI state
   expandedSections: { [key: string]: boolean } = {
     project: false,  // Project Details collapsed by default
@@ -542,6 +545,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const serviceResponse = await this.foundationData.getService(this.serviceId);
       if (serviceResponse) {
         this.serviceData = serviceResponse;
+        // Ensure StructuralSystemsStatus is initialized to empty string if null/undefined
+        if (!this.serviceData.StructuralSystemsStatus) {
+          this.serviceData.StructuralSystemsStatus = '';
+        }
         console.log('Service data loaded:', this.serviceData);
         console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
         
@@ -577,6 +584,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ThirdFoundationType: this.serviceData.ThirdFoundationType || '',
         ThirdFoundationRooms: this.serviceData.ThirdFoundationRooms || '',
         OwnerOccupantInterview: this.serviceData.OwnerOccupantInterview || '',
+        StructuralSystemsStatus: this.serviceData.StructuralSystemsStatus || '',
         Notes: this.serviceData.Notes || ''
       };
     }
@@ -828,16 +836,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('Loading Services_Drop dropdown options...');
       
       // Set default options first
-      this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy'];
-      this.outdoorTemperatureOptions = ['60Ã‚Â°F', '65Ã‚Â°F', '70Ã‚Â°F', '75Ã‚Â°F', '80Ã‚Â°F', '85Ã‚Â°F', '90Ã‚Â°F', '95Ã‚Â°F', '100Ã‚Â°F'];
-      this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished'];
+      this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
+      this.outdoorTemperatureOptions = ['60Ã‚Â°F', '65Ã‚Â°F', '70Ã‚Â°F', '75Ã‚Â°F', '80Ã‚Â°F', '85Ã‚Â°F', '90Ã‚Â°F', '95Ã‚Â°F', '100Ã‚Â°F', 'Other'];
+      this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
       this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
-      this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space'];
-      this.secondFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None'];
-      this.thirdFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None'];
+      this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
+      this.secondFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
+      this.thirdFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
       this.secondFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
       this.thirdFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-      this.ownerOccupantInterviewOptions = ['Yes', 'No', 'Not Available'];
+      this.ownerOccupantInterviewOptions = ['Yes', 'No', 'Not Available', 'Other'];
       
       // Load from Services_Drop table
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
@@ -1061,23 +1069,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Convert sets to arrays (removes duplicates automatically)
         this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
         this.styleOptions = Array.from(styleSet).sort();
-        
+
+        // Add "Other" option to all dropdown arrays
+        if (!this.typeOfBuildingOptions.includes('Other')) {
+          this.typeOfBuildingOptions.push('Other');
+        }
+        if (!this.styleOptions.includes('Other')) {
+          this.styleOptions.push('Other');
+        }
+
         console.log('TypeOfBuilding options:', this.typeOfBuildingOptions);
         console.log('Style options:', this.styleOptions);
-        
+
         // Add default options if none found in database
         if (this.typeOfBuildingOptions.length === 0) {
-          this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial'];
+          this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial', 'Other'];
         }
         if (this.styleOptions.length === 0) {
-          this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level'];
+          this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level', 'Other'];
         }
       }
     } catch (error) {
       console.error('Error loading project dropdown options:', error);
       // Set default options on error
-      this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial'];
-      this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level'];
+      this.typeOfBuildingOptions = ['Single Family', 'Multi-Family', 'Commercial', 'Industrial', 'Other'];
+      this.styleOptions = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level', 'Other'];
     }
   }
   
@@ -1085,10 +1101,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   getFDFOptionsForRoom(roomName: string): string[] {
     // Check if room-specific options exist
     if (this.roomFdfOptions[roomName] && this.roomFdfOptions[roomName].length > 0) {
-      return this.roomFdfOptions[roomName];
+      const options = [...this.roomFdfOptions[roomName]];
+      // Add "Other" if not already present
+      if (!options.includes('Other')) {
+        options.push('Other');
+      }
+      return options;
     }
     // Fall back to default options
-    return this.fdfOptions;
+    const options = [...this.fdfOptions];
+    if (!options.includes('Other')) {
+      options.push('Other');
+    }
+    return options;
   }
   
   // Handle FDF selection change
@@ -1098,23 +1123,52 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Room must be saved first', 'warning');
       return;
     }
-    
+
     try {
       const fdfValue = this.roomElevationData[roomName].fdf;
-      
+
+      // If "Other" is selected, don't save yet - wait for custom value
+      if (fdfValue === 'Other') {
+        return;
+      }
+
       // Update Services_Rooms record with FDF value using RoomID field
       const updateData = { FDF: fdfValue };
       const query = `RoomID=${roomId}`;
-      
+
       await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-      
+
       console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
     } catch (error) {
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
     }
   }
-  
+
+  // Handle FDF "Other" custom value change
+  async onFDFOtherChange(roomName: string, customValue: string) {
+    const roomId = this.roomRecordIds[roomName];
+    if (!roomId) {
+      await this.showToast('Room must be saved first', 'warning');
+      return;
+    }
+
+    try {
+      console.log(`Custom FDF value for ${roomName}: ${customValue}`);
+
+      // Update Services_Rooms record with custom FDF value
+      const updateData = { FDF: customValue };
+      const query = `RoomID=${roomId}`;
+
+      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+
+      console.log(`Updated FDF for room ${roomName} to custom value: ${customValue}`);
+    } catch (error) {
+      console.error('Error updating custom FDF:', error);
+      await this.showToast('Failed to update FDF', 'danger');
+    }
+  }
+
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const roomId = this.roomRecordIds[roomName];
@@ -3079,6 +3133,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Check if Structural Systems section should be disabled
   isStructuralSystemsDisabled(): boolean {
     return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
+  }
+
+  // Handle custom "Other" value changes
+  async onCustomOtherChange(fieldName: string, customValue: string) {
+    // When user types in the custom "Other" field, save the custom value to Caspio
+    // The actual value sent to Caspio will be the custom text, not "Other"
+    console.log(`Custom "Other" value for ${fieldName}: ${customValue}`);
+
+    // Determine if this is a service field or project field
+    const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                           'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                           'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+    const projectFields = ['TypeOfBuilding', 'Style'];
+
+    // Save to Caspio with the custom value
+    if (serviceFields.includes(fieldName)) {
+      await this.onServiceFieldChange(fieldName, customValue);
+    } else if (projectFields.includes(fieldName)) {
+      await this.onProjectFieldChange(fieldName, customValue);
+    }
   }
 
   // Handle Structural Systems status change
