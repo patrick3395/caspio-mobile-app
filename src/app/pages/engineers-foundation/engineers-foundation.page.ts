@@ -6006,14 +6006,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Add Yes/No radio buttons for the answer
       inputs.push({
-        name: 'description',
+        name: 'answer',
         type: 'radio',
         label: 'Yes',
         value: 'Yes',
         checked: item.answer === 'Yes'
       });
       inputs.push({
-        name: 'description',
+        name: 'answer',
         type: 'radio',
         label: 'No',
         value: 'No',
@@ -6074,18 +6074,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           text: 'Save',
           cssClass: 'editor-save-btn',
           handler: (data) => {
-            // Validate required fields
-            if (item.required && (!data.title || !data.description)) {
-              this.showToast('Please fill in all required fields', 'warning');
-              return false;
-            }
-            
-            // Update the item with new values
-            if (data.title !== item.name || data.description !== item.text) {
-              item.name = data.title;
-              item.text = data.description;
-              this.saveTemplate(); // Auto-save the changes
-              // Success toast removed per user request
+            // For AnswerType 1 (Yes/No), validate answer field instead of description
+            if (item.answerType === 1) {
+              if (item.required && (!data.title || !data.answer)) {
+                this.showToast('Please fill in all required fields', 'warning');
+                return false;
+              }
+
+              // Update the item with new values
+              if (data.title !== item.name || data.answer !== item.answer) {
+                item.name = data.title;
+                item.answer = data.answer;
+                this.saveTemplate(); // Auto-save the changes
+                // Success toast removed per user request
+              }
+            } else {
+              // For other types, use description field
+              if (item.required && (!data.title || !data.description)) {
+                this.showToast('Please fill in all required fields', 'warning');
+                return false;
+              }
+
+              // Update the item with new values
+              if (data.title !== item.name || data.description !== item.text) {
+                item.name = data.title;
+                item.text = data.description;
+                this.saveTemplate(); // Auto-save the changes
+                // Success toast removed per user request
+              }
             }
             return true;
           }
