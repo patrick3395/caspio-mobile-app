@@ -504,19 +504,19 @@
                   <div class="template-item" *ngFor="let item of organizedData[category].comments">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
-                      <div class="answer-type-1-container" *ngIf="item.answerType === 1" (click)="showFullText(item)">
-                        <div class="item-header">
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header" (click)="showFullText(item)">
                           <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
                         </div>
-                        <div class="item-text-wrapper">
+                        <div class="item-text-wrapper" (click)="showFullText(item)">
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
-                        <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
+                        <div class="dropdown-container" (click)="$event.stopPropagation()">
+                          <ion-select
+                            [(ngModel)]="item.answer"
                             placeholder="Select an answer"
                             interface="popover"
                             (ionChange)="onAnswerChange(category, item)"
@@ -638,19 +638,19 @@
                   <div class="template-item" *ngFor="let item of organizedData[category].limitations">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
-                      <div class="answer-type-1-container" *ngIf="item.answerType === 1" (click)="showFullText(item)">
-                        <div class="item-header">
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header" (click)="showFullText(item)">
                           <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
                         </div>
-                        <div class="item-text-wrapper">
+                        <div class="item-text-wrapper" (click)="showFullText(item)">
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
-                        <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
+                        <div class="dropdown-container" (click)="$event.stopPropagation()">
+                          <ion-select
+                            [(ngModel)]="item.answer"
                             placeholder="Select an answer"
                             interface="popover"
                             (ionChange)="onAnswerChange(category, item)"
@@ -772,19 +772,19 @@
                   <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
-                      <div class="answer-type-1-container" *ngIf="item.answerType === 1" (click)="showFullText(item)">
-                        <div class="item-header">
+                      <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+                        <div class="item-header" (click)="showFullText(item)">
                           <h3 class="item-name">
                             {{ item.name }}
                             <span class="required-indicator" *ngIf="item.required">*</span>
                           </h3>
                         </div>
-                        <div class="item-text-wrapper">
+                        <div class="item-text-wrapper" (click)="showFullText(item)">
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
-                        <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
+                        <div class="dropdown-container" (click)="$event.stopPropagation()">
+                          <ion-select
+                            [(ngModel)]="item.answer"
                             placeholder="Select an answer"
                             interface="popover"
                             (ionChange)="onAnswerChange(category, item)"

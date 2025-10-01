@@ -2030,57 +2030,59 @@ ion-content {
           }
 
           // FDF Photo preview with delete button
-          .image-preview {
-            position: relative;
-            display: inline-block;
+          .fdf-photos-container {
+            .image-preview {
+              position: relative;
+              display: inline-block;
 
-            img {
-              border-radius: 4px;
-              border: 1px solid #ddd;
-              cursor: pointer;
-              transition: all 0.3s ease;
-              display: block;
+              img {
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: block;
 
-              &:hover {
-                transform: scale(1.05);
-                box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-              }
-            }
-
-            .delete-btn {
-              position: absolute;
-              top: 2px;
-              right: 2px;
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              background: rgba(255, 255, 255, 0.9) !important;
-              border: 1px solid rgba(0, 0, 0, 0.2) !important;
-              display: flex !important;
-              align-items: center;
-              justify-content: center;
-              cursor: pointer;
-              transition: all 0.3s ease;
-              padding: 0 !important;
-              z-index: 10;
-              margin: 0 !important;
-
-              ion-icon {
-                font-size: 12px;
-                color: #333 !important;
-              }
-
-              &:hover {
-                background: rgba(255, 59, 48, 0.9) !important;
-                border-color: rgba(255, 59, 48, 1) !important;
-
-                ion-icon {
-                  color: white !important;
+                &:hover {
+                  transform: scale(1.05);
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
                 }
               }
 
-              &:active {
-                transform: scale(0.9);
+              .delete-btn {
+                position: absolute !important;
+                top: 2px !important;
+                right: 2px !important;
+                width: 18px !important;
+                height: 18px !important;
+                border-radius: 50% !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                border: 1px solid rgba(0, 0, 0, 0.2) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                z-index: 10 !important;
+
+                ion-icon {
+                  font-size: 12px !important;
+                  color: #333 !important;
+                }
+
+                &:hover {
+                  background: rgba(255, 59, 48, 0.9) !important;
+                  border-color: rgba(255, 59, 48, 1) !important;
+
+                  ion-icon {
+                    color: white !important;
+                  }
+                }
+
+                &:active {
+                  transform: scale(0.9) !important;
+                }
               }
             }
           }
