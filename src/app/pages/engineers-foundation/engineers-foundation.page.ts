@@ -6888,6 +6888,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Create custom visual with photos
   async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null) {
+    // IMMEDIATE debug to verify function is called
+    const startAlert = await this.alertController.create({
+      header: 'Function Called',
+      message: `Creating ${kind} for ${category}<br>Name: ${name}<br>ServiceID: ${this.serviceId}`,
+      buttons: ['OK']
+    });
+    await startAlert.present();
+
     try {
       const serviceId = this.serviceId;
       if (!serviceId) {
@@ -6919,6 +6927,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
 
+        // Debug response
+        const responseAlert = await this.alertController.create({
+          header: 'API Response',
+          message: `<pre>${JSON.stringify(response, null, 2)}</pre>`,
+          buttons: ['OK']
+        });
+        await responseAlert.present();
+        await responseAlert.onDidDismiss();
+
         // Extract VisualID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
 
@@ -6933,6 +6950,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else if (response) {
           visualId = String(response);
         }
+
+        // Debug extracted ID
+        const idAlert = await this.alertController.create({
+          header: 'Extracted VisualID',
+          message: `VisualID: ${visualId}`,
+          buttons: ['OK']
+        });
+        await idAlert.present();
+        await idAlert.onDidDismiss();
 
         if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
           throw new Error('No VisualID returned from server');
