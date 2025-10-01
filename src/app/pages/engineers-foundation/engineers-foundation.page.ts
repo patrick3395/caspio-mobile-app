@@ -4656,33 +4656,53 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const pendingUploads = this.pendingPhotoUploads[key];
     const visualId = this.visualRecordIds[key];
 
+    console.log(`[v1.4.530] processPendingPhotoUploadsForKey called for ${key}`);
+    console.log(`[v1.4.530]   visualId: ${visualId}`);
+    console.log(`[v1.4.530]   pendingUploads count: ${pendingUploads?.length || 0}`);
+
     if (!pendingUploads || pendingUploads.length === 0) {
+      console.log(`[v1.4.530] No pending uploads for ${key}`);
       return;
     }
 
     if (!visualId || visualId === '__pending__') {
+      console.log(`[v1.4.530] VisualID not ready for ${key}: ${visualId}`);
       return;
     }
 
     const visualIdNum = parseInt(visualId, 10);
     if (isNaN(visualIdNum)) {
-      console.warn('Pending photo uploads waiting for numeric VisualID. Current value:', visualId);
+      console.warn('[v1.4.530] Pending photo uploads waiting for numeric VisualID. Current value:', visualId);
       return;
     }
+
+    console.log(`[v1.4.530] Uploading ${pendingUploads.length} photos for VisualID: ${visualIdNum}`);
 
     const uploads = [...pendingUploads];
     delete this.pendingPhotoUploads[key];
 
-    for (const upload of uploads) {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < uploads.length; i++) {
+      const upload = uploads[i];
+      console.log(`[v1.4.530] Processing photo ${i + 1}/${uploads.length}`);
+      console.log(`[v1.4.530]   File: ${upload.file.name}`);
+      console.log(`[v1.4.530]   TempId: ${upload.tempId}`);
+
       const keyPhotos = this.visualPhotos[key] || [];
       const photoIndex = keyPhotos.findIndex((p: any) => p.id === upload.tempId);
 
       if (photoIndex !== -1) {
         keyPhotos[photoIndex].uploading = true;
         keyPhotos[photoIndex].queued = false;
+        console.log(`[v1.4.530]   Found photo at index ${photoIndex}, marked as uploading`);
+      } else {
+        console.warn(`[v1.4.530]   Photo not found in visualPhotos[${key}]`);
       }
 
       try {
+        console.log(`[v1.4.530]   Calling performVisualPhotoUpload...`);
         await this.performVisualPhotoUpload(
           visualIdNum,
           upload.file,
@@ -4692,15 +4712,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           upload.originalPhoto || null,
           upload.tempId
         );
+        successCount++;
+        console.log(`[v1.4.530]   ✅ Photo ${i + 1} uploaded successfully`);
       } catch (error) {
-        console.error('Failed to upload queued photo after sync resumed:', error);
+        failCount++;
+        console.error(`[v1.4.530]   ❌ Failed to upload photo ${i + 1}:`, error);
         if (photoIndex !== -1) {
           keyPhotos[photoIndex].uploading = false;
           keyPhotos[photoIndex].queued = false;
           keyPhotos[photoIndex].failed = true;
         }
-        await this.showToast('Queued photo failed to sync. Please retry.', 'danger');
       }
+    }
+
+    // Show result alert
+    const resultAlert = await this.alertController.create({
+      header: successCount > 0 ? '✅ Upload Complete' : '❌ Upload Failed',
+      message: `
+        <div style="text-align: left;">
+          <strong>Key:</strong> ${key}<br>
+          <strong>VisualID:</strong> ${visualIdNum}<br>
+          <strong>Success:</strong> ${successCount}<br>
+          <strong>Failed:</strong> ${failCount}
+        </div>
+      `,
+      buttons: ['OK']
+    });
+    await resultAlert.present();
+
+    if (failCount > 0) {
+      await this.showToast(`${failCount} photo(s) failed to sync`, 'danger');
     }
   }
 
@@ -4796,7 +4837,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Called when auto-sync is turned back on
    */
   private async processAllPendingVisuals(): Promise<void> {
-    console.log('[v1.4.528] Processing pending visuals and photos');
+    console.log('[v1.4.530] Processing pending visuals and photos');
+
+    // Show debug alert with what's pending
+    const pendingVisualKeys = Object.keys(this.pendingVisualCreates);
+    const pendingPhotoKeys = Object.keys(this.pendingPhotoUploads);
+
+    const debugAlert = await this.alertController.create({
+      header: '🔄 Processing Pending Items',
+      message: `
+        <div style="text-align: left;">
+          <strong>Pending Visuals:</strong> ${pendingVisualKeys.length}<br>
+          ${pendingVisualKeys.map(k => `- ${k}`).join('<br>')}<br><br>
+          <strong>Pending Photo Uploads:</strong> ${pendingPhotoKeys.length}<br>
+          ${pendingPhotoKeys.map(k => {
+            const count = this.pendingPhotoUploads[k]?.length || 0;
+            return `- ${k}: ${count} photo(s)`;
+          }).join('<br>')}
+        </div>
+      `,
+      buttons: ['OK']
+    });
+
+    await debugAlert.present();
+    await debugAlert.onDidDismiss();
 
     // First, create any pending visual records
     await this.processPendingVisualCreates();
@@ -4805,11 +4869,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const keys = Object.keys(this.pendingPhotoUploads);
     for (const key of keys) {
       const visualId = this.visualRecordIds[key];
+      console.log(`[v1.4.530] Checking ${key}: visualId=${visualId}`);
+
       if (visualId && visualId !== '__pending__') {
-        console.log(`[v1.4.528] Processing pending photos for ${key}, VisualID: ${visualId}`);
+        console.log(`[v1.4.530] Processing pending photos for ${key}, VisualID: ${visualId}`);
         await this.processPendingPhotoUploadsForKey(key);
       } else {
-        console.log(`[v1.4.528] Skipping photos for ${key} - no VisualID yet (${visualId})`);
+        console.log(`[v1.4.530] Skipping photos for ${key} - no VisualID yet (${visualId})`);
       }
     }
 
