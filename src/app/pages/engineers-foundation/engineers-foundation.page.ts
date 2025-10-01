@@ -4867,16 +4867,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Then, process any pending photo uploads for visuals that now have IDs
     const keys = Object.keys(this.pendingPhotoUploads);
+    const keysProcessed: string[] = [];
+
     for (const key of keys) {
       const visualId = this.visualRecordIds[key];
-      console.log(`[v1.4.530] Checking ${key}: visualId=${visualId}`);
+      console.log(`[v1.4.531] Checking ${key}: visualId=${visualId}`);
 
       if (visualId && visualId !== '__pending__') {
-        console.log(`[v1.4.530] Processing pending photos for ${key}, VisualID: ${visualId}`);
+        console.log(`[v1.4.531] Processing pending photos for ${key}, VisualID: ${visualId}`);
         await this.processPendingPhotoUploadsForKey(key);
+        keysProcessed.push(key);
       } else {
-        console.log(`[v1.4.530] Skipping photos for ${key} - no VisualID yet (${visualId})`);
+        console.log(`[v1.4.531] Skipping photos for ${key} - no VisualID yet (${visualId})`);
       }
+    }
+
+    // CRITICAL: Reload photos from database to get real AttachIDs
+    if (keysProcessed.length > 0) {
+      console.log('[v1.4.531] Reloading photos from database to get AttachIDs...');
+
+      for (const key of keysProcessed) {
+        const visualId = this.visualRecordIds[key];
+        if (visualId && visualId !== '__pending__') {
+          try {
+            console.log(`[v1.4.531] Reloading photos for ${key}, VisualID: ${visualId}`);
+            await this.loadPhotosForVisualByKey(key);
+          } catch (error) {
+            console.error(`[v1.4.531] Failed to reload photos for ${key}:`, error);
+          }
+        }
+      }
+
+      console.log('[v1.4.531] Photos reloaded with AttachIDs');
     }
 
     await this.showToast('Synced custom visuals and photos', 'success');
