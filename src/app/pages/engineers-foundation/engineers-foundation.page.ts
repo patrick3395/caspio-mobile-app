@@ -3484,6 +3484,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Track which accordions are expanded
   onAccordionChange(event: any) {
     console.log('Accordion changed:', event.detail.value);
+
+    // Store current scroll position before change
+    const previousScroll = window.pageYOffset || document.documentElement.scrollTop;
+
     if (event.detail.value) {
       // Store the expanded accordion value
       this.expandedAccordions = Array.isArray(event.detail.value)
@@ -3492,6 +3496,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } else {
       this.expandedAccordions = [];
     }
+
+    // Restore scroll position after accordion animation completes
+    setTimeout(() => {
+      window.scrollTo({ top: previousScroll, behavior: 'auto' });
+    }, 0);
   }
   
   onRoomAccordionChange(event: any) {
