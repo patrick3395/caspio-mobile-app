@@ -897,6 +897,17 @@ ion-content {
       margin-bottom: 10px;
       overflow: visible;
       scroll-margin: 0 !important;
+
+      // Force accordion content to always expand downward
+      display: block !important;
+      position: relative !important;
+
+      // Ensure content slot expands below the header
+      [slot="content"] {
+        position: relative !important;
+        top: 0 !important;
+        transform-origin: top !important;
+      }
       
       ion-item[slot="header"] {
         --background: #f9f9f9;
