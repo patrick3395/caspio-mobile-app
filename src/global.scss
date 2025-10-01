@@ -213,10 +213,13 @@ ion-action-sheet {
   }
 }
 
-// Textarea cursor color
+// Textarea cursor color and highlight
 ion-textarea {
   caret-color: #000 !important;
   --color: #000;
+  --highlight-color-focused: #000 !important;
+  --highlight-color-valid: #000 !important;
+  --highlight-color-invalid: #000 !important;
 }
 
 // Photo Source Action Sheet (iOS Style)
