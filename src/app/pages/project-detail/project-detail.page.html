@@ -136,7 +136,7 @@
       
       <!-- Service checkboxes for active projects -->
       <div *ngIf="!loadingServices && !isReadOnly" class="services-grid">
-        <div *ngFor="let offer of availableOffers" 
+        <div *ngFor="let offer of getSortedOffers()"
              class="service-item">
           <ion-checkbox 
             [checked]="isServiceSelected(offer.OffersID)"

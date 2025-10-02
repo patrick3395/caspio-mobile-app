@@ -922,6 +922,33 @@ export class ProjectDetailPage implements OnInit {
     });
   }
 
+  getSortedOffers(): any[] {
+    const order = ['EIR', 'EFE', 'DCR', 'HUD', 'ELBW', 'ECSA', 'EWPI', 'EDTE', 'OTHER'];
+
+    return [...this.availableOffers].sort((a, b) => {
+      // Use TypeShort field directly
+      const typeA = a.TypeShort || 'OTHER';
+      const typeB = b.TypeShort || 'OTHER';
+
+      const indexA = order.indexOf(typeA);
+      const indexB = order.indexOf(typeB);
+
+      // If both are in the order array, sort by position
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+
+      // If only A is in order, A comes first
+      if (indexA !== -1) return -1;
+
+      // If only B is in order, B comes first
+      if (indexB !== -1) return 1;
+
+      // If neither is in order, sort alphabetically by TypeName
+      return (a.TypeName || '').localeCompare(b.TypeName || '');
+    });
+  }
+
   getServicesForTemplates(): ServiceSelection[] {
     const cacheKey = this.selectedServices
       .map(service => `${service.offersId}:${service.instanceId}:${service.serviceId ?? ''}`)
