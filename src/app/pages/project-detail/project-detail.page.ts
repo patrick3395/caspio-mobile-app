@@ -891,6 +891,38 @@ export class ProjectDetailPage implements OnInit {
     return sameTypeServices.findIndex(s => s.instanceId === service.instanceId) + 1;
   }
 
+  getSortedServices(): ServiceSelection[] {
+    const order = ['EIR', 'EFE', 'DCR', 'HUD', 'ELBW', 'ECSA', 'EWPI', 'EDTE', 'OTHER'];
+
+    return [...this.selectedServices].sort((a, b) => {
+      // Extract TypeShort from the service name (format: "EIR - Service Name")
+      const getTypeShort = (service: ServiceSelection): string => {
+        const match = service.typeName?.match(/^([A-Z]+)\s*-/);
+        return match ? match[1] : 'OTHER';
+      };
+
+      const typeA = getTypeShort(a);
+      const typeB = getTypeShort(b);
+
+      const indexA = order.indexOf(typeA);
+      const indexB = order.indexOf(typeB);
+
+      // If both are in the order array, sort by position
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+
+      // If only A is in order, A comes first
+      if (indexA !== -1) return -1;
+
+      // If only B is in order, B comes first
+      if (indexB !== -1) return 1;
+
+      // If neither is in order, sort alphabetically
+      return a.typeName.localeCompare(b.typeName);
+    });
+  }
+
   getServicesForTemplates(): ServiceSelection[] {
     const cacheKey = this.selectedServices
       .map(service => `${service.offersId}:${service.instanceId}:${service.serviceId ?? ''}`)

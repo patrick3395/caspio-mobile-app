@@ -13,9 +13,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       <ion-toolbar style="--background: #F15A27;">
         <ion-title style="color: white;">{{ fileName || 'Document Viewer' }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="openInNewTab()" style="color: white;">
-            <ion-icon name="open-outline" slot="icon-only"></ion-icon>
-          </ion-button>
           <ion-button (click)="dismiss()" style="color: white;">
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
@@ -24,12 +21,12 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     </ion-header>
     <ion-content class="document-viewer-content">
       <div class="viewer-container" *ngIf="!isImage && !isPDF">
-        <iframe [src]="sanitizedUrl" 
+        <iframe [src]="sanitizedUrl"
                 frameborder="0"
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <ngx-extended-pdf-viewer 
+        <ngx-extended-pdf-viewer
           [src]="pdfSource"
           [height]="'calc(100vh - 56px)'"
           [mobileFriendlyZoom]="'page-width'"
@@ -291,7 +288,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         overflow: auto !important;
         height: calc(100vh - 56px) !important;
       }
-      
+
       .pdf-container ::ng-deep #viewerContainer {
         -webkit-overflow-scrolling: touch !important;
         overflow-y: scroll !important;

@@ -76,7 +76,7 @@
       </div>
       
       <div class="info-row">
-        <span class="info-label">Inspection Date:</span>
+        <span class="info-label">Request Date:</span>
         <span class="info-value">{{ formatDate(project.InspectionDate) }}</span>
       </div>
       
@@ -179,7 +179,7 @@
             <div class="col-date">Inspection Date</div>
             <div class="col-actions">Actions</div>
           </div>
-          <div *ngFor="let service of selectedServices" class="service-row-container">
+          <div *ngFor="let service of getSortedServices()" class="service-row-container">
             <div class="table-row">
               <div class="col-service">
                 <span>{{ service.typeName }}</span>
@@ -339,7 +339,9 @@
       <ion-toolbar>
         <ion-title>Add Document</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="closeOptionalDocsModal()">Close</ion-button>
+          <ion-button (click)="closeOptionalDocsModal()">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
