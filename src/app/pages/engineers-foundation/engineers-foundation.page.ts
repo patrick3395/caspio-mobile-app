@@ -1105,8 +1105,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const fdfValue = this.roomElevationData[roomName].fdf;
 
-      // If "Other" is selected, don't save yet - wait for custom value
+      // If "Other" is selected, show popup to enter custom value
       if (fdfValue === 'Other') {
+        const previousValue = this.customOtherValues['FDF_' + roomName] || '';
+        await this.showFDFOtherPopup(roomName, previousValue);
         return;
       }
 
@@ -1123,35 +1125,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // Handle FDF "Other" custom value change (called on blur)
-  async onFDFOtherBlur(roomName: string) {
-    const customValue = this.customOtherValues['FDF_' + roomName];
+  // Show popup for FDF "Other" custom value
+  async showFDFOtherPopup(roomName: string, previousValue?: string): Promise<void> {
+    const alert = await this.alertController.create({
+      header: `FDF for ${roomName}`,
+      message: 'Please enter a custom FDF value:',
+      inputs: [
+        {
+          name: 'customValue',
+          type: 'text',
+          placeholder: 'Enter custom FDF value...',
+          value: previousValue || ''
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          handler: () => {
+            // Revert dropdown to previous value if they cancel
+            this.roomElevationData[roomName].fdf = previousValue || '';
+          }
+        },
+        {
+          text: 'Save',
+          handler: async (data) => {
+            const customValue = data.customValue?.trim();
 
-    if (!customValue || !customValue.trim()) {
-      console.log(`No custom FDF value entered for ${roomName}`);
-      return;
-    }
+            if (!customValue) {
+              // If empty, revert to previous value
+              this.roomElevationData[roomName].fdf = previousValue || '';
+              return;
+            }
 
-    const roomId = this.roomRecordIds[roomName];
-    if (!roomId) {
-      await this.showToast('Room must be saved first', 'warning');
-      return;
-    }
+            const roomId = this.roomRecordIds[roomName];
+            if (!roomId) {
+              await this.showToast('Room must be saved first', 'warning');
+              return;
+            }
 
-    try {
-      console.log(`Saving custom FDF value for ${roomName}: ${customValue}`);
+            try {
+              console.log(`Saving custom FDF value for ${roomName}: ${customValue}`);
 
-      // Update Services_Rooms record with custom FDF value
-      const updateData = { FDF: customValue };
-      const query = `RoomID=${roomId}`;
+              // Store in customOtherValues
+              this.customOtherValues['FDF_' + roomName] = customValue;
 
-      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+              // Update Services_Rooms record with custom FDF value
+              const updateData = { FDF: customValue };
+              const query = `RoomID=${roomId}`;
 
-      console.log(`Updated FDF for room ${roomName} to custom value: ${customValue}`);
-    } catch (error) {
-      console.error('Error updating custom FDF:', error);
-      await this.showToast('Failed to update FDF', 'danger');
-    }
+              await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+
+              // Update local data
+              this.roomElevationData[roomName].fdf = customValue;
+
+              console.log(`Updated FDF for room ${roomName} to custom value: ${customValue}`);
+            } catch (error) {
+              console.error('Error updating custom FDF:', error);
+              await this.showToast('Failed to update FDF', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
@@ -3140,35 +3178,84 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
   }
 
-  // Handle custom "Other" value changes (called on blur, not on every keystroke)
-  async onCustomOtherBlur(fieldName: string) {
-    const customValue = this.customOtherValues[fieldName];
+  // Show popup to enter custom "Other" value
+  async showOtherInputPopup(fieldName: string, fieldLabel: string, previousValue?: string): Promise<void> {
+    const alert = await this.alertController.create({
+      header: fieldLabel,
+      message: 'Please enter a custom value:',
+      inputs: [
+        {
+          name: 'customValue',
+          type: 'text',
+          placeholder: 'Enter custom value...',
+          value: previousValue || this.customOtherValues[fieldName] || ''
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          handler: () => {
+            // Revert dropdown to previous value if they cancel
+            const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                                   'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                                   'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+            const projectFields = ['TypeOfBuilding', 'Style'];
 
-    if (!customValue || !customValue.trim()) {
-      console.log(`No custom value entered for ${fieldName}`);
-      return;
-    }
+            if (serviceFields.includes(fieldName)) {
+              this.serviceData[fieldName] = previousValue || '';
+            } else if (projectFields.includes(fieldName)) {
+              this.projectData[fieldName] = previousValue || '';
+            }
+          }
+        },
+        {
+          text: 'Save',
+          handler: async (data) => {
+            const customValue = data.customValue?.trim();
 
-    console.log(`Saving custom "Other" value for ${fieldName}: ${customValue}`);
+            if (!customValue) {
+              // If empty, revert to previous value
+              const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                                     'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                                     'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+              const projectFields = ['TypeOfBuilding', 'Style'];
 
-    // Determine if this is a service field or project field
-    const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
-                           'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
-                           'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
-    const projectFields = ['TypeOfBuilding', 'Style'];
+              if (serviceFields.includes(fieldName)) {
+                this.serviceData[fieldName] = previousValue || '';
+              } else if (projectFields.includes(fieldName)) {
+                this.projectData[fieldName] = previousValue || '';
+              }
+              return;
+            }
 
-    // Update the local field value with custom text (so dropdown shows it)
-    if (serviceFields.includes(fieldName)) {
-      this.serviceData[fieldName] = customValue;
-      // Also add to dropdown options if not already there
-      this.addCustomOptionToDropdown(fieldName, customValue);
-      await this.onServiceFieldChange(fieldName, customValue);
-    } else if (projectFields.includes(fieldName)) {
-      this.projectData[fieldName] = customValue;
-      // Also add to dropdown options if not already there
-      this.addCustomOptionToDropdown(fieldName, customValue);
-      await this.onProjectFieldChange(fieldName, customValue);
-    }
+            console.log(`Saving custom "Other" value for ${fieldName}: ${customValue}`);
+
+            // Store in customOtherValues
+            this.customOtherValues[fieldName] = customValue;
+
+            // Determine if this is a service field or project field
+            const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                                   'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                                   'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+            const projectFields = ['TypeOfBuilding', 'Style'];
+
+            // Update the local field value with custom text
+            if (serviceFields.includes(fieldName)) {
+              this.serviceData[fieldName] = customValue;
+              this.addCustomOptionToDropdown(fieldName, customValue);
+              await this.onServiceFieldChange(fieldName, customValue);
+            } else if (projectFields.includes(fieldName)) {
+              this.projectData[fieldName] = customValue;
+              this.addCustomOptionToDropdown(fieldName, customValue);
+              await this.onProjectFieldChange(fieldName, customValue);
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   // Add custom value to dropdown options so it displays correctly
@@ -9137,8 +9224,19 @@ Stack: ${error?.stack}`;
   }
 
   // Handle project field changes
-  onProjectFieldChange(fieldName: string, value: any) {
+  async onProjectFieldChange(fieldName: string, value: any) {
     console.log(`Project field changed: ${fieldName} = ${value}`);
+
+    // If "Other" is selected, show popup to enter custom value
+    if (value === 'Other') {
+      const fieldLabels: { [key: string]: string } = {
+        'TypeOfBuilding': 'Building Type',
+        'Style': 'Style'
+      };
+      const previousValue = this.customOtherValues[fieldName] || '';
+      await this.showOtherInputPopup(fieldName, fieldLabels[fieldName] || fieldName, previousValue);
+      return; // The popup handler will call this method again with the custom value
+    }
 
     // Update the project data
     if (this.projectData) {
@@ -9157,19 +9255,38 @@ Stack: ${error?.stack}`;
   }
   
   // Handle service field changes
-  onServiceFieldChange(fieldName: string, value: any) {
+  async onServiceFieldChange(fieldName: string, value: any) {
     console.log(`Service field changed: ${fieldName} = ${value}`);
-    
+
+    // If "Other" is selected, show popup to enter custom value
+    if (value === 'Other') {
+      const fieldLabels: { [key: string]: string } = {
+        'InAttendance': 'In Attendance',
+        'WeatherConditions': 'Weather Conditions',
+        'OutdoorTemperature': 'Outdoor Temperature',
+        'OccupancyFurnishings': 'Occupancy Status',
+        'FirstFoundationType': 'First Foundation Type',
+        'SecondFoundationType': 'Second Foundation Type',
+        'ThirdFoundationType': 'Third Foundation Type',
+        'SecondFoundationRooms': 'Second Foundation Rooms',
+        'ThirdFoundationRooms': 'Third Foundation Rooms',
+        'OwnerOccupantInterview': 'Owner/Occupant Interview'
+      };
+      const previousValue = this.customOtherValues[fieldName] || '';
+      await this.showOtherInputPopup(fieldName, fieldLabels[fieldName] || fieldName, previousValue);
+      return; // The popup handler will call this method again with the custom value
+    }
+
     // Update the service data
     this.serviceData[fieldName] = value;
-    
+
     // Save to localStorage for persistence
     const serviceDataKey = `serviceData_${this.serviceId}`;
     localStorage.setItem(serviceDataKey, JSON.stringify(this.serviceData));
-    
+
     // Update progress tracking
     this.updateProgressTracking();
-    
+
     // Trigger auto-save to Services table
     this.autoSaveServiceField(fieldName, value);
   }

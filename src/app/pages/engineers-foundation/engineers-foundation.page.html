@@ -103,15 +103,6 @@
                 <option value="">Select who was present</option>
                 <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
               </select>
-              <!-- Custom text input for "Other" -->
-              <input *ngIf="serviceData.InAttendance === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['InAttendance']"
-                     (blur)="onCustomOtherBlur('InAttendance')"
-                     name="InAttendanceOther"
-                     placeholder="Please specify..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -168,14 +159,6 @@
                 <option value="">Select type</option>
                 <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="projectData.TypeOfBuilding === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['TypeOfBuilding']"
-                     (blur)="onCustomOtherBlur('TypeOfBuilding')"
-                     name="TypeOfBuildingOther"
-                     placeholder="Please specify building type..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Style -->
@@ -191,14 +174,6 @@
                 <option value="">Select style</option>
                 <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="projectData.Style === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['Style']"
-                     (blur)="onCustomOtherBlur('Style')"
-                     name="StyleOther"
-                     placeholder="Please specify style..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Occupancy Furnishings -->
@@ -214,14 +189,6 @@
                 <option value="">Select status</option>
                 <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.OccupancyFurnishings === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['OccupancyFurnishings']"
-                     (blur)="onCustomOtherBlur('OccupancyFurnishings')"
-                     name="OccupancyFurnishingsOther"
-                     placeholder="Please specify occupancy status..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -247,14 +214,6 @@
                 <option value="">Select weather</option>
                 <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.WeatherConditions === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['WeatherConditions']"
-                     (blur)="onCustomOtherBlur('WeatherConditions')"
-                     name="WeatherConditionsOther"
-                     placeholder="Please specify weather conditions..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Outdoor Temperature -->
@@ -270,14 +229,6 @@
                 <option value="">Select temperature</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.OutdoorTemperature === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['OutdoorTemperature']"
-                     (blur)="onCustomOtherBlur('OutdoorTemperature')"
-                     name="OutdoorTemperatureOther"
-                     placeholder="Please specify temperature..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -310,14 +261,6 @@
                 <option value="">Select type</option>
                 <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.FirstFoundationType === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['FirstFoundationType']"
-                     (blur)="onCustomOtherBlur('FirstFoundationType')"
-                     name="FirstFoundationTypeOther"
-                     placeholder="Please specify foundation type..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Second Foundation Type -->
@@ -341,14 +284,6 @@
                 <option value="">Select type (if applicable)</option>
                 <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.SecondFoundationType === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['SecondFoundationType']"
-                     (blur)="onCustomOtherBlur('SecondFoundationType')"
-                     name="SecondFoundationTypeOther"
-                     placeholder="Please specify foundation type..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Second Foundation Rooms -->
@@ -364,14 +299,6 @@
                 <option value="">Select rooms</option>
                 <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.SecondFoundationRooms === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['SecondFoundationRooms']"
-                     (blur)="onCustomOtherBlur('SecondFoundationRooms')"
-                     name="SecondFoundationRoomsOther"
-                     placeholder="Please specify rooms..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Third Foundation Type -->
@@ -387,14 +314,6 @@
                 <option value="">Select type (if applicable)</option>
                 <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.ThirdFoundationType === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['ThirdFoundationType']"
-                     (blur)="onCustomOtherBlur('ThirdFoundationType')"
-                     name="ThirdFoundationTypeOther"
-                     placeholder="Please specify foundation type..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Third Foundation Rooms -->
@@ -410,14 +329,6 @@
                 <option value="">Select rooms</option>
                 <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.ThirdFoundationRooms === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['ThirdFoundationRooms']"
-                     (blur)="onCustomOtherBlur('ThirdFoundationRooms')"
-                     name="ThirdFoundationRoomsOther"
-                     placeholder="Please specify rooms..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
 
             <!-- Owner/Occupant Interview -->
@@ -432,14 +343,6 @@
                 <option value="">Select status</option>
                 <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
               </select>
-              <input *ngIf="serviceData.OwnerOccupantInterview === 'Other'"
-                     type="text"
-                     [(ngModel)]="customOtherValues['OwnerOccupantInterview']"
-                     (blur)="onCustomOtherBlur('OwnerOccupantInterview')"
-                     name="OwnerOccupantInterviewOther"
-                     placeholder="Please specify..."
-                     class="styled-input"
-                     style="margin-top: 8px;">
             </div>
           </div>
         </div>
@@ -986,15 +889,6 @@
                       </ion-select-option>
                     </ion-select>
                   </ion-item>
-                  <!-- Custom text input for FDF "Other" -->
-                  <div *ngIf="roomElevationData[room.RoomName].fdf === 'Other'" style="margin-top: 8px;">
-                    <input type="text"
-                           [(ngModel)]="customOtherValues['FDF_' + room.RoomName]"
-                           (blur)="onFDFOtherBlur(room.RoomName)"
-                           [name]="'FDF_' + room.RoomName + '_Other'"
-                           placeholder="Please specify FDF value..."
-                           class="styled-input">
-                  </div>
                 </div>
 
                 <!-- FDF Photos Section (hidden for Base Station) -->
