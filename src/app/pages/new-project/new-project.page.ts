@@ -325,14 +325,17 @@ export class NewProjectPage implements OnInit {
       addressInput.value = this.formData.address;
       addressInput.dispatchEvent(new Event('input'));
 
-      // Close the autocomplete dropdown immediately
-      addressInput.blur();
+      // Close the autocomplete dropdown immediately (but keep in DOM)
+      setTimeout(() => {
+        const pacContainers = document.querySelectorAll('.pac-container');
+        pacContainers.forEach((container: any) => {
+          container.style.display = 'none';
+          container.style.visibility = 'hidden';
+        });
+      }, 100);
 
-      // Force hide all pac-container elements (but DON'T remove from DOM)
-      const pacContainers = document.querySelectorAll('.pac-container');
-      pacContainers.forEach((container: any) => {
-        container.style.display = 'none';
-      });
+      // Blur the input to close dropdown
+      addressInput.blur();
       
       // Move focus to the next field (City) if it's empty
       setTimeout(() => {
