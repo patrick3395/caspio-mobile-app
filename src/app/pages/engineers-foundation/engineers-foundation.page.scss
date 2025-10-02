@@ -2050,38 +2050,47 @@ ion-content {
 
               button.delete-btn,
               .delete-btn {
-                position: absolute;
-                top: 2px;
-                right: 2px;
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.9);
-                border: 1px solid rgba(0, 0, 0, 0.2);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                padding: 0;
-                z-index: 10;
+                position: absolute !important;
+                top: 2px !important;
+                right: 2px !important;
+                width: 18px !important;
+                height: 18px !important;
+                min-width: 18px !important;
+                min-height: 18px !important;
+                max-width: 18px !important;
+                max-height: 18px !important;
+                border-radius: 50% !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                border: 1px solid rgba(0, 0, 0, 0.2) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                z-index: 10 !important;
+                line-height: 1 !important;
+                font-size: 12px !important;
 
                 ion-icon {
-                  font-size: 12px;
-                  color: #333;
+                  font-size: 12px !important;
+                  color: #333 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
                 }
 
                 &:hover {
-                  background: rgba(255, 59, 48, 0.9);
-                  border-color: rgba(255, 59, 48, 1);
+                  background: rgba(255, 59, 48, 0.9) !important;
+                  border-color: rgba(255, 59, 48, 1) !important;
 
                   ion-icon {
-                    color: white;
+                    color: white !important;
                   }
                 }
 
                 &:active {
-                  transform: scale(0.9);
+                  transform: scale(0.9) !important;
                 }
               }
             }

@@ -1170,14 +1170,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Store in customOtherValues
               this.customOtherValues['FDF_' + roomName] = customValue;
 
+              // Add custom value to FDF options if not already there
+              if (!this.fdfOptions.includes(customValue)) {
+                const otherIndex = this.fdfOptions.indexOf('Other');
+                if (otherIndex > -1) {
+                  this.fdfOptions.splice(otherIndex, 0, customValue);
+                } else {
+                  this.fdfOptions.push(customValue);
+                }
+                console.log(`Added custom FDF value "${customValue}" to dropdown options`);
+              }
+
               // Update Services_Rooms record with custom FDF value
               const updateData = { FDF: customValue };
               const query = `RoomID=${roomId}`;
 
               await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
 
-              // Update local data
+              // Update local data - this will now show the custom value in the dropdown
               this.roomElevationData[roomName].fdf = customValue;
+
+              // Force change detection to update the UI
+              this.changeDetectorRef.detectChanges();
 
               console.log(`Updated FDF for room ${roomName} to custom value: ${customValue}`);
             } catch (error) {
@@ -3240,16 +3254,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                                    'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
             const projectFields = ['TypeOfBuilding', 'Style'];
 
-            // Update the local field value with custom text
+            // IMPORTANT: Add to dropdown FIRST, then set the field value
+            this.addCustomOptionToDropdown(fieldName, customValue);
+
+            // Update the local field value with custom text and save
             if (serviceFields.includes(fieldName)) {
               this.serviceData[fieldName] = customValue;
-              this.addCustomOptionToDropdown(fieldName, customValue);
               await this.onServiceFieldChange(fieldName, customValue);
             } else if (projectFields.includes(fieldName)) {
               this.projectData[fieldName] = customValue;
-              this.addCustomOptionToDropdown(fieldName, customValue);
               await this.onProjectFieldChange(fieldName, customValue);
             }
+
+            // Force change detection to update the UI
+            this.changeDetectorRef.detectChanges();
           }
         }
       ]
