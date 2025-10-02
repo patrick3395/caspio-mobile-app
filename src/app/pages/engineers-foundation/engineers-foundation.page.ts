@@ -1422,7 +1422,97 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     return null;
   }
-  
+
+  // Annotate FDF photo (opens photo annotator like Structural Systems)
+  async annotateFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    try {
+      const viewableUrl = await this.resolveFdfPhotoUrl(roomName, photoType);
+
+      if (!viewableUrl) {
+        console.warn(`[FDF Photos] No viewable URL for ${roomName} ${photoType}`);
+        await this.showToast('Photo not available', 'warning');
+        return;
+      }
+
+      const photoKey = photoType.toLowerCase();
+      const roomData = this.roomElevationData[roomName];
+      const fdfPhotos = roomData?.fdfPhotos || {};
+
+      // Get any existing annotations for this FDF photo
+      let existingAnnotations = null;
+      const annotationField = `${photoKey}Annotations`;
+      if (fdfPhotos[annotationField]) {
+        try {
+          existingAnnotations = decompressAnnotationData(fdfPhotos[annotationField]);
+        } catch (e) {
+          console.log('Failed to parse FDF annotations:', e);
+        }
+      }
+
+      // Open annotation modal
+      const modal = await this.modalController.create({
+        component: FabricPhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: viewableUrl,
+          existingAnnotations: existingAnnotations,
+          photoData: {
+            name: `FDF ${photoType} - ${roomName}`,
+            roomName: roomName,
+            photoType: photoType
+          },
+          isReEdit: !!existingAnnotations
+        },
+        cssClass: 'fullscreen-modal'
+      });
+
+      await modal.present();
+
+      // Handle annotated photo returned from annotator
+      const { data } = await modal.onDidDismiss();
+
+      if (data && data.annotatedBlob) {
+        // Get annotation data
+        let annotationsData = data.annotationData || data.annotationsData;
+
+        // Store annotations in local data
+        if (annotationsData) {
+          const compressedAnnotations = compressAnnotationData(annotationsData);
+          fdfPhotos[annotationField] = compressedAnnotations;
+        }
+
+        // Update the FDF photo in Services_Rooms table
+        const roomId = this.roomRecordIds[roomName];
+        if (roomId) {
+          try {
+            const columnName = `FDFPhoto${photoType}`;
+            const annotationColumnName = `FDFPhoto${photoType}Annotations`;
+
+            // Compress annotations before saving
+            const compressedAnnotations = annotationsData ? compressAnnotationData(annotationsData) : null;
+
+            // Update database with photo and annotations
+            const updateData: any = {};
+            if (compressedAnnotations) {
+              updateData[annotationColumnName] = compressedAnnotations;
+            }
+
+            const query = `RoomID=${roomId}`;
+            await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+
+            console.log(`Updated FDF ${photoType} annotations for ${roomName}`);
+            await this.showToast('Annotation saved', 'success');
+          } catch (error) {
+            console.error('Error saving FDF annotation:', error);
+            await this.showToast('Failed to save annotation', 'danger');
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[FDF Photos] Error opening annotator for ${roomName} ${photoType}:`, error);
+      await this.showToast('Failed to open annotator', 'danger');
+    }
+  }
+
   // Delete FDF photo
   async deleteFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', event: Event) {
     event.stopPropagation();
@@ -3266,8 +3356,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               await this.onProjectFieldChange(fieldName, customValue);
             }
 
-            // Force change detection to update the UI
+            // Force change detection to update the UI and close dropdown
             this.changeDetectorRef.detectChanges();
+
+            // Small delay to ensure dropdown closes properly
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
       ]
@@ -3326,7 +3419,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     fieldMappings.forEach(mapping => {
       const value = mapping.dataSource?.[mapping.fieldName];
       if (value && value.trim() !== '' && !mapping.options.includes(value)) {
-        // This is a custom value not in the standard options - add it
+        // This is a custom value not in the standard options - add it to the dropdown
         const otherIndex = mapping.options.indexOf('Other');
         if (otherIndex > -1) {
           mapping.options.splice(otherIndex, 0, value);
@@ -3335,10 +3428,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         console.log(`Loaded custom value "${value}" for ${mapping.fieldName}`);
 
-        // CRITICAL FIX: Also populate customOtherValues so the text input shows the custom value
-        // Change the dropdown value to "Other" and store the custom text
+        // Store the custom value in customOtherValues for future editing
         this.customOtherValues[mapping.fieldName] = value;
-        mapping.dataSource[mapping.fieldName] = 'Other';
+        // Leave the dropdown showing the custom value (don't change it to "Other")
+        // The field already has the custom value from the database
       }
     });
   }
