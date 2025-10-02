@@ -1314,8 +1314,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Keep the blob URL since base64 failed
       }
       
-      // [v1.4.402] Show success message with the actual file path
-      await this.showToast(`FDF ${photoType} photo saved: ${filePath}`, 'success');
+      console.log(`[FDF Photos] ${photoType} photo saved to ${filePath}`);
 
     } catch (error: any) {
       console.error(`[v1.4.402] Error processing FDF ${photoType} photo:`, error);
@@ -10343,6 +10342,3 @@ Stack: ${error?.stack}`;
     }
   }
 }
-
-
-
