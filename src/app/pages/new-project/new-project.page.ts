@@ -71,7 +71,15 @@ export class NewProjectPage implements OnInit {
     try {
       const statesData = await this.projectsService.getStates().toPromise();
       this.states = statesData || [];
-      console.log('✅ States loaded from Caspio:', this.states);
+
+      // Sort states alphabetically by State name
+      this.states.sort((a, b) => {
+        const stateA = a.State?.toUpperCase() || '';
+        const stateB = b.State?.toUpperCase() || '';
+        return stateA.localeCompare(stateB);
+      });
+
+      console.log('✅ States loaded from Caspio (sorted alphabetically):', this.states);
       
       // Create a mapping of state abbreviations to full names
       this.stateAbbreviationMapping = {
@@ -92,14 +100,14 @@ export class NewProjectPage implements OnInit {
       console.error('Error loading states:', error);
       // Fallback to hardcoded states if loading fails
       this.states = [
-        { StateID: 1, State: 'Texas' },
-        { StateID: 2, State: 'Georgia' },
-        { StateID: 3, State: 'Florida' },
-        { StateID: 4, State: 'Colorado' },
-        { StateID: 6, State: 'California' },
         { StateID: 7, State: 'Arizona' },
+        { StateID: 6, State: 'California' },
+        { StateID: 4, State: 'Colorado' },
+        { StateID: 3, State: 'Florida' },
+        { StateID: 2, State: 'Georgia' },
         { StateID: 8, State: 'South Carolina' },
-        { StateID: 9, State: 'Tennessee' }
+        { StateID: 9, State: 'Tennessee' },
+        { StateID: 1, State: 'Texas' }
       ];
     }
   }
@@ -170,6 +178,14 @@ export class NewProjectPage implements OnInit {
     // Listen for manual changes to the input
     addressInput.addEventListener('input', (event: any) => {
       this.formData.address = event.target.value;
+
+      // If address is cleared, clear other fields to allow fresh autocomplete
+      if (!event.target.value || event.target.value.trim() === '') {
+        this.formData.city = '';
+        this.formData.state = null;
+        this.formData.zip = '';
+        this.changeDetectorRef.detectChanges();
+      }
     });
     
     // Close dropdown on Enter key
