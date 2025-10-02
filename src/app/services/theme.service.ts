@@ -20,49 +20,29 @@ export class ThemeService implements OnDestroy {
       return;
     }
 
-    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const storedPreference = window.localStorage.getItem(this.storageKey);
+    // Force light mode always - ignore system preferences and stored preferences
+    this.applyTheme(false);
+    this.manualOverride = true;
 
-    if (storedPreference === 'dark' || storedPreference === 'light') {
-      this.manualOverride = true;
-      this.applyTheme(storedPreference === 'dark');
-    } else {
-      this.applyTheme(this.mediaQuery.matches);
-    }
-
-    this.mediaListener = (event: MediaQueryListEvent) => {
-      if (!this.manualOverride) {
-        this.applyTheme(event.matches);
-      }
-    };
-
-    if (typeof this.mediaQuery.addEventListener === 'function') {
-      this.mediaQuery.addEventListener('change', this.mediaListener);
-    } else if (typeof this.mediaQuery.addListener === 'function') {
-      // Safari <14 fallback
-      this.mediaQuery.addListener(this.mediaListener);
+    // Clear any stored dark mode preference
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(this.storageKey);
     }
   }
 
   toggleTheme(): void {
-    this.setDarkMode(!this.darkModeSubject.value);
+    // Force light mode - do nothing
+    this.applyTheme(false);
   }
 
   setDarkMode(enabled: boolean): void {
-    this.manualOverride = true;
-    this.applyTheme(enabled);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(this.storageKey, enabled ? 'dark' : 'light');
-    }
+    // Force light mode - ignore dark mode requests
+    this.applyTheme(false);
   }
 
   useSystemPreference(): void {
-    this.manualOverride = false;
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(this.storageKey);
-    }
-    const prefersDark = this.mediaQuery?.matches ?? false;
-    this.applyTheme(prefersDark);
+    // Force light mode - ignore system preferences
+    this.applyTheme(false);
   }
 
   private applyTheme(isDark: boolean): void {
