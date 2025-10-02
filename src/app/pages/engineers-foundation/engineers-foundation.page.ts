@@ -1546,8 +1546,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 delete this.roomElevationData[roomName].fdfPhotos[photoKey];
                 delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
               }
-              
-              await this.showToast(`${photoType} photo deleted`, 'success');
+
+              // No success toast - silent delete
             } catch (error) {
               console.error(`Error deleting FDF ${photoType} photo:`, error);
               await this.showToast(`Failed to delete ${photoType} photo`, 'danger');
