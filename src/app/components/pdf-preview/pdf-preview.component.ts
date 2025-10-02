@@ -248,27 +248,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
-      
-      // Page 2: Executive Summary
-      pdf.addPage();
-      pageNum++;
-      await this.addExecutiveSummary(pdf, margin, contentWidth, pageNum);
 
-      // Page 3: Table of Contents
-      pdf.addPage();
-      pageNum++;
-      this.addTableOfContents(pdf, margin, contentWidth, pageNum);
+      // Removed: Executive Summary, Table of Contents, Project Information & Service Details
 
-      // Page 4-5: Project Information & Service Details
-      pdf.addPage();
-      pageNum++;
-      await this.addProjectInformation(pdf, margin, contentWidth, pageNum);
-
-      pdf.addPage();
-      pageNum++;
-      await this.addServiceDetails(pdf, margin, contentWidth, pageNum);
-
-      // Pages 6+: Structural Systems with Photos
+      // Pages 2+: Structural Systems with Photos
       if (this.structuralData && this.structuralData.length > 0) {
         for (const category of this.structuralData) {
           pdf.addPage();

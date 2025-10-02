@@ -2029,9 +2029,47 @@ ion-content {
             }
           }
 
-          // FDF photos now use photo-thumb-container class (same as elevation room photos)
-          // No additional styling needed - inherits from .photo-thumb-container above
 
+          // Shared photo thumbnail styles for FDF and room photos
+          .photo-thumb-container {
+            position: relative;
+
+            .delete-btn {
+              position: absolute;
+              top: 2px;
+              right: 2px;
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background: rgba(255, 255, 255, 0.9);
+              border: 1px solid rgba(0, 0, 0, 0.2);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 0;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              z-index: 10;
+
+              ion-icon {
+                font-size: 12px;
+                color: #333;
+              }
+
+              &:hover {
+                background: rgba(255, 59, 48, 0.9);
+                border-color: rgba(255, 59, 48, 1);
+
+                ion-icon {
+                  color: white;
+                }
+              }
+
+              &:active {
+                transform: scale(0.9);
+              }
+            }
+          }
           .elevation-points-container {
             margin-bottom: 20px;
             
@@ -2369,3 +2407,4 @@ ion-content {
     background: transparent !important;
   }
 }
+
