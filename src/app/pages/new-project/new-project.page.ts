@@ -185,6 +185,15 @@ export class NewProjectPage implements OnInit {
         this.formData.state = null;
         this.formData.zip = '';
         this.changeDetectorRef.detectChanges();
+
+        // Re-enable the autocomplete dropdown by showing pac-container
+        setTimeout(() => {
+          const pacContainers = document.querySelectorAll('.pac-container');
+          pacContainers.forEach((container: any) => {
+            container.style.display = '';
+            container.style.visibility = '';
+          });
+        }, 50);
       }
     });
     
@@ -315,26 +324,15 @@ export class NewProjectPage implements OnInit {
       // Force Angular change detection
       addressInput.value = this.formData.address;
       addressInput.dispatchEvent(new Event('input'));
-      
+
       // Close the autocomplete dropdown immediately
       addressInput.blur();
-      
-      // Force hide all pac-container elements
+
+      // Force hide all pac-container elements (but DON'T remove from DOM)
       const pacContainers = document.querySelectorAll('.pac-container');
       pacContainers.forEach((container: any) => {
         container.style.display = 'none';
-        container.style.visibility = 'hidden';
       });
-      
-      // Also remove the pac-container from DOM after a short delay
-      setTimeout(() => {
-        const containers = document.querySelectorAll('.pac-container');
-        containers.forEach((container: any) => {
-          if (container && container.parentNode) {
-            container.parentNode.removeChild(container);
-          }
-        });
-      }, 100);
       
       // Move focus to the next field (City) if it's empty
       setTimeout(() => {
