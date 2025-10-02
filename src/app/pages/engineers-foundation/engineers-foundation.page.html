@@ -906,7 +906,7 @@
                       </button>
                       <!-- Top Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="margin-top: 8px;">
-                        <div class="image-preview">
+                        <div class="photo-thumb-container">
                           <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                                width="100" height="80"
                                (click)="annotateFDFPhoto(room.RoomName, 'Top')"
@@ -929,7 +929,7 @@
                       </button>
                       <!-- Bottom Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="margin-top: 8px;">
-                        <div class="image-preview">
+                        <div class="photo-thumb-container">
                           <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                                width="100" height="80"
                                (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
@@ -952,7 +952,7 @@
                       </button>
                       <!-- Threshold Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="margin-top: 8px;">
-                        <div class="image-preview">
+                        <div class="photo-thumb-container">
                           <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                                width="100" height="80"
                                (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
