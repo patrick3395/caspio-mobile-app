@@ -3315,7 +3315,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         },
         {
           text: 'Save',
-          handler: async (data) => {
+          handler: (data) => {
             const customValue = data.customValue?.trim();
 
             if (!customValue) {
@@ -3330,37 +3330,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               } else if (projectFields.includes(fieldName)) {
                 this.projectData[fieldName] = previousValue || '';
               }
-              return;
+              return true;
             }
 
-            console.log(`Saving custom "Other" value for ${fieldName}: ${customValue}`);
+            // Process the custom value AFTER alert dismisses to avoid dropdown staying open
+            setTimeout(async () => {
+              console.log(`Saving custom "Other" value for ${fieldName}: ${customValue}`);
 
-            // Store in customOtherValues
-            this.customOtherValues[fieldName] = customValue;
+              // Store in customOtherValues
+              this.customOtherValues[fieldName] = customValue;
 
-            // Determine if this is a service field or project field
-            const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
-                                   'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
-                                   'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
-            const projectFields = ['TypeOfBuilding', 'Style'];
+              // Determine if this is a service field or project field
+              const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                                     'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                                     'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+              const projectFields = ['TypeOfBuilding', 'Style'];
 
-            // IMPORTANT: Add to dropdown FIRST, then set the field value
-            this.addCustomOptionToDropdown(fieldName, customValue);
+              // IMPORTANT: Add to dropdown FIRST, then set the field value
+              this.addCustomOptionToDropdown(fieldName, customValue);
 
-            // Update the local field value with custom text and save
-            if (serviceFields.includes(fieldName)) {
-              this.serviceData[fieldName] = customValue;
-              await this.onServiceFieldChange(fieldName, customValue);
-            } else if (projectFields.includes(fieldName)) {
-              this.projectData[fieldName] = customValue;
-              await this.onProjectFieldChange(fieldName, customValue);
-            }
+              // Update the local field value with custom text and save
+              if (serviceFields.includes(fieldName)) {
+                this.serviceData[fieldName] = customValue;
+                await this.onServiceFieldChange(fieldName, customValue);
+              } else if (projectFields.includes(fieldName)) {
+                this.projectData[fieldName] = customValue;
+                await this.onProjectFieldChange(fieldName, customValue);
+              }
 
-            // Force change detection to update the UI and close dropdown
-            this.changeDetectorRef.detectChanges();
+              // Force change detection to update the UI
+              this.changeDetectorRef.detectChanges();
+            }, 200);
 
-            // Small delay to ensure dropdown closes properly
-            await new Promise(resolve => setTimeout(resolve, 100));
+            return true; // Close alert immediately
           }
         }
       ]
