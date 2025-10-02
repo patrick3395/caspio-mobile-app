@@ -14,7 +14,7 @@
 }
 
 .login-content {
-  --background: linear-gradient(45deg, #F15A27, #69635D);
+  --background: #f5f5f5;
 }
 
 .login-container {
@@ -29,7 +29,7 @@
 .logo-section {
   text-align: center;
   margin-bottom: 30px;
-  color: white;
+  color: #333;
 
   .app-logo {
     width: 90px;
@@ -51,15 +51,8 @@
   h1 {
     font-size: 26px;
     font-weight: bold;
-    margin: 0 0 8px 0;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-
-  p {
-    font-size: 14px;
-    opacity: 0.95;
     margin: 0;
-    font-weight: 500;
+    text-shadow: none;
   }
 }
 
@@ -186,36 +179,16 @@
   letter-spacing: 0.5px;
   box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
   transition: all 0.3s ease;
-  
+
   ion-icon {
     margin-right: 8px;
     font-size: 20px;
   }
-  
+
   &:disabled {
     --background: #ccc;
     --color: #999;
     box-shadow: none;
-  }
-  
-  &.ready-to-login {
-    --background: #28a745;
-    --background-hover: #218838;
-    --background-activated: #1e7e34;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-    animation: pulse-ready 2s infinite;
-  }
-}
-
-@keyframes pulse-ready {
-  0% {
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-  }
-  50% {
-    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
-  }
-  100% {
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
   }
 }
 
@@ -239,20 +212,20 @@
 .footer-text {
   margin-top: 30px;
   text-align: center;
-  color: white;
-  
+  color: #666;
+
   p {
     margin: 5px 0;
     font-size: 13px;
     opacity: 0.9;
   }
-  
+
   .secure-text {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
-    
+
     ion-icon {
       font-size: 14px;
     }

@@ -10,8 +10,7 @@
       <div class="app-logo">
         <ion-icon name="home-outline"></ion-icon>
       </div>
-      <h1>Noble Property Inspections</h1>
-      <p>Version 1.4.54</p>
+      <h1>Noble Partnership Program</h1>
     </div>
 
     <div class="form-section">
@@ -57,10 +56,9 @@
         <ion-label>Remember me</ion-label>
       </ion-item>
 
-      <ion-button 
-        expand="block" 
+      <ion-button
+        expand="block"
         class="login-button"
-        [class.ready-to-login]="credentials.email && credentials.password"
         (click)="login()"
         [disabled]="!credentials.email || !credentials.password">
         <ion-icon name="log-in-outline" slot="start"></ion-icon>
