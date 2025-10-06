@@ -1367,6 +1367,10 @@ export class CaspioService {
 
   // New method using PROVEN Files API approach for Services_Visuals_Attach
   private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File) {
+    // [v1.4.571] Generate unique call ID to track duplicate calls
+    const callId = `svcCall_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    console.log(`[v1.4.571] ${callId} - uploadVisualsAttachWithFilesAPI CALLED`);
     console.log('?? Services_Visuals_Attach upload using PROVEN Files API method');
     console.log('====== TABLE STRUCTURE ======');
     console.log('AttachID: Autonumber (Primary Key)');
@@ -1375,11 +1379,11 @@ export class CaspioService {
     console.log('Annotation: Text(255)');
     console.log('Drawings: Text (stores annotation JSON)');
     console.log('=============================');
-    
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
-    console.log('Input parameters:');
+
+    console.log(`[v1.4.571] ${callId} - Input parameters:`);
     console.log('  VisualID:', visualId, '(type:', typeof visualId, ')');
     console.log('  Annotation:', annotation || '(empty)');
     console.log('  File:', file.name, 'Size:', file.size);
@@ -1533,13 +1537,13 @@ export class CaspioService {
         const parsedResponse = JSON.parse(createResponseText);
         if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
           createResult = parsedResponse.Result[0];
-          console.log('? Services_Visuals_Attach record created successfully:', createResult);
+          console.log(`[v1.4.571] ${callId} - Record created successfully:`, createResult);
         } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
           createResult = parsedResponse[0];
-          console.log('? Services_Visuals_Attach record created successfully (array response):', createResult);
+          console.log(`[v1.4.571] ${callId} - Record created successfully (array):`, createResult);
         } else {
           createResult = parsedResponse;
-          console.log('? Services_Visuals_Attach record created successfully (object response):', createResult);
+          console.log(`[v1.4.571] ${callId} - Record created successfully (object):`, createResult);
         }
       } else {
         console.log('?? Empty response from create, but status was OK');

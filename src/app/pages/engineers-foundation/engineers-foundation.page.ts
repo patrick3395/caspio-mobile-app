@@ -6865,8 +6865,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     originalPhoto: File | null = null,
     tempPhotoId?: string
   ) {
+    // [v1.4.571] Generate unique upload ID to track duplicates
+    const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
     try {
       // Debug logging (no popup)
+      console.log(`[v1.4.571] ${uploadId} - Starting photo upload`);
       console.log('[v1.4.533] Uploading photo:', {
         visualId: visualIdNum,
         fileName: photo.name,
@@ -6889,15 +6893,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Using EXACT same approach as working Required Documents upload
       let response;
       try {
+        console.log(`[v1.4.571] ${uploadId} - Calling createServicesVisualsAttachWithFile...`);
         response = await this.caspioService.createServicesVisualsAttachWithFile(
-          visualIdNum, 
+          visualIdNum,
           '', // Annotation field stays blank
           photo,  // Upload the photo (annotated or original)
           drawingsData, // Pass the annotation JSON to Drawings field
           originalPhoto || undefined // Pass original photo if we have annotations
         ).toPromise();
-        
-        console.log('Ã¢Å“â€¦ Photo uploaded successfully:', response);
+
+        console.log(`[v1.4.571] ${uploadId} - Photo uploaded successfully:`, response);
       } catch (uploadError: any) {
         console.error('Ã¢ÂÅ’ Upload failed:', uploadError);
         
