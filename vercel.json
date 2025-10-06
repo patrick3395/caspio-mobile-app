@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm install && npm run build:mobile",
-  "outputDirectory": "www",
+  "buildCommand": "npm install && ng build --configuration web",
+  "outputDirectory": "dist/web",
   "rewrites": [
     {
       "source": "/(.*)",

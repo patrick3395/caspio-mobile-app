@@ -1,5 +1,6 @@
 export const environment = {
   production: true,
+  isWeb: false, // Mobile build flag
   caspio: {
     tokenEndpoint: 'https://c2hcf092.caspio.com/oauth/token',
     apiBaseUrl: 'https://c2hcf092.caspio.com/rest/v2',
