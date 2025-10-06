@@ -6880,7 +6880,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
       
       // Prepare the Drawings field data (annotation JSON)
-      let drawingsData = annotationData ? JSON.stringify(annotationData) : EMPTY_COMPRESSED_ANNOTATIONS;
+      // [v1.4.573] FIX: Only pass drawings data if annotations actually exist
+      // Passing EMPTY_COMPRESSED_ANNOTATIONS when there are no annotations causes duplicate uploads
+      let drawingsData = annotationData ? JSON.stringify(annotationData) : undefined;
       
       // CRITICAL DEBUG: Log what we're actually uploading
       console.log('Ã°Å¸â€Â CRITICAL: Photo upload parameters:');
