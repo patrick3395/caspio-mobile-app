@@ -106,7 +106,6 @@ export class HelpGuidePage implements OnInit {
             if (file.FileFile) {
               // Pre-fetch URLs in background
               this.getFileUrl(file.FileFile).then(url => {
-                console.log(`Pre-loaded URL for ${file.Description}`);
               }).catch(err => {
                 console.error(`Failed to pre-load ${file.FileFile}:`, err);
               });
@@ -139,9 +138,6 @@ export class HelpGuidePage implements OnInit {
     }
     
     try {
-      // For ALL files (images, PDFs, etc), convert to base64 data URL
-      // This ensures we have the actual file content for previews
-      console.log(`Converting file to base64: ${filePath}`);
       const base64Data = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
       
       if (base64Data && base64Data.startsWith('data:')) {

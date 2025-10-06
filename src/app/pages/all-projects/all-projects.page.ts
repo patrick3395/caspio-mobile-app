@@ -48,7 +48,6 @@ export class AllProjectsPage implements OnInit {
     if (userStr) {
       try {
         this.currentUser = JSON.parse(userStr);
-        console.log('Current user:', this.currentUser);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -58,8 +57,6 @@ export class AllProjectsPage implements OnInit {
   }
 
   ionViewWillEnter() {
-    // Always reload when entering the page
-    console.log('ionViewWillEnter - reloading all projects');
     this.checkAuthAndLoadProjects();
   }
 
@@ -75,7 +72,6 @@ export class AllProjectsPage implements OnInit {
     this.loading = true;
     this.caspioService.authenticate().subscribe({
       next: () => {
-        console.log('Authentication successful in AllProjects');
         this.loadAllProjects();
       },
       error: (error) => {
@@ -99,7 +95,6 @@ export class AllProjectsPage implements OnInit {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
-        console.log('Loading all projects for CompanyID:', companyId);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -114,7 +109,6 @@ export class AllProjectsPage implements OnInit {
         );
         this.rebuildBuckets();
         this.loading = false;
-        console.log(`Non-active projects loaded for CompanyID ${companyId}:`, this.projects);
       },
       error: (error) => {
         this.error = 'Failed to load projects';
@@ -181,7 +175,6 @@ export class AllProjectsPage implements OnInit {
   }
 
   selectProject(project: Project) {
-    console.log('Selected project:', project);
     
     // Navigate to project detail page with project ID
     const projectId = project.PK_ID || project.ProjectID;
@@ -328,7 +321,6 @@ export class AllProjectsPage implements OnInit {
   }
 
   async doRefresh(event: any) {
-    console.log('Begin async refresh');
     await this.loadAllProjects();
     event.target.complete();
   }

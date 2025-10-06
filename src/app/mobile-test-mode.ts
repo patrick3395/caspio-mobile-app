@@ -3,7 +3,6 @@ import { Capacitor } from '@capacitor/core';
 
 export class MobileTestMode {
   static enable() {
-    console.log('🔧 MOBILE TEST MODE ENABLED');
     
     // Override Capacitor platform detection
     (window as any).Capacitor = {
@@ -32,11 +31,8 @@ export class MobileTestMode {
     // Add mobile CSS class
     document.body.classList.add('mobile-test-mode');
     
-    // Log all API calls for debugging
+    // Log API errors for debugging without polluting console
     this.interceptApiCalls();
-    
-    console.log('📱 Platform:', (window as any).Capacitor.getPlatform());
-    console.log('📱 Is Native:', (window as any).Capacitor.isNativePlatform());
   }
   
   private static mockMobileFeatures() {
@@ -73,30 +69,13 @@ export class MobileTestMode {
     const originalFetch = window.fetch;
     
     window.fetch = async function(...args) {
-      const [url, options] = args;
-      
-      console.group('📡 API Call');
-      console.log('URL:', url);
-      console.log('Method:', options?.method || 'GET');
-      console.log('Headers:', options?.headers);
-      if (options?.body) {
-        console.log('Body:', options.body);
-      }
-      console.groupEnd();
-      
       try {
         const response = await originalFetch.apply(window, args);
         const clonedResponse = response.clone();
-        
-        console.group('📥 API Response');
-        console.log('Status:', response.status);
-        console.log('OK:', response.ok);
-        
         if (!response.ok) {
           const errorBody = await clonedResponse.text();
           console.error('Error Response:', errorBody);
         }
-        console.groupEnd();
         
         return response;
       } catch (error) {

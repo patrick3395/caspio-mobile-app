@@ -80,8 +80,6 @@ export class BatchApiService {
     const batch = [...this.batchQueue];
     this.batchQueue = [];
     
-    console.log(`🚀 Executing batch of ${batch.length} API requests`);
-    
     const requests = batch.map(req => this.executeRequest(req));
     
     try {
@@ -162,7 +160,6 @@ export class BatchApiService {
    * Batch create multiple records
    */
   batchCreate(table: string, records: any[]): Observable<any[]> {
-    console.log(`📦 Batch creating ${records.length} records in ${table}`);
     
     const requests = records.map((record, index) => 
       this.caspioService.post(`/tables/${table}/records?response=rows`, record).pipe(
@@ -186,7 +183,6 @@ export class BatchApiService {
    * Batch update multiple records
    */
   batchUpdate(table: string, updates: { id: string; data: any }[]): Observable<any[]> {
-    console.log(`📦 Batch updating ${updates.length} records in ${table}`);
     
     const requests = updates.map((update, index) => 
       this.caspioService.put(`/tables/${table}/records?q.where=PK_ID='${update.id}'`, update.data).pipe(

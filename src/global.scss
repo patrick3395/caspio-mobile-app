@@ -534,3 +534,107 @@ body.dark-theme .popover-content ion-label {
 .border-gray {
   border-color: var(--noble-gray) !important;
 }
+
+/* Sleek template loading alert */
+.template-loading-alert {
+  --backdrop-opacity: 0.5;
+  --ion-text-color: var(--noble-dark-gray, #333333);
+}
+
+.template-loading-alert .alert-wrapper {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(255, 245, 239, 0.97));
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  min-width: min(360px, 90vw);
+  padding-bottom: 12px;
+}
+
+.template-loading-alert .alert-head {
+  text-align: center;
+  padding: 24px 24px 8px;
+  border-bottom: none;
+}
+
+.template-loading-alert .alert-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--noble-dark-gray, #333333);
+  letter-spacing: 0.02em;
+}
+
+.template-loading-alert .alert-message {
+  padding: 0 24px 16px;
+  color: rgba(51, 51, 51, 0.85);
+}
+
+.template-loading-alert .template-loading-content {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  padding: 18px;
+  border: 1px solid rgba(241, 90, 39, 0.12);
+  box-shadow: 0 12px 24px rgba(241, 90, 39, 0.08);
+}
+
+.template-loading-alert .template-loading-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.template-loading-alert .template-loading-spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(241, 90, 39, 0.15);
+  border-top-color: var(--noble-orange, #F15A27);
+  border-right-color: rgba(241, 90, 39, 0.35);
+  animation: template-loading-spin 0.9s linear infinite;
+  display: inline-block;
+}
+
+@keyframes template-loading-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.template-loading-alert .template-loading-text h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--noble-dark-gray, #333333);
+}
+
+.template-loading-alert .template-loading-text p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(51, 51, 51, 0.75);
+}
+
+.template-loading-alert .alert-button-group {
+  padding: 0 24px 24px;
+}
+
+.template-loading-alert .alert-button {
+  width: 100%;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(241, 90, 39, 0.35);
+  color: var(--noble-orange, #F15A27);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(241, 90, 39, 0.06);
+}
+
+.template-loading-alert .alert-button:hover,
+.template-loading-alert .alert-button:focus-visible {
+  background: rgba(241, 90, 39, 0.15);
+}

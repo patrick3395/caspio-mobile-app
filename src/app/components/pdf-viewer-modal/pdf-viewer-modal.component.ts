@@ -171,7 +171,6 @@ export class PDFViewerModal {
           text: 'Engineers Foundation Evaluation Report'
         });
       } catch (err) {
-        console.log('Share failed, falling back to download', err);
         this.downloadPDF();
       }
     } else {

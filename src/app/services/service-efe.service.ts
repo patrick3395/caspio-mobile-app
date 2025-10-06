@@ -55,7 +55,6 @@ export class ServiceEfeService {
             }
             
             const actualProjectId = projectData.Result[0].ProjectID;
-            console.log(`Checking Service_EFE for ProjectID: ${actualProjectId} (from PK_ID: ${projectId})`);
             
             // Now check for Service_EFE record using the actual ProjectID
             return this.http.get<any>(`${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ProjectID=${actualProjectId}`, { headers }).pipe(
@@ -94,19 +93,14 @@ export class ServiceEfeService {
             }
             
             const actualProjectId = projectData.Result[0].ProjectID;
-            console.log(`Creating Service_EFE with ProjectID: ${actualProjectId} (from PK_ID: ${projectPkId})`);
             
             const data = { ProjectID: actualProjectId };
-            console.log('📤 Data being sent to Service_EFE:', data);
             
             return this.http.post<ServiceEFE>(`${this.apiBaseUrl}/tables/Service_EFE/records`, data, { 
               headers,
               observe: 'response' 
             }).pipe(
               map(response => {
-                console.log('✅ Service_EFE record created for ProjectID:', actualProjectId);
-                console.log('📥 Response status:', response.status);
-                console.log('📥 Response body:', response.body);
                 // Handle 201 Created with empty body
                 if (response.status === 201) {
                   return { ProjectID: actualProjectId } as ServiceEFE;
@@ -117,7 +111,6 @@ export class ServiceEfeService {
                 console.error('❌ Failed to create Service_EFE record:', error);
                 // Check if it's actually a success (201 status)
                 if (error.status === 201) {
-                  console.log('✅ Service_EFE created (201 in error handler)');
                   return of({ ProjectID: actualProjectId } as ServiceEFE);
                 }
                 return throwError(() => error);
@@ -137,20 +130,12 @@ export class ServiceEfeService {
         const updateData: any = {};
         updateData[fieldName] = value;
         
-        console.log(`🔄 Updating Service_EFE field:`);
-        console.log(`  - ServiceID: ${serviceId}`);
-        console.log(`  - Field: ${fieldName}`);
-        console.log(`  - Value: ${value}`);
-        console.log(`  - Update data:`, updateData);
-        
         return this.http.put<any>(
           `${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`,
           updateData,
           { headers }
         ).pipe(
           map(response => {
-            console.log(`✅ Field ${fieldName} updated successfully`);
-            console.log(`  - Response:`, response);
             return { success: true, message: 'Field updated' };
           }),
           catchError(error => {
@@ -185,8 +170,6 @@ export class ServiceEfeService {
                           fileResponse.Url || 
                           fileResponse.fileUrl || 
                           uniqueFileName;
-            
-            console.log(`File uploaded: ${uniqueFileName}, URL: ${fileUrl}`);
             
             // Update Service_EFE record with file URL
             return this.updateField(serviceId, fieldName, fileUrl).pipe(
@@ -246,7 +229,6 @@ export class ServiceEfeService {
           { headers }
         ).pipe(
           map(response => {
-            console.log(`✅ Multiple fields updated`);
             return { success: true, message: 'Fields updated' };
           }),
           catchError(error => {

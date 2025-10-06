@@ -162,11 +162,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     this.offersId = this.route.snapshot.paramMap.get('offersId') || '';
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     
-    console.log('Ã°Å¸â€œâ€¹ Template Form initialized with:', {
-      offersId: this.offersId,
-      projectId: this.projectId
-    });
-    
     if (this.offersId && this.offersId !== 'new') {
       await this.loadServiceName();
     }
@@ -194,8 +189,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (!this.documentDates) this.documentDates = {};
     if (!this.documentAttachIds) this.documentAttachIds = {};
     if (!this.additionalDocuments) this.additionalDocuments = [];
-    
-    console.log('Ã°Å¸â€œâ€ž Document tracking initialized:', this.documentStatus);
   }
   
   ngOnDestroy() {
@@ -211,15 +204,12 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       
       if (checkResult?.exists && checkResult.ServiceID) {
         this.currentServiceID = checkResult.ServiceID;
-        console.log('Found existing Service_EFE record:', this.currentServiceID);
         
         // Load existing data
         if (checkResult.record) {
           this.loadExistingData(checkResult.record);
         }
       } else {
-        // Create new Service_EFE record
-        console.log('Creating new Service_EFE record for project:', this.projectId);
         const newRecord = await this.serviceEfeService.createServiceEFE(this.projectId).toPromise();
         if (newRecord) {
           // Wait and check again to get the ServiceID
@@ -227,7 +217,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
           const recheckResult = await this.serviceEfeService.checkServiceEFE(this.projectId).toPromise();
           if (recheckResult?.exists && recheckResult.ServiceID) {
             this.currentServiceID = recheckResult.ServiceID;
-            console.log('New Service_EFE record created with ID:', this.currentServiceID);
           }
         }
       }
@@ -244,19 +233,15 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (!this.projectId) return;
     
     try {
-      console.log('Loading documents for project:', this.projectId);
       
       // Load documents with TypeID = 3 for this project
       const attachments = await this.caspioService.getAttachmentsByProjectAndType(this.projectId, 3).toPromise();
       
       if (attachments && attachments.length > 0) {
-        console.log('Found existing documents:', attachments);
         
         for (const attachment of attachments) {
           const link = attachment.Link || '';
           const fileName = attachment.Attachment || '';
-          
-          console.log('Processing attachment:', { link, fileName, AttachID: attachment.AttachID });
           
           // Determine document type based on Link field
           let docType = '';
@@ -268,8 +253,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
             docType = 'engineersEvaluationReport';
           }
           
-          console.log('Determined docType:', docType);
-          
           if (docType) {
             this.documentStatus[docType] = true;
             this.documentNames[docType] = link;
@@ -280,31 +263,22 @@ export class TemplateFormPage implements OnInit, OnDestroy {
             
             // Generate preview URL for images
             if (fileName && this.isImageFile(fileName)) {
-              console.log('Loading image preview for:', docType, fileName);
               try {
                 const base64Data = await this.caspioService.getImageFromFilesAPI(fileName).toPromise();
                 if (base64Data) {
                   this.documentPreviewUrls[docType] = base64Data;
-                  console.log('Image preview loaded for:', docType);
                 }
               } catch (error) {
                 console.error('Error loading image preview for', docType, error);
               }
             } else if (fileName) {
-              // For PDFs and other documents, just mark as having a file
-              console.log('Document is not an image, marking as available:', docType, fileName);
             }
           }
         }
         
-        console.log('Document status after loading:', this.documentStatus);
-        console.log('Document names:', this.documentNames);
-        console.log('Document attach IDs:', this.documentAttachIds);
-        
         // Show debug info on mobile
         await this.showToast(`Loaded ${attachments.length} document(s)`, 'info');
       } else {
-        console.log('No existing documents found for project:', this.projectId);
         await this.showToast('No documents found for this project', 'info');
       }
     } catch (error) {
@@ -418,7 +392,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (file) {
       this.selectedFiles[fieldName] = file;
       this.formData[fieldName] = file.name;
-      console.log(`File selected for ${fieldName}:`, file.name);
       
       // Mark field as completed
       this.fieldStates[fieldName] = true;
@@ -437,7 +410,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
           
           if (result?.success) {
             this.showSaveStatus('File uploaded', 'success');
-            console.log('Ã¢Å“â€¦ File uploaded successfully:', result);
           } else {
             this.showSaveStatus('Upload failed', 'error');
           }
@@ -468,7 +440,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
 
   // Called when project-level field changes
   onProjectFieldChange(fieldName: string, value: any) {
-    console.log(`Project field changed: ${fieldName} = ${value}`);
     
     // Save to localStorage for persistence across all services
     const projectDataKey = `projectData_${this.projectId}`;
@@ -506,7 +477,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (savedData) {
       try {
         this.projectData = { ...this.projectData, ...JSON.parse(savedData) };
-        console.log('Loaded project data from localStorage:', this.projectData);
       } catch (error) {
         console.error('Error parsing saved project data:', error);
       }
@@ -522,7 +492,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
             this.projectData[key] = project[key];
           }
         });
-        console.log('Loaded project data from Caspio:', this.projectData);
         
         // Update localStorage
         localStorage.setItem(projectDataKey, JSON.stringify(this.projectData));
@@ -589,7 +558,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
       await this.serviceEfeService.updateField(this.currentServiceID, dbField, value).toPromise();
       
       this.showSaveStatus('Saved', 'success');
-      console.log(`Ã¢Å“â€¦ Auto-saved ${fieldName}: ${value}`);
     } catch (error) {
       console.error('Auto-save error:', error);
       this.showSaveStatus('Save failed', 'error');
@@ -672,7 +640,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
 
   async submitForm() {
     if (!this.formData) return;
-    console.log('Form submitted:', this.formData);
     
     // Validate required fields
     if (!this.formData['requestedAddress'] || !this.formData['city']) {
@@ -702,7 +669,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         if (this.formData && parsed) {
           this.formData = { ...this.formData, ...parsed };
         }
-        console.log('Loaded saved form data');
       } catch (error) {
         console.error('Error loading saved data:', error);
       }
@@ -722,8 +688,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   async onDocumentSelected(event: any, docType: string, linkTitle: string) {
     const file = event.target.files[0];
     if (!file) return;
-
-    console.log(`Ã°Å¸â€œâ€ž Document selected for ${docType}:`, file.name);
     
     // Immediately update UI to show file is selected
     this.documentNames[docType] = file.name;
@@ -759,13 +723,11 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         ).toPromise();
         
         if (response) {
-          console.log('Ã¢Å“â€¦ Document uploaded to Caspio:', response);
           this.documentAttachIds[docType] = response.AttachID || response.id;
           // Update the link name to show what was uploaded
           this.documentNames[docType] = `${linkTitle} - ${file.name}`;
           this.showSaveStatus(`${linkTitle} uploaded successfully`, 'success');
         } else {
-          console.log('Ã¢Å¡Â Ã¯Â¸Â Upload response empty, keeping local status');
           this.showSaveStatus('Document saved locally', 'info');
         }
       } catch (error) {
@@ -774,7 +736,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         this.showSaveStatus('Document saved locally', 'info');
       }
     } else {
-      console.log('Ã°Å¸â€œÂ¦ No project ID yet, document will be uploaded when project is saved');
       this.showSaveStatus('Document saved locally', 'info');
     }
     
@@ -796,8 +757,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   async viewDocument(docType: string) {
     const attachId = this.documentAttachIds[docType];
     const fileName = this.documentNames[docType];
-    
-    console.log('Viewing document:', { docType, attachId, fileName });
     
     // Show loading
     const loading = await this.loadingController.create({
@@ -830,23 +789,19 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         try {
           // Get the attachment record
           const attachment = await this.caspioService.getAttachment(attachId.toString()).toPromise();
-          console.log('Attachment record:', attachment);
           
           if (attachment && attachment.Attachment) {
             const filePath = attachment.Attachment;
-            console.log('File path:', filePath);
             
             // Determine file type
             const isPDF = filePath.toLowerCase().endsWith('.pdf');
             const isImage = this.isImageFile(filePath);
             
             if (isPDF) {
-              console.log('Loading PDF from Files API...');
               const pdfData = await this.caspioService.getPDFFromFilesAPI(filePath).toPromise();
               await loading.dismiss();
               
               if (pdfData) {
-                console.log('PDF data loaded, opening viewer...');
                 const DocumentViewerComponent = await this.loadDocumentViewer();
                 const modal = await this.modalController.create({
                   component: DocumentViewerComponent,
@@ -861,12 +816,10 @@ export class TemplateFormPage implements OnInit, OnDestroy {
                 await this.showToast('Failed to load PDF', 'error');
               }
             } else if (isImage) {
-              console.log('Loading image from Files API...');
               const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
               await loading.dismiss();
               
               if (imageData) {
-                console.log('Image data loaded, opening viewer...');
                 const DocumentViewerComponent = await this.loadDocumentViewer();
                 const modal = await this.modalController.create({
                   component: DocumentViewerComponent,
@@ -952,7 +905,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
 
   replaceDocument(docType: string) {
-    console.log(`Ã°Å¸â€â€ž Replacing document: ${docType}`);
     
     // Clear the file input first to allow selecting the same file
     const fileInput = document.getElementById(docType) as HTMLInputElement;
@@ -971,7 +923,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     if (attachId) {
       try {
         await this.caspioService.deleteAttachment(attachId.toString()).toPromise();
-        console.log(`Ã¢Å“â€¦ Document ${docType} deleted`);
       } catch (error) {
         console.error('Ã¢ÂÅ’ Failed to delete document:', error);
       }
@@ -990,8 +941,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
 
   addAdditionalDocument() {
-    // TODO: Implement additional document upload dialog
-    console.log('Add additional document');
   }
 
   removeAdditionalDocument(index: number) {

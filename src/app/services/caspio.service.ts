@@ -165,7 +165,6 @@ export class CaspioService {
     });
 
     const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
-    console.log('Making GET request to:', url);
     
     return this.http.get<T>(url, { headers }).pipe(
       catchError(error => {
@@ -192,7 +191,6 @@ export class CaspioService {
 
   private performPost<T>(endpoint: string, data: any): Observable<T> {
     const token = this.getCurrentToken();
-    console.log('?? DEBUG [CaspioService.post]: Token available:', !!token);
     
     if (!token) {
       console.error('? DEBUG [CaspioService.post]: No authentication token!');
@@ -209,12 +207,9 @@ export class CaspioService {
     });
 
     const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
-    console.log('?? DEBUG [CaspioService.post]: Making POST request to:', url);
-    console.log('?? DEBUG [CaspioService.post]: Request data:', data);
     
     return this.http.post<T>(url, data, { headers }).pipe(
       tap(response => {
-        console.log('? DEBUG [CaspioService.post]: Request successful:', response);
       }),
       catchError(error => {
         console.error('? DEBUG [CaspioService.post]: Request failed!');
@@ -391,10 +386,8 @@ export class CaspioService {
 
   // Services table methods
   getServicesByProject(projectId: string): Observable<any[]> {
-    console.log('?? DEBUG [CaspioService]: Getting services for project:', projectId);
     return this.get<any>(`/tables/Services/records?q.where=ProjectID=${projectId}`).pipe(
       map(response => {
-        console.log('?? DEBUG [CaspioService]: Services retrieved:', response?.Result);
         return response.Result || [];
       }),
       catchError(error => {
@@ -405,11 +398,9 @@ export class CaspioService {
   }
 
   createService(serviceData: any): Observable<any> {
-    console.log('?? DEBUG [CaspioService]: createService called with:', serviceData);
     // Add response=rows to get the created record back immediately
     return this.post<any>('/tables/Services/records?response=rows', serviceData).pipe(
       map(response => {
-        console.log('? DEBUG [CaspioService]: Service created successfully:', response);
         // With response=rows, Caspio returns {"Result": [{created record}]}
         if (response && response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
           return response.Result[0]; // Return the created service record
@@ -449,7 +440,6 @@ export class CaspioService {
     const query = `TypeID=${typeId}`;
     return this.get<any>(`/tables/Services_Visuals_Templates/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
-        console.log(`[CaspioService] Fetched templates for TypeID ${typeId}:`, response.Result?.length || 0);
         return response.Result || [];
       }),
       catchError(error => {
@@ -521,9 +511,7 @@ export class CaspioService {
     return this.get<any>(`/tables/Services_Rooms_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         const results = response.Result || [];
-        console.log(`[getServicesRoomsAttachments] Retrieved ${results.length} photos for PointID(s): ${idArray.join(', ')}`);
         results.forEach((photo: any, index: number) => {
-          console.log(`  Photo ${index + 1}: AttachID=${photo.AttachID}, Photo=${photo.Photo}, HasDrawings=${!!photo.Drawings}`);
         });
         return results;
       }),
@@ -535,13 +523,10 @@ export class CaspioService {
   }
 
   createServicesRoom(data: any): Observable<any> {
-    console.log('Creating Services_Rooms record with data:', data);
     return this.post<any>('/tables/Services_Rooms/records?response=rows', data).pipe(
       map(response => {
-        console.log('Services_Rooms response:', response);
         // Handle various response formats
         if (!response) {
-          console.log('Warning: null response from Services_Rooms creation');
           return {};
         }
         if (response.Result && Array.isArray(response.Result)) {
@@ -558,11 +543,9 @@ export class CaspioService {
 
   // Delete a Services_Rooms record
   deleteServicesRoom(roomId: string): Observable<any> {
-    console.log('Deleting Services_Rooms record with RoomID:', roomId);
     const query = `RoomID=${roomId}`;
     return this.delete<any>(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).pipe(
       tap(response => {
-        console.log('Services_Rooms delete response:', response);
       }),
       catchError(error => {
         console.error('Services_Rooms deletion error:', error);
@@ -626,10 +609,8 @@ export class CaspioService {
   
   // Create Services_Rooms_Points record
   createServicesRoomsPoint(data: any): Observable<any> {
-    console.log('Creating Services_Rooms_Points record:', data);
     return this.post<any>('/tables/Services_Rooms_Points/records?response=rows', data).pipe(
       map(response => {
-        console.log('Services_Rooms_Points response:', response);
         if (!response) {
           return {};
         }
@@ -647,11 +628,9 @@ export class CaspioService {
   
   // Update Services_Rooms_Points record
   updateServicesRoomsPoint(pointId: string, data: any): Observable<any> {
-    console.log('Updating Services_Rooms_Points record:', pointId, data);
     const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('Services_Rooms_Points updated:', response);
       }),
       catchError(error => {
         console.error('Services_Rooms_Points update error:', error);
@@ -662,11 +641,9 @@ export class CaspioService {
   
   // Delete Services_Rooms_Points record
   deleteServicesRoomsPoint(pointId: string): Observable<any> {
-    console.log('Deleting Services_Rooms_Points record:', pointId);
     const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
-        console.log('Services_Rooms_Points deleted:', response);
       }),
       catchError(error => {
         console.error('Services_Rooms_Points deletion error:', error);
@@ -677,7 +654,6 @@ export class CaspioService {
   
   // Create Services_Rooms_Points_Attach record with file using two-step Files API method
   createServicesRoomsPointsAttachWithFile(pointId: number, drawingsData: string, file: File): Observable<any> {
-    console.log('?? Two-step upload for Services_Rooms_Points_Attach using Files API');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
@@ -694,22 +670,9 @@ export class CaspioService {
 
   // Two-step upload method for Services_Rooms_Points_Attach (matching visual method)
   private async uploadRoomPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File) {
-    console.log('?? Services_Rooms_Points_Attach upload using PROVEN Files API method');
-    console.log('====== TABLE STRUCTURE ======');
-    console.log('AttachID: Autonumber (Primary Key)');
-    console.log('PointID: Integer (Foreign Key)');
-    console.log('Photo: File (stores path)');
-    console.log('Annotation: Text(255) - NOT USED');
-    console.log('Drawings: Text - For annotation data');
-    console.log('=============================');
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
-    console.log('Input parameters:');
-    console.log('  PointID:', pointId, '(type:', typeof pointId, ')');
-    console.log('  Drawings:', drawingsData ? `${drawingsData.length} chars` : '(empty)');
-    console.log('  File:', file.name, 'Size:', file.size);
     
     try {
       // [v1.4.391] Generate unique filename to prevent duplication (like Structural section)
@@ -717,18 +680,10 @@ export class CaspioService {
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
       const uniqueFilename = `room_point_${pointId}_${timestamp}_${randomId}.${fileExt}`;
-
-      console.log(`[v1.4.391] Generating unique filename for Elevation photo:`);
-      console.log(`  Original: ${file.name}`);
-      console.log(`  Unique: ${uniqueFilename}`);
-
-      // STEP 1: Upload file to Caspio Files API with unique filename
-      console.log('Step 1: Uploading file to Caspio Files API...');
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       
       const filesUrl = `${API_BASE_URL}/files`;
-      console.log('Uploading to Files API:', filesUrl);
       
       const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
@@ -746,19 +701,9 @@ export class CaspioService {
       }
       
       const uploadResult = await uploadResponse.json();
-      console.log('? File uploaded to Files API:', uploadResult);
       
       // [v1.4.391] Use unique filename in file path to prevent duplication
       const filePath = `/${uploadResult.Name || uniqueFilename}`;
-      console.log('[v1.4.391] File path for Photo field (with unique name):', filePath);
-      
-      // STEP 2: Create Services_Rooms_Points_Attach record WITH the Photo field path
-      console.log('Step 2: Creating Services_Rooms_Points_Attach record with file path...');
-      console.log('Table: Services_Rooms_Points_Attach');
-      console.log('Fields being sent:');
-      console.log('  - PointID (Integer):', parseInt(pointId.toString()));
-      console.log('  - Photo (File path):', filePath);
-      console.log('  - Drawings (Text):', drawingsData ? `${drawingsData.length} chars` : 'empty');
       
       const recordData: any = {
         PointID: parseInt(pointId.toString()),
@@ -770,8 +715,6 @@ export class CaspioService {
       if (drawingsData && drawingsData.length > 0) {
         recordData.Drawings = drawingsData;
       }
-      
-      console.log('Record data JSON:', JSON.stringify(recordData, null, 2));
       
       const createUrl = `${API_BASE_URL}/tables/Services_Rooms_Points_Attach/records?response=rows`;
       const createResponse = await fetch(createUrl, {
@@ -790,7 +733,6 @@ export class CaspioService {
       }
       
       const createdRecord = await createResponse.json();
-      console.log('? Services_Rooms_Points_Attach record created:', createdRecord);
       
       // Return the created record (Result[0] has the full record with AttachID)
       return createdRecord.Result?.[0] || createdRecord;
@@ -803,15 +745,8 @@ export class CaspioService {
 
   // Legacy method for direct data posting (kept for backward compatibility)
   createServicesRoomsAttach(data: any): Observable<any> {
-    console.log('Creating Services_Rooms_Points_Attach record (LEGACY):', data);
-    console.log('Data types:', {
-      PointID: typeof data.PointID,
-      Photo: typeof data.Photo,
-      Annotation: typeof data.Annotation
-    });
     return this.post<any>('/tables/Services_Rooms_Points_Attach/records?response=rows', data).pipe(
       map(response => {
-        console.log('Services_Rooms_Points_Attach response:', response);
         if (!response) {
           return {};
         }
@@ -836,14 +771,10 @@ export class CaspioService {
   
   // Update Services_Rooms_Points_Attach record (for caption/annotation updates)
   updateServicesRoomsPointsAttach(attachId: string, data: any): Observable<any> {
-    console.log('?? Updating Services_Rooms_Points_Attach annotation');
-    console.log('  AttachID:', attachId);
-    console.log('  Update data:', data);
     
     const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('? Room point annotation updated:', response);
       }),
       catchError(error => {
         console.error('? Failed to update room point annotation:', error);
@@ -854,13 +785,10 @@ export class CaspioService {
   
   // Delete Services_Rooms_Points_Attach record
   deleteServicesRoomsPointsAttach(attachId: string): Observable<any> {
-    console.log('??? Deleting Services_Rooms_Points_Attach record');
-    console.log('  AttachID:', attachId);
     
     const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
-        console.log('? Room point attachment deleted:', response);
       }),
       catchError(error => {
         console.error('? Error deleting room point attachment:', error);
@@ -871,16 +799,11 @@ export class CaspioService {
   
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
-    console.log('?? Creating Services_Visual record:', visualData);
     // Use response=rows to get the created record back immediately
     return this.post<any>('/tables/Services_Visuals/records?response=rows', visualData).pipe(
       tap(response => {
-        console.log('? Services_Visual created, full response:', response);
         // With response=rows, the actual record is in Result array
         if (response && response.Result && response.Result.length > 0) {
-          console.log('? Created record:', response.Result[0]);
-          console.log('? VisualID (correct):', response.Result[0].VisualID);
-          console.log('?? PK_ID (do not use):', response.Result[0].PK_ID);
         }
       }),
       map(response => {
@@ -899,11 +822,9 @@ export class CaspioService {
   
   // Update Services_Visuals record
   updateServicesVisual(visualId: string, visualData: any): Observable<any> {
-    console.log('?? Updating Services_Visual record:', visualId, visualData);
     const url = `/tables/Services_Visuals/records?q.where=VisualID=${visualId}`;
     return this.put<any>(url, visualData).pipe(
       tap(response => {
-        console.log('? Services_Visual updated:', response);
       }),
       catchError(error => {
         console.error('? Failed to update Services_Visual:', error);
@@ -933,10 +854,8 @@ export class CaspioService {
   
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
-    console.log('?? Creating Service_Visuals_Attach record:', attachData);
     return this.post<any>('/tables/Service_Visuals_Attach/records', attachData).pipe(
       tap(response => {
-        console.log('? Service_Visuals_Attach created:', response);
       }),
       catchError(error => {
         console.error('? Failed to create Service_Visuals_Attach:', error);
@@ -947,7 +866,6 @@ export class CaspioService {
   
   // Upload photo to Service_Visuals_Attach with two-step process
   uploadPhotoToServiceVisualsAttach(visualId: string, photo: File): Observable<any> {
-    console.log('?? Uploading photo for VisualID:', visualId);
     
     return new Observable(observer => {
       // Step 1: Create the attachment record
@@ -956,11 +874,8 @@ export class CaspioService {
         // Photo field will be uploaded in step 2
       };
       
-      console.log('?? Step 1: Creating Service_Visuals_Attach record');
-      
       this.post<any>('/tables/Service_Visuals_Attach/records', attachData).subscribe({
         next: (createResponse) => {
-          console.log('? Step 1 Success: Record created:', createResponse);
           
           const attachId = createResponse.PK_ID || createResponse.id;
           
@@ -970,8 +885,6 @@ export class CaspioService {
             return;
           }
           
-          console.log('?? Step 2: Uploading photo to ID:', attachId);
-          
           // Step 2: Upload the photo using multipart/form-data
           const formData = new FormData();
           formData.append('Photo', photo, photo.name);
@@ -980,7 +893,6 @@ export class CaspioService {
           
           this.put<any>(updateUrl, formData).subscribe({
             next: (uploadResponse) => {
-              console.log('? Step 2 Success: Photo uploaded');
               observer.next({ ...createResponse, photoUploaded: true });
               observer.complete();
             },
@@ -1017,11 +929,6 @@ export class CaspioService {
   
   // Update Services_Visuals_Attach record
   updateServiceVisualsAttach(attachId: string, data: any): Observable<any> {
-    console.log('?? [v1.4.329] Updating Services_Visuals_Attach record');
-    console.log('  AttachID:', attachId);
-    console.log('  AttachID type:', typeof attachId);
-    console.log('  Update data:', data);
-    console.log('  Update data keys:', Object.keys(data));
     
     // CRITICAL: Ensure AttachID is a number for Caspio API
     const attachIdNum = typeof attachId === 'string' ? parseInt(attachId, 10) : attachId;
@@ -1043,10 +950,6 @@ export class CaspioService {
       const endpoint = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
       const fullUrl = `${API_BASE_URL}${endpoint}`;
       
-      console.log('  [v1.4.329] Using raw fetch for UPDATE (like CREATE does)');
-      console.log('  Full URL:', fullUrl);
-      console.log('  Data being sent:', JSON.stringify(data, null, 2));
-      
       // Use fetch directly like the CREATE operation does
       fetch(fullUrl, {
         method: 'PUT',
@@ -1058,8 +961,6 @@ export class CaspioService {
       })
       .then(async response => {
         const responseText = await response.text();
-        console.log(`  Update response status: ${response.status}`);
-        console.log(`  Update response text: ${responseText}`);
         
         if (!response.ok) {
           // Parse error response
@@ -1091,8 +992,6 @@ export class CaspioService {
             result = { success: true };
           }
         }
-        
-        console.log('? Update successful:', result);
         observer.next(result);
         observer.complete();
       })
@@ -1116,7 +1015,6 @@ export class CaspioService {
     }
     
     const fileName = customFileName || file.name;
-    console.log('?? Uploading file to Files API:', fileName);
     const formData = new FormData();
     formData.append('file', file, fileName);
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1130,8 +1028,6 @@ export class CaspioService {
         body: formData
       })
       .then(async response => {
-        console.log('Files API response status:', response.status);
-        console.log('Files API response ok:', response.ok);
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -1140,7 +1036,6 @@ export class CaspioService {
         }
         
         const result = await response.json();
-        console.log('Files API success response:', result);
         
         // Check multiple possible response formats
         const fileName = result.Name || result.name || result.FileName || result.fileName || file.name;
@@ -1148,8 +1043,6 @@ export class CaspioService {
           ...result,
           Name: fileName
         };
-        
-        console.log('Final result with Name:', finalResult);
         return finalResult;
       })
       .then(result => {
@@ -1223,7 +1116,6 @@ export class CaspioService {
   clearImageCache() {
     const size = this.imageCache.size;
     this.imageCache.clear();
-    console.log(`[ImageCache] Cleared ${size} cached images`);
   }
   
   // Simple hash function for debugging image uniqueness
@@ -1240,9 +1132,6 @@ export class CaspioService {
   getImageFromFilesAPI(filePath: string): Observable<string> {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    // Simple debugging
-    console.log(`[v1.4.386] getImageFromFilesAPI called for: ${filePath}`);
-    
     // IMPORTANT: Cache disabled to prevent duplication
     // DO NOT use normalized/lowercase paths
     
@@ -1251,7 +1140,6 @@ export class CaspioService {
       switchMap(accessToken => new Observable<string>(observer => {
         // Clean the file path - use exact path, no normalization
         const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-        console.log(`[v1.4.386] Fetching from API with fresh token: ${cleanPath}`);
         
         // Fetch from Files API
         fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
@@ -1269,7 +1157,6 @@ export class CaspioService {
       })
       .then(blob => this.convertBlobToDataUrl(blob))
       .then(result => {
-        console.log(`[v1.4.384] Image loaded: ${filePath}, size: ${result.length}`);
         observer.next(result);
         observer.complete();
       })
@@ -1350,7 +1237,6 @@ export class CaspioService {
 
   // Create Services_Visuals_Attach with file using PROVEN Files API method
   createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
-    console.log('?? Two-step upload for Services_Visuals_Attach using Files API');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
@@ -1370,37 +1256,14 @@ export class CaspioService {
     // [v1.4.571] Generate unique call ID to track duplicate calls
     const callId = `svcCall_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    console.log(`[v1.4.571] ${callId} - uploadVisualsAttachWithFilesAPI CALLED`);
-    console.log('?? Services_Visuals_Attach upload using PROVEN Files API method');
-    console.log('====== TABLE STRUCTURE ======');
-    console.log('AttachID: Autonumber (Primary Key)');
-    console.log('VisualID: Integer (Foreign Key)');
-    console.log('Photo: File (stores path)');
-    console.log('Annotation: Text(255)');
-    console.log('Drawings: Text (stores annotation JSON)');
-    console.log('=============================');
-
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-
-    console.log(`[v1.4.571] ${callId} - Input parameters:`);
-    console.log('  VisualID:', visualId, '(type:', typeof visualId, ')');
-    console.log('  Annotation:', annotation || '(empty)');
-    console.log('  File:', file.name, 'Size:', file.size);
-    console.log('  Has Drawings:', !!drawings);
-    console.log('  Has Original File:', !!originalFile);
     
     try {
       let originalFilePath = '';
 
-      console.log(`[v1.4.572] ${callId} - DECISION: Should we upload original file?`);
-      console.log(`  originalFile exists: ${!!originalFile}`);
-      console.log(`  drawings exists: ${!!drawings}`);
-      console.log(`  Will upload original: ${!!(originalFile && drawings)}`);
-
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
-        console.log(`[v1.4.572] ${callId} - Step 1A: Uploading original file...`);
         const originalFormData = new FormData();
         const originalFileName = `original_${originalFile.name}`;
         originalFormData.append('file', originalFile, originalFileName);
@@ -1416,7 +1279,6 @@ export class CaspioService {
         if (originalUploadResponse.ok) {
           const originalUploadResult = await originalUploadResponse.json();
           originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-          console.log('? Original file uploaded:', originalFilePath);
         }
       }
       
@@ -1425,20 +1287,9 @@ export class CaspioService {
       // This prevents duplicate uploads when annotations are present
       let filePath = '';
 
-      console.log(`[v1.4.572] ${callId} - Step 1B DECISION:`);
-      console.log(`  originalFilePath is set: ${!!originalFilePath}`);
-      console.log(`  Will skip main upload: ${!!originalFilePath}`);
-
       if (originalFilePath) {
-        // We already uploaded the original file in Step 1A
-        // Use that path instead of uploading again
-        console.log(`[v1.4.572] ${callId} - SKIPPING main file upload, using original path`);
-        console.log('  Original file path:', originalFilePath);
         filePath = originalFilePath;
       } else {
-        // No original file - upload the main file as usual
-        console.log(`[v1.4.572] ${callId} - UPLOADING main file (no original)`);
-        console.log('  File to upload:', file.name, 'Size:', file.size);
 
         // [v1.4.387] Generate unique filename to prevent duplication
         const timestamp = Date.now();
@@ -1446,15 +1297,10 @@ export class CaspioService {
         const fileExt = file.name.split('.').pop() || 'jpg';
         const uniqueFilename = `visual_${visualId}_${timestamp}_${randomId}.${fileExt}`;
 
-        console.log(`[v1.4.387] Generating unique filename:`);
-        console.log(`  Original: ${file.name}`);
-        console.log(`  Unique: ${uniqueFilename}`);
-
         const formData = new FormData();
         formData.append('file', file, uniqueFilename);
 
         const filesUrl = `${API_BASE_URL}/files`;
-        console.log('Uploading to Files API:', filesUrl);
 
         const uploadResponse = await fetch(filesUrl, {
           method: 'PUT',
@@ -1472,21 +1318,10 @@ export class CaspioService {
         }
 
         const uploadResult = await uploadResponse.json();
-        console.log('? File uploaded to Files API:', uploadResult);
 
         // The file path for the Photo field - use unique filename
         filePath = `/${uploadResult.Name || uniqueFilename}`;
-        console.log('File path for Photo field:', filePath);
       }
-      
-      // STEP 2: Create Services_Visuals_Attach record WITH the Photo field path
-      console.log('Step 2: Creating Services_Visuals_Attach record with file path...');
-      console.log('Table: Services_Visuals_Attach');
-      console.log('Fields being sent:');
-      console.log('  - VisualID (Integer):', parseInt(visualId.toString()));
-      console.log('  - Annotation (Text):', annotation || file.name);
-      console.log('  - Photo (File path):', filePath);
-      console.log('  - Drawings (Text):', drawings ? 'Annotation JSON data present' : 'No annotations');
       
       const recordData: any = {
         VisualID: parseInt(visualId.toString()),
@@ -1498,30 +1333,23 @@ export class CaspioService {
       // IMPORTANT: Drawings field is TEXT type with 64KB limit
       // Apply compression like Elevation Plot does
       if (drawings && drawings.length > 0) {
-        console.log('Processing Drawings field data...');
-        console.log('  Original drawings length:', drawings.length);
         
         // Apply compression if needed (using the same method as Elevation Plot)
         let compressedDrawings = drawings;
         
         // Try to compress the data if it's large
         if (drawings.length > 50000) {
-          console.log('  Data is large, attempting compression...');
           compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-          console.log('  After compression:', compressedDrawings.length, 'bytes');
         }
         
         // Only add if within the field limit after compression
         if (compressedDrawings.length <= 64000) {
           recordData.Drawings = compressedDrawings;
-          console.log('? Drawings field added, final size:', compressedDrawings.length);
         } else {
           console.warn('?? Drawings data still too large after compression:', compressedDrawings.length, 'bytes');
           console.warn('?? Skipping Drawings field to avoid data type error');
         }
       }
-      
-      console.log('Creating Services_Visuals_Attach record with data:', JSON.stringify(recordData));
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
@@ -1533,8 +1361,6 @@ export class CaspioService {
       });
       
       const createResponseText = await createResponse.text();
-      console.log(`Create response status: ${createResponse.status}`);
-      console.log(`Create response body: ${createResponseText}`);
       
       if (!createResponse.ok) {
         console.error('Failed to create Services_Visuals_Attach record:', createResponseText);
@@ -1546,22 +1372,17 @@ export class CaspioService {
         const parsedResponse = JSON.parse(createResponseText);
         if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
           createResult = parsedResponse.Result[0];
-          console.log(`[v1.4.571] ${callId} - Record created successfully:`, createResult);
         } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
           createResult = parsedResponse[0];
-          console.log(`[v1.4.571] ${callId} - Record created successfully (array):`, createResult);
         } else {
           createResult = parsedResponse;
-          console.log(`[v1.4.571] ${callId} - Record created successfully (object):`, createResult);
         }
       } else {
-        console.log('?? Empty response from create, but status was OK');
         createResult = { success: true };
       }
       
       // Return the created record with the file path
       const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
-      console.log('Record created with AttachID:', attachId);
       
       // No need for STEP 3 anymore - Photo field is already set with the file path
       
@@ -1608,7 +1429,6 @@ export class CaspioService {
     return this.get<any>(`/tables/Type/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null),
       catchError(error => {
-        console.log('TypeID query failed, trying PK_ID as fallback:', error);
         // If TypeID fails, try PK_ID as fallback
         return this.get<any>(`/tables/Type/records?q.where=PK_ID=${typeId}`).pipe(
           map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
@@ -1630,11 +1450,8 @@ export class CaspioService {
   }
   
   updateService(serviceId: string, updateData: any): Observable<any> {
-    // Services table uses PK_ID as primary key, not ServiceID
-    console.log('?? [CaspioService.updateService] Updating service:', { serviceId, updateData });
     return this.put<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`, updateData).pipe(
       tap(response => {
-        console.log('? [CaspioService.updateService] Service updated successfully:', response);
       }),
       catchError(error => {
         console.error('? [CaspioService.updateService] Failed to update service:', error);
@@ -1651,11 +1468,9 @@ export class CaspioService {
   }
 
   createAttachment(attachData: any): Observable<any> {
-    console.log('?? [CaspioService.createAttachment] Creating attachment with data:', attachData);
     // Remove ?response=rows as per Caspio best practices
     return this.post<any>('/tables/Attach/records', attachData).pipe(
       tap(response => {
-        console.log('? [CaspioService.createAttachment] Success response:', response);
       }),
       catchError(error => {
         console.error('? [CaspioService.createAttachment] Failed:', error);
@@ -1672,7 +1487,6 @@ export class CaspioService {
 
   // Create attachment with file using two-step upload (like Services_Visuals_Attach)
   createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
-    console.log('?? Two-step upload for Attach table');
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
@@ -1689,20 +1503,16 @@ export class CaspioService {
 
   // Two-step upload method for Attach table - Upload to Files API then create record with path
   private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File) {
-    console.log('?? Two-step upload for Attach table (Files API method)');
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      // Step 1: Upload file to Caspio Files API
-      console.log('Step 1: Uploading file to Caspio Files API...');
       const formData = new FormData();
       formData.append('file', file, file.name);
       
       // Upload to Files API (can optionally specify folder with externalKey)
       const filesUrl = `${API_BASE_URL}/files`;
-      console.log('Uploading to Files API:', filesUrl);
       
       const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
@@ -1720,14 +1530,9 @@ export class CaspioService {
       }
       
       const uploadResult = await uploadResponse.json();
-      console.log('? File uploaded to Files API:', uploadResult);
       
       // The file path for the Attachment field (use root path or folder path)
       const filePath = `/${uploadResult.Name || file.name}`;
-      console.log('File path for Attachment field:', filePath);
-      
-      // Step 2: Create Attach record with the file path
-      console.log('Step 2: Creating Attach record with file path...');
       const recordData = {
         ProjectID: parseInt(projectId.toString()),
         TypeID: parseInt(typeId.toString()),
@@ -1737,8 +1542,6 @@ export class CaspioService {
         Attachment: filePath  // Store the file path from Files API
         // NO ServiceID - this field doesn't exist in Attach table
       };
-      
-      console.log('Creating Attach record with data:', recordData);
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
         method: 'POST',
@@ -1750,7 +1553,6 @@ export class CaspioService {
       });
       
       const createResponseText = await createResponse.text();
-      console.log(`Create response status: ${createResponse.status}`);
       
       if (!createResponse.ok) {
         console.error('Failed to create Attach record:', createResponseText);
@@ -1762,7 +1564,6 @@ export class CaspioService {
         const parsedResponse = JSON.parse(createResponseText);
         if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
           createResult = parsedResponse.Result[0];
-          console.log('? Attach record created successfully:', createResult);
         } else {
           createResult = parsedResponse;
         }
@@ -1805,7 +1606,6 @@ export class CaspioService {
       // Check if file is an image and compress if needed
       let fileToUpload: File | Blob = file;
       if (file.type && file.type.startsWith('image/')) {
-        console.log('Compressing image before upload...');
         const compressedBlob = await this.imageCompression.compressImage(file, {
           maxSizeMB: 1.5,
           maxWidthOrHeight: 1920,
@@ -1813,11 +1613,7 @@ export class CaspioService {
         });
         // Convert Blob back to File to maintain the name property
         fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type });
-        console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(fileToUpload.size / 1024).toFixed(1)}KB`);
       }
-      
-      // Step 1: Upload file to Caspio Files API
-      console.log('Replacing attachment: uploading file to Files API...');
       const formData = new FormData();
       formData.append('file', fileToUpload, file.name);
       
@@ -1838,7 +1634,6 @@ export class CaspioService {
       
       const uploadResult = await uploadResponse.json();
       const filePath = `/${uploadResult.Name || file.name}`;
-      console.log('? Replacement file uploaded to Files API, path:', filePath);
       
       // Step 2: Update the Attach record with new file path and name
       const updateResponse = await fetch(
@@ -1860,8 +1655,6 @@ export class CaspioService {
         const errorText = await updateResponse.text();
         throw new Error('Failed to update attachment record: ' + errorText);
       }
-      
-      console.log('? Attachment record updated with new file');
       return { success: true, attachId, fileName: file.name, filePath };
       
     } catch (error) {
@@ -1880,7 +1673,6 @@ export class CaspioService {
 
   // Get attachment with file data for display (following the working example pattern)
   getAttachmentWithImage(attachId: string): Observable<any> {
-    console.log('?? getAttachmentWithImage called for AttachID:', attachId);
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
@@ -1902,18 +1694,6 @@ export class CaspioService {
       .then(async data => {
         if (data.Result && data.Result.length > 0) {
           const record = data.Result[0];
-          console.log('?? Attachment record found:', {
-            AttachID: record.AttachID,
-            Title: record.Title,
-            Link: record.Link,
-            Attachment: record.Attachment
-          });
-          
-          // Check if there's a file path in the Attachment field
-          console.log('?? Checking Attachment field:');
-          console.log('  - Value:', record.Attachment);
-          console.log('  - Type:', typeof record.Attachment);
-          console.log('  - Length:', record.Attachment?.length);
           
           if (record.Attachment && typeof record.Attachment === 'string' && record.Attachment.length > 0) {
             // The Attachment field might contain:
@@ -1930,9 +1710,6 @@ export class CaspioService {
             
             // Use the /files/path endpoint EXACTLY like the working example
             const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
-            console.log('?? Fetching file from path:');
-            console.log('  - File path:', filePath);
-            console.log('  - Full URL:', fileUrl);
             
             try {
               const fileResponse = await fetch(fileUrl, {
@@ -1943,8 +1720,6 @@ export class CaspioService {
                 }
               });
               
-              console.log('?? File fetch response status:', fileResponse.status);
-              
               if (!fileResponse.ok) {
                 const errorBody = await fileResponse.text();
                 console.error('  - Error response body:', errorBody);
@@ -1953,7 +1728,6 @@ export class CaspioService {
               
               // Get the blob
               let blob = await fileResponse.blob();
-              console.log('?? Blob received, size:', blob.size, 'type:', blob.type);
               
               // Detect MIME type if not set
               let mimeType = blob.type;
@@ -1972,7 +1746,6 @@ export class CaspioService {
                 
                 // Create new blob with correct MIME type
                 if (mimeType !== blob.type) {
-                  console.log('?? Converting blob MIME type from', blob.type, 'to', mimeType);
                   blob = new Blob([blob], { type: mimeType });
                 }
               }
@@ -1980,12 +1753,9 @@ export class CaspioService {
               // For PDFs, convert to base64 data URL instead of blob URL
               // ngx-extended-pdf-viewer doesn't work well with blob URLs
               if (mimeType === 'application/pdf') {
-                console.log('?? PDF detected, converting to base64 for viewer compatibility');
                 const reader = new FileReader();
                 reader.onloadend = () => {
                   const base64data = reader.result as string;
-                  console.log('? Converted PDF to base64 data URL');
-                  console.log('  - Data URL starts with:', base64data.substring(0, 50));
                   record.Attachment = base64data;
                   observer.next(record);
                   observer.complete();
@@ -1994,8 +1764,6 @@ export class CaspioService {
               } else {
                 // For images and other files, use object URL as before
                 const objectUrl = URL.createObjectURL(blob);
-                console.log('? Created object URL for image display:', objectUrl);
-                console.log('  - Object URL starts with:', objectUrl.substring(0, 50));
                 record.Attachment = objectUrl;
                 observer.next(record);
                 observer.complete();
@@ -2010,7 +1778,6 @@ export class CaspioService {
                 try {
                   const inspectionsPath = '/Inspections' + (filePath.startsWith('/') ? filePath : '/' + filePath);
                   const inspectionsUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(inspectionsPath)}`;
-                  console.log('?? Trying with /Inspections prefix:', inspectionsPath);
                   
                   const inspResponse = await fetch(inspectionsUrl, {
                     method: 'GET',
@@ -2022,7 +1789,6 @@ export class CaspioService {
                   
                   if (inspResponse.ok) {
                     let blob = await inspResponse.blob();
-                    console.log('? Success with /Inspections prefix');
                     
                     // Detect MIME type if not set
                     let mimeType = blob.type;
@@ -2036,7 +1802,6 @@ export class CaspioService {
                     
                     // For PDFs, convert to base64
                     if (mimeType === 'application/pdf') {
-                      console.log('?? PDF detected in /Inspections path, converting to base64');
                       const reader = new FileReader();
                       reader.onloadend = () => {
                         const base64data = reader.result as string;
@@ -2061,7 +1826,6 @@ export class CaspioService {
               // Try alternate method if path-based methods fail
               try {
                 const altUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
-                console.log('?? Trying table-based file endpoint:', altUrl);
                 
                 const altResponse = await fetch(altUrl, {
                   method: 'GET',
@@ -2077,7 +1841,6 @@ export class CaspioService {
                 
                 const blob = await altResponse.blob();
                 const objectUrl = URL.createObjectURL(blob);
-                console.log('? Alternate method succeeded, created object URL');
                 
                 record.Attachment = objectUrl;
                 observer.next(record);
@@ -2091,13 +1854,11 @@ export class CaspioService {
               }
             }
           } else {
-            console.log('?? No file path in Attachment field');
             record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
             observer.next(record);
             observer.complete();
           }
         } else {
-          console.log('? No attachment record found');
           observer.next(null);
           observer.complete();
         }
@@ -2116,13 +1877,6 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      console.log('?? DEBUG: Starting updateAttachmentImage');
-      console.log('  - AttachID:', attachId);
-      console.log('  - Blob size:', imageBlob.size, 'bytes');
-      console.log('  - Blob type:', imageBlob.type);
-      console.log('  - Filename:', filename);
-      console.log('  - Access token present:', !!accessToken);
-      console.log('  - API URL:', API_BASE_URL);
       
       if (!attachId) {
         console.error('? ERROR: No attachId provided!');
@@ -2133,11 +1887,6 @@ export class CaspioService {
       const timestamp = Date.now();
       const uniqueFilename = `annotated_${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const filePath = `/Inspections/${uniqueFilename}`;
-      
-      console.log('?? Step 1: Uploading new file to Files API...');
-      console.log('  - Upload URL:', `${API_BASE_URL}/files/Inspections`);
-      console.log('  - Unique filename:', uniqueFilename);
-      console.log('  - File path:', filePath);
       
       const formData = new FormData();
       formData.append('File', imageBlob, uniqueFilename);
@@ -2151,8 +1900,6 @@ export class CaspioService {
       });
       
       const uploadResponseText = await uploadResponse.text();
-      console.log('  - Upload response status:', uploadResponse.status);
-      console.log('  - Upload response headers:', uploadResponse.headers);
       
       if (!uploadResponse.ok) {
         console.error('? Failed to upload file!');
@@ -2165,21 +1912,14 @@ export class CaspioService {
       let uploadResult: any;
       try {
         uploadResult = JSON.parse(uploadResponseText);
-        console.log('? File uploaded successfully:', uploadResult);
       } catch (e) {
-        console.log('?? Could not parse upload response as JSON:', uploadResponseText);
         // Continue anyway as file might have been uploaded
       }
-      
-      // Step 2: Update the Attach record with new file path
-      console.log('?? Step 2: Updating Attach record with new file path...');
-      console.log('  - Update URL:', `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`);
       
       const updateData = {
         Attachment: filePath,
         Link: uniqueFilename
       };
-      console.log('  - Update data:', JSON.stringify(updateData));
       
       const updateResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
@@ -2191,7 +1931,6 @@ export class CaspioService {
       });
       
       const updateResponseText = await updateResponse.text();
-      console.log('  - Update response status:', updateResponse.status);
       
       if (!updateResponse.ok) {
         console.error('? Failed to update Attach record!');
@@ -2200,9 +1939,6 @@ export class CaspioService {
         console.error('  - Response body:', updateResponseText);
         return false;
       }
-      
-      console.log('? Attachment updated successfully with annotated image');
-      console.log('  - Response:', updateResponseText);
       return true;
       
     } catch (error) {
@@ -2220,7 +1956,6 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      console.log('?? Saving annotation data for AttachID:', attachId);
       
       // Store annotations as JSON in the Notes field of Attach table
       const updateData = {
@@ -2240,8 +1975,6 @@ export class CaspioService {
         console.error('Failed to save annotation data:', response.status);
         return false;
       }
-      
-      console.log('? Annotation data saved successfully');
       return true;
       
     } catch (error) {
@@ -2276,7 +2009,6 @@ export class CaspioService {
           try {
             return JSON.parse(notes);
           } catch (e) {
-            console.log('Notes field does not contain valid JSON');
             return null;
           }
         }
@@ -2436,7 +2168,6 @@ export class CaspioService {
         ).pipe(
           map(response => {
             const users = response.Result || [];
-            console.log(`Debug: Found ${users.length} total users in database`);
             return users;
           }),
           catchError(error => {
@@ -2483,15 +2214,12 @@ export class CaspioService {
   // Help table methods
   getHelpById(helpId: number): Observable<any> {
     const endpoint = `/tables/Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
-    console.log('[Help] Fetching help record', { helpId, endpoint });
 
     return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
-        console.log('[Help] Response for help record', { helpId, count: results.length, raw: response });
         if (results.length > 0) {
           const record = { ...results[0] };
-          console.log('[Help] Normalized help record', record);
           return record;
         }
         console.warn('[Help] No help record found', { helpId, response });
@@ -2507,16 +2235,10 @@ export class CaspioService {
   // Get help items by HelpID
   getHelpItemsByHelpId(helpId: number): Observable<any[]> {
     const endpoint = `/tables/Help_Items/records?q.select=HelpID,ItemType,Item&q.where=HelpID%3D${helpId}`;
-    console.log('[HelpItems] Fetching help items', { helpId, endpoint });
 
     return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
-        console.log('[HelpItems] Response for help items', {
-          helpId,
-          count: results.length,
-          raw: response
-        });
         return results;
       }),
       catchError(error => {
@@ -2529,22 +2251,10 @@ export class CaspioService {
   // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
     const endpoint = `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
-    console.log('[HelpImages] Fetching help images', { helpId, endpoint });
 
     return this.get<any>(endpoint).pipe(
       map(response => {
         const results = response.Result || [];
-        console.log('[HelpImages] Response for help images', {
-          helpId,
-          count: results.length,
-          raw: response,
-          firstImage: results[0] ? {
-            HelpID: results[0].HelpID,
-            HelpImage: results[0].HelpImage,
-            HelpImageType: typeof results[0].HelpImage,
-            HelpImageLength: results[0].HelpImage ? String(results[0].HelpImage).length : 0
-          } : 'No images found'
-        });
         return results;
       }),
       catchError(error => {

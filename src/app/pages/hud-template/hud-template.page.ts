@@ -198,11 +198,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
 
-    console.log('[v1.4.389] HUD/Manufactured Home Template initialized:', {
-      projectId: this.projectId,
-      serviceId: this.serviceId
-    });
-
     const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
     this.autoPdfRequested = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
 
@@ -273,7 +268,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Add listener to back button using ID
       const backButton = document.getElementById('eng-back-btn') as HTMLElement;
       if (backButton) {
-        console.log('[v1.4.400] Adding click listener to back button');
         backButton.removeEventListener('click', this.handleBackClick); // Remove any existing listener
         backButton.addEventListener('click', this.handleBackClick);
         // Also try onclick directly
@@ -297,9 +291,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Bound methods for event listeners
   private handleBackClick = () => {
-    console.log('[v1.4.403] Back button clicked via direct listener');
-    console.log('[v1.4.403] Current projectId:', this.projectId);
-    console.log('[v1.4.403] Current router url:', this.router.url);
     this.goBack();
   }
 
@@ -329,7 +320,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('ionViewWillEnter - page re-entered');
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
     
@@ -366,12 +356,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Navigation method for back button
   goBack() {
-    console.log('[goBack] Navigating back from HUD Template, projectId:', this.projectId);
 
     // Method 1: Use Location.back() - this is the simplest and most reliable way
     try {
       this.location.back();
-      console.log('[goBack] Used Location.back() to navigate');
     } catch (error) {
       console.error('[goBack] Location.back() failed:', error);
 
@@ -379,7 +367,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       if (this.projectId) {
         this.router.navigate(['/project', this.projectId]).then(success => {
           if (success) {
-            console.log('[goBack] Router navigation successful');
           } else {
             console.error('[goBack] Router navigation failed');
             // Method 3: Last resort - force navigation with window.location
@@ -397,7 +384,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     
     try {
       this.projectData = await this.caspioService.getProject(this.projectId).toPromise();
-      console.log('Project data loaded:', this.projectData);
       
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
@@ -408,13 +394,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   async loadTypeInfo(typeId: string) {
     try {
-      console.log(`Ã°Å¸â€Â Loading type info for TypeID: ${typeId}`);
       const typeData = await this.caspioService.getType(typeId).toPromise();
-      console.log('Type data response:', typeData);
       
       if (typeData?.TypeShort) {
         this.typeShort = typeData.TypeShort;
-        console.log(`Ã¢Å“â€¦ Type information loaded successfully: "${this.typeShort}"`);
         
         // Force change detection to update the view
         this.changeDetectorRef.detectChanges();
@@ -444,29 +427,22 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   async loadServiceData() {
     if (!this.serviceId) {
-      console.log('Ã¢Å¡Â Ã¯Â¸Â No serviceId available for loading service data');
       return;
     }
-    
-    console.log(`Ã°Å¸â€Â Loading service data for ServiceID: ${this.serviceId}`);
     
     try {
       // Load service data from Services table
       const serviceResponse = await this.caspioService.getService(this.serviceId).toPromise();
       if (serviceResponse) {
         this.serviceData = serviceResponse;
-        console.log('Service data loaded:', this.serviceData);
-        console.log(`Service has TypeID: ${this.serviceData?.TypeID}`);
         
         // TypeID loaded from service data
         
         // Load type information using TypeID from service data
         if (this.serviceData?.TypeID) {
-          console.log(`Ã°Å¸â€œâ€¹ Found TypeID in service data: ${this.serviceData.TypeID}`);
           await this.loadTypeInfo(this.serviceData.TypeID);
         } else {
           console.warn('Ã¢Å¡Â Ã¯Â¸Â No TypeID found in service data');
-          console.log('Available fields in service data:', Object.keys(this.serviceData || {}));
         }
       } else {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â No service response received');
@@ -546,7 +522,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Load existing Services_Rooms for this service to check which are already selected
         if (this.serviceId) {
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-          console.log('Existing Services_Rooms records:', existingRooms);
           
           if (existingRooms && existingRooms.length > 0) {
             // Now we can use the RoomName field directly
@@ -554,8 +529,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               const roomName = room.RoomName;
               // Use RoomID field, NOT PK_ID - RoomID is what links to Services_Rooms_Points
               const roomId = room.RoomID;
-              
-              console.log(`Loading room: ${roomName}, RoomID: ${roomId}, PK_ID: ${room.PK_ID}`);
               
               // Find matching template by RoomName - check all templates, not just auto
               let template = autoTemplates.find((t: any) => t.RoomName === roomName);
@@ -571,7 +544,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   // Create a new template object with the numbered name
                   const roomToAdd = { ...template, RoomName: roomName };
                   this.roomTemplates.push(roomToAdd);
-                  console.log(`Added manually created room to templates: ${roomName}`);
                 }
               }
               
@@ -622,28 +594,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   
                   // Load FDF photos if they exist - fetch as base64 like other photos
                   const fdfPhotos: any = {};
-                  console.log(`[FDF Photos] Checking FDF photos for room: ${roomName}`);
-                  console.log(`  FDFPhotoTop: ${room.FDFPhotoTop || 'None'}`);
-                  console.log(`  FDFPhotoBottom: ${room.FDFPhotoBottom || 'None'}`);
-                  console.log(`  FDFPhotoThreshold: ${room.FDFPhotoThreshold || 'None'}`);
                   
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
-                    fdfPhotos.topPath = room.FDFPhotoTop; // Store the path for later use
-                    console.log(`[v1.4.427] FDF Top - Loading from path: ${room.FDFPhotoTop}`);
+                    fdfPhotos.topPath = room.FDFPhotoTop;
 
                     try {
                       // Fetch the image as base64 data URL
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoTop).toPromise();
-                      console.log(`[v1.4.427] FDF Top - Received data:`, {
-                        hasData: !!imageData,
-                        isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0
-                      });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.topUrl = imageData;
-                        console.log(`[v1.4.427] FDF Top - Ã¢Å“â€¦ Base64 loaded successfully`);
                       } else {
                         // Don't use placeholder, keep the path for on-demand loading
                         console.warn(`[v1.4.427] FDF Top - No base64 data, will fetch on demand`);
@@ -657,20 +618,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   }
                   if (room.FDFPhotoBottom) {
                     fdfPhotos.bottom = true;
-                    fdfPhotos.bottomPath = room.FDFPhotoBottom; // Store the path
-                    console.log(`[v1.4.427] FDF Bottom - Loading from path: ${room.FDFPhotoBottom}`);
+                    fdfPhotos.bottomPath = room.FDFPhotoBottom;
 
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoBottom).toPromise();
-                      console.log(`[v1.4.427] FDF Bottom - Received data:`, {
-                        hasData: !!imageData,
-                        isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0
-                      });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.bottomUrl = imageData;
-                        console.log(`[v1.4.427] FDF Bottom - Ã¢Å“â€¦ Base64 loaded successfully`);
                       } else {
                         console.warn(`[v1.4.427] FDF Bottom - No base64 data, will fetch on demand`);
                         fdfPhotos.bottomUrl = null;
@@ -682,20 +636,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   }
                   if (room.FDFPhotoThreshold) {
                     fdfPhotos.threshold = true;
-                    fdfPhotos.thresholdPath = room.FDFPhotoThreshold; // Store the path
-                    console.log(`[v1.4.427] FDF Threshold - Loading from path: ${room.FDFPhotoThreshold}`);
+                    fdfPhotos.thresholdPath = room.FDFPhotoThreshold;
 
                     try {
                       const imageData = await this.caspioService.getImageFromFilesAPI(room.FDFPhotoThreshold).toPromise();
-                      console.log(`[v1.4.427] FDF Threshold - Received data:`, {
-                        hasData: !!imageData,
-                        isBase64: imageData?.startsWith('data:'),
-                        length: imageData?.length || 0
-                      });
 
                       if (imageData && imageData.startsWith('data:')) {
                         fdfPhotos.thresholdUrl = imageData;
-                        console.log(`[v1.4.427] FDF Threshold - Ã¢Å“â€¦ Base64 loaded successfully`);
                       } else {
                         console.warn(`[v1.4.427] FDF Threshold - No base64 data, will fetch on demand`);
                         fdfPhotos.thresholdUrl = null;
@@ -711,18 +658,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   }
                 }
                 
-                console.log(`Restored room selection: ${roomName} with ID ${roomId}, FDF: ${room.FDF || 'None'}, Notes: ${room.Notes ? 'Yes' : 'No'}`);
-                
                 // Load existing room points for this room
                 this.loadExistingRoomPoints(roomId, roomName);
               }
             }
           }
         }
-        
-        console.log('Initialized room elevation data:', this.roomElevationData);
       } else {
-        console.log('No room templates found in Services_Room_Templates');
         this.roomTemplates = [];
       }
     } catch (error: any) {
@@ -738,7 +680,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Load dropdown options from Services_Drop table
   async loadServicesDropdownOptions() {
     try {
-      console.log('Loading Services_Drop dropdown options...');
       
       // Set default options first
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy'];
@@ -756,7 +697,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
       
       if (servicesDropData && servicesDropData.length > 0) {
-        console.log('Services_Drop data loaded:', servicesDropData.length, 'records');
         
         // Group by ServicesName
         const optionsByService: { [serviceName: string]: string[] } = {};
@@ -775,66 +715,54 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           }
         });
         
-        console.log('Parsed Services_Drop options:', optionsByService);
-        
         // Set Weather Conditions options
         if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
           this.weatherConditionsOptions = optionsByService['WeatherConditions'];
-          console.log('Weather Conditions options:', this.weatherConditionsOptions);
         }
         
         // Set Outdoor Temperature options
         if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
           this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
-          console.log('Outdoor Temperature options:', this.outdoorTemperatureOptions);
         }
         
         // Set Occupancy Furnishings options
         if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
           this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
-          console.log('Occupancy Furnishings options:', this.occupancyFurnishingsOptions);
         }
         
         // Set InAttendance options
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
-          console.log('InAttendance options:', this.inAttendanceOptions);
         }
         
         // Set FirstFoundationType options
         if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
           this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
-          console.log('FirstFoundationType options:', this.firstFoundationTypeOptions);
         }
         
         // Set SecondFoundationType options
         if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
           this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
-          console.log('SecondFoundationType options:', this.secondFoundationTypeOptions);
         }
         
         // Set ThirdFoundationType options
         if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
           this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
-          console.log('ThirdFoundationType options:', this.thirdFoundationTypeOptions);
         }
         
         // Set SecondFoundationRooms options
         if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
           this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
-          console.log('SecondFoundationRooms options:', this.secondFoundationRoomsOptions);
         }
         
         // Set ThirdFoundationRooms options
         if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
           this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
-          console.log('ThirdFoundationRooms options:', this.thirdFoundationRoomsOptions);
         }
         
         // Set OwnerOccupantInterview options
         if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
           this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
-          console.log('OwnerOccupantInterview options:', this.ownerOccupantInterviewOptions);
         }
       }
     } catch (error) {
@@ -895,12 +823,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               return a.localeCompare(b);
             });
           }
-          
-          console.log('Room-specific FDF options loaded:', this.roomFdfOptions);
-          console.log('Default FDF options:', this.fdfOptions);
         }
       } catch (tableError) {
-        console.log('Could not load custom FDF options, using defaults:', tableError);
       }
     } catch (error) {
       console.error('Error loading FDF options:', error);
@@ -912,18 +836,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Load dropdown options for visual templates from Services_Visuals_Drop table
   async loadVisualDropdownOptions() {
     try {
-      console.log('Loading visual dropdown options from Services_Visuals_Drop...');
       const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
-      
-      console.log('Services_Visuals_Drop data received:', dropdownData);
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
         dropdownData.forEach((row: any) => {
           const templateId = String(row.TemplateID); // Convert to string for consistency
           const dropdownValue = row.Dropdown;
-          
-          console.log(`Processing dropdown row: TemplateID=${templateId}, Dropdown=${dropdownValue}, Full Row:`, row);
           
           if (templateId && dropdownValue) {
             if (!this.visualDropdownOptions[templateId]) {
@@ -936,18 +855,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           }
         });
         
-        console.log('Visual dropdown options loaded:', this.visualDropdownOptions);
-        console.log('Template IDs with options:', Object.keys(this.visualDropdownOptions));
-        
         // Log details about what dropdown options are available for each TemplateID
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
-          console.log(`TemplateID ${templateId} has ${(options as string[]).length} options:`, options);
         });
       } else {
-        console.log('No dropdown data found in Services_Visuals_Drop');
       }
     } catch (error) {
-      console.log('Could not load visual dropdown options:', error);
       // Continue without dropdown options - they're optional
     }
   }
@@ -974,9 +887,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Convert sets to arrays (removes duplicates automatically)
         this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
         this.styleOptions = Array.from(styleSet).sort();
-        
-        console.log('TypeOfBuilding options:', this.typeOfBuildingOptions);
-        console.log('Style options:', this.styleOptions);
         
         // Add default options if none found in database
         if (this.typeOfBuildingOptions.length === 0) {
@@ -1020,8 +930,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const query = `RoomID=${roomId}`;
       
       await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-      
-      console.log(`Updated FDF for room ${roomName} to ${fdfValue}`);
     } catch (error) {
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
@@ -1088,10 +996,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // The Files API returns {"Name": "filename.jpg"} or {"Result": {"Name": "filename.jpg"}}
       const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
       const filePath = `/${uploadedFileName}`;
-
-      console.log(`[v1.4.402] FDF ${photoType} upload response:`, uploadResult);
-      console.log(`[v1.4.402] Using filename: ${uploadedFileName}`);
-      console.log(`[v1.4.402] File path: ${filePath}`);
       
       // Update the appropriate column in Services_Rooms
       const columnName = `FDFPhoto${photoType}`;
@@ -1108,14 +1012,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       const photoKey = photoType.toLowerCase();
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
-      
-      // [v1.4.421] Load the image as base64 to ensure thumbnails work
-      console.log(`[v1.4.421] Loading saved FDF photo as base64: ${filePath}`);
 
       // First, create a blob URL from the compressed file for immediate display
       const blobUrl = URL.createObjectURL(compressedFile);
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
-      console.log(`[v1.4.421] FDF ${photoType} - Set temporary blob URL for immediate display`);
 
       // Then try to load from Caspio for permanent storage
       try {
@@ -1123,7 +1023,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (imageData && imageData.startsWith('data:')) {
           // Replace blob URL with base64 for permanent storage
           this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
-          console.log(`[v1.4.421] Ã¢Å“â€¦ FDF ${photoType} - Replaced blob URL with base64 (length: ${imageData.length})`);
 
           // Revoke the blob URL since we have base64 now
           URL.revokeObjectURL(blobUrl);
@@ -1259,14 +1158,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // Update photoUrl if we got fresh data
     const finalPhotoUrl = freshImageData || photoUrl;
 
-    console.log(`[v1.4.424] viewFDFPhoto debug:`, {
-      roomName,
-      photoType,
-      databasePath,
-      fetchAttemptResult,
-      hasFreshData: !!freshImageData
-    });
-
     // [v1.4.427] Use fresh data if available, otherwise try to get from stored URL
     let viewableUrl = finalPhotoUrl;
 
@@ -1274,14 +1165,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     if (!freshImageData && photoUrl && (photoUrl.startsWith('blob:') || photoUrl === 'assets/img/photo-placeholder.png')) {
       // The blob URL is expired or placeholder, we need to fetch from database path
       if (databasePath && databasePath.startsWith('/') && databasePath !== '/undefined') {
-        console.log(`[v1.4.427] Blob URL expired, fetching from database path: ${databasePath}`);
         try {
           const imageData = await this.caspioService.getImageFromFilesAPI(databasePath).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             viewableUrl = imageData;
             // Update stored URL for future use
             this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
-            console.log(`[v1.4.427] Successfully fetched image from database path`);
           } else {
             console.error(`[v1.4.427] Failed to get valid image data from path: ${databasePath}`);
           }
@@ -1379,7 +1268,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         };
         
         await this.caspioService.updateServicesRoomsPoint(pointId, updateData).toPromise();
-        console.log(`Updated elevation for ${point.name} to ${point.elevation}`);
       }
     } catch (error) {
       console.error('Error updating elevation:', error);
@@ -1480,22 +1368,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           // Point already exists, use its PointID (NOT PK_ID!)
           pointId = existingPoint.PointID || existingPoint.PK_ID;
           this.roomPointIds[pointKey] = pointId;
-          console.log(`Using existing point record with PointID: ${pointId}`);
         } else {
           // Create new Services_Rooms_Points record
           const pointData = {
             RoomID: parseInt(roomId),
             PointName: point.name
           };
-          
-          console.log('Creating Services_Rooms_Points record:', pointData);
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
           
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
             this.roomPointIds[pointKey] = pointId;
-            console.log(`Created point record with PointID: ${pointId}`);
           } else {
             throw new Error('Failed to create point record');
           }
@@ -1521,8 +1405,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Load existing room points and their photos
   async loadExistingRoomPoints(roomId: string, roomName: string) {
     try {
-      // [v1.4.378 FIX] DO NOT clear image cache - it affects other sections
-      console.log(`[v1.4.378] Loading photos for room: ${roomName} WITHOUT clearing cache`);
       
       // Get all points for this room
       const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
@@ -1535,7 +1417,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           
           // Store the point ID for future reference
           this.roomPointIds[pointKey] = pointId;
-          console.log(`Loaded existing point: ${point.PointName} with PointID: ${pointId}`);
           
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
@@ -1545,7 +1426,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             
             // If this point doesn't exist in the template, it's a custom point - add it
             if (!elevationPoint) {
-              console.log(`Found custom point not in template: ${point.PointName}`);
               elevationPoint = {
                 name: point.PointName,
                 value: '',
@@ -1572,19 +1452,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   let photoUrl = '';
                   let thumbnailUrl = '';
                   
-                  console.log(`[Photo ${photoIndex + 1}/${photos.length}] Processing for ${point.PointName}:`, {
-                    AttachID: photo.AttachID,
-                    Photo: photoPath,
-                    HasDrawings: !!photo.Drawings,
-                    UniqueCheck: `Path ends with: ${photoPath.substring(photoPath.length - 10)}`
-                  });
-                  
                   if (photoPath && photoPath !== '') {
                     try {
                       // [v1.4.391] Enhanced cache-busting for Elevation photos to prevent duplication
                       const timestamp = Date.now();
                       const uniqueId = `${photoIndex}_${timestamp}_${Math.random().toString(36).substring(2, 8)}`;
-                      console.log(`[v1.4.391] Elevation Photo ${photoIndex + 1}/${photos.length}] Fetching with unique ID ${uniqueId}: ${photoPath}`);
 
                       // [v1.4.391] Increased delay to ensure each fetch is truly separate
                       if (photoIndex > 0) {
@@ -1598,12 +1470,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                         // [v1.4.391] Log data characteristics to verify uniqueness
                         const dataLength = imageData.length;
                         const dataPreview = imageData.substring(0, 100) + '...' + imageData.substring(imageData.length - 50);
-                        console.log(`[v1.4.391] Photo ${photoIndex + 1}] Got base64, length: ${dataLength}, preview: ${dataPreview}`);
 
                         photoUrl = imageData;
                         thumbnailUrl = imageData;
                       } else {
-                        console.log(`[Photo ${photoIndex + 1}] Invalid/empty image data`);
                         // Fallback to SVG if fetch fails - make it unique per photo
                         photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">Ã°Å¸â€œÂ· Photo ${photoIndex + 1}</text></svg>`);
                         thumbnailUrl = photoUrl;
@@ -1615,7 +1485,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                       thumbnailUrl = photoUrl;
                     }
                   } else {
-                    console.log(`[Photo ${photoIndex + 1}] No photo path, using placeholder`);
                     photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">Ã°Å¸â€œÂ· No Path ${photoIndex + 1}</text></svg>`);
                     thumbnailUrl = photoUrl;
                   }
@@ -1626,7 +1495,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                     try {
                       annotationData = decompressAnnotationData(photo.Drawings);
                     } catch (e) {
-                      console.log('Failed to parse Drawings field:', e);
                     }
                   }
                   
@@ -1647,19 +1515,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                     name: `Photo ${photoIndex + 1}`
                   };
                   
-                  console.log(`[Photo ${photoIndex + 1}] Created photo result:`, {
-                    attachId: photoResult.attachId,
-                    hasUrl: !!photoResult.url,
-                    urlLength: photoResult.url?.length,
-                    urlPreview: photoResult.url?.substring(0, 50),
-                    hasAnnotations: photoResult.hasAnnotations
-                  });
-                  
                   processedPhotos.push(photoResult);
                 }
                 
                 elevationPoint.photos = processedPhotos;
-                console.log(`Loaded ${photos.length} photos for point ${point.PointName}`);
               }
             }
           }
@@ -1674,8 +1533,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   private async handleRoomPointFileSelect(files: FileList) {
     try {
       const { roomName, point, pointId, roomId } = this.currentRoomPointContext;
-      
-      console.log(`Handling ${files.length} file(s) for room point: ${point.name}`);
       
       let uploadSuccessCount = 0;
       const uploadPromises = [];
@@ -1782,7 +1639,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               }
             }
             uploadSuccessCount++;
-            console.log(`Photo ${i + 1} uploaded for point ${point.name}, AttachID: ${photoEntry.attachId}`);
             return response;
           })
           .catch((err) => {
@@ -1858,10 +1714,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             input.removeEventListener('change', handleChange);
             
             if (file) {
-              console.log(`Photo captured: ${file.name}, Size: ${file.size}`);
               resolve(file);
             } else {
-              console.log('No file selected');
               resolve(null);
             }
           };
@@ -1910,7 +1764,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
           pointId = createResponse.PointID || createResponse.PK_ID;
           this.roomPointIds[pointKey] = pointId;
-          console.log(`processRoomPointPhoto created point with PointID: ${pointId}`);
         } else {
           throw new Error('Failed to create point record');
         }
@@ -2006,8 +1859,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
       
-      console.log(`Photo uploaded for point ${pointName}`);
-      
     } catch (error) {
       console.error('Error uploading room point photo:', error);
       throw error;
@@ -2039,7 +1890,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Perform the actual room point photo upload with annotation support
   private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string, annotationData: any = null) {
     try {
-      console.log('Ã°Å¸â€œÂ¦ Using two-step upload for room point photo');
       
       // Process annotation data for Drawings field (same as Structural Systems)
       let drawingsData = '';
@@ -2130,8 +1980,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         photo
       ).toPromise();
       
-      console.log('Ã¢Å“â€¦ Room point photo uploaded successfully with annotations:', response);
-      
       // Show success debug
       const successAlert = await this.alertController.create({
         header: 'Ã¢Å“â€¦ Upload Successful',
@@ -2189,7 +2037,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   async toggleRoomSelection(roomName: string, event?: any) {
     // Only proceed if this is a real checkbox change event
     if (!event || !event.detail || typeof event.detail.checked === 'undefined') {
-      console.log('Ignoring non-checkbox event');
       return;
     }
     
@@ -2243,7 +2090,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     if (isSelected) {
       // Check if we already have a record ID for this room
       if (this.roomRecordIds[roomName]) {
-        console.log(`Room ${roomName} already exists with ID ${this.roomRecordIds[roomName]}, not creating duplicate`);
         this.selectedRooms[roomName] = true;
         this.expandedRooms[roomName] = false;
         return; // Room already exists, just update UI state
@@ -2291,8 +2137,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             }
             this.roomRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = true; // Expand when newly selected
-            console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+            this.expandedRooms[roomName] = true;
           }
         } catch (err: any) {
           console.error('Room creation error:', err);
@@ -2339,8 +2184,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           // Reset FDF to default
           this.roomElevationData[roomName].fdf = 'None';
         }
-        
-        console.log(`Room ${roomName} deleted from Services_Rooms table`);
       } catch (error) {
         console.error('Error deleting room:', error);
         await this.showToast('Failed to remove room', 'danger');
@@ -2504,7 +2347,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       buttons.push({
         text: 'Cancel',
         handler: () => {
-          console.log('Room selection cancelled');
         }
       });
       
@@ -2667,8 +2509,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           }
           this.roomRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = true; // Expand when newly added
-          console.log(`Room created - Name: ${roomName}, RoomID: ${roomId}`);
+          this.expandedRooms[roomName] = true;
         }
       } catch (error: any) {
         console.error('Room creation error:', error);
@@ -2771,7 +2612,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   const pointId = response.PointID || response.PK_ID;
                   const pointKey = `${roomName}_${pointName}`;
                   this.roomPointIds[pointKey] = pointId;
-                  console.log(`Created custom point with PointID: ${pointId}`);
                 }
               } catch (error) {
                 console.error('Error creating custom point:', error);
@@ -2786,8 +2626,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 return false;
               }
             }
-            
-            console.log(`Added custom point: ${pointName} to room: ${roomName}`);
             return true;
           }
         }
@@ -2799,30 +2637,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadVisualCategories() {
     try {
-      // Get templates filtered by TypeID = 2 directly from the API
-      console.log('[HUD-Template] Fetching templates with TypeID = 2 from Services_Visuals_Templates...');
 
       // Use the new method that filters by TypeID in the API query
       const allTemplates = await this.caspioService.getServicesVisualsTemplatesByTypeId(2).toPromise();
 
-      console.log('[HUD-Template] Templates received from API with TypeID = 2:', allTemplates?.length || 0);
-
       // Debug: Log first few templates to verify they have TypeID = 2
       if (allTemplates && allTemplates.length > 0) {
-        console.log('[HUD-Template] First 3 TypeID=2 templates:');
         allTemplates.slice(0, 3).forEach((t: any, index: number) => {
-          console.log(`  Template ${index + 1}:`, {
-            Name: t.Name,
-            TypeID: t.TypeID,
-            Category: t.Category
-          });
         });
       }
 
       // Assign the templates (they should all have TypeID = 2 from the API query)
       this.visualTemplates = allTemplates || [];
-
-      console.log(`[HUD-Template] Loaded ${this.visualTemplates.length} templates for HUD/Manufactured Home (TypeID = 2)`);
 
       // If no templates found with TypeID = 2, there's a data issue
       if (this.visualTemplates.length === 0) {
@@ -2878,7 +2704,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Use the order they appear in the table, not alphabetical
       this.visualCategories = categoriesOrder;
-      console.log('Categories in original order:', this.visualCategories);
       
       // Initialize organized data structure for each category
       this.visualCategories.forEach(category => {
@@ -2899,7 +2724,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         categoryTemplates.forEach(template => {
           // Log template details for AnswerType 2 items
           if (template.AnswerType === 2) {
-            console.log(`Template with AnswerType 2: Name="${template.Name}", TemplateID=${template.TemplateID}, PK_ID=${template.PK_ID}`);
           }
           
           const templateData: any = {
@@ -2944,10 +2768,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           };
         });
       });
-      
-      console.log('Visual categories loaded:', this.visualCategories);
-      console.log('Organized data:', this.organizedData);
-      console.log('Category templates:', this.categoryData);
     } catch (error) {
       console.error('Error loading visual categories:', error);
       await this.showToast('Failed to load template categories', 'warning');
@@ -2972,10 +2792,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       try {
         const parsed = JSON.parse(draftData);
         this.formData = { ...this.formData, ...parsed.formData };
-        
-        // Skip loading room elevation data to prevent issues
-        
-        console.log('Draft data loaded from localStorage');
       } catch (error) {
         console.error('Error loading draft data:', error);
       }
@@ -2984,20 +2800,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   async loadExistingVisualSelections(options?: { awaitPhotos?: boolean }): Promise<void> {
     const awaitPhotos = options?.awaitPhotos !== false;
-    console.log('=====================================');
-    console.log('LOADING EXISTING VISUAL SELECTIONS');
-    console.log('=====================================');
-    console.log('ServiceID:', this.serviceId);
 
     if (!this.serviceId) {
-      console.log('No ServiceID - skipping load');
       return;
     }
 
     try {
-      console.log('Fetching existing visuals from Services_Visuals...');
       const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      console.log('Existing visuals count:', existingVisuals?.length || 0);
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
@@ -3052,20 +2861,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         });
       }
 
-      console.log('Visual selections restored');
-      console.log('Visual record IDs:', this.visualRecordIds);
-
       await new Promise(resolve => setTimeout(resolve, 500));
-
-      console.log('Loading existing photos...');
       const photosPromise = this.loadExistingPhotos();
 
       if (awaitPhotos) {
         await photosPromise;
-        console.log('Finished loading existing photos');
       } else {
         this.photoHydrationPromise = photosPromise.finally(() => {
-          console.log('Finished loading existing photos (background)');
           this.photoHydrationPromise = null;
         });
       }
@@ -3132,19 +2934,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     const viewportTop = scrollTop;
     const viewportMiddle = scrollTop + (window.innerHeight / 2);
     
-    console.log('Scroll Debug:', {
-      scrollTop,
-      viewportMiddle,
-      expandedSections: this.expandedSections,
-      expandedAccordions: this.expandedAccordions
-    });
-    
     // First check if we're in an expanded accordion item (category within Structural Systems)
     if (this.expandedSections['structural'] && this.expandedAccordions.length > 0) {
       // Get all accordions in the structural section
       const allAccordions = Array.from(document.querySelectorAll('.categories-container ion-accordion'));
-      
-      console.log('Found accordions:', allAccordions.length);
       
       // Find which expanded accordion we're currently viewing
       let closestAccordion: HTMLElement | null = null;
@@ -3177,17 +2970,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             
             const accordionBottom = accordionTop + headerRect.height + contentHeight;
             
-            console.log(`Accordion ${accordionValue}:`, {
-              top: accordionTop,
-              bottom: accordionBottom,
-              contentHeight,
-              isInView: viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom
-            });
-            
             // Check if we're viewing this accordion (viewport middle is within accordion bounds)
             if (viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom) {
-              // We're in this accordion!
-              console.log(`Found! Scrolling to ${accordionValue}`);
               accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
               foundMatch = true;
               return;
@@ -3205,7 +2989,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // If we found a close accordion, scroll to it
       if (!foundMatch && closestAccordion) {
-        console.log('Using closest accordion as fallback');
         closestAccordion.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
@@ -3259,7 +3042,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Track which accordions are expanded
   onAccordionChange(event: any) {
-    console.log('Accordion changed:', event.detail.value);
     if (event.detail.value) {
       // Store the expanded accordion value
       this.expandedAccordions = Array.isArray(event.detail.value) 
@@ -3271,7 +3053,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   onRoomAccordionChange(event: any) {
-    console.log('Room accordion changed:', event.detail.value);
     const roomName = event.detail.value;
     
     if (roomName && !this.isRoomSelected(roomName)) {
@@ -3380,8 +3161,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const query = `RoomID=${roomId}`;
         
         await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-        
-        console.log(`Updated Notes for room ${roomName}`);
         // Don't show toast for notes to avoid interrupting user typing
       } catch (error) {
         console.error('Error updating room notes:', error);
@@ -3395,7 +3174,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Handle elevation point value change
   onElevationPointChange(roomName: string, point: any) {
-    console.log(`Elevation changed for ${roomName} - ${point.name}: ${point.value}`);
     
     // Save to draft after a delay
     if (this.saveDebounceTimer) {
@@ -3412,8 +3190,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       event.preventDefault();
       event.stopPropagation();
     }
-    
-    console.log(`Taking photo for elevation point: ${roomName} - ${point.name}`);
     
     try {
       // Initialize photos array if needed
@@ -3454,8 +3230,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         
         // Update photo count
         point.photoCount = point.photos.length;
-        
-        console.log(`Added ${files.length} photo(s) to ${point.name}. Total: ${point.photoCount}`);
         // Success toast removed per user request
         
         // TODO: Upload to Caspio when saving
@@ -3493,14 +3267,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Save room photo caption/annotation
   async saveRoomPhotoCaption(photo: any, roomName: string, point: any) {
     try {
-      console.log('Save room photo caption:', photo.annotation, 'for', point.name, 'AttachID:', photo.attachId);
       
       // Update Services_Rooms_Points_Attach record with annotation
       if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
         await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
-        console.log('Updated attachment', photo.attachId, 'with annotation:', updateData.Annotation);
       }
       
       // Don't show toast for every blur event
@@ -3530,7 +3302,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 // Delete from Services_Rooms_Points_Attach table if attachId exists
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
-                  console.log('Deleted room photo attachment:', photo.attachId);
                 }
                 
                 // Remove from point's photos array
@@ -3541,8 +3312,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                     point.photoCount = point.photos.length;
                   }
                 }
-                
-                console.log('Room photo deleted successfully');
               } catch (error) {
                 console.error('Error deleting room photo:', error);
                 await this.showToast('Failed to delete photo', 'danger');
@@ -3608,11 +3377,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Update room point photo attachment with annotations (similar to updatePhotoAttachment for Structural Systems)
   async updateRoomPointPhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
-      console.log('Updating room point photo attachment with annotations:', {
-        attachId,
-        hasAnnotations: !!annotations,
-        hasOriginalFile: !!originalFile
-      });
       
       // Validate attachId
       if (!attachId || attachId === 'undefined' || attachId === 'null') {
@@ -3651,7 +3415,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Update the Services_Rooms_Points_Attach record
       if (Object.keys(updateData).length > 0) {
         await this.caspioService.updateServicesRoomsPointsAttach(attachId, updateData).toPromise();
-        console.log('Room point photo attachment updated successfully');
       }
       
     } catch (error) {
@@ -3663,14 +3426,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // View elevation photo with annotation support (matching Structural Systems)
   async viewElevationPhoto(photo: any, roomName?: string, point?: any) {
-    console.log('Viewing elevation photo with annotation support:', {
-      photo,
-      hasUrl: !!photo.url,
-      hasThumbnailUrl: !!photo.thumbnailUrl,
-      hasOriginalUrl: !!photo.originalUrl,
-      hasFilePath: !!photo.filePath,
-      attachId: photo.attachId || photo.AttachID || photo.id
-    });
     
     try {
       // Validate photo has an ID
@@ -3687,7 +3442,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // If no valid URL and we have a file path, try to fetch it
       if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && photo.filePath) {
-        console.log('No valid URL found, fetching from file path:', photo.filePath);
         try {
           const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
           if (fetchedImage && fetchedImage.startsWith('data:')) {
@@ -3711,12 +3465,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Use original URL if available (for re-editing annotations)
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
       
-      console.log('Using image URLs:', {
-        imageUrl,
-        originalImageUrl,
-        isBase64: imageUrl.startsWith('data:')
-      });
-      
       // Parse existing annotations (matching Structural Systems logic)
       let existingAnnotations = null;
       const annotationSources = [
@@ -3736,11 +3484,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             }
             
             if (existingAnnotations) {
-              console.log('Found valid annotations for elevation photo');
               break;
             }
           } catch (e) {
-            console.log('Failed to parse annotations:', e);
           }
         }
       }
@@ -3817,7 +3563,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       };
       
       localStorage.setItem(draftKey, JSON.stringify(draftData));
-      console.log('Draft saved at', new Date().toLocaleTimeString());
     } catch (error) {
       console.error('Error saving draft:', error);
     }
@@ -3873,8 +3618,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         SubmittedAt: new Date().toISOString()
       };
       
-      console.log('Submitting template data:', submitData);
-      
       // For now, just simulate success
       await new Promise(resolve => setTimeout(resolve, 1500));
       
@@ -3903,7 +3646,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // v1.4.389 - Simple test method for PDF button
   async testPDFButton() {
-    console.log('[v1.4.389] testPDFButton called!');
     try {
       // Show multiple alerts to ensure something happens
 
@@ -3926,10 +3668,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // v1.4.389 - Ensure PDF button is properly wired up
   ensurePDFButtonWorks() {
-    console.log('[v1.4.389] Ensuring PDF button works...');
     const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
     if (pdfButton) {
-      console.log('[v1.4.389] Found PDF button, adding direct listener');
 
       // Remove any existing listeners first
       const newButton = pdfButton.cloneNode(true) as HTMLButtonElement;
@@ -3937,7 +3677,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Add direct event listener
       newButton.addEventListener('click', async (e) => {
-        console.log('[v1.4.389] PDF button clicked via direct listener');
         e.preventDefault();
         e.stopPropagation();
 
@@ -3952,21 +3691,16 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Also add touch listener for mobile
       newButton.addEventListener('touchend', async (e) => {
-        console.log('[v1.4.389] PDF button touched');
         e.preventDefault();
         e.stopPropagation();
       });
-
-      console.log('[v1.4.389] Direct listeners added to PDF button');
     } else {
       console.error('[v1.4.389] PDF button not found in DOM!');
 
       // Try to find it by other means
       const allButtons = document.querySelectorAll('button');
-      console.log('[v1.4.389] Found', allButtons.length, 'buttons total');
       allButtons.forEach((btn, index) => {
         if (btn.textContent?.includes('PDF')) {
-          console.log(`[v1.4.389] Found PDF button at index ${index}:`, btn.className);
         }
       });
     }
@@ -3974,7 +3708,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Add ionViewDidEnter hook to ensure button is ready
   ionViewDidEnter() {
-    console.log('[v1.4.389] View entered, ensuring PDF button works');
     setTimeout(() => {
       this.ensurePDFButtonWorks();
     }, 500);
@@ -3982,23 +3715,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // New handler for PDF button click
   async handlePDFClick(event: Event) {
-    console.log('[v1.4.388] PDF button clicked via handlePDFClick');
 
     // Add comprehensive debugging
     try {
-      // Show immediate visual feedback
-
-      // Log current state
-      console.log('[v1.4.388] Current state:', {
-        serviceId: this.serviceId,
-        projectId: this.projectId,
-        isPDFGenerating: this.isPDFGenerating,
-        hasLoadingController: !!this.loadingController,
-        hasModalController: !!this.modalController,
-        hasCaspioService: !!this.caspioService,
-        projectData: this.projectData ? Object.keys(this.projectData) : 'null',
-        serviceData: this.serviceData ? Object.keys(this.serviceData) : 'null'
-      });
 
       // Prevent all default behaviors immediately
       event.preventDefault();
@@ -4014,7 +3733,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async generatePDF(event?: Event) {
-    console.log('[v1.4.402] generatePDF called, projectId:', this.projectId, 'serviceId:', this.serviceId);
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -4031,7 +3749,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const target = event.target as HTMLElement;
       const form = target.closest('form');
       if (form) {
-        console.log('[v1.4.397] Preventing form submission');
         form.onsubmit = (e) => { e.preventDefault(); return false; };
       }
     }
@@ -4067,12 +3784,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
 
-        console.log('[v1.4.390] Route params:', { routeServiceId, routeProjectId });
-
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
-          console.log('[v1.4.390] Recovered IDs from route:', { serviceId: this.serviceId, projectId: this.projectId });
         } else {
           console.error('[v1.4.390] ERROR: No service/project IDs available!');
           this.isPDFGenerating = false;
@@ -4086,11 +3800,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
       } else {
-        console.log('[v1.4.390] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
       }
-      
-    // Create a single loading indicator that stays until PDF is ready
-    console.log('[v1.4.390] Creating loading indicator...');
 
     let loading: any = null;
     try {
@@ -4099,9 +3809,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         spinner: 'crescent',
         backdropDismiss: false
       });
-      console.log('[v1.4.390] Loading indicator created successfully');
       await loading.present();
-      console.log('[v1.4.390] Loading indicator presented');
     } catch (loadingError) {
       console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
       // Continue without loading indicator
@@ -4118,11 +3826,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const cachedData = this.cache.get(cacheKey);
       
       if (cachedData) {
-        console.log('Ã°Å¸â€œÂ¦ Using cached PDF data');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        // Load all data in parallel for maximum speed
-        console.log('[v1.4.338] Loading PDF data...');
         const startTime = Date.now();
         
         try {
@@ -4154,8 +3859,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           projectInfo = projectData;
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
-          
-          console.log(`[v1.4.338] All data loaded in ${Date.now() - startTime}ms`);
           
           // Cache the prepared data
           this.cache.set(cacheKey, {
@@ -4191,9 +3894,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           // Don't fail the whole PDF generation if photo fails
         }
       }
-      
-      // Create the modal with animation disabled for first attempt to prevent conflicts
-      console.log('[v1.4.390] Creating PDF modal...');
 
       const PdfPreviewComponent = await this.loadPdfPreview();
 
@@ -4205,11 +3905,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       let modal;
       try {
-        console.log('[v1.4.390] Component info:', {
-          componentName: PdfPreviewComponent.name,
-          componentType: typeof PdfPreviewComponent,
-          hasModalController: !!this.modalController
-        });
 
         modal = await this.modalController.create({
           component: PdfPreviewComponent,
@@ -4224,7 +3919,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           mode: 'ios', // Force iOS mode for consistency
           backdropDismiss: false // Prevent accidental dismissal
         });
-        console.log('[v1.4.390] Modal created successfully');
       } catch (modalCreateError) {
         console.error('[v1.4.390] Error creating modal:', modalCreateError);
         throw modalCreateError;
@@ -4236,16 +3930,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Present the modal with error handling
       try {
         await modal.present();
-        console.log('[v1.4.338] Modal presented successfully on attempt #' + this.pdfGenerationAttempts);
         
         // Dismiss loading after modal is presented
         // Add a small delay to ensure smooth transition
         setTimeout(async () => {
           try {
             if (loading) await loading.dismiss();
-            console.log('[v1.4.338] Loading dismissed after modal presentation');
           } catch (dismissError) {
-            console.log('[v1.4.338] Loading already dismissed');
           }
         }, 300);
         
@@ -4255,14 +3946,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         try {
           if (loading) await loading.dismiss();
         } catch (dismissError) {
-          console.log('[v1.4.338] Loading already dismissed');
         }
         throw modalError;
       }
       
       // Wait for modal to be dismissed before re-enabling button
       modal.onDidDismiss().then(() => {
-        console.log('[v1.4.338] PDF modal dismissed, re-enabling button');
         // Re-enable the PDF button
         const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
         if (pdfBtn) {
@@ -4275,8 +3964,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Reset the generation flag after modal is dismissed
         this.isPDFGenerating = false;
       });
-      
-      console.log('[v1.4.338] PDF generation completed successfully on attempt #' + this.pdfGenerationAttempts);
       
     } catch (error) {
       console.error('[v1.4.388] Error preparing preview:', error);
@@ -4316,7 +4003,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       try {
         if (loading) await loading.dismiss();
       } catch (e) {
-        console.log('[v1.4.388] Loading already dismissed');
       }
 
       // Show more detailed error message
@@ -4499,18 +4185,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Toggle item selection
   async toggleItemSelection(category: string, itemId: string) {
-    console.log('=====================================');
-    console.log('Ã°Å¸â€â€ž TOGGLE ITEM SELECTION CALLED');
-    console.log('=====================================');
-    console.log('   Category:', category);
-    console.log('   ItemID:', itemId);
     
     const key = `${category}_${itemId}`;
     const wasSelected = this.selectedItems[key];
-    
-    console.log('   Key:', key);
-    console.log('   Was Selected:', wasSelected);
-    console.log('   Will be Selected:', !wasSelected);
     
     // Set saving state
     this.savingItems[key] = true;
@@ -4521,8 +4198,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.categoryData[category] && this.categoryData[category][itemId]) {
       this.categoryData[category][itemId].selected = this.selectedItems[key];
     }
-    
-    console.log('Ã¢Å“â€¦ Item toggled:', key, 'New state:', this.selectedItems[key]);
     
     try {
       // Save or remove from Services_Visuals table
@@ -4821,7 +4496,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Handle multi-select change
   async onMultiSelectChangeDebug(category: string, item: any) {
-    console.log('Multi-select changed (DEBUG):', category, item.name, item.selectedOptions);
     
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
@@ -4874,15 +4548,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       if (item.selectedOptions && item.selectedOptions.length > 0) {
         if (existingVisualId) {
-          // Update existing record - only update the Answers field
-          console.log('Updating existing visual with new selections:', answersText);
           const updateData = {
             Answers: answersText
           };
           
           try {
             await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
-            console.log('Ã¢Å“â€¦ Updated Services_Visuals Answers field with selections');
             
             // Show success debug
             const successAlert = await this.alertController.create({
@@ -4912,8 +4583,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             throw updateError;
           }
         } else {
-          // Create new record with selections in Answers field
-          console.log('Creating new visual with selections:', answersText);
           
           // Store answers in item for saveVisualSelection to use
           item.answerToSave = answersText;
@@ -4967,7 +4636,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       } else {
         // If no options selected and record exists, clear the answers
         if (existingVisualId) {
-          console.log('Clearing selections from existing visual');
           const updateData = {
             Answers: ''
           };
@@ -5031,374 +4699,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
-  // Check if an option is selected for a multi-select item
-  isOptionSelectedV1_DUPLICATE(item: any, option: string): boolean {
-    if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
-      return false;
-    }
-    return item.selectedOptions.includes(option);
-  }
-  */
   
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393
-  // Handle toggling an option in multi-select
-  async onOptionToggle_DUPLICATE(category: string, item: any, option: string, event: any) {
-    // Initialize selectedOptions if not present
-    if (!item.selectedOptions) {
-      item.selectedOptions = [];
-    }
-    
-    if (event.detail.checked) {
-      // Add option if not already present
-      if (!item.selectedOptions.includes(option)) {
-        item.selectedOptions.push(option);
-      }
-    } else {
-      // Remove option
-      const index = item.selectedOptions.indexOf(option);
-      if (index > -1) {
-        item.selectedOptions.splice(index, 1);
-      }
-    }
-    
-    // Update the text field and save
-    await this.onMultiSelectChange(category, item);
-  }
-  */
   
-  /* DUPLICATE FUNCTION - COMMENTED OUT TO FIX TS2393  
-  // Save visual selection to Services_Visuals table
-  async saveVisualSelection_DUPLICATE(category: string, templateId: string) {
-    console.log('=====================================');
-    console.log('Ã°Å¸â€Â SAVING VISUAL TO SERVICES_VISUALS');
-    console.log('=====================================');
-    
-    if (!this.serviceId) {
-      console.error('Ã¢ÂÅ’ No ServiceID available for saving visual');
-      return;
-    }
-    
-    console.log('Ã°Å¸â€œâ€¹ Input Parameters:');
-    console.log('   Category:', category);
-    console.log('   TemplateID:', templateId);
-    
-    // Find the template data first
-    const template = this.visualTemplates.find(t => t.PK_ID === templateId);
-    if (!template) {
-      console.error('Ã¢ÂÅ’ Template not found:', templateId);
-      return;
-    }
-    
-    // Check if this visual already exists
-    const key = `${category}_${templateId}`;
-    if (this.visualRecordIds[key]) {
-      console.log('Ã¢Å¡Â Ã¯Â¸Â Visual already exists with ID:', this.visualRecordIds[key]);
-      console.log('   Skipping duplicate save');
-      return;
-    }
-    
-    // Also check if it exists in the database but wasn't loaded yet
-    try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      if (existingVisuals) {
-        const exists = existingVisuals.find((v: any) => 
-          v.Category === category && 
-          v.Name === template.Name
-        );
-        if (exists) {
-          console.log('Ã¢Å¡Â Ã¯Â¸Â Visual already exists in database:', exists);
-          // Store the ID for future reference - ALWAYS as string
-          const existingId = exists.VisualID || exists.PK_ID || exists.id;
-          this.visualRecordIds[key] = String(existingId);
-          console.log('   Stored existing ID:', this.visualRecordIds[key], 'Type:', typeof this.visualRecordIds[key]);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for existing visual:', error);
-    }
-    
-    console.log('Ã°Å¸â€œâ€ž Template Found:', template);
-    
-    // Convert ServiceID to number (Caspio expects Integer type)
-    const serviceIdNum = parseInt(this.serviceId, 10);
-    if (isNaN(serviceIdNum)) {
-      console.error('Ã¢ÂÅ’ Invalid ServiceID - not a number:', this.serviceId);
-      await this.showToast('Invalid Service ID', 'danger');
-      return;
-    }
-    
-    // Get the item data to access answerType and answers
-    let answers = '';
-    let textValue = template.Text || '';
-    
-    // Find the item in organizedData to get current values
-    const findItem = (items: any[]) => items.find(i => i.id === templateId);
-    let item = null;
-    
-    if (this.organizedData[category]) {
-      item = findItem(this.organizedData[category].comments) ||
-             findItem(this.organizedData[category].limitations) ||
-             findItem(this.organizedData[category].deficiencies);
-    }
-    
-    if (item) {
-      // Check if we have answerToSave (set by onAnswerChange or onMultiSelectChange)
-      if (item.answerToSave) {
-        answers = item.answerToSave;
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-        console.log('Ã°Å¸â€œÂ Using answerToSave:', answers);
-      }
-      // For AnswerType 1 (Yes/No), store the answer in Answers field
-      else if (item.answerType === 1 && item.answer) {
-        answers = item.answer; // Will be 'Yes' or 'No'
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-      }
-      // For AnswerType 2 (multi-select), store comma-delimited answers
-      else if (item.answerType === 2 && item.selectedOptions && item.selectedOptions.length > 0) {
-        answers = item.selectedOptions.join(', ');
-        textValue = item.originalText || template.Text || ''; // Keep original text in Text field
-      }
-      // For AnswerType 0 or undefined (text), use the text field as is
-      else {
-        textValue = item.text || template.Text || '';
-      }
-    }
-    
-    // ONLY include the columns that exist in Services_Visuals table
-    const visualData: ServicesVisualRecord = {
-      ServiceID: serviceIdNum,  // Integer type in Caspio
-      Category: category || '',   // Text(255) in Caspio
-      Kind: template.Kind || '',  // Text(255) in Caspio - was Type, now Kind
-      Name: template.Name || '',  // Text(255) in Caspio
-      Text: textValue,   // Text field in Caspio - the full text content
-      Notes: ''                    // Text(255) in Caspio - empty for now
-    };
-    
-    // Add Answers field if there are answers to store
-    if (answers) {
-      visualData.Answers = answers;
-    }
-    
-    
-    try {
-      console.log('Ã¢ÂÂ³ Calling caspioService.createServicesVisual...');
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-      console.log('Ã¢Å“â€¦ Visual saved to Services_Visuals:', response);
-      console.log('Ã¢Å“â€¦ Response details:', JSON.stringify(response, null, 2));
-      
-      // Skip debug popup for faster performance
-      // await this.showVisualCreationDebug(category, templateId, response);
-      
-      // Check if response exists (even if empty, it might mean success)
-      // Caspio sometimes returns empty response on successful POST
-      if (response === undefined || response === null || response === '') {
-        console.log('Ã¢Å¡Â Ã¯Â¸Â Empty response received - treating as success (common with Caspio)');
-        // Generate a temporary ID for tracking
-        const tempId = `temp_${Date.now()}`;
-        const recordKey = `visual_${category}_${templateId}`;
-        localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
-        
-        // Query the table to get the actual VisualID
-        setTimeout(async () => {
-          await this.refreshVisualId(category, templateId);
-        }, 1000);
-        
-        console.log('Ã¢Å“â€¦ Visual appears to be saved (will verify)');
-        return; // Exit successfully
-      }
-      
-      // Store the record ID for potential deletion later
-      // Response should have the created record
-      let visualId: any;
-      
-      // If response is an array, get the first item
-      // IMPORTANT: Use VisualID, not PK_ID for Services_Visuals table
-      if (Array.isArray(response) && response.length > 0) {
-        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
-        console.log('Ã°Å¸â€œâ€¹ Response was array, extracted ID from first item:', visualId);
-        console.log('   - VisualID:', response[0].VisualID, '(preferred)');
-        console.log('   - PK_ID:', response[0].PK_ID, '(not used if VisualID exists)');
-      } else if (response && typeof response === 'object') {
-        // If response has Result array (Caspio pattern)
-        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
-          console.log('Ã°Å¸â€œâ€¹ Response had Result array, extracted ID:', visualId);
-          console.log('   - VisualID:', response.Result[0].VisualID, '(preferred)');
-          console.log('   - PK_ID:', response.Result[0].PK_ID, '(not used if VisualID exists)');
-        } else {
-          // Direct object response
-          visualId = response.VisualID || response.PK_ID || response.id;
-          console.log('Ã°Å¸â€œâ€¹ Response was object, extracted ID:', visualId);
-          console.log('   - VisualID:', response.VisualID, '(preferred)');
-          console.log('   - PK_ID:', response.PK_ID, '(not used if VisualID exists)');
-        }
-      } else {
-        // Response might be the ID itself
-        visualId = response;
-        console.log('Ã°Å¸â€œâ€¹ Response was ID directly:', visualId);
-      }
-      
-      console.log('Ã°Å¸â€Â Full response object:', JSON.stringify(response, null, 2));
-      console.log('Ã°Å¸â€Â Extracted VisualID:', visualId);
-      
-      const recordKey = `visual_${category}_${templateId}`;
-      localStorage.setItem(recordKey, String(visualId));
-      
-      // Store in our tracking object for photo uploads
-      this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
-      console.log('Ã°Å¸â€œÅ’ Visual Record ID stored:', visualId, 'for key:', `${category}_${templateId}`);
-      
-    } catch (error: any) {
-      console.error('Ã¢Å¡Â Ã¯Â¸Â Error during save (checking if actually failed):', error);
-      console.error('=====================================');
-      console.error('ERROR DETAILS:');
-      console.error('   Status:', error?.status);
-      console.error('   Status Text:', error?.statusText);
-      console.error('   Message:', error?.message);
-      console.error('   Error Body:', error?.error);
-      console.error('=====================================');
-      
-      // Show debug alert for the error
-      const errorAlert = await this.alertController.create({
-        header: 'Visual Save Error',
-        message: `
-          <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">Ã¢ÂÅ’ FAILED TO SAVE VISUAL</strong><br><br>
-            
-            <strong>Data Sent:</strong><br>
-            Ã¢â‚¬Â¢ ServiceID: ${visualData.ServiceID}<br>
-            Ã¢â‚¬Â¢ Category: ${visualData.Category}<br>
-            Ã¢â‚¬Â¢ Kind: ${visualData.Kind}<br>
-            Ã¢â‚¬Â¢ Name: ${visualData.Name}<br>
-            Ã¢â‚¬Â¢ Text: ${visualData.Text?.substring(0, 50)}...<br>
-            Ã¢â‚¬Â¢ Notes: ${visualData.Notes}<br><br>
-            
-            <strong>Error Details:</strong><br>
-            Ã¢â‚¬Â¢ Status: ${error?.status || 'No status'}<br>
-            Ã¢â‚¬Â¢ Status Text: ${error?.statusText || 'Unknown'}<br>
-            Ã¢â‚¬Â¢ Message: ${error?.message || 'No message'}<br><br>
-            
-            <strong>Error Body:</strong><br>
-            <div style="background: #ffe0e0; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
-              ${JSON.stringify(error?.error || error, null, 2).replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}
-            </div>
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await errorAlert.present();
-      
-      // Check if it's a real error or just a response parsing issue
-      // Status 200-299 means success even if response parsing failed
-      if (error?.status >= 200 && error?.status < 300) {
-        console.log('Ã¢Å“â€¦ Request was successful (status 2xx) - ignoring response parsing error');
-        // Treat as success
-        const tempId = `temp_${Date.now()}`;
-        const recordKey = `visual_${category}_${templateId}`;
-        localStorage.setItem(recordKey, tempId);
-        this.visualRecordIds[`${category}_${templateId}`] = String(tempId);
-        
-        // Try to get the real ID
-        setTimeout(async () => {
-          await this.refreshVisualId(category, templateId);
-        }, 1000);
-        
-        // Success toast removed per user request
-        return; // Keep the checkbox selected
-      }
-      
-      // Check for specific error types
-      if (error?.status === 400) {
-        console.error('Ã¢Å¡Â Ã¯Â¸Â 400 Bad Request - Check column names and data types');
-        console.error('Expected columns: ServiceID (Integer), Category (Text), Kind (Text), Name (Text), Notes (Text)');
-      } else if (!error?.status) {
-        console.log('Ã¢Å¡Â Ã¯Â¸Â No status code - might be a response parsing issue, checking table...');
-        // Try to verify if it was actually saved
-        setTimeout(async () => {
-          const saved = await this.verifyVisualSaved(category, templateId);
-          if (saved) {
-            console.log('Ã¢Å“â€¦ Verified: Visual was actually saved');
-            // Success toast removed per user request
-          } else {
-            console.error('Ã¢ÂÅ’ Verified: Visual was NOT saved');
-            // Only now revert the selection
-            const key = `${category}_${templateId}`;
-            this.selectedItems[key] = false;
-            if (this.categoryData[category] && this.categoryData[category][templateId]) {
-              this.categoryData[category][templateId].selected = false;
-            }
-          }
-        }, 1000);
-        return; // Don't revert immediately
-      }
-      
-      await this.showToast('Failed to save selection', 'danger');
-      
-      // Only revert if we're sure it failed
-      if (error?.status >= 400) {
-        const key = `${category}_${templateId}`;
-        this.selectedItems[key] = false;
-        if (this.categoryData[category] && this.categoryData[category][templateId]) {
-          this.categoryData[category][templateId].selected = false;
-        }
-      }
-    }
-  }
-  */
   
-  /* DUPLICATE FUNCTIONS - COMMENTED OUT TO FIX TS2393
-  // Remove visual selection from Services_Visuals table
-  async removeVisualSelection_DUPLICATE(category: string, templateId: string) {
-    // Check if we have a stored record ID
-    const recordKey = `visual_${category}_${templateId}`;
-    const recordId = localStorage.getItem(recordKey);
-    
-    if (recordId) {
-      try {
-        await this.caspioService.deleteServicesVisual(recordId).toPromise();
-        console.log('Ã¢Å“â€¦ Visual removed from Services_Visuals');
-        localStorage.removeItem(recordKey);
-      } catch (error) {
-        console.error('Ã¢ÂÅ’ Failed to remove visual:', error);
-        // Don't show error toast for deletion failures
-      }
-    }
-  }
   
-  // Check if item is selected
-  isItemSelected_DUPLICATE(category: string, itemId: string): boolean {
-    return this.selectedItems[`${category}_${itemId}`] || false;
-  }
-
-  // Helper methods for PDF generation - check selection by visual ID
-  isCommentSelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this comment visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  isLimitationSelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this limitation visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  isDeficiencySelected_DUPLICATE(category: string, visualId: string): boolean {
-    // Check if this deficiency visual is selected using the same format as toggleItemSelection
-    const key = `${category}_${visualId}`;
-    return this.selectedItems[key] || false;
-  }
-
-  // Get photo count for a visual ID
-  getVisualPhotoCount_DUPLICATE(visualId: string): number {
-    // Find photos associated with this visual ID
-    const photos = this.visualPhotos[visualId] || [];
-    return photos.length;
-  }
-  */
+  
+  
+  
   
   // Check if item is being saved
   isItemSaving(category: string, itemId: string): boolean {
@@ -5597,7 +4904,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // Removed uploading in background toast per user request
     
     try {
-      console.log(`Ã°Å¸â€œÂ¸ ${files.length} file(s) selected`);
       
       // Get or create visual ID
       const key = `${category}_${itemId}`;
@@ -5675,7 +4981,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const uploadPromises = processedFiles.map((processedFile, index) => 
           this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile)
             .then(() => {
-              console.log(`Ã¢Å“â€¦ File ${index + 1} uploaded successfully`);
               return { success: true, error: null };
             })
             .catch((error) => {
@@ -5738,7 +5043,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Select document
   private async selectDocument(visualId: string, key: string) {
     try {
-      console.log('Ã°Å¸â€œâ€ž Opening document picker for visual:', visualId);
       
       const input = document.createElement('input');
       input.type = 'file';
@@ -5755,7 +5059,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       const file = await fileSelected;
       if (file) {
-        console.log('Ã°Å¸â€œâ€ž Document selected:', file.name);
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
@@ -5835,11 +5138,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         hasAnnotations: false,
         annotations: null
       };
-      
-      // [v1.4.387] ONLY add to key-based storage
-      console.log(`[v1.4.387] Adding uploaded photo to KEY: ${key}`);
-      console.log(`  Filename: ${photo.name}`);
-      console.log(`  TempID: ${tempId}`);
       this.visualPhotos[key].push(photoData);
     }
     
@@ -5986,14 +5284,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
-      // CRITICAL DEBUG: Log what we're actually uploading
-      console.log('Ã°Å¸â€Â CRITICAL: Photo upload parameters:');
-      console.log('  originalPhoto exists:', !!originalPhoto);
-      console.log('  originalPhoto name:', originalPhoto?.name || 'N/A');
-      console.log('  photo name:', photo.name);
-      console.log('  has annotationData:', !!annotationData);
-      console.log('  UPLOADING:', originalPhoto ? originalPhoto.name : photo.name);
-      
       // Using EXACT same approach as working Required Documents upload
       let response;
       try {
@@ -6004,8 +5294,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           drawingsData, // Pass the annotation JSON to Drawings field
           originalPhoto || undefined // Pass original photo if we have annotations
         ).toPromise();
-        
-        console.log('Ã¢Å“â€¦ Photo uploaded successfully:', response);
       } catch (uploadError: any) {
         console.error('Ã¢ÂÅ’ Upload failed:', uploadError);
         
@@ -6079,11 +5367,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
         if (filePath) {
           try {
-            console.log(`[v1.4.388] Loading uploaded image from API: ${filePath}`);
             const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
             if (imageData && imageData.startsWith('data:')) {
-              imageUrl = imageData; // Use base64 data URL
-              console.log(`[v1.4.388] Successfully loaded uploaded image, length: ${imageData.length}`);
+              imageUrl = imageData;
             }
           } catch (err) {
             console.error(`[v1.4.388] Failed to load uploaded image, keeping blob URL:`, err);
@@ -6104,11 +5390,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           uploading: false // Remove uploading flag
         };
 
-        console.log(`[v1.4.388] Updated photo in KEY storage: ${key}`);
-        console.log(`  AttachID: ${keyPhotos[tempPhotoIndex].AttachID}`);
-        console.log(`  Photo path: ${keyPhotos[tempPhotoIndex].Photo}`);
-        console.log(`  Uploading flag removed: ${!keyPhotos[tempPhotoIndex].uploading}`);
-
         // Also update in visualId-based storage for backward compatibility
         const actualVisualId = String(this.visualRecordIds[key]);
         if (actualVisualId && actualVisualId !== 'undefined') {
@@ -6123,7 +5404,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           } else {
             visualIdPhotos.push(keyPhotos[tempPhotoIndex]);
           }
-          console.log(`[v1.4.388] Also updated in visualId storage: ${actualVisualId}`);
         }
       } else {
         console.error(`[v1.4.388] ERROR: Could not find temp photo to update in key storage: ${key}`);
@@ -6145,7 +5425,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
         if (tempPhotoIndex !== -1) {
           keyPhotos.splice(tempPhotoIndex, 1);
-          console.log(`[v1.4.388] Removed failed photo from key storage: ${key}`);
         }
       }
 
@@ -6196,14 +5475,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     
     // [v1.4.387] ONLY use key-based storage for consistency
     const photos = this.visualPhotos[key] || [];
-    
-    // Debug logging
-    console.log(`[v1.4.387] getPhotosForVisual:`);
-    console.log(`  Key: ${key}`);
-    console.log(`  Photos found: ${photos.length}`);
     if (photos.length > 0) {
       photos.forEach((photo: any, index: number) => {
-        console.log(`  Photo ${index + 1}: ${photo.Photo || photo.filePath || 'unknown'}, AttachID: ${photo.AttachID || photo.id}`);
       });
     }
     
@@ -6212,26 +5485,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Handle image loading errors
   handleImageError(event: any, photo: any) {
-    console.log('Ã¢Å¡Â Ã¯Â¸Â [v1.4.303] Image failed to load:', {
-      name: photo.name,
-      filePath: photo.filePath,
-      displayUrl: photo.displayUrl?.substring?.(0, 50),
-      thumbnailUrl: photo.thumbnailUrl?.substring?.(0, 50),
-      url: photo.url?.substring?.(0, 50),
-      hasAnnotations: photo.hasAnnotations,
-      attemptedSrc: (event.target as HTMLImageElement).src?.substring?.(0, 50)
-    });
     
     // If this is a blob URL that expired, try to use the original URL
     if (photo.url && photo.url.startsWith('data:')) {
-      console.log('Ã°Å¸â€â€ž [v1.4.303] Attempting to use original base64 URL');
       const target = event.target as HTMLImageElement;
       target.src = photo.url;
       return;
     }
-    
-    // Otherwise use SVG fallback
-    console.log('Ã°Å¸Å½Â¨ [v1.4.303] Using SVG fallback');
     const target = event.target as HTMLImageElement;
     target.src = 'data:image/svg+xml;base64,' + btoa(`
       <svg width="150" height="100" xmlns="http://www.w3.org/2000/svg">
@@ -6321,7 +5581,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       try {
         // Create the visual record
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-        console.log('Ã¢Å“â€¦ Custom visual created:', response);
         
         // Use VisualID from response
         const visualId = response?.VisualID || response?.PK_ID;
@@ -6450,7 +5709,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       try {
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-        console.log('Ã¢Å“â€¦ Custom visual created:', response);
         
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
@@ -6514,12 +5772,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Store the visual ID for photo uploads - use VisualID from response!
         const key = `${category}_${customItem.id}`;
         this.visualRecordIds[key] = String(response?.VisualID || response?.PK_ID || customItem.id);
-        console.log('Ã°Å¸â€œÅ’ Stored VisualID for photos:', {
-          key: key,
-          visualId: this.visualRecordIds[key],
-          responseVisualID: response?.VisualID,
-          responsePK_ID: response?.PK_ID
-        });
         
         // Mark as selected (use selectedItems, not selectedVisuals)
         this.selectedItems[key] = true;
@@ -6550,20 +5802,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Update existing photo attachment with optional annotations
   async updatePhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
     try {
-      console.log('Ã°Å¸â€Â [v1.4.340] updatePhotoAttachment called with:');
-      console.log('  attachId:', attachId);
-      console.log('  attachId type:', typeof attachId);
-      console.log('  attachId value check:', {
-        isUndefined: attachId === undefined,
-        isNull: attachId === null,
-        isUndefinedString: attachId === 'undefined',
-        isNullString: attachId === 'null',
-        isEmpty: !attachId,
-        actualValue: attachId
-      });
-      console.log('  file:', file.name);
-      console.log('  annotations:', annotations);
-      console.log('  has originalFile:', !!originalFile);
       
       // CRITICAL: Check if attachId is valid
       if (!attachId || attachId === 'undefined' || attachId === 'null') {
@@ -6629,26 +5867,12 @@ Has Annotations: ${!!annotations}`;
       
       // Update the attachment record - ONLY update Drawings field, NOT Photo field
       const updateData: any = {};
-      
-      // v1.4.351 DEBUG: Log EVERYTHING about what we're saving
-      console.log('Ã°Å¸â€â€ž [v1.4.351] UPDATE PHOTO ATTACHMENT - DEBUG MODE');
-      console.log('  AttachID:', attachId);
-      console.log('  Received annotations type:', typeof annotations);
       if (annotations && typeof annotations === 'object') {
         if ('objects' in annotations) {
-          console.log('  Ã°Å¸Å½Â¨ Fabric.js canvas object detected');
-          console.log('  Total objects:', annotations.objects?.length || 0);
-          console.log('  Object types:', annotations.objects?.map((o: any) => o.type).join(', '));
         } else if (Array.isArray(annotations)) {
-          console.log('  Ã°Å¸â€œÂ¦ Array of annotations detected');
-          console.log('  Array length:', annotations.length);
         } else {
-          console.log('  Ã¢Ââ€œ Unknown object format');
-          console.log('  Keys:', Object.keys(annotations).join(', '));
         }
       } else if (typeof annotations === 'string') {
-        console.log('  Ã°Å¸â€œÂ String annotations, length:', annotations.length);
-        console.log('  First 200 chars:', annotations.substring(0, 200));
       }
       
       // Add annotations to Drawings field if provided
@@ -6657,29 +5881,19 @@ Has Annotations: ${!!annotations}`;
         // Handle blob URLs and ensure proper JSON formatting
         let drawingsData = '';
         
-        console.log('Ã°Å¸â€Â [v1.4.341] Processing annotations for Drawings field:');
-        console.log('  Input type:', typeof annotations);
-        console.log('  Input preview:', typeof annotations === 'string' ? annotations.substring(0, 200) : annotations);
-        
         // v1.4.351 DEBUG: Log EXACTLY what we're receiving
         // Fabric.js returns an object with 'objects' and 'version' properties
         if (annotations && typeof annotations === 'object' && 'objects' in annotations) {
-          console.log('  Ã°Å¸â€œÂ [v1.4.351] DEBUG - Received Fabric.js object:');
-          console.log('    Total objects:', annotations.objects?.length || 0);
-          console.log('    Object types:', annotations.objects?.map((o: any) => o.type).join(', '));
-          console.log('    First 3 objects:', JSON.stringify(annotations.objects?.slice(0, 3), null, 2));
           
           // This is a Fabric.js canvas export - stringify it DIRECTLY
           // The toJSON() method from Fabric.js already returns the COMPLETE canvas state
           try {
             // v1.4.351: The annotations from canvas.toJSON() are the COMPLETE state
             drawingsData = JSON.stringify(annotations);
-            console.log('  Ã¢Å“â€¦ [v1.4.351] Stringified complete canvas state:', drawingsData.length, 'bytes');
             
             // v1.4.342: Validate the JSON is parseable
             try {
               const testParse = JSON.parse(drawingsData);
-              console.log('  Ã¢Å“â€¦ Validated JSON is parseable, objects:', testParse.objects?.length || 0);
             } catch (e) {
               console.error('  Ã¢Å¡Â Ã¯Â¸Â Warning: JSON validation failed, but continuing');
             }
@@ -6689,33 +5903,26 @@ Has Annotations: ${!!annotations}`;
             drawingsData = JSON.stringify({ objects: [], version: annotations.version || '5.3.0' });
           }
         } else if (annotations === null || annotations === undefined) {
-          // Skip null/undefined - DON'T send empty string
-          console.log('  Ã¢â€ â€™ Null/undefined, skipping Drawings field');
           // Don't set drawingsData at all - let it remain undefined
         } else if (typeof annotations === 'string') {
           // Already a string - validate and clean it
           drawingsData = annotations;
-          console.log('  Ã¢â€ â€™ Already a string, length:', drawingsData.length);
           
           // Check if it contains blob URLs and if it's valid JSON
           try {
             if (drawingsData.startsWith('{') || drawingsData.startsWith('[')) {
               const parsed = JSON.parse(drawingsData);
-              console.log('  Ã¢Å“â€œ Valid JSON string');
               
               // Check for blob URLs in backgroundImage
               if (parsed.backgroundImage?.src?.startsWith('blob:')) {
-                console.log('  Ã¢Å¡Â Ã¯Â¸Â Contains blob URL in backgroundImage, keeping as-is');
                 // Note: blob URLs become invalid after reload, but we still save them
                 // The annotation system should handle missing background images gracefully
               }
               
               // Re-stringify to ensure consistent formatting
               drawingsData = JSON.stringify(parsed);
-              console.log('  Ã¢Å“â€œ Re-stringified for consistency');
             }
           } catch (e) {
-            console.log('  Ã¢Å¡Â Ã¯Â¸Â Not valid JSON or parse error:', e);
             // Keep the string as-is if it's not JSON
           }
         } else if (typeof annotations === 'object') {
@@ -6723,13 +5930,11 @@ Has Annotations: ${!!annotations}`;
           try {
             // Check for blob URLs before stringifying
             if (annotations.backgroundImage?.src?.startsWith('blob:')) {
-              console.log('  Ã¢Å¡Â Ã¯Â¸Â Object contains blob URL in backgroundImage');
             }
             
             // CRITICAL FIX v1.4.336: Special handling for array of annotation objects
             // When reloading, annotations come back as an array of objects
             if (Array.isArray(annotations)) {
-              console.log('  Ã°Å¸â€œâ€¹ Annotations is an array with', annotations.length, 'items');
               
               // Clean each annotation object
               const cleanedAnnotations = annotations.map(ann => {
@@ -6749,7 +5954,6 @@ Has Annotations: ${!!annotations}`;
               });
               
               drawingsData = JSON.stringify(cleanedAnnotations);
-              console.log('  Ã¢Å“â€¦ Cleaned and stringified array of annotations');
             } else {
               // Single object - use replacer to handle circular refs
               drawingsData = JSON.stringify(annotations, (key, value) => {
@@ -6771,10 +5975,7 @@ Has Annotations: ${!!annotations}`;
                 }
                 return value;
               });
-              console.log('  Ã¢â€ â€™ Stringified object with replacer');
             }
-            
-            console.log('  Result length:', drawingsData.length);
           } catch (e) {
             console.error('  Ã¢ÂÅ’ Failed to stringify:', e);
             // Try to create a simple representation
@@ -6787,7 +5988,6 @@ Has Annotations: ${!!annotations}`;
         } else {
           // Other type - convert to string
           drawingsData = String(annotations);
-          console.log('  Ã¢â€ â€™ Converted to string from type:', typeof annotations);
         }
         
         // CRITICAL: Final validation before adding to updateData
@@ -6804,10 +6004,6 @@ Has Annotations: ${!!annotations}`;
           // v1.4.346 FIX: Compress data if it's too large - THIS IS THE COMPLETE DATA
           try {
             const parsed = JSON.parse(drawingsData);
-            console.log('  [v1.4.351] DEBUG - Before compression:');
-          console.log('    Object count:', parsed.objects?.length || 0);
-          console.log('    Object types:', parsed.objects?.map((o: any) => o.type).join(', '));
-          console.log('    Data size:', drawingsData.length, 'bytes');
             
             // Re-stringify to ensure clean JSON format
             drawingsData = JSON.stringify(parsed, (key, value) => {
@@ -6821,13 +6017,10 @@ Has Annotations: ${!!annotations}`;
             drawingsData = compressed || drawingsData;
             
             if (originalSize !== drawingsData.length) {
-              console.log('  [v1.4.351] Compressed from', originalSize, 'to', drawingsData.length, 'bytes');
               
               // DEBUG: Show what's in the compressed data
               try {
                 const compressedParsed = decompressAnnotationData(drawingsData);
-                console.log('  [v1.4.351] After compression has:', compressedParsed?.objects?.length || 0, 'objects');
-                console.log('  [v1.4.351] Compressed object types:', compressedParsed?.objects?.map((o: any) => o.type).join(', '));
               } catch (e) {
                 console.error('  [v1.4.351] Could not parse compressed data for debug');
               }
@@ -6868,7 +6061,6 @@ Has Annotations: ${!!annotations}`;
           }
           
           if (originalLength !== drawingsData.length) {
-            console.log('  Ã¢Å¡Â Ã¯Â¸Â Cleaned', originalLength - drawingsData.length, 'characters during final validation');
           }
           
           // CRITICAL: Ensure it's definitely a string
@@ -6881,18 +6073,9 @@ Has Annotations: ${!!annotations}`;
           
             // Set the Drawings field
           updateData.Drawings = drawingsData;
-          
-          console.log('Ã°Å¸â€™Â¾ [v1.4.315] Final Drawings field data:');
-          console.log('  Type:', typeof updateData.Drawings);
-          console.log('  Length:', updateData.Drawings.length);
-          console.log('  Is string:', typeof updateData.Drawings === 'string');
-          console.log('  First 150 chars:', updateData.Drawings.substring(0, 150));
-          console.log('  Last 50 chars:', updateData.Drawings.substring(Math.max(0, updateData.Drawings.length - 50)));
         } else {
-          console.log('  Ã¢Å¡Â Ã¯Â¸Â No valid data, skipping Drawings field');
         }
       } else {
-        console.log('Ã¢â€žÂ¹Ã¯Â¸Â [v1.4.315] No annotations provided, not updating Drawings field');
       }
       
       // v1.4.351: Enhanced debug popup to show annotation details
@@ -6962,7 +6145,6 @@ Original File: ${originalFile?.name || 'None'}`;
             text: 'Cancel Update',
             role: 'cancel',
             handler: () => {
-              console.log('Update cancelled by user');
               throw new Error('Update cancelled by user');
             }
           },
@@ -6986,8 +6168,6 @@ Original File: ${originalFile?.name || 'None'}`;
       // CRITICAL: Check if we have any data to update
       if (Object.keys(updateData).length === 0) {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â No data to update - updateData is empty');
-        // If there's no data to update, just return success
-        console.log('Ã¢Å“â€¦ No changes needed, skipping update');
         // Toast removed - silent return
         return;
       }
@@ -7002,7 +6182,6 @@ Original File: ${originalFile?.name || 'None'}`;
           // Convert to string as last resort
           try {
             updateData.Drawings = JSON.stringify(updateData.Drawings);
-            console.log('  Converted to string');
           } catch (e) {
             console.error('  Failed to convert:', e);
             delete updateData.Drawings; // Remove the field if we can't convert it
@@ -7016,29 +6195,15 @@ Original File: ${originalFile?.name || 'None'}`;
         }
       }
       
-      // FINAL DATA VALIDATION before sending
-      console.log('Ã°Å¸â€Â FINAL UPDATE DATA CHECK:');
-      console.log('  updateData:', updateData);
-      console.log('  updateData type:', typeof updateData);
-      console.log('  Keys:', Object.keys(updateData));
-      
       // Check each field in updateData
       for (const key in updateData) {
         const value = updateData[key];
-        console.log(`  Field "${key}":`, {
-          value: value,
-          type: typeof value,
-          isString: typeof value === 'string',
-          length: value?.length,
-          preview: typeof value === 'string' ? value.substring(0, 100) : 'NOT A STRING'
-        });
         
         // CRITICAL: Ensure all values are strings for Caspio TEXT fields
         if (typeof value !== 'string' && value !== null && value !== undefined) {
           console.error(`Ã¢ÂÅ’ Field "${key}" is not a string! Type: ${typeof value}`);
           // Convert to string if possible
           updateData[key] = String(value);
-          console.log(`  Converted to string: "${updateData[key]}"`);
         }
       }
       
@@ -7180,7 +6345,6 @@ Original File: ${originalFile?.name || 'None'}`;
             if (photoIndex !== -1) {
               // Update rawDrawingsString with what we just saved
               photos[photoIndex].rawDrawingsString = updateData.Drawings;
-              console.log('Ã¢Å“â€¦ Updated local rawDrawingsString to match database');
               break;
             }
           }
@@ -7305,13 +6469,6 @@ Stack: ${error?.stack}`;
   // Quick annotate - open annotator directly
   async quickAnnotate(photo: any, category: string, itemId: string) {
     try {
-      // DEBUG: Show what data we have for this photo
-      console.log('Ã°Å¸â€Â quickAnnotate called with photo:', photo);
-      console.log('  Photo object keys:', Object.keys(photo));
-      console.log('  AttachID:', photo.AttachID);
-      console.log('  id:', photo.id);
-      console.log('  PK_ID:', photo.PK_ID);
-      console.log('  Has annotations:', !!photo.annotations);
       
       // Show debug popup with photo data
       const photoDebugAlert = await this.alertController.create({
@@ -7385,7 +6542,6 @@ Stack: ${error?.stack}`;
       for (const source of annotationSources) {
         if (source) {
           try {
-            console.log('[v1.4.345] Attempting to parse annotations from source:', typeof source);
             if (typeof source === 'string') {
               // Use decompression helper to handle compressed data
               existingAnnotations = decompressAnnotationData(source);
@@ -7394,14 +6550,9 @@ Stack: ${error?.stack}`;
             }
             
             if (existingAnnotations) {
-              console.log('[v1.4.345] Successfully parsed annotations:', {
-                hasObjects: !!existingAnnotations.objects,
-                objectCount: existingAnnotations.objects?.length || 0
-              });
               break; // Found valid annotations, stop searching
             }
           } catch (e) {
-            console.log('Failed to parse annotations from this source:', e);
           }
         }
       }
@@ -7444,12 +6595,6 @@ Stack: ${error?.stack}`;
           
           if (photo.AttachID || photo.id) {
             try {
-              // DEBUG: Log what we're about to update
-              console.log('Ã°Å¸â€Â About to update photo attachment:');
-              console.log('  photo object:', photo);
-              console.log('  photo.AttachID:', photo.AttachID);
-              console.log('  photo.id:', photo.id);
-              console.log('  Using ID:', photo.AttachID || photo.id);
               
               // Get the original file if provided
               let originalFile = null;
@@ -7464,13 +6609,6 @@ Stack: ${error?.stack}`;
               if (!attachIdToUse || attachIdToUse === 'undefined' || attachIdToUse === 'null') {
                 throw new Error(`Invalid AttachID: ${attachIdToUse} (AttachID: ${photo.AttachID}, id: ${photo.id})`);
               }
-              
-              // DEBUG: Check annotation data type before passing
-              console.log('Ã°Å¸â€œÅ  Annotation payload before updatePhotoAttachment:', {
-                hasPayload: !!annotationsData,
-                payloadType: typeof annotationsData,
-                compressedLength: compressedAnnotations ? compressedAnnotations.length : 0
-              });
               
               // Update the existing attachment with annotations
               await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile);
@@ -7541,13 +6679,6 @@ Stack: ${error?.stack}`;
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
-      console.log('Ã°Å¸â€˜ÂÃ¯Â¸Â [v1.4.340] Viewing photo:', {
-        name: photo.name,
-        hasAttachID: !!photo.AttachID,
-        AttachID: photo.AttachID,
-        hasAnnotations: photo.hasAnnotations,
-        hasOriginalUrl: !!photo.originalUrl
-      });
       
       // v1.4.340: Validate AttachID before proceeding
       if (!photo.AttachID && !photo.id) {
@@ -7577,7 +6708,6 @@ Stack: ${error?.stack}`;
       for (const source of annotationSources) {
         if (source) {
           try {
-            console.log('[v1.4.345] Parsing annotations in viewPhoto:', typeof source);
             if (typeof source === 'string') {
               existingAnnotations = decompressAnnotationData(source);
             } else {
@@ -7585,11 +6715,9 @@ Stack: ${error?.stack}`;
             }
             
             if (existingAnnotations) {
-              console.log('[v1.4.345] Found valid annotations in viewPhoto');
               break;
             }
           } catch (e) {
-            console.log('Failed to parse in viewPhoto:', e);
           }
         }
       }
@@ -7625,19 +6753,8 @@ Stack: ${error?.stack}`;
         // The modal returns a Fabric.js JSON object from canvas.toJSON()
         let annotationsData = data.annotationData || data.annotationsData;
         
-        // v1.4.342: IMPORTANT - The modal returns a Fabric.js JSON object, NOT a string
-        // We need to stringify it before saving to Caspio
-        console.log('Ã°Å¸â€œÂ [v1.4.342] Annotation data received from modal:', {
-          type: typeof annotationsData,
-          hasObjects: annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData,
-          objectCount: annotationsData?.objects?.length || 0,
-          isString: typeof annotationsData === 'string',
-          isArray: Array.isArray(annotationsData)
-        });
-        
         // v1.4.342: Convert to string if it's an object (which it should be)
         if (annotationsData && typeof annotationsData === 'object') {
-          console.log('Ã°Å¸â€œâ€¹ [v1.4.342] Converting Fabric.js object to string for storage');
           // The updatePhotoAttachment will handle the stringification properly
           // Just pass the object as-is
         }
@@ -7693,14 +6810,7 @@ Stack: ${error?.stack}`;
                 } else {
                   this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
                 }
-                console.log('Ã¢Å“â€¦ Updated rawDrawingsString for future re-edits');
               }
-              
-              console.log(`Ã°Å¸â€œÂ¸ [v1.4.303] Photo URLs after annotation:`);
-              console.log(`  Original URL preserved:`, this.visualPhotos[visualId][photoIndex].originalUrl || this.visualPhotos[visualId][photoIndex].url);
-              console.log(`  Display URL (annotated blob):`, this.visualPhotos[visualId][photoIndex].displayUrl?.substring?.(0, 50));
-              console.log(`  Thumbnail URL:`, this.visualPhotos[visualId][photoIndex].thumbnailUrl?.substring?.(0, 50));
-              console.log(`  Base URL (should be base64):`, this.visualPhotos[visualId][photoIndex].url?.substring?.(0, 50));
             }
             
             // Success toast removed per user request
@@ -7745,11 +6855,6 @@ Stack: ${error?.stack}`;
                   const attachId = photo.AttachID || photo.id;
                   const key = `${category}_${itemId}`;
                   
-                  console.log(`[v1.4.387] Deleting photo:`);
-                  console.log(`  AttachID: ${attachId}`);
-                  console.log(`  Key: ${key}`);
-                  console.log(`  Photos before delete: ${this.visualPhotos[key]?.length || 0}`);
-                  
                   // Delete from database
                   await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
                   
@@ -7758,7 +6863,6 @@ Stack: ${error?.stack}`;
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => (p.AttachID || p.id) !== attachId
                     );
-                    console.log(`  Photos after delete: ${this.visualPhotos[key].length}`);
                   }
                   
                   // Force UI update
@@ -7829,7 +6933,6 @@ Stack: ${error?.stack}`;
   // Verify if visual was actually saved - v1.4.225 - FORCE REBUILD
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
-      console.log('[v1.4.225] Verifying if visual was saved - REBUILD FORCED...');
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
@@ -7840,13 +6943,11 @@ Stack: ${error?.stack}`;
         );
         
         if (found) {
-          console.log('Ã¢Å“â€¦ Visual found in table - it was saved!');
           // Also refresh the ID
           await this.refreshVisualId(category, templateId);
           return true;
         }
       }
-      console.log('Ã¢ÂÅ’ Visual not found in table');
       return false;
     } catch (error) {
       console.error('Error verifying visual:', error);
@@ -7952,15 +7053,11 @@ Stack: ${error?.stack}`;
   // Refresh visual ID after save
   async refreshVisualId(category: string, templateId: string) {
     try {
-      console.log('Ã°Å¸â€â€ž Refreshing Visual ID for:', category, templateId);
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
-      
-      console.log('Ã°Å¸â€œâ€¹ Retrieved visuals from database:', visuals);
       
       if (visuals && Array.isArray(visuals)) {
         // Find the visual we just created
         const templateName = this.categoryData[category]?.[templateId]?.name;
-        console.log('Ã°Å¸â€Â Looking for visual with Category:', category, 'and Name:', templateName);
         
         const ourVisual = visuals.find(v => 
           v.Category === category && 
@@ -7968,15 +7065,11 @@ Stack: ${error?.stack}`;
         );
         
         if (ourVisual) {
-          console.log('Ã¢Å“â€¦ Found our visual:', ourVisual);
           const visualId = ourVisual.VisualID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
-          console.log('Ã¢Å“â€¦ Visual ID refreshed:', visualId, 'for key:', `${category}_${templateId}`);
         } else {
-          console.log('Ã¢Å¡Â Ã¯Â¸Â Could not find visual with Category:', category, 'and Name:', templateName);
-          console.log('Available visuals:', visuals.map(v => ({ Category: v.Category, Name: v.Name, ID: v.VisualID || v.PK_ID })));
         }
       }
     } catch (error) {
@@ -7986,7 +7079,6 @@ Stack: ${error?.stack}`;
   
   // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
   async loadExistingPhotos() {
-    console.log('Ã°Å¸â€â€ž [v1.4.386] Loading Structural Systems photos...');
     
     // [v1.4.386] Check for duplicate visualIds
     const visualIdToKeys: { [visualId: string]: string[] } = {};
@@ -8011,7 +7103,6 @@ Stack: ${error?.stack}`;
       const visualId = String(rawVisualId);
       
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        console.log(`[v1.4.386] Loading photos for key: ${key}, visualId: ${visualId}`);
         // Load photos and store them by KEY, not just visualId
         await this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
         
@@ -8019,23 +7110,17 @@ Stack: ${error?.stack}`;
         await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
-    
-    console.log('Ã¢Å“â€¦ [v1.4.386] All Structural Systems photos loaded');
   }
   
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {
-      console.log(`[v1.4.386] Loading photos for KEY: ${key}, VisualID: ${visualId}`);
       const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
 
       if (!Array.isArray(attachments) || attachments.length === 0) {
         this.visualPhotos[key] = [];
-        console.log(`[v1.4.387] No photos found for KEY: ${key}`);
         return;
       }
-
-      console.log(`[v1.4.386] Found ${attachments.length} photos for KEY ${key} (VisualID ${visualId})`);
 
       const photoRecords = attachments.map(att => this.buildPhotoRecord(att));
       this.visualPhotos[key] = photoRecords;
@@ -8167,10 +7252,22 @@ Stack: ${error?.stack}`;
     this.templateLoadStart = Date.now();
 
     try {
+      const loaderBody = `
+        <div class="template-loading-content">
+          <div class="template-loading-icon">
+            <span class="template-loading-spinner"></span>
+          </div>
+          <div class="template-loading-text">
+            <h3>Preparing your report</h3>
+            <p>We're gathering photos, documents, and annotations.</p>
+          </div>
+        </div>
+      `;
+
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
-        message: 'Loading template data...',
+        message: loaderBody,
         buttons: [
           {
             text: 'Cancel',
@@ -8195,7 +7292,6 @@ Stack: ${error?.stack}`;
   }
 
   private async handleLoadingCancel(): Promise<void> {
-    console.log('Template loading cancelled by user');
 
     // Dismiss the loader
     if (this.templateLoader) {
@@ -8245,7 +7341,6 @@ Stack: ${error?.stack}`;
 
   // Handle project field changes
   onProjectFieldChange(fieldName: string, value: any) {
-    console.log(`Project field changed: ${fieldName} = ${value}`);
     
     // Update the project data
     if (this.projectData) {
@@ -8265,7 +7360,6 @@ Stack: ${error?.stack}`;
   
   // Handle service field changes
   onServiceFieldChange(fieldName: string, value: any) {
-    console.log(`Service field changed: ${fieldName} = ${value}`);
     
     // Update the service data
     this.serviceData[fieldName] = value;
@@ -8296,7 +7390,6 @@ Stack: ${error?.stack}`;
     };
     
     localStorage.setItem(storageKey, JSON.stringify(progressData));
-    console.log('Progress updated:', progressData);
   }
   
   private autoSaveProjectField(fieldName: string, value: any) {
@@ -8323,20 +7416,12 @@ Stack: ${error?.stack}`;
       return;
     }
     
-    console.log(`Ã°Å¸â€Â Services Table Update:`, {
-      serviceId: this.serviceId,
-      field: fieldName,
-      newValue: value,
-      updateData: { [fieldName]: value }
-    });
-    
     this.showSaveStatus(`Saving ${fieldName}...`, 'info');
     
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
       next: (response) => {
         this.showSaveStatus(`${fieldName} saved`, 'success');
-        console.log(`Ã¢Å“â€¦ SUCCESS: ${fieldName} updated!`, response);
       },
       error: (error) => {
         console.error(`Error saving service field ${fieldName}:`, error);
@@ -8350,10 +7435,6 @@ Stack: ${error?.stack}`;
   async prepareProjectInfo() {
     // Get the primary photo - handle if it's already loaded as base64 or is a file path
     let primaryPhoto = this.projectData?.PrimaryPhoto || null;
-    
-    // Log what we're getting from the project
-    console.log('PrepareProjectInfo - PrimaryPhoto value:', primaryPhoto);
-    console.log('PrepareProjectInfo - Full projectData:', this.projectData);
     
     // If primaryPhoto is a Caspio file path, pass it as-is (PDF component will load it)
     // If it's already base64 or a URL, pass it as-is
@@ -8415,18 +7496,12 @@ Stack: ${error?.stack}`;
   }
 
   async prepareStructuralSystemsData() {
-    console.log('=== PREPARING STRUCTURAL SYSTEMS DATA FOR PDF ===');
-    console.log('Selected items:', this.selectedItems);
-    console.log('Visual record IDs:', this.visualRecordIds);
-    console.log('Organized data:', this.organizedData);
     
     const result = [];
     
     for (const category of this.visualCategories) {
       const categoryData = this.organizedData[category];
       if (!categoryData) continue;
-      
-      console.log(`Processing category: ${category}`, categoryData);
       
       const categoryResult: any = {
         name: category,
@@ -8445,7 +7520,6 @@ Stack: ${error?.stack}`;
           // Use comment.id which is the template PK_ID
           const visualId = comment.id || comment.VisualID;
           const isSelected = this.isCommentSelected(category, visualId);
-          console.log(`Comment "${comment.name}" (${visualId}) selected: ${isSelected}`);
           if (isSelected) {
             // Get the actual visual record ID for photo fetching
             const recordKey = `${category}_${visualId}`;
@@ -8597,11 +7671,6 @@ Stack: ${error?.stack}`;
           categoryResult.limitations.length > 0 || 
           categoryResult.deficiencies.length > 0) {
         result.push(categoryResult);
-        console.log(`Added category ${category} with:`, {
-          comments: categoryResult.comments.length,
-          limitations: categoryResult.limitations.length,
-          deficiencies: categoryResult.deficiencies.length
-        });
       }
     }
     
@@ -8609,16 +7678,9 @@ Stack: ${error?.stack}`;
     const totalItems = result.reduce((sum, cat) => 
       sum + cat.comments.length + cat.limitations.length + cat.deficiencies.length, 0);
     
-    console.log('=== STRUCTURAL SYSTEMS DATA PREPARED ===');
-    console.log(`Total categories: ${result.length}`);
-    console.log(`Total visual items: ${totalItems}`);
-    console.log('Result:', result);
-    
     // Don't show toast messages - just log for debugging
     if (totalItems === 0) {
-      console.log('No structural visuals selected for PDF');
     } else {
-      console.log(`Including ${totalItems} structural visuals in PDF`);
     }
     
     return result;
@@ -8664,24 +7726,19 @@ Stack: ${error?.stack}`;
               { field: 'FDFPhotoBottom', key: 'bottom' },
               { field: 'FDFPhotoThreshold', key: 'threshold' }
             ];
-
-            console.log(`[FDF Photos v1.4.327] Room ${roomName} record:`, roomRecord);
             
             for (const photoType of fdfPhotoTypes) {
               const photoPath = roomRecord[photoType.field];
-              console.log(`[FDF Photos v1.4.327] Checking ${photoType.field}: ${photoPath}`);
 
               if (photoPath) {
                 // Convert Caspio file path to base64
                 if (photoPath.startsWith('/')) {
                   try {
-                    console.log(`[FDF Photos v1.4.327] Converting ${photoType.key} photo from path: ${photoPath}`);
                     
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
                       fdfPhotosData[photoType.key] = true;
                       fdfPhotosData[`${photoType.key}Url`] = base64Data;
-                      console.log(`[FDF Photos v1.4.327] Successfully converted ${photoType.key} photo to base64`);
                     } else {
                       console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
                     }
@@ -8693,33 +7750,25 @@ Stack: ${error?.stack}`;
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-                    console.log(`[FDF Photos v1.4.327] Using fallback URL for ${photoType.key}`);
                   }
                 } else {
-                  console.log(`[FDF Photos v1.4.327] Photo path doesn't start with / for ${photoType.key}: ${photoPath}`);
                 }
               } else {
-                console.log(`[FDF Photos v1.4.327] No photo found for ${photoType.field}`);
               }
             }
             
             // Merge with existing fdfPhotos (in case they were already loaded)
             roomResult.fdfPhotos = { ...roomResult.fdfPhotos, ...fdfPhotosData };
-            console.log(`[FDF Photos v1.4.327] Final fdfPhotos for room ${roomName}:`, roomResult.fdfPhotos);
           } else {
-            console.log(`[FDF Photos v1.4.327] No room records found for RoomID ${roomId}`);
           }
           
         } catch (error) {
           console.error(`[FDF Photos v1.4.327] Error fetching FDF photos for room ${roomName}:`, error);
         }
         
-        console.log(`Fetching points for room ${roomName} (RoomID: ${roomId})`);
-        
         try {
           // Get all points for this room from the database
           const dbPoints = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
-          console.log(`Found ${dbPoints?.length || 0} points in database for room ${roomName}`);
           
           // Collect all attachment fetches and image conversions
           const pointPromises = [];
@@ -8805,7 +7854,6 @@ Stack: ${error?.stack}`;
           
           // Convert all images in parallel
           if (imagePromises.length > 0) {
-            console.log(`Converting ${imagePromises.length} images for room ${roomName}...`);
             const convertedImages = await Promise.all(imagePromises);
             
             // Map converted images back to their points
@@ -8859,16 +7907,9 @@ Stack: ${error?.stack}`;
         result.push(roomResult);
       }
     }
-    
-    console.log(`Prepared elevation data for ${result.length} rooms`);
-    
-    // Debug log FDF photos in final result
-    console.log('[FDF Photos] Final elevation data with FDF photos:');
     result.forEach(room => {
       if (room.fdfPhotos && Object.keys(room.fdfPhotos).length > 0) {
-        console.log(`[FDF Photos] Room ${room.name} has FDF photos:`, room.fdfPhotos);
       } else {
-        console.log(`[FDF Photos] Room ${room.name} has no FDF photos`);
       }
     });
     
@@ -8883,20 +7924,17 @@ Stack: ${error?.stack}`;
     if (category && itemId) {
       const fullKey = `${category}_${itemId}`;
       photos = this.visualPhotos[fullKey] || [];
-      console.log(`Ã°Å¸â€œÂ¸ Getting photos for key ${fullKey}:`, photos.length);
     }
 
     // Fallback to visualId if no photos found with key
     if (photos.length === 0) {
       photos = this.visualPhotos[visualId] || [];
-      console.log(`Ã°Å¸â€œÂ¸ Fallback: Getting photos for visual ${visualId}:`, photos.length);
     }
     
     // Use the cache service for better performance across sessions
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
     const cachedPhotos = this.cache.get(cacheKey);
     if (cachedPhotos) {
-      console.log(`Ã¢Å“â€¦ Using cached photos for visual ${visualId}`);
       return cachedPhotos;
     }
     
@@ -8916,14 +7954,12 @@ Stack: ${error?.stack}`;
           finalUrl = cachedBase64;
         } else {
           try {
-            console.log(`Converting Caspio path to base64: ${photoUrl}`);
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
             
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
               // Cache individual photo for reuse
               this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
-              console.log(`Ã¢Å“â€¦ Photo converted and cached for visual ${visualId}`);
             } else {
               console.error(`Failed to convert photo to base64: ${photoUrl}`);
               finalUrl = 'assets/img/photo-placeholder.svg';
@@ -8934,8 +7970,6 @@ Stack: ${error?.stack}`;
           }
         }
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-        // Keep blob and data URLs as-is
-        console.log(`Keeping existing URL format: ${photoUrl.substring(0, 50)}...`);
         finalUrl = photoUrl;
       }
       
@@ -8962,13 +7996,11 @@ Stack: ${error?.stack}`;
   async getRoomPhotos(roomId: string) {
     // Get photos for a specific room from Services_Rooms_Points and Services_Rooms_Points_Attach
     try {
-      console.log(`Ã°Å¸â€œÂ¸ Fetching photos for room ${roomId}`);
       
       // First get all points for this room
       const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
       
       if (!points || points.length === 0) {
-        console.log(`No points found for room ${roomId}`);
         return [];
       }
       
@@ -8976,7 +8008,6 @@ Stack: ${error?.stack}`;
       const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
       
       if (pointIds.length === 0) {
-        console.log(`No valid point IDs found for room ${roomId}`);
         return [];
       }
       
@@ -8984,7 +8015,6 @@ Stack: ${error?.stack}`;
       const attachments = await this.caspioService.getServicesRoomsAttachments(pointIds).toPromise();
       
       if (!attachments || attachments.length === 0) {
-        console.log(`No attachments found for room ${roomId} points`);
         return [];
       }
       
@@ -8998,12 +8028,10 @@ Stack: ${error?.stack}`;
         // Convert Caspio file paths to base64
         if (photoUrl && photoUrl.startsWith('/')) {
           try {
-            console.log(`Converting room photo to base64: ${photoUrl}`);
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
             
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
-              console.log(`Ã¢Å“â€¦ Room photo converted to base64`);
             } else {
               console.error(`Failed to convert room photo to base64: ${photoUrl}`);
               finalUrl = 'assets/img/photo-placeholder.svg';
@@ -9028,7 +8056,6 @@ Stack: ${error?.stack}`;
           try {
             annotationData = decompressAnnotationData(attach.Drawings);
           } catch (e) {
-            console.log('Failed to parse Drawings in room photos:', e);
           }
         }
         
@@ -9054,18 +8081,14 @@ Stack: ${error?.stack}`;
 
   async fetchAllVisualsFromDatabase() {
     try {
-      console.log('Ã°Å¸â€œÅ  Fetching all visuals from database for ServiceID:', this.serviceId);
       
       // Fetch all Services_Visuals records for this service
       const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
       
       // Check if visuals is defined and is an array
       if (!visuals || !Array.isArray(visuals)) {
-        console.log('No visuals found for this service');
         return;
       }
-      
-      console.log(`Found ${visuals.length} visual records`);
       
       // Clear and rebuild the visualPhotos mapping
       this.visualPhotos = {};
@@ -9090,10 +8113,8 @@ Stack: ${error?.stack}`;
         
         // Check if attachments is defined and is an array
         if (!attachments || !Array.isArray(attachments)) {
-          console.log(`Visual ${visualId} has no attachments`);
           this.visualPhotos[visualId] = [];
         } else {
-          console.log(`Visual ${visualId} has ${attachments.length} attachments`);
           
           // Store the attachments in our mapping
           this.visualPhotos[visualId] = attachments.map((att: any) => {
@@ -9106,9 +8127,7 @@ Stack: ${error?.stack}`;
                 const drawingsData = JSON.parse(att.Drawings);
                 annotationData = drawingsData;
                 originalFilePath = drawingsData.originalFilePath || null;
-                console.log(`Ã°Å¸â€œÂ Loaded annotation data for AttachID ${att.AttachID}:`, annotationData);
               } catch (e) {
-                console.log(`Ã¢Å¡Â Ã¯Â¸Â Could not parse Drawings field for AttachID ${att.AttachID}`);
               }
             }
             
@@ -9132,8 +8151,6 @@ Stack: ${error?.stack}`;
           this.updateVisualInOrganizedData(visual);
         }
       }
-      
-      console.log('Ã¢Å“â€¦ Database fetch complete. Visual photos:', this.visualPhotos);
     } catch (error) {
       console.error('Ã¢ÂÅ’ Error fetching visuals from database:', error);
       await this.showToast('Error loading inspection data. Some images may not appear.', 'warning');
@@ -9184,7 +8201,6 @@ Stack: ${error?.stack}`;
       const key = `${category}-${kind}-${visual.VisualID}`;
       if (this.selectedItems) {
         this.selectedItems[key] = true;
-        console.log(`Marked as selected from database: ${key}`);
       }
     }
   }

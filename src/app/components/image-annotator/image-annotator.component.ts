@@ -75,7 +75,6 @@ export class ImageAnnotatorComponent implements OnInit {
     // Load existing annotations if provided
     if (this.existingAnnotations) {
       this.annotations = [...this.existingAnnotations.annotations];
-      console.log('Loaded existing annotations:', this.annotations.length);
     }
   }
   
@@ -545,8 +544,6 @@ export class ImageAnnotatorComponent implements OnInit {
         return ann;
       })
     };
-    
-    console.log('Saving annotation data:', annotationData);
     this.onSave.emit(annotationData);
     await this.modalController.dismiss(annotationData);
   }

@@ -134,19 +134,14 @@ export class ProjectDetailPage implements OnInit {
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
-    console.log('🔍 DEBUG: ProjectDetailPage initialized with projectId:', this.projectId);
     
     // Check for add-service mode
     this.route.queryParams.subscribe(params => {
       if (params['mode'] === 'add-service') {
         // Temporarily allow editing for adding services to completed projects
         this.isReadOnly = false;
-        console.log('🔍 DEBUG: Add-service mode activated');
       }
     });
-    
-    // Log environment config (without secrets)
-    console.log('🔍 DEBUG: API Base URL:', this.caspioService['http'] ? 'HttpClient available' : 'HttpClient NOT available');
     
     if (this.projectId) {
       this.loadProject();
@@ -156,15 +151,10 @@ export class ProjectDetailPage implements OnInit {
   }
 
   async loadProject() {
-    console.log('🔍 DEBUG: loadProject called');
-    console.log('🔍 DEBUG: Current authentication status:', this.caspioService.isAuthenticated());
-    console.log('🔍 DEBUG: Current token:', this.caspioService.getCurrentToken());
     
     if (!this.caspioService.isAuthenticated()) {
-      console.log('🔍 DEBUG: Not authenticated, attempting to authenticate...');
       this.caspioService.authenticate().subscribe({
         next: () => {
-          console.log('✅ DEBUG: Authentication successful');
           this.fetchProjectOptimized();
         },
         error: (error) => {
@@ -178,20 +168,16 @@ export class ProjectDetailPage implements OnInit {
         }
       });
     } else {
-      console.log('🔍 DEBUG: Already authenticated, fetching project...');
       this.fetchProjectOptimized();
     }
   }
 
   async fetchProjectOptimized() {
-    console.log('[v1.4.498] Loading project (optimized)');
     const startTime = performance.now();
     this.loading = true;
     this.error = '';
 
     try {
-      // First get the project data to determine the actual ProjectID
-      console.log('📍 Loading project with ID:', this.projectId);
       const projectData = await this.projectsService.getProjectById(this.projectId).toPromise();
 
       if (!projectData) {
@@ -206,16 +192,12 @@ export class ProjectDetailPage implements OnInit {
       }
 
       this.project = projectData;
-      console.log('✅ Project loaded:', projectData);
 
       const actualProjectId = projectData?.ProjectID || this.projectId;
       const statusId = projectData?.StatusID;
       const isCompletedProject = this.isCompletedStatus(statusId);
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
-
-      // [v1.4.498] PERFORMANCE FIX: Load all data in parallel instead of sequential (saves 1-2s)
-      console.log('[v1.4.498] Loading all project data in parallel...');
       const parallelStartTime = performance.now();
 
       const [offers, types, services, attachTemplates, existingAttachments] = await Promise.allSettled([
@@ -227,7 +209,6 @@ export class ProjectDetailPage implements OnInit {
       ]);
 
       const parallelElapsed = performance.now() - parallelStartTime;
-      console.log(`✅ [v1.4.498] Parallel loading completed in ${parallelElapsed.toFixed(0)}ms`);
 
       // Extract values from settled promises
       const offersData = offers.status === 'fulfilled' ? offers.value : [];
@@ -292,7 +273,6 @@ export class ProjectDetailPage implements OnInit {
       this.loadingServices = false;
 
       const totalElapsed = performance.now() - startTime;
-      console.log(`✅ [v1.4.498] Project detail loaded in ${totalElapsed.toFixed(0)}ms`);
 
     } catch (error: any) {
       console.error('❌ Error in fetchProjectOptimized:', error);
@@ -315,7 +295,6 @@ export class ProjectDetailPage implements OnInit {
       next: async (project) => {
         this.project = project;
         this.loading = false;
-        console.log('Project loaded:', project);
         
         // Determine if the project has been completed (StatusID = 2)
         // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
@@ -326,13 +305,11 @@ export class ProjectDetailPage implements OnInit {
         const queryParams = this.route.snapshot.queryParams;
         if (queryParams['mode'] === 'add-service') {
           this.isReadOnly = false;
-          console.log('Add-service mode: Project editable despite StatusID:', statusId);
         } else {
           this.isReadOnly = isCompletedProject;
         }
         
         if (this.isReadOnly) {
-          console.log('Project is read-only. StatusID:', statusId);
         }
         
         // Load offers first, then services (services need offers to match properly)
@@ -372,17 +349,9 @@ export class ProjectDetailPage implements OnInit {
 
   async loadAvailableOffers() {
     this.loadingServices = true;
-    console.log('🔍 DEBUG: Starting to load available offers...');
     try {
-      // Load offers for company ID 1 (Noble Property Inspections)
-      console.log('🔍 DEBUG: Fetching offers for CompanyID=1...');
       const offers = await this.caspioService.getOffersByCompany('1').toPromise();
-      console.log('🔍 DEBUG: Offers received:', offers);
-      
-      // Also load Types table to get type names
-      console.log('🔍 DEBUG: Fetching service types...');
       const types = await this.caspioService.getServiceTypes().toPromise();
-      console.log('🔍 DEBUG: Types received:', types);
 
       // Merge offer data with type names
       const processedOffers = (offers || []).map((offer: any) => {
@@ -408,8 +377,6 @@ export class ProjectDetailPage implements OnInit {
         // Otherwise sort alphabetically
         return nameA.localeCompare(nameB);
       });
-      
-      console.log('✅ Available offers loaded and sorted:', this.availableOffers);
     } catch (error) {
       console.error('❌ Error loading offers - Full details:', error);
       console.error('Error type:', typeof error);
@@ -425,9 +392,6 @@ export class ProjectDetailPage implements OnInit {
       // Use actual ProjectID from project data for querying services
       const projectId = this.project?.ProjectID || this.projectId;
       const services = await this.caspioService.getServicesByProject(projectId).toPromise();
-
-      console.log('🔍 Loading existing services:', services);
-      console.log('🔍 Available offers for matching:', this.availableOffers);
 
       // Convert existing services to our selection format
       this.selectedServices = (services || []).map((service: any) => {
@@ -449,12 +413,6 @@ export class ProjectDetailPage implements OnInit {
             }))
           });
         } else {
-          console.log('✅ Matched service to offer:', {
-            serviceTypeID: service.TypeID,
-            offerTypeID: offer.TypeID,
-            offerOffersID: offer.OffersID,
-            offerTypeName: offer.TypeName
-          });
         }
         
         return {
@@ -468,8 +426,6 @@ export class ProjectDetailPage implements OnInit {
           dateOfInspection: service.DateOfInspection || new Date().toISOString()
         };
       });
-      
-      console.log('✅ Existing services loaded and matched with offers:', this.selectedServices);
 
       // Trigger progress calculation for Engineers Foundation services
       let foundEngineersFoundation = false;
@@ -498,7 +454,6 @@ export class ProjectDetailPage implements OnInit {
       });
 
       if (!foundEngineersFoundation) {
-        console.log('No Engineers Foundation services found');
       }
 
       this.updateDocumentsList();
@@ -510,7 +465,6 @@ export class ProjectDetailPage implements OnInit {
   async loadAttachTemplates() {
     try {
       this.attachTemplates = (await this.caspioService.getAttachTemplates().toPromise()) || [];
-      console.log('Attach templates loaded:', this.attachTemplates);
     } catch (error) {
       console.error('Error loading attach templates:', error);
     }
@@ -523,7 +477,6 @@ export class ProjectDetailPage implements OnInit {
       const projectId = this.project?.ProjectID || this.projectId;
       const attachments = await this.caspioService.getAttachmentsByProject(projectId).toPromise();
       this.existingAttachments = attachments || [];
-      console.log('Existing attachments loaded:', this.existingAttachments);
       this.updateDocumentsList();
     } catch (error) {
       console.error('Error loading existing attachments:', error);
@@ -569,12 +522,6 @@ export class ProjectDetailPage implements OnInit {
     // Only return true if there are required docs AND they're ALL uploaded
     const allUploaded = requiredDocs.every((doc: any) => doc.uploaded === true);
     
-    console.log('Checking docs for service:', serviceDoc.serviceName, {
-      totalDocs: serviceDoc.documents.length,
-      requiredDocs: requiredDocs.length,
-      allUploaded: allUploaded
-    });
-    
     return allUploaded;
   }
 
@@ -582,14 +529,11 @@ export class ProjectDetailPage implements OnInit {
     if (this.isReadOnly) {
       return;
     }
-    console.log('🔍 DEBUG: toggleService called with:', { checked: event.detail.checked, offer });
     const isChecked = event.detail.checked;
     
     if (isChecked) {
-      console.log('🔍 DEBUG: Checkbox checked, adding service...');
       await this.addService(offer);
     } else {
-      console.log('🔍 DEBUG: Checkbox unchecked, removing service...');
       await this.removeAllServiceInstances(offer.OffersID);
     }
   }
@@ -610,7 +554,6 @@ export class ProjectDetailPage implements OnInit {
     if (this.isReadOnly) {
       return;
     }
-    console.log('🔍 DEBUG: Starting addService with offer:', offer);
     this.updatingServices = true;
     
     try {
@@ -630,9 +573,6 @@ export class ProjectDetailPage implements OnInit {
         });
       });
       
-      // Log debug info without showing alert
-      console.log(`Add Service Check - Mode: ${currentMode}, Project exists: ${!!this.project}, Should update status: ${currentMode === 'add-service' && !!this.project}`);
-      
       if (currentMode === 'add-service' && this.project) {
         // Debug: Show all project IDs and current status
         let debugInfo = '=== PROJECT STATUS UPDATE ATTEMPT ===\n\n';
@@ -645,8 +585,6 @@ export class ProjectDetailPage implements OnInit {
         debugInfo += '2. IDs TO USE:\n';
         debugInfo += `   Will use PK_ID for WHERE: ${this.project.PK_ID}\n`;
         debugInfo += `   Will update StatusID to: 1 (integer)\n\n`;
-        
-        console.log(debugInfo);
         
         // Update project status to Active (StatusID = 1) when adding service to completed project
         const projectPkId = this.project.PK_ID;
@@ -672,14 +610,11 @@ export class ProjectDetailPage implements OnInit {
             apiDebug += '4. WHERE CLAUSE:\n';
             apiDebug += `   Using ProjectID=${projectId} to find record\n`;
             
-            console.log(apiDebug);
-            
             await this.caspioService.put<any>(updateUrl, updateData).toPromise();
             
             // Update local project object
             this.project.StatusID = 1;
-            this.isReadOnly = false; // Make sure project is editable now
-            console.log('🔍 DEBUG: Project status updated to Active (StatusID = 1)');
+            this.isReadOnly = false;
             await this.showToast('Project moved to Active status', 'success');
             
             // Debug: Confirm update
@@ -731,12 +666,7 @@ export class ProjectDetailPage implements OnInit {
         DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
       
-      console.log('🔍 DEBUG: Creating service with data:', serviceData);
-      console.log('🔍 DEBUG: Calling caspioService.createService...');
-      
       const newService = await this.caspioService.createService(serviceData).toPromise();
-      
-      console.log('🔍 DEBUG: Service created successfully:', newService);
       
       // Caspio returns the service instantly - get the ID
       if (!newService || (!newService.PK_ID && !newService.ServiceID)) {
@@ -756,12 +686,8 @@ export class ProjectDetailPage implements OnInit {
         dateOfInspection: serviceData.DateOfInspection
       };
       
-      console.log('🔍 DEBUG: Adding selection to selectedServices:', selection);
-      
       this.selectedServices.push(selection);
       this.updateDocumentsList();
-      
-      console.log('✅ Service added successfully');
       // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error adding service - Full details:', error);
@@ -813,7 +739,6 @@ export class ProjectDetailPage implements OnInit {
     try {
       // Delete from Caspio - service always has real ID
       if (service.serviceId) {
-        console.log('🗑️ Deleting service from Caspio:', service.serviceId);
         await this.caspioService.deleteService(service.serviceId).toPromise();
       }
       
@@ -1053,20 +978,13 @@ export class ProjectDetailPage implements OnInit {
     for (const serviceDoc of this.serviceDocuments) {
       const pending = serviceDoc.documents.filter(doc => !doc.uploaded);
       if (pending.length > 0) {
-        console.log(`📝 Preserving pending docs for ${serviceDoc.serviceName}:`, pending.map(d => d.title));
         pendingDocs.set(serviceDoc.serviceId, pending);
       }
     }
     
-    console.log('🔄 DEBUG: Starting loadRequiredDocumentsFromAttach');
-    console.log('  - Selected services count:', this.selectedServices.length);
-    console.log('  - Previous serviceDocuments count:', this.serviceDocuments.length);
-    console.log('  - Pending docs preserved:', Array.from(pendingDocs.entries()).map(([id, docs]) => ({ serviceId: id, count: docs.length })));
-    
     this.serviceDocuments = [];
     
     for (const service of this.selectedServices) {
-      console.log(`  📋 Processing service: ${service.typeName} (ID: ${service.serviceId})`);
       
       // Get ALL templates for this service type (both required and optional)
       const requiredTemplates = this.attachTemplates.filter(t => 
@@ -1075,10 +993,6 @@ export class ProjectDetailPage implements OnInit {
       );
       
       const documents: DocumentItem[] = [];
-      
-      // Documents come ONLY from the Templates table lookup
-      console.log(`🔍 Loading documents from Templates table for service: "${service.typeName}"`);
-      console.log(`  - Templates found: ${requiredTemplates.length}`);
       
       // Add documents ONLY from templates in the database
       if (requiredTemplates.length > 0) {
@@ -1122,17 +1036,9 @@ export class ProjectDetailPage implements OnInit {
         documents: [] as DocumentItem[]  // Will set this after all documents are added
       };
 
-      console.log(`📋 Processing documents for ${service.typeName}:`, {
-        serviceId: serviceDocGroup.serviceId,
-        documentCount: documents.length,
-        documentTitles: documents.map(d => d.title),
-        fromTemplates: requiredTemplates.length > 0
-      });
-
       // Add back any pending documents and check if they've been uploaded
       const pending = pendingDocs.get(serviceDocGroup.serviceId);
       if (pending) {
-        console.log(`📋 Adding back ${pending.length} pending docs to ${service.typeName}`);
         // Add all pending documents back to the list
         for (const pendingDoc of pending) {
           // Check if this pending document has now been uploaded
@@ -1142,8 +1048,6 @@ export class ProjectDetailPage implements OnInit {
           );
 
           if (uploadedAttachment) {
-            // Document has been uploaded! Update it with attachment info
-            console.log(`✅ Pending doc "${pendingDoc.title}" has been uploaded`);
             const updatedDoc = {
               ...pendingDoc,
               uploaded: true,
@@ -1167,13 +1071,6 @@ export class ProjectDetailPage implements OnInit {
       // These could be manually added docs that were uploaded
       // Build a Set of titles that are already accounted for - need to rebuild after adding pending docs
       const accountedTitles = new Set(documents.map(d => d.title));
-      
-      console.log(`📊 Documents already accounted for in ${service.typeName}:`, Array.from(accountedTitles));
-      console.log(`📎 Existing attachments for TypeID ${service.typeId}:`, 
-        this.existingAttachments
-          .filter(a => a.TypeID === parseInt(service.typeId))
-          .map(a => ({ Title: a.Title, AttachID: a.AttachID }))
-      );
       
       // Find orphan attachments - those that aren't already in our documents list
       const orphanAttachments = this.existingAttachments.filter(a => {
@@ -1200,14 +1097,11 @@ export class ProjectDetailPage implements OnInit {
         orphansByTitle.get(orphan.Title)?.push(orphan);
       }
       
-      console.log(`🔍 Orphan attachments found:`, Array.from(orphansByTitle.keys()));
-      
       // Add orphan documents (only truly orphaned ones)
       for (const [title, attachments] of orphansByTitle.entries()) {
         // This should never happen since we already filtered by accountedTitles above
         // but double-check to be safe
         if (!accountedTitles.has(title)) {
-          console.log(`📎 Adding orphan document: "${title}" with ${attachments.length} file(s)`);
           const docItem: DocumentItem = {
             attachId: attachments[0].AttachID,
             title: title,  // Use the actual title from the attachment
@@ -1227,7 +1121,6 @@ export class ProjectDetailPage implements OnInit {
           // Add to accountedTitles to prevent duplicates in next iteration
           accountedTitles.add(title);
         } else {
-          console.log(`⚠️ ERROR: Should not happen - "${title}" was supposed to be filtered out as not orphan!`);
         }
       }
       
@@ -1241,23 +1134,12 @@ export class ProjectDetailPage implements OnInit {
       );
       
       if (existingServiceDocIndex >= 0) {
-        console.log(`⚠️ DEBUG: Duplicate service doc found for ${serviceDocGroup.serviceName} (ID: ${serviceDocGroup.serviceId})`);
-        console.log('  - Existing docs:', this.serviceDocuments[existingServiceDocIndex].documents.length);
-        console.log('  - New docs:', serviceDocGroup.documents.length);
         // Replace the existing one instead of adding duplicate
         this.serviceDocuments[existingServiceDocIndex] = serviceDocGroup;
       } else {
         this.serviceDocuments.push(serviceDocGroup);
       }
     }
-    
-    console.log('📄 DEBUG: Final serviceDocuments count:', this.serviceDocuments.length);
-    console.log('  - Service documents:', this.serviceDocuments.map(sd => ({
-      name: sd.serviceName,
-      id: sd.serviceId,
-      docs: sd.documents.length,
-      docTitles: sd.documents.map(d => d.title)
-    })));
     
     // Check for duplicate documents within each service
     for (const sd of this.serviceDocuments) {
@@ -1316,15 +1198,6 @@ export class ProjectDetailPage implements OnInit {
         const projectIdNum = parseInt(this.project?.ProjectID || this.projectId);
         const typeIdNum = parseInt(typeId);
         
-        console.log('🔍 DEBUG: Parsing IDs for upload:', {
-          routeProjectId: this.projectId,
-          actualProjectID: this.project?.ProjectID,
-          projectIdNum,
-          typeId,
-          typeIdNum,
-          serviceId: serviceId + ' (not needed for Attach table)'
-        });
-        
         if (isNaN(projectIdNum) || isNaN(typeIdNum)) {
           console.error('Invalid IDs:', { routeProjectId: this.projectId, actualProjectID: this.project?.ProjectID, typeId });
           await this.showToast('Invalid project or type ID. Please refresh and try again.', 'danger');
@@ -1342,9 +1215,6 @@ export class ProjectDetailPage implements OnInit {
           Link: file.name,  // We ARE sending Link field with filename
           Attachment: `[File: ${file.name}]`
         };
-        
-        console.log('📝 Creating attachment record with file:', attachData);
-        console.log('  ServiceID:', serviceId, '- NOT sent to Attach table (not a field in that table)');
         
         // Remove popup - proceed directly with upload
         // await this.showAttachmentDataPopup(attachData, file, serviceId);
@@ -1364,11 +1234,8 @@ export class ProjectDetailPage implements OnInit {
           file
         ).toPromise();
         
-        console.log('📋 Create attachment with file response:', response);
-        
         // Attachment created - update UI immediately without waiting
         if (response) {
-          console.log('✅ Attachment created successfully:', response);
           // Add full attachment record immediately for instant UI update
           // Response should have all fields including AttachID, Link, and Attachment URL
           const newAttachment = {
@@ -1381,7 +1248,6 @@ export class ProjectDetailPage implements OnInit {
             Attachment: response.Attachment || ''
           };
           this.existingAttachments.push(newAttachment);
-          console.log('📎 Added attachment to list:', newAttachment);
           // Update documents list immediately - this will show the link and green color
           this.updateDocumentsList();
         }
@@ -1391,16 +1257,12 @@ export class ProjectDetailPage implements OnInit {
           message: 'Replacing file...'
         });
         await loading.present();
-        
-        // Replace existing file
-        console.log('🔄 Replacing file for AttachID:', doc.attachId);
         await this.uploadFileToCaspio(doc.attachId, file);
         
         // Update Link field with new filename
         await this.caspioService.updateAttachment(doc.attachId, {
           Link: file.name
         }).toPromise();
-        console.log('✅ Updated Link field with new filename:', file.name);
         
         // Update the attachment in our local list immediately
         const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
@@ -1443,18 +1305,9 @@ export class ProjectDetailPage implements OnInit {
 
   private async uploadFileToCaspio(attachId: string, file: File): Promise<void> {
     try {
-      console.log('📤 ATTEMPTING FILE UPLOAD TO CASPIO');
-      console.log('  AttachID:', attachId);
-      console.log('  File name:', file.name);
-      console.log('  File size:', file.size, 'bytes');
-      console.log('  File type:', file.type);
-      console.log('  File last modified:', new Date(file.lastModified).toISOString());
       
       // Use the service method which handles authentication
       const response = await this.caspioService.uploadFileToAttachment(attachId, file).toPromise();
-      console.log('📥 Upload response:', response);
-      
-      console.log('✅ FILE UPLOADED SUCCESSFULLY to Attach folder');
     } catch (error: any) {
       console.error('❌ FILE UPLOAD FAILED');
       console.error('Full error:', error);
@@ -1614,7 +1467,6 @@ export class ProjectDetailPage implements OnInit {
               text: 'Cancel',
               role: 'cancel',
               handler: () => {
-                console.log('Document loading cancelled by user');
                 cancelled = true;
                 return true; // Allow dismissal
               }
@@ -1631,9 +1483,6 @@ export class ProjectDetailPage implements OnInit {
             cancelled = true;
           }
         });
-
-        // Get the main attachment
-        console.log('📄 Loading attachment with ID:', doc.attachId);
         const attachmentPromise = this.caspioService.getAttachmentWithImage(doc.attachId).toPromise();
 
         // Wait for the attachment to load
@@ -1651,7 +1500,6 @@ export class ProjectDetailPage implements OnInit {
 
         // If cancelled or failed, return early
         if (cancelled) {
-          console.log('Document loading was cancelled by user');
           return;
         }
 
@@ -1670,7 +1518,6 @@ export class ProjectDetailPage implements OnInit {
                        fileUrl.toLowerCase().includes('.pdf');
           
           if (isPDF) {
-            console.log('📑 Opening PDF with DocumentViewerComponent');
             // Use DocumentViewerComponent for PDFs
             const DocumentViewerComponent = await this.loadDocumentViewer();
             const modal = await this.modalController.create({
@@ -1685,7 +1532,6 @@ export class ProjectDetailPage implements OnInit {
             });
             await modal.present();
           } else {
-            console.log('🖼️ Opening image with ImageViewerComponent');
             // Show ONLY this single document/image
             const modal = await this.modalController.create({
               component: ImageViewerComponent,
@@ -1732,7 +1578,6 @@ export class ProjectDetailPage implements OnInit {
               text: 'Cancel',
               role: 'cancel',
               handler: () => {
-                console.log('Document loading cancelled by user');
                 cancelled = true;
                 return true; // Allow dismissal
               }
@@ -1768,7 +1613,6 @@ export class ProjectDetailPage implements OnInit {
 
         // If cancelled or failed, return early
         if (cancelled) {
-          console.log('Document loading was cancelled by user');
           return;
         }
 
@@ -1787,7 +1631,6 @@ export class ProjectDetailPage implements OnInit {
                        fileUrl.toLowerCase().includes('.pdf');
           
           if (isPDF) {
-            console.log('📑 Opening PDF with DocumentViewerComponent');
             // Use DocumentViewerComponent for PDFs
             const DocumentViewerComponent = await this.loadDocumentViewer();
             const modal = await this.modalController.create({
@@ -1802,7 +1645,6 @@ export class ProjectDetailPage implements OnInit {
             });
             await modal.present();
           } else {
-            console.log('🖼️ Opening image with ImageViewerComponent');
             // For images, show only this single image
             const modal = await this.modalController.create({
               component: ImageViewerComponent,
@@ -2018,7 +1860,6 @@ export class ProjectDetailPage implements OnInit {
 
     // Navigate immediately without any checks
     if (!service.serviceId) {
-      console.log('No serviceId, cannot navigate');
       return;
     }
 
@@ -2026,15 +1867,6 @@ export class ProjectDetailPage implements OnInit {
     const typeIdStr = String(service.typeId);
 
     const openPdf = this.isReadOnly || !!options?.openPdf;
-
-    console.log('🔍 Template Navigation Debug:', {
-      typeName: service.typeName,
-      typeId: service.typeId,
-      typeIdStr: typeIdStr,
-      serviceId: service.serviceId,
-      projectId: this.projectId,
-      isEngineersFoundation: service.typeName === 'Engineers Foundation Evaluation' || typeIdStr === '35'
-    });
     
     // Check both typeName and typeId (35 is Engineers Foundation Evaluation)
     // Also check for various name formats
@@ -2052,7 +1884,6 @@ export class ProjectDetailPage implements OnInit {
 
     // Navigate immediately - remove all blocking checks
     if (isHUDTemplate) {
-      console.log('🏠 Navigating to HUD template - IMMEDIATE');
       const url = `/hud-template/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
@@ -2066,7 +1897,6 @@ export class ProjectDetailPage implements OnInit {
         window.location.assign(finalUrl);
       });
     } else if (isEngineersFoundation) {
-      console.log('✅ Navigating to Engineers Foundation template - IMMEDIATE');
       // Force navigation with location.assign for immediate response
       const url = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
@@ -2080,7 +1910,6 @@ export class ProjectDetailPage implements OnInit {
         window.location.assign(finalUrl);
       });
     } else {
-      console.log('📝 Navigating to standard template form');
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
@@ -2111,7 +1940,6 @@ export class ProjectDetailPage implements OnInit {
     // Check if project has a PrimaryPhoto
     if (this.project && this.project['PrimaryPhoto']) {
       const primaryPhoto = this.project['PrimaryPhoto'];
-      console.log('🖼️ PrimaryPhoto value:', primaryPhoto);
       
       // If we already have the base64 data, use it
       if (this.projectImageData) {
@@ -2133,21 +1961,17 @@ export class ProjectDetailPage implements OnInit {
         // Return placeholder while loading
         return 'assets/img/photo-loading.svg';
       } else {
-        console.log('⚠️ Unknown photo format:', primaryPhoto);
         this.showToast(`Debug: Unknown photo format: ${primaryPhoto}`, 'warning');
       }
     } else {
-      console.log('📸 No PrimaryPhoto found in project data');
     }
     
     // Fall back to Google Street View
     if (!this.project || !this.formatAddress()) {
-      console.log('📸 Using placeholder image');
       return 'assets/img/project-placeholder.svg';
     }
     const address = encodeURIComponent(this.formatAddress());
     const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${address}&key=${this.googleMapsApiKey}`;
-    console.log('📸 Using Street View:', streetViewUrl);
     return streetViewUrl;
   }
   
@@ -2164,19 +1988,15 @@ export class ProjectDetailPage implements OnInit {
     this.imageLoadInProgress = true;
     
     try {
-      // Use the same method as Structural Systems - fetch as base64 data URL
-      console.log(`Loading project image from Files API: ${primaryPhoto}`);
       const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
       
       if (imageData && imageData.startsWith('data:')) {
         // Store the base64 data
         this.projectImageData = imageData;
-        console.log('✅ Project image loaded successfully');
         
         // Trigger change detection to update the view
         this.changeDetectorRef.detectChanges();
       } else {
-        console.log('⚠️ Invalid image data received');
         // Use fallback
         const address = this.formatAddress();
         if (address) {
@@ -2667,7 +2487,6 @@ Troubleshooting:
   }
 
   private async showToast(message: string, color: string = 'primary') {
-    console.log(`🔍 DEBUG: Showing toast - Color: ${color}, Message: ${message}`);
     const toast = await this.toastController.create({
       message,
       duration: color === 'danger' ? 5000 : 2000, // Show errors longer
@@ -2780,12 +2599,6 @@ Troubleshooting:
     await loading.present();
 
     try {
-      // Copy EXACT method from Structural Systems that works
-      console.log('📦 Using proven two-step upload method for Projects table');
-      console.log('====== PROJECTS TABLE ======');
-      console.log('PK_ID: Primary Key for updates');
-      console.log('PrimaryPhoto: File field (stores path)');
-      console.log('=============================');
       
       // Get account from CaspioService (it extracts from environment)
       const account = this.caspioService.getAccountID();
@@ -2798,60 +2611,29 @@ Troubleshooting:
           throw new Error('Token is null or undefined');
         }
         token = tokenResult;
-        console.log('✅ Got valid token from CaspioService');
       } catch (tokenError) {
         console.error('❌ Failed to get valid token:', tokenError);
         throw new Error('Failed to get authentication token. Please logout and login again.');
       }
       
-      // Debug: Check authentication
-      console.log('🔐 Authentication Check:');
-      console.log('  Account:', account || 'MISSING!');
-      console.log('  Token obtained via:', 'CaspioService.getValidToken()');
-      console.log('  Token exists:', !!token);
-      console.log('  Token length:', token?.length || 0);
-      console.log('  Token first 20 chars:', token ? token.substring(0, 20) + '...' : 'N/A');
-      
       if (!account || !token) {
         throw new Error(`Authentication missing: Account: ${account}, Token exists: ${!!token}. Unable to authenticate with Caspio.`);
       }
       
-      // Debug: Check file
-      console.log('📄 File Info:');
-      console.log('  Type:', file.type);
-      console.log('  Size:', file.size, 'bytes');
-      console.log('  Name:', file.name);
-      
       // Generate unique filename
       const timestamp = Date.now();
       const fileName = `property_${projectId}_${timestamp}.jpg`;
-      console.log('  New filename:', fileName);
-      
-      // STEP 1: Compress the image before upload
-      console.log('Step 1: Compressing image before upload...');
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: 1.5,
         maxWidthOrHeight: 1920,
         useWebWorker: true
       });
-      console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(compressedFile.size / 1024).toFixed(1)}KB`);
-      
-      // STEP 2: Upload compressed file to Caspio Files API (PROVEN WORKING)
-      console.log('Step 2: Uploading compressed file to Caspio Files API...');
       
       // No toast - just proceed with upload
       const formData = new FormData();
       formData.append('file', compressedFile, fileName);
       
       const filesUrl = `https://${account}.caspio.com/rest/v2/files`;
-      console.log('Uploading to Files API:', filesUrl);
-      
-      // Add more detailed request logging
-      console.log('📡 Making Files API Request:');
-      console.log('  URL:', filesUrl);
-      console.log('  Method: PUT');
-      console.log('  Auth header:', `Bearer ${token.substring(0, 20)}...`);
-      console.log('  File in FormData:', fileName);
       
       const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
@@ -2862,13 +2644,8 @@ Troubleshooting:
         body: formData
       });
       
-      console.log('Files API response status:', uploadResponse.status);
-      console.log('Files API response headers:', uploadResponse.headers);
-      console.log('Files API response statusText:', uploadResponse.statusText);
-      
       // Get response text first for debugging
       const responseText = await uploadResponse.text();
-      console.log('Files API raw response:', responseText);
       
       if (!uploadResponse.ok) {
         console.error('Files API error:', responseText);
@@ -2890,11 +2667,8 @@ Troubleshooting:
       try {
         uploadResult = JSON.parse(responseText);
       } catch (parseError) {
-        console.log('Response is not JSON, treating as string:', responseText);
         uploadResult = responseText;
       }
-      
-      console.log('Files API parsed response:', uploadResult);
       
       // Handle different possible response formats from Files API
       let uploadedFileName: string;
@@ -2919,25 +2693,17 @@ Troubleshooting:
         uploadedFileName = fileName;
       }
       
-      console.log('Extracted filename from response:', uploadedFileName);
-      
       // STEP 2: Update Projects table with the file path
       const filePath = `/${uploadedFileName}`;
-      console.log('Step 2: Updating Projects table with file path:', filePath);
-      console.log('Using PK_ID:', projectId);
       
       // Use the service method which handles the update properly
       const updateResponse = await this.caspioService.updateProject(projectId, {
         PrimaryPhoto: filePath
       }).toPromise();
       
-      console.log('✅ Successfully updated PrimaryPhoto for project:', projectId);
-      console.log('Update response:', updateResponse);
-      
       // Update local project data immediately
       if (this.project) {
         this.project['PrimaryPhoto'] = filePath;
-        console.log('✅ Updated local project data with new photo path:', filePath);
         
         // Clear the cached image data to force reload
         this.projectImageData = null;

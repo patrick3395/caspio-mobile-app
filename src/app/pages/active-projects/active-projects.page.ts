@@ -15,12 +15,14 @@ import { PlatformDetectionService } from '../../services/platform-detection.serv
 })
 export class ActiveProjectsPage implements OnInit {
   projects: Project[] = [];
+  filteredProjects: Project[] = [];
   displayedProjects: Project[] = []; // Projects currently shown
   loading = false;
   error = '';
   currentUser: any = null;
   appVersion = '1.4.576'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
+  searchTerm = '';
   
   // Lazy loading configuration
   private readonly INITIAL_LOAD = 20; // Initial number of projects to show
@@ -61,7 +63,6 @@ export class ActiveProjectsPage implements OnInit {
     if (userStr) {
       try {
         this.currentUser = JSON.parse(userStr);
-        console.log('Current user:', this.currentUser);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -70,7 +71,6 @@ export class ActiveProjectsPage implements OnInit {
     // Subscribe to query params to handle refresh
     this.route.queryParams.subscribe(params => {
       if (params['refresh']) {
-        console.log('Refresh parameter detected, reloading projects...');
         this.checkAuthAndLoadProjects();
       }
     });
@@ -78,8 +78,6 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   ionViewWillEnter() {
-    // Always reload when entering the page
-    console.log('[v1.4.498] ionViewWillEnter - reloading active projects');
     // [v1.4.498] PERFORMANCE FIX: Don't clear image cache on re-entry (saves 2-5s)
     // Cache will automatically update if PrimaryPhoto path changes
     // Only clear cache if user explicitly requests refresh
@@ -98,7 +96,6 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.caspioService.authenticate().subscribe({
       next: () => {
-        console.log('Authentication successful in ActiveProjects');
         this.loadActiveProjects();
       },
       error: (error) => {
@@ -112,7 +109,6 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   loadActiveProjects() {
-    console.log('[v1.4.498] Loading active projects (optimized)');
     const startTime = performance.now();
     this.loading = true;
     this.error = '';
@@ -125,7 +121,6 @@ export class ActiveProjectsPage implements OnInit {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
-        console.log('Loading projects for CompanyID:', companyId);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -136,10 +131,9 @@ export class ActiveProjectsPage implements OnInit {
     this.projectsService.getActiveProjects(companyId).subscribe({
       next: (projects) => {
         this.projects = projects;
-        this.initializeLazyLoading();
+        this.applySearchFilter();
         this.loading = false;
         const elapsed = performance.now() - startTime;
-        console.log(`✅ [v1.4.498] Active projects loaded in ${elapsed.toFixed(0)}ms for CompanyID ${companyId}`);
       },
       error: (error) => {
         // If filtered query fails, try getting all projects and filter locally
@@ -150,7 +144,7 @@ export class ActiveProjectsPage implements OnInit {
             );
             this.loading = false;
             const elapsed = performance.now() - startTime;
-            console.log(`✅ [v1.4.498] Projects filtered locally in ${elapsed.toFixed(0)}ms for CompanyID ${companyId}`);
+            this.applySearchFilter();
           },
           error: (err) => {
             this.error = 'Failed to load projects';
@@ -163,7 +157,6 @@ export class ActiveProjectsPage implements OnInit {
   }
 
   loadProjectsDirectly() {
-    console.log('Attempting to load projects directly without table definition...');
     this.loading = true;
     this.error = '';
     
@@ -175,7 +168,6 @@ export class ActiveProjectsPage implements OnInit {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
-        console.log('Loading projects directly for CompanyID:', companyId);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -184,10 +176,9 @@ export class ActiveProjectsPage implements OnInit {
     this.projectsService.getActiveProjects(companyId).subscribe({
       next: (projects) => {
         this.projects = projects;
-        this.initializeLazyLoading();
+        this.applySearchFilter();
         this.loading = false;
         this.error = '';
-        console.log(`Projects loaded directly for CompanyID ${companyId}:`, projects);
       },
       error: (error) => {
         // If filtered query fails, try getting all projects and filter locally
@@ -198,7 +189,7 @@ export class ActiveProjectsPage implements OnInit {
             );
             this.loading = false;
             this.error = '';
-            console.log(`All projects loaded and filtered for CompanyID ${companyId}:`, this.projects);
+            this.applySearchFilter();
           },
           error: (err) => {
             const errorMessage = err?.error?.message || err?.message || 'Unknown error';
@@ -272,20 +263,13 @@ export class ActiveProjectsPage implements OnInit {
     }
     
     try {
-      // Use the same method as Structural Systems - fetch as base64 data URL
-      console.log(`Loading project image from Files API: ${primaryPhoto}`);
       const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
       
       if (imageData && imageData.startsWith('data:')) {
         // Store in cache with both keys
         this.projectImageCache[projectId] = imageData;
         this.projectImageCache[cacheKey] = imageData;
-        
-        // Trigger change detection to update the view
-        // The template will re-evaluate getProjectImage and use the cached value
-        console.log(`✅ Project image loaded for ${projectId}`);
       } else {
-        console.log('⚠️ Invalid image data for project', projectId);
         // Use fallback
         const address = this.formatAddress(project);
         if (address) {
@@ -367,7 +351,7 @@ export class ActiveProjectsPage implements OnInit {
 
       // Remove from displayed list
       this.projects = this.projects.filter(p => p.PK_ID !== project.PK_ID);
-      this.displayedProjects = this.displayedProjects.filter(p => p.PK_ID !== project.PK_ID);
+      this.applySearchFilter();
 
       await loading.dismiss();
 
@@ -513,18 +497,14 @@ URL Attempted: ${imgUrl}`;
   }
 
   createNewProject() {
-    // Navigate to new project page
-    console.log('Create new project clicked');
     this.router.navigate(['/new-project']);
   }
 
   async refreshProjects() {
-    console.log('Manual refresh triggered');
     await this.checkForUpdates();
   }
 
   async checkForUpdates() {
-    console.log('Refresh initiated');
     
     // Show loading while refreshing
     this.loading = true;
@@ -532,7 +512,6 @@ URL Attempted: ${imgUrl}`;
     try {
       // Just reload the projects list
       await this.loadActiveProjects();
-      console.log('Projects refreshed successfully');
     } catch (error) {
       console.error('Error refreshing projects:', error);
       this.error = 'Failed to refresh projects';
@@ -542,7 +521,6 @@ URL Attempted: ${imgUrl}`;
     
     // Check for live updates and handle corruption
     try {
-      console.log('Checking for app updates...');
       
       // If on native platform, try to sync
       if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
@@ -552,18 +530,14 @@ URL Attempted: ${imgUrl}`;
           // Try to sync updates
           try {
             const result = await LiveUpdates.sync((percentage: number) => {
-              console.log(`Update progress: ${percentage}%`);
             });
-            console.log('Live update sync result:', result);
             
             if (result.activeApplicationPathChanged) {
-              console.log('✅ New update applied');
               // Reload to apply the update
               await LiveUpdates.reload();
               return;
             }
           } catch (syncErr: any) {
-            console.log('Sync error:', syncErr);
             
             // Check for corruption errors
             const isCorrupted = syncErr.message && (
@@ -575,24 +549,18 @@ URL Attempted: ${imgUrl}`;
             );
             
             if (isCorrupted) {
-              console.log('⚠️ CORRUPTION DETECTED during refresh');
-              console.log('Error was:', syncErr.message);
               
               // Show error to user
               this.error = 'Live Update corrupted. Please close and reopen the app.';
               
               try {
-                // Try to force reload
-                console.log('Attempting to reload to bundled version...');
                 await LiveUpdates.reload();
               } catch (reloadErr) {
-                console.log('Reload failed:', reloadErr);
                 // Continue with normal refresh even if reload fails
               }
             }
           }
         } catch (err) {
-          console.log('Live Updates error:', err);
         }
       }
     } catch (updateError) {
@@ -634,7 +602,8 @@ URL Attempted: ${imgUrl}`;
    */
   initializeLazyLoading(): void {
     this.currentIndex = 0;
-    this.displayedProjects = this.projects.slice(0, this.INITIAL_LOAD);
+    const source = this.filteredProjects;
+    this.displayedProjects = source.slice(0, this.INITIAL_LOAD);
     this.currentIndex = this.displayedProjects.length;
 
     // [v1.4.498] PERFORMANCE FIX: Preload images for visible projects in parallel
@@ -652,8 +621,6 @@ URL Attempted: ${imgUrl}`;
     if (projectsWithPhotos.length === 0) {
       return;
     }
-
-    console.log(`[v1.4.498] Preloading ${projectsWithPhotos.length} project images in parallel...`);
     const startTime = performance.now();
 
     // Load all images in parallel
@@ -661,7 +628,6 @@ URL Attempted: ${imgUrl}`;
 
     Promise.all(loadPromises).then(() => {
       const elapsed = performance.now() - startTime;
-      console.log(`✅ [v1.4.498] Preloaded ${projectsWithPhotos.length} images in ${elapsed.toFixed(0)}ms`);
     }).catch(err => {
       console.error('[v1.4.498] Error preloading images:', err);
     });
@@ -672,7 +638,7 @@ URL Attempted: ${imgUrl}`;
    */
   loadMoreProjects(event?: any): void {
     setTimeout(() => {
-      const nextBatch = this.projects.slice(
+      const nextBatch = this.filteredProjects.slice(
         this.currentIndex, 
         this.currentIndex + this.LOAD_MORE
       );
@@ -684,7 +650,7 @@ URL Attempted: ${imgUrl}`;
         event.target.complete();
         
         // Disable infinite scroll if all projects are loaded
-        if (this.currentIndex >= this.projects.length) {
+        if (this.currentIndex >= this.filteredProjects.length) {
           event.target.disabled = true;
         }
       }
@@ -695,6 +661,25 @@ URL Attempted: ${imgUrl}`;
    * Check if more projects can be loaded
    */
   hasMoreProjects(): boolean {
-    return this.currentIndex < this.projects.length;
+    return this.currentIndex < this.filteredProjects.length;
+  }
+
+  handleSearchTermChange(term: string | null | undefined): void {
+    this.searchTerm = term ?? '';
+    this.applySearchFilter();
+  }
+
+  private applySearchFilter(): void {
+    const normalizedTerm = this.searchTerm.trim().toLowerCase();
+
+    this.filteredProjects = normalizedTerm
+      ? this.projects.filter(project => {
+          const addressMatch = (project.Address || '').toLowerCase().includes(normalizedTerm);
+          const cityMatch = (project.City || '').toLowerCase().includes(normalizedTerm);
+          return addressMatch || cityMatch;
+        })
+      : [...this.projects];
+
+    this.initializeLazyLoading();
   }
 }

@@ -146,16 +146,7 @@ export class PhotoViewerComponent implements OnInit {
     
     // CRITICAL FIX: Always use the ORIGINAL image URL, not the annotated one
     // This prevents double annotations (baked + objects)
-    const imageToAnnotate = this.originalPhotoUrl || this.photoUrl; // Use original, not display URL
-    
-    console.log('📝 [PhotoViewer] Opening annotator with:');
-    console.log('  - photoData:', this.photoData);
-    console.log('  - annotations from photoData:', this.photoData?.annotations);
-    console.log('  - annotationsData from photoData:', this.photoData?.annotationsData);
-    console.log('  - originalFilePath:', this.photoData?.originalFilePath);
-    console.log('  - Using image URL:', imageToAnnotate);
-    console.log('  - existingAnnotations prop:', this.existingAnnotations);
-    console.log('  - Final annotations to pass:', annotations);
+    const imageToAnnotate = this.originalPhotoUrl || this.photoUrl;
     
     // Open the annotation modal with existing annotations
     const annotationModal = await this.modalController.create({
@@ -181,9 +172,6 @@ export class PhotoViewerComponent implements OnInit {
         // Store annotations back in photoData for persistence
         if (this.photoData) {
           this.photoData.annotations = data.annotationData || data.annotationsData;
-          console.log('💾 [PhotoViewer] Stored annotations in photoData:', this.photoData.annotations);
-          console.log('🔍 [v1.4.259] Original URL preserved:', this.originalPhotoUrl);
-          console.log('🖼️ [v1.4.259] Display URL updated to annotated version');
         }
         
         // Return the annotated blob and annotations data to parent

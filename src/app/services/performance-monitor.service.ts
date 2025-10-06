@@ -91,9 +91,7 @@ export class PerformanceMonitorService {
     }
     const rounded = Math.round(value);
     if (logDetailed) {
-      console.log(`[Performance] ${label}: ${rounded}ms`, entry);
     } else {
-      console.log(`[Performance] ${label}: ${rounded}ms`);
     }
   }
 }

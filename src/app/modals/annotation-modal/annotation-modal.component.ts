@@ -40,7 +40,6 @@ export class AnnotationModalComponent implements OnInit, AfterViewInit {
   constructor(private modalController: ModalController) {}
 
   ngOnInit() {
-    console.log('Annotation modal initialized with image:', this.imageUrl);
   }
 
   ngAfterViewInit() {

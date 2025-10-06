@@ -47,7 +47,6 @@ export class ModelGeneratorService {
     return this.caspioService.get('/tables').pipe(
       switchMap((tables: any) => {
         this.discoveredTables = Array.isArray(tables) ? tables : tables.Result || [];
-        console.log('Discovered tables:', this.discoveredTables);
         
         // Create observables for each table schema
         const schemaRequests = this.discoveredTables.map(table => {
@@ -65,8 +64,6 @@ export class ModelGeneratorService {
         tableSchemas.forEach(schema => {
           this.tableSchemas.set(schema.name, schema);
         });
-
-        console.log('All table schemas loaded:', tableSchemas);
         return tableSchemas;
       })
     );
@@ -85,8 +82,6 @@ export class ModelGeneratorService {
             fields: fields,
             relationships: relationships
           };
-
-          console.log(`Schema for ${tableName}:`, schema);
           return schema;
         } catch (error) {
           console.error(`Error parsing schema for ${tableName}:`, error);
@@ -117,8 +112,6 @@ export class ModelGeneratorService {
               fields: inferredFields,
               relationships: this.detectRelationships(inferredFields, tableName)
             };
-
-            console.log(`Inferred schema for ${tableName}:`, schema);
           }
         } catch (error) {
           console.error(`Error inferring schema for ${tableName}:`, error);

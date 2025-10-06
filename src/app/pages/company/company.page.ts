@@ -1223,20 +1223,14 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   viewCompanyDetails(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
-    // Navigate to company details page or open modal
-    console.log('View details for:', company.CompanyName);
   }
 
   editCompany(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
-    // Open edit modal or navigate to edit page
-    console.log('Edit company:', company.CompanyName);
   }
 
   addTask(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
-    // Open task creation modal
-    console.log('Add task for:', company.CompanyName);
   }
 
   trackByStage = (_: number, group: StageGroup) => group.stage.id;

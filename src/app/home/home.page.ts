@@ -38,7 +38,6 @@ export class HomePage implements OnInit {
       next: (response) => {
         this.authStatus = 'Authentication successful!';
         this.isAuthenticated = true;
-        console.log('Authentication successful', response);
       },
       error: (error) => {
         this.authStatus = 'Authentication failed';
@@ -52,7 +51,6 @@ export class HomePage implements OnInit {
     // Discover all available tables
     this.caspioService.get('/tables').subscribe({
       next: (response) => {
-        console.log('Available tables:', response);
       },
       error: (error) => {
         console.error('API call failed', error);
@@ -65,7 +63,6 @@ export class HomePage implements OnInit {
     this.modelGenerator.discoverAllTablesAndSchemas().subscribe({
       next: (schemas) => {
         this.generationStatus = `Discovered ${schemas.length} tables with schemas`;
-        console.log('All table schemas:', schemas);
       },
       error: (error) => {
         this.generationStatus = 'Failed to discover tables';
@@ -79,14 +76,9 @@ export class HomePage implements OnInit {
     this.modelGenerator.generateAllModels().subscribe({
       next: (generatedModels) => {
         this.generationStatus = `Generated ${generatedModels.length} models and services`;
-        console.log('Generated models:', generatedModels);
         
         // Log the generated code for review
         generatedModels.forEach(model => {
-          console.log(`\n=== ${model.interfaceName} ===`);
-          console.log(model.interfaceCode);
-          console.log(`\n=== ${model.serviceName} ===`);
-          console.log(model.serviceCode);
         });
       },
       error: (error) => {
@@ -103,7 +95,6 @@ export class HomePage implements OnInit {
     testTables.forEach(tableName => {
       this.caspioService.get(`/tables/${tableName}/records?q_limit=1`).subscribe({
         next: (response) => {
-          console.log(`Sample data from ${tableName}:`, response);
         },
         error: (error) => {
           console.error(`Failed to access ${tableName}:`, error);
@@ -126,39 +117,22 @@ export class HomePage implements OnInit {
         this.tableDefinitions = definitions;
         this.relationships = this.tableAnalyzer.analyzeTableRelationships(definitions);
         
-        console.log('====================================');
-        console.log('TABLE STRUCTURE ANALYSIS COMPLETE');
-        console.log('====================================');
-        
         definitions.forEach(({ tableName, definition, error }: any) => {
           if (error) {
-            console.log(`\n❌ ${tableName}: ${error}`);
           } else if (definition && definition.Result && definition.Result.Fields) {
-            console.log(`\n📊 TABLE: ${tableName}`);
-            console.log('Fields:');
             definition.Result.Fields.forEach((field: any) => {
-              console.log(`  - ${field.Name} (${field.Type})${field.IsUnique ? ' [UNIQUE]' : ''}${field.UniqueAllowNulls ? ' [ALLOW NULLS]' : ''}`);
             });
           }
         });
-        
-        console.log('\n====================================');
-        console.log('TABLE RELATIONSHIPS');
-        console.log('====================================');
         Object.keys(this.relationships).forEach(tableName => {
           const rel = this.relationships[tableName];
           if (rel.foreignKeys.length > 0 || rel.referencedBy.length > 0) {
-            console.log(`\n${tableName}:`);
             if (rel.foreignKeys.length > 0) {
-              console.log('  Foreign Keys:');
               rel.foreignKeys.forEach((fk: any) => {
-                console.log(`    - ${fk.field} -> ${fk.referencesTable}`);
               });
             }
             if (rel.referencedBy.length > 0) {
-              console.log('  Referenced By:');
               rel.referencedBy.forEach((ref: any) => {
-                console.log(`    - ${ref.table}.${ref.field}`);
               });
             }
           }

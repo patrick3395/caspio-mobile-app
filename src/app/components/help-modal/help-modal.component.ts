@@ -334,8 +334,6 @@ export class HelpModalComponent implements OnInit {
       this.addDebugMessage('Help images response', helpImages);
 
       this.helpData = helpData;
-      // Log raw items to debug
-      console.log('[HelpModal] Raw help items:', helpItems);
 
       // Sort helpItems: Do's first, then Don'ts, then Tips
       // Check for both "Don't" and "Dont" spellings
@@ -348,8 +346,6 @@ export class HelpModalComponent implements OnInit {
         };
         return (order[a.ItemType] || 999) - (order[b.ItemType] || 999);
       });
-
-      console.log('[HelpModal] Sorted help items:', this.helpItems);
       this.helpImages = helpImages || [];
       this.helpText = helpData?.Comment || '';
 
@@ -359,17 +355,14 @@ export class HelpModalComponent implements OnInit {
 
       // Fetch actual image data for each help image
       if (this.helpImages && this.helpImages.length > 0) {
-        console.log(`[HelpModal v1.4.402] Found ${this.helpImages.length} image(s), fetching as base64...`);
 
         // Fetch each image as base64
         for (let image of this.helpImages) {
           if (image.HelpImage) {
-            console.log(`[HelpModal v1.4.402] Fetching image: ${image.HelpImage}`);
             try {
               // Use CaspioService to get image as base64
               const base64Url = await this.caspioService.getImageFromFilesAPI(image.HelpImage).toPromise();
               image.imageUrl = base64Url || 'assets/img/photo-placeholder.svg';
-              console.log(`[HelpModal v1.4.402] Image fetched successfully, length: ${base64Url?.length || 0}`);
             } catch (error) {
               console.error(`[HelpModal v1.4.402] Failed to fetch image ${image.HelpImage}:`, error);
               image.imageUrl = 'assets/img/photo-placeholder.svg';
@@ -475,12 +468,9 @@ export class HelpModalComponent implements OnInit {
   }
 
   onImageLoad(event: any, image: HelpImage) {
-    console.log('[HelpModal v1.4.402] Image loaded successfully:', image.HelpImage);
-    console.log('[HelpModal v1.4.402] Base64 image displayed');
   }
 
   async viewImage(image: HelpImage) {
-    console.log('[HelpModal v1.4.494] viewImage called with:', image);
     const imageUrl = image.imageUrl || 'assets/img/photo-placeholder.svg';
 
     // Create a full-screen image modal

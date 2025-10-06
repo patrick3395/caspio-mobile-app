@@ -86,10 +86,8 @@ export class OfflineService {
       console.error('Failed to persist manual offline setting:', e);
     }
     if (!enabled && this.isOnline()) {
-      console.log('📶 Manual offline disabled - processing queued requests');
       this.processQueue();
     } else if (enabled) {
-      console.log('📵 Manual offline enabled - requests will be queued');
     }
   }
 
@@ -99,10 +97,8 @@ export class OfflineService {
     this.online$.next(effective);
 
     if (effective && !previous) {
-      console.log('📶 Back online - processing queued requests');
       this.processQueue();
     } else if (!effective && previous) {
-      console.log('📵 Offline (manual or network) - requests will be queued');
     }
   }
 

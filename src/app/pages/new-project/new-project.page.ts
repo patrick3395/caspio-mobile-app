@@ -58,7 +58,6 @@ export class NewProjectPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    console.log('🔍 NewProjectPage: ngOnInit called');
     
     // Load states from Caspio
     await this.loadStates();
@@ -78,8 +77,6 @@ export class NewProjectPage implements OnInit {
         const stateB = b.State?.toUpperCase() || '';
         return stateA.localeCompare(stateB);
       });
-
-      console.log('✅ States loaded from Caspio (sorted alphabetically):', this.states);
       
       // Create a mapping of state abbreviations to full names
       this.stateAbbreviationMapping = {
@@ -126,8 +123,6 @@ export class NewProjectPage implements OnInit {
           name: serviceType?.TypeName || offer.Description || offer.OfferName || 'Service'
         };
       }) || [];
-      
-      console.log('Available services:', this.availableServices);
     } catch (error) {
       console.error('Error loading services:', error);
     }
@@ -143,7 +138,6 @@ export class NewProjectPage implements OnInit {
   }
 
   private initializeGooglePlaces(googleMaps: any, retry = 0) {
-    console.log('🔍 Initializing Google Places Autocomplete...');
 
     if (!googleMaps || !googleMaps.maps || !googleMaps.maps.places) {
       console.warn('⚠️ Google Maps Places library unavailable, aborting initialization.');
@@ -154,7 +148,6 @@ export class NewProjectPage implements OnInit {
 
     if (!addressInput) {
       if (retry < 10) {
-        console.log('⚠️ Address input not found, retrying...');
         setTimeout(() => this.initializeGooglePlaces(googleMaps, retry + 1), 200);
       } else {
         console.warn('⚠️ Address input not found after multiple attempts.');
@@ -165,8 +158,6 @@ export class NewProjectPage implements OnInit {
     if (this.autocompleteInstance) {
       return;
     }
-
-    console.log('✅ Setting up Google Places Autocomplete on input:', addressInput);
 
     // Create autocomplete instance
     const autocomplete = new googleMaps.maps.places.Autocomplete(addressInput, {
@@ -224,15 +215,11 @@ export class NewProjectPage implements OnInit {
     
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
-      console.log('📍 Place changed event fired');
       const place = autocomplete.getPlace();
       
       if (!place.geometry) {
-        console.log('⚠️ No geometry found for selected place');
         return;
       }
-      
-      console.log('📍 Selected place:', place);
       
       // Parse the address components
       let streetNumber = '';
@@ -267,12 +254,9 @@ export class NewProjectPage implements OnInit {
       
       // Find the StateID for the state abbreviation from Google Places
       if (state) {
-        console.log('🔍 Google Places returned state abbreviation:', state);
         
         // Convert abbreviation to full state name
         const fullStateName = this.stateAbbreviationMapping[state.toUpperCase()];
-        console.log('🔍 Converted to full state name:', fullStateName);
-        console.log('🔍 Available states in dropdown:', this.states);
         
         // Google Places returns abbreviation (e.g., "CA", "TX")
         // We need to match it with the full state name in the States table
@@ -288,9 +272,6 @@ export class NewProjectPage implements OnInit {
         if (stateRecord) {
           // Set state as number to match ion-select value binding
           this.formData.state = stateRecord.StateID;
-          console.log('✅ State matched:', fullStateName || state, '-> StateID:', stateRecord.StateID);
-          console.log('✅ State dropdown will show:', stateRecord.State);
-          console.log('✅ Form state field updated to:', this.formData.state, 'Type:', typeof this.formData.state);
           
           // Force Angular change detection for ion-select
           // Use ChangeDetectorRef to ensure the ion-select updates
@@ -301,25 +282,15 @@ export class NewProjectPage implements OnInit {
             const stateSelect = document.querySelector('ion-select[name="state"]') as any;
             if (stateSelect) {
               stateSelect.value = this.formData.state;
-              console.log('✅ Forced ion-select update to:', this.formData.state);
               // Trigger Angular's change detection again
               this.changeDetectorRef.detectChanges();
             }
           }, 100);
         } else {
-          console.log('⚠️ State not found in database:', state, '/', fullStateName);
-          console.log('📋 Available states:', this.states.map(s => `${s.State} (ID: ${s.StateID})`));
         }
       }
       
       this.formData.zip = zip;
-      
-      console.log('✅ Form data updated:', {
-        address: this.formData.address,
-        city: this.formData.city,
-        state: this.formData.state,
-        zip: this.formData.zip
-      });
       
       // Force Angular change detection
       addressInput.value = this.formData.address;
@@ -345,8 +316,6 @@ export class NewProjectPage implements OnInit {
         }
       }, 200);
     });
-    
-    console.log('✅ Google Places Autocomplete initialized successfully');
   }
 
   onServiceChange(serviceId: string, event: any) {
@@ -385,8 +354,6 @@ export class NewProjectPage implements OnInit {
       const result = await this.projectsService.createProject(this.formData).toPromise();
       
       if (result?.success && result.projectId) {
-        console.log('Project created with ID:', result.projectId);
-        console.log('Project data:', result.projectData);
         
         // Create Service_EFE record for the new project
         // Use ProjectID if available, otherwise use PK_ID (exact same as local server)
@@ -394,30 +361,23 @@ export class NewProjectPage implements OnInit {
         const projectIdForService = projectData?.ProjectID || projectData?.PK_ID || result.projectId;
         
         if (projectIdForService && projectIdForService !== 'new') {
-          console.log('📝 Creating Service_EFE record for project:', projectIdForService);
           try {
             await this.serviceEfeService.createServiceEFE(projectIdForService).toPromise();
-            console.log('✅ Service_EFE record created for project');
           } catch (error) {
             console.error('❌ Failed to create Service_EFE record:', error);
             // Don't fail the whole process if Service_EFE creation fails
           }
         } else {
-          console.log('⚠️ No valid project ID for Service_EFE creation');
         }
         
         await loading.dismiss();
         
         // Navigate to the new project's detail page
         if (result.projectId) {
-          console.log('🚀 Navigating to project details:', result.projectId);
           // Navigate immediately - Caspio API is instantaneous
           // Use replaceUrl to ensure proper navigation history
           await this.router.navigate(['/project', result.projectId], { replaceUrl: true });
         } else {
-          // This shouldn't happen, but fallback to projects list
-          console.log('⚠️ No project ID returned, navigating to projects list');
-          console.log('🔴 This indicates an issue with project creation or fetching');
           await this.router.navigate(['/tabs/active-projects']);  
         }
       } else {

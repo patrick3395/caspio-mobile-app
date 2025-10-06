@@ -74,7 +74,6 @@ export class ImageViewerComponent implements OnInit {
     if (this.images && this.images.length > 0) {
       this.allImages = this.images;
       this.currentIndex = this.initialIndex || 0;
-      console.log('🖼️ ImageViewer initialized with multiple images:', this.allImages.length);
     } 
     // Otherwise, fall back to single image mode (backward compatibility)
     else if (this.base64Data) {
@@ -91,7 +90,6 @@ export class ImageViewerComponent implements OnInit {
         filename: this.filename || 'document.jpg'
       }];
       this.currentIndex = 0;
-      console.log('🖼️ ImageViewer initialized in single image mode');
     } else {
       console.error('❌ No image data provided to ImageViewer');
     }
@@ -100,7 +98,6 @@ export class ImageViewerComponent implements OnInit {
   onImageLoad() {
     this.imageLoading = false;
     this.imageError = false;
-    console.log('✅ Image loaded successfully');
     
     if (this.isAnnotating && this.canvasRef) {
       setTimeout(() => this.setupCanvas(), 100);
@@ -442,24 +439,13 @@ export class ImageViewerComponent implements OnInit {
       // Get current image attachment ID
       const currentImage = this.allImages[this.currentIndex];
       
-      console.log('🎨 DEBUG: Saving annotated image');
-      console.log('  - Current index:', this.currentIndex);
-      console.log('  - Current image:', currentImage);
-      console.log('  - Has attachId:', !!currentImage.attachId);
-      console.log('  - AttachId value:', currentImage.attachId);
-      console.log('  - Has callback:', !!this.onSaveAnnotation);
-      console.log('  - Blob size:', blob.size);
-      
       if (currentImage.attachId && this.onSaveAnnotation) {
-        console.log('📤 Calling onSaveAnnotation callback...');
         // Upload to Caspio to replace the original
         const success = await this.onSaveAnnotation(
           currentImage.attachId,
           blob,
           currentImage.filename || 'annotated.jpg'
         );
-        
-        console.log('  - Save result:', success);
         
         if (success) {
           // Update the current image URL with the annotated version

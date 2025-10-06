@@ -39,6 +39,18 @@
   </div>
 
   <div class="projects-container">
+    <!-- Search bar -->
+    <div class="search-container">
+      <ion-searchbar 
+        [(ngModel)]="searchTerm"
+        (ionInput)="handleSearchTermChange($event.detail.value)"
+        placeholder="Search by address..."
+        class="enhanced-search-bar"
+        showClearButton="focus"
+        animated="true">
+      </ion-searchbar>
+    </div>
+
     <!-- Loading state -->
     <div *ngIf="loading" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
@@ -79,8 +91,8 @@
       </ion-item-sliding>
 
       <!-- Empty state -->
-      <div *ngIf="projects.length === 0" class="empty-state">
-        <p>No active projects found</p>
+      <div *ngIf="filteredProjects.length === 0" class="empty-state">
+        <p>{{ searchTerm.trim() ? 'No matching projects found' : 'No active projects found' }}</p>
       </div>
     </div>
   </div>

@@ -17,7 +17,6 @@ export class ImageCompressionService {
   };
 
   constructor() {
-    console.log('ImageCompressionService initialized');
   }
 
   /**
@@ -30,13 +29,10 @@ export class ImageCompressionService {
     try {
       // Skip compression for very small files (< 100KB)
       if (file.size < 100000) {
-        console.log('File already small, skipping compression:', file.size);
         return file;
       }
 
       const options = { ...this.defaultOptions, ...customOptions };
-      
-      console.log(`Compressing image: ${(file as File).name || 'blob'}, Original size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
       
       // Ensure file is a File object for the library
       let fileToCompress: File;
@@ -50,7 +46,6 @@ export class ImageCompressionService {
       const compressedFile = await imageCompression(fileToCompress, options);
       
       const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
-      console.log(`Compression complete: New size: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Reduced by ${compressionRatio}%`);
       
       return compressedFile;
     } catch (error) {

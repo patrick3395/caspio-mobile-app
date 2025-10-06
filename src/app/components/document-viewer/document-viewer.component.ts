@@ -324,12 +324,6 @@ export class DocumentViewerComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    console.log('DocumentViewer initialized with:', {
-      fileUrl: this.fileUrl,
-      fileName: this.fileName,
-      fileType: this.fileType,
-      filePath: this.filePath
-    });
     
     // Check if it's an image
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'];
@@ -343,7 +337,6 @@ export class DocumentViewerComponent implements OnInit {
     if (this.isImage) {
       // For images, use the URL directly (should be base64 data URL)
       this.displayUrl = this.fileUrl;
-      console.log('Displaying image, URL starts with:', this.displayUrl.substring(0, 50));
     } else if (this.isPDF) {
       // For PDFs, prepare the source for ngx-extended-pdf-viewer
       if (this.fileUrl.startsWith('data:')) {
@@ -357,7 +350,6 @@ export class DocumentViewerComponent implements OnInit {
             bytes[i] = binary.charCodeAt(i);
           }
           this.pdfSource = bytes;
-          console.log('Loaded PDF from base64, size:', len, 'bytes');
         } catch (error) {
           console.error('Error converting base64 to Uint8Array:', error);
           // Fallback to direct URL
@@ -367,8 +359,6 @@ export class DocumentViewerComponent implements OnInit {
         // For regular URLs, use them directly
         this.pdfSource = this.fileUrl;
       }
-      
-      console.log('PDF source prepared for ngx-extended-pdf-viewer');
     } else {
       // For other documents, use Google Docs viewer if not a data URL
       if (this.fileUrl.startsWith('data:')) {
@@ -378,7 +368,6 @@ export class DocumentViewerComponent implements OnInit {
         const encodedUrl = encodeURIComponent(this.fileUrl);
         const viewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
         this.sanitizedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(viewerUrl);
-        console.log('Using Google Docs viewer');
       }
     }
   }

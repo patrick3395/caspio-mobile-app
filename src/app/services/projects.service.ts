@@ -80,7 +80,6 @@ export class ProjectsService {
     // Clear all project cache keys
     this.cache.clear(this.cache.getApiCacheKey('projects_active', {}));
     this.cache.clear(this.cache.getApiCacheKey('projects_active', { companyId: 1 }));
-    console.log('🗑️ Cleared project cache');
   }
 
   getActiveProjects(companyId?: number): Observable<Project[]> {
@@ -90,7 +89,6 @@ export class ProjectsService {
     // Check cache first
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      console.log('📦 Returning cached active projects');
       return of(cached);
     }
     
@@ -106,7 +104,6 @@ export class ProjectsService {
       tap(projects => {
         // Cache the results for 5 minutes
         this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
-        console.log(`📦 Cached ${projects.length} active projects`);
       })
     );
   }
@@ -133,7 +130,6 @@ export class ProjectsService {
   private getStateIDFromAbbreviation(stateAbbr: string | undefined): number | null {
     if (!stateAbbr) return null;
     const stateID = this.stateMapping[stateAbbr.toUpperCase()];
-    console.log(`🗺️ Converting state '${stateAbbr}' to StateID: ${stateID || 'NOT FOUND'}`);
     return stateID || null;
   }
 
@@ -141,35 +137,16 @@ export class ProjectsService {
   createProject(projectData: ProjectCreationData): Observable<any> {
     return from(this.caspioService.ensureAuthenticated()).pipe(
       switchMap(() => {
-        console.log('🔍 Raw project data received:', projectData);
         
         // Save original data for later lookup
         const originalAddress = projectData.address;
         const originalCity = projectData.city || '';
         const originalDate = new Date().toISOString().split('T')[0];
         
-        // Log what we received from the form
-        console.log('📋 Form data received:', {
-          address: projectData.address,
-          city: projectData.city,
-          state: projectData.state,
-          zip: projectData.zip,
-          inspectionDate: projectData.inspectionDate
-        });
-        
         // StateID must be a number - handle both string and number input
         const stateId = typeof projectData.state === 'number' 
           ? projectData.state 
           : (projectData.state ? parseInt(projectData.state.toString()) : null);
-        
-        // Extra verification that all IDs are truly integers
-        console.log('🗺️ Input state:', projectData.state, 'Type:', typeof projectData.state);
-        console.log('🗺️ Using StateID:', stateId, 'Type:', typeof stateId);
-        console.log('✅ Verification of Integer Fields:');
-        console.log('  - CompanyID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
-        console.log('  - StateID:', stateId, 'is integer?', Number.isInteger(stateId), '(type:', typeof stateId, ')');
-        console.log('  - UserID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
-        console.log('  - StatusID: 1, is integer?', Number.isInteger(1), '(type:', typeof 1, ')');
         
         // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
         const formatDateTimeForCaspio = (dateStr: string | undefined) => {
@@ -234,14 +211,6 @@ export class ProjectsService {
           caspioData.Notes = projectData.notes;
         }
         
-        console.log('📤 CASPIO PROJECTS TABLE - FIELD MAPPING:');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📊 TABLE: Projects');
-        console.log('📍 API ENDPOINT: /tables/Projects/records');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('COLUMN HEADERS AND VALUES:');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
         // List each field with its column name, value, and type
         const fieldMapping = [
           { column: 'CompanyID', value: caspioData.CompanyID, dataType: 'Integer', required: 'YES' },
@@ -261,16 +230,8 @@ export class ProjectsService {
         fieldMapping.forEach(field => {
           if (field.value !== undefined) {
             const jsType = typeof field.value;
-            console.log(`Column: ${field.column.padEnd(15)} | Caspio Type: ${field.dataType.padEnd(12)} | Required: ${field.required.padEnd(3)} | Value: ${field.value} (JS: ${jsType})`);
           }
         });
-        
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📋 FULL JSON PAYLOAD:');
-        console.log(JSON.stringify(caspioData, null, 2));
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🔑 Auth Token:', this.caspioService.getCurrentToken() ? 'Present' : 'Missing');
-        console.log('📍 Full URL:', `${this.apiBaseUrl}/tables/Projects/records`);
         
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,
@@ -283,13 +244,9 @@ export class ProjectsService {
           observe: 'response' // Get full response to check status
         }).pipe(
           switchMap(response => {
-            console.log('✅ Project creation response status:', response.status);
-            console.log('📥 Response headers:', response.headers.keys());
-            console.log('📥 Response body:', response.body);
             
             // Check if Caspio returns the ID in Location header or response body
             const locationHeader = response.headers.get('Location');
-            console.log('🔍 Location header:', locationHeader);
             
             let createdProjectId = null;
             let createdProject = null;
@@ -300,8 +257,6 @@ export class ProjectsService {
               if (Array.isArray(result) && result.length > 0) {
                 createdProject = result[0];
                 createdProjectId = createdProject.PK_ID;
-                console.log('🎯 Found created project in response:', createdProject);
-                console.log('🎯 PK_ID:', createdProjectId);
               }
             }
             
@@ -309,17 +264,14 @@ export class ProjectsService {
               const idMatch = locationHeader.match(/\/records\/(\d+)/i);
               if (idMatch) {
                 createdProjectId = idMatch[1];
-                console.log('🎯 Extracted ID from Location header:', createdProjectId);
               }
             }
             
             // Caspio returns 201 Created
             if (response.status === 201 || response.status === 200) {
-              console.log('✅ Project created successfully with status:', response.status);
               
               // If we got the project directly from the response, use it
               if (createdProjectId && createdProject) {
-                console.log('🎯 Using project from response with ID:', createdProjectId);
                 // Clear cache so the new project appears immediately
                 this.clearProjectCache();
                 
@@ -330,13 +282,9 @@ export class ProjectsService {
                   projectData: createdProject
                 });
               }
-              
-              // Fallback: search for the project we just created
-              console.log('📍 No ID in response, searching by address:', originalAddress);
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject && newProject.PK_ID) {
-                    console.log('🎯 Successfully found created project:', newProject.PK_ID);
                     return {
                       success: true,
                       message: 'Project created',
@@ -415,13 +363,11 @@ export class ProjectsService {
             
             // Check if it's actually a success (201 status)
             if (error.status === 201) {
-              console.log('✅ Project created (201 in error handler)');
               
               // Check if we have the created record in error body (with response=rows)
               if (error.error && error.error.Result && Array.isArray(error.error.Result)) {
                 const createdProject = error.error.Result[0];
                 if (createdProject && createdProject.PK_ID) {
-                  console.log('🎯 Found project in error response:', createdProject);
                   return of({
                     success: true,
                     message: 'Project created',
@@ -482,7 +428,6 @@ export class ProjectsService {
 
         return this.http.put(url, updateData, { headers }).pipe(
           tap(() => {
-            console.log(`Project ${projectId} status updated to ${statusId}`);
           }),
           catchError(error => {
             console.error('Error updating project status:', error);
@@ -498,8 +443,6 @@ export class ProjectsService {
     // Caspio is instantaneous, fetch immediately
     return this.getAllProjects().pipe(
       map(projects => {
-        console.log('🔍 Looking for project with address:', address);
-        console.log('📋 Total projects in database:', projects.length);
         
         // Sort all projects by PK_ID descending to get the most recent first
         const sortedProjects = projects.sort((a, b) => 
@@ -508,12 +451,6 @@ export class ProjectsService {
         
         // Log the most recent projects
         if (sortedProjects.length > 0) {
-          console.log('📋 Most recent 5 projects:', sortedProjects.slice(0, 5).map(p => ({
-            PK_ID: p.PK_ID,
-            Address: p.Address,
-            City: p.City,
-            Date: p.Date
-          })));
         }
         
         // Look for exact address match in recent projects (check top 10)
@@ -523,13 +460,8 @@ export class ProjectsService {
         );
         
         if (matchingProject) {
-          console.log('✅ Found project by address with PK_ID:', matchingProject.PK_ID);
           return matchingProject;
         }
-        
-        // Don't just return any project - this was causing the wrong project issue
-        console.log('⚠️ Could not find project with address:', address);
-        console.log('⚠️ Not returning a random project - will show error to user');
         return null;
       })
     );
@@ -553,7 +485,6 @@ export class ProjectsService {
   getStates(): Observable<any[]> {
     return this.caspioService.get<any>('/tables/States/records').pipe(
       map(response => {
-        console.log('📍 States loaded from Caspio:', response.Result);
         return response.Result || [];
       })
     );

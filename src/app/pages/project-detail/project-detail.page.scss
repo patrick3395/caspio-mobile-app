@@ -415,16 +415,6 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
 
   .support-doc-row.doc-row {
     background: $white;
-
-    // First doc row after service header should be white
-    &:nth-child(2) {
-      background: $white;
-    }
-
-    // Subsequent rows alternate starting with light gray
-    &:nth-child(n+3):nth-child(odd) {
-      background: #fafafa;  // Light gray for alternating rows
-    }
   }
 
   .support-doc-row.doc-row.pending {
@@ -432,7 +422,7 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 
   .support-doc-row.doc-row.no-docs {
-    background: #f8f8f8;  // Very light gray
+    background: $white;
   }
 
   .support-doc-row.add-row {

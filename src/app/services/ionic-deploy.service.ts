@@ -13,11 +13,6 @@ export class IonicDeployService {
     const BUILD_NUMBER = 51;
     const PLUGIN_NAME = '@capacitor/live-updates';
     
-    console.log(`=== BUILD ${BUILD_NUMBER} LIVE UPDATES CHECK ===`);
-    console.log(`Plugin: ${PLUGIN_NAME}`);
-    console.log('Platform:', Capacitor.getPlatform());
-    console.log('Is Native:', Capacitor.isNativePlatform());
-    
     if (!Capacitor.isNativePlatform()) {
       alert('Live updates only work on native builds.\n\nYou are currently running in a browser.');
       return;
@@ -25,28 +20,11 @@ export class IonicDeployService {
 
     // Ensure platform is ready
     await this.platform.ready();
-    console.log('Platform ready, checking for updates...');
 
     try {
-      // Log the configuration being used
-      console.log('=== LIVE UPDATE CONFIGURATION ===');
-      console.log('Expected App ID: 1e8beef6');
-      console.log('Expected Channel: Caspio Mobile App');
-      console.log('Update Method: background');
-      
-      // Use the @capacitor/live-updates sync method
-      console.log('Calling LiveUpdates.sync()...');
       const result = await LiveUpdates.sync();
       
-      // DETAILED LOGGING OF RESULT
-      console.log('=== SYNC RESULT DETAILS ===');
-      console.log('Full result object:', JSON.stringify(result, null, 2));
-      console.log('activeApplicationPathChanged:', result.activeApplicationPathChanged);
-      console.log('Result keys:', Object.keys(result));
-      
       if (result.activeApplicationPathChanged) {
-        // The app has been updated
-        console.log('✅ Update downloaded and applied!');
         
         alert(
           `🎉 LIVE UPDATE DETECTED!\n\n` +
@@ -58,8 +36,6 @@ export class IonicDeployService {
         // Auto reload to show the update
         await LiveUpdates.reload();
       } else {
-        console.log('ℹ️ No update available');
-        console.log('App is already on the latest version');
         
         // Simple message - no update available
         alert('✓ App is up to date\n\nNo updates available at this time.');
