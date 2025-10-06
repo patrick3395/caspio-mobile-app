@@ -352,7 +352,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   @Input() isReEdit?: boolean = false;
   @Input() photoData?: any;
 
-  private canvas!: fabric.Canvas;
+  private canvas!: any;
   currentTool = 'arrow';
   currentColor = '#FF0000';
   private strokeWidth = 3;
@@ -403,7 +403,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     // Delete selected object when Delete or Backspace is pressed
     if ((event.key === 'Delete' || event.key === 'Backspace') && this.canvas) {
       const activeObject = this.canvas.getActiveObject();
-      if (activeObject && !(activeObject instanceof fabric.Image)) {
+      if (activeObject && !(activeObject instanceof (fabric as any).Image)) {
         this.canvas.remove(activeObject);
         this.canvas.discardActiveObject();
         this.canvas.renderAll();
@@ -420,7 +420,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     }
     
     // Initialize Fabric.js canvas
-    this.canvas = new fabric.Canvas(this.canvasElement.nativeElement, {
+    this.canvas = new (fabric as any).Canvas(this.canvasElement.nativeElement, {
       isDrawingMode: false,
       selection: true
     });
@@ -429,7 +429,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (this.imageUrl || this.imageFile) {
       const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
       
-      fabric.Image.fromURL(imageUrl).then((img: fabric.Image) => {
+      (fabric as any).Image.fromURL(imageUrl).then((img: (fabric as any).Image) => {
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
@@ -679,7 +679,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     // Also handle selection:created event for text objects - show edit prompt
     this.canvas.on('selection:created', (options: any) => {
       if (options.target && options.target.type === 'i-text' && this.currentTool === 'select') {
-        const textObj = options.target as fabric.IText;
+        const textObj = options.target as any;
         // Add a small delay to allow the selection to complete
         setTimeout(() => {
           const currentText = textObj.text || '';
@@ -694,16 +694,16 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     });
   }
   
-  private createArrow(x1: number, y1: number, x2: number, y2: number): fabric.Group {
-    const line = new fabric.Line([x1, y1, x2, y2], {
+  private createArrow(x1: number, y1: number, x2: number, y2: number): any {
+    const line = new (fabric as any).Line([x1, y1, x2, y2], {
       stroke: this.currentColor,
       strokeWidth: this.strokeWidth
     });
-    
+
     const angle = Math.atan2(y2 - y1, x2 - x1);
     const headLength = 15;
-    
-    const arrowHead1 = new fabric.Line([
+
+    const arrowHead1 = new (fabric as any).Line([
       x2,
       y2,
       x2 - headLength * Math.cos(angle - Math.PI / 6),
@@ -712,8 +712,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       stroke: this.currentColor,
       strokeWidth: this.strokeWidth
     });
-    
-    const arrowHead2 = new fabric.Line([
+
+    const arrowHead2 = new (fabric as any).Line([
       x2,
       y2,
       x2 - headLength * Math.cos(angle + Math.PI / 6),
@@ -722,8 +722,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       stroke: this.currentColor,
       strokeWidth: this.strokeWidth
     });
-    
-    return new fabric.Group([line, arrowHead1, arrowHead2]);
+
+    return new (fabric as any).Group([line, arrowHead1, arrowHead2]);
   }
   
   setTool(tool: string) {
@@ -737,7 +737,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       
       // Make all objects selectable
       this.canvas.getObjects().forEach(obj => {
-        if (!(obj instanceof fabric.Image)) {  // Don't make background image selectable
+        if (!(obj instanceof (fabric as any).Image)) {  // Don't make background image selectable
           obj.set({
             selectable: true,
             evented: true,
@@ -780,7 +780,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (objects.length > 0) {
       // Don't remove the background image
       const lastObject = objects[objects.length - 1];
-      if (!(lastObject instanceof fabric.Image)) {
+      if (!(lastObject instanceof (fabric as any).Image)) {
         this.canvas.remove(lastObject);
         console.log(`â†©ï¸ [v1.4.233 FABRIC] Undo - removed last annotation`);
       }
@@ -790,8 +790,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   clearAll() {
     // Remove all objects except the background image
     const objects = this.canvas.getObjects();
-    objects.forEach((obj: fabric.Object) => {
-      if (!(obj instanceof fabric.Image)) {
+    objects.forEach((obj: any) => {
+      if (!(obj instanceof (fabric as any).Image)) {
         this.canvas.remove(obj);
       }
     });
@@ -801,7 +801,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   
   deleteSelected() {
     const activeObject = this.canvas.getActiveObject();
-    if (activeObject && !(activeObject instanceof fabric.Image)) {
+    if (activeObject && !(activeObject instanceof (fabric as any).Image)) {
       this.canvas.remove(activeObject);
       this.canvas.discardActiveObject();
       this.canvas.renderAll();
@@ -815,7 +815,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   getAnnotationCount(): number {
     // Count all objects except the background image
     const objects = this.canvas?.getObjects() || [];
-    return objects.filter((obj: fabric.Object) => !(obj instanceof fabric.Image)).length;
+    return objects.filter((obj: any) => !(obj instanceof (fabric as any).Image)).length;
   }
   
   private async loadExistingAnnotations() {
@@ -844,7 +844,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         return;
       }
 
-      const bgImage = this.canvas.backgroundImage as fabric.Image;
+      const bgImage = this.canvas.backgroundImage as (fabric as any).Image;
       const bgImageSrc = bgImage ? bgImage.getSrc() : null;
 
       const payloadToLoad = {
@@ -854,7 +854,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
       this.canvas.loadFromJSON(payloadToLoad, () => {
         if (bgImageSrc) {
-          fabric.Image.fromURL(bgImageSrc).then((img: fabric.Image) => {
+          (fabric as any).Image.fromURL(bgImageSrc).then((img: (fabric as any).Image) => {
             const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
             const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
 
@@ -875,7 +875,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
         setTimeout(() => {
           this.canvas.getObjects().forEach(obj => {
-            if (!(obj instanceof fabric.Image)) {
+            if (!(obj instanceof (fabric as any).Image)) {
               obj.set({
                 selectable: true,
                 evented: true,

@@ -285,7 +285,7 @@ export class CaspioService {
   private async serializePayload(data: any): Promise<any> {
     if (data instanceof FormData) {
       const entries: any[] = [];
-      for (const [key, value] of data.entries()) {
+      for (const [key, value] of Array.from(data.entries())) {
         if (value instanceof File) {
           const dataUrl = await this.blobToDataUrl(value);
           entries.push({ key, value: dataUrl, fileName: value.name, type: value.type, __file: true });

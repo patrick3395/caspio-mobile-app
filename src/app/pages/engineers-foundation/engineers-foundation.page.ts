@@ -7272,7 +7272,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.pendingPhotoUploads[key] = [];
           }
 
-          for (const file of files) {
+          for (const file of Array.from(files)) {
             this.pendingPhotoUploads[key].push({
               file: file,
               visualId: '__pending__',

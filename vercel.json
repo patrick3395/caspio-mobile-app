@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "buildCommand": "npm install && npm run build:mobile",
+  "outputDirectory": "www",
+  "framework": null,
+  "installCommand": "npm install",
+  "devCommand": "npm start",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+}

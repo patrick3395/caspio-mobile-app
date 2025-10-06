@@ -1,0 +1,193 @@
+<!--
+  NOBLE PROPERTY INSPECTIONS - SQUARESPACE EMBED CODE
+
+  INSTRUCTIONS:
+  1. Deploy your app to Vercel (see GITHUB-VERCEL-DEPLOY.md)
+  2. Replace YOUR-VERCEL-URL below with your actual Vercel URL
+  3. Copy this entire code block
+  4. In Squarespace, add a "Code Block" to your page
+  5. Paste this code
+  6. Publish your page
+-->
+
+<!-- Option 1: IFRAME EMBED (Recommended - Easiest) -->
+<div class="noble-app-container" style="width: 100%; max-width: 1200px; margin: 0 auto;">
+  <iframe
+    src="https://YOUR-VERCEL-URL.vercel.app"
+    width="100%"
+    height="800px"
+    style="
+      border: none;
+      min-height: 600px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    "
+    allow="camera; geolocation; clipboard-write"
+    title="Noble Property Inspections App">
+  </iframe>
+</div>
+
+<!-- Option 2: FULL PAGE REDIRECT BUTTON -->
+<!-- Use this if you want a button that opens the app in a new tab -->
+<!--
+<div style="text-align: center; padding: 40px 20px;">
+  <h2>Launch Property Inspection App</h2>
+  <p>Access all your inspection tools and reports</p>
+  <a
+    href="https://YOUR-VERCEL-URL.vercel.app"
+    target="_blank"
+    style="
+      display: inline-block;
+      padding: 15px 30px;
+      background: #ff6b35;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: background 0.3s ease;
+    "
+    onmouseover="this.style.background='#e55a28'"
+    onmouseout="this.style.background='#ff6b35'">
+    Launch Inspector App →
+  </a>
+</div>
+-->
+
+<!-- Option 3: RESPONSIVE IFRAME (Adjusts to Mobile) -->
+<!-- Use this if you want the iframe to work well on mobile devices -->
+<!--
+<style>
+  .noble-responsive-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 75%; /* 4:3 Aspect Ratio */
+  }
+
+  .noble-responsive-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .noble-responsive-container {
+      padding-bottom: 100%; /* Taller on mobile */
+    }
+  }
+</style>
+
+<div class="noble-responsive-container">
+  <iframe
+    class="noble-responsive-iframe"
+    src="https://YOUR-VERCEL-URL.vercel.app"
+    allow="camera; geolocation; clipboard-write"
+    title="Noble Property Inspections App">
+  </iframe>
+</div>
+-->
+
+<!-- Option 4: WITH LOADING SPINNER -->
+<!-- Shows a loading animation while the app loads -->
+<!--
+<style>
+  .noble-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .noble-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
+
+  .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #ff6b35;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .noble-iframe {
+    width: 100%;
+    height: 800px;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .noble-iframe.loaded {
+    opacity: 1;
+  }
+</style>
+
+<div class="noble-container">
+  <div class="noble-spinner" id="spinner">
+    <div class="spinner"></div>
+    <p style="margin-top: 10px; color: #666;">Loading app...</p>
+  </div>
+
+  <iframe
+    id="nobleIframe"
+    class="noble-iframe"
+    src="https://YOUR-VERCEL-URL.vercel.app"
+    allow="camera; geolocation; clipboard-write"
+    title="Noble Property Inspections App"
+    onload="
+      document.getElementById('nobleIframe').classList.add('loaded');
+      document.getElementById('spinner').style.display = 'none';
+    ">
+  </iframe>
+</div>
+-->
+
+<!--
+  TIPS:
+
+  1. CHOOSING AN OPTION:
+     - Option 1 (Iframe): Best for most cases - simple and works well
+     - Option 2 (Button): Use if you want app in new tab/window
+     - Option 3 (Responsive): Best for mobile-first design
+     - Option 4 (Loading): Best user experience, shows loading state
+
+  2. CUSTOMIZATION:
+     - Change colors: Replace #ff6b35 with your brand color
+     - Adjust height: Change "800px" to your preferred height
+     - Mobile optimization: Option 3 handles this automatically
+
+  3. TROUBLESHOOTING:
+     - If iframe doesn't show: Check Squarespace CSP settings
+     - If app doesn't load: Check Vercel deployment status
+     - If features don't work: Check browser console (F12)
+
+  4. TESTING:
+     - Test on desktop and mobile
+     - Try different browsers
+     - Check camera/file upload works
+
+  5. GOING LIVE:
+     - Test thoroughly on a draft page first
+     - Once working, publish the page
+     - Monitor for any issues in first few days
+-->
