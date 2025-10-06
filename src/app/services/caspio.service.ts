@@ -1392,10 +1392,15 @@ export class CaspioService {
     
     try {
       let originalFilePath = '';
-      
+
+      console.log(`[v1.4.572] ${callId} - DECISION: Should we upload original file?`);
+      console.log(`  originalFile exists: ${!!originalFile}`);
+      console.log(`  drawings exists: ${!!drawings}`);
+      console.log(`  Will upload original: ${!!(originalFile && drawings)}`);
+
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
-        console.log('Step 1A: Uploading original (un-annotated) file to Caspio Files API...');
+        console.log(`[v1.4.572] ${callId} - Step 1A: Uploading original file...`);
         const originalFormData = new FormData();
         const originalFileName = `original_${originalFile.name}`;
         originalFormData.append('file', originalFile, originalFileName);
@@ -1420,15 +1425,19 @@ export class CaspioService {
       // This prevents duplicate uploads when annotations are present
       let filePath = '';
 
+      console.log(`[v1.4.572] ${callId} - Step 1B DECISION:`);
+      console.log(`  originalFilePath is set: ${!!originalFilePath}`);
+      console.log(`  Will skip main upload: ${!!originalFilePath}`);
+
       if (originalFilePath) {
         // We already uploaded the original file in Step 1A
         // Use that path instead of uploading again
-        console.log('[v1.4.570] Using original file path, skipping duplicate upload');
+        console.log(`[v1.4.572] ${callId} - SKIPPING main file upload, using original path`);
         console.log('  Original file path:', originalFilePath);
         filePath = originalFilePath;
       } else {
         // No original file - upload the main file as usual
-        console.log('Step 1B: Uploading file to Caspio Files API...');
+        console.log(`[v1.4.572] ${callId} - UPLOADING main file (no original)`);
         console.log('  File to upload:', file.name, 'Size:', file.size);
 
         // [v1.4.387] Generate unique filename to prevent duplication
