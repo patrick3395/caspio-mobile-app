@@ -8652,6 +8652,10 @@ Stack: ${error?.stack}`;
         }
       }
       
+      // [v1.4.575] Save scroll position before opening modal
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+      console.log('[v1.4.575] Saving scroll position:', scrollPosition);
+
       // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
@@ -8669,11 +8673,17 @@ Stack: ${error?.stack}`;
         },
         cssClass: 'fullscreen-modal'
       });
-      
+
       await modal.present();
-      
+
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
+
+      // [v1.4.575] Restore scroll position after modal dismisses
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+        console.log('[v1.4.575] Restored scroll position:', scrollPosition);
+      }, 100);
       
       if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
