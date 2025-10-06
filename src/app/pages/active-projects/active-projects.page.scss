@@ -14,6 +14,11 @@
       color: #ffffff;
     }
 
+    // Center title on web version
+    &.web-centered ion-title {
+      text-align: center;
+    }
+
     ion-buttons {
       display: flex;
       align-items: center;

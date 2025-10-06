@@ -22,6 +22,11 @@ $white: #FFFFFF;
       letter-spacing: 0.5px;
       color: #ffffff;
     }
+
+    // Center title on web version
+    &.web-centered ion-title {
+      text-align: center;
+    }
   }
 }
 

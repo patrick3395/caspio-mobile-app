@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
@@ -47,7 +48,8 @@ export class HelpGuidePage implements OnInit {
 
   constructor(
     private caspioService: CaspioService,
-    private modalController: ModalController
+    private modalController: ModalController,
+    public platform: PlatformDetectionService
   ) {}
 
   ngOnInit() {

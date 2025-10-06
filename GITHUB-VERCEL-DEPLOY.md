@@ -72,7 +72,7 @@ Add a Code Block to your Squarespace page:
 ```html
 <div style="width: 100%; min-height: 800px;">
   <iframe
-    src="https://your-project.vercel.app"
+    src="https://caspio-mobile-app.vercel.app/"
     width="100%"
     height="800px"
     style="border: none; min-height: 600px; border-radius: 8px;"

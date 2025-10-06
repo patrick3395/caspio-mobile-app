@@ -4,6 +4,7 @@ import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 
 @Component({
   selector: 'app-all-projects',
@@ -37,7 +38,8 @@ export class AllProjectsPage implements OnInit {
     private caspioService: CaspioService,
     private router: Router,
     private route: ActivatedRoute,
-    private alertController: AlertController
+    private alertController: AlertController,
+    public platform: PlatformDetectionService
   ) {}
 
   ngOnInit() {

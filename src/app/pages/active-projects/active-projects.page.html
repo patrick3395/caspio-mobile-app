@@ -1,5 +1,5 @@
 <ion-header class="custom-header">
-  <ion-toolbar class="action-toolbar">
+  <ion-toolbar class="action-toolbar" [class.web-centered]="platform.isWeb()">
     <ion-title>Active Projects</ion-title>
     <ion-buttons slot="end">
       <button
