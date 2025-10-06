@@ -8679,12 +8679,6 @@ Stack: ${error?.stack}`;
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
 
-      // [v1.4.575] Restore scroll position after modal dismisses
-      setTimeout(() => {
-        window.scrollTo(0, scrollPosition);
-        console.log('[v1.4.575] Restored scroll position:', scrollPosition);
-      }, 100);
-      
       if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
@@ -8779,15 +8773,28 @@ Stack: ${error?.stack}`;
             }
             
             // Success toast removed per user request
-            
+
             // Trigger change detection
             this.changeDetectorRef.detectChanges();
+
+            // [v1.4.576] Restore scroll position AFTER change detection
+            // This prevents the DOM update from scrolling the page
+            setTimeout(() => {
+              window.scrollTo(0, scrollPosition);
+              console.log('[v1.4.576] Restored scroll position after change detection:', scrollPosition);
+            }, 50);
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
         }
+      } else {
+        // [v1.4.576] Also restore scroll if user cancels (no data returned)
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+          console.log('[v1.4.576] Restored scroll position (no changes made):', scrollPosition);
+        }, 50);
       }
-      
+
     } catch (error) {
       console.error('Error viewing photo:', error);
       await this.showToast('Failed to view photo', 'danger');
