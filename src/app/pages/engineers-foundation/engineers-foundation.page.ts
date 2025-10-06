@@ -9080,10 +9080,24 @@ Stack: ${error?.stack}`;
       console.log(`[v1.4.386] Found ${attachments.length} photos for KEY ${key} (VisualID ${visualId})`);
       // [v1.4.488] Change detection moved to end of loadExistingPhotos for better performance
       const photoRecords = attachments.map(att => this.buildPhotoRecord(att));
-      this.visualPhotos[key] = photoRecords;
+
+      // [v1.4.569] Deduplicate photos by AttachID to prevent duplicates
+      const seenAttachIds = new Set<string>();
+      const uniquePhotoRecords = photoRecords.filter(record => {
+        const attachId = String(record.AttachID || record.PK_ID || record.id);
+        if (seenAttachIds.has(attachId)) {
+          console.warn(`[v1.4.569] Duplicate photo detected and removed: AttachID ${attachId} for KEY ${key}`);
+          return false;
+        }
+        seenAttachIds.add(attachId);
+        return true;
+      });
+
+      console.log(`[v1.4.569] Deduplicated photos: ${photoRecords.length} -> ${uniquePhotoRecords.length} for KEY ${key}`);
+      this.visualPhotos[key] = uniquePhotoRecords;
       this.changeDetectorRef.detectChanges();
 
-      await this.hydratePhotoRecords(photoRecords);
+      await this.hydratePhotoRecords(uniquePhotoRecords);
     } catch (error) {
       console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
       this.visualPhotos[key] = [];
