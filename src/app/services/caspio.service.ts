@@ -1412,59 +1412,59 @@ export class CaspioService {
       }
       
       // STEP 1B: Upload file to Caspio Files API
-      // CRITICAL: Check if we have drawings - if so, we should NOT upload the file!
-      console.log('Step 1B: File upload decision...');
-      console.log('  Has drawings (annotations):', !!drawings);
-      console.log('  File to upload:', file.name, 'Size:', file.size);
-      
-      // IMPORTANT: If we only have annotations (drawings), we should NOT upload a new file
-      // The Photo field should remain unchanged, pointing to the original image
-      if (drawings && !file.name.startsWith('original_')) {
-        console.log('?? WARNING: Attempting to upload file when only updating annotations!');
-        console.log('  This would replace the original image with the annotated version.');
-        console.log('  Skipping file upload to preserve original image.');
-        
-        // For now, let's still upload to see what's happening
-        // TODO: In production, we should skip this upload entirely
+      // [v1.4.570] FIX: Only upload the main file if we DON'T have an original file already
+      // This prevents duplicate uploads when annotations are present
+      let filePath = '';
+
+      if (originalFilePath) {
+        // We already uploaded the original file in Step 1A
+        // Use that path instead of uploading again
+        console.log('[v1.4.570] Using original file path, skipping duplicate upload');
+        console.log('  Original file path:', originalFilePath);
+        filePath = originalFilePath;
+      } else {
+        // No original file - upload the main file as usual
+        console.log('Step 1B: Uploading file to Caspio Files API...');
+        console.log('  File to upload:', file.name, 'Size:', file.size);
+
+        // [v1.4.387] Generate unique filename to prevent duplication
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `visual_${visualId}_${timestamp}_${randomId}.${fileExt}`;
+
+        console.log(`[v1.4.387] Generating unique filename:`);
+        console.log(`  Original: ${file.name}`);
+        console.log(`  Unique: ${uniqueFilename}`);
+
+        const formData = new FormData();
+        formData.append('file', file, uniqueFilename);
+
+        const filesUrl = `${API_BASE_URL}/files`;
+        console.log('Uploading to Files API:', filesUrl);
+
+        const uploadResponse = await fetch(filesUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+            // NO Content-Type header - let browser set it with boundary
+          },
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Files API upload failed:', errorText);
+          throw new Error('Failed to upload file to Files API: ' + errorText);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('? File uploaded to Files API:', uploadResult);
+
+        // The file path for the Photo field - use unique filename
+        filePath = `/${uploadResult.Name || uniqueFilename}`;
+        console.log('File path for Photo field:', filePath);
       }
-      
-      // [v1.4.387] Generate unique filename to prevent duplication
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `visual_${visualId}_${timestamp}_${randomId}.${fileExt}`;
-      
-      console.log(`[v1.4.387] Generating unique filename:`);
-      console.log(`  Original: ${file.name}`);
-      console.log(`  Unique: ${uniqueFilename}`);
-      
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-      
-      const filesUrl = `${API_BASE_URL}/files`;
-      console.log('Uploading to Files API:', filesUrl);
-      
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-          // NO Content-Type header - let browser set it with boundary
-        },
-        body: formData
-      });
-      
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Files API upload failed:', errorText);
-        throw new Error('Failed to upload file to Files API: ' + errorText);
-      }
-      
-      const uploadResult = await uploadResponse.json();
-      console.log('? File uploaded to Files API:', uploadResult);
-      
-      // The file path for the Photo field - use unique filename
-      const filePath = `/${uploadResult.Name || uniqueFilename}`;
-      console.log('File path for Photo field:', filePath);
       
       // STEP 2: Create Services_Visuals_Attach record WITH the Photo field path
       console.log('Step 2: Creating Services_Visuals_Attach record with file path...');

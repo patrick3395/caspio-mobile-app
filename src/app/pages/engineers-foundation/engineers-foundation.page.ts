@@ -462,21 +462,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   goBack() {
     console.log('[goBack] Navigating back from Engineers Foundation, projectId:', this.projectId);
 
-    // Method 1: Use Location.back() - this is the simplest and most reliable way
-    try {
-      this.location.back();
-      console.log('[goBack] Used Location.back() to navigate');
-    } catch (error) {
-      console.error('[goBack] Location.back() failed:', error);
-
-      // Method 2: Fallback to Router navigation
+    // For web app, always navigate directly to project details page
+    if (this.platform.isWeb()) {
       if (this.projectId) {
         this.router.navigate(['/project', this.projectId]).then(success => {
           if (success) {
-            console.log('[goBack] Router navigation successful');
+            console.log('[goBack] Web app: Router navigation to project details successful');
           } else {
-            console.error('[goBack] Router navigation failed');
-            // Method 3: Last resort - force navigation with window.location
+            console.error('[goBack] Web app: Router navigation failed');
+            // Fallback to window.location for web
+            window.location.href = `/project/${this.projectId}`;
+          }
+        });
+      } else {
+        this.router.navigate(['/tabs/active-projects']);
+      }
+      return;
+    }
+
+    // For mobile app, use Location.back() for native navigation
+    try {
+      this.location.back();
+      console.log('[goBack] Mobile app: Used Location.back() to navigate');
+    } catch (error) {
+      console.error('[goBack] Mobile app: Location.back() failed:', error);
+
+      // Fallback to Router navigation
+      if (this.projectId) {
+        this.router.navigate(['/project', this.projectId]).then(success => {
+          if (success) {
+            console.log('[goBack] Mobile app: Router navigation successful');
+          } else {
+            console.error('[goBack] Mobile app: Router navigation failed');
+            // Last resort - force navigation
             window.location.href = `/project/${this.projectId}`;
           }
         });
