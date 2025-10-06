@@ -83,8 +83,8 @@
               ],
               "outputHashing": "all",
               "outputPath": "dist/web",
-              "baseHref": "/noble-app/",
-              "deployUrl": "/noble-app/"
+              "baseHref": "/",
+              "deployUrl": "/"
             },
             "development": {
               "buildOptimizer": false,
