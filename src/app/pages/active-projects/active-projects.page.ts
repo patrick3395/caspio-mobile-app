@@ -5,6 +5,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 
 @Component({
   selector: 'app-active-projects',
@@ -50,7 +51,8 @@ export class ActiveProjectsPage implements OnInit {
     private deployService: IonicDeployService,
     private router: Router,
     private route: ActivatedRoute,
-    private alertController: AlertController
+    private alertController: AlertController,
+    public platform: PlatformDetectionService
   ) {}
 
   ngOnInit() {
