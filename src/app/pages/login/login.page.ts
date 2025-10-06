@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 
 @Component({
   selector: 'app-login',
@@ -27,7 +28,8 @@ export class LoginPage implements OnInit {
     private router: Router,
     private caspioService: CaspioService,
     private alertController: AlertController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    public platform: PlatformDetectionService
   ) { }
 
   ngOnInit() {
