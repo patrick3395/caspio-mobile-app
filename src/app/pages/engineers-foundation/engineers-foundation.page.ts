@@ -4485,8 +4485,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } else {
         console.log('[v1.4.390] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
       }
-      
-      // PDF validation removed - allow generation even with incomplete fields
+
+      // [v1.4.568] PDF validation removed - allow generation even with incomplete fields
     // const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName',
     //                                 'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
     // const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
