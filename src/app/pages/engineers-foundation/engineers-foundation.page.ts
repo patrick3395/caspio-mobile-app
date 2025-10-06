@@ -4486,35 +4486,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('[v1.4.390] IDs present:', { serviceId: this.serviceId, projectId: this.projectId });
       }
       
-      // Validate all required Project Information fields before generating PDF
-    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
-                                    'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
-    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
-    
-    const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
-    const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
-    
-    if (missingProjectFields.length > 0 || missingServiceFields.length > 0) {
-      const allMissing = [...missingProjectFields, ...missingServiceFields];
-      console.warn('[v1.4.402] Please fill in all required fields before generating PDF:', allMissing.join(', '));
-      
-      // Scroll to Project Information section if there are missing fields
-      const projectSection = document.querySelector('.section-card');
-      if (projectSection) {
-        projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      
-      // Reset the generation flag and button state before returning
-      this.isPDFGenerating = false;
-      if (pdfButton) {
-        if (pdfButton instanceof HTMLButtonElement) {
-          pdfButton.disabled = false;
-        }
-        pdfButton.style.pointerEvents = 'auto';
-        pdfButton.style.opacity = '1';
-      }
-      return;
-    }
+      // PDF validation removed - allow generation even with incomplete fields
+    // const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName',
+    //                                 'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
+    // const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
+    //
+    // const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
+    // const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
+    //
+    // if (missingProjectFields.length > 0 || missingServiceFields.length > 0) {
+    //   const allMissing = [...missingProjectFields, ...missingServiceFields];
+    //   console.warn('[v1.4.402] Please fill in all required fields before generating PDF:', allMissing.join(', '));
+    //
+    //   // Scroll to Project Information section if there are missing fields
+    //   const projectSection = document.querySelector('.section-card');
+    //   if (projectSection) {
+    //     projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    //   }
+    //
+    //   // Reset the generation flag and button state before returning
+    //   this.isPDFGenerating = false;
+    //   if (pdfButton) {
+    //     if (pdfButton instanceof HTMLButtonElement) {
+    //       pdfButton.disabled = false;
+    //     }
+    //     pdfButton.style.pointerEvents = 'auto';
+    //     pdfButton.style.opacity = '1';
+    //   }
+    //   return;
+    // }
     
     // Create a single loading indicator that stays until PDF is ready
     console.log('[v1.4.390] Creating loading indicator...');

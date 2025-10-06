@@ -5,11 +5,6 @@
 </ion-header>
 
 <ion-content class="projects-content">
-  <!-- User info banner -->
-  <div class="user-banner" *ngIf="currentUser">
-    <span class="user-info">👤 {{ getUserInfo() }}</span>
-  </div>
-
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
