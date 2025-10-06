@@ -6792,8 +6792,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       
       // Show popup with data to be sent (skip for batch uploads)
-      // Removed debug popup - proceed directly with upload
-      await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, isBatchUpload, annotationData, originalPhoto, tempId);
+      // [v1.4.574] CRITICAL FIX: Removed duplicate upload call here
+      // Was calling performVisualPhotoUpload TWICE - once here and once in else block below
+      // await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, isBatchUpload, annotationData, originalPhoto, tempId);
 
       if (false && !isBatchUpload) {
         const alert = await this.alertController.create({
