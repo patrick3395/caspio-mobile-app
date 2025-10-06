@@ -429,7 +429,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (this.imageUrl || this.imageFile) {
       const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
       
-      (fabric as any).Image.fromURL(imageUrl).then((img: (fabric as any).Image) => {
+      (fabric as any).Image.fromURL(imageUrl).then((img: any) => {
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
@@ -844,7 +844,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         return;
       }
 
-      const bgImage = this.canvas.backgroundImage as (fabric as any).Image;
+      const bgImage = this.canvas.backgroundImage as any;
       const bgImageSrc = bgImage ? bgImage.getSrc() : null;
 
       const payloadToLoad = {
@@ -854,7 +854,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
       this.canvas.loadFromJSON(payloadToLoad, () => {
         if (bgImageSrc) {
-          (fabric as any).Image.fromURL(bgImageSrc).then((img: (fabric as any).Image) => {
+          (fabric as any).Image.fromURL(bgImageSrc).then((img: any) => {
             const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
             const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
 
