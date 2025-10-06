@@ -736,7 +736,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.canvas.selection = true;
       
       // Make all objects selectable
-      this.canvas.getObjects().forEach(obj => {
+      this.canvas.getObjects().forEach((obj: any) => {
         if (!(obj instanceof (fabric as any).Image)) {  // Don't make background image selectable
           obj.set({
             selectable: true,
@@ -870,11 +870,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             this.canvas.renderAll();
 
             console.log('âœ… [Annotations] Background image restored');
-          }).catch(error => console.error('[Annotations] Failed to restore background image', error));
+          }).catch((error: any) => console.error('[Annotations] Failed to restore background image', error));
         }
 
         setTimeout(() => {
-          this.canvas.getObjects().forEach(obj => {
+          this.canvas.getObjects().forEach((obj: any) => {
             if (!(obj instanceof (fabric as any).Image)) {
               obj.set({
                 selectable: true,
