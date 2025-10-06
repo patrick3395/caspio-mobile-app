@@ -14,6 +14,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 // import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../utils/annotation-utils';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -250,7 +251,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private changeDetectorRef: ChangeDetectorRef,
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
-    private platform: Platform,
+    private platformIonic: Platform,
+    public platform: PlatformDetectionService,
     private pdfGenerator: PdfGeneratorService,
     private cache: CacheService,
     private offlineService: OfflineService,
