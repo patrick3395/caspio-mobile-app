@@ -176,6 +176,37 @@ ion-toolbar.template-toolbar {
   }
 }
 
+// GLOBAL IONIC SELECT DROPDOWN STYLING - For web dropdown menus
+:global(.select-popover) {
+  .popover-content {
+    border-radius: 12px !important;
+    padding: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    
+    .radio-group {
+      padding: 0 !important;
+      
+      .item {
+        --padding-start: 20px !important;
+        --padding-end: 20px !important;
+        --min-height: 52px !important;
+        margin: 2px 0 !important;
+        border-radius: 8px !important;
+        
+        &.item-radio-checked {
+          --background: var(--noble-orange) !important;
+          --color: white !important;
+        }
+        
+        &:hover {
+          --background: #f8f9fa !important;
+        }
+      }
+    }
+  }
+}
+
 // GLOBAL TEXT TRUNCATION FIX - Ensures all item text shows exactly 2 lines
 .item-text {
   font-size: 13px !important;
@@ -1006,6 +1037,24 @@ ion-content {
         // Firefox scrollbar
         scrollbar-width: thin;
         scrollbar-color: #cbd5e0 #f1f1f1;
+      }
+      
+      // Global dropdown menu styling (for when the dropdown is opened)
+      + .select-dropdown {
+        border-radius: 12px !important;
+        padding: 8px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+        border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        
+        .option-item {
+          padding: 16px 20px !important;
+          margin: 2px 0 !important;
+          border-radius: 8px !important;
+          
+          &:hover {
+            background-color: #f8f9fa !important;
+          }
+        }
       }
     }
   }
@@ -2192,65 +2241,66 @@ ion-content {
           
           .fdf-photo-preview .photo-thumb-container,
           .photo-thumb-container {
-            position: relative !important;
-            display: block !important; // Changed from inline-block to block for better control
-            width: 60px !important;
-            height: 60px !important;
-            overflow: visible !important;
-            margin: 0 auto !important; // Center the thumbnail if parent has text-align
-            z-index: 10 !important;
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            min-width: 60px;
+            height: auto;
+            min-height: 60px;
+            vertical-align: top;
+            flex-shrink: 0;
 
             img {
-              width: 60px !important;
-              height: 60px !important;
+              width: 60px;
+              height: 60px;
+              aspect-ratio: 1 / 1;
               object-fit: cover;
-              border-radius: 3px;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-              display: block !important;
-              position: relative !important;
-              z-index: 1 !important;
+              border-radius: 8px;
+              border: 2px solid #ddd;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              display: block;
+              background: #f5f5f5;
+              
+              &:hover {
+                border-color: var(--noble-orange);
+                transform: scale(1.05);
+              }
             }
 
             .delete-btn {
-              position: absolute !important;
-              top: 2px !important;
-              right: 2px !important;
-              width: 18px !important;
-              height: 18px !important;
-              border-radius: 50% !important;
-              background: rgba(255, 255, 255, 0.9) !important;
-              border: 1px solid rgba(0, 0, 0, 0.2) !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              cursor: pointer !important;
-              transition: all 0.3s ease !important;
-              z-index: 1000 !important;
-              font-size: 12px !important;
-              color: #333 !important;
-              line-height: 1 !important; // Prevent text alignment from affecting button
-
+              position: absolute;
+              top: 2px;
+              right: 2px;
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background: rgba(255, 255, 255, 0.9);
+              border: 1px solid rgba(0, 0, 0, 0.2);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              padding: 0;
+              z-index: 10;
+              
               ion-icon {
-                font-size: 12px !important;
-                color: #333 !important;
-                pointer-events: none !important;
-                display: block !important;
+                font-size: 12px;
+                color: #333;
               }
-
+              
               &:hover {
-                background: rgba(255, 59, 48, 0.9) !important;
-                border-color: rgba(255, 59, 48, 1) !important;
-                color: white !important;
-
+                background: rgba(255, 59, 48, 0.9);
+                border-color: rgba(255, 59, 48, 1);
+                
                 ion-icon {
-                  color: white !important;
+                  color: white;
                 }
               }
-
+              
               &:active {
-                transform: scale(0.9) !important;
+                transform: scale(0.95);
               }
             }
           }
