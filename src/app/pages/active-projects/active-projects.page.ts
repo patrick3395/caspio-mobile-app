@@ -249,8 +249,10 @@ export class ActiveProjectsPage implements OnInit {
       return;
     }
     
-    // Create batch queries for all projects
-    const projectIds = this.projects.map(p => p.PK_ID || p.ProjectID).filter(id => id);
+    // Create batch queries for all projects with proper type safety
+    const projectIds: string[] = this.projects
+      .map(p => p.PK_ID || p.ProjectID)
+      .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
     
     if (projectIds.length === 0) {
       return;
@@ -258,14 +260,14 @@ export class ActiveProjectsPage implements OnInit {
     
     try {
       // Query services for all projects in parallel using the service method
-      const serviceRequests = projectIds.map(projectId => 
+      const serviceRequests = projectIds.map((projectId: string) => 
         this.projectsService.getServicesByProjectId(projectId).toPromise()
       );
       
       const servicesResults = await Promise.allSettled(serviceRequests);
       
       // Process results and build services cache
-      projectIds.forEach((projectId, index) => {
+      projectIds.forEach((projectId: string, index: number) => {
         const result = servicesResults[index];
         if (result.status === 'fulfilled' && result.value) {
           const projectServices = result.value; // Already mapped by ProjectsService
@@ -279,7 +281,7 @@ export class ActiveProjectsPage implements OnInit {
     } catch (error) {
       console.error('Error loading project services:', error);
       // Set fallback for all projects
-      projectIds.forEach(projectId => {
+      projectIds.forEach((projectId: string) => {
         this.servicesCache[projectId] = '(No Services Selected)';
       });
     }
