@@ -3265,30 +3265,62 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Add custom value to dropdown options so it displays correctly
   addCustomOptionToDropdown(fieldName: string, customValue: string) {
-    const dropdownMap: { [key: string]: string[] } = {
-      'InAttendance': this.inAttendanceOptions,
-      'WeatherConditions': this.weatherConditionsOptions,
-      'OutdoorTemperature': this.outdoorTemperatureOptions,
-      'OccupancyFurnishings': this.occupancyFurnishingsOptions,
-      'FirstFoundationType': this.firstFoundationTypeOptions,
-      'SecondFoundationType': this.secondFoundationTypeOptions,
-      'ThirdFoundationType': this.thirdFoundationTypeOptions,
-      'SecondFoundationRooms': this.secondFoundationRoomsOptions,
-      'ThirdFoundationRooms': this.thirdFoundationRoomsOptions,
-      'OwnerOccupantInterview': this.ownerOccupantInterviewOptions,
-      'TypeOfBuilding': this.typeOfBuildingOptions,
-      'Style': this.styleOptions
+    const addOption = (options: string[] | undefined): string[] | undefined => {
+      if (!options) {
+        return options;
+      }
+      if (options.includes(customValue)) {
+        return options;
+      }
+      const updated = [...options];
+      const otherIndex = updated.indexOf('Other');
+      if (otherIndex > -1) {
+        updated.splice(otherIndex, 0, customValue);
+      } else {
+        updated.push(customValue);
+      }
+      return updated;
     };
 
-    const options = dropdownMap[fieldName];
-    if (options && !options.includes(customValue)) {
-      // Add before "Other" option
-      const otherIndex = options.indexOf('Other');
-      if (otherIndex > -1) {
-        options.splice(otherIndex, 0, customValue);
-      } else {
-        options.push(customValue);
-      }
+    switch (fieldName) {
+      case 'InAttendance':
+        this.inAttendanceOptions = addOption(this.inAttendanceOptions) || [];
+        break;
+      case 'WeatherConditions':
+        this.weatherConditionsOptions = addOption(this.weatherConditionsOptions) || [];
+        break;
+      case 'OutdoorTemperature':
+        this.outdoorTemperatureOptions = addOption(this.outdoorTemperatureOptions) || [];
+        break;
+      case 'OccupancyFurnishings':
+        this.occupancyFurnishingsOptions = addOption(this.occupancyFurnishingsOptions) || [];
+        break;
+      case 'FirstFoundationType':
+        this.firstFoundationTypeOptions = addOption(this.firstFoundationTypeOptions) || [];
+        break;
+      case 'SecondFoundationType':
+        this.secondFoundationTypeOptions = addOption(this.secondFoundationTypeOptions) || [];
+        break;
+      case 'ThirdFoundationType':
+        this.thirdFoundationTypeOptions = addOption(this.thirdFoundationTypeOptions) || [];
+        break;
+      case 'SecondFoundationRooms':
+        this.secondFoundationRoomsOptions = addOption(this.secondFoundationRoomsOptions) || [];
+        break;
+      case 'ThirdFoundationRooms':
+        this.thirdFoundationRoomsOptions = addOption(this.thirdFoundationRoomsOptions) || [];
+        break;
+      case 'OwnerOccupantInterview':
+        this.ownerOccupantInterviewOptions = addOption(this.ownerOccupantInterviewOptions) || [];
+        break;
+      case 'TypeOfBuilding':
+        this.typeOfBuildingOptions = addOption(this.typeOfBuildingOptions) || [];
+        break;
+      case 'Style':
+        this.styleOptions = addOption(this.styleOptions) || [];
+        break;
+      default:
+        break;
     }
   }
 
@@ -7504,227 +7536,142 @@ Stack: ${error?.stack}`;
   // Quick annotate - open annotator directly
   async quickAnnotate(photo: any, category: string, itemId: string) {
     try {
-      
-      // Show debug popup with photo data
-      const photoDebugAlert = await this.alertController.create({
-        header: 'Ã°Å¸â€œÂ¸ Debug: Photo Data',
-        message: `
-          <div style="font-family: monospace; font-size: 11px; text-align: left;">
-            <strong style="color: blue;">PHOTO OBJECT INSPECTION</strong><br><br>
-            
-            <strong>Identity Fields:</strong><br>
-            Ã¢â‚¬Â¢ AttachID: <span style="color: ${photo.AttachID ? 'green' : 'red'}">${photo.AttachID || 'MISSING'}</span><br>
-            Ã¢â‚¬Â¢ id: <span style="color: ${photo.id ? 'green' : 'red'}">${photo.id || 'MISSING'}</span><br>
-            Ã¢â‚¬Â¢ PK_ID: ${photo.PK_ID || 'N/A'}<br><br>
-            
-            <strong>Photo Info:</strong><br>
-            Ã¢â‚¬Â¢ Name: ${photo.name || 'N/A'}<br>
-            Ã¢â‚¬Â¢ Photo field: ${photo.Photo || 'N/A'}<br>
-            Ã¢â‚¬Â¢ FilePath: ${photo.filePath || 'N/A'}<br><br>
-            
-            <strong>URLs:</strong><br>
-            Ã¢â‚¬Â¢ url: ${photo.url ? 'YES' : 'NO'}<br>
-            Ã¢â‚¬Â¢ thumbnailUrl: ${photo.thumbnailUrl ? 'YES' : 'NO'}<br>
-            Ã¢â‚¬Â¢ displayUrl: ${photo.displayUrl ? 'YES' : 'NO'}<br>
-            Ã¢â‚¬Â¢ originalUrl: ${photo.originalUrl ? 'YES' : 'NO'}<br><br>
-            
-            <strong>Annotations:</strong><br>
-            Ã¢â‚¬Â¢ Has annotations: ${!!photo.annotations}<br>
-            Ã¢â‚¬Â¢ Has annotationsData: ${!!photo.annotationsData}<br>
-            Ã¢â‚¬Â¢ Has Drawings: ${!!photo.Drawings}<br>
-            Ã¢â‚¬Â¢ Annotation field: ${photo.Annotation || 'empty'}<br><br>
-            
-            <strong>Category/Item:</strong><br>
-            Ã¢â‚¬Â¢ Category: ${category}<br>
-            Ã¢â‚¬Â¢ ItemId: ${itemId}<br>
-            Ã¢â‚¬Â¢ Key: ${category}_${itemId}<br><br>
-            
-            <strong style="color: orange;">All Photo Keys:</strong><br>
-            ${Object.keys(photo).join(', ')}<br><br>
-            
-            <strong style="color: red;">CRITICAL:</strong> If AttachID and id are both missing,<br>
-            the update will fail!
-          </div>
-        `,
-        buttons: [
-          {
-            text: 'Copy Full Data',
-            handler: () => {
-              navigator.clipboard.writeText(JSON.stringify(photo, null, 2));
-              return false;
-            }
-          },
-          { text: 'Continue', role: 'cancel' }
-        ]
-      });
-      await photoDebugAlert.present();
-      await photoDebugAlert.onDidDismiss();
-      
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-      const photoName = photo.name || 'Photo';
-      
-      // Parse existing annotations if available
-      let existingAnnotations = null;
-      
-      // v1.4.345: Try multiple sources for annotations and handle decompression
+      const key = `${category}_${itemId}`;
+      const visualId = this.visualRecordIds[key];
+      const latestPhoto = this.getLatestPhotoRecord(visualId, key, photo);
+
+      if (!latestPhoto) {
+        await this.showToast('Cannot edit photo right now. Please try again.', 'warning');
+        return;
+      }
+
+      if (latestPhoto.uploading || latestPhoto.queued) {
+        await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
+        return;
+      }
+
+      const attachId = this.getValidAttachIdFromPhoto(latestPhoto);
+      if (!attachId) {
+        await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
+        return;
+      }
+
+      const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const photoName = latestPhoto.name || 'Photo';
+
+      let existingAnnotations: any = null;
       const annotationSources = [
-        photo.annotations,
-        photo.annotationsData,
-        photo.rawDrawingsString,
-        photo.Drawings
+        latestPhoto.annotations,
+        latestPhoto.annotationsData,
+        latestPhoto.rawDrawingsString,
+        latestPhoto.Drawings
       ];
-      
+
       for (const source of annotationSources) {
-        if (source) {
-          try {
-            if (typeof source === 'string') {
-              // Use decompression helper to handle compressed data
-              existingAnnotations = decompressAnnotationData(source);
-            } else {
-              existingAnnotations = source;
-            }
-            
-            if (existingAnnotations) {
-              break; // Found valid annotations, stop searching
-            }
-          } catch (e) {
+        if (!source) {
+          continue;
+        }
+        try {
+          if (typeof source === 'string') {
+            existingAnnotations = decompressAnnotationData(source);
+          } else {
+            existingAnnotations = source;
           }
+          if (existingAnnotations) {
+            break;
+          }
+        } catch {
+          // Ignore parse errors
         }
       }
-      
-      // Convert to the format expected by FabricPhotoAnnotatorComponent if needed
+
       if (existingAnnotations && !existingAnnotations.objects && Array.isArray(existingAnnotations)) {
-        // If it's an array of annotations, wrap it in Fabric.js format
         existingAnnotations = {
-          version: "6.7.1",
+          version: '6.7.1',
           objects: existingAnnotations
         };
       }
-      
-      // Open annotation modal directly
+
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          imageUrl: imageUrl,
-          existingAnnotations: existingAnnotations,
-          photoData: photo
+          imageUrl,
+          existingAnnotations,
+          photoData: {
+            ...latestPhoto,
+            AttachID: attachId,
+            id: attachId
+          }
         },
         cssClass: 'fullscreen-modal'
       });
-      
+
       await modal.present();
       const { data } = await modal.onDidDismiss();
-      
-      if (data) {
-        // Handle new Fabric.js annotator response
-        const annotatedBlob = data.blob || data.annotatedBlob;
-        const annotationsData = data.annotationData || data.annotationsData;
-        
-        if (annotatedBlob) {
-          // Update the photo with annotations
-          const key = `${category}_${itemId}`;
-          const visualId = this.visualRecordIds[key];
-          const annotatedFile = new File([annotatedBlob], photoName, { type: 'image/jpeg' });
-          
-          if (photo.AttachID || photo.id) {
-            try {
-              
-              // Get the original file if provided
-              let originalFile = null;
-              if (data.originalBlob) {
-                originalFile = data.originalBlob instanceof File 
-                  ? data.originalBlob 
-                  : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
-              }
-              
-              // CRITICAL: Make sure we have a valid ID
-              const attachIdToUse = photo.AttachID || photo.id;
-              if (!attachIdToUse || attachIdToUse === 'undefined' || attachIdToUse === 'null') {
-                throw new Error(`Invalid AttachID: ${attachIdToUse} (AttachID: ${photo.AttachID}, id: ${photo.id})`);
-              }
-              if (typeof annotationsData === 'object') {
-              }
-              
-              // Update the existing attachment with annotations
-              await this.updatePhotoAttachment(attachIdToUse, annotatedFile, annotationsData, originalFile, data.caption);
-            
-              // Update the local photo data
-              const photoIndex = this.visualPhotos[visualId]?.findIndex(
-                (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
-              );
-              
-              if (photoIndex !== -1 && this.visualPhotos[visualId]) {
-                // Update the photo URL with the new blob
-                const newUrl = URL.createObjectURL(data.annotatedBlob);
-                this.visualPhotos[visualId][photoIndex].url = newUrl;
-                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
-                this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
-                // Update caption if provided
-                if (data.caption !== undefined) {
-                  this.visualPhotos[visualId][photoIndex].caption = data.caption;
-                  this.visualPhotos[visualId][photoIndex].Annotation = data.caption;
-                }
-                // Store annotations in the photo object
-                if (annotationsData) {
-                  this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
-                  // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
-                  if (typeof annotationsData === 'object') {
-                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
-                  } else {
-                    this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
-                  }
-                }
-              }
-              
-              // Trigger change detection
-              this.changeDetectorRef.detectChanges();
-              
-              // Success toast removed - silent save
-            } catch (error: any) {
-              console.error('Failed to save annotations in quickAnnotate:', error);
-              
-              // Show detailed error popup
-              const saveErrorAlert = await this.alertController.create({
-                header: 'Ã¢ÂÅ’ Annotation Save Failed',
-                message: `
-                  <div style="font-family: monospace; font-size: 11px; text-align: left;">
-                    <strong style="color: red;">ANNOTATION SAVE ERROR</strong><br><br>
-                    
-                    <strong>Error:</strong> ${error?.message || 'Unknown error'}<br><br>
-                    
-                    <strong>Photo Details:</strong><br>
-                    Ã¢â‚¬Â¢ AttachID: ${photo.AttachID || 'MISSING'}<br>
-                    Ã¢â‚¬Â¢ id: ${photo.id || 'MISSING'}<br>
-                    Ã¢â‚¬Â¢ Name: ${photo.name || 'N/A'}<br><br>
-                    
-                    <strong>Annotation Data:</strong><br>
-                    Ã¢â‚¬Â¢ Has annotations: ${!!annotationsData}<br>
-                    Ã¢â‚¬Â¢ Original file provided: false<br><br>
-                    
-                    <strong style="color: orange;">Debug Info:</strong><br>
-                    Ã¢â‚¬Â¢ Visual ID: ${visualId}<br>
-                    Ã¢â‚¬Â¢ Key: ${category}_${itemId}<br>
-                    Ã¢â‚¬Â¢ Photo Index: 0<br><br>
-                    
-                    <strong>Error Details:</strong><br>
-                    ${JSON.stringify(error, null, 2).substring(0, 500)}
-                  </div>
-                `,
-                buttons: ['OK']
-              });
-              await saveErrorAlert.present();
-              
-              await this.showToast('Failed to save annotations', 'danger');
-            }
+
+      if (!data) {
+        return;
+      }
+
+      const annotatedBlob = data.blob || data.annotatedBlob;
+      const annotationsData = data.annotationData || data.annotationsData;
+
+      if (!annotatedBlob) {
+        return;
+      }
+
+      const annotatedFile = new File([annotatedBlob], photoName, { type: 'image/jpeg' });
+      let originalFile = null;
+      if (data.originalBlob) {
+        originalFile = data.originalBlob instanceof File
+          ? data.originalBlob
+          : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
+      }
+
+      await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
+
+      if (visualId && this.visualPhotos[visualId]) {
+        const photoIndex = this.visualPhotos[visualId].findIndex(
+          (p: any) => this.getValidAttachIdFromPhoto(p) === attachId
+        );
+
+        if (photoIndex !== -1) {
+          const newUrl = URL.createObjectURL(annotatedBlob);
+          const targetPhoto = this.visualPhotos[visualId][photoIndex];
+
+          if (!targetPhoto.originalUrl) {
+            targetPhoto.originalUrl = targetPhoto.url;
+          }
+
+          targetPhoto.displayUrl = newUrl;
+          if (!targetPhoto.thumbnailUrl || targetPhoto.thumbnailUrl.startsWith('blob:')) {
+            targetPhoto.thumbnailUrl = newUrl;
+          }
+          targetPhoto.hasAnnotations = !!annotationsData;
+
+          if (data.caption !== undefined) {
+            targetPhoto.caption = data.caption;
+            targetPhoto.Annotation = data.caption;
+          }
+
+          if (annotationsData) {
+            targetPhoto.annotations = annotationsData;
+            targetPhoto.rawDrawingsString = typeof annotationsData === 'object'
+              ? JSON.stringify(annotationsData)
+              : annotationsData;
           }
         }
       }
+
+      this.changeDetectorRef.detectChanges();
+
     } catch (error) {
       console.error('Error in quickAnnotate:', error);
       await this.showToast('Failed to open annotator', 'danger');
     }
   }
-  
+
+
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {

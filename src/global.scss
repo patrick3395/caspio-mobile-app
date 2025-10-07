@@ -600,15 +600,17 @@ body.dark-theme .popover-content ion-label {
   }
 }
 
+
 .template-loading-alert .alert-button-group {
   padding: 0 24px 24px;
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 12px;
 }
 
 .template-loading-alert .alert-button {
-  min-width: 130px;
+  min-width: 140px;
   width: auto;
   display: inline-flex;
   justify-content: center;
@@ -622,6 +624,13 @@ body.dark-theme .popover-content ion-label {
   text-transform: uppercase;
   background: rgba(241, 90, 39, 0.06);
   padding: 8px 18px;
+}
+
+.template-loading-alert .alert-button .alert-button-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .template-loading-alert .alert-button:hover,
