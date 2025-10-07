@@ -366,6 +366,7 @@
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
                     class="structural-status-select"
+                    [class.web-select]="platform.isWeb()"
                     (click)="$event.stopPropagation()">
               <option value="">Select Status</option>
               <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>

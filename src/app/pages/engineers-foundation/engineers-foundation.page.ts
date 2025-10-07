@@ -8485,7 +8485,6 @@ Stack: ${error?.stack}`;
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
-        message: 'We are gathering photos, documents, and annotations for this report.',
         buttons: [
           {
             text: 'Cancel',

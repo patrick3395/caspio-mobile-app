@@ -930,14 +930,56 @@ ion-content {
         background-color: #f8f9fa;
         white-space: normal;
       }
+
+      // Web-only styling - applies only when web build is detected
+      &.web-select {
+        // More padding to prevent text overflow
+        padding: 12px 48px 12px 24px;
+        min-width: 220px;
+        max-width: 280px;
+        
+        option {
+          padding: 16px 24px;
+          white-space: normal;
+          word-wrap: break-word;
+          line-height: 1.5;
+          min-height: 48px;
+          border-radius: 8px; // Rounded corners for each option
+          margin: 4px 0;
+        }
+
+        // Rounded corners for the dropdown menu itself (browser support varies)
+        &::-webkit-scrollbar {
+          width: 10px;
+        }
+
+        &::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 8px;
+          margin: 8px 0;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 8px;
+          
+          &:hover {
+            background: #a0aec0;
+          }
+        }
+
+        // Firefox scrollbar
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 #f1f1f1;
+      }
     }
   }
 
-  // Web-specific styling for dropdown options (using media query as fallback for web detection)
+  // Keep media query as fallback for non-Capacitor environments
   @media (min-width: 768px) {
     .structural-status-subtitle {
-      .structural-status-select {
-        // Add extra padding for web to prevent text from touching edges  
+      .structural-status-select:not(.web-select) {
+        // Only apply if web-select class isn't present
         padding: 12px 44px 12px 24px;
         min-width: 200px;
         
@@ -2092,15 +2134,17 @@ ion-content {
             display: inline-block !important;
             position: relative !important;
             overflow: visible !important;
+            text-align: left !important; // Override any parent text-align
           }
           
           .fdf-photo-preview .photo-thumb-container,
           .photo-thumb-container {
             position: relative !important;
-            display: inline-block !important;
+            display: block !important; // Changed from inline-block to block for better control
             width: 60px !important;
             height: 60px !important;
             overflow: visible !important;
+            margin: 0 auto !important; // Center the thumbnail if parent has text-align
 
             img {
               width: 60px !important;
@@ -2128,29 +2172,31 @@ ion-content {
               padding: 0 !important;
               margin: 0 !important;
               cursor: pointer !important;
-              transition: all 0.3s ease;
+              transition: all 0.3s ease !important;
               z-index: 100 !important;
-              font-size: 12px;
-              color: #333;
+              font-size: 12px !important;
+              color: #333 !important;
+              line-height: 1 !important; // Prevent text alignment from affecting button
 
               ion-icon {
                 font-size: 12px !important;
                 color: #333 !important;
                 pointer-events: none !important;
+                display: block !important;
               }
 
               &:hover {
                 background: rgba(255, 59, 48, 0.9) !important;
-                border-color: rgba(255, 59, 48, 1);
-                color: white;
+                border-color: rgba(255, 59, 48, 1) !important;
+                color: white !important;
 
                 ion-icon {
-                  color: white;
+                  color: white !important;
                 }
               }
 
               &:active {
-                transform: scale(0.9);
+                transform: scale(0.9) !important;
               }
             }
           }
