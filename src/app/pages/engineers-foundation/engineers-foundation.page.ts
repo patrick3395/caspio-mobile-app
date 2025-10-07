@@ -3343,19 +3343,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     fieldMappings.forEach(mapping => {
       const value = mapping.dataSource?.[mapping.fieldName];
-      if (value && value.trim() !== '' && !mapping.options.includes(value)) {
-        // This is a custom value not in the standard options - add it to the dropdown
-        const otherIndex = mapping.options.indexOf('Other');
-        if (otherIndex > -1) {
-          mapping.options.splice(otherIndex, 0, value);
-        } else {
-          mapping.options.push(value);
-        }
-
-        // Store the custom value in customOtherValues for future editing
+      if (value && value.trim() !== '') {
         this.customOtherValues[mapping.fieldName] = value;
-        // Leave the dropdown showing the custom value (don't change it to "Other")
-        // The field already has the custom value from the database
+        this.addCustomOptionToDropdown(mapping.fieldName, value);
       }
     });
   }
@@ -7558,6 +7548,7 @@ Stack: ${error?.stack}`;
 
       const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = latestPhoto.name || 'Photo';
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
       let existingAnnotations: any = null;
       const annotationSources = [
@@ -7610,6 +7601,7 @@ Stack: ${error?.stack}`;
       const { data } = await modal.onDidDismiss();
 
       if (!data) {
+        this.restoreScrollPosition(scrollPosition);
         return;
       }
 
@@ -7630,40 +7622,53 @@ Stack: ${error?.stack}`;
 
       await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
 
-      if (visualId && this.visualPhotos[visualId]) {
-        const photoIndex = this.visualPhotos[visualId].findIndex(
+      const updateTargetPhoto = (photoList: any[] | undefined) => {
+        if (!photoList) {
+          return false;
+        }
+        const photoIndex = photoList.findIndex(
           (p: any) => this.getValidAttachIdFromPhoto(p) === attachId
         );
 
-        if (photoIndex !== -1) {
-          const newUrl = URL.createObjectURL(annotatedBlob);
-          const targetPhoto = this.visualPhotos[visualId][photoIndex];
-
-          if (!targetPhoto.originalUrl) {
-            targetPhoto.originalUrl = targetPhoto.url;
-          }
-
-          targetPhoto.displayUrl = newUrl;
-          if (!targetPhoto.thumbnailUrl || targetPhoto.thumbnailUrl.startsWith('blob:')) {
-            targetPhoto.thumbnailUrl = newUrl;
-          }
-          targetPhoto.hasAnnotations = !!annotationsData;
-
-          if (data.caption !== undefined) {
-            targetPhoto.caption = data.caption;
-            targetPhoto.Annotation = data.caption;
-          }
-
-          if (annotationsData) {
-            targetPhoto.annotations = annotationsData;
-            targetPhoto.rawDrawingsString = typeof annotationsData === 'object'
-              ? JSON.stringify(annotationsData)
-              : annotationsData;
-          }
+        if (photoIndex === -1) {
+          return false;
         }
+
+        const newUrl = URL.createObjectURL(annotatedBlob);
+        const targetPhoto = photoList[photoIndex];
+
+        if (!targetPhoto.originalUrl) {
+          targetPhoto.originalUrl = targetPhoto.url;
+        }
+
+        targetPhoto.displayUrl = newUrl;
+        if (!targetPhoto.thumbnailUrl || targetPhoto.thumbnailUrl.startsWith('blob:')) {
+          targetPhoto.thumbnailUrl = newUrl;
+        }
+        targetPhoto.hasAnnotations = !!annotationsData;
+
+        if (data.caption !== undefined) {
+          targetPhoto.caption = data.caption;
+          targetPhoto.Annotation = data.caption;
+        }
+
+        if (annotationsData) {
+          targetPhoto.annotations = annotationsData;
+          targetPhoto.rawDrawingsString = typeof annotationsData === 'object'
+            ? JSON.stringify(annotationsData)
+            : annotationsData;
+        }
+
+        return true;
+      };
+
+      const updated = updateTargetPhoto(this.visualPhotos[visualId]);
+      if (!updated) {
+        updateTargetPhoto(this.visualPhotos[key]);
       }
 
       this.changeDetectorRef.detectChanges();
+      this.restoreScrollPosition(scrollPosition);
 
     } catch (error) {
       console.error('Error in quickAnnotate:', error);
