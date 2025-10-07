@@ -249,9 +249,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
 
-      // Removed: Executive Summary, Table of Contents, Project Information & Service Details
+      // Page 2: Deficiency Summary
+      pdf.addPage();
+      pageNum++;
+      await this.addDeficiencySummary(pdf, margin, contentWidth, pageNum);
 
-      // Pages 2+: Structural Systems with Photos
+      // Pages 3+: Structural Systems with Photos
       if (this.structuralData && this.structuralData.length > 0) {
         for (const category of this.structuralData) {
           pdf.addPage();
@@ -309,8 +312,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     const serviceName = this.serviceData?.serviceName || 'Foundation Evaluation';
     const companyName = this.projectData?.companyName || 'Noble Property Inspections';
     const address = this.projectData?.address || 'Property Address';
-    const cityStateZip = `City, ST 00000`;
+    const city = this.projectData?.city || 'City';
+    const state = this.projectData?.state || 'ST';
+    const zip = this.projectData?.zip || '00000';
+    const cityStateZip = `${city}, ${state} ${zip}`;
     const clientName = this.projectData?.clientName || 'Client';
+    const agentName = this.projectData?.agentName || 'N/A';
     const reportDate = this.getFormattedDate(this.projectData?.inspectionDate);
 
     pdf.setTextColor(34, 34, 34);
@@ -329,8 +336,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       if (primaryPhotoUrl && !primaryPhotoUrl.includes('placeholder')) {
         const imgData = await this.loadImage(primaryPhotoUrl);
         if (imgData) {
-          const imgWidth = 150;
-          const imgHeight = 95;
+          const imgWidth = 165;  // Increased from 150mm to 165mm
+          const imgHeight = 110; // Increased from 95mm to 110mm
           const imageTop = 78;
           pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, imageTop, imgWidth, imgHeight);
           imageBottom = imageTop + imgHeight;
@@ -340,20 +347,21 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     }
 
     const boxY = imageBottom + 24;
-    const boxHeight = 58;
+    const boxHeight = 68; // Increased from 58 to accommodate Agent field
     pdf.setDrawColor(220, 220, 220);
     pdf.setLineWidth(0.6);
     pdf.rect(margin, boxY, pageWidth - (margin * 2), boxHeight, 'S');
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
-    pdf.text(address, pageWidth / 2, boxY + 18, { align: 'center' });
+    pdf.text(address, pageWidth / 2, boxY + 14, { align: 'center' });
 
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(11);
-    pdf.text(cityStateZip, pageWidth / 2, boxY + 30, { align: 'center' });
-    pdf.text(`Client: ${clientName}`, pageWidth / 2, boxY + 42, { align: 'center' });
-    pdf.text(`Date: ${reportDate}`, pageWidth / 2, boxY + 52, { align: 'center' });
+    pdf.text(cityStateZip, pageWidth / 2, boxY + 26, { align: 'center' });
+    pdf.text(`Client: ${clientName}`, pageWidth / 2, boxY + 40, { align: 'center' });
+    pdf.text(`Agent: ${agentName}`, pageWidth / 2, boxY + 52, { align: 'center' });
+    pdf.text(`Date: ${reportDate}`, pageWidth / 2, boxY + 64, { align: 'center' });
 
     const footerY = pageHeight - 70;
     pdf.setDrawColor(235, 235, 235);
@@ -366,70 +374,39 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     pdf.text(this.projectData?.inspectorEmail || 'info@noblepropertyinspections.com', pageWidth - margin, footerY + 16, { align: 'right' });
   }
 
-  private async addExecutiveSummary(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number) {
-    this.addPageHeader(pdf, 'EXECUTIVE SUMMARY', margin);
+  private async addDeficiencySummary(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number) {
+    this.addPageHeader(pdf, 'DEFICIENCY SUMMARY', margin);
     this.addPageFooter(pdf, pageNum);
     
-    let yPos = 50;
+    let yPos = 60;
     
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'normal');
     
-    const summaryText = [
-      'This Engineers Foundation Evaluation Report provides a comprehensive assessment of the structural foundation systems for the property listed herein.',
-      '',
-      'The evaluation was conducted in accordance with professional engineering standards and includes detailed observations, measurements, and recommendations.',
-      '',
-      'Key areas of assessment include:'
-    ];
-    
-    summaryText.forEach(line => {
-      if (line) {
-        const lines = pdf.splitTextToSize(line, contentWidth);
-        pdf.text(lines, margin, yPos);
-        yPos += lines.length * 5;
-      } else {
-        yPos += 5;
-      }
-    });
-    
-    yPos += 5;
-    
-    // Key points with bullets
-    const keyPoints = [
-      'Foundation type and condition assessment',
-      'Structural systems evaluation including comments, limitations, and deficiencies',
-      'Detailed elevation plot measurements for all inspected areas',
-      'Photographic documentation of findings',
-      'Professional recommendations for maintenance or repairs'
-    ];
-    
-    pdf.setFont('helvetica', 'normal');
-    keyPoints.forEach(point => {
-      pdf.text('•', margin + 5, yPos);
-      const lines = pdf.splitTextToSize(point, contentWidth - 10);
-      pdf.text(lines, margin + 10, yPos);
-      yPos += lines.length * 5 + 2;
-    });
-    
-    // Summary statistics
-    yPos += 10;
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Inspection Summary:', margin, yPos);
-    yPos += 10;
-    
-    pdf.setFont('helvetica', 'normal');
-    const stats = [
-      `Total Areas Inspected: ${this.structuralData?.length || 0} structural categories`,
-      `Rooms Evaluated: ${this.elevationData?.length || 0} rooms with elevation measurements`,
-      `Visual Findings: ${this.countVisualFindings()} items documented`,
-      `Photos Included: ${this.countTotalPhotos()} photographic records`
-    ];
-    
-    stats.forEach(stat => {
-      pdf.text(stat, margin + 5, yPos);
-      yPos += 7;
-    });
+    if (this.structuralData && this.structuralData.length > 0) {
+      this.structuralData.forEach(category => {
+        const deficiencyCount = category.deficiencies?.length || 0;
+        const defectText = deficiencyCount !== 1 ? 'Defects' : 'Defect';
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${category.name}:`, margin, yPos);
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${deficiencyCount} ${defectText} Found`, margin + 100, yPos);
+        
+        yPos += 10;
+      });
+      
+      // Add total
+      yPos += 5;
+      const totalDeficiencies = this.getTotalDeficiencyCount();
+      const totalDefectText = totalDeficiencies !== 1 ? 'Defects' : 'Defect';
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text('Total:', margin, yPos);
+      pdf.text(`${totalDeficiencies} Total ${totalDefectText}`, margin + 100, yPos);
+    }
   }
 
   private addTableOfContents(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number) {
@@ -1338,6 +1315,20 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     }
     
     return count;
+  }
+
+  getDeficiencyCount(category: any): number {
+    return category?.deficiencies?.length || 0;
+  }
+
+  getTotalDeficiencyCount(): number {
+    let total = 0;
+    if (this.structuralData) {
+      this.structuralData.forEach(category => {
+        total += (category.deficiencies?.length || 0);
+      });
+    }
+    return total;
   }
 
   countTotalPhotos(): number {

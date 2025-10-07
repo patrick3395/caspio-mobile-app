@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -598,12 +598,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.changeDetectorRef.detectChanges();
         
       if (!typeData?.TypeShort) {
-        console.warn('Ã¢Å¡Â Ã¯Â¸Â TypeShort not found in type data:', typeData);
+        console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â TypeShort not found in type data:', typeData);
         
         // TypeShort not found in response
       }
     } catch (error: any) {
-      console.error('Ã¢ÂÅ’ Error loading type info:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error loading type info:', error);
       // Keep default value if load fails
       
       // Get detailed error information
@@ -643,12 +643,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (this.serviceData?.TypeID) {
           await this.loadTypeInfo(this.serviceData.TypeID);
         } else {
-          console.warn('Ã¢Å¡Â Ã¯Â¸Â No TypeID found in service data');
+          console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No TypeID found in service data');
         }
 
         this.loadCustomValuesIntoDropdowns();
       } else {
-        console.warn('Ã¢Å¡Â Ã¯Â¸Â No service response received');
+        console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No service response received');
       }
     } catch (error) {
       console.error('Error loading service data:', error);
@@ -887,7 +887,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Set default options first
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-      this.outdoorTemperatureOptions = ['60Ã‚Â°F', '65Ã‚Â°F', '70Ã‚Â°F', '75Ã‚Â°F', '80Ã‚Â°F', '85Ã‚Â°F', '90Ã‚Â°F', '95Ã‚Â°F', '100Ã‚Â°F', 'Other'];
+      this.outdoorTemperatureOptions = ['60Ãƒâ€šÃ‚Â°F', '65Ãƒâ€šÃ‚Â°F', '70Ãƒâ€šÃ‚Â°F', '75Ãƒâ€šÃ‚Â°F', '80Ãƒâ€šÃ‚Â°F', '85Ãƒâ€šÃ‚Â°F', '90Ãƒâ€šÃ‚Â°F', '95Ãƒâ€šÃ‚Â°F', '100Ãƒâ€šÃ‚Â°F', 'Other'];
       this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
       this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
       this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
@@ -1787,17 +1787,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                         thumbnailUrl = imageData;
                       } else {
                         // Fallback to SVG if fetch fails - make it unique per photo
-                        photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">Ã°Å¸â€œÂ· Photo ${photoIndex + 1}</text></svg>`);
+                        photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· Photo ${photoIndex + 1}</text></svg>`);
                         thumbnailUrl = photoUrl;
                       }
                     } catch (err) {
                       console.error(`[Photo ${photoIndex + 1}] Error fetching:`, err);
                       // Fallback to SVG on error - make it unique
-                      photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">Ã°Å¸â€œÂ· Error ${photoIndex + 1}</text></svg>`);
+                      photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· Error ${photoIndex + 1}</text></svg>`);
                       thumbnailUrl = photoUrl;
                     }
                   } else {
-                    photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">Ã°Å¸â€œÂ· No Path ${photoIndex + 1}</text></svg>`);
+                    photoUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100"><rect width="150" height="100" fill="#e0e0e0"/><text x="75" y="50" text-anchor="middle" fill="#666" font-size="14">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· No Path ${photoIndex + 1}</text></svg>`);
                     thumbnailUrl = photoUrl;
                   }
                   
@@ -2236,30 +2236,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // DEBUG POPUP: Show what we're about to upload
       const debugAlert = await this.alertController.create({
-        header: 'Ã°Å¸â€Â DEBUG: Elevation Photo Upload',
+        header: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Elevation Photo Upload',
         message: `
           <div style="font-family: monospace; font-size: 11px; text-align: left;">
             <strong style="color: blue;">UPLOAD PARAMETERS</strong><br><br>
             
             <strong>Point Info:</strong><br>
-            Ã¢â‚¬Â¢ Point ID: ${pointIdNum}<br>
-            Ã¢â‚¬Â¢ Point Name: ${pointName}<br>
-            Ã¢â‚¬Â¢ Point ID Type: ${typeof pointIdNum}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Point ID: ${pointIdNum}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Point Name: ${pointName}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Point ID Type: ${typeof pointIdNum}<br><br>
             
             <strong>Photo Info:</strong><br>
-            Ã¢â‚¬Â¢ File Name: ${photo.name}<br>
-            Ã¢â‚¬Â¢ File Size: ${photo.size} bytes<br>
-            Ã¢â‚¬Â¢ File Type: ${photo.type}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File Name: ${photo.name}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File Size: ${photo.size} bytes<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File Type: ${photo.type}<br><br>
             
             <strong>Annotation Data:</strong><br>
-            Ã¢â‚¬Â¢ Has Annotations: ${!!annotationData}<br>
-            Ã¢â‚¬Â¢ Drawings Data Length: ${drawingsData.length}<br>
-            Ã¢â‚¬Â¢ Drawings Preview: ${drawingsData ? drawingsData.substring(0, 100) + '...' : 'None'}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Has Annotations: ${!!annotationData}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings Data Length: ${drawingsData.length}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings Preview: ${drawingsData ? drawingsData.substring(0, 100) + '...' : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            Ã¢â‚¬Â¢ Method: createServicesRoomsPointsAttachWithFile<br>
-            Ã¢â‚¬Â¢ Table: Services_Rooms_Points_Attach<br>
-            Ã¢â‚¬Â¢ Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Method: createServicesRoomsPointsAttachWithFile<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Table: Services_Rooms_Points_Attach<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
             
             <strong style="color: orange;">Note:</strong> We're using the SAME API method as before,<br>
             just now passing annotation data to the Drawings field.
@@ -2295,13 +2295,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Show success debug
       const successAlert = await this.alertController.create({
-        header: 'Ã¢Å“â€¦ Upload Successful',
+        header: 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Upload Successful',
         message: `
           <div style="font-family: monospace; font-size: 11px;">
             <strong>Response:</strong><br>
-            Ã¢â‚¬Â¢ AttachID: ${response?.AttachID || response?.PK_ID || 'N/A'}<br>
-            Ã¢â‚¬Â¢ Photo Path: ${response?.Photo || 'N/A'}<br>
-            Ã¢â‚¬Â¢ Full Response: ${JSON.stringify(response).substring(0, 200)}...
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ AttachID: ${response?.AttachID || response?.PK_ID || 'N/A'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo Path: ${response?.Photo || 'N/A'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Full Response: ${JSON.stringify(response).substring(0, 200)}...
           </div>
         `,
         buttons: ['OK']
@@ -2311,11 +2311,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return response;  // Return the response with AttachID
       
     } catch (error: any) {
-      console.error('Ã¢ÂÅ’ Failed to upload room point photo:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload room point photo:', error);
       
       // Show detailed error debug popup
       const errorAlert = await this.alertController.create({
-        header: 'Ã¢ÂÅ’ Upload Failed',
+        header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Upload Failed',
         message: `
           <div style="font-family: monospace; font-size: 11px; text-align: left;">
             <strong style="color: red;">ERROR DETAILS</strong><br><br>
@@ -2327,15 +2327,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             ${JSON.stringify(error, null, 2).substring(0, 500)}<br><br>
             
             <strong>Upload Parameters Were:</strong><br>
-            Ã¢â‚¬Â¢ Point ID: ${pointIdNum}<br>
-            Ã¢â‚¬Â¢ Point Name: ${pointName}<br>
-            Ã¢â‚¬Â¢ File: ${photo?.name} (${photo?.size} bytes)<br>
-            Ã¢â‚¬Â¢ Annotations: ${annotationData ? 'Yes' : 'No'}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Point ID: ${pointIdNum}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Point Name: ${pointName}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File: ${photo?.name} (${photo?.size} bytes)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Annotations: ${annotationData ? 'Yes' : 'No'}<br><br>
             
             <strong>Possible Issues:</strong><br>
-            Ã¢â‚¬Â¢ Check if PointID ${pointIdNum} exists<br>
-            Ã¢â‚¬Â¢ Check if Drawings field accepts the data<br>
-            Ã¢â‚¬Â¢ Check network/API connection
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Check if PointID ${pointIdNum} exists<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Check if Drawings field accepts the data<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Check network/API connection
           </div>
         `,
         buttons: ['OK']
@@ -4732,7 +4732,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         successCount++;
       } catch (error) {
         failCount++;
-        console.error(`[v1.4.530]   ❌ Failed to upload photo ${i + 1}:`, error);
+        console.error(`[v1.4.530]   âŒ Failed to upload photo ${i + 1}:`, error);
         if (photoIndex !== -1) {
           keyPhotos[photoIndex].uploading = false;
           keyPhotos[photoIndex].queued = false;
@@ -4897,7 +4897,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
             }
           } catch (error) {
-            console.error(`❌ [v1.4.504] Failed to create room ${roomName}:`, error);
+            console.error(`âŒ [v1.4.504] Failed to create room ${roomName}:`, error);
             await this.showToast(`Failed to create room: ${roomName}`, 'danger');
           }
         }
@@ -4926,7 +4926,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 delete this.pendingPointCreates[pointKey];
               }
             } catch (error) {
-              console.error(`❌ [v1.4.504] Failed to create point ${pointInfo.pointName}:`, error);
+              console.error(`âŒ [v1.4.504] Failed to create point ${pointInfo.pointName}:`, error);
               await this.showToast(`Failed to create point: ${pointInfo.pointName}`, 'danger');
             }
           } else {
@@ -4958,11 +4958,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // v1.4.343: Show debug data in a copyable format when clipboard fails
   async showCopyableDebugData(debugText: string) {
     const alert = await this.alertController.create({
-      header: 'Ã°Å¸â€œâ€¹ Debug Data (Select & Copy)',
+      header: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ Debug Data (Select & Copy)',
       message: `
         <div style="font-family: monospace; font-size: 11px;">
           <p style="color: orange; margin-bottom: 10px;">
-            Ã¢Å¡Â Ã¯Â¸Â Clipboard copy failed. Please manually select and copy the text below:
+            ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Clipboard copy failed. Please manually select and copy the text below:
           </p>
           <textarea 
             style="width: 100%; 
@@ -5417,7 +5417,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       header: 'AnswerType 2 Debug - START',
       message: `
         <div style="text-align: left; font-family: monospace; font-size: 12px;">
-          <strong style="color: blue;">Ã°Å¸â€Â MULTI-SELECT CHANGE TRIGGERED</strong><br><br>
+          <strong style="color: blue;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â MULTI-SELECT CHANGE TRIGGERED</strong><br><br>
           
           <strong>Category:</strong> ${category}<br>
           <strong>Item Name:</strong> ${item.name}<br>
@@ -5427,22 +5427,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           <strong>Key:</strong> ${key}<br><br>
           
           <strong>Current State:</strong><br>
-          Ã¢â‚¬Â¢ Existing Visual ID: ${this.visualRecordIds[key] || 'NONE - Will Create New'}<br>
-          Ã¢â‚¬Â¢ Is Selected: ${this.selectedItems[key] ? 'YES' : 'NO'}<br>
-          Ã¢â‚¬Â¢ Original Text: ${item.originalText || 'Not stored'}<br>
-          Ã¢â‚¬Â¢ Current Text: ${item.text || 'Empty'}<br><br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Existing Visual ID: ${this.visualRecordIds[key] || 'NONE - Will Create New'}<br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Is Selected: ${this.selectedItems[key] ? 'YES' : 'NO'}<br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Original Text: ${item.originalText || 'Not stored'}<br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Current Text: ${item.text || 'Empty'}<br><br>
           
           <strong>Service Info:</strong><br>
-          Ã¢â‚¬Â¢ Service ID: ${this.serviceId || 'MISSING!'}<br>
-          Ã¢â‚¬Â¢ Project ID: ${this.projectId}<br><br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Service ID: ${this.serviceId || 'MISSING!'}<br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Project ID: ${this.projectId}<br><br>
           
           <strong>Dropdown Options Available:</strong><br>
           ${item.dropdownOptions ? item.dropdownOptions.join(', ') : 'No options loaded'}<br><br>
           
           <strong style="color: red;">ACTION TO TAKE:</strong><br>
           ${this.visualRecordIds[key] ? 
-            'Ã¢Å“â€œ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
-            (answersText ? 'Ã¢Å¾â€¢ CREATE new Services_Visuals record' : 'Ã¢Å¡Â Ã¯Â¸Â No action - no selections')}<br>
+            'ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
+            (answersText ? 'ÃƒÂ¢Ã…Â¾Ã¢â‚¬Â¢ CREATE new Services_Visuals record' : 'ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No action - no selections')}<br>
         </div>
       `,
       buttons: ['Continue'],
@@ -5469,7 +5469,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               header: 'UPDATE SUCCESS',
               message: `
                 <div style="font-family: monospace; font-size: 12px;">
-                  <strong style="color: green;">Ã¢Å“â€¦ SUCCESSFULLY UPDATED</strong><br><br>
+                  <strong style="color: green;">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ SUCCESSFULLY UPDATED</strong><br><br>
                   Visual ID: ${existingVisualId}<br>
                   Answers: ${answersText}<br>
                 </div>
@@ -5482,7 +5482,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               header: 'UPDATE FAILED',
               message: `
                 <div style="font-family: monospace; font-size: 12px;">
-                  <strong style="color: red;">Ã¢ÂÅ’ UPDATE ERROR</strong><br><br>
+                  <strong style="color: red;">ÃƒÂ¢Ã‚ÂÃ…â€™ UPDATE ERROR</strong><br><br>
                   ${updateError?.message || updateError}<br>
                 </div>
               `,
@@ -5506,15 +5506,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             header: 'CREATING NEW RECORD',
             message: `
               <div style="font-family: monospace; font-size: 12px;">
-                <strong style="color: blue;">Ã¢Å¾â€¢ CREATING Services_Visuals</strong><br><br>
+                <strong style="color: blue;">ÃƒÂ¢Ã…Â¾Ã¢â‚¬Â¢ CREATING Services_Visuals</strong><br><br>
                 
                 <strong>Data to Send:</strong><br>
-                Ã¢â‚¬Â¢ ServiceID: ${this.serviceId}<br>
-                Ã¢â‚¬Â¢ Category: ${category}<br>
-                Ã¢â‚¬Â¢ Name: ${item.name}<br>
-                Ã¢â‚¬Â¢ Text: ${item.text}<br>
-                Ã¢â‚¬Â¢ Answers: ${answersText}<br>
-                Ã¢â‚¬Â¢ Kind: ${item.kind || 'Comment'}<br><br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ServiceID: ${this.serviceId}<br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Category: ${category}<br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${item.name}<br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Text: ${item.text}<br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Answers: ${answersText}<br>
+                ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Kind: ${item.kind || 'Comment'}<br><br>
                 
                 Calling saveVisualSelection...
               </div>
@@ -5534,8 +5534,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             message: `
               <div style="font-family: monospace; font-size: 12px;">
                 ${newVisualId ? 
-                  '<strong style="color: green;">Ã¢Å“â€¦ RECORD CREATED</strong><br><br>New Visual ID: ' + newVisualId :
-                  '<strong style="color: red;">Ã¢ÂÅ’ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
+                  '<strong style="color: green;">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ RECORD CREATED</strong><br><br>New Visual ID: ' + newVisualId :
+                  '<strong style="color: red;">ÃƒÂ¢Ã‚ÂÃ…â€™ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
               </div>
             `,
             buttons: ['OK']
@@ -5585,7 +5585,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         header: 'MULTI-SELECT ERROR',
         message: `
           <div style="font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">Ã¢ÂÅ’ ERROR OCCURRED</strong><br><br>
+            <strong style="color: red;">ÃƒÂ¢Ã‚ÂÃ…â€™ ERROR OCCURRED</strong><br><br>
             
             <strong>Error:</strong><br>
             ${error?.message || error}<br><br>
@@ -5790,7 +5790,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!visualId) {
       // Debug popup showing why camera won't open
       const noIdAlert = await this.alertController.create({
-        header: 'Ã¢Å¡Â Ã¯Â¸Â Visual Not Saved',
+        header: 'ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Visual Not Saved',
         message: 'Please check the box next to this item to save it first, then try the camera again.',
         buttons: ['OK']
       });
@@ -5926,7 +5926,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               return { success: true, error: null };
             })
             .catch((error) => {
-              console.error(`Ã¢ÂÅ’ Failed to upload file ${index + 1}:`, error);
+              console.error(`ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload file ${index + 1}:`, error);
               return { success: false, error };
             })
         );
@@ -5962,7 +5962,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Removed change detection to improve performance
       }
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Error handling files:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
     } finally {
       // Reset file input 
@@ -6005,7 +6005,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Error capturing photo:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error capturing photo:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -6033,7 +6033,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Error selecting from gallery:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error selecting from gallery:', error);
       await this.showToast('Failed to select image', 'danger');
     }
   }
@@ -6060,7 +6060,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.uploadPhotoForVisual(visualId, file, key);
       }
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Error selecting document:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error selecting document:', error);
       await this.showToast('Failed to select document', 'danger');
     }
   }
@@ -6214,12 +6214,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           header: 'Services_Visuals_Attach Upload Debug',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
-            <strong style="color: red;">Ã°Å¸â€Â DEBUG INFO:</strong><br>
-            Ã¢â‚¬Â¢ Key: ${dataToSend.debug.key}<br>
-            Ã¢â‚¬Â¢ Raw VisualID param: ${dataToSend.debug.rawVisualId}<br>
-            Ã¢â‚¬Â¢ Stored for this key: ${dataToSend.debug.storedForKey}<br>
-            Ã¢â‚¬Â¢ Using VisualID: <strong style="color: blue;">${dataToSend.debug.actualVisualId}</strong><br>
-            Ã¢â‚¬Â¢ Parsed Number: <strong style="color: blue;">${dataToSend.debug.parsedNumber}</strong><br><br>
+            <strong style="color: red;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG INFO:</strong><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Key: ${dataToSend.debug.key}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Raw VisualID param: ${dataToSend.debug.rawVisualId}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Stored for this key: ${dataToSend.debug.storedForKey}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Using VisualID: <strong style="color: blue;">${dataToSend.debug.actualVisualId}</strong><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Parsed Number: <strong style="color: blue;">${dataToSend.debug.parsedNumber}</strong><br><br>
             
             <strong>All Stored Visual IDs:</strong><br>
             <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px;">
@@ -6229,17 +6229,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             <strong>Table:</strong> ${dataToSend.table}<br><br>
             
             <strong>Fields to Send:</strong><br>
-            Ã¢â‚¬Â¢ VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
-            Ã¢â‚¬Â¢ Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
-            Ã¢â‚¬Â¢ Photo: Will store file path after upload<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo: Will store file path after upload<br><br>
             
             <strong>File Info:</strong><br>
-            Ã¢â‚¬Â¢ Name: ${dataToSend.fileInfo.name}<br>
-            Ã¢â‚¬Â¢ Size: ${dataToSend.fileInfo.size}<br>
-            Ã¢â‚¬Â¢ Type: ${dataToSend.fileInfo.type}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${dataToSend.fileInfo.name}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Size: ${dataToSend.fileInfo.size}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Type: ${dataToSend.fileInfo.type}<br><br>
             
             <strong>Upload Process:</strong><br>
-            ${dataToSend.process.map(step => `Ã¢â‚¬Â¢ ${step}`).join('<br>')}
+            ${dataToSend.process.map(step => `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${step}`).join('<br>')}
           </div>
         `,
         buttons: [
@@ -6264,7 +6264,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Failed to prepare upload:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to prepare upload:', error);
       await this.showToast('Failed to prepare photo upload', 'danger');
     }
   }
@@ -6300,7 +6300,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           originalPhoto || undefined // Pass original photo if we have annotations
         ).toPromise();
       } catch (uploadError: any) {
-        console.error('Ã¢ÂÅ’ Upload failed:', uploadError);
+        console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Upload failed:', uploadError);
         
         // Show detailed error popup
         const errorDetails = {
@@ -6319,7 +6319,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await this.showToast('Failed to upload photo', 'danger');
 
 //         const errorAlert = await this.alertController.create({
-//           header: 'Ã¢ÂÅ’ Structural Systems Upload Failed',
+//           header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Structural Systems Upload Failed',
 //           message: `
 //             <div style="text-align: left; font-size: 12px;">
 //               <strong style="color: red;">Error Details:</strong><br>
@@ -6433,7 +6433,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // No need to restore states - the UI should remain unchanged
       
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Failed to upload photo:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload photo:', error);
       
       // [v1.4.388 FIX] Remove the failed temp photo from key-based storage where it was added
       const keyPhotos = this.visualPhotos[key];
@@ -6512,7 +6512,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     target.src = 'data:image/svg+xml;base64,' + btoa(`
       <svg width="150" height="100" xmlns="http://www.w3.org/2000/svg">
         <rect width="150" height="100" fill="#f0f0f0"/>
-        <text x="75" y="45" text-anchor="middle" fill="#999" font-family="Arial" font-size="14">Ã°Å¸â€œÂ·</text>
+        <text x="75" y="45" text-anchor="middle" fill="#999" font-family="Arial" font-size="14">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â·</text>
         <text x="75" y="65" text-anchor="middle" fill="#999" font-family="Arial" font-size="11">Photo</text>
       </svg>
     `);
@@ -6800,7 +6800,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         };
 
       } catch (error: any) {
-        console.error('❌ Error creating custom visual:', error);
+        console.error('âŒ Error creating custom visual:', error);
         console.error('Error details:', {
           message: error?.message,
           status: error?.status,
@@ -6857,7 +6857,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           header: 'Custom Visual Creation Response',
           message: `
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
-              <strong style="color: green;">Ã¢Å“â€¦ VISUAL CREATED SUCCESSFULLY</strong><br><br>
+              <strong style="color: green;">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ VISUAL CREATED SUCCESSFULLY</strong><br><br>
               
               <strong>Response from Caspio:</strong><br>
               <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
@@ -6865,16 +6865,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               </div><br>
               
               <strong style="color: blue;">Key Fields:</strong><br>
-              Ã¢â‚¬Â¢ VisualID (PRIMARY): <strong style="color: green;">${response?.VisualID || 'NOT FOUND'}</strong><br>
-              Ã¢â‚¬Â¢ PK_ID: ${response?.PK_ID || 'N/A'}<br>
-              Ã¢â‚¬Â¢ ServiceID: ${response?.ServiceID || 'N/A'}<br>
-              Ã¢â‚¬Â¢ Category: ${response?.Category || 'N/A'}<br>
-              Ã¢â‚¬Â¢ Kind: ${response?.Kind || 'N/A'}<br>
-              Ã¢â‚¬Â¢ Name: ${response?.Name || 'N/A'}<br><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID (PRIMARY): <strong style="color: green;">${response?.VisualID || 'NOT FOUND'}</strong><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ PK_ID: ${response?.PK_ID || 'N/A'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ServiceID: ${response?.ServiceID || 'N/A'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Category: ${response?.Category || 'N/A'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Kind: ${response?.Kind || 'N/A'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${response?.Name || 'N/A'}<br><br>
               
               <strong>Will be stored as:</strong><br>
-              Ã¢â‚¬Â¢ Key: ${category}_${response?.VisualID || response?.PK_ID || Date.now()}<br>
-              Ã¢â‚¬Â¢ VisualID for photos: <strong style="color: green;">${response?.VisualID || response?.PK_ID || 'MISSING!'}</strong>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Key: ${category}_${response?.VisualID || response?.PK_ID || Date.now()}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID for photos: <strong style="color: green;">${response?.VisualID || response?.PK_ID || 'MISSING!'}</strong>
             </div>
           `,
           cssClass: 'debug-alert-wide',
@@ -6947,11 +6947,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // CRITICAL: Check if attachId is valid
       if (!attachId || attachId === 'undefined' || attachId === 'null') {
-        console.error('Ã¢ÂÅ’ Invalid AttachID:', attachId);
+        console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Invalid AttachID:', attachId);
         
         // Show debug popup with detailed error info
         const alert = await this.alertController.create({
-          header: 'Ã¢ÂÅ’ Debug: Invalid AttachID',
+          header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Debug: Invalid AttachID',
           message: `
             <div style="font-family: monospace; font-size: 12px; text-align: left;">
               <strong style="color: red;">FAILED TO UPDATE - Invalid AttachID</strong><br><br>
@@ -6965,16 +6965,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               <strong>Is Empty:</strong> ${!attachId}<br><br>
               
               <strong>File Info:</strong><br>
-              Ã¢â‚¬Â¢ Name: ${file?.name || 'N/A'}<br>
-              Ã¢â‚¬Â¢ Size: ${file?.size || 0} bytes<br><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${file?.name || 'N/A'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Size: ${file?.size || 0} bytes<br><br>
               
               <strong>Has Annotations:</strong> ${!!annotations}<br>
               <strong>Has Original File:</strong> ${!!originalFile}<br><br>
               
               <strong style="color: orange;">This error typically occurs when:</strong><br>
-              Ã¢â‚¬Â¢ Photo was loaded but AttachID wasn't preserved<br>
-              Ã¢â‚¬Â¢ Photo object is missing ID fields<br>
-              Ã¢â‚¬Â¢ Database didn't return AttachID<br><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo was loaded but AttachID wasn't preserved<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo object is missing ID fields<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Database didn't return AttachID<br><br>
               
               <strong>Stack Trace:</strong><br>
               ${new Error().stack?.split('\n').slice(0, 5).join('<br>')}
@@ -7037,10 +7037,10 @@ Has Annotations: ${!!annotations}`;
             try {
               const testParse = JSON.parse(drawingsData);
             } catch (e) {
-              console.error('  Ã¢Å¡Â Ã¯Â¸Â Warning: JSON validation failed, but continuing');
+              console.error('  ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Warning: JSON validation failed, but continuing');
             }
           } catch (e) {
-            console.error('  Ã¢ÂÅ’ Failed to stringify Fabric.js object:', e);
+            console.error('  ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to stringify Fabric.js object:', e);
             // Try to create a minimal representation
             drawingsData = JSON.stringify({ objects: [], version: annotations.version || '5.3.0' });
           }
@@ -7119,7 +7119,7 @@ Has Annotations: ${!!annotations}`;
               });
             }
           } catch (e) {
-            console.error('  Ã¢ÂÅ’ Failed to stringify:', e);
+            console.error('  ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to stringify:', e);
             // Try to create a simple representation
             try {
               drawingsData = JSON.stringify({ error: 'Could not serialize', type: typeof annotations });
@@ -7169,13 +7169,13 @@ Has Annotations: ${!!annotations}`;
             
             // Final size check
             if (drawingsData.length > 64000) {
-              console.error('Ã¢ÂÅ’ [v1.4.346] Canvas too complex:', drawingsData.length, 'bytes');
+              console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ [v1.4.346] Canvas too complex:', drawingsData.length, 'bytes');
               console.error('  The CURRENT canvas state exceeds 64KB even after compression');
               console.error('  This is NOT an accumulation issue - the canvas has too many annotations');
               
               // Show error to user
               const alert = await this.alertController.create({
-                header: 'Ã¢ÂÅ’ Annotation Too Complex',
+                header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Annotation Too Complex',
                 message: `
                   <div style="font-family: monospace; font-size: 12px;">
                     <strong>The annotation data is too large to save.</strong><br><br>
@@ -7184,9 +7184,9 @@ Has Annotations: ${!!annotations}`;
                     Maximum: 64,000 bytes<br><br>
                     
                     <strong>Solutions:</strong><br>
-                    Ã¢â‚¬Â¢ Reduce the number of annotations<br>
-                    Ã¢â‚¬Â¢ Use simpler shapes (lines instead of complex paths)<br>
-                    Ã¢â‚¬Â¢ Clear and redraw with fewer strokes<br>
+                    ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Reduce the number of annotations<br>
+                    ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Use simpler shapes (lines instead of complex paths)<br>
+                    ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Clear and redraw with fewer strokes<br>
                   </div>
                 `,
                 buttons: ['OK']
@@ -7198,7 +7198,7 @@ Has Annotations: ${!!annotations}`;
             if (e instanceof Error && e.message.includes('64KB')) {
               throw e; // Re-throw size limit errors
             }
-            console.warn('  Ã¢Å¡Â Ã¯Â¸Â Could not re-parse for cleaning, using as-is');
+            console.warn('  ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Could not re-parse for cleaning, using as-is');
           }
           
           if (originalLength !== drawingsData.length) {
@@ -7206,7 +7206,7 @@ Has Annotations: ${!!annotations}`;
           
           // CRITICAL: Ensure it's definitely a string
           if (typeof drawingsData !== 'string') {
-            console.error('  Ã¢ÂÅ’ CRITICAL ERROR: drawingsData is not a string after processing!');
+            console.error('  ÃƒÂ¢Ã‚ÂÃ…â€™ CRITICAL ERROR: drawingsData is not a string after processing!');
             console.error('    Type:', typeof drawingsData);
             console.error('    Value:', drawingsData);
             drawingsData = String(drawingsData);
@@ -7235,7 +7235,7 @@ Has Annotations: ${!!annotations}`;
       
       // Debug popup removed - proceeding directly with update
       /* const debugAlert = await this.alertController.create({
-        header: 'Ã°Å¸â€Â [v1.4.351] Debug: Annotation Update',
+        header: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â [v1.4.351] Debug: Annotation Update',
         message: `
           <div style="font-family: monospace; font-size: 12px; text-align: left;">
             <strong style="color: blue;">UPDATE ATTACHMENT - v1.4.351</strong><br><br>
@@ -7244,24 +7244,24 @@ Has Annotations: ${!!annotations}`;
             <strong>AttachID Type:</strong> ${typeof attachId}<br><br>
             
             <strong>Update Data:</strong><br>
-            Ã¢â‚¬Â¢ Drawings field: ${updateData.Drawings ? 'YES' : 'NO'}<br>
-            Ã¢â‚¬Â¢ Drawings type: ${typeof updateData.Drawings}<br>
-            Ã¢â‚¬Â¢ Drawings is string: ${typeof updateData.Drawings === 'string'}<br>
-            Ã¢â‚¬Â¢ Drawings length: ${updateData.Drawings?.length || 0} chars<br>
-            Ã¢â‚¬Â¢ Annotations: ${annotationSummary}<br>
-            Ã¢â‚¬Â¢ Drawings preview: ${updateData.Drawings ? updateData.Drawings.substring(0, 100) + '...' : 'N/A'}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings field: ${updateData.Drawings ? 'YES' : 'NO'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings type: ${typeof updateData.Drawings}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings is string: ${typeof updateData.Drawings === 'string'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings length: ${updateData.Drawings?.length || 0} chars<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Annotations: ${annotationSummary}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings preview: ${updateData.Drawings ? updateData.Drawings.substring(0, 100) + '...' : 'N/A'}<br><br>
             
             <strong>File Info:</strong><br>
-            Ã¢â‚¬Â¢ Name: ${file?.name || 'N/A'}<br>
-            Ã¢â‚¬Â¢ Size: ${file?.size || 0} bytes<br>
-            Ã¢â‚¬Â¢ Type: ${file?.type || 'N/A'}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${file?.name || 'N/A'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Size: ${file?.size || 0} bytes<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Type: ${file?.type || 'N/A'}<br><br>
             
             <strong>Original File:</strong> ${originalFile ? originalFile.name : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            Ã¢â‚¬Â¢ Table: Services_Visuals_Attach<br>
-            Ã¢â‚¬Â¢ Method: PUT (update)<br>
-            Ã¢â‚¬Â¢ Where: AttachID=${attachId}<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Table: Services_Visuals_Attach<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Method: PUT (update)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Where: AttachID=${attachId}<br><br>
             
             <strong style="color: orange;">What happens next:</strong><br>
             1. Update Services_Visuals_Attach.Drawings field<br>
@@ -7314,7 +7314,7 @@ Original File: ${originalFile?.name || 'None'}`;
 
       // CRITICAL: Check if we have any data to update
       if (Object.keys(updateData).length === 0) {
-        console.warn('Ã¢Å¡Â Ã¯Â¸Â No data to update - updateData is empty');
+        console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No data to update - updateData is empty');
         // Toast removed - silent return
         return;
       }
@@ -7323,7 +7323,7 @@ Original File: ${originalFile?.name || 'None'}`;
       if (updateData.Drawings !== undefined) {
         // Make absolutely sure it's a string
         if (typeof updateData.Drawings !== 'string') {
-          console.error('Ã¢ÂÅ’ CRITICAL: Drawings field is not a string!');
+          console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ CRITICAL: Drawings field is not a string!');
           console.error('  Type:', typeof updateData.Drawings);
           console.error('  Value:', updateData.Drawings);
           // Convert to string as last resort
@@ -7337,7 +7337,7 @@ Original File: ${originalFile?.name || 'None'}`;
         
         // Check for extremely long strings that might cause issues
         if (updateData.Drawings && updateData.Drawings.length > 50000) {
-          console.warn('Ã¢Å¡Â Ã¯Â¸Â WARNING: Drawings field is very long:', updateData.Drawings.length, 'characters');
+          console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â WARNING: Drawings field is very long:', updateData.Drawings.length, 'characters');
           console.warn('  This might cause issues with Caspio');
         }
       }
@@ -7348,7 +7348,7 @@ Original File: ${originalFile?.name || 'None'}`;
         
         // CRITICAL: Ensure all values are strings for Caspio TEXT fields
         if (typeof value !== 'string' && value !== null && value !== undefined) {
-          console.error(`Ã¢ÂÅ’ Field "${key}" is not a string! Type: ${typeof value}`);
+          console.error(`ÃƒÂ¢Ã‚ÂÃ…â€™ Field "${key}" is not a string! Type: ${typeof value}`);
           // Convert to string if possible
           updateData[key] = String(value);
         }
@@ -7368,7 +7368,7 @@ Original File: ${originalFile?.name || 'None'}`;
         
         // Debug alert removed - proceeding directly
         /* const preUpdateDebug = await this.alertController.create({
-          header: 'Ã°Å¸â€œÂ¤ Debug: About to Update',
+          header: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¤ Debug: About to Update',
           message: `
             <div style="font-family: monospace; font-size: 10px; text-align: left;">
               <strong style="color: blue;">PRE-UPDATE DATA CHECK</strong><br><br>
@@ -7376,11 +7376,11 @@ Original File: ${originalFile?.name || 'None'}`;
               <strong>AttachID:</strong> ${attachId} (${typeof attachId})<br><br>
               
               <strong>Drawings Field Analysis:</strong><br>
-              Ã¢â‚¬Â¢ Length: <span style="color: ${drawingsInfo.length > 10000 ? 'red' : drawingsInfo.length > 5000 ? 'orange' : 'green'};">${drawingsInfo.length} chars</span><br>
-              Ã¢â‚¬Â¢ Type: ${drawingsInfo.type}<br>
-              Ã¢â‚¬Â¢ Contains blob URL: <span style="color: ${drawingsInfo.containsBlob ? 'orange' : 'green'};">${drawingsInfo.containsBlob ? 'YES Ã¢Å¡Â Ã¯Â¸Â' : 'NO Ã¢Å“â€¦'}</span><br>
-              Ã¢â‚¬Â¢ Escaped quotes: ${drawingsInfo.containsEscapedQuotes ? 'YES Ã¢Å¡Â Ã¯Â¸Â' : 'NO'}<br>
-              Ã¢â‚¬Â¢ Double backslash: <span style="color: ${drawingsInfo.containsDoubleBackslash ? 'red' : 'green'};">${drawingsInfo.containsDoubleBackslash ? 'YES Ã¢ÂÅ’' : 'NO Ã¢Å“â€¦'}</span><br><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Length: <span style="color: ${drawingsInfo.length > 10000 ? 'red' : drawingsInfo.length > 5000 ? 'orange' : 'green'};">${drawingsInfo.length} chars</span><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Type: ${drawingsInfo.type}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contains blob URL: <span style="color: ${drawingsInfo.containsBlob ? 'orange' : 'green'};">${drawingsInfo.containsBlob ? 'YES ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â' : 'NO ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦'}</span><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Escaped quotes: ${drawingsInfo.containsEscapedQuotes ? 'YES ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â' : 'NO'}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Double backslash: <span style="color: ${drawingsInfo.containsDoubleBackslash ? 'red' : 'green'};">${drawingsInfo.containsDoubleBackslash ? 'YES ÃƒÂ¢Ã‚ÂÃ…â€™' : 'NO ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦'}</span><br><br>
               
               <strong>First 300 chars:</strong><br>
               <div style="background: #f0f0f0; padding: 5px; font-size: 9px; overflow-wrap: break-word; max-height: 100px; overflow-y: auto;">
@@ -7393,9 +7393,9 @@ Original File: ${originalFile?.name || 'None'}`;
               </div><br>
               
               <strong style="color: orange;">Potential Issues:</strong><br>
-              ${drawingsInfo.length > 10000 ? 'Ã¢â‚¬Â¢ Very long string (>10KB)<br>' : ''}
-              ${drawingsInfo.containsBlob ? 'Ã¢â‚¬Â¢ Contains blob URLs (invalid after reload)<br>' : ''}
-              ${drawingsInfo.containsDoubleBackslash ? 'Ã¢â‚¬Â¢ Double-escaped backslashes detected<br>' : ''}
+              ${drawingsInfo.length > 10000 ? 'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Very long string (>10KB)<br>' : ''}
+              ${drawingsInfo.containsBlob ? 'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Contains blob URLs (invalid after reload)<br>' : ''}
+              ${drawingsInfo.containsDoubleBackslash ? 'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Double-escaped backslashes detected<br>' : ''}
             </div>
           `,
           buttons: [
@@ -7500,11 +7500,11 @@ Original File: ${originalFile?.name || 'None'}`;
       
       // Success toast removed - silent update
     } catch (error: any) {
-      console.error('Ã¢ÂÅ’ Failed to update photo attachment:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to update photo attachment:', error);
       
       // Show detailed error debug popup
       const errorAlert = await this.alertController.create({
-        header: 'Ã¢ÂÅ’ Update Failed - Error Details',
+        header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Update Failed - Error Details',
         message: `
           <div style="font-family: monospace; font-size: 11px; text-align: left;">
             <strong style="color: red;">UPDATE FAILED - DETAILED ERROR</strong><br><br>
@@ -7517,25 +7517,25 @@ Original File: ${originalFile?.name || 'None'}`;
             <strong>Status:</strong> ${error?.status || 'N/A'}<br><br>
             
             <strong>Request Details:</strong><br>
-            Ã¢â‚¬Â¢ AttachID Used: ${attachId}<br>
-            Ã¢â‚¬Â¢ AttachID Type: ${typeof attachId}<br>
-            Ã¢â‚¬Â¢ Has Annotations: ${!!annotations}<br>
-            Ã¢â‚¬Â¢ File Name: ${file?.name || 'N/A'}<br>
-            Ã¢â‚¬Â¢ File Size: ${file?.size || 'N/A'} bytes<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ AttachID Used: ${attachId}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ AttachID Type: ${typeof attachId}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Has Annotations: ${!!annotations}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File Name: ${file?.name || 'N/A'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ File Size: ${file?.size || 'N/A'} bytes<br><br>
             
             <strong>Response Info:</strong><br>
-            Ã¢â‚¬Â¢ Status Text: ${error?.statusText || 'N/A'}<br>
-            Ã¢â‚¬Â¢ Response Body: ${JSON.stringify(error?.error || error?.response || {}, null, 2).substring(0, 300)}...<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Status Text: ${error?.statusText || 'N/A'}<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Response Body: ${JSON.stringify(error?.error || error?.response || {}, null, 2).substring(0, 300)}...<br><br>
             
             <strong>Stack Trace:</strong><br>
             <pre style="font-size: 10px; overflow-x: auto;">${error?.stack?.substring(0, 500) || 'No stack trace'}</pre><br>
             
             <strong style="color: orange;">Common Causes:</strong><br>
-            Ã¢â‚¬Â¢ Invalid AttachID (record doesn't exist)<br>
-            Ã¢â‚¬Â¢ API token expired<br>
-            Ã¢â‚¬Â¢ Network connectivity issue<br>
-            Ã¢â‚¬Â¢ Caspio API error<br>
-            Ã¢â‚¬Â¢ Missing permissions<br><br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Invalid AttachID (record doesn't exist)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ API token expired<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Network connectivity issue<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Caspio API error<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Missing permissions<br><br>
             
             <strong>Full Error Object:</strong><br>
             <pre style="font-size: 9px; overflow-x: auto; max-height: 150px;">${JSON.stringify(error, null, 2).substring(0, 1000)}</pre>
@@ -8131,7 +8131,7 @@ Stack: ${error?.stack}`;
       header: 'Visual Creation Debug',
       message: `
         <div style="font-family: monospace; font-size: 12px;">
-          <strong style="color: red;">Ã°Å¸â€Â VISUAL CREATION RESPONSE:</strong><br><br>
+          <strong style="color: red;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â VISUAL CREATION RESPONSE:</strong><br><br>
           
           <strong>Key:</strong> ${key}<br>
           <strong>Category:</strong> ${category}<br>
@@ -8143,9 +8143,9 @@ Stack: ${error?.stack}`;
             ${JSON.stringify(response, null, 2)}
           </div><br>
           
-          <strong style="color: red;">Ã¢Å¡Â Ã¯Â¸Â ID FIELDS FROM RESPONSE:</strong><br>
-          Ã¢â‚¬Â¢ <strong>VisualID:</strong> ${visualIdFromResponse} <span style="color: green;">(Ã¢Å“â€œ CORRECT - USE THIS)</span><br>
-          Ã¢â‚¬Â¢ <strong>PK_ID:</strong> ${pkId} <span style="color: red;">(Ã¢Å“â€” WRONG - DO NOT USE)</span><br><br>
+          <strong style="color: red;">ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â ID FIELDS FROM RESPONSE:</strong><br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ <strong>VisualID:</strong> ${visualIdFromResponse} <span style="color: green;">(ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ CORRECT - USE THIS)</span><br>
+          ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ <strong>PK_ID:</strong> ${pkId} <span style="color: red;">(ÃƒÂ¢Ã…â€œÃ¢â‚¬â€ WRONG - DO NOT USE)</span><br><br>
           
           <strong style="color: blue;">Using ID:</strong> ${extractedId}<br>
           <strong>Will Store As:</strong> ${this.visualRecordIds[key] || 'Not yet stored'}<br><br>
@@ -8625,7 +8625,7 @@ Stack: ${error?.stack}`;
   // Auto-save service field to Caspio Services table  
   private autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {
-      console.error(`Ã¢Å¡Â Ã¯Â¸Â Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
+      console.error(`ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
       return;
     }
 
@@ -9379,7 +9379,7 @@ Stack: ${error?.stack}`;
         }
       }
     } catch (error) {
-      console.error('Ã¢ÂÅ’ Error fetching visuals from database:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error fetching visuals from database:', error);
       await this.showToast('Error loading inspection data. Some images may not appear.', 'warning');
     }
   }
@@ -9432,3 +9432,4 @@ Stack: ${error?.stack}`;
     }
   }
 }
+
