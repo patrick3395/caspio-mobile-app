@@ -301,30 +301,31 @@ export class ActiveProjectsPage implements OnInit {
           const query = `/tables/Services/records?q.where=ProjectID='${projectId}'`;
           console.log(`Services query URL: ${query}`);
           
-          const result = await this.caspioService.get(query).toPromise();
+          const result = await this.caspioService.get<any>(query).toPromise();
           console.log(`Services query result for ${projectId}:`, result);
           
           const services = result?.Result || [];
           console.log(`Found ${services.length} services for project ${projectId}:`, services);
           
-          return services;
+          return { projectId, services }; // Return object with projectId and services
         } catch (error) {
           console.error(`Error querying services for project ${projectId}:`, error);
-          return [];
+          return { projectId, services: [] };
         }
       });
       
       const servicesResults = await Promise.allSettled(serviceRequests);
       
       // Process results and build services cache
-      projectIds.forEach((projectId: string, index: number) => {
-        const result = servicesResults[index];
+      servicesResults.forEach((result, index) => {
         if (result.status === 'fulfilled' && result.value) {
-          const projectServices = result.value; // Direct array from our query
-          const serviceNames = this.formatProjectServices(projectServices);
+          const { projectId, services } = result.value;
+          const serviceNames = this.formatProjectServices(services);
           this.servicesCache[projectId] = serviceNames;
           console.log(`✅ Cached services for project ${projectId}: "${serviceNames}"`);
         } else {
+          // Use the project ID from our array for failed requests
+          const projectId = projectIds[index];
           this.servicesCache[projectId] = '(No Services Selected)';
           console.log(`❌ No services found for project ${projectId} - cached: "(No Services Selected)"`);
           if (result.status === 'rejected') {
