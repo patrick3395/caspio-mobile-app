@@ -98,7 +98,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
-  private templateLoader?: HTMLIonLoadingElement;
+  private templateLoader?: HTMLIonAlertElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;

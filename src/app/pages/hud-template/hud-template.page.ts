@@ -90,7 +90,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
   private thumbnailCache = new Map<string, Promise<string | null>>(); // Cache loaded base64 images
-  private templateLoader?: HTMLIonLoadingElement;
+  private templateLoader?: HTMLIonAlertElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
