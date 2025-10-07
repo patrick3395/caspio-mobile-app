@@ -121,8 +121,19 @@ export class ProjectsService {
   }
 
   getProjectById(projectId: string): Observable<Project> {
+    const cacheKey = this.getProjectDetailCacheKey(projectId);
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return of(cached);
+    }
+
     return this.caspioService.get<any>(`/tables/Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
-      map(response => response.Result && response.Result[0] || {})
+      map(response => response.Result && response.Result[0] || {}),
+      tap(project => {
+        if (project && Object.keys(project).length > 0) {
+          this.cache.set(cacheKey, project, this.cache.CACHE_TIMES.MEDIUM);
+        }
+      })
     );
   }
 
@@ -428,6 +439,7 @@ export class ProjectsService {
 
         return this.http.put(url, updateData, { headers }).pipe(
           tap(() => {
+            this.cache.clear(this.getProjectDetailCacheKey(projectId));
           }),
           catchError(error => {
             console.error('Error updating project status:', error);
@@ -490,3 +502,6 @@ export class ProjectsService {
     );
   }
 }
+  private getProjectDetailCacheKey(projectId: string): string {
+    return this.cache.getApiCacheKey('project_detail', { projectId });
+  }

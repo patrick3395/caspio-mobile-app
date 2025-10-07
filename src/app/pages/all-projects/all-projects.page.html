@@ -9,19 +9,19 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <!-- Enhanced Search bar -->
-  <div class="search-container">
-    <ion-searchbar 
-      [(ngModel)]="searchTerm" 
-      (ionInput)="handleSearchTermChange($event.detail.value)"
-      placeholder="Search by address..."
-      class="enhanced-search-bar"
-      showClearButton="focus"
-      animated="true">
-    </ion-searchbar>
-  </div>
-
   <div class="projects-container">
+    <!-- Enhanced Search bar -->
+    <div class="search-container">
+      <ion-searchbar 
+        [(ngModel)]="searchTerm" 
+        (ionInput)="handleSearchTermChange($event.detail.value)"
+        placeholder="Search by address..."
+        class="enhanced-search-bar"
+        showClearButton="focus"
+        animated="true">
+      </ion-searchbar>
+    </div>
+
     <!-- Loading state -->
     <div *ngIf="loading" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>

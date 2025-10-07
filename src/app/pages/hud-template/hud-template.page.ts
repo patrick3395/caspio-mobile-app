@@ -7252,22 +7252,10 @@ Stack: ${error?.stack}`;
     this.templateLoadStart = Date.now();
 
     try {
-      const loaderBody = `
-        <div class="template-loading-content">
-          <div class="template-loading-icon">
-            <span class="template-loading-spinner"></span>
-          </div>
-          <div class="template-loading-text">
-            <h3>Preparing your report</h3>
-            <p>We're gathering photos, documents, and annotations.</p>
-          </div>
-        </div>
-      `;
-
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
-        message: loaderBody,
+        message: 'We are gathering photos, documents, and annotations for this report.',
         buttons: [
           {
             text: 'Cancel',

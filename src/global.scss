@@ -562,37 +562,33 @@ body.dark-theme .popover-content ion-label {
   letter-spacing: 0.02em;
 }
 
-.template-loading-alert .alert-message {
-  padding: 0 24px 16px;
-  color: rgba(51, 51, 51, 0.85);
-}
-
-.template-loading-alert .template-loading-content {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
-  padding: 18px;
-  border: 1px solid rgba(241, 90, 39, 0.12);
-  box-shadow: 0 12px 24px rgba(241, 90, 39, 0.08);
-}
-
-.template-loading-alert .template-loading-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.template-loading-alert .template-loading-spinner {
-  width: 52px;
-  height: 52px;
+.template-loading-alert .alert-head::after {
+  content: '';
+  display: block;
+  width: 54px;
+  height: 54px;
+  margin: 18px auto 4px;
   border-radius: 50%;
-  border: 3px solid rgba(241, 90, 39, 0.15);
+  border: 3px solid rgba(241, 90, 39, 0.18);
   border-top-color: var(--noble-orange, #F15A27);
-  border-right-color: rgba(241, 90, 39, 0.35);
+  border-right-color: rgba(241, 90, 39, 0.45);
   animation: template-loading-spin 0.9s linear infinite;
-  display: inline-block;
+}
+
+.template-loading-alert .alert-message {
+  padding: 0 24px 18px;
+  color: rgba(51, 51, 51, 0.8);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.template-loading-alert .alert-message::before {
+  content: 'Preparing your report';
+  display: block;
+  font-weight: 600;
+  color: var(--noble-dark-gray, #333333);
+  margin-bottom: 6px;
+  font-size: 0.95rem;
 }
 
 @keyframes template-loading-spin {
@@ -602,20 +598,6 @@ body.dark-theme .popover-content ion-label {
   to {
     transform: rotate(360deg);
   }
-}
-
-.template-loading-alert .template-loading-text h3 {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--noble-dark-gray, #333333);
-}
-
-.template-loading-alert .template-loading-text p {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: rgba(51, 51, 51, 0.75);
 }
 
 .template-loading-alert .alert-button-group {

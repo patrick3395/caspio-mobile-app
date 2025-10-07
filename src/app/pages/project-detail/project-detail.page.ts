@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -58,13 +58,27 @@ interface PdfVisualCategory {
   deficiencies: any[];
 }
 
+interface ProjectDetailCacheState {
+  project: Project | null;
+  isReadOnly: boolean;
+  availableOffers: any[];
+  selectedServices: ServiceSelection[];
+  attachTemplates: any[];
+  existingAttachments: any[];
+  serviceDocuments: ServiceDocumentGroup[];
+  optionalDocumentsList: any[];
+  templateServicesCache: ServiceSelection[];
+  templateServicesCacheKey: string;
+  timestamp: number;
+}
+
 @Component({
   selector: 'app-project-detail',
   templateUrl: './project-detail.page.html',
   styleUrls: ['./project-detail.page.scss'],
   standalone: false
 })
-export class ProjectDetailPage implements OnInit {
+export class ProjectDetailPage implements OnInit, OnDestroy {
   @ViewChild('optionalDocsModal') optionalDocsModal!: IonModal;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('photoInput') photoInput!: ElementRef<HTMLInputElement>;
@@ -101,6 +115,87 @@ export class ProjectDetailPage implements OnInit {
   private templateServicesCache: ServiceSelection[] = [];
   private templateServicesCacheKey = '';
 
+  private static readonly DETAIL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private static detailStateCache = new Map<string, ProjectDetailCacheState>();
+
+  private restoreStateFromCache(): boolean {
+    if (!this.projectId) {
+      return false;
+    }
+
+    const cached = ProjectDetailPage.detailStateCache.get(this.projectId);
+    if (!cached) {
+      return false;
+    }
+
+    if (Date.now() - cached.timestamp > ProjectDetailPage.DETAIL_CACHE_TTL) {
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+      return false;
+    }
+
+    try {
+      this.project = ProjectDetailPage.deepClone(cached.project);
+      this.isReadOnly = cached.isReadOnly;
+      this.availableOffers = ProjectDetailPage.deepClone(cached.availableOffers);
+      this.selectedServices = ProjectDetailPage.deepClone(cached.selectedServices);
+      this.attachTemplates = ProjectDetailPage.deepClone(cached.attachTemplates);
+      this.existingAttachments = ProjectDetailPage.deepClone(cached.existingAttachments);
+      this.serviceDocuments = ProjectDetailPage.deepClone(cached.serviceDocuments);
+      this.optionalDocumentsList = ProjectDetailPage.deepClone(cached.optionalDocumentsList);
+      this.templateServicesCache = ProjectDetailPage.deepClone(cached.templateServicesCache);
+      this.templateServicesCacheKey = cached.templateServicesCacheKey;
+
+      this.loading = false;
+      this.loadingServices = false;
+      this.loadingDocuments = false;
+      this.error = '';
+
+      return true;
+    } catch (error) {
+      console.warn('Failed to restore project detail cache:', error);
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+      return false;
+    }
+  }
+
+  private cacheCurrentState(): void {
+    if (!this.projectId) {
+      return;
+    }
+
+    try {
+      const cacheEntry: ProjectDetailCacheState = {
+        project: ProjectDetailPage.deepClone(this.project),
+        isReadOnly: this.isReadOnly,
+        availableOffers: ProjectDetailPage.deepClone(this.availableOffers),
+        selectedServices: ProjectDetailPage.deepClone(this.selectedServices),
+        attachTemplates: ProjectDetailPage.deepClone(this.attachTemplates),
+        existingAttachments: ProjectDetailPage.deepClone(this.existingAttachments),
+        serviceDocuments: ProjectDetailPage.deepClone(this.serviceDocuments),
+        optionalDocumentsList: ProjectDetailPage.deepClone(this.optionalDocumentsList),
+        templateServicesCache: ProjectDetailPage.deepClone(this.templateServicesCache),
+        templateServicesCacheKey: this.templateServicesCacheKey,
+        timestamp: Date.now()
+      };
+
+      ProjectDetailPage.detailStateCache.set(this.projectId, cacheEntry);
+    } catch (error) {
+      console.warn('Failed to cache project detail state:', error);
+    }
+  }
+
+  private static deepClone<T>(value: T): T {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return value;
+    }
+  }
+
   private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
     if (!this.documentViewerComponent) {
       const module = await import('../../components/document-viewer/document-viewer.component');
@@ -134,7 +229,8 @@ export class ProjectDetailPage implements OnInit {
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
-    
+    const restoredFromCache = this.restoreStateFromCache();
+
     // Check for add-service mode
     this.route.queryParams.subscribe(params => {
       if (params['mode'] === 'add-service') {
@@ -144,18 +240,21 @@ export class ProjectDetailPage implements OnInit {
     });
     
     if (this.projectId) {
-      this.loadProject();
+      this.loadProject(restoredFromCache);
     } else {
       console.error('❌ DEBUG: No projectId provided!');
     }
   }
 
-  async loadProject() {
-    
+  ngOnDestroy(): void {
+    this.cacheCurrentState();
+  }
+
+  async loadProject(useCachedBaseline = false) {
     if (!this.caspioService.isAuthenticated()) {
       this.caspioService.authenticate().subscribe({
         next: () => {
-          this.fetchProjectOptimized();
+          this.fetchProjectOptimized({ background: useCachedBaseline });
         },
         error: (error) => {
           this.error = 'Authentication failed';
@@ -168,13 +267,16 @@ export class ProjectDetailPage implements OnInit {
         }
       });
     } else {
-      this.fetchProjectOptimized();
+      this.fetchProjectOptimized({ background: useCachedBaseline });
     }
   }
 
-  async fetchProjectOptimized() {
+  async fetchProjectOptimized(options: { background?: boolean } = {}) {
+    const background = !!options.background;
     const startTime = performance.now();
-    this.loading = true;
+    if (!background) {
+      this.loading = true;
+    }
     this.error = '';
 
     try {
@@ -273,6 +375,7 @@ export class ProjectDetailPage implements OnInit {
       this.loadingServices = false;
 
       const totalElapsed = performance.now() - startTime;
+      this.cacheCurrentState();
 
     } catch (error: any) {
       console.error('❌ Error in fetchProjectOptimized:', error);
