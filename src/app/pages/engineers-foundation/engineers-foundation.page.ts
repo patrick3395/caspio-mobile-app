@@ -153,6 +153,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Type information for the header
   typeShort: string = 'Foundation Evaluation';
+  typeFull: string = "Engineer's Foundation Evaluation";
   
   // Dropdown options for AnswerType 2 from Services_Visuals_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
@@ -512,12 +513,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       if (typeData?.TypeShort) {
         this.typeShort = typeData.TypeShort;
-        
-        // Force change detection to update the view
-        this.changeDetectorRef.detectChanges();
-        
-        // TypeShort loaded successfully
+      }
+
+      if (typeData?.TypeName) {
+        this.typeFull = typeData.TypeName;
       } else {
+        this.typeFull = this.typeShort;
+      }
+
+      // Force change detection to update the view
+      this.changeDetectorRef.detectChanges();
+        
+      if (!typeData?.TypeShort) {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â TypeShort not found in type data:', typeData);
         
         // TypeShort not found in response

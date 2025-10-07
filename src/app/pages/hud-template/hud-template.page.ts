@@ -16,6 +16,7 @@ import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { environment } from '../../../environments/environment';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -101,6 +102,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Type information for the header
   typeShort: string = 'HUD/Manufactured Home';
+  typeFull: string = 'HUD/Manufactured Home';
+  readonly isWebApp = environment.isWeb;
   
   // Dropdown options for AnswerType 2 from Services_Visuals_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
@@ -398,12 +401,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       if (typeData?.TypeShort) {
         this.typeShort = typeData.TypeShort;
-        
-        // Force change detection to update the view
-        this.changeDetectorRef.detectChanges();
-        
-        // TypeShort loaded successfully
+      }
+
+      if (typeData?.TypeName) {
+        this.typeFull = typeData.TypeName;
       } else {
+        this.typeFull = this.typeShort;
+      }
+      
+      // Force change detection to update the view
+      this.changeDetectorRef.detectChanges();
+        
+      if (!typeData?.TypeShort) {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â TypeShort not found in type data:', typeData);
         
         // TypeShort not found in response

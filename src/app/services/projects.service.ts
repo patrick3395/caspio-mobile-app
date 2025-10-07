@@ -501,7 +501,7 @@ export class ProjectsService {
       })
     );
   }
-}
+
   private getProjectDetailCacheKey(projectId: string): string {
     return this.cache.getApiCacheKey('project_detail', { projectId });
   }
