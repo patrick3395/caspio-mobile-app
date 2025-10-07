@@ -631,6 +631,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           console.warn('Ã¢Å¡Â Ã¯Â¸Â No TypeID found in service data');
         }
+
+        this.loadCustomValuesIntoDropdowns();
       } else {
         console.warn('Ã¢Å¡Â Ã¯Â¸Â No service response received');
       }
@@ -1119,6 +1121,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
     }
+
+    this.loadCustomValuesIntoDropdowns();
   }
 
   // Show popup for FDF "Other" custom value
