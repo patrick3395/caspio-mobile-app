@@ -906,18 +906,17 @@
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                         <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
-                      <!-- Top Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
-                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
-                               (click)="annotateFDFPhoto(room.RoomName, 'Top')"
-                               alt="Top">
-                          <button class="delete-btn"
-                                  (click)="deleteFDFPhoto(room.RoomName, 'Top', $event); $event.stopPropagation()"
-                                  title="Delete">
-                            <ion-icon name="close"></ion-icon>
-                          </button>
-                        </div>
+                      <!-- Top Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" style="margin-top: 8px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Top')"
+                             alt="Top">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Top', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
                       </div>
                     </div>
                     
@@ -930,18 +929,17 @@
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                         <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
-                      <!-- Bottom Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
-                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
-                               (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
-                               alt="Bottom">
-                          <button class="delete-btn"
-                                  (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event); $event.stopPropagation()"
-                                  title="Delete">
-                            <ion-icon name="close"></ion-icon>
-                          </button>
-                        </div>
+                      <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" style="margin-top: 8px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
+                             alt="Bottom">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
                       </div>
                     </div>
                     
@@ -954,18 +952,17 @@
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                         <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
-                      <!-- Threshold Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
-                          <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
-                               (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                               alt="Threshold">
-                          <button class="delete-btn"
-                                  (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
-                                  title="Delete">
-                            <ion-icon name="close"></ion-icon>
-                          </button>
-                        </div>
+                      <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 8px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
+                             alt="Threshold">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1005,18 +1002,17 @@
                             <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                             <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                           </button>
-                          <!-- Location Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="fdf-photo-preview" style="margin-top: 12px;">
-                            <div class="photo-thumb-container">
-                              <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
-                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                                   alt="Location">
-                              <button class="delete-btn"
-                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
-                                      title="Delete">
-                                <ion-icon name="close"></ion-icon>
-                              </button>
-                            </div>
+                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                 alt="Location">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                           </div>
                         </div>
                         
@@ -1029,18 +1025,17 @@
                             <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                             <ion-icon *ngIf="getPointPhotoByType(point, 'Measurement')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                           </button>
-                          <!-- Measurement Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="fdf-photo-preview" style="margin-top: 12px;">
-                            <div class="photo-thumb-container">
-                              <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
-                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
-                                   alt="Measurement">
-                              <button class="delete-btn"
-                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
-                                      title="Delete">
-                                <ion-icon name="close"></ion-icon>
-                              </button>
-                            </div>
+                          <!-- Measurement Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                                 alt="Measurement">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
                           </div>
                         </div>
                       </div>

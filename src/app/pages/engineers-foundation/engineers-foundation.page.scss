@@ -2344,75 +2344,74 @@ ion-content {
             }
           }
           
-          // Apply the EXACT working delete button styling from Structural Systems to FDF photos
-          .fdf-photos-container,
-          .elevation-points-container {
-            .fdf-photo-preview {
-              position: relative;
-              display: inline-block;
+          // FDF Photos now use the EXACT .image-preview structure from Structural Systems
+          .fdf-photos-container .image-preview,
+          .elevation-points-container .image-preview {
+            position: relative;
+            width: 90px; // 50% bigger for measurements area  
+            min-width: 90px;
+            height: auto;
+            min-height: 90px;
+            display: inline-block; // EXACT same as working Structural Systems
+            vertical-align: top;
+            flex-shrink: 0;
+            
+            &.uploading img {
+              opacity: 0.6;
+            }
+            
+            img {
+              width: 90px; // 50% bigger for measurements area
+              height: 90px; // 50% bigger for measurements area
+              aspect-ratio: 1 / 1;
+              object-fit: cover;
+              border-radius: 8px;
+              border: 2px solid #ddd;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              display: block;
+              background: #f5f5f5;
               
-              .photo-thumb-container {
-                position: relative;
-                width: 90px; // 50% bigger for measurements area
-                height: 90px; // 50% bigger for measurements area
-                display: inline-block; // Same as working Structural Systems
-                vertical-align: top;
-                flex-shrink: 0;
+              &:hover {
+                border-color: var(--noble-orange);
+                transform: scale(1.05);
+              }
+            }
+            
+            // EXACT delete button styling from working Structural Systems
+            .delete-btn {
+              position: absolute;
+              top: 2px;
+              right: 2px;
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background: rgba(255, 255, 255, 0.9);
+              border: 1px solid rgba(0, 0, 0, 0.2);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              padding: 0;
+              z-index: 10;
+              
+              ion-icon {
+                font-size: 12px;
+                color: #333;
+              }
+              
+              &:hover {
+                background: rgba(255, 59, 48, 0.9);
+                border-color: rgba(255, 59, 48, 1);
                 
-                img {
-                  width: 90px; // 50% bigger for measurements area
-                  height: 90px; // 50% bigger for measurements area
-                  aspect-ratio: 1 / 1;
-                  object-fit: cover;
-                  border-radius: 8px; // Keep consistent with Structural Systems
-                  border: 2px solid #ddd; // Keep consistent with Structural Systems
-                  cursor: pointer;
-                  transition: all 0.3s ease;
-                  display: block;
-                  background: #f5f5f5;
-                  
-                  &:hover {
-                    border-color: var(--noble-orange);
-                    transform: scale(1.05);
-                  }
+                ion-icon {
+                  color: white;
                 }
-
-                // EXACT delete button styling from working Structural Systems
-                .delete-btn {
-                  position: absolute;
-                  top: 2px;
-                  right: 2px;
-                  width: 18px;
-                  height: 18px;
-                  border-radius: 50%;
-                  background: rgba(255, 255, 255, 0.9);
-                  border: 1px solid rgba(0, 0, 0, 0.2);
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  cursor: pointer;
-                  transition: all 0.3s ease;
-                  padding: 0;
-                  z-index: 10;
-                  
-                  ion-icon {
-                    font-size: 12px;
-                    color: #333;
-                  }
-                  
-                  &:hover {
-                    background: rgba(255, 59, 48, 0.9);
-                    border-color: rgba(255, 59, 48, 1);
-                    
-                    ion-icon {
-                      color: white;
-                    }
-                  }
-                  
-                  &:active {
-                    transform: scale(0.9);
-                  }
-                }
+              }
+              
+              &:active {
+                transform: scale(0.9);
               }
             }
           }
