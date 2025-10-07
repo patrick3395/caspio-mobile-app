@@ -3,31 +3,47 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
-ion-toolbar.template-toolbar {
-  --padding-start: max(12px, calc((100vw - 1400px) / 2 + 12px));
-  --padding-end: max(12px, calc((100vw - 1400px) / 2 + 12px));
-}
-
 .template-toolbar-actions {
   display: flex;
   align-items: center;
   margin-right: 10px;
+  column-gap: 8px;
 }
 
-.template-toolbar-actions button {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  padding: 8px 8px 8px 4px;
+.template-toolbar-actions .toolbar-action {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  column-gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   cursor: pointer;
-  font-size: 14px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.template-toolbar-actions button ion-icon {
-  font-size: 20px;
+.template-toolbar-actions .toolbar-action:hover {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.template-toolbar-actions .toolbar-action:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
+.template-toolbar-actions .toolbar-action ion-icon {
+  font-size: 18px;
+}
+
+.template-toolbar-actions .toolbar-action.pdf {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(0, 0, 0, 0.3);
 }
 
 // FDF Dropdown Options - smaller text with black color
