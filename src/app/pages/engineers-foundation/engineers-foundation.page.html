@@ -903,16 +903,17 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Top</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
                       <!-- Top Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
+                        <div class="photo-thumb-container" style="position: relative; display: inline-block;">
                           <img class="fdf-photo-thumb"
                                [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                                width="60" height="60"
                                (click)="annotateFDFPhoto(room.RoomName, 'Top')"
-                               alt="Top">
+                               alt="Top"
+                               style="display: block;">
                           <button class="delete-btn"
                                   (click)="deleteFDFPhoto(room.RoomName, 'Top', $event); $event.stopPropagation()"
                                   title="Delete">
@@ -929,16 +930,17 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Bottom</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
                       <!-- Bottom Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
+                        <div class="photo-thumb-container" style="position: relative; display: inline-block;">
                           <img class="fdf-photo-thumb"
                                [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                                width="60" height="60"
                                (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
-                               alt="Bottom">
+                               alt="Bottom"
+                               style="display: block;">
                           <button class="delete-btn"
                                   (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event); $event.stopPropagation()"
                                   title="Delete">
@@ -955,16 +957,17 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Threshold</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
                       <!-- Threshold Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="fdf-photo-preview" style="margin-top: 8px;">
-                        <div class="photo-thumb-container">
+                        <div class="photo-thumb-container" style="position: relative; display: inline-block;">
                           <img class="fdf-photo-thumb"
                                [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                                width="60" height="60"
                                (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                               alt="Threshold">
+                               alt="Threshold"
+                               style="display: block;">
                           <button class="delete-btn"
                                   (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
                                   title="Delete">

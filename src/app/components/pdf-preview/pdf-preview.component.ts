@@ -309,7 +309,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   private async addCoverPage(pdf: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
-    const serviceName = this.serviceData?.serviceName || 'Foundation Evaluation';
+    const serviceName = this.serviceData?.serviceName || 'Engineer\'s Foundation Evaluation';
     const companyName = this.projectData?.companyName || 'Noble Property Inspections';
     const address = this.projectData?.address || 'Property Address';
     const city = this.projectData?.city || 'City';
@@ -336,8 +336,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       if (primaryPhotoUrl && !primaryPhotoUrl.includes('placeholder')) {
         const imgData = await this.loadImage(primaryPhotoUrl);
         if (imgData) {
-          const imgWidth = 165;  // Increased from 150mm to 165mm
-          const imgHeight = 110; // Increased from 95mm to 110mm
+          const imgWidth = 175;  // Increased from 165mm to 175mm
+          const imgHeight = 117; // Increased from 110mm to 117mm
           const imageTop = 78;
           pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, imageTop, imgWidth, imgHeight);
           imageBottom = imageTop + imgHeight;

@@ -13,23 +13,42 @@ ion-header {
   left: 0;
   right: 0;
   z-index: 10;
+  background: transparent !important;
+  box-shadow: none !important;
+  
   &::after {
     display: none !important;
+  }
+
+  &::part(header) {
+    box-shadow: none !important;
+    border: none !important;
   }
 
   ion-toolbar {
     --background: transparent;
     --color: $dark;
-    --border-width: 0;
-    --ion-toolbar-border-width: 0;
-    --border-style: none;
-    --border-color: transparent;
+    --border-width: 0 !important;
+    --ion-toolbar-border-width: 0 !important;
+    --border-style: none !important;
+    --border-color: transparent !important;
+    --box-shadow: none !important;
     backdrop-filter: none;
-    box-shadow: none;
-    background: transparent;
-    border: none;
+    box-shadow: none !important;
+    background: transparent !important;
+    border: none !important;
+    
     &::after {
       display: none !important;
+    }
+
+    &::before {
+      display: none !important;
+    }
+
+    &::part(container) {
+      border: none !important;
+      box-shadow: none !important;
     }
 
     ion-title {

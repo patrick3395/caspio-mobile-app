@@ -97,8 +97,8 @@
       justify-content: center;
       
       .property-photo {
-        max-width: 600px;  // Increased from 400px to 600px
-        max-height: 400px; // Increased from 250px to 400px
+        max-width: 700px;  // Increased from 600px to 700px
+        max-height: 500px; // Increased from 400px to 500px
         width: auto;
         height: auto;
         border-radius: 4px;
@@ -107,8 +107,8 @@
         
         &.loading {
           background: #f0f0f0;
-          min-height: 240px;  // Increased proportionally
-          min-width: 480px;   // Increased proportionally
+          min-height: 300px;  // Increased proportionally
+          min-width: 560px;   // Increased proportionally
         }
       }
     }
