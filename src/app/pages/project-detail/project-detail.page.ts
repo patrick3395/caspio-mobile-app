@@ -240,7 +240,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     });
     
     if (this.projectId) {
-      this.loadProject(restoredFromCache);
+      if (!restoredFromCache) {
+        this.loadProject();
+      } else {
+        // Ensure loading indicators are cleared when restoring cached state
+        this.loading = false;
+        this.loadingServices = false;
+        this.loadingDocuments = false;
+      }
     } else {
       console.error('❌ DEBUG: No projectId provided!');
     }
@@ -250,11 +257,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     this.cacheCurrentState();
   }
 
-  async loadProject(useCachedBaseline = false) {
+  async loadProject() {
     if (!this.caspioService.isAuthenticated()) {
       this.caspioService.authenticate().subscribe({
         next: () => {
-          this.fetchProjectOptimized({ background: useCachedBaseline });
+          this.fetchProjectOptimized();
         },
         error: (error) => {
           this.error = 'Authentication failed';
@@ -267,16 +274,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         }
       });
     } else {
-      this.fetchProjectOptimized({ background: useCachedBaseline });
+      this.fetchProjectOptimized();
     }
   }
 
-  async fetchProjectOptimized(options: { background?: boolean } = {}) {
-    const background = !!options.background;
+  async fetchProjectOptimized() {
     const startTime = performance.now();
-    if (!background) {
-      this.loading = true;
-    }
+    this.loading = true;
     this.error = '';
 
     try {

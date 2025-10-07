@@ -606,7 +606,10 @@ body.dark-theme .popover-content ion-label {
 
 .template-loading-alert .alert-button {
   width: 100%;
+  display: flex;
   justify-content: center;
+  align-items: center;
+  text-align: center;
   border-radius: 999px;
   border: 1px solid rgba(241, 90, 39, 0.35);
   color: var(--noble-orange, #F15A27);
