@@ -2088,12 +2088,19 @@ ion-content {
 
 
           // Shared photo thumbnail styles for FDF and room photos
+          .fdf-photo-preview {
+            display: inline-block !important;
+            position: relative !important;
+            overflow: visible !important;
+          }
+          
           .fdf-photo-preview .photo-thumb-container,
           .photo-thumb-container {
             position: relative !important;
             display: inline-block !important;
-            width: 60px;
-            min-height: 60px;
+            width: 60px !important;
+            height: 60px !important;
+            overflow: visible !important;
 
             img {
               width: 60px !important;
@@ -2102,6 +2109,8 @@ ion-content {
               border-radius: 3px;
               box-shadow: 0 1px 3px rgba(0,0,0,0.12);
               display: block !important;
+              position: relative !important;
+              z-index: 1 !important;
             }
 
             .delete-btn {
@@ -2110,22 +2119,24 @@ ion-content {
               right: 2px !important;
               width: 18px !important;
               height: 18px !important;
-              border-radius: 50%;
+              border-radius: 50% !important;
               background: rgba(255, 255, 255, 0.9) !important;
               border: 1px solid rgba(0, 0, 0, 0.2) !important;
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
               padding: 0 !important;
-              cursor: pointer;
+              margin: 0 !important;
+              cursor: pointer !important;
               transition: all 0.3s ease;
-              z-index: 10;
+              z-index: 100 !important;
               font-size: 12px;
               color: #333;
 
               ion-icon {
-                font-size: 12px;
-                color: #333;
+                font-size: 12px !important;
+                color: #333 !important;
+                pointer-events: none !important;
               }
 
               &:hover {

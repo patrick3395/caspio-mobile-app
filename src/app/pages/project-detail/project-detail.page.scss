@@ -314,6 +314,13 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     }
   }
 
+  // Web-only: Align price under Actions column
+  @media (min-width: 768px) {
+    .service-price-row {
+      padding-right: 60px; // Align price with Actions column width
+    }
+  }
+
   // Web-only: Remove padding on Actions column to align with icons
   &.is-web {
     .table-header .col-actions,
@@ -351,6 +358,11 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
     background:$white;
     border:1px solid $border;  // Same as price boxes
     border-radius:4px;
+  }
+  
+  // Web-only: Align total with price boxes above
+  @media (min-width: 768px) {
+    padding-right: 60px; // Match Actions column width
   }
 }
 

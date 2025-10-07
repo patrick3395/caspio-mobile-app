@@ -81,6 +81,7 @@
             <div class="project-details">
               <div class="project-address">{{ project.Address }}</div>
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+              <div class="project-services" *ngIf="project.serviceShortCodes">{{ project.serviceShortCodes }}</div>
               <div class="project-date" *ngIf="project.Date">{{ formatCreatedDate(project.Date) }}</div>
             </div>
           </div>

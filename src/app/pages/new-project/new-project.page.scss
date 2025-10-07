@@ -2,6 +2,15 @@ ion-content {
   --background: #f5f5f5;
 }
 
+// Web-specific header centering (screens 768px+)
+@media (min-width: 768px) {
+  ion-header ion-toolbar {
+    ion-title {
+      text-align: center;
+    }
+  }
+}
+
 .form-section {
   background: white;
   margin-bottom: 12px;
