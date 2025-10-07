@@ -2090,6 +2090,17 @@ ion-content {
           // Shared photo thumbnail styles for FDF and room photos
           .photo-thumb-container {
             position: relative;
+            display: inline-block;
+            width: 60px;
+
+            img {
+              width: 60px;
+              height: 60px;
+              object-fit: cover;
+              border-radius: 3px;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+              display: block;
+            }
 
             .delete-btn {
               position: absolute;
@@ -2465,6 +2476,22 @@ ion-content {
   &:focus {
     outline: none;
     background: transparent !important;
+  }
+}
+
+// Custom alert styling for "Other" value entry popup
+.custom-other-alert {
+  .alert-button-group {
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      
+      .alert-button-inner {
+        justify-content: center;
+      }
+    }
   }
 }
 

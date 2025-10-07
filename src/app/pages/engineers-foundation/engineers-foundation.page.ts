@@ -1643,8 +1643,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return max - min;
   }
   
-  // Capture photo for room elevation point - using EXACT visual method
-  async capturePhotoForPoint(roomName: string, point: any, event?: Event) {
+  // Get a specific photo by type (Location or Measurement) for a point
+  getPointPhotoByType(point: any, photoType: 'Location' | 'Measurement'): any {
+    if (!point.photos || point.photos.length === 0) {
+      return null;
+    }
+    
+    // Look for photo with matching annotation prefix
+    return point.photos.find((photo: any) => 
+      photo.annotation && photo.annotation.startsWith(`${photoType}:`)
+    );
+  }
+
+  // Capture photo for room elevation point with specific type (Location or Measurement)
+  async capturePointPhoto(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event) {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
@@ -1699,17 +1711,51 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
+      // Check if this photo type already exists
+      const existingPhoto = this.getPointPhotoByType(point, photoType);
+      if (existingPhoto) {
+        const alert = await this.alertController.create({
+          header: 'Replace Photo',
+          message: `A ${photoType} photo already exists for this point. Replace it?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Replace',
+              handler: async () => {
+                // Delete the existing photo first
+                await this.deleteRoomPhoto(existingPhoto, roomName, point, true);
+                // Then capture new one
+                this.currentRoomPointContext = {
+                  roomName,
+                  point,
+                  pointId,
+                  roomId,
+                  photoType  // Store the photo type
+                };
+                this.triggerFileInput('system', { allowMultiple: false });
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
       this.currentRoomPointContext = {
         roomName,
         point,
         pointId,
-        roomId
+        roomId,
+        photoType  // Store the photo type
       };
 
       this.triggerFileInput('system', { allowMultiple: false });
 
     } catch (error) {
-      console.error('Error in capturePhotoForPoint:', error);
+      console.error('Error in capturePointPhoto:', error);
       await this.showToast('Failed to capture photo', 'danger');
     }
   }
@@ -1815,7 +1861,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     thumbnailUrl: thumbnailUrl,
                     displayUrl: photoUrl,  // Add displayUrl for consistency
                     originalUrl: photoUrl,  // Store original for re-editing
-                    annotation: '',  // Don't use Annotation field anymore
+                    annotation: photo.Annotation || '',  // Load annotation to identify photo type (Location: or Measurement:)
                     annotations: annotationData,
                     rawDrawingsString: photo.Drawings,
                     hasAnnotations: !!annotationData,
@@ -2053,11 +2099,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Process the captured photo for room point
   async processRoomPointPhoto(base64Image: string) {
     try {
-      if (!this.currentRoomPointCapture) {
+      if (!this.currentRoomPointContext) {
         throw new Error('No capture context');
       }
       
-      const { roomName, point, roomId } = this.currentRoomPointCapture;
+      const { roomName, point, roomId, photoType } = this.currentRoomPointContext;
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
@@ -2081,8 +2127,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Upload photo to Services_Rooms_Attach
-      await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
+      // Upload photo to Services_Rooms_Attach with photo type in annotation
+      const annotation = `${photoType}: `;
+      await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name, annotation);
       
       // Update UI to show photo
       if (!point.photos) {
@@ -2090,34 +2137,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       point.photos.push({
         url: base64Image,
-        thumbnailUrl: base64Image
+        thumbnailUrl: base64Image,
+        annotation: annotation
       });
       point.photoCount = point.photos.length;
       
-      // Offer to take another photo
-      const alert = await this.alertController.create({
-        header: 'Photo Captured',
-        message: 'Would you like to take another photo?',
-        cssClass: 'orange-alert',
-        buttons: [
-          {
-            text: 'Done',
-            role: 'cancel',
-            cssClass: 'secondary'
-          },
-          {
-            text: 'Take Another',
-            cssClass: 'primary',
-            handler: () => {
-              setTimeout(() => {
-                this.capturePhotoForPoint(roomName, point);
-              }, 500);
-            }
-          }
-        ]
-      });
-      
-      await alert.present();
+      // Show success toast
+      await this.showToast(`${photoType} photo captured`, 'success');
       
     } catch (error) {
       console.error('Error processing room point photo:', error);
@@ -2126,7 +2152,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Upload photo to Services_Rooms_Attach
-  async uploadPhotoToRoomPoint(pointId: string, base64Image: string, pointName: string) {
+  async uploadPhotoToRoomPoint(pointId: string, base64Image: string, pointName: string, annotation: string = '') {
     try {
       // Convert base64 to blob
       const response = await fetch(base64Image);
@@ -2166,7 +2192,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
-        Annotation: ''
+        Annotation: annotation
       };
       
       await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
@@ -3917,9 +3943,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Delete room photo
-  async deleteRoomPhoto(photo: any, roomName: string, point: any) {
+  async deleteRoomPhoto(photo: any, roomName: string, point: any, silent: boolean = false) {
     try {
-      // Confirm deletion
+      // Skip confirmation if silent deletion (used when replacing photos)
+      if (silent) {
+        try {
+                // Delete from Services_Rooms_Points_Attach table if attachId exists
+                if (photo.attachId) {
+                  await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                }
+                
+                // Remove from point's photos array
+                if (point.photos) {
+                  const index = point.photos.indexOf(photo);
+                  if (index > -1) {
+                    point.photos.splice(index, 1);
+                    point.photoCount = point.photos.length;
+                  }
+                }
+              } catch (error) {
+                console.error('Error deleting room photo:', error);
+                if (!silent) {
+                  await this.showToast('Failed to delete photo', 'danger');
+                }
+              }
+        return;
+      }
+      
+      // Confirm deletion if not silent
       const alert = await this.alertController.create({
         header: 'Delete Photo',
         message: 'Are you sure you want to delete this photo?',
@@ -3933,12 +3984,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             cssClass: 'danger-button',
             handler: async () => {
               try {
-                // Delete from Services_Rooms_Points_Attach table if attachId exists
+                // Delete from database if attachId exists
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
                 }
                 
-                // Remove from point's photos array
+                // Remove from UI
                 if (point.photos) {
                   const index = point.photos.indexOf(photo);
                   if (index > -1) {
