@@ -2300,8 +2300,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         drawingsData = EMPTY_COMPRESSED_ANNOTATIONS;
       }
       
-      // DEBUG POPUP: Show what we're about to upload
-      const debugAlert = await this.alertController.create({
+      // Removed debug popup for seamless upload experience
+      /* const debugAlert = await this.alertController.create({
         header: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Elevation Photo Upload',
         message: `
           <div style="font-family: monospace; font-size: 11px; text-align: left;">
@@ -2350,9 +2350,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       if (role === 'cancel') {
         throw new Error('Upload cancelled by user');
-      }
+      } */
       
-      // Use the new two-step method that matches visual upload
+      // Use the new two-step method that matches visual upload (debug popups removed)
       const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
         pointIdNum,
         drawingsData, // Pass annotation data to Drawings field
@@ -2360,20 +2360,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         photoType // CRITICAL: Pass photoType for Annotation field
       ).toPromise();
       
-      // Show success debug
-      const successAlert = await this.alertController.create({
-        header: 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Upload Successful',
-        message: `
-          <div style="font-family: monospace; font-size: 11px;">
-            <strong>Response:</strong><br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ AttachID: ${response?.AttachID || response?.PK_ID || 'N/A'}<br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo Path: ${response?.Photo || 'N/A'}<br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Full Response: ${JSON.stringify(response).substring(0, 200)}...
-          </div>
-        `,
-        buttons: ['OK']
-      });
-      await successAlert.present();
+      // Success popup removed for cleaner user experience
       
       return response;  // Return the response with AttachID
       
@@ -4242,11 +4229,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 ? JSON.stringify(annotationsData) 
                 : annotationsData;
             }
+            
+            // CRITICAL FIX: Force immediate UI update by updating the main photo URL
+            // This ensures the annotated version shows in thumbnail immediately
+            point.photos[photoIndex].url = newUrl;
+            point.photos[photoIndex].thumbnailUrl = newUrl;
           }
         }
         
-        // Trigger change detection
+        // Trigger change detection and force UI refresh for annotations
         this.changeDetectorRef.detectChanges();
+        
+        // Additional UI update - force template refresh for annotation visibility
+        setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+        }, 100);
       }
       
     } catch (error) {
@@ -7853,6 +7850,9 @@ Stack: ${error?.stack}`;
           targetPhoto.thumbnailUrl = newUrl;
         }
         targetPhoto.hasAnnotations = !!annotationsData;
+        
+        // CRITICAL FIX: Update main URL for immediate thumbnail display
+        targetPhoto.url = newUrl;
 
         if (data.caption !== undefined) {
           targetPhoto.caption = data.caption;
@@ -8017,6 +8017,9 @@ Stack: ${error?.stack}`;
                 this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
               }
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+              
+              // CRITICAL FIX: Update main URL for immediate annotation display
+              this.visualPhotos[visualId][photoIndex].url = newUrl;
 
               // Update caption if provided
               if (data.caption !== undefined) {
@@ -8042,8 +8045,13 @@ Stack: ${error?.stack}`;
             
             // Success toast removed per user request
 
-            // Trigger change detection
+            // Trigger change detection with delay for annotation visibility
             this.changeDetectorRef.detectChanges();
+            
+            // Additional UI update - force template refresh for annotation visibility
+            setTimeout(() => {
+              this.changeDetectorRef.detectChanges();
+            }, 100);
 
             // [v1.4.576] Restore scroll position AFTER change detection
             // This prevents the DOM update from scrolling the page

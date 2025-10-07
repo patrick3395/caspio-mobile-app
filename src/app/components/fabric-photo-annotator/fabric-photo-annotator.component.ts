@@ -89,10 +89,10 @@ async function ensureFabricLoaded(): Promise<void> {
     
     .top-toolbar {
       position: absolute;
-      top: 0;
+      top: var(--ion-safe-area-top, 0); // Respect safe area for mobile devices
       left: 0;
       right: 0;
-      padding: 8px 10px;
+      padding: 12px 10px; // Increased padding for better touch targets
       background: #f0f0f0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       display: flex;
@@ -100,6 +100,7 @@ async function ensureFabricLoaded(): Promise<void> {
       align-items: center;
       gap: 6px;
       z-index: 100;
+      min-height: 58px; // Ensure consistent height
     }
     
     .nav-btn {
@@ -119,6 +120,13 @@ async function ensureFabricLoaded(): Promise<void> {
       position: absolute;
       left: 10px;
       background: rgba(0, 0, 0, 0.05);
+      
+      // Mobile-specific sizing
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+        left: 8px;
+      }
     }
     
     .back-btn:hover {
@@ -128,12 +136,23 @@ async function ensureFabricLoaded(): Promise<void> {
     .back-btn ion-icon {
       font-size: 24px;
       color: #333;
+      
+      @media (max-width: 768px) {
+        font-size: 26px; // Larger on mobile
+      }
     }
     
     .save-btn {
       position: absolute;
       right: 10px;
       background: #F15A27;
+      
+      // Mobile-specific sizing
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+        right: 8px;
+      }
     }
     
     .save-btn:hover {
@@ -144,6 +163,10 @@ async function ensureFabricLoaded(): Promise<void> {
     .save-btn ion-icon {
       font-size: 26px;
       color: white;
+      
+      @media (max-width: 768px) {
+        font-size: 28px; // Larger on mobile
+      }
     }
     
     .tool-buttons-center {
@@ -153,6 +176,13 @@ async function ensureFabricLoaded(): Promise<void> {
       justify-content: center;
       flex: 1;
       margin: 0 60px; /* Leave space for absolutely positioned back/save buttons */
+      
+      // Mobile-specific adjustments
+      @media (max-width: 768px) {
+        gap: 4px; // Tighter spacing on mobile
+        margin: 0 65px; // More space for bigger nav buttons
+        flex-wrap: wrap; // Allow wrapping if needed
+      }
     }
     
     .tool-btn {
@@ -169,6 +199,13 @@ async function ensureFabricLoaded(): Promise<void> {
       transition: all 0.2s;
       position: relative;
       padding: 0;
+      
+      // Mobile-specific sizing for better touch targets
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+        margin: 2px; // Add margin for easier tapping
+      }
     }
     
     .caption-container {
@@ -185,6 +222,14 @@ async function ensureFabricLoaded(): Promise<void> {
       width: auto;
       min-width: 250px;
       max-width: 80%;
+      
+      // Mobile-specific positioning
+      @media (max-width: 768px) {
+        bottom: 20px; // Higher up from bottom
+        min-width: 200px;
+        max-width: 90%; // More width on mobile
+        padding: 10px 14px; // More padding for touch
+      }
     }
     
     .caption-input {
@@ -272,8 +317,8 @@ async function ensureFabricLoaded(): Promise<void> {
     
     .canvas-container {
       position: absolute;
-      top: 58px;
-      bottom: 10px;
+      top: calc(58px + var(--ion-safe-area-top, 0px)); // Account for safe area + header height
+      bottom: 80px; // Leave more space for caption on mobile
       left: 0;
       right: 0;
       display: flex;
@@ -282,6 +327,13 @@ async function ensureFabricLoaded(): Promise<void> {
       background: #2d2d2d;
       overflow: auto;
       padding: 10px;
+      
+      // Mobile-specific adjustments for better canvas positioning
+      @media (max-width: 768px) {
+        top: calc(70px + var(--ion-safe-area-top, 0px)); // More space on mobile
+        bottom: 90px; // More bottom space for caption
+        padding: 8px; // Less padding for more canvas space
+      }
     }
     
     canvas {
