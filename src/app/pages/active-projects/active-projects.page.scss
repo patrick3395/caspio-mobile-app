@@ -17,6 +17,8 @@
     // Center title on web version
     &.web-centered ion-title {
       text-align: center;
+      flex: 1;
+      width: 100%;
     }
 
     ion-buttons {

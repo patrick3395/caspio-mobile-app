@@ -3411,24 +3411,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const selectedOption = selectEl.selectedOptions?.[0] ?? selectEl.options[selectEl.selectedIndex];
     const fallbackText = selectEl.options.length > 0 ? selectEl.options[0].text : 'Select Status';
     const labelText = (selectedOption?.text ?? fallbackText ?? '').trim() || fallbackText;
-    mirror.textContent = `${labelText} `;
+    mirror.textContent = labelText;
 
     const paddingLeft = parseFloat(computed.paddingLeft || '0');
     const paddingRight = parseFloat(computed.paddingRight || '0');
     const extraSpace = paddingLeft + paddingRight + 36;
-    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace + 6;
-    const minWidth = 160;
-    const containerWidth = selectEl.parentElement?.clientWidth ?? 0;
-    const viewportWidth = typeof window !== 'undefined' ? Math.max(window.innerWidth - 48, 0) : 0;
-    const availableWidth = Math.max(minWidth, containerWidth, viewportWidth);
-    const fallbackWidth = Math.max(desiredWidth, minWidth);
-    const finalWidth = Math.min(Math.max(desiredWidth, minWidth), availableWidth || fallbackWidth);
+    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace;
+    const minWidth = 170;
+    const maxWidth = 240;
+    const containerWidth = selectEl.parentElement?.clientWidth ?? maxWidth;
+    const availableWidth = Math.max(minWidth, Math.min(containerWidth, maxWidth));
+    const finalWidth = Math.min(Math.max(desiredWidth, minWidth), availableWidth);
 
+    selectEl.style.whiteSpace = 'normal';
+    selectEl.style.lineHeight = '1.35';
     selectEl.style.width = `${finalWidth}px`;
     selectEl.style.minWidth = `${minWidth}px`;
-    if (availableWidth > 0) {
-      selectEl.style.maxWidth = `${availableWidth}px`;
-    }
+    selectEl.style.maxWidth = `${availableWidth}px`;
   }
 
   private ensureStructuralStatusMirror(computed: CSSStyleDeclaration): HTMLSpanElement {
@@ -3437,7 +3436,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       Object.assign(this.structuralStatusMirror.style, {
         position: 'absolute',
         visibility: 'hidden',
-        whiteSpace: 'nowrap',
+        whiteSpace: 'pre-line',
         pointerEvents: 'none',
         opacity: '0',
         zIndex: '-1'
@@ -3451,6 +3450,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     mirror.style.fontFamily = computed.fontFamily;
     mirror.style.fontWeight = computed.fontWeight;
     mirror.style.letterSpacing = computed.letterSpacing;
+    mirror.style.whiteSpace = 'pre-line';
 
     return mirror;
   }

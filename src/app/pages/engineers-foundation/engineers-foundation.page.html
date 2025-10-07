@@ -1,4 +1,4 @@
-<ion-header>
+﻿<ion-header>
   <ion-toolbar color="primary" class="template-toolbar">
     <div slot="start">
       <button id="eng-back-btn" (click)="goBack()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
@@ -368,7 +368,7 @@
                     class="structural-status-select"
                     (click)="$event.stopPropagation()">
               <option value="">Select Status</option>
-              <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
+              <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>
               <option value="Completed Here">Completed Here</option>
             </select>
           </div>
@@ -903,7 +903,7 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Top</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
+                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
                       </button>
                       <!-- Top Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="fdf-photo-preview" style="margin-top: 8px;">
@@ -930,7 +930,7 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Bottom</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
+                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
                       </button>
                       <!-- Bottom Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="fdf-photo-preview" style="margin-top: 8px;">
@@ -957,7 +957,7 @@
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                         <span style="margin-bottom: 4px;">Threshold</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">✓</span>
+                        <span *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 10px;">âœ“</span>
                       </button>
                       <!-- Threshold Photo Thumbnail -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="fdf-photo-preview" style="margin-top: 8px;">
@@ -1104,4 +1104,6 @@
     </button>
   </div>
 </ion-content>
+
+
 

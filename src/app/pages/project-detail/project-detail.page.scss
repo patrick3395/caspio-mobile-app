@@ -21,8 +21,13 @@ ion-header {
     --background: transparent;
     --color: $dark;
     --border-width: 0;
+    --ion-toolbar-border-width: 0;
+    --border-style: none;
+    --border-color: transparent;
     backdrop-filter: none;
     box-shadow: none;
+    background: transparent;
+    border: none;
     &::after {
       display: none !important;
     }
@@ -737,3 +742,9 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     max-height: 100%;
   }
 }
+
+  background: transparent;
+  --ion-toolbar-border-width: 0;
+  --border-width: 0;
+  --box-shadow: none;
+

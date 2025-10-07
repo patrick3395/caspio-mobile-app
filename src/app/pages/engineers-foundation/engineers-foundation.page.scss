@@ -889,41 +889,46 @@ ion-content {
     .structural-status-select {
       display: inline-block;
       width: auto;
-      min-width: 160px;
+      min-width: 170px;
       max-width: 100%;
-      white-space: nowrap;
-      padding: 6px 30px 6px 12px;
+      white-space: normal;
+      line-height: 1.35;
+      padding: 10px 36px 10px 16px;
+      min-height: 42px;
       font-size: 13px;
       font-weight: 600;
-      color: var(--noble-orange);
-      background: rgba(241, 90, 39, 0.08);
-      border: 1px solid rgba(241, 90, 39, 0.35);
+      color: #1f2933;
+      background: #f5f6f7;
+      border: 1px solid rgba(31, 41, 51, 0.15);
       border-radius: 999px;
       cursor: pointer;
       transition: all 0.2s ease;
       appearance: none;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 14px center;
+      background-position: right 18px center;
       background-size: 12px;
-      box-shadow: 0 3px 12px rgba(241, 90, 39, 0.15);
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
 
       &:hover {
-        background-color: rgba(241, 90, 39, 0.12);
-        border-color: rgba(241, 90, 39, 0.45);
-        box-shadow: 0 5px 16px rgba(241, 90, 39, 0.18);
+        background-color: #eef0f2;
+        border-color: rgba(31, 41, 51, 0.28);
+        box-shadow: 0 5px 16px rgba(15, 23, 42, 0.16);
       }
 
       &:focus {
         outline: none;
-        background-color: rgba(241, 90, 39, 0.16);
-        border-color: rgba(241, 90, 39, 0.6);
-        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.18);
+        background-color: #e8ebef;
+        border-color: rgba(31, 41, 51, 0.4);
+        box-shadow: 0 0 0 3px rgba(31, 41, 51, 0.15);
       }
 
       option {
-        padding: 10px 12px;
+        padding: 12px 16px;
         font-weight: 500;
+        color: #111827;
+        background-color: #f8f9fa;
+        white-space: normal;
       }
     }
   }
