@@ -6,6 +6,7 @@ import { IonicDeployService } from '../../services/ionic-deploy.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-active-projects',
@@ -28,6 +29,11 @@ export class ActiveProjectsPage implements OnInit {
   private readonly INITIAL_LOAD = 20; // Initial number of projects to show
   private readonly LOAD_MORE = 10; // Number of projects to load on scroll
   private currentIndex = 0;
+  
+  // Services cache
+  private servicesCache: { [projectId: string]: string } = {};
+  private serviceTypes: any[] = [];
+  private offers: any[] = [];
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -127,29 +133,55 @@ export class ActiveProjectsPage implements OnInit {
     }
 
     // [v1.4.498] PERFORMANCE FIX: Removed unnecessary table definition call (saves 300-800ms)
-    // Load projects directly without table definition check
-    this.projectsService.getActiveProjects(companyId).subscribe({
-      next: (projects) => {
-        this.projects = projects;
+    // Load projects and services data in parallel
+    const projectsRequest = this.projectsService.getActiveProjects(companyId);
+    const serviceTypesRequest = this.projectsService.getServiceTypes();
+    const offersRequest = this.projectsService.getOffers(companyId || 1);
+    
+    forkJoin({
+      projects: projectsRequest,
+      serviceTypes: serviceTypesRequest,
+      offers: offersRequest
+    }).subscribe({
+      next: (results) => {
+        this.projects = results.projects || [];
+        this.serviceTypes = results.serviceTypes || [];
+        this.offers = results.offers || [];
+        
+        // Load services for each project
+        this.loadProjectServices();
+        
         this.applySearchFilter();
         this.loading = false;
         const elapsed = performance.now() - startTime;
       },
       error: (error) => {
-        // If filtered query fails, try getting all projects and filter locally
-        this.projectsService.getAllProjects(companyId).subscribe({
-          next: (allProjects) => {
-            this.projects = allProjects.filter(p =>
-              p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
-            );
+        // If parallel load fails, try getting projects only and services later
+        this.projectsService.getActiveProjects(companyId).subscribe({
+          next: (projects) => {
+            this.projects = projects;
+            this.loadServicesDataAsync(); // Load services in background
+            this.applySearchFilter();
             this.loading = false;
             const elapsed = performance.now() - startTime;
-            this.applySearchFilter();
           },
           error: (err) => {
-            this.error = 'Failed to load projects';
-            this.loading = false;
-            console.error('Error loading projects:', err);
+            // If filtered query fails, try getting all projects and filter locally
+            this.projectsService.getAllProjects(companyId).subscribe({
+              next: (allProjects) => {
+                this.projects = allProjects.filter(p =>
+                  p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
+                );
+                this.loading = false;
+                const elapsed = performance.now() - startTime;
+                this.applySearchFilter();
+              },
+              error: (finalErr) => {
+                this.error = 'Failed to load projects';
+                this.loading = false;
+                console.error('Error loading projects:', finalErr);
+              }
+            });
           }
         });
       }
@@ -201,6 +233,90 @@ export class ActiveProjectsPage implements OnInit {
         });
       }
     });
+  }
+
+  /**
+   * Load services data asynchronously (fallback when parallel loading fails)
+   */
+  async loadServicesDataAsync() {
+    try {
+      const companyId = this.currentUser?.companyId || this.currentUser?.CompanyID || 1;
+      const [serviceTypes, offers] = await Promise.all([
+        this.projectsService.getServiceTypes().toPromise(),
+        this.projectsService.getOffers(companyId).toPromise()
+      ]);
+      
+      this.serviceTypes = serviceTypes || [];
+      this.offers = offers || [];
+      this.loadProjectServices();
+    } catch (error) {
+      console.error('Error loading services data:', error);
+    }
+  }
+
+  /**
+   * Load services for all projects
+   */
+  loadProjectServices() {
+    if (!this.projects || !this.serviceTypes || !this.offers) {
+      return;
+    }
+    
+    this.projects.forEach(project => {
+      const projectId = project.PK_ID || project.ProjectID;
+      if (projectId && project.OffersID) {
+        const serviceName = this.getServiceNameByOfferId(project.OffersID);
+        this.servicesCache[projectId] = serviceName;
+      }
+    });
+  }
+
+  /**
+   * Get service name by OffersID
+   */
+  getServiceNameByOfferId(offersId: number | string): string {
+    if (!offersId || !this.offers || !this.serviceTypes) {
+      return '';
+    }
+    
+    const offer = this.offers.find(o => 
+      (o.OffersID === offersId || o.PK_ID === offersId) ||
+      (o.OffersID === Number(offersId) || o.PK_ID === Number(offersId))
+    );
+    
+    if (!offer) {
+      return '';
+    }
+    
+    const serviceType = this.serviceTypes.find(t => t.TypeID === offer.TypeID);
+    return serviceType?.TypeName || offer.Description || offer.OfferName || '';
+  }
+
+  /**
+   * Get formatted services string for a project
+   */
+  getProjectServices(project: Project): string {
+    const projectId = project.PK_ID || project.ProjectID;
+    
+    if (!projectId) {
+      return '(No Services Selected)';
+    }
+    
+    // Check cache first
+    if (this.servicesCache[projectId]) {
+      return this.servicesCache[projectId];
+    }
+    
+    // Try to get service from project's OffersID
+    if (project.OffersID) {
+      const serviceName = this.getServiceNameByOfferId(project.OffersID);
+      if (serviceName) {
+        this.servicesCache[projectId] = serviceName;
+        return serviceName;
+      }
+    }
+    
+    return '(No Services Selected)';
   }
 
   getProjectImage(project: Project): string {
