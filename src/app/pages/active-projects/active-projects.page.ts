@@ -142,6 +142,11 @@ export class ActiveProjectsPage implements OnInit {
         this.projects = results.projects || [];
         this.serviceTypes = results.serviceTypes || [];
         
+        console.log('📊 Loaded Type table data:');
+        this.serviceTypes.forEach(type => {
+          console.log(`  TypeID ${type.TypeID || type.PK_ID}: ${type.TypeName || type.TypeShort}`);
+        });
+        
         // Load services for each project from Services table
         console.log('About to load services from Services table...');
         this.loadProjectServicesFromServicesTable();
@@ -267,9 +272,17 @@ export class ActiveProjectsPage implements OnInit {
       return;
     }
     
+    // Log project data to understand the structure
+    console.log('First project sample:', this.projects[0]);
+    
     // Create batch queries for all projects with proper type safety
+    // Use ProjectID field (not PK_ID) as that's what Services table references
     const projectIds: string[] = this.projects
-      .map(p => p.PK_ID || p.ProjectID)
+      .map(p => {
+        const projectId = p.ProjectID || p.PK_ID;
+        console.log(`Project ${p.Address}: PK_ID=${p.PK_ID}, ProjectID=${p.ProjectID}, Using: ${projectId}`);
+        return projectId;
+      })
       .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
     
     console.log('Project IDs to query for services:', projectIds);
@@ -280,10 +293,26 @@ export class ActiveProjectsPage implements OnInit {
     }
     
     try {
-      // Query services for all projects in parallel using the service method
-      const serviceRequests = projectIds.map((projectId: string) => 
-        this.projectsService.getServicesByProjectId(projectId).toPromise()
-      );
+      // Query services for all projects in parallel
+      const serviceRequests = projectIds.map(async (projectId: string) => {
+        console.log(`Querying services for ProjectID: ${projectId}`);
+        
+        try {
+          const query = `/tables/Services/records?q.where=ProjectID='${projectId}'`;
+          console.log(`Services query URL: ${query}`);
+          
+          const result = await this.caspioService.get(query).toPromise();
+          console.log(`Services query result for ${projectId}:`, result);
+          
+          const services = result?.Result || [];
+          console.log(`Found ${services.length} services for project ${projectId}:`, services);
+          
+          return services;
+        } catch (error) {
+          console.error(`Error querying services for project ${projectId}:`, error);
+          return [];
+        }
+      });
       
       const servicesResults = await Promise.allSettled(serviceRequests);
       
@@ -291,13 +320,16 @@ export class ActiveProjectsPage implements OnInit {
       projectIds.forEach((projectId: string, index: number) => {
         const result = servicesResults[index];
         if (result.status === 'fulfilled' && result.value) {
-          const projectServices = result.value; // Already mapped by ProjectsService
+          const projectServices = result.value; // Direct array from our query
           const serviceNames = this.formatProjectServices(projectServices);
           this.servicesCache[projectId] = serviceNames;
-          console.log(`Loaded services for project ${projectId}:`, serviceNames);
+          console.log(`✅ Cached services for project ${projectId}: "${serviceNames}"`);
         } else {
           this.servicesCache[projectId] = '(No Services Selected)';
-          console.log(`No services found for project ${projectId}`);
+          console.log(`❌ No services found for project ${projectId} - cached: "(No Services Selected)"`);
+          if (result.status === 'rejected') {
+            console.error(`Services query failed for project ${projectId}:`, result.reason);
+          }
         }
       });
       
@@ -330,8 +362,16 @@ export class ActiveProjectsPage implements OnInit {
       console.log('Looking for TypeID:', service.TypeID);
       
       const serviceType = this.serviceTypes.find(t => {
-        const match = t.TypeID === service.TypeID || t.PK_ID === service.TypeID;
-        console.log(`Comparing ${t.TypeID} with ${service.TypeID}: ${match}`);
+        const typeIdMatch = t.TypeID === service.TypeID;
+        const pkIdMatch = t.PK_ID === service.TypeID;
+        const match = typeIdMatch || pkIdMatch;
+        
+        if (service.TypeID === 1 || service.TypeID === 2) { // Log details for EFE/HUD
+          console.log(`🔍 Matching TypeID ${service.TypeID}:`);
+          console.log(`  Type record: TypeID=${t.TypeID}, PK_ID=${t.PK_ID}, TypeName="${t.TypeName}"`);
+          console.log(`  Match result: ${match} (TypeID: ${typeIdMatch}, PK_ID: ${pkIdMatch})`);
+        }
+        
         return match;
       });
       
@@ -355,7 +395,8 @@ export class ActiveProjectsPage implements OnInit {
    * Get formatted services string for a project
    */
   getProjectServices(project: Project): string {
-    const projectId = project.PK_ID || project.ProjectID;
+    // Use same logic as loadProjectServicesFromServicesTable
+    const projectId = project.ProjectID || project.PK_ID;
     
     if (!projectId) {
       return '(No Services Selected)';
@@ -363,10 +404,13 @@ export class ActiveProjectsPage implements OnInit {
     
     // Check cache first
     if (this.servicesCache.hasOwnProperty(projectId)) {
-      return this.servicesCache[projectId];
+      const cached = this.servicesCache[projectId];
+      console.log(`🔍 Displaying cached services for project ${projectId}: "${cached}"`);
+      return cached;
     }
     
     // If services haven't been loaded yet, return fallback
+    console.log(`⏳ Services not yet loaded for project ${projectId}`);
     return '(No Services Selected)';
   }
 
