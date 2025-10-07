@@ -884,7 +884,7 @@ ion-content {
   // Structural Systems Status Dropdown - positioned as subtitle
   .structural-status-subtitle {
     margin-top: 6px;
-    margin-left: 36px; // Align with text (24px icon + 12px gap)
+    margin-left: 0; // Align with icon (moved to the left)
 
     .structural-status-select {
       display: inline-block;
@@ -929,6 +929,21 @@ ion-content {
         color: #111827;
         background-color: #f8f9fa;
         white-space: normal;
+      }
+    }
+  }
+
+  // Web-specific styling for dropdown options (using media query as fallback for web detection)
+  @media (min-width: 768px) {
+    .structural-status-subtitle {
+      .structural-status-select {
+        // Add extra padding for web to prevent text from touching edges  
+        padding: 12px 44px 12px 24px;
+        min-width: 200px;
+        
+        option {
+          padding: 14px 20px;
+        }
       }
     }
   }

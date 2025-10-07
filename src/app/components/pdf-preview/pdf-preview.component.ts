@@ -362,16 +362,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     pdf.text(`Client: ${clientName}`, pageWidth / 2, boxY + 40, { align: 'center' });
     pdf.text(`Agent: ${agentName}`, pageWidth / 2, boxY + 52, { align: 'center' });
     pdf.text(`Date: ${reportDate}`, pageWidth / 2, boxY + 64, { align: 'center' });
-
-    const footerY = pageHeight - 70;
-    pdf.setDrawColor(235, 235, 235);
-    pdf.line(margin, footerY, pageWidth - margin, footerY);
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text(companyName, margin, footerY + 16);
-    pdf.text(this.projectData?.inspectorEmail || 'info@noblepropertyinspections.com', pageWidth - margin, footerY + 16, { align: 'right' });
   }
 
   private async addDeficiencySummary(pdf: jsPDF, margin: number, contentWidth: number, pageNum: number) {
@@ -708,17 +698,18 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     // Photos
     if (item.photos && item.photos.length > 0) {
       yPos += 5;
-      const photoWidth = 40;
-      const photoHeight = 30;
-      const photosPerRow = Math.floor(contentWidth / (photoWidth + 5));
+      const photoWidth = 75;  // Much bigger - increased from 40
+      const photoHeight = 56; // Much bigger - increased from 30, maintaining aspect ratio
+      const photosPerRow = 2; // Always 2 photos per row
+      const gap = 10;
       
       for (let i = 0; i < item.photos.length; i++) {
         const photo = item.photos[i];
         const col = i % photosPerRow;
-        const xPos = margin + (col * (photoWidth + 5));
+        const xPos = margin + (col * (photoWidth + gap));
         
         if (col === 0 && i > 0) {
-          yPos += photoHeight + 10;
+          yPos += photoHeight + 15; // Increased gap between rows
         }
         
         try {
@@ -731,7 +722,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             if (photo.caption) {
               pdf.setFontSize(8);
               pdf.setFont('helvetica', 'italic');
-              const caption = photo.caption.substring(0, 30) + (photo.caption.length > 30 ? '...' : '');
+              const caption = photo.caption.substring(0, 40) + (photo.caption.length > 40 ? '...' : '');
               pdf.text(caption, xPos, yPos + photoHeight + 3);
             }
           }
@@ -739,7 +730,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         }
       }
       
-      yPos += photoHeight + 10;
+      yPos += photoHeight + 15; // Increased gap after photos
     }
     
     yPos += 5;
