@@ -157,9 +157,19 @@ export class ActiveProjectsPage implements OnInit {
         });
         
         // Load services for each project from Services table - AWAIT to make it synchronous
-        console.log('About to load services from Services table...');
-        await this.loadProjectServicesFromServicesTable();
-        console.log('✅ Services loading completed - applying filter...');
+        console.log('🚀 About to load services from Services table...');
+        console.log('📊 Number of projects to process:', this.projects.length);
+        console.log('📊 Number of service types available:', this.serviceTypes.length);
+        
+        try {
+          await this.loadProjectServicesFromServicesTable();
+          console.log('✅ Services loading completed - cache size:', Object.keys(this.servicesCache).length);
+          console.log('📝 Services cache contents:', this.servicesCache);
+        } catch (servicesError) {
+          console.error('💥 Services loading failed:', servicesError);
+        }
+        
+        console.log('🎯 Applying filter and displaying projects...');
         
         this.applySearchFilter();
         this.loading = false;
@@ -327,17 +337,27 @@ export class ActiveProjectsPage implements OnInit {
         
         try {
           const query = `/tables/Services/records?q.where=ProjectID='${projectId}'`;
-          console.log(`Services query URL: ${query}`);
+          console.log(`🔍 Services query for ${projectId}: ${query}`);
           
           const result = await this.caspioService.get<any>(query).toPromise();
-          console.log(`Services query result for ${projectId}:`, result);
+          console.log(`📥 Raw Services API response for ${projectId}:`, JSON.stringify(result, null, 2));
           
           const services = result?.Result || [];
-          console.log(`Found ${services.length} services for project ${projectId}:`, services);
+          console.log(`📊 Parsed services count for ${projectId}: ${services.length}`);
+          
+          if (services.length > 0) {
+            console.log(`🎯 Services found for ProjectID ${projectId}:`);
+            services.forEach((service: any, idx: number) => {
+              console.log(`  Service ${idx + 1}: TypeID=${service.TypeID}, ServiceID=${service.ServiceID || service.PK_ID}`);
+            });
+          } else {
+            console.log(`❌ NO SERVICES FOUND for ProjectID ${projectId} in Services table`);
+          }
           
           return { projectId, services }; // Return object with projectId and services
         } catch (error) {
-          console.error(`Error querying services for project ${projectId}:`, error);
+          console.error(`💥 ERROR querying services for project ${projectId}:`, error);
+          console.error('Full error details:', JSON.stringify(error, null, 2));
           return { projectId, services: [] };
         }
       });
@@ -345,19 +365,24 @@ export class ActiveProjectsPage implements OnInit {
       const servicesResults = await Promise.allSettled(serviceRequests);
       
       // Process results and build services cache
+      console.log('🔄 Processing Services query results...');
       servicesResults.forEach((result, index) => {
         if (result.status === 'fulfilled' && result.value) {
           const { projectId, services } = result.value;
+          console.log(`🔄 Processing result for ProjectID ${projectId}, services count: ${services.length}`);
+          
           const serviceNames = this.formatProjectServices(services);
           this.servicesCache[projectId] = serviceNames;
-          console.log(`✅ Cached services for project ${projectId}: "${serviceNames}"`);
+          
+          console.log(`✅ CACHED services for ProjectID ${projectId}: "${serviceNames}"`);
+          console.log(`🗂️ Cache key used: "${projectId}"`);
         } else {
           // Use the project ID from our array for failed requests
           const projectId = projectIds[index];
           this.servicesCache[projectId] = '(No Services Selected)';
-          console.log(`❌ No services found for project ${projectId} - cached: "(No Services Selected)"`);
+          console.log(`❌ FAILED result for ProjectID ${projectId} - cached: "(No Services Selected)"`);
           if (result.status === 'rejected') {
-            console.error(`Services query failed for project ${projectId}:`, result.reason);
+            console.error(`💥 Services query REJECTED for project ${projectId}:`, result.reason);
           }
         }
       });
@@ -436,17 +461,22 @@ export class ActiveProjectsPage implements OnInit {
     }
     
     // Check cache using the correct ProjectID
+    console.log(`🔍 CACHE LOOKUP for ${project.Address}:`);
+    console.log(`  - PK_ID (Display): #${displayId}`);
+    console.log(`  - ProjectID (Services FK): ${servicesProjectId}`);
+    console.log(`  - Looking for cache key: "${servicesProjectId}"`);
+    console.log(`  - Available cache keys:`, Object.keys(this.servicesCache));
+    console.log(`  - Cache has key "${servicesProjectId}":`, this.servicesCache.hasOwnProperty(servicesProjectId));
+    
     if (this.servicesCache.hasOwnProperty(servicesProjectId)) {
       const cached = this.servicesCache[servicesProjectId];
-      console.log(`🔍 Displaying cached services for ${project.Address}:`);
-      console.log(`  - PK_ID (Display): #${displayId}`);
-      console.log(`  - ProjectID (Services FK): ${servicesProjectId}`);
-      console.log(`  - Cached Services: "${cached}"`);
+      console.log(`✅ FOUND cached services: "${cached}"`);
       return cached;
     }
     
     // If services haven't been loaded yet, return fallback
-    console.log(`⏳ Services not yet loaded for ProjectID ${servicesProjectId} (${project.Address})`);
+    console.log(`❌ Services not yet loaded for ProjectID ${servicesProjectId} (${project.Address})`);
+    console.log(`📝 Full cache contents:`, this.servicesCache);
     return '(No Services Selected)';
   }
 
