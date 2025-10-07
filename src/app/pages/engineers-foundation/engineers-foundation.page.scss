@@ -891,7 +891,7 @@ ion-content {
       width: auto;
       min-width: 140px;
       max-width: 100%;
-      inline-size: fit-content;
+      white-space: nowrap;
       padding: 4px 10px;
       font-size: 12px;
       font-weight: 400;

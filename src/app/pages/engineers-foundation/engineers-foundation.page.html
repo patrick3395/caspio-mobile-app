@@ -362,7 +362,8 @@
           </div>
           <!-- Structural Systems Status Dropdown - positioned as subtitle -->
           <div class="structural-status-subtitle" (click)="$event.stopPropagation()">
-            <select [(ngModel)]="serviceData.StructuralSystemsStatus"
+            <select #structuralStatusSelect
+                    [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
                     class="structural-status-select"
                     (click)="$event.stopPropagation()">

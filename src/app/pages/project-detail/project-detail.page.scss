@@ -8,6 +8,12 @@ $white: var(--ion-card-background, #FFFFFF);
 
 // Header styling with transparent background and orange back button
 ion-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+
   ion-toolbar {
     --background: transparent;
     --color: $dark;
@@ -86,7 +92,7 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
   }
 }
 
-.street-view-header{width:100%;height:200px;overflow:hidden;background:$light-gray;
+.street-view-header{width:100%;height:200px;overflow:hidden;background:$light-gray;padding-top:var(--ion-safe-area-top,0px);
 img{width:100%;height:100%;object-fit:cover}}
 
 .info-section{padding:20px;background:$white;margin-bottom:10px;border-bottom:1px solid $border;

@@ -86,6 +86,7 @@ interface PendingVisualCreate {
 export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy {
   // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('structuralStatusSelect') structuralStatusSelect?: ElementRef<HTMLSelectElement>;
   
   projectId: string = '';
   serviceId: string = '';
@@ -104,6 +105,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private readonly templateLoaderMinDuration = 1000;
   private photoHydrationPromise: Promise<void> | null = null;
   private waitingForPhotoHydration = false;
+  private structuralStatusMirror?: HTMLSpanElement;
+  private structuralWidthRaf?: number;
 
   private restoreScrollPosition(target: number, attempts = 3): void {
     if (attempts <= 0) {
@@ -405,6 +408,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
+    this.queueStructuralStatusWidthUpdate();
   }
 
   private tryAutoOpenPdf(): void {
@@ -525,6 +529,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.formData = {};
     this.pendingPhotoUploads = {};
     this.pendingVisualCreates = {};
+
+    if (this.structuralWidthRaf) {
+      cancelAnimationFrame(this.structuralWidthRaf);
+      this.structuralWidthRaf = undefined;
+    }
+    if (this.structuralStatusMirror?.parentElement) {
+      this.structuralStatusMirror.parentElement.removeChild(this.structuralStatusMirror);
+    }
+    this.structuralStatusMirror = undefined;
   }
 
   private navigateBackToProject(): void {
@@ -622,6 +635,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           this.serviceData.StructuralSystemsStatus = '';
         }
+        this.queueStructuralStatusWidthUpdate();
         
         // TypeID loaded from service data
         
@@ -3183,7 +3197,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async showOtherInputPopup(fieldName: string, fieldLabel: string, previousValue?: string): Promise<void> {
     const alert = await this.alertController.create({
       header: fieldLabel,
-      message: 'Please enter a custom value:',
+      cssClass: 'custom-other-alert',
       inputs: [
         {
           name: 'customValue',
@@ -3353,6 +3367,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         mapping.dataSource[mapping.fieldName] = value;
       }
     });
+    this.queueStructuralStatusWidthUpdate();
   }
 
   // Handle Structural Systems status change
@@ -3368,6 +3383,74 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Save to Services table using the correct database column name "StructStat"
     this.autoSaveServiceField('StructStat', value);
+    this.queueStructuralStatusWidthUpdate();
+  }
+
+  private queueStructuralStatusWidthUpdate(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (this.structuralWidthRaf) {
+      cancelAnimationFrame(this.structuralWidthRaf);
+    }
+    this.structuralWidthRaf = requestAnimationFrame(() => {
+      this.structuralWidthRaf = undefined;
+      this.updateStructuralStatusWidth();
+    });
+  }
+
+  private updateStructuralStatusWidth(): void {
+    const selectEl = this.structuralStatusSelect?.nativeElement;
+    if (!selectEl || typeof window === 'undefined') {
+      return;
+    }
+
+    const computed = window.getComputedStyle(selectEl);
+    const mirror = this.ensureStructuralStatusMirror(computed);
+
+    const selectedOption = selectEl.selectedOptions?.[0] ?? selectEl.options[selectEl.selectedIndex];
+    const fallbackText = selectEl.options.length > 0 ? selectEl.options[0].text : 'Select Status';
+    mirror.textContent = (selectedOption?.text ?? fallbackText ?? '').trim() || fallbackText;
+
+    const paddingLeft = parseFloat(computed.paddingLeft || '0');
+    const paddingRight = parseFloat(computed.paddingRight || '0');
+    const extraSpace = paddingLeft + paddingRight + 28;
+    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace;
+    const minWidth = 140;
+    const containerWidth = selectEl.parentElement?.clientWidth ?? 0;
+    const viewportWidth = typeof window !== 'undefined' ? Math.max(window.innerWidth - 48, 0) : 0;
+    const availableWidth = Math.max(minWidth, containerWidth, viewportWidth);
+    const fallbackWidth = Math.max(desiredWidth, minWidth);
+    const finalWidth = Math.min(Math.max(desiredWidth, minWidth), availableWidth || fallbackWidth);
+
+    selectEl.style.width = `${finalWidth}px`;
+    if (availableWidth > 0) {
+      selectEl.style.maxWidth = `${availableWidth}px`;
+    }
+  }
+
+  private ensureStructuralStatusMirror(computed: CSSStyleDeclaration): HTMLSpanElement {
+    if (!this.structuralStatusMirror || !document.body.contains(this.structuralStatusMirror)) {
+      this.structuralStatusMirror = document.createElement('span');
+      Object.assign(this.structuralStatusMirror.style, {
+        position: 'absolute',
+        visibility: 'hidden',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        opacity: '0',
+        zIndex: '-1'
+      });
+      document.body.appendChild(this.structuralStatusMirror);
+    }
+
+    const mirror = this.structuralStatusMirror;
+    mirror.style.font = computed.font || `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
+    mirror.style.fontSize = computed.fontSize;
+    mirror.style.fontFamily = computed.fontFamily;
+    mirror.style.fontWeight = computed.fontWeight;
+    mirror.style.letterSpacing = computed.letterSpacing;
+
+    return mirror;
   }
 
   scrollToSection(section: string) {
