@@ -6,19 +6,27 @@ $border: var(--ion-border-color, #E0E0E0);
 $dark: var(--ion-text-color, #333333);
 $white: var(--ion-card-background, #FFFFFF);
 
-// Header styling with orange background and white text
+// Header styling with transparent background and orange back button
 ion-header {
   ion-toolbar {
-    --background: #F15A27;
-    --color: white;
+    --background: transparent;
+    --color: $dark;
+    --border-width: 0;
+    backdrop-filter: none;
+    box-shadow: none;
+
+    ion-title {
+      font-weight: 600;
+      color: $dark;
+    }
 
     ion-button {
-      --color: white;
+      --color: $orange;
       --padding-start: 12px;
       --padding-end: 12px;
 
       ion-icon {
-        color: white;
+        color: $orange;
         font-size: 28px;
       }
     }

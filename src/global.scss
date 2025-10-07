@@ -582,15 +582,6 @@ body.dark-theme .popover-content ion-label {
   text-align: center;
 }
 
-.template-loading-alert .alert-message::before {
-  content: 'Preparing your report';
-  display: block;
-  font-weight: 600;
-  color: var(--noble-dark-gray, #333333);
-  margin-bottom: 6px;
-  font-size: 0.95rem;
-}
-
 @keyframes template-loading-spin {
   from {
     transform: rotate(0deg);
