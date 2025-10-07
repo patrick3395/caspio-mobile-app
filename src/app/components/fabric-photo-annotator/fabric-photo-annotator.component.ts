@@ -32,31 +32,33 @@ async function ensureFabricLoaded(): Promise<void> {
           <ion-icon name="arrow-back"></ion-icon>
         </button>
         
-        <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
-          <ion-icon name="hand-left-outline"></ion-icon>
-        </button>
-        <button class="tool-btn color-btn" (click)="changeColor()" title="Change Color">
-          <ion-icon name="color-palette-outline"></ion-icon>
-          <div class="color-indicator" [style.background]="currentColor"></div>
-        </button>
-        <button class="tool-btn" [class.active]="currentTool === 'arrow'" (click)="setTool('arrow')" title="Draw Arrow">
-          <ion-icon name="arrow-forward-outline"></ion-icon>
-        </button>
-        <button class="tool-btn" [class.active]="currentTool === 'rectangle'" (click)="setTool('rectangle')" title="Draw Rectangle">
-          <ion-icon name="square-outline"></ion-icon>
-        </button>
-        <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Add Text">
-          <ion-icon name="text-outline"></ion-icon>
-        </button>
-        <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
-          <ion-icon name="trash-outline"></ion-icon>
-        </button>
-        <button class="tool-btn" (click)="undo()" title="Undo">
-          <ion-icon name="arrow-undo-outline"></ion-icon>
-        </button>
-        <button class="tool-btn" (click)="clearAll()" title="Clear All">
-          <ion-icon name="brush-outline"></ion-icon>
-        </button>
+        <div class="tool-buttons-center">
+          <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
+            <ion-icon name="hand-left-outline"></ion-icon>
+          </button>
+          <button class="tool-btn color-btn" (click)="changeColor()" title="Change Color">
+            <ion-icon name="color-palette-outline"></ion-icon>
+            <div class="color-indicator" [style.background]="currentColor"></div>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'arrow'" (click)="setTool('arrow')" title="Draw Arrow">
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'rectangle'" (click)="setTool('rectangle')" title="Draw Rectangle">
+            <ion-icon name="square-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Add Text">
+            <ion-icon name="text-outline"></ion-icon>
+          </button>
+          <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" (click)="undo()" title="Undo">
+            <ion-icon name="arrow-undo-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" (click)="clearAll()" title="Clear All">
+            <ion-icon name="brush-outline"></ion-icon>
+          </button>
+        </div>
         
         <button class="nav-btn save-btn" (click)="save()" title="Save">
           <ion-icon name="checkmark"></ion-icon>
@@ -68,7 +70,7 @@ async function ensureFabricLoaded(): Promise<void> {
       </div>
 
       <!-- Caption input at bottom -->
-      <div class="caption-container">
+      <div class="caption-container" #captionContainer>
         <input 
           type="text" 
           [(ngModel)]="photoCaption" 
@@ -94,7 +96,7 @@ async function ensureFabricLoaded(): Promise<void> {
       background: #f0f0f0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       display: flex;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: center;
       gap: 6px;
       z-index: 100;
@@ -114,8 +116,9 @@ async function ensureFabricLoaded(): Promise<void> {
     }
     
     .back-btn {
+      position: absolute;
+      left: 10px;
       background: rgba(0, 0, 0, 0.05);
-      margin-right: 4px;
     }
     
     .back-btn:hover {
@@ -128,8 +131,9 @@ async function ensureFabricLoaded(): Promise<void> {
     }
     
     .save-btn {
+      position: absolute;
+      right: 10px;
       background: #F15A27;
-      margin-left: auto;
     }
     
     .save-btn:hover {
@@ -140,6 +144,15 @@ async function ensureFabricLoaded(): Promise<void> {
     .save-btn ion-icon {
       font-size: 26px;
       color: white;
+    }
+    
+    .tool-buttons-center {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: center;
+      flex: 1;
+      margin: 0 60px; /* Leave space for absolutely positioned back/save buttons */
     }
     
     .tool-btn {
@@ -159,31 +172,43 @@ async function ensureFabricLoaded(): Promise<void> {
     }
     
     .caption-container {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: white;
-      padding: 12px 16px;
-      border-top: 1px solid #e0e0e0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+      position: absolute;
+      bottom: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
       z-index: 100;
+      width: auto;
+      min-width: 250px;
+      max-width: 80%;
     }
     
     .caption-input {
       width: 100%;
-      padding: 12px 16px;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
+      max-width: 100%;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
       font-size: 14px;
       outline: none;
       transition: all 0.2s ease;
-      background: white;
+      background: rgba(255, 255, 255, 0.9);
+      box-sizing: border-box;
+      color: #333;
+    }
+    
+    .caption-input::placeholder {
+      color: #888;
+      font-style: italic;
     }
     
     .caption-input:focus {
-      border-color: #F15A27;
-      box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+      background: white;
+      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.3);
     }
 
     .tool-btn:hover {
@@ -248,7 +273,7 @@ async function ensureFabricLoaded(): Promise<void> {
     .canvas-container {
       position: absolute;
       top: 58px;
-      bottom: 70px;
+      bottom: 10px;
       left: 0;
       right: 0;
       display: flex;
@@ -292,6 +317,7 @@ async function ensureFabricLoaded(): Promise<void> {
 export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('fabricCanvas', { static: false }) canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvasContainer', { static: false }) canvasContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('captionContainer', { static: false }) captionContainer!: ElementRef<HTMLDivElement>;
   
   @Input() imageUrl?: string;
   @Input() imageFile?: File;
@@ -388,6 +414,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         // Add image as background
         this.canvas.backgroundImage = img;
         this.canvas.renderAll();
+        
+        // Update caption container width to match canvas
+        this.updateCaptionWidth(img.width! * scale);
         
         // Load existing annotations if any
         if (this.existingAnnotations) {
@@ -894,5 +923,22 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   
   dismiss() {
     this.modalController.dismiss();
+  }
+  
+  /**
+   * Update caption container width to match the canvas/image width
+   */
+  private updateCaptionWidth(canvasWidth: number) {
+    // Use ViewChild to access caption container
+    setTimeout(() => {
+      if (this.captionContainer?.nativeElement) {
+        // Set the width to match the canvas width with padding for better visual alignment
+        const targetWidth = Math.max(Math.min(canvasWidth, window.innerWidth * 0.85), 250);
+        this.captionContainer.nativeElement.style.width = `${targetWidth}px`;
+        this.captionContainer.nativeElement.style.maxWidth = `${targetWidth}px`;
+        this.captionContainer.nativeElement.style.minWidth = `${targetWidth}px`;
+        console.log(`📏 Updated caption width to match image: ${targetWidth}px (canvas: ${canvasWidth}px)`);
+      }
+    }, 200);
   }
 }
