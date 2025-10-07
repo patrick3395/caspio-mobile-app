@@ -199,15 +199,15 @@ export class ActiveProjectsPage implements OnInit {
             console.log(`📥 Services API response for ProjectID ${projectId}:`, services);
             
             if (services.length > 0) {
-              // Convert TypeIDs to service names
+              // Convert TypeIDs to service short codes (HUD, EFE, etc.)
               const serviceNames = services.map((service: any) => {
                 const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
-                const name = serviceType?.TypeName || serviceType?.TypeShort || 'Unknown';
-                console.log(`  TypeID ${service.TypeID} → "${name}"`);
+                const name = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
+                console.log(`  TypeID ${service.TypeID} → "${name}" (using TypeShort)`);
                 return name;
-              }).join(', ');
+              }).filter(name => name && name !== 'Unknown').join(', ');
               
-              this.servicesCache[projectId] = serviceNames;
+              this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
               console.log(`✅ CACHED: ProjectID ${projectId} → "${serviceNames}"`);
             } else {
               this.servicesCache[projectId] = '(No Services Selected)';
