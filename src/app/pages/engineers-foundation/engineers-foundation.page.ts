@@ -98,7 +98,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
-  private templateLoader?: HTMLIonLoadingElement | HTMLIonAlertElement;
+  private templateLoader?: HTMLIonLoadingElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
@@ -454,39 +454,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // For web app, always navigate directly to project details page
     if (this.platform.isWeb()) {
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
       if (this.projectId) {
-        this.router.navigate(['/project', this.projectId]).then(success => {
-          if (success) {
-          } else {
-            console.error('[goBack] Web app: Router navigation failed');
-            // Fallback to window.location for web
-            window.location.href = `/project/${this.projectId}`;
-          }
-        });
+        void this.router.navigate(['/project', this.projectId]);
       } else {
-        this.router.navigate(['/tabs/active-projects']);
+        void this.router.navigate(['/tabs/active-projects']);
       }
       return;
     }
 
-    // For mobile app, use Location.back() for native navigation
     try {
       this.location.back();
     } catch (error) {
       console.error('[goBack] Mobile app: Location.back() failed:', error);
 
-      // Fallback to Router navigation
       if (this.projectId) {
-        this.router.navigate(['/project', this.projectId]).then(success => {
-          if (success) {
-          } else {
-            console.error('[goBack] Mobile app: Router navigation failed');
-            // Last resort - force navigation
-            window.location.href = `/project/${this.projectId}`;
-          }
-        });
+        void this.router.navigate(['/project', this.projectId]);
       } else {
-        this.router.navigate(['/tabs/active-projects']);
+        void this.router.navigate(['/tabs/active-projects']);
       }
     }
   }
@@ -8311,6 +8300,20 @@ Stack: ${error?.stack}`;
     if (this.templateLoader) {
       await this.templateLoader.dismiss();
       this.templateLoaderPresented = false;
+    }
+
+    if (this.platform.isWeb()) {
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
+      if (this.projectId) {
+        void this.router.navigate(['/project', this.projectId]);
+      } else {
+        void this.router.navigate(['/tabs/active-projects']);
+      }
+      return;
     }
 
     await this.navController.back();

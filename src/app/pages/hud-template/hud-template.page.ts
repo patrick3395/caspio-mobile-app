@@ -90,7 +90,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
   private thumbnailCache = new Map<string, Promise<string | null>>(); // Cache loaded base64 images
-  private templateLoader?: HTMLIonLoadingElement | HTMLIonAlertElement;
+  private templateLoader?: HTMLIonLoadingElement;
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
@@ -363,22 +363,20 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // Method 1: Use Location.back() - this is the simplest and most reliable way
     try {
       this.location.back();
+      return;
     } catch (error) {
       console.error('[goBack] Location.back() failed:', error);
+    }
 
-      // Method 2: Fallback to Router navigation
-      if (this.projectId) {
-        this.router.navigate(['/project', this.projectId]).then(success => {
-          if (success) {
-          } else {
-            console.error('[goBack] Router navigation failed');
-            // Method 3: Last resort - force navigation with window.location
-            window.location.href = `/project/${this.projectId}`;
-          }
-        });
-      } else {
-        this.router.navigate(['/tabs/active-projects']);
-      }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    if (this.projectId) {
+      void this.router.navigate(['/project', this.projectId]);
+    } else {
+      void this.router.navigate(['/tabs/active-projects']);
     }
   }
 
@@ -7293,6 +7291,20 @@ Stack: ${error?.stack}`;
     if (this.templateLoader) {
       await this.templateLoader.dismiss();
       this.templateLoaderPresented = false;
+    }
+
+    if (this.isWebApp) {
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
+      if (this.projectId) {
+        void this.router.navigate(['/project', this.projectId]);
+      } else {
+        void this.router.navigate(['/tabs/active-projects']);
+      }
+      return;
     }
 
     await this.navController.back();

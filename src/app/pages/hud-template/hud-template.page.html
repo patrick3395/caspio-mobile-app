@@ -1,5 +1,5 @@
 <ion-header>
-  <ion-toolbar color="primary">
+  <ion-toolbar color="primary" class="template-toolbar">
     <div slot="start">
       <button id="eng-back-btn" (click)="goBack()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
         <ion-icon name="arrow-back" style="font-size: 24px;"></ion-icon>
@@ -7,7 +7,7 @@
     </div>
     <ion-title>{{ isWebApp ? typeFull : typeShort }}</ion-title>
     <div slot="end" class="template-toolbar-actions">
-      <button id="eng-pdf-btn" class="pdf-header-button" (click)="generatePDF()">
+      <button id="eng-pdf-btn" (click)="generatePDF()">
         <ion-icon name="document-text-outline"></ion-icon>
         <span>PDF</span>
       </button>
