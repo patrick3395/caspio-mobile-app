@@ -25,25 +25,13 @@ async function ensureFabricLoaded(): Promise<void> {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
-    <ion-header>
-      <ion-toolbar style="--background: #f0f0f0;">
-        <ion-buttons slot="start">
-          <ion-button (click)="dismiss()" style="color: #000;">
-            <ion-icon name="arrow-back-outline" style="font-size: 24px; color: #000;"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-        <ion-title style="color: #333; font-weight: 500; text-align: center;">Photo Editor</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="save()" style="color: #000;">
-            <ion-icon name="checkmark-outline" style="font-size: 28px; font-weight: bold; color: #000;"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    
     <ion-content>
-      <!-- Top toolbar with annotation tools only -->
+      <!-- Top toolbar with annotation tools and navigation -->
       <div class="top-toolbar">
+        <button class="nav-btn back-btn" (click)="dismiss()" title="Back">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        
         <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
           <ion-icon name="hand-left-outline"></ion-icon>
         </button>
@@ -63,72 +51,103 @@ async function ensureFabricLoaded(): Promise<void> {
         <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
           <ion-icon name="trash-outline"></ion-icon>
         </button>
+        <button class="tool-btn" (click)="undo()" title="Undo">
+          <ion-icon name="arrow-undo-outline"></ion-icon>
+        </button>
+        <button class="tool-btn" (click)="clearAll()" title="Clear All">
+          <ion-icon name="brush-outline"></ion-icon>
+        </button>
+        
+        <button class="nav-btn save-btn" (click)="save()" title="Save">
+          <ion-icon name="checkmark"></ion-icon>
+        </button>
       </div>
       
       <div class="canvas-container" #canvasContainer>
         <canvas #fabricCanvas></canvas>
       </div>
-      
-      <!-- Bottom toolbar with undo and clear actions -->
-      <div class="bottom-toolbar">
-        <button class="action-btn undo-btn" (click)="undo()" title="Undo Last">
-          <ion-icon name="arrow-undo-outline"></ion-icon>
-          <span>Undo</span>
-        </button>
-        <button class="action-btn clear-btn" (click)="clearAll()" title="Clear All">
-          <ion-icon name="brush-outline"></ion-icon>
-          <span>Clear</span>
-        </button>
-      </div>
 
-      <!-- Caption button bar -->
-      <div class="caption-bar">
-        <button class="caption-button" (click)="openCaptionPopup()">
-          <ion-icon name="text-outline"></ion-icon>
-          <span>{{ photoCaption ? 'Edit Caption' : 'Add Caption' }}</span>
-          <span *ngIf="photoCaption" class="caption-indicator">✓</span>
-        </button>
-        <p *ngIf="photoCaption" class="caption-preview">{{ photoCaption }}</p>
+      <!-- Caption input at bottom -->
+      <div class="caption-container">
+        <input 
+          type="text" 
+          [(ngModel)]="photoCaption" 
+          placeholder="Add Caption..." 
+          class="caption-input"
+          maxlength="255">
       </div>
 
     </ion-content>
   `,
   styles: [`
+    ion-content {
+      --padding-top: 0;
+      --padding-bottom: 0;
+    }
+    
     .top-toolbar {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
-      padding: 12px;
+      padding: 8px 10px;
       background: #f0f0f0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       display: flex;
-      justify-content: center;
-      gap: 10px;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 6px;
       z-index: 100;
     }
     
-    .bottom-toolbar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 16px;
-      background: linear-gradient(0deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    .nav-btn {
       display: flex;
+      align-items: center;
       justify-content: center;
-      gap: 30px;
-      z-index: 100;
-      border-top: 1px solid rgba(0,0,0,0.1);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+    
+    .back-btn {
+      background: rgba(0, 0, 0, 0.05);
+      margin-right: 4px;
+    }
+    
+    .back-btn:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    
+    .back-btn ion-icon {
+      font-size: 24px;
+      color: #333;
+    }
+    
+    .save-btn {
+      background: #F15A27;
+      margin-left: auto;
+    }
+    
+    .save-btn:hover {
+      background: #d94e1f;
+      transform: scale(1.05);
+    }
+    
+    .save-btn ion-icon {
+      font-size: 26px;
+      color: white;
     }
     
     .tool-btn {
       background: rgba(255,255,255,0.95);
       border: 2px solid #e0e0e0;
       border-radius: 10px;
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -136,113 +155,35 @@ async function ensureFabricLoaded(): Promise<void> {
       cursor: pointer;
       transition: all 0.2s;
       position: relative;
+      padding: 0;
     }
     
-    .action-btn {
-      background: white;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 8px 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .action-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    .undo-btn {
-      border-color: #333;
-      color: #333;
-    }
-
-    .undo-btn:hover {
-      background: #f5f5f5;
-      border-color: #000;
-    }
-
-    .clear-btn {
-      border-color: #333;
-      color: #333;
-    }
-
-    .clear-btn:hover {
-      background: #f5f5f5;
-      border-color: #000;
-    }
-    
-    .action-btn ion-icon {
-      font-size: 20px;
-    }
-    
-    .action-btn span {
-      font-size: 14px;
-    }
-
-    .caption-bar {
-      position: absolute;
-      bottom: 80px;
+    .caption-container {
+      position: fixed;
+      bottom: 0;
       left: 0;
       right: 0;
+      background: white;
       padding: 12px 16px;
-      background: rgba(255,255,255,0.98);
-      border-top: 1px solid rgba(0,0,0,0.1);
-      z-index: 99;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      border-top: 1px solid #e0e0e0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+      z-index: 100;
     }
-
-    .caption-button {
+    
+    .caption-input {
       width: 100%;
       padding: 12px 16px;
-      background: white;
-      border: 2px solid #e0e0e0;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
       font-size: 14px;
-      font-weight: 600;
-      color: #333;
+      outline: none;
+      transition: all 0.2s ease;
+      background: white;
     }
-
-    .caption-button:hover {
-      background: #f5f5f5;
-      border-color: #999;
-    }
-
-    .caption-button ion-icon {
-      font-size: 20px;
-      color: #666;
-    }
-
-    .caption-indicator {
-      margin-left: auto;
-      color: #4CAF50;
-      font-size: 16px;
-    }
-
-    .caption-preview {
-      margin: 0;
-      padding: 8px 12px;
-      background: #f9f9f9;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #666;
-      font-style: italic;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    
+    .caption-input:focus {
+      border-color: #F15A27;
+      box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
     }
 
     .tool-btn:hover {
@@ -306,20 +247,26 @@ async function ensureFabricLoaded(): Promise<void> {
     
     .canvas-container {
       position: absolute;
-      top: 72px;
-      bottom: 80px;
+      top: 58px;
+      bottom: 70px;
       left: 0;
       right: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #f5f5f5;
+      background: #2d2d2d;
       overflow: auto;
+      padding: 10px;
     }
     
     canvas {
-      border: 2px solid #ddd;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 100% !important;
+      max-height: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      border: none;
+      border-radius: 4px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
       background: white;
     }
     
