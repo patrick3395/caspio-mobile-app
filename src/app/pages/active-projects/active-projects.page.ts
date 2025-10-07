@@ -276,12 +276,19 @@ export class ActiveProjectsPage implements OnInit {
     console.log('First project sample:', this.projects[0]);
     
     // Create batch queries for all projects with proper type safety
-    // Use ProjectID field (not PK_ID) as that's what Services table references
+    // CRITICAL: Use ProjectID field (NOT PK_ID) as that's what Services table references
     const projectIds: string[] = this.projects
       .map(p => {
-        const projectId = p.ProjectID || p.PK_ID;
-        console.log(`Project ${p.Address}: PK_ID=${p.PK_ID}, ProjectID=${p.ProjectID}, Using: ${projectId}`);
-        return projectId;
+        // Services table uses ProjectID as foreign key, NOT PK_ID
+        const servicesProjectId = p.ProjectID; // This is what Services table references
+        const displayId = p.PK_ID; // This is what shows in UI as #2062
+        
+        console.log(`🔍 Project ${p.Address}:`);
+        console.log(`  - PK_ID (Display): ${displayId} (shows as #${displayId} in UI)`);
+        console.log(`  - ProjectID (Services FK): ${servicesProjectId} (what Services table uses)`);
+        console.log(`  - Using for Services query: ${servicesProjectId}`);
+        
+        return servicesProjectId; // Use ProjectID for Services table queries
       })
       .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
     
@@ -396,22 +403,27 @@ export class ActiveProjectsPage implements OnInit {
    * Get formatted services string for a project
    */
   getProjectServices(project: Project): string {
-    // Use same logic as loadProjectServicesFromServicesTable
-    const projectId = project.ProjectID || project.PK_ID;
+    // CRITICAL: Use ProjectID (Services table foreign key), NOT PK_ID (display ID)
+    const servicesProjectId = project.ProjectID; // What Services table references (e.g., 2059)
+    const displayId = project.PK_ID; // What shows in UI (e.g., #2062)
     
-    if (!projectId) {
+    if (!servicesProjectId) {
+      console.log(`❌ No ProjectID found for ${project.Address} (PK_ID: ${displayId})`);
       return '(No Services Selected)';
     }
     
-    // Check cache first
-    if (this.servicesCache.hasOwnProperty(projectId)) {
-      const cached = this.servicesCache[projectId];
-      console.log(`🔍 Displaying cached services for project ${projectId}: "${cached}"`);
+    // Check cache using the correct ProjectID
+    if (this.servicesCache.hasOwnProperty(servicesProjectId)) {
+      const cached = this.servicesCache[servicesProjectId];
+      console.log(`🔍 Displaying cached services for ${project.Address}:`);
+      console.log(`  - PK_ID (Display): #${displayId}`);
+      console.log(`  - ProjectID (Services FK): ${servicesProjectId}`);
+      console.log(`  - Cached Services: "${cached}"`);
       return cached;
     }
     
     // If services haven't been loaded yet, return fallback
-    console.log(`⏳ Services not yet loaded for project ${projectId}`);
+    console.log(`⏳ Services not yet loaded for ProjectID ${servicesProjectId} (${project.Address})`);
     return '(No Services Selected)';
   }
 
