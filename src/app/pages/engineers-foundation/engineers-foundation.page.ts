@@ -449,21 +449,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.pendingVisualCreates = {};
   }
 
+  private navigateBackToProject(): void {
+    if (this.projectId) {
+      void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+    } else {
+      void this.router.navigate(['/tabs/active-projects'], { replaceUrl: true });
+    }
+  }
+
   // Navigation method for back button
   goBack() {
 
-    // For web app, always navigate directly to project details page
     if (this.platform.isWeb()) {
-      if (window.history.length > 1) {
-        window.history.back();
-        return;
-      }
-
-      if (this.projectId) {
-        void this.router.navigate(['/project', this.projectId]);
-      } else {
-        void this.router.navigate(['/tabs/active-projects']);
-      }
+      this.navigateBackToProject();
       return;
     }
 
@@ -471,12 +469,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.location.back();
     } catch (error) {
       console.error('[goBack] Mobile app: Location.back() failed:', error);
-
-      if (this.projectId) {
-        void this.router.navigate(['/project', this.projectId]);
-      } else {
-        void this.router.navigate(['/tabs/active-projects']);
-      }
+      this.navigateBackToProject();
     }
   }
 
@@ -8303,16 +8296,7 @@ Stack: ${error?.stack}`;
     }
 
     if (this.platform.isWeb()) {
-      if (window.history.length > 1) {
-        window.history.back();
-        return;
-      }
-
-      if (this.projectId) {
-        void this.router.navigate(['/project', this.projectId]);
-      } else {
-        void this.router.navigate(['/tabs/active-projects']);
-      }
+      this.navigateBackToProject();
       return;
     }
 

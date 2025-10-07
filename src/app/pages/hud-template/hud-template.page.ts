@@ -368,15 +368,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       console.error('[goBack] Location.back() failed:', error);
     }
 
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
     if (this.projectId) {
-      void this.router.navigate(['/project', this.projectId]);
+      void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
     } else {
-      void this.router.navigate(['/tabs/active-projects']);
+      void this.router.navigate(['/tabs/active-projects'], { replaceUrl: true });
     }
   }
 
@@ -7294,15 +7289,10 @@ Stack: ${error?.stack}`;
     }
 
     if (this.isWebApp) {
-      if (window.history.length > 1) {
-        window.history.back();
-        return;
-      }
-
       if (this.projectId) {
-        void this.router.navigate(['/project', this.projectId]);
+        void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
       } else {
-        void this.router.navigate(['/tabs/active-projects']);
+        void this.router.navigate(['/tabs/active-projects'], { replaceUrl: true });
       }
       return;
     }

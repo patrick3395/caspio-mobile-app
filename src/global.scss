@@ -602,11 +602,15 @@ body.dark-theme .popover-content ion-label {
 
 .template-loading-alert .alert-button-group {
   padding: 0 24px 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .template-loading-alert .alert-button {
-  width: 100%;
-  display: flex;
+  min-width: 130px;
+  width: auto;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
   text-align: center;
@@ -617,6 +621,7 @@ body.dark-theme .popover-content ion-label {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   background: rgba(241, 90, 39, 0.06);
+  padding: 8px 18px;
 }
 
 .template-loading-alert .alert-button:hover,
