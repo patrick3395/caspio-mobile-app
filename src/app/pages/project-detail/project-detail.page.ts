@@ -1565,9 +1565,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       try {
         let cancelled = false;
 
-        // Create loading alert with cancel button
+        // Create loading alert with cancel button - MATCH Loading Report design
         const loading = await this.alertController.create({
-          header: 'Loading Document',
+          header: 'Loading Report',
           message: 'Loading document...',
           buttons: [
             {
@@ -1579,7 +1579,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
               }
             }
           ],
-          backdropDismiss: false
+          backdropDismiss: false,
+          cssClass: 'template-loading-alert' // THIS IS THE KEY - uses the beautiful Loading Report styling
         });
         await loading.present();
 

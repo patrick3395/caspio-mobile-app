@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController, AlertController } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
@@ -144,7 +144,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     private serviceEfeService: ServiceEfeService,
     private modalController: ModalController,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private alertController: AlertController
   ) {
     // Initialize auto-save with 1 second debounce (same as local server)
     this.autoSaveSubject.pipe(
@@ -758,10 +759,20 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     const attachId = this.documentAttachIds[docType];
     const fileName = this.documentNames[docType];
     
-    // Show loading
-    const loading = await this.loadingController.create({
+    // Show loading using the same style as Loading Report
+    const loading = await this.alertController.create({
+      header: 'Loading Report',
       message: 'Loading document...',
-      spinner: 'crescent'
+      buttons: [
+        {
+          text: 'Cancel',
+          handler: () => {
+            return true; // Allow dismissal
+          }
+        }
+      ],
+      backdropDismiss: false,
+      cssClass: 'template-loading-alert'
     });
     await loading.present();
     

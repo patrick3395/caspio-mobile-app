@@ -4496,10 +4496,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     let loading: any = null;
     try {
-      loading = await this.loadingController.create({
-        message: 'Loading PDF...',
-        spinner: 'crescent',
-        backdropDismiss: false
+      loading = await this.alertController.create({
+        header: 'Loading Report',
+        message: 'Preparing your PDF report...',
+        buttons: [
+          {
+            text: 'Cancel',
+            handler: () => {
+              this.isPDFGenerating = false;
+              return true;
+            }
+          }
+        ],
+        backdropDismiss: false,
+        cssClass: 'template-loading-alert'
       });
       await loading.present();
     } catch (loadingError) {

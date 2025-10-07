@@ -217,9 +217,19 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   async generatePDF() {
-    const loading = await this.loadingController.create({
-      message: 'Generating PDF...',
-      cssClass: 'custom-loading'
+    const loading = await this.alertController.create({
+      header: 'Loading Report',
+      message: 'Generating PDF report...',
+      buttons: [
+        {
+          text: 'Cancel',
+          handler: () => {
+            return true; // Allow dismissal
+          }
+        }
+      ],
+      backdropDismiss: false,
+      cssClass: 'template-loading-alert'
     });
     await loading.present();
 

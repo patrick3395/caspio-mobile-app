@@ -198,33 +198,47 @@ ion-toolbar.template-toolbar {
   }
 }
 
-// GLOBAL IONIC SELECT DROPDOWN STYLING - For web dropdown menus
-:global(.select-popover) {
-  .popover-content {
-    border-radius: 12px !important;
-    padding: 8px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+// GLOBAL STYLING for native HTML select dropdowns - Production-ready appearance
+// This targets the native select dropdown menu for sleek, rounded appearance
+.structural-status-select {
+  
+  // Style the select element itself for rounded appearance
+  &, &.web-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     
-    .radio-group {
-      padding: 0 !important;
-      
-      .item {
-        --padding-start: 20px !important;
-        --padding-end: 20px !important;
-        --min-height: 52px !important;
-        margin: 2px 0 !important;
-        border-radius: 8px !important;
-        
-        &.item-radio-checked {
-          --background: var(--noble-orange) !important;
-          --color: white !important;
-        }
-        
-        &:hover {
-          --background: #f8f9fa !important;
-        }
-      }
+    // Custom dropdown arrow
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 18px;
+  }
+}
+
+// Production-ready dropdown menu appearance (where browser supports it)
+// Note: Native HTML select dropdowns have limited styling capabilities
+// These rules provide the best possible appearance across browsers
+select.structural-status-select {
+  
+  // Ensure consistent appearance
+  option {
+    padding: 18px 24px !important; // Generous padding
+    background-color: #ffffff !important;
+    color: #1f2933 !important;
+    font-weight: 500 !important;
+    line-height: 1.5 !important;
+    
+    // Light gray selection (not orange/blue)
+    &:checked {
+      background-color: #e8ebef !important;
+      color: #1f2933 !important;
+      font-weight: 600 !important;
+    }
+    
+    // Light gray hover
+    &:hover {
+      background-color: #f5f6f7 !important;
     }
   }
 }
@@ -942,134 +956,122 @@ ion-content {
     .structural-status-select {
       display: inline-block;
       width: auto;
-      min-width: 170px;
+      min-width: 190px;
       max-width: 100%;
       white-space: normal;
-      line-height: 1.35;
-      padding: 10px 36px 10px 16px;
-      min-height: 42px;
-      font-size: 13px;
+      line-height: 1.4;
+      padding: 12px 44px 12px 20px;
+      min-height: 48px;
+      font-size: 14px;
       font-weight: 600;
       color: #1f2933;
-      background: #f5f6f7;
-      border: 1px solid rgba(31, 41, 51, 0.15);
-      border-radius: 12px;
+      background: #ffffff;
+      border: 2px solid rgba(31, 41, 51, 0.12);
+      border-radius: 12px; // Rounded corners for sleek look
       cursor: pointer;
       transition: all 0.2s ease;
       appearance: none;
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 18px center;
-      background-size: 12px;
-      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+      background-position: right 16px center;
+      background-size: 16px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 
       &:hover {
-        background-color: #eef0f2;
-        border-color: rgba(31, 41, 51, 0.28);
-        box-shadow: 0 5px 16px rgba(15, 23, 42, 0.16);
+        background-color: #f8f9fa; // Subtle light gray hover
+        border-color: rgba(31, 41, 51, 0.2);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
       }
 
       &:focus {
         outline: none;
-        background-color: #e8ebef;
-        border-color: rgba(31, 41, 51, 0.4);
-        box-shadow: 0 0 0 3px rgba(31, 41, 51, 0.15);
+        background-color: #ffffff;
+        border-color: rgba(31, 41, 51, 0.3);
+        box-shadow: 0 0 0 4px rgba(31, 41, 51, 0.06), 0 4px 12px rgba(15, 23, 42, 0.12); // Subtle gray focus ring
       }
 
       option {
-        padding: 16px 20px; // Increased padding for better spacing
+        padding: 16px 20px; // Good padding for readability
         font-weight: 500;
-        color: #111827;
+        color: #1f2933;
         background-color: #ffffff;
         white-space: normal;
-        line-height: 1.4;
-        min-height: 48px;
+        line-height: 1.5;
+        min-height: 52px;
+        border: none;
         
         &:hover {
-          background-color: #f8f9fa;
+          background-color: #f5f6f7;
         }
         
         &:checked {
-          background-color: var(--noble-orange);
-          color: white;
+          background-color: #e8ebef; // Light gray instead of orange
+          color: #1f2933; // Dark text on light gray
+          font-weight: 600;
         }
       }
       
       // Native select dropdown styling (when dropdown is opened)
       &:focus {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.2);
-        border-color: var(--noble-orange);
-        
-        // For browsers that support it, style the dropdown
-        option {
-          padding: 16px 20px;
-          line-height: 1.5;
-          border-radius: 8px;
-          margin: 2px 4px;
-          
-          &:hover {
-            background-color: #f8f9fa !important;
-          }
-          
-          &:checked, &:focus {
-            background-color: var(--noble-orange) !important;
-            color: white !important;
-          }
-        }
+        box-shadow: 0 0 0 3px rgba(31, 41, 51, 0.08); // Subtle gray shadow instead of orange
+        border-color: rgba(31, 41, 51, 0.25);
       }
 
-      // Web-only styling - applies only when web build is detected
+      // Web-only styling - sleek and production-ready
       &.web-select {
-        // More padding to prevent text overflow
-        padding: 12px 48px 12px 24px;
-        min-width: 220px;
-        max-width: 280px;
-        border-radius: 12px; // More rounded corners for the dropdown button
+        // Enhanced button styling
+        padding: 14px 48px 14px 24px;
+        min-width: 240px;
+        max-width: 320px;
+        border-radius: 12px; // Rounded corners for button
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); // Subtle shadow for depth
         
         option {
-          padding: 18px 20px; // Increased padding to prevent text from touching edges
+          padding: 18px 24px; // Generous padding for sleek look
           white-space: normal;
           word-wrap: break-word;
-          line-height: 1.4;
-          min-height: 52px; // Increased height for better spacing
-          border-radius: 8px; // Rounded corners for each option
-          margin: 2px 4px; // Margin to create space around each option
-          background-color: #ffffff !important; // Ensure white background
-          color: #333333 !important; // Ensure dark text
-          border: 1px solid #e0e0e0; // Subtle border around each option
+          line-height: 1.5;
+          min-height: 54px;
+          border: none;
+          background-color: #ffffff;
+          color: #1f2933;
+          font-weight: 500;
           
           &:hover {
-            background-color: #f8f9fa !important;
-            border-color: #d0d0d0;
+            background-color: #f5f6f7; // Light gray hover
           }
           
-          &:selected {
-            background-color: var(--noble-orange) !important;
-            color: white !important;
+          &:checked {
+            background-color: #e8ebef; // Light gray selection (not orange)
+            color: #1f2933; // Dark text
+            font-weight: 600;
           }
         }
 
-        // Enhanced dropdown styling for better container appearance
+        // Focus state with subtle shadow
         &:focus {
-          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.2);
-          border-color: var(--noble-orange);
+          outline: none;
+          box-shadow: 0 0 0 4px rgba(31, 41, 51, 0.08); // Light gray focus ring
+          border-color: rgba(31, 41, 51, 0.25);
         }
 
-        // Rounded corners for the dropdown menu itself (browser support varies)
+        // Custom scrollbar styling
         &::-webkit-scrollbar {
-          width: 10px;
+          width: 8px;
         }
 
         &::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 8px;
+          background: #f8f9fa;
+          border-radius: 12px;
           margin: 8px 0;
         }
 
         &::-webkit-scrollbar-thumb {
           background: #cbd5e0;
-          border-radius: 8px;
+          border-radius: 12px;
           
           &:hover {
             background: #a0aec0;
@@ -1078,25 +1080,7 @@ ion-content {
 
         // Firefox scrollbar
         scrollbar-width: thin;
-        scrollbar-color: #cbd5e0 #f1f1f1;
-      }
-      
-      // Global dropdown menu styling (for when the dropdown is opened)
-      + .select-dropdown {
-        border-radius: 12px !important;
-        padding: 8px !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
-        border: 1px solid rgba(0, 0, 0, 0.1) !important;
-        
-        .option-item {
-          padding: 16px 20px !important;
-          margin: 2px 0 !important;
-          border-radius: 8px !important;
-          
-          &:hover {
-            background-color: #f8f9fa !important;
-          }
-        }
+        scrollbar-color: #cbd5e0 #f8f9fa;
       }
     }
   }
@@ -2276,67 +2260,67 @@ ion-content {
             // Override the parent text-align: center that's causing issues
             text-align: left;
             
-            .fdf-photo-preview {
+          .fdf-photo-preview {
               display: inline-block;
               position: relative;
               margin: 0;
-              
-              .photo-thumb-container {
-                position: relative;
-                width: 60px;
+                    
+                    .photo-thumb-container {
+                      position: relative;
+                      width: 60px;
                 height: 60px;
                 display: block;
-                
-                img {
-                  width: 60px;
-                  height: 60px;
+                      
+                      img {
+                        width: 60px;
+                        height: 60px;
                   aspect-ratio: 1 / 1;
-                  object-fit: cover;
+                        object-fit: cover;
                   border-radius: 8px;
                   border: 2px solid #ddd;
-                  cursor: pointer;
-                  transition: all 0.3s ease;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
                   display: block;
                   background: #f5f5f5;
-                  
-                  &:hover {
+                        
+                        &:hover {
                     border-color: var(--noble-orange);
-                    transform: scale(1.05);
-                  }
-                }
-
-                .delete-btn {
-                  position: absolute;
-                  top: 2px;
-                  right: 2px;
-                  width: 18px;
-                  height: 18px;
-                  border-radius: 50%;
-                  background: rgba(255, 255, 255, 0.9);
-                  border: 1px solid rgba(0, 0, 0, 0.2);
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  cursor: pointer;
-                  transition: all 0.3s ease;
-                  padding: 0;
-                  z-index: 10;
-                  
-                  ion-icon {
-                    font-size: 12px;
-                    color: #333;
-                  }
-                  
-                  &:hover {
-                    background: rgba(255, 59, 48, 0.9);
-                    border-color: rgba(255, 59, 48, 1);
-                    
-                    ion-icon {
-                      color: white;
-                    }
-                  }
-                  
-                  &:active {
+                          transform: scale(1.05);
+                        }
+                      }
+                      
+                      .delete-btn {
+                        position: absolute;
+                        top: 2px;
+                        right: 2px;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        background: rgba(255, 255, 255, 0.9);
+                        border: 1px solid rgba(0, 0, 0, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        padding: 0;
+                        z-index: 10;
+                        
+                        ion-icon {
+                          font-size: 12px;
+                          color: #333;
+                        }
+                        
+                        &:hover {
+                          background: rgba(255, 59, 48, 0.9);
+                          border-color: rgba(255, 59, 48, 1);
+                          
+                          ion-icon {
+                            color: white;
+                          }
+                        }
+                        
+                        &:active {
                     transform: scale(0.95);
                   }
                 }
@@ -2344,75 +2328,71 @@ ion-content {
             }
           }
           
-          // Modern, production-ready delete button for FDF photos
+          // DIRECT, HIGH-SPECIFICITY FIX for FDF delete buttons  
+          // Target ALL possible FDF photo containers with maximum specificity
+          .fdf-photos-container .fdf-photo-preview.image-preview,
           .fdf-photos-container .image-preview,
-          .elevation-points-container .image-preview {
-            position: relative;
-            width: 90px; // 50% bigger for measurements area  
-            min-width: 90px;
-            height: 90px; // Fixed height to match width
-            display: inline-block;
-            vertical-align: top;
-            flex-shrink: 0;
-            margin: 4px; // Add margin for better spacing
-            border-radius: 12px;
-            overflow: hidden; // Ensure rounded corners work properly
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+          .elevation-points-container .fdf-photo-preview.image-preview,
+          .elevation-points-container .image-preview,
+          .elevation-point-card .fdf-photo-preview.image-preview,
+          .elevation-point-card .image-preview {
             
-            &:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-            }
+            // FORCE container positioning
+            position: relative !important;
+            width: 90px !important;
+            height: 90px !important;
+            display: inline-block !important;
+            vertical-align: top !important;
+            overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
+            margin: 4px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
             
             img {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-              border: none; // Remove border since container has shadow
-              cursor: pointer;
-              transition: all 0.3s ease;
-              display: block;
-              
-              &:hover {
-                transform: scale(1.02);
+              width: 90px !important;
+              height: 90px !important;
+              border-radius: 12px !important;
+              object-fit: cover !important;
+              display: block !important;
+              border: 2px solid #ddd !important;
+
+        &:hover {
+                border-color: var(--noble-orange) !important;
               }
             }
             
-            // Modern, prominent delete button
+            // ABSOLUTE DELETE BUTTON - FORCE OVERLAY POSITIONING  
             .delete-btn {
-              position: absolute;
-              top: -8px;
-              right: -8px;
-              width: 28px;
-              height: 28px;
-              border-radius: 50%;
-              background: #FF3B30;
-              border: 3px solid white;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              cursor: pointer;
-              transition: all 0.2s ease;
-              padding: 0;
-              z-index: 20;
-              box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
-              
-              ion-icon {
-                font-size: 16px;
-                color: white;
-                font-weight: bold;
-              }
-              
-              &:hover {
-                background: #FF1744;
-                transform: scale(1.1);
-                box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+              position: absolute !important;
+              top: -10px !important;  // OUTSIDE the image bounds
+              right: -10px !important; // OUTSIDE the image bounds
+              width: 32px !important;
+              height: 32px !important;
+              border-radius: 50% !important;
+              background: #FF3B30 !important;
+              border: 3px solid white !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              cursor: pointer !important;
+              z-index: 1000 !important; // HIGHEST possible z-index
+              box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4) !important;
+              transition: all 0.2s ease !important;
+
+    ion-icon {
+                font-size: 18px !important;
+                color: white !important;
+                font-weight: bold !important;
+    }
+
+    &:hover {
+                background: #FF1744 !important;
+                transform: scale(1.15) !important;
+                box-shadow: 0 6px 16px rgba(255, 59, 48, 0.5) !important;
               }
               
               &:active {
-                transform: scale(0.95);
-                box-shadow: 0 1px 4px rgba(255, 59, 48, 0.3);
+                transform: scale(1.0) !important;
               }
             }
           }
@@ -2532,6 +2512,72 @@ ion-content {
         display: block !important;
         text-align: center !important;
         width: 100% !important;
+      }
+    }
+  }
+}
+
+// NUCLEAR OPTION: FORCE delete button positioning with maximum CSS specificity
+// This WILL work - targeting all possible FDF photo delete buttons
+.fdf-photos-container,
+.elevation-points-container {
+  
+  // Override any parent text-align that affects positioning
+  div[style*="text-align: center"] .fdf-photo-preview,
+  div[style*="text-align: center"] .image-preview {
+    text-align: left !important;
+  }
+  
+  // Target ALL possible delete button containers with highest specificity
+  .fdf-photo-preview,
+  .image-preview,
+  .fdf-photo-preview.image-preview {
+    position: relative !important;
+    overflow: visible !important; // CRITICAL: allows delete button to extend outside image
+    display: inline-block !important;
+    
+    // FORCE delete button positioning - ABSOLUTE OVERLAY
+    .delete-btn {
+      // Position OUTSIDE the image bounds for clear visibility
+      position: absolute !important;
+      top: -12px !important;  // Extends above image
+      right: -12px !important; // Extends beyond right edge
+      
+      // Large size for easy clicking
+      width: 36px !important;  
+      height: 36px !important; 
+      z-index: 99999 !important; // Highest possible z-index
+      
+      // Modern, prominent delete button design
+      background: #FF3030 !important;
+      border: 4px solid white !important;
+      border-radius: 50% !important;
+      box-shadow: 0 6px 16px rgba(255, 48, 48, 0.5) !important;
+      
+      // Flexbox centering
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      
+      // Icon styling
+      ion-icon {
+        font-size: 20px !important;
+        color: white !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        pointer-events: none !important;
+      }
+      
+      // Interactive effects
+      &:hover {
+        background: #FF0000 !important;
+        transform: scale(1.2) !important;
+        box-shadow: 0 8px 20px rgba(255, 0, 0, 0.6) !important;
+      }
+      
+      &:active {
+        transform: scale(1.05) !important;
       }
     }
   }
