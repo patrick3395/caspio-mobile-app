@@ -8308,23 +8308,12 @@ Stack: ${error?.stack}`;
 
   private async handleLoadingCancel(): Promise<void> {
 
-    // Dismiss the loader
     if (this.templateLoader) {
       await this.templateLoader.dismiss();
       this.templateLoaderPresented = false;
     }
 
-    // Navigate back
     await this.navController.back();
-
-    // Show cancellation message
-    const toast = await this.toastController.create({
-      message: 'Template loading cancelled',
-      duration: 2000,
-      position: 'top',
-      color: 'warning'
-    });
-    await toast.present();
   }
 
   private async dismissTemplateLoader(): Promise<void> {

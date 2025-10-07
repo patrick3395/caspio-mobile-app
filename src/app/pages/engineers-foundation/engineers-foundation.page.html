@@ -6,9 +6,9 @@
       </button>
     </div>
     <ion-title>{{ platform.isWeb() ? typeFull : typeShort }}</ion-title>
-    <div slot="end">
-      <button id="eng-pdf-btn" (click)="generatePDF()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
-        <ion-icon name="document-text-outline" style="font-size: 20px; margin-right: 5px;"></ion-icon>
+    <div slot="end" class="template-toolbar-actions">
+      <button id="eng-pdf-btn" class="toolbar-action pdf" (click)="generatePDF()">
+        <ion-icon name="document-text-outline"></ion-icon>
         <span>PDF</span>
       </button>
     </div>
