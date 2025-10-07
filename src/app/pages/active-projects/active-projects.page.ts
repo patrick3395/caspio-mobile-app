@@ -205,7 +205,7 @@ export class ActiveProjectsPage implements OnInit {
                 const name = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
                 console.log(`  TypeID ${service.TypeID} → "${name}" (using TypeShort)`);
                 return name;
-              }).filter(name => name && name !== 'Unknown').join(', ');
+              }).filter((name: string) => name && name !== 'Unknown').join(', ');
               
               this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
               console.log(`✅ CACHED: ProjectID ${projectId} → "${serviceNames}"`);
