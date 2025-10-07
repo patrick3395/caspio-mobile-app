@@ -7693,7 +7693,7 @@ Stack: ${error?.stack}`;
         }
       }
       
-      // [v1.4.575] Save scroll position before opening modal
+      // Save scroll position before opening modal
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
       // ENHANCED: Open annotation window directly instead of photo viewer
