@@ -900,7 +900,7 @@ ion-content {
       color: #1f2933;
       background: #f5f6f7;
       border: 1px solid rgba(31, 41, 51, 0.15);
-      border-radius: 999px;
+      border-radius: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
       appearance: none;
@@ -924,11 +924,26 @@ ion-content {
       }
 
       option {
-        padding: 12px 16px;
+        padding: 16px 20px; // Increased padding for better spacing
         font-weight: 500;
         color: #111827;
-        background-color: #f8f9fa;
+        background-color: #ffffff;
         white-space: normal;
+        line-height: 1.4;
+        min-height: 48px;
+        border-radius: 6px; // Rounded corners for dropdown options
+        margin: 1px 2px; // Small margin to separate options
+        border: 1px solid #f0f0f0; // Subtle border
+        
+        &:hover {
+          background-color: #f8f9fa;
+          border-color: #e0e0e0;
+        }
+        
+        &:selected {
+          background-color: var(--noble-orange);
+          color: white;
+        }
       }
 
       // Web-only styling - applies only when web build is detected
@@ -937,15 +952,35 @@ ion-content {
         padding: 12px 48px 12px 24px;
         min-width: 220px;
         max-width: 280px;
+        border-radius: 12px; // More rounded corners for the dropdown button
         
         option {
-          padding: 16px 24px;
+          padding: 18px 20px; // Increased padding to prevent text from touching edges
           white-space: normal;
           word-wrap: break-word;
-          line-height: 1.5;
-          min-height: 48px;
+          line-height: 1.4;
+          min-height: 52px; // Increased height for better spacing
           border-radius: 8px; // Rounded corners for each option
-          margin: 4px 0;
+          margin: 2px 4px; // Margin to create space around each option
+          background-color: #ffffff !important; // Ensure white background
+          color: #333333 !important; // Ensure dark text
+          border: 1px solid #e0e0e0; // Subtle border around each option
+          
+          &:hover {
+            background-color: #f8f9fa !important;
+            border-color: #d0d0d0;
+          }
+          
+          &:selected {
+            background-color: var(--noble-orange) !important;
+            color: white !important;
+          }
+        }
+
+        // Enhanced dropdown styling for better container appearance
+        &:focus {
+          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.2);
+          border-color: var(--noble-orange);
         }
 
         // Rounded corners for the dropdown menu itself (browser support varies)
@@ -2129,12 +2164,30 @@ ion-content {
           }
 
 
+          // Fix for FDF photos container to ensure proper stacking context
+          .fdf-photos-container {
+            position: relative !important;
+            z-index: 1 !important;
+          }
+          
+          // Fix for elevation points container to ensure proper stacking context
+          .elevation-points-container {
+            position: relative !important;
+            z-index: 1 !important;
+          }
+          
+          .elevation-point-card {
+            position: relative !important;
+            z-index: 2 !important;
+          }
+          
           // Shared photo thumbnail styles for FDF and room photos
           .fdf-photo-preview {
             display: inline-block !important;
             position: relative !important;
             overflow: visible !important;
             text-align: left !important; // Override any parent text-align
+            z-index: 2 !important;
           }
           
           .fdf-photo-preview .photo-thumb-container,
@@ -2145,6 +2198,7 @@ ion-content {
             height: 60px !important;
             overflow: visible !important;
             margin: 0 auto !important; // Center the thumbnail if parent has text-align
+            z-index: 10 !important;
 
             img {
               width: 60px !important;
@@ -2173,7 +2227,7 @@ ion-content {
               margin: 0 !important;
               cursor: pointer !important;
               transition: all 0.3s ease !important;
-              z-index: 100 !important;
+              z-index: 1000 !important;
               font-size: 12px !important;
               color: #333 !important;
               line-height: 1 !important; // Prevent text alignment from affecting button
