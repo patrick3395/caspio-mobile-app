@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -59,7 +59,8 @@ export class ActiveProjectsPage implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private alertController: AlertController,
-    public platform: PlatformDetectionService
+    public platform: PlatformDetectionService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -142,6 +143,7 @@ export class ActiveProjectsPage implements OnInit {
         this.serviceTypes = results.serviceTypes || [];
         
         // Load services for each project from Services table
+        console.log('About to load services from Services table...');
         this.loadProjectServicesFromServicesTable();
         
         this.applySearchFilter();
@@ -165,6 +167,8 @@ export class ActiveProjectsPage implements OnInit {
                 this.projects = allProjects.filter(p =>
                   p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
                 );
+                // Load services even in fallback scenario
+                this.loadServicesDataAsync();
                 this.loading = false;
                 const elapsed = performance.now() - startTime;
                 this.applySearchFilter();
@@ -198,9 +202,14 @@ export class ActiveProjectsPage implements OnInit {
       }
     }
     
-    this.projectsService.getActiveProjects(companyId).subscribe({
-      next: (projects) => {
-        this.projects = projects;
+    forkJoin({
+      projects: this.projectsService.getActiveProjects(companyId),
+      serviceTypes: this.projectsService.getServiceTypes()
+    }).subscribe({
+      next: (results) => {
+        this.projects = results.projects || [];
+        this.serviceTypes = results.serviceTypes || [];
+        this.loadProjectServicesFromServicesTable();
         this.applySearchFilter();
         this.loading = false;
         this.error = '';
@@ -212,6 +221,8 @@ export class ActiveProjectsPage implements OnInit {
             this.projects = allProjects.filter(p => 
               p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
             );
+            // Load services even in nested fallback
+            this.loadServicesDataAsync();
             this.loading = false;
             this.error = '';
             this.applySearchFilter();
@@ -233,9 +244,11 @@ export class ActiveProjectsPage implements OnInit {
    */
   async loadServicesDataAsync() {
     try {
+      console.log('Loading service types...');
       const serviceTypes = await this.projectsService.getServiceTypes().toPromise();
       this.serviceTypes = serviceTypes || [];
-      this.loadProjectServicesFromServicesTable();
+      console.log('Loaded service types:', this.serviceTypes.length, 'types');
+      await this.loadProjectServicesFromServicesTable();
     } catch (error) {
       console.error('Error loading services data:', error);
     }
@@ -245,7 +258,12 @@ export class ActiveProjectsPage implements OnInit {
    * Load services for all projects from the Services table
    */
   async loadProjectServicesFromServicesTable() {
+    console.log('Starting loadProjectServicesFromServicesTable...');
+    console.log('Projects:', this.projects?.length);
+    console.log('Service Types:', this.serviceTypes?.length);
+    
     if (!this.projects || !this.serviceTypes || this.projects.length === 0) {
+      console.log('Early return: missing projects or serviceTypes');
       return;
     }
     
@@ -254,7 +272,10 @@ export class ActiveProjectsPage implements OnInit {
       .map(p => p.PK_ID || p.ProjectID)
       .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
     
+    console.log('Project IDs to query for services:', projectIds);
+    
     if (projectIds.length === 0) {
+      console.log('No valid project IDs found');
       return;
     }
     
@@ -273,10 +294,15 @@ export class ActiveProjectsPage implements OnInit {
           const projectServices = result.value; // Already mapped by ProjectsService
           const serviceNames = this.formatProjectServices(projectServices);
           this.servicesCache[projectId] = serviceNames;
+          console.log(`Loaded services for project ${projectId}:`, serviceNames);
         } else {
           this.servicesCache[projectId] = '(No Services Selected)';
+          console.log(`No services found for project ${projectId}`);
         }
       });
+      
+      // Trigger change detection to update UI
+      this.cdr.detectChanges();
       
     } catch (error) {
       console.error('Error loading project services:', error);
@@ -284,6 +310,8 @@ export class ActiveProjectsPage implements OnInit {
       projectIds.forEach((projectId: string) => {
         this.servicesCache[projectId] = '(No Services Selected)';
       });
+      // Trigger change detection for fallback values
+      this.cdr.detectChanges();
     }
   }
 
@@ -291,16 +319,29 @@ export class ActiveProjectsPage implements OnInit {
    * Format multiple services for a project into display string
    */
   formatProjectServices(services: any[]): string {
+    console.log('Formatting services:', services);
+    
     if (!services || services.length === 0) {
       return '(No Services Selected)';
     }
     
     const serviceNames = services.map(service => {
-      const serviceType = this.serviceTypes.find(t => 
-        t.TypeID === service.TypeID || t.PK_ID === service.TypeID
-      );
-      return serviceType?.TypeName || serviceType?.TypeShort || 'Unknown Service';
+      console.log('Processing service:', service);
+      console.log('Looking for TypeID:', service.TypeID);
+      
+      const serviceType = this.serviceTypes.find(t => {
+        const match = t.TypeID === service.TypeID || t.PK_ID === service.TypeID;
+        console.log(`Comparing ${t.TypeID} with ${service.TypeID}: ${match}`);
+        return match;
+      });
+      
+      console.log('Found service type:', serviceType);
+      const name = serviceType?.TypeName || serviceType?.TypeShort || 'Unknown Service';
+      console.log('Service name:', name);
+      return name;
     }).filter(name => name && name !== 'Unknown Service');
+    
+    console.log('Final service names:', serviceNames);
     
     if (serviceNames.length === 0) {
       return '(No Services Selected)';
@@ -321,12 +362,12 @@ export class ActiveProjectsPage implements OnInit {
     }
     
     // Check cache first
-    if (this.servicesCache[projectId]) {
+    if (this.servicesCache.hasOwnProperty(projectId)) {
       return this.servicesCache[projectId];
     }
     
-    // Return placeholder while loading
-    return 'Loading...';
+    // If services haven't been loaded yet, return fallback
+    return '(No Services Selected)';
   }
 
   getProjectImage(project: Project): string {
