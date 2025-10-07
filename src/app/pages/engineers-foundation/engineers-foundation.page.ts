@@ -104,7 +104,85 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private readonly templateLoaderMinDuration = 1000;
   private photoHydrationPromise: Promise<void> | null = null;
   private waitingForPhotoHydration = false;
-  
+
+  private restoreScrollPosition(target: number, attempts = 3): void {
+    if (attempts <= 0) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      window.scrollTo(0, target);
+      this.restoreScrollPosition(target, attempts - 1);
+    });
+  }
+
+  private getValidAttachIdFromPhoto(photo: any): string | null {
+    if (!photo) {
+      return null;
+    }
+    const candidates = [
+      photo.AttachID,
+      photo.attachId,
+      photo.id
+    ];
+    for (const candidate of candidates) {
+      if (candidate === undefined || candidate === null) {
+        continue;
+      }
+      const value = String(candidate);
+      if (!value || value === 'undefined' || value === 'null' || value.startsWith('temp_')) {
+        continue;
+      }
+      return value;
+    }
+    return null;
+  }
+
+  private getLatestPhotoRecord(visualId: string | undefined, key: string, photo: any): any {
+    const pools: any[][] = [];
+    if (visualId) {
+      pools.push(this.visualPhotos[visualId] || []);
+    }
+    pools.push(this.visualPhotos[key] || []);
+
+    for (const photos of pools) {
+      const match = photos.find((p: any) => {
+        if (!p) {
+          return false;
+        }
+        if (p === photo) {
+          return true;
+        }
+        const pAttachId = this.getValidAttachIdFromPhoto(p);
+        const photoAttachId = this.getValidAttachIdFromPhoto(photo);
+        if (pAttachId && photoAttachId && pAttachId === photoAttachId) {
+          return true;
+        }
+        if (photo?.attachId && pAttachId && pAttachId === String(photo.attachId)) {
+          return true;
+        }
+        if (photo?.AttachID && pAttachId && pAttachId === String(photo.AttachID)) {
+          return true;
+        }
+        if (photo?.filePath && p?.filePath && p.filePath === photo.filePath) {
+          return true;
+        }
+        if (photo?.Photo && p?.Photo && p.Photo === photo.Photo) {
+          return true;
+        }
+        if (photo?.url && p?.url && p.url === photo.url && p.uploading === photo.uploading) {
+          return true;
+        }
+        if (photo?.name && p?.name && p.name === photo.name && p.uploading === photo.uploading) {
+          return true;
+        }
+        return false;
+      });
+      if (match) {
+        return match;
+      }
+    }
+    return photo;
+  }
   // PDF generation state
   isPDFGenerating: boolean = false;
   pdfGenerationAttempts: number = 0;
@@ -7650,18 +7728,28 @@ Stack: ${error?.stack}`;
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string) {
     try {
-      
-      // v1.4.340: Validate AttachID before proceeding
-      if (!photo.AttachID && !photo.id) {
-        console.error('Ã¢ÂÅ’ [v1.4.340] Photo missing AttachID:', photo);
-        await this.showToast('Cannot edit photo: Missing attachment ID', 'danger');
-        return;
-      }
-      
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-      const photoName = photo.name || 'Photo';
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
+      const latestPhoto = this.getLatestPhotoRecord(visualId, photo);
+      if (!latestPhoto) {
+        await this.showToast('Cannot edit photo right now. Please try again.', 'warning');
+        return;
+      }
+
+      if (latestPhoto.uploading || latestPhoto.queued) {
+        await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
+        return;
+      }
+
+      const attachId = this.getValidAttachIdFromPhoto(latestPhoto);
+      if (!attachId) {
+        await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
+        return;
+      }
+
+      photo = latestPhoto;
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const photoName = photo.name || 'Photo';
       
       // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
       // The originalUrl is set during loadExistingPhotos
@@ -7705,8 +7793,8 @@ Stack: ${error?.stack}`;
           existingAnnotations: existingAnnotations,
           photoData: {
             ...photo,
-            AttachID: photo.AttachID || photo.id, // v1.4.340: Ensure AttachID is passed
-            id: photo.AttachID || photo.id, // Ensure both fields are set
+            AttachID: attachId,
+            id: attachId,
             rawDrawingsString: photo.rawDrawingsString // v1.4.341: Pass the raw string
           },
           isReEdit: !!existingAnnotations  // Flag to indicate we're re-editing
@@ -7741,16 +7829,16 @@ Stack: ${error?.stack}`;
             : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
         }
         
-        if (photo.AttachID || photo.id) {
+        if (attachId) {
           // Removed loading screen to allow debug popups to be visible
           
           try {
             // Update the existing attachment with annotations and original
-            await this.updatePhotoAttachment(photo.AttachID || photo.id, annotatedFile, annotationsData, originalFile, data.caption);
+            await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
             
             // Update the local photo data
             const photoIndex = this.visualPhotos[visualId]?.findIndex(
-              (p: any) => (p.AttachID || p.id) === (photo.AttachID || photo.id)
+              (p: any) => this.getValidAttachIdFromPhoto(p) === attachId
             );
             
             if (photoIndex !== -1 && this.visualPhotos[visualId]) {
@@ -7800,18 +7888,14 @@ Stack: ${error?.stack}`;
 
             // [v1.4.576] Restore scroll position AFTER change detection
             // This prevents the DOM update from scrolling the page
-            setTimeout(() => {
-              window.scrollTo(0, scrollPosition);
-            }, 50);
+            this.restoreScrollPosition(scrollPosition);
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
         }
       } else {
-        // [v1.4.576] Also restore scroll if user cancels (no data returned)
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore scroll if user cancels (no data returned)
+        this.restoreScrollPosition(scrollPosition);
       }
 
     } catch (error) {
