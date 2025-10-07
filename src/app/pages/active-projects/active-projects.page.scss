@@ -22,9 +22,35 @@
     ion-buttons {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+      margin-left: 12px;
+      margin-right: 12px;
+    }
+
+    &.web-centered {
+      ion-title {
+        text-align: left;
+        flex: 1;
+      }
     }
   }
+}
+
+.custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.custom-header ion-toolbar.action-toolbar ion-buttons.web-actions {
+  margin-left: 0;
+  margin-right: 0;
+  gap: 14px;
+  justify-content: flex-end;
 }
 
 .toolbar-btn {

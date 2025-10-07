@@ -1,4 +1,4 @@
-// Brand Colors
+﻿// Brand Colors
 ion-toolbar {
   --background: var(--noble-orange);
 }
@@ -889,48 +889,41 @@ ion-content {
     .structural-status-select {
       display: inline-block;
       width: auto;
-      min-width: 140px;
+      min-width: 160px;
       max-width: 100%;
       white-space: nowrap;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: 400;
-      color: #666;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 4px;
+      padding: 6px 30px 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--noble-orange);
+      background: rgba(241, 90, 39, 0.08);
+      border: 1px solid rgba(241, 90, 39, 0.35);
+      border-radius: 999px;
       cursor: pointer;
       transition: all 0.2s ease;
       appearance: none;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 4px center;
+      background-position: right 14px center;
       background-size: 12px;
-      padding-right: 20px;
+      box-shadow: 0 3px 12px rgba(241, 90, 39, 0.15);
 
       &:hover {
-        background-color: rgba(241, 90, 39, 0.05);
-        border-color: rgba(241, 90, 39, 0.3);
+        background-color: rgba(241, 90, 39, 0.12);
+        border-color: rgba(241, 90, 39, 0.45);
+        box-shadow: 0 5px 16px rgba(241, 90, 39, 0.18);
       }
 
       &:focus {
         outline: none;
-        background-color: rgba(241, 90, 39, 0.1);
-        border-color: var(--noble-orange);
+        background-color: rgba(241, 90, 39, 0.16);
+        border-color: rgba(241, 90, 39, 0.6);
+        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.18);
       }
 
       option {
-        padding: 8px;
-        font-size: 13px;
-        background: white;
-        color: #333;
-      }
-
-      // Highlight when value is selected
-      &:not([value=""]) {
-        color: var(--noble-orange);
+        padding: 10px 12px;
         font-weight: 500;
-        font-style: italic;
       }
     }
   }
@@ -1010,7 +1003,7 @@ ion-content {
     gap: 12px;
     
     &:before {
-      content: '📋';
+      content: 'ðŸ“‹';
       font-size: 24px;
     }
   }
@@ -1347,7 +1340,7 @@ ion-content {
                       // If no src, show a background
                       background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
                       &::after {
-                        content: "📷";
+                        content: "ðŸ“·";
                         position: absolute;
                         top: 50%;
                         left: 50%;

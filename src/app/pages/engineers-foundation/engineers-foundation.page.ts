@@ -3410,13 +3410,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     const selectedOption = selectEl.selectedOptions?.[0] ?? selectEl.options[selectEl.selectedIndex];
     const fallbackText = selectEl.options.length > 0 ? selectEl.options[0].text : 'Select Status';
-    mirror.textContent = (selectedOption?.text ?? fallbackText ?? '').trim() || fallbackText;
+    const labelText = (selectedOption?.text ?? fallbackText ?? '').trim() || fallbackText;
+    mirror.textContent = `${labelText} `;
 
     const paddingLeft = parseFloat(computed.paddingLeft || '0');
     const paddingRight = parseFloat(computed.paddingRight || '0');
-    const extraSpace = paddingLeft + paddingRight + 28;
-    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace;
-    const minWidth = 140;
+    const extraSpace = paddingLeft + paddingRight + 36;
+    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace + 6;
+    const minWidth = 160;
     const containerWidth = selectEl.parentElement?.clientWidth ?? 0;
     const viewportWidth = typeof window !== 'undefined' ? Math.max(window.innerWidth - 48, 0) : 0;
     const availableWidth = Math.max(minWidth, containerWidth, viewportWidth);
@@ -3424,6 +3425,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const finalWidth = Math.min(Math.max(desiredWidth, minWidth), availableWidth || fallbackWidth);
 
     selectEl.style.width = `${finalWidth}px`;
+    selectEl.style.minWidth = `${minWidth}px`;
     if (availableWidth > 0) {
       selectEl.style.maxWidth = `${availableWidth}px`;
     }

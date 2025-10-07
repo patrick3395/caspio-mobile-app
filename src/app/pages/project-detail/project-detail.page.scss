@@ -13,6 +13,9 @@ ion-header {
   left: 0;
   right: 0;
   z-index: 10;
+  &::after {
+    display: none !important;
+  }
 
   ion-toolbar {
     --background: transparent;
@@ -20,6 +23,9 @@ ion-header {
     --border-width: 0;
     backdrop-filter: none;
     box-shadow: none;
+    &::after {
+      display: none !important;
+    }
 
     ion-title {
       font-weight: 600;

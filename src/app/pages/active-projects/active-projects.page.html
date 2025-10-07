@@ -1,12 +1,13 @@
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar" [class.web-centered]="platform.isWeb()">
     <ion-title>Active Projects</ion-title>
-    <ion-buttons slot="end">
+    <ion-buttons slot="end" [class.web-actions]="platform.isWeb()">
       <button
         type="button"
         class="toolbar-btn"
         (click)="refreshProjects()"
         aria-label="Refresh projects"
+        *ngIf="!platform.isWeb()"
       >
         <ion-icon name="refresh-outline"></ion-icon>
       </button>
