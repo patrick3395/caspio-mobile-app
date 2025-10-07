@@ -7730,7 +7730,7 @@ Stack: ${error?.stack}`;
     try {
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
-      const latestPhoto = this.getLatestPhotoRecord(visualId, photo);
+      const latestPhoto = this.getLatestPhotoRecord(visualId, key, photo);
       if (!latestPhoto) {
         await this.showToast('Cannot edit photo right now. Please try again.', 'warning');
         return;
