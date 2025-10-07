@@ -94,12 +94,7 @@ export class ActiveProjectsPage implements OnInit {
     if (!this.caspioService.isAuthenticated()) {
       this.authenticateAndLoad();
     } else {
-      // Call async method properly
-      this.loadActiveProjects().catch(error => {
-        console.error('Error loading active projects:', error);
-        this.error = 'Failed to load projects';
-        this.loading = false;
-      });
+      this.loadActiveProjects();
     }
   }
 
@@ -107,11 +102,7 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.caspioService.authenticate().subscribe({
       next: () => {
-        this.loadActiveProjects().catch(error => {
-          console.error('Error loading projects after authentication:', error);
-          this.error = 'Failed to load projects after authentication';
-          this.loading = false;
-        });
+        this.loadActiveProjects();
       },
       error: (error) => {
         const errorMessage = error?.error?.message || error?.message || 'Unknown error';
@@ -123,7 +114,7 @@ export class ActiveProjectsPage implements OnInit {
     });
   }
 
-  async loadActiveProjects() {
+  loadActiveProjects() {
     const startTime = performance.now();
     this.loading = true;
     this.error = '';
@@ -143,363 +134,114 @@ export class ActiveProjectsPage implements OnInit {
 
     // [v1.4.498] PERFORMANCE FIX: Load projects first, then services
     // Load projects and service types in parallel
-    forkJoin({
-      projects: this.projectsService.getActiveProjects(companyId),
-      serviceTypes: this.projectsService.getServiceTypes()
-    }).subscribe({
-      next: async (results) => {
-        this.projects = results.projects || [];
-        this.serviceTypes = results.serviceTypes || [];
+    // Simple approach: Load projects first, then load services for each
+    this.projectsService.getActiveProjects(companyId).subscribe({
+      next: (projects) => {
+        this.projects = projects || [];
+        console.log('📦 Loaded projects:', this.projects.length);
         
-        console.log('📊 Loaded Type table data:');
-        this.serviceTypes.forEach(type => {
-          console.log(`  TypeID ${type.TypeID || type.PK_ID}: ${type.TypeName || type.TypeShort}`);
-        });
-        
-        // Load services for each project from Services table - AWAIT to make it synchronous
-        console.log('🚀 About to load services from Services table...');
-        console.log('📊 Number of projects to process:', this.projects.length);
-        console.log('📊 Number of service types available:', this.serviceTypes.length);
-        
-        try {
-          console.log('🔥 CALLING loadProjectServicesFromServicesTable() - SYNCHRONOUS AWAIT');
-          await this.loadProjectServicesFromServicesTable();
-          console.log('✅ Services loading AWAITED and completed - cache size:', Object.keys(this.servicesCache).length);
-          console.log('📝 Final Services cache contents:', this.servicesCache);
-          
-          // Immediate test: check if 2059 is in cache
-          if (this.servicesCache['2059']) {
-            console.log('🎯 SUCCESS: ProjectID 2059 found in cache:', this.servicesCache['2059']);
-          } else {
-            console.log('❌ PROBLEM: ProjectID 2059 NOT in cache after loading');
-          }
-        } catch (servicesError) {
-          console.error('💥 Services loading EXCEPTION:', servicesError);
-        }
-        
-        console.log('🎯 Applying filter and displaying projects...');
-        
-        this.applySearchFilter();
-        this.loading = false;
-        const elapsed = performance.now() - startTime;
-        console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
-      },
-      error: (error) => {
-        // If parallel load fails, try getting projects only and services later
-        this.projectsService.getActiveProjects(companyId).subscribe({
-          next: async (projects) => {
-            this.projects = projects;
-            // Load service types if not already loaded
-            if (!this.serviceTypes || this.serviceTypes.length === 0) {
-              this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
-            }
-            await this.loadProjectServicesFromServicesTable(); // Make synchronous
+        // Load service types and then services
+        this.projectsService.getServiceTypes().subscribe({
+          next: (serviceTypes) => {
+            this.serviceTypes = serviceTypes || [];
+            console.log('📦 Loaded service types:', this.serviceTypes.length);
+            
+            // Simple services loading for each project
+            this.loadServicesSimple();
+            
             this.applySearchFilter();
             this.loading = false;
             const elapsed = performance.now() - startTime;
+            console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
           },
-          error: (err) => {
-            // If filtered query fails, try getting all projects and filter locally
-            this.projectsService.getAllProjects(companyId).subscribe({
-              next: async (allProjects) => {
-                this.projects = allProjects.filter(p =>
-                  p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
-                );
-                // Load services even in nested fallback scenario
-                if (!this.serviceTypes || this.serviceTypes.length === 0) {
-                  this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
-                }
-                await this.loadProjectServicesFromServicesTable();
-                this.loading = false;
-                const elapsed = performance.now() - startTime;
-                this.applySearchFilter();
-              },
-              error: (finalErr) => {
-                this.error = 'Failed to load projects';
-                this.loading = false;
-                console.error('Error loading projects:', finalErr);
-              }
-            });
+          error: (typeError) => {
+            console.error('Error loading service types:', typeError);
+            this.loading = false;
+            this.error = 'Failed to load service types';
           }
         });
-      }
-    });
-  }
-
-  async loadProjectsDirectly() {
-    this.loading = true;
-    this.error = '';
-    
-    // Get the current user's CompanyID
-    const userStr = localStorage.getItem('currentUser');
-    let companyId: number | undefined;
-    
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        companyId = user.companyId || user.CompanyID;
-      } catch (e) {
-        console.error('Error parsing user data:', e);
-      }
-    }
-    
-    forkJoin({
-      projects: this.projectsService.getActiveProjects(companyId),
-      serviceTypes: this.projectsService.getServiceTypes()
-    }).subscribe({
-      next: async (results) => {
-        this.projects = results.projects || [];
-        this.serviceTypes = results.serviceTypes || [];
-        await this.loadProjectServicesFromServicesTable();
-        this.applySearchFilter();
-        this.loading = false;
-        this.error = '';
       },
       error: (error) => {
-        // If filtered query fails, try getting all projects and filter locally
-        this.projectsService.getAllProjects(companyId).subscribe({
-          next: async (allProjects) => {
-            this.projects = allProjects.filter(p => 
-              p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
-            );
-            // Load services even in nested fallback - make synchronous  
-            if (!this.serviceTypes || this.serviceTypes.length === 0) {
-              this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
-            }
-            await this.loadProjectServicesFromServicesTable();
-            this.loading = false;
-            this.error = '';
-            this.applySearchFilter();
-          },
-          error: (err) => {
-            const errorMessage = err?.error?.message || err?.message || 'Unknown error';
-            this.error = `Failed to load projects: ${errorMessage}`;
-            this.loading = false;
-            console.error('Error loading all projects:', err);
-            console.error('Full error details:', JSON.stringify(err, null, 2));
-          }
-        });
+        console.error('Error loading projects:', error);
+        this.error = 'Failed to load projects';
+        this.loading = false;
       }
     });
   }
 
-  /**
-   * Load services data asynchronously (fallback when parallel loading fails)
-   */
-  async loadServicesDataAsync() {
-    try {
-      console.log('Loading service types...');
-      const serviceTypes = await this.projectsService.getServiceTypes().toPromise();
-      this.serviceTypes = serviceTypes || [];
-      console.log('Loaded service types:', this.serviceTypes.length, 'types');
-      await this.loadProjectServicesFromServicesTable();
-    } catch (error) {
-      console.error('Error loading services data:', error);
-    }
-  }
+  // Removed - using simplified loadActiveProjects instead
 
   /**
-   * Load services for all projects from the Services table
+   * Simple, direct services loading using existing app patterns
    */
-  async loadProjectServicesFromServicesTable() {
-    console.log('🚀 === STARTING loadProjectServicesFromServicesTable ===');
-    console.log('📊 Projects available:', this.projects?.length);
-    console.log('📊 Service Types available:', this.serviceTypes?.length);
-    console.log('📊 Current cache size:', Object.keys(this.servicesCache).length);
+  loadServicesSimple() {
+    console.log('🚀 Starting simple services loading...');
     
-    // Debug the conditions that might cause early return
-    if (!this.projects) {
-      console.log('❌ EARLY RETURN: this.projects is null/undefined');
-      return;
-    }
-    if (!this.serviceTypes) {
-      console.log('❌ EARLY RETURN: this.serviceTypes is null/undefined');
-      return;
-    }
-    if (this.projects.length === 0) {
-      console.log('❌ EARLY RETURN: this.projects.length is 0');
+    if (!this.projects || !this.serviceTypes) {
+      console.log('❌ Cannot load services: missing projects or serviceTypes');
       return;
     }
     
-    console.log('✅ All conditions passed, proceeding with services loading...');
-    
-    // Log project data to understand the structure
-    console.log('First project sample:', this.projects[0]);
-    
-    // Create batch queries for all projects with proper type safety
-    // CRITICAL: Use ProjectID field (NOT PK_ID) as that's what Services table references
-    const projectIds: string[] = this.projects
-      .map(p => {
-        // Services table uses ProjectID as foreign key, NOT PK_ID
-        const servicesProjectId = p.ProjectID; // This is what Services table references
-        const displayId = p.PK_ID; // This is what shows in UI as #2062
-        
-        console.log(`🔍 Project ${p.Address}:`);
-        console.log(`  - PK_ID (Display): ${displayId} (shows as #${displayId} in UI)`);
-        console.log(`  - ProjectID (Services FK): ${servicesProjectId} (what Services table uses)`);
-        console.log(`  - Using for Services query: ${servicesProjectId}`);
-        
-        return servicesProjectId; // Use ProjectID for Services table queries
-      })
-      .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
-    
-    console.log('🔍 Project IDs to query for services:', projectIds);
-    
-    if (projectIds.length === 0) {
-      console.log('❌ EARLY RETURN: No valid project IDs found after filtering');
-      return;
-    }
-    
-    console.log('✅ Found', projectIds.length, 'valid project IDs, starting Services queries...');
-    
-    try {
-      // Query services for all projects in parallel
-      const serviceRequests = projectIds.map(async (projectId: string) => {
-        console.log(`Querying services for ProjectID: ${projectId}`);
-        
-        try {
-          const query = `/tables/Services/records?q.where=ProjectID='${projectId}'`;
-          console.log(`🔍 Services query for ${projectId}: ${query}`);
-          
-          const result = await this.caspioService.get<any>(query).toPromise();
-          console.log(`📥 Raw Services API response for ${projectId}:`, JSON.stringify(result, null, 2));
-          
-          const services = result?.Result || [];
-          console.log(`📊 Parsed services count for ${projectId}: ${services.length}`);
-          
-          if (services.length > 0) {
-            console.log(`🎯 Services found for ProjectID ${projectId}:`);
-            services.forEach((service: any, idx: number) => {
-              console.log(`  Service ${idx + 1}: TypeID=${service.TypeID}, ServiceID=${service.ServiceID || service.PK_ID}`);
-            });
-          } else {
-            console.log(`❌ NO SERVICES FOUND for ProjectID ${projectId} in Services table`);
+    // For each project, query Services table directly (like project-detail does)
+    this.projects.forEach(project => {
+      const projectId = project.ProjectID; // Use actual ProjectID for Services table
+      const displayId = project.PK_ID; // What shows in UI
+      
+      console.log(`🔍 Loading services for ${project.Address}:`);
+      console.log(`  - ProjectID (for Services): ${projectId}`);
+      console.log(`  - PK_ID (for display): ${displayId}`);
+      
+      if (projectId) {
+        // Direct API call like project-detail page does
+        this.caspioService.get(`/tables/Services/records?q.where=ProjectID='${projectId}'`).subscribe({
+          next: (response: any) => {
+            const services = response?.Result || [];
+            console.log(`📥 Services API response for ProjectID ${projectId}:`, services);
+            
+            if (services.length > 0) {
+              // Convert TypeIDs to service names
+              const serviceNames = services.map((service: any) => {
+                const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
+                const name = serviceType?.TypeName || serviceType?.TypeShort || 'Unknown';
+                console.log(`  TypeID ${service.TypeID} → "${name}"`);
+                return name;
+              }).join(', ');
+              
+              this.servicesCache[projectId] = serviceNames;
+              console.log(`✅ CACHED: ProjectID ${projectId} → "${serviceNames}"`);
+            } else {
+              this.servicesCache[projectId] = '(No Services Selected)';
+              console.log(`❌ No services found for ProjectID ${projectId}`);
+            }
+          },
+          error: (error) => {
+            console.error(`Error loading services for ProjectID ${projectId}:`, error);
+            this.servicesCache[projectId] = '(No Services Selected)';
           }
-          
-          return { projectId, services }; // Return object with projectId and services
-        } catch (error) {
-          console.error(`💥 ERROR querying services for project ${projectId}:`, error);
-          console.error('Full error details:', JSON.stringify(error, null, 2));
-          return { projectId, services: [] };
+        });
+      } else {
+        console.log(`❌ No ProjectID found for ${project.Address}`);
+        if (displayId) {
+          this.servicesCache[displayId] = '(No Services Selected)';
         }
-      });
-      
-      const servicesResults = await Promise.allSettled(serviceRequests);
-      
-      // Process results and build services cache
-      console.log('🔄 Processing Services query results...');
-      servicesResults.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value) {
-          const { projectId, services } = result.value;
-          console.log(`🔄 Processing result for ProjectID ${projectId}, services count: ${services.length}`);
-          
-          const serviceNames = this.formatProjectServices(services);
-          this.servicesCache[projectId] = serviceNames;
-          
-          console.log(`✅ CACHED services for ProjectID ${projectId}: "${serviceNames}"`);
-          console.log(`🗂️ Cache key used: "${projectId}"`);
-        } else {
-          // Use the project ID from our array for failed requests
-          const projectId = projectIds[index];
-          this.servicesCache[projectId] = '(No Services Selected)';
-          console.log(`❌ FAILED result for ProjectID ${projectId} - cached: "(No Services Selected)"`);
-          if (result.status === 'rejected') {
-            console.error(`💥 Services query REJECTED for project ${projectId}:`, result.reason);
-          }
-        }
-      });
-      
-      // Trigger change detection to update UI
-      this.cdr.detectChanges();
-      console.log('🎯 Services loading completed successfully! Cache contents:', Object.keys(this.servicesCache).length, 'projects');
-      
-    } catch (error) {
-      console.error('Error loading project services:', error);
-      // Set fallback for all projects
-      projectIds.forEach((projectId: string) => {
-        this.servicesCache[projectId] = '(No Services Selected)';
-      });
-      // Trigger change detection for fallback values
-      this.cdr.detectChanges();
-      console.log('❌ Services loading failed - using fallback values');
-    }
+      }
+    });
   }
 
-  /**
-   * Format multiple services for a project into display string
-   */
-  formatProjectServices(services: any[]): string {
-    console.log('Formatting services:', services);
-    
-    if (!services || services.length === 0) {
-      return '(No Services Selected)';
-    }
-    
-    const serviceNames = services.map(service => {
-      console.log('Processing service:', service);
-      console.log('Looking for TypeID:', service.TypeID);
-      
-      const serviceType = this.serviceTypes.find(t => {
-        const typeIdMatch = t.TypeID === service.TypeID;
-        const pkIdMatch = t.PK_ID === service.TypeID;
-        const match = typeIdMatch || pkIdMatch;
-        
-        if (service.TypeID === 1 || service.TypeID === 2) { // Log details for EFE/HUD
-          console.log(`🔍 Matching TypeID ${service.TypeID}:`);
-          console.log(`  Type record: TypeID=${t.TypeID}, PK_ID=${t.PK_ID}, TypeName="${t.TypeName}"`);
-          console.log(`  Match result: ${match} (TypeID: ${typeIdMatch}, PK_ID: ${pkIdMatch})`);
-        }
-        
-        return match;
-      });
-      
-      console.log('Found service type:', serviceType);
-      const name = serviceType?.TypeName || serviceType?.TypeShort || 'Unknown Service';
-      console.log('Service name:', name);
-      return name;
-    }).filter(name => name && name !== 'Unknown Service');
-    
-    console.log('Final service names:', serviceNames);
-    
-    if (serviceNames.length === 0) {
-      return '(No Services Selected)';
-    }
-    
-    // Join multiple services with commas, or use short codes if available
-    return serviceNames.join(', ');
-  }
+
 
   /**
    * Get formatted services string for a project
    */
   getProjectServices(project: Project): string {
-    // CRITICAL: Use ProjectID (Services table foreign key), NOT PK_ID (display ID)
-    const servicesProjectId = project.ProjectID; // What Services table references (e.g., 2059)
-    const displayId = project.PK_ID; // What shows in UI (e.g., #2062)
+    const projectId = project.ProjectID; // Use ProjectID for Services table lookup
     
-    if (!servicesProjectId) {
-      console.log(`❌ No ProjectID found for ${project.Address} (PK_ID: ${displayId})`);
+    if (!projectId) {
       return '(No Services Selected)';
     }
     
-    // Check cache using the correct ProjectID
-    console.log(`🔍 CACHE LOOKUP for ${project.Address}:`);
-    console.log(`  - PK_ID (Display): #${displayId}`);
-    console.log(`  - ProjectID (Services FK): ${servicesProjectId}`);
-    console.log(`  - Looking for cache key: "${servicesProjectId}"`);
-    console.log(`  - Available cache keys:`, Object.keys(this.servicesCache));
-    console.log(`  - Cache has key "${servicesProjectId}":`, this.servicesCache.hasOwnProperty(servicesProjectId));
-    
-    if (this.servicesCache.hasOwnProperty(servicesProjectId)) {
-      const cached = this.servicesCache[servicesProjectId];
-      console.log(`✅ FOUND cached services: "${cached}"`);
-      return cached;
-    }
-    
-    // If services haven't been loaded yet, return fallback
-    console.log(`❌ Services not yet loaded for ProjectID ${servicesProjectId} (${project.Address})`);
-    console.log(`📝 Full cache contents:`, this.servicesCache);
-    return '(No Services Selected)';
+    // Return cached services or fallback
+    return this.servicesCache[projectId] || '(No Services Selected)';
   }
 
   getProjectImage(project: Project): string {
@@ -813,7 +555,7 @@ URL Attempted: ${imgUrl}`;
     
     try {
       // Just reload the projects list
-      await this.loadActiveProjects();
+      this.loadActiveProjects();
     } catch (error) {
       console.error('Error refreshing projects:', error);
       this.error = 'Failed to refresh projects';
