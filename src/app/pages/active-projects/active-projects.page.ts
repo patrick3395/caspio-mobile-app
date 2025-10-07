@@ -33,7 +33,6 @@ export class ActiveProjectsPage implements OnInit {
   // Services cache
   private servicesCache: { [projectId: string]: string } = {};
   private serviceTypes: any[] = [];
-  private offers: any[] = [];
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -132,24 +131,18 @@ export class ActiveProjectsPage implements OnInit {
       }
     }
 
-    // [v1.4.498] PERFORMANCE FIX: Removed unnecessary table definition call (saves 300-800ms)
-    // Load projects and services data in parallel
-    const projectsRequest = this.projectsService.getActiveProjects(companyId);
-    const serviceTypesRequest = this.projectsService.getServiceTypes();
-    const offersRequest = this.projectsService.getOffers(companyId || 1);
-    
+    // [v1.4.498] PERFORMANCE FIX: Load projects first, then services
+    // Load projects and service types in parallel
     forkJoin({
-      projects: projectsRequest,
-      serviceTypes: serviceTypesRequest,
-      offers: offersRequest
+      projects: this.projectsService.getActiveProjects(companyId),
+      serviceTypes: this.projectsService.getServiceTypes()
     }).subscribe({
       next: (results) => {
         this.projects = results.projects || [];
         this.serviceTypes = results.serviceTypes || [];
-        this.offers = results.offers || [];
         
-        // Load services for each project
-        this.loadProjectServices();
+        // Load services for each project from Services table
+        this.loadProjectServicesFromServicesTable();
         
         this.applySearchFilter();
         this.loading = false;
@@ -240,56 +233,79 @@ export class ActiveProjectsPage implements OnInit {
    */
   async loadServicesDataAsync() {
     try {
-      const companyId = this.currentUser?.companyId || this.currentUser?.CompanyID || 1;
-      const [serviceTypes, offers] = await Promise.all([
-        this.projectsService.getServiceTypes().toPromise(),
-        this.projectsService.getOffers(companyId).toPromise()
-      ]);
-      
+      const serviceTypes = await this.projectsService.getServiceTypes().toPromise();
       this.serviceTypes = serviceTypes || [];
-      this.offers = offers || [];
-      this.loadProjectServices();
+      this.loadProjectServicesFromServicesTable();
     } catch (error) {
       console.error('Error loading services data:', error);
     }
   }
 
   /**
-   * Load services for all projects
+   * Load services for all projects from the Services table
    */
-  loadProjectServices() {
-    if (!this.projects || !this.serviceTypes || !this.offers) {
+  async loadProjectServicesFromServicesTable() {
+    if (!this.projects || !this.serviceTypes || this.projects.length === 0) {
       return;
     }
     
-    this.projects.forEach(project => {
-      const projectId = project.PK_ID || project.ProjectID;
-      if (projectId && project.OffersID) {
-        const serviceName = this.getServiceNameByOfferId(project.OffersID);
-        this.servicesCache[projectId] = serviceName;
-      }
-    });
+    // Create batch queries for all projects
+    const projectIds = this.projects.map(p => p.PK_ID || p.ProjectID).filter(id => id);
+    
+    if (projectIds.length === 0) {
+      return;
+    }
+    
+    try {
+      // Query services for all projects in parallel using the service method
+      const serviceRequests = projectIds.map(projectId => 
+        this.projectsService.getServicesByProjectId(projectId).toPromise()
+      );
+      
+      const servicesResults = await Promise.allSettled(serviceRequests);
+      
+      // Process results and build services cache
+      projectIds.forEach((projectId, index) => {
+        const result = servicesResults[index];
+        if (result.status === 'fulfilled' && result.value) {
+          const projectServices = result.value; // Already mapped by ProjectsService
+          const serviceNames = this.formatProjectServices(projectServices);
+          this.servicesCache[projectId] = serviceNames;
+        } else {
+          this.servicesCache[projectId] = '(No Services Selected)';
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error loading project services:', error);
+      // Set fallback for all projects
+      projectIds.forEach(projectId => {
+        this.servicesCache[projectId] = '(No Services Selected)';
+      });
+    }
   }
 
   /**
-   * Get service name by OffersID
+   * Format multiple services for a project into display string
    */
-  getServiceNameByOfferId(offersId: number | string): string {
-    if (!offersId || !this.offers || !this.serviceTypes) {
-      return '';
+  formatProjectServices(services: any[]): string {
+    if (!services || services.length === 0) {
+      return '(No Services Selected)';
     }
     
-    const offer = this.offers.find(o => 
-      (o.OffersID === offersId || o.PK_ID === offersId) ||
-      (o.OffersID === Number(offersId) || o.PK_ID === Number(offersId))
-    );
+    const serviceNames = services.map(service => {
+      const serviceType = this.serviceTypes.find(t => 
+        t.TypeID === service.TypeID || t.PK_ID === service.TypeID
+      );
+      return serviceType?.TypeName || serviceType?.TypeShort || 'Unknown Service';
+    }).filter(name => name && name !== 'Unknown Service');
     
-    if (!offer) {
-      return '';
+    if (serviceNames.length === 0) {
+      return '(No Services Selected)';
     }
     
-    const serviceType = this.serviceTypes.find(t => t.TypeID === offer.TypeID);
-    return serviceType?.TypeName || offer.Description || offer.OfferName || '';
+    // Join multiple services with commas, or use short codes if available
+    return serviceNames.join(', ');
   }
 
   /**
@@ -307,16 +323,8 @@ export class ActiveProjectsPage implements OnInit {
       return this.servicesCache[projectId];
     }
     
-    // Try to get service from project's OffersID
-    if (project.OffersID) {
-      const serviceName = this.getServiceNameByOfferId(project.OffersID);
-      if (serviceName) {
-        this.servicesCache[projectId] = serviceName;
-        return serviceName;
-      }
-    }
-    
-    return '(No Services Selected)';
+    // Return placeholder while loading
+    return 'Loading...';
   }
 
   getProjectImage(project: Project): string {
@@ -624,6 +632,9 @@ URL Attempted: ${imgUrl}`;
     
     // Show loading while refreshing
     this.loading = true;
+    
+    // Clear services cache to force reload
+    this.servicesCache = {};
     
     try {
       // Just reload the projects list

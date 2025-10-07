@@ -502,6 +502,13 @@ export class ProjectsService {
     );
   }
 
+  // Get services for a specific project
+  getServicesByProjectId(projectId: string): Observable<any[]> {
+    return this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID='${projectId}'`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
   private getProjectDetailCacheKey(projectId: string): string {
     return this.cache.getApiCacheKey('project_detail', { projectId });
   }
