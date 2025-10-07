@@ -162,11 +162,19 @@ export class ActiveProjectsPage implements OnInit {
         console.log('📊 Number of service types available:', this.serviceTypes.length);
         
         try {
+          console.log('🔥 CALLING loadProjectServicesFromServicesTable() - SYNCHRONOUS AWAIT');
           await this.loadProjectServicesFromServicesTable();
-          console.log('✅ Services loading completed - cache size:', Object.keys(this.servicesCache).length);
-          console.log('📝 Services cache contents:', this.servicesCache);
+          console.log('✅ Services loading AWAITED and completed - cache size:', Object.keys(this.servicesCache).length);
+          console.log('📝 Final Services cache contents:', this.servicesCache);
+          
+          // Immediate test: check if 2059 is in cache
+          if (this.servicesCache['2059']) {
+            console.log('🎯 SUCCESS: ProjectID 2059 found in cache:', this.servicesCache['2059']);
+          } else {
+            console.log('❌ PROBLEM: ProjectID 2059 NOT in cache after loading');
+          }
         } catch (servicesError) {
-          console.error('💥 Services loading failed:', servicesError);
+          console.error('💥 Services loading EXCEPTION:', servicesError);
         }
         
         console.log('🎯 Applying filter and displaying projects...');
@@ -294,14 +302,26 @@ export class ActiveProjectsPage implements OnInit {
    * Load services for all projects from the Services table
    */
   async loadProjectServicesFromServicesTable() {
-    console.log('Starting loadProjectServicesFromServicesTable...');
-    console.log('Projects:', this.projects?.length);
-    console.log('Service Types:', this.serviceTypes?.length);
+    console.log('🚀 === STARTING loadProjectServicesFromServicesTable ===');
+    console.log('📊 Projects available:', this.projects?.length);
+    console.log('📊 Service Types available:', this.serviceTypes?.length);
+    console.log('📊 Current cache size:', Object.keys(this.servicesCache).length);
     
-    if (!this.projects || !this.serviceTypes || this.projects.length === 0) {
-      console.log('Early return: missing projects or serviceTypes');
+    // Debug the conditions that might cause early return
+    if (!this.projects) {
+      console.log('❌ EARLY RETURN: this.projects is null/undefined');
       return;
     }
+    if (!this.serviceTypes) {
+      console.log('❌ EARLY RETURN: this.serviceTypes is null/undefined');
+      return;
+    }
+    if (this.projects.length === 0) {
+      console.log('❌ EARLY RETURN: this.projects.length is 0');
+      return;
+    }
+    
+    console.log('✅ All conditions passed, proceeding with services loading...');
     
     // Log project data to understand the structure
     console.log('First project sample:', this.projects[0]);
@@ -323,12 +343,14 @@ export class ActiveProjectsPage implements OnInit {
       })
       .filter((id): id is string => typeof id === 'string' && id.trim() !== '');
     
-    console.log('Project IDs to query for services:', projectIds);
+    console.log('🔍 Project IDs to query for services:', projectIds);
     
     if (projectIds.length === 0) {
-      console.log('No valid project IDs found');
+      console.log('❌ EARLY RETURN: No valid project IDs found after filtering');
       return;
     }
+    
+    console.log('✅ Found', projectIds.length, 'valid project IDs, starting Services queries...');
     
     try {
       // Query services for all projects in parallel
