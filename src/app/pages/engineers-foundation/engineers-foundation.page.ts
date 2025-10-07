@@ -3346,6 +3346,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (value && value.trim() !== '') {
         this.customOtherValues[mapping.fieldName] = value;
         this.addCustomOptionToDropdown(mapping.fieldName, value);
+        mapping.dataSource[mapping.fieldName] = value;
       }
     });
   }
