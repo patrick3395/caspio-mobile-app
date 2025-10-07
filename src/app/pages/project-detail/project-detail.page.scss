@@ -326,12 +326,12 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   }
 }
 
-// Services total row - aligned with price boxes above
+// Services total row - use SAME grid layout as service price rows
 .services-total-row{
-  display:flex;
-  justify-content:flex-end;
+  display:grid;
+  grid-template-columns:2fr 1.5fr 1fr; // MATCH table grid exactly
   align-items:center;
-  padding:12px;
+  padding:12px 0;
   background:$white;
   border:1px solid $border;
   border-top:2px solid $orange;
@@ -339,26 +339,26 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px;color:$dark}}
   margin-top:-1px;
   
   .total-label{
-    font-size:14px;  // Same as Service label
-    font-weight:500;  // Same as Service label
-    color:$dark;      // Same as Service label
+    grid-column: 1 / 3; // Span Service + Date columns (like price-line)
+    font-size:14px;
+    font-weight:500;
+    color:$dark;
+    text-align:right; // Right-align the "Total:" label
     margin-right:12px;
   }
   
   .total-amount{
+    grid-column: 3; // Third column (Actions) - aligns with individual prices
     font-weight:600;
-    font-size:15px;  // Same as price above
+    font-size:15px;
     color:$dark;
     font-family:'Courier New', monospace;
     padding:4px 12px;
     background:$white;
-    border:1px solid $border;  // Same as price boxes
+    border:1px solid $border;
     border-radius:4px;
-  }
-  
-  // Web-only: Align total with price boxes above
-  @media (min-width: 768px) {
-    padding-right: 60px; // Match Actions column width
+    text-align:center; // Center in the Actions column
+    margin: 0 12px; // Match padding of Actions column
   }
 }
 

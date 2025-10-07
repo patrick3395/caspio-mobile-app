@@ -1984,10 +1984,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           point.photos = [];
         }
         
+        // Check if we should replace an existing photo of this type
+        const existingPhotoIndex = point.photos.findIndex((p: any) => 
+          p.annotation && p.annotation.startsWith(`${this.currentRoomPointContext.photoType}:`)
+        );
+        
         const photoEntry: any = {
           url: photoUrl,
           thumbnailUrl: photoUrl,
-          annotation: '',
+          annotation: `${this.currentRoomPointContext.photoType}:`, // CRITICAL FIX: Add photoType prefix
           uploading: true,
           file: annotatedResult.file,
           originalFile: annotatedResult.originalFile,
@@ -1995,11 +2000,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           attachId: null  // Initialize attachId property
         };
         
-        point.photos.push(photoEntry);
+        if (existingPhotoIndex >= 0) {
+          // Replace existing photo of this type
+          point.photos[existingPhotoIndex] = photoEntry;
+        } else {
+          // Add new photo
+          point.photos.push(photoEntry);
+        }
         point.photoCount = point.photos.length;
         
-        // Upload in background with annotation data
-        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData)
+        // Upload in background with annotation data including photoType
+        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData, this.currentRoomPointContext.photoType)
           .then(async (response) => {
             photoEntry.uploading = false;
             // Store the attachment ID for annotation updates
@@ -2233,7 +2244,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Upload photo from File object to Services_Rooms_Points_Attach with annotation support
-  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null) {
+  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string) {
     try {
       const pointIdNum = parseInt(pointId, 10);
       
@@ -2245,7 +2256,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }) as File;
       
       // Directly proceed with upload and return the response
-      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData);
+      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData, photoType);
       return response;  // Return response so we can get AttachID
       
     } catch (error) {
@@ -2255,7 +2266,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Perform the actual room point photo upload with annotation support
-  private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string, annotationData: any = null) {
+  private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string, annotationData: any = null, photoType?: string) {
     try {
       
       // Process annotation data for Drawings field (same as Structural Systems)
@@ -2345,7 +2356,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
         pointIdNum,
         drawingsData, // Pass annotation data to Drawings field
-        photo
+        photo,
+        photoType // CRITICAL: Pass photoType for Annotation field
       ).toPromise();
       
       // Show success debug

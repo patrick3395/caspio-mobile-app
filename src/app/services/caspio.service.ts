@@ -653,11 +653,11 @@ export class CaspioService {
   }
   
   // Create Services_Rooms_Points_Attach record with file using two-step Files API method
-  createServicesRoomsPointsAttachWithFile(pointId: number, drawingsData: string, file: File): Observable<any> {
+  createServicesRoomsPointsAttachWithFile(pointId: number, drawingsData: string, file: File, photoType?: string): Observable<any> {
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadRoomPointsAttachWithFilesAPI(pointId, drawingsData, file)
+      this.uploadRoomPointsAttachWithFilesAPI(pointId, drawingsData, file, photoType)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -669,7 +669,7 @@ export class CaspioService {
   }
 
   // Two-step upload method for Services_Rooms_Points_Attach (matching visual method)
-  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File) {
+  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File, photoType?: string) {
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -707,7 +707,8 @@ export class CaspioService {
       
       const recordData: any = {
         PointID: parseInt(pointId.toString()),
-        Photo: filePath  // Include the file path in initial creation
+        Photo: filePath,  // Include the file path in initial creation
+        Annotation: photoType ? `${photoType}:` : '' // CRITICAL FIX: Add photoType prefix for correct placement
       };
       
       // Only add Drawings field if we have annotation data
