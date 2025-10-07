@@ -198,170 +198,34 @@ ion-toolbar.template-toolbar {
   }
 }
 
-// GLOBAL STYLING for native HTML select dropdowns - Production-ready appearance
-// This targets the native select dropdown menu for sleek, rounded appearance
-.structural-status-select {
-  
-  // Style the select element itself for rounded appearance
-  &, &.web-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    
-    // Custom dropdown arrow
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-    background-size: 18px;
+
+.item-text{font-size:13px !important;line-height:1.5 !important;max-height:39px !important;overflow:hidden !important;text-overflow:ellipsis !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;word-break:break-word;position:relative;transition:padding-right 0.3s ease;
+  &.text-with-camera{padding-right:45px;
+    &::after{content:'';position:absolute;right:40px;bottom:0;width:30px;height:20px;background:linear-gradient(to right, transparent, white 70%);pointer-events:none}
   }
 }
 
-// Production-ready dropdown menu appearance (where browser supports it)
-// Note: Native HTML select dropdowns have limited styling capabilities
-// These rules provide the best possible appearance across browsers
-select.structural-status-select {
-  
-  // Ensure consistent appearance
-  option {
-    padding: 18px 24px !important; // Generous padding
-    background-color: #ffffff !important;
-    color: #1f2933 !important;
-    font-weight: 500 !important;
-    line-height: 1.5 !important;
-    
-    // Light gray selection (not orange/blue)
-    &:checked {
-      background-color: #e8ebef !important;
-      color: #1f2933 !important;
-      font-weight: 600 !important;
+.answer-type-1-container{padding:12px;background:#fff;border-radius:8px;margin-bottom:12px;border:1px solid #e0e0e0;cursor:pointer;transition:all 0.2s ease;
+  &:hover{background:#f9f9f9;box-shadow:0 2px 8px rgba(0,0,0,0.08);transform:translateY(-1px)}
+  .item-header{margin-bottom:8px;
+    .item-name{font-size:15px;font-weight:600;color:#333;margin:0;
+      .required-indicator{color:var(--noble-orange);font-weight:bold;margin-left:4px}
     }
-    
-    // Light gray hover
-    &:hover {
-      background-color: #f5f6f7 !important;
+  }
+  .item-text-wrapper{margin-bottom:12px;
+    .item-text{margin:0;color:#666}
+  }
+  .dropdown-container{display:flex;align-items:center;gap:10px;
+    .answer-select-dropdown{flex:1;background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;font-size:14px;min-height:40px;
+      &::part(placeholder){color:#999}
+      &::part(text){color:#333}
+      &::part(icon){color:var(--noble-orange)}
     }
+    .saving-spinner{--color:var(--noble-orange);width:20px;height:20px}
   }
 }
 
-// GLOBAL TEXT TRUNCATION FIX - Ensures all item text shows exactly 2 lines
-.item-text {
-  font-size: 13px !important;
-  line-height: 1.5 !important;
-  max-height: 39px !important; // Exactly 2 lines: 13px * 1.5 * 2 = 39px
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  -webkit-box-orient: vertical !important;
-  word-break: break-word; // Prevent long words from breaking layout
-  position: relative;
-  transition: padding-right 0.3s ease; // Smooth transition for text adjustment
-  
-  // When camera icon appears, create trailing effect
-  &.text-with-camera {
-    padding-right: 45px; // Make space for camera button to prevent overlap
-    
-    // Add gradient fade effect to make text trail off naturally
-    &::after {
-      content: '';
-      position: absolute;
-      right: 40px; // Position before camera button
-      bottom: 0;
-      width: 30px;
-      height: 20px;
-      background: linear-gradient(to right, transparent, white 70%);
-      pointer-events: none;
-    }
-  }
-}
-
-// Answer Type 1 Vertical Layout Styles
-.answer-type-1-container {
-  padding: 12px;
-  background: #fff;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  border: 1px solid #e0e0e0;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #f9f9f9;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
-  }
-
-  .item-header {
-    margin-bottom: 8px;
-    
-    .item-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: #333;
-      margin: 0;
-      
-      .required-indicator {
-        color: var(--noble-orange);
-        font-weight: bold;
-        margin-left: 4px;
-      }
-    }
-  }
-  
-  .item-text-wrapper {
-    margin-bottom: 12px;
-    
-    .item-text {
-      // Inherits from global text truncation above
-      margin: 0;
-      color: #666;
-    }
-  }
-  
-  .dropdown-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    
-    .answer-select-dropdown {
-      flex: 1;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 14px;
-      min-height: 40px;
-      
-      &::part(placeholder) {
-        color: #999;
-      }
-      
-      &::part(text) {
-        color: #333;
-      }
-      
-      &::part(icon) {
-        color: var(--noble-orange);
-      }
-    }
-    
-    .saving-spinner {
-      --color: var(--noble-orange);
-      width: 20px;
-      height: 20px;
-    }
-  }
-}
-
-// Ensure proper scrolling - matching template-form
-ion-content {
-  --overflow: scroll !important;
-  height: 100%;
-}
-
-// Remove dynamic bottom spacer - not needed with proper structure
-
-// Photo upload dialog - ensure instant appearance with strong backdrop
+ion-content{--overflow:scroll !important;height:100%}
 .photo-upload-dialog {
   .alert-wrapper {
     animation: none !important; // Remove animation for instant appearance
