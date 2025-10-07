@@ -962,18 +962,38 @@ ion-content {
         white-space: normal;
         line-height: 1.4;
         min-height: 48px;
-        border-radius: 6px; // Rounded corners for dropdown options
-        margin: 1px 2px; // Small margin to separate options
-        border: 1px solid #f0f0f0; // Subtle border
         
         &:hover {
           background-color: #f8f9fa;
-          border-color: #e0e0e0;
         }
         
-        &:selected {
+        &:checked {
           background-color: var(--noble-orange);
           color: white;
+        }
+      }
+      
+      // Native select dropdown styling (when dropdown is opened)
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.2);
+        border-color: var(--noble-orange);
+        
+        // For browsers that support it, style the dropdown
+        option {
+          padding: 16px 20px;
+          line-height: 1.5;
+          border-radius: 8px;
+          margin: 2px 4px;
+          
+          &:hover {
+            background-color: #f8f9fa !important;
+          }
+          
+          &:checked, &:focus {
+            background-color: var(--noble-orange) !important;
+            color: white !important;
+          }
         }
       }
 
@@ -2213,162 +2233,140 @@ ion-content {
           }
 
 
-          // Fix for FDF photos container to ensure proper stacking context
+          // FDF Photos Section - Match exact structure from working Structural Systems
           .fdf-photos-container {
-            position: relative !important;
-            z-index: 1 !important;
-          }
-          
-          // Fix for elevation points container to ensure proper stacking context
-          .elevation-points-container {
-            position: relative !important;
-            z-index: 1 !important;
-          }
-          
-          .elevation-point-card {
-            position: relative !important;
-            z-index: 2 !important;
-          }
-          
-          // Shared photo thumbnail styles for FDF and room photos
-          .fdf-photo-preview {
-            display: inline-block !important;
-            position: relative !important;
-            overflow: visible !important;
-            text-align: left !important; // Override any parent text-align
-            z-index: 2 !important;
-          }
-          
-          .fdf-photo-preview .photo-thumb-container,
-          .photo-thumb-container {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            min-width: 60px;
-            height: auto;
-            min-height: 60px;
-            vertical-align: top;
-            flex-shrink: 0;
-
-            img {
-              width: 60px;
-              height: 60px;
-              aspect-ratio: 1 / 1;
-              object-fit: cover;
-              border-radius: 8px;
-              border: 2px solid #ddd;
-              cursor: pointer;
-              transition: all 0.3s ease;
-              display: block;
-              background: #f5f5f5;
-              
-              &:hover {
-                border-color: var(--noble-orange);
-                transform: scale(1.05);
-              }
-            }
-
-            .delete-btn {
-              position: absolute;
-              top: 2px;
-              right: 2px;
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              background: rgba(255, 255, 255, 0.9);
-              border: 1px solid rgba(0, 0, 0, 0.2);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              cursor: pointer;
-              transition: all 0.3s ease;
-              padding: 0;
-              z-index: 10;
-              
-              ion-icon {
-                font-size: 12px;
-                color: #333;
-              }
-              
-              &:hover {
-                background: rgba(255, 59, 48, 0.9);
-                border-color: rgba(255, 59, 48, 1);
-                
-                ion-icon {
-                  color: white;
-                }
-              }
-              
-              &:active {
-                transform: scale(0.95);
-              }
-            }
-          }
-          .elevation-points-container {
-            margin-bottom: 20px;
+            // Override the parent text-align: center that's causing issues
+            text-align: left;
             
-            .elevation-points-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-              gap: 15px;
+            .fdf-photo-preview {
+              display: inline-block;
+              position: relative;
+              margin: 0;
               
-              .elevation-point-card {
-                background: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 12px;
-                transition: all 0.3s ease;
+              .photo-thumb-container {
+                position: relative;
+                width: 60px;
+                height: 60px;
+                display: block;
                 
-                &:hover {
-                  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                  transform: translateY(-2px);
-                }
-                
-                .point-header {
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                  margin-bottom: 10px;
+                img {
+                  width: 60px;
+                  height: 60px;
+                  aspect-ratio: 1 / 1;
+                  object-fit: cover;
+                  border-radius: 8px;
+                  border: 2px solid #ddd;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  display: block;
+                  background: #f5f5f5;
                   
-                  .point-label {
-                    font-size: 14px;
-                    font-weight: 600;
+                  &:hover {
+                    border-color: var(--noble-orange);
+                    transform: scale(1.05);
+                  }
+                }
+
+                .delete-btn {
+                  position: absolute;
+                  top: 2px;
+                  right: 2px;
+                  width: 18px;
+                  height: 18px;
+                  border-radius: 50%;
+                  background: rgba(255, 255, 255, 0.9);
+                  border: 1px solid rgba(0, 0, 0, 0.2);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  padding: 0;
+                  z-index: 10;
+                  
+                  ion-icon {
+                    font-size: 12px;
                     color: #333;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    max-width: 120px;
                   }
                   
-                  .camera-button-primary {
-                    background: var(--noble-orange);
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 6px 10px;
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    font-size: 12px;
+                  &:hover {
+                    background: rgba(255, 59, 48, 0.9);
+                    border-color: rgba(255, 59, 48, 1);
                     
                     ion-icon {
-                      font-size: 16px;
+                      color: white;
                     }
+                  }
+                  
+                  &:active {
+                    transform: scale(0.95);
+                  }
+                }
+              }
+            }
+          }
+          
+          // Elevation Points Section - Same fix
+          .elevation-points-container {
+            .elevation-point-card {
+              .fdf-photo-preview {
+                display: inline-block;
+                position: relative;
+                margin: 0;
+                
+                .photo-thumb-container {
+                  position: relative;
+                  width: 60px;
+                  height: 60px;
+                  display: block;
+                  
+                  img {
+                    width: 60px;
+                    height: 60px;
+                    aspect-ratio: 1 / 1;
+                    object-fit: cover;
+                    border-radius: 8px;
+                    border: 2px solid #ddd;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: block;
+                    background: #f5f5f5;
                     
-                    .photo-badge {
-                      background: white;
-                      color: var(--noble-orange);
-                      padding: 2px 6px;
-                      border-radius: 10px;
-                      font-weight: 600;
-                      margin-left: 4px;
+                    &:hover {
+                      border-color: var(--noble-orange);
+                      transform: scale(1.05);
+                    }
+                  }
+
+                  .delete-btn {
+                    position: absolute;
+                    top: 2px;
+                    right: 2px;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    background: rgba(255, 255, 255, 0.9);
+                    border: 1px solid rgba(0, 0, 0, 0.2);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    padding: 0;
+                    z-index: 10;
+                    
+                    ion-icon {
+                      font-size: 12px;
+                      color: #333;
                     }
                     
                     &:hover {
-                      background: #d94925;
-                      transform: scale(1.05);
+                      background: rgba(255, 59, 48, 0.9);
+                      border-color: rgba(255, 59, 48, 1);
+                      
+                      ion-icon {
+                        color: white;
+                      }
                     }
                     
                     &:active {
@@ -2376,195 +2374,13 @@ ion-content {
                     }
                   }
                 }
-                
-                .point-photo-preview {
-                  margin-top: 6px;
-                  
-                  .photo-thumbnails {
-                    display: flex;
-                    gap: 6px;
-                    flex-wrap: wrap;
-                    
-                    .photo-thumb-container {
-                      position: relative;
-                      display: flex;
-                      flex-direction: column;
-                      width: 60px;
-                      
-                      img {
-                        width: 60px;
-                        height: 60px;
-                        object-fit: cover;
-                        border-radius: 3px 3px 0 0;
-                        border: 1px solid #e0e0e0;
-                        border-bottom: none;
-                        cursor: pointer;
-                        transition: all 0.3s ease;
-                        
-                        &:hover {
-                          transform: scale(1.05);
-                          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-                        }
-                      }
-                      
-                      .delete-btn {
-                        position: absolute;
-                        top: 2px;
-                        right: 2px;
-                        width: 18px;
-                        height: 18px;
-                        border-radius: 50%;
-                        background: rgba(255, 255, 255, 0.9);
-                        border: 1px solid rgba(0, 0, 0, 0.2);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        cursor: pointer;
-                        transition: all 0.3s ease;
-                        padding: 0;
-                        z-index: 10;
-                        
-                        ion-icon {
-                          font-size: 12px;
-                          color: #333;
-                        }
-                        
-                        &:hover {
-                          background: rgba(255, 59, 48, 0.9);
-                          border-color: rgba(255, 59, 48, 1);
-                          
-                          ion-icon {
-                            color: white;
-                          }
-                        }
-                        
-                        &:active {
-                          transform: scale(0.9);
-                        }
-                      }
-                      
-                      .room-photo-caption {
-                        width: 60px;
-                        padding: 2px 4px;
-                        font-size: 10px;
-                        text-align: center;
-                        border: 1px solid #e0e0e0;
-                        border-top: none;
-                        border-radius: 0 0 3px 3px;
-                        background: white;
-                        color: #666;
-                        transition: all 0.2s ease;
-                        
-                        &:focus {
-                          outline: none;
-                          border-color: var(--noble-orange);
-                          background: #fffbf8;
-                        }
-                        
-                        &::placeholder {
-                          color: #ccc;
-                          font-size: 9px;
-                        }
-                      }
-                    }
-                  }
-                }
               }
             }
           }
-          
-          .room-notes {
-            ion-textarea {
-              --padding-start: 10px;
-              --padding-end: 10px;
-              --padding-top: 8px;
-              --padding-bottom: 8px;
-              --color: #000;
-              --highlight-color-focused: #000;
-              --highlight-color-valid: #000;
-              --highlight-color-invalid: #000;
-              background: white;
-              border: 1px solid #e0e0e0;
-              border-radius: 6px;
-              caret-color: #000;
-            }
-          }
-        }
-      }
-    }
-    
-    .add-room-container {
-      margin-top: 20px;
-      text-align: center;
-      
-      .add-room-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: white;
-        border: 1px solid #ddd;
-        padding: 12px 24px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        color: #000;
-        transition: all 0.3s ease;
-
-        &:hover {
-          background: #f0f0f0;
-          border-color: #999;
-        }
-
-        ion-icon {
-          color: #000;
-          font-size: 18px;
         }
       }
     }
   }
-  
-  // Additional button styles
-  .add-point-button {
-    background: white;
-    border: 1px solid #ddd;
-    color: #000;
-    padding: 6px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    transition: all 0.3s ease;
-
-    ion-icon {
-      color: #000;
-      font-size: 16px;
-    }
-
-    &:hover {
-      background: #f0f0f0;
-      border-color: #999;
-    }
-  }
-  
-  // Room section delimiter style
-  .room-section-delimiter {
-    margin: 15px 0 10px 0;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #e0e0e0;
-    
-    .delimiter-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--noble-gray);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-  }
-  
-  // END OF ELEVATION PLOT STYLES
 }
 
 // Floating Back-to-Top Button
