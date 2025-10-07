@@ -94,7 +94,12 @@ export class ActiveProjectsPage implements OnInit {
     if (!this.caspioService.isAuthenticated()) {
       this.authenticateAndLoad();
     } else {
-      this.loadActiveProjects();
+      // Call async method properly
+      this.loadActiveProjects().catch(error => {
+        console.error('Error loading active projects:', error);
+        this.error = 'Failed to load projects';
+        this.loading = false;
+      });
     }
   }
 
@@ -102,7 +107,11 @@ export class ActiveProjectsPage implements OnInit {
     this.loading = true;
     this.caspioService.authenticate().subscribe({
       next: () => {
-        this.loadActiveProjects();
+        this.loadActiveProjects().catch(error => {
+          console.error('Error loading projects after authentication:', error);
+          this.error = 'Failed to load projects after authentication';
+          this.loading = false;
+        });
       },
       error: (error) => {
         const errorMessage = error?.error?.message || error?.message || 'Unknown error';
@@ -114,7 +123,7 @@ export class ActiveProjectsPage implements OnInit {
     });
   }
 
-  loadActiveProjects() {
+  async loadActiveProjects() {
     const startTime = performance.now();
     this.loading = true;
     this.error = '';
@@ -138,7 +147,7 @@ export class ActiveProjectsPage implements OnInit {
       projects: this.projectsService.getActiveProjects(companyId),
       serviceTypes: this.projectsService.getServiceTypes()
     }).subscribe({
-      next: (results) => {
+      next: async (results) => {
         this.projects = results.projects || [];
         this.serviceTypes = results.serviceTypes || [];
         
@@ -147,20 +156,26 @@ export class ActiveProjectsPage implements OnInit {
           console.log(`  TypeID ${type.TypeID || type.PK_ID}: ${type.TypeName || type.TypeShort}`);
         });
         
-        // Load services for each project from Services table
+        // Load services for each project from Services table - AWAIT to make it synchronous
         console.log('About to load services from Services table...');
-        this.loadProjectServicesFromServicesTable();
+        await this.loadProjectServicesFromServicesTable();
+        console.log('✅ Services loading completed - applying filter...');
         
         this.applySearchFilter();
         this.loading = false;
         const elapsed = performance.now() - startTime;
+        console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
       },
       error: (error) => {
         // If parallel load fails, try getting projects only and services later
         this.projectsService.getActiveProjects(companyId).subscribe({
-          next: (projects) => {
+          next: async (projects) => {
             this.projects = projects;
-            this.loadServicesDataAsync(); // Load services in background
+            // Load service types if not already loaded
+            if (!this.serviceTypes || this.serviceTypes.length === 0) {
+              this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
+            }
+            await this.loadProjectServicesFromServicesTable(); // Make synchronous
             this.applySearchFilter();
             this.loading = false;
             const elapsed = performance.now() - startTime;
@@ -168,12 +183,15 @@ export class ActiveProjectsPage implements OnInit {
           error: (err) => {
             // If filtered query fails, try getting all projects and filter locally
             this.projectsService.getAllProjects(companyId).subscribe({
-              next: (allProjects) => {
+              next: async (allProjects) => {
                 this.projects = allProjects.filter(p =>
                   p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
                 );
-                // Load services even in fallback scenario
-                this.loadServicesDataAsync();
+                // Load services even in nested fallback scenario
+                if (!this.serviceTypes || this.serviceTypes.length === 0) {
+                  this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
+                }
+                await this.loadProjectServicesFromServicesTable();
                 this.loading = false;
                 const elapsed = performance.now() - startTime;
                 this.applySearchFilter();
@@ -190,7 +208,7 @@ export class ActiveProjectsPage implements OnInit {
     });
   }
 
-  loadProjectsDirectly() {
+  async loadProjectsDirectly() {
     this.loading = true;
     this.error = '';
     
@@ -211,10 +229,10 @@ export class ActiveProjectsPage implements OnInit {
       projects: this.projectsService.getActiveProjects(companyId),
       serviceTypes: this.projectsService.getServiceTypes()
     }).subscribe({
-      next: (results) => {
+      next: async (results) => {
         this.projects = results.projects || [];
         this.serviceTypes = results.serviceTypes || [];
-        this.loadProjectServicesFromServicesTable();
+        await this.loadProjectServicesFromServicesTable();
         this.applySearchFilter();
         this.loading = false;
         this.error = '';
@@ -222,12 +240,15 @@ export class ActiveProjectsPage implements OnInit {
       error: (error) => {
         // If filtered query fails, try getting all projects and filter locally
         this.projectsService.getAllProjects(companyId).subscribe({
-          next: (allProjects) => {
+          next: async (allProjects) => {
             this.projects = allProjects.filter(p => 
               p.StatusID === 1 || p.StatusID === '1' || p.Status === 'Active'
             );
-            // Load services even in nested fallback
-            this.loadServicesDataAsync();
+            // Load services even in nested fallback - make synchronous  
+            if (!this.serviceTypes || this.serviceTypes.length === 0) {
+              this.serviceTypes = await this.projectsService.getServiceTypes().toPromise() || [];
+            }
+            await this.loadProjectServicesFromServicesTable();
             this.loading = false;
             this.error = '';
             this.applySearchFilter();
@@ -343,6 +364,7 @@ export class ActiveProjectsPage implements OnInit {
       
       // Trigger change detection to update UI
       this.cdr.detectChanges();
+      console.log('🎯 Services loading completed successfully! Cache contents:', Object.keys(this.servicesCache).length, 'projects');
       
     } catch (error) {
       console.error('Error loading project services:', error);
@@ -352,6 +374,7 @@ export class ActiveProjectsPage implements OnInit {
       });
       // Trigger change detection for fallback values
       this.cdr.detectChanges();
+      console.log('❌ Services loading failed - using fallback values');
     }
   }
 
