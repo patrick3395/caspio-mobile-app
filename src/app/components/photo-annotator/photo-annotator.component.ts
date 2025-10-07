@@ -8,19 +8,13 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   template: `
-    <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
-        <ion-title style="color: white; font-weight: 600;">Annotate Photo</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="dismiss()" style="color: white;">
-            <ion-icon name="close"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    
     <ion-content>
       <div class="annotation-toolbar">
+        <!-- Back Button -->
+        <button (click)="dismiss()" class="nav-btn back-btn" title="Back">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        
         <!-- Tools Dropdown -->
         <div class="dropdown-wrapper">
           <button class="dropdown-toggle" (click)="toggleDropdown('tools')" [class.active]="showToolsDropdown">
@@ -93,17 +87,19 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
         <div class="toolbar-actions">
           <button (click)="toggleDeleteMode()" [class.active]="deleteMode" class="action-btn delete" title="Delete Mode">
             <ion-icon name="close-circle-outline"></ion-icon>
-            <span class="btn-label">{{ deleteMode ? 'Deleting' : 'Delete' }}</span>
           </button>
           <button (click)="undo()" [disabled]="!canUndo" class="action-btn undo" title="Undo Last">
             <ion-icon name="arrow-undo-outline"></ion-icon>
-            <span class="btn-label">Undo</span>
           </button>
           <button (click)="clearAnnotations()" class="action-btn clear" title="Clear All">
             <ion-icon name="brush-outline"></ion-icon>
-            <span class="btn-label">Clear All</span>
           </button>
         </div>
+        
+        <!-- Save Button -->
+        <button (click)="saveAnnotatedImage()" class="nav-btn save-btn" title="Save">
+          <ion-icon name="checkmark"></ion-icon>
+        </button>
       </div>
       
       <div class="canvas-container" #canvasContainer>
@@ -122,40 +118,78 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
           <input #textInput type="text" [(ngModel)]="currentText" (keyup.enter)="addText()" (blur)="cancelText()" placeholder="Enter text...">
         </div>
       </div>
+      
+      <!-- Caption Input Below Canvas -->
+      <div class="caption-container">
+        <input 
+          type="text" 
+          [(ngModel)]="caption" 
+          placeholder="Add Caption..." 
+          class="caption-input"
+          maxlength="255">
+      </div>
     </ion-content>
-    
-    <ion-footer>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-button (click)="dismiss()" color="medium">
-            Cancel
-          </ion-button>
-        </ion-buttons>
-        <ion-buttons slot="start">
-          <ion-button (click)="addCaption()" color="medium">
-            Add Caption
-          </ion-button>
-        </ion-buttons>
-        <ion-buttons slot="end">
-          <ion-button (click)="saveAnnotatedImage()" color="primary">
-            <ion-icon name="checkmark" slot="start"></ion-icon>
-            Save & Upload
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-footer>
   `,
   styles: [`
+    ion-content {
+      --padding-top: 0;
+      --padding-bottom: 0;
+    }
+    
     .annotation-toolbar {
       background: #f0f0f0;
-      padding: 12px 16px;
+      padding: 8px 12px;
       border-bottom: 1px solid rgba(0,0,0,0.08);
       display: flex;
-      gap: 12px;
+      gap: 8px;
       align-items: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
       position: relative;
       z-index: 100;
+    }
+    
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+    
+    .back-btn {
+      background: rgba(0, 0, 0, 0.05);
+      color: #333;
+    }
+    
+    .back-btn:hover {
+      background: rgba(0, 0, 0, 0.1);
+      transform: translateX(-2px);
+    }
+    
+    .back-btn ion-icon {
+      font-size: 24px;
+      color: #333;
+    }
+    
+    .save-btn {
+      background: #F15A27;
+      color: white;
+      margin-left: auto;
+    }
+    
+    .save-btn:hover {
+      background: #d94e1f;
+      transform: scale(1.05);
+    }
+    
+    .save-btn ion-icon {
+      font-size: 26px;
+      color: white;
     }
     
     .dropdown-wrapper {
@@ -345,34 +379,26 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     
     .toolbar-actions {
       display: flex;
-      gap: 8px;
-      margin-left: auto;
+      gap: 6px;
     }
     
     .action-btn {
-      padding: 8px 12px;
-      min-width: 60px;
+      padding: 0;
+      width: 40px;
       height: 40px;
       border: none;
       background: rgba(255,255,255,0.8);
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
-    .action-btn .btn-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #5f6c7b;
-    }
-    
     .action-btn ion-icon {
-      font-size: 18px;
+      font-size: 20px;
       color: #5f6c7b;
     }
     
@@ -381,7 +407,6 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
-    .action-btn.undo:hover:not(:disabled) .btn-label,
     .action-btn.undo:hover:not(:disabled) ion-icon {
       color: #000000;
     }
@@ -391,29 +416,26 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
-    .action-btn.clear:hover .btn-label,
     .action-btn.clear:hover ion-icon {
       color: #000000;
     }
     
     .action-btn.delete:hover:not(.active) {
-      background: rgba(255, 152, 0, 0.1);
-      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+      background: rgba(255, 59, 48, 0.1);
+      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
     }
     
-    .action-btn.delete:hover:not(.active) .btn-label,
     .action-btn.delete:hover:not(.active) ion-icon {
-      color: #FF9800;
+      color: #FF3B30;
     }
     
     .action-btn.delete.active {
-      background: rgba(255, 152, 0, 0.2);
-      border: 2px solid #FF9800;
+      background: rgba(255, 59, 48, 0.2);
+      border: 2px solid #FF3B30;
     }
     
-    .action-btn.delete.active .btn-label,
     .action-btn.delete.active ion-icon {
-      color: #FF9800;
+      color: #FF3B30;
     }
     
     .action-btn:disabled {
@@ -421,29 +443,52 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
       cursor: not-allowed;
     }
     
-    .action-btn:disabled .btn-label {
-      color: #a0a9b8;
-    }
-    
     .canvas-container {
       position: relative;
       width: 100%;
-      height: calc(100% - 80px);
+      height: calc(100vh - 58px - 70px);
       overflow: auto;
-      background: #f5f5f5;
+      background: #2d2d2d;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 10px;
     }
     
     canvas {
       position: absolute;
-      max-width: calc(100% - 40px);
-      max-height: calc(100% - 40px);
+      max-width: calc(100% - 20px);
+      max-height: calc(100% - 20px);
       cursor: crosshair;
+      border-radius: 4px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    
+    .caption-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      padding: 12px 16px;
+      border-top: 1px solid #e0e0e0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+      z-index: 100;
+    }
+    
+    .caption-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    
+    .caption-input:focus {
+      border-color: #F15A27;
+      box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
     }
     
     #imageCanvas {
@@ -490,17 +535,6 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     
     .text-input-overlay input:focus {
       box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-    }
-    
-    ion-footer ion-toolbar {
-      --background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    }
-    
-    ion-footer ion-button {
-      --border-radius: 8px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
     }
   `]
 })

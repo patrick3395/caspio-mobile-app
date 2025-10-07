@@ -2480,16 +2480,40 @@ ion-content {
 }
 
 // Custom alert styling for "Other" value entry popup
-.custom-other-alert {
+::ng-deep .custom-other-alert {
   .alert-button-group {
+    display: flex !important;
+    justify-content: space-around !important;
+    padding: 0 !important;
+    
     button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      flex: 1 !important;
+      margin: 0 4px !important;
       
       .alert-button-inner {
-        justify-content: center;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      
+      .button-inner {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      
+      span {
+        display: block !important;
+        text-align: center !important;
+        width: 100% !important;
       }
     }
   }

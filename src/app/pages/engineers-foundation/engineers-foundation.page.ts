@@ -1650,9 +1650,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     // Look for photo with matching annotation prefix
-    return point.photos.find((photo: any) => 
+    const typedPhoto = point.photos.find((photo: any) => 
       photo.annotation && photo.annotation.startsWith(`${photoType}:`)
     );
+    
+    if (typedPhoto) {
+      return typedPhoto;
+    }
+    
+    // Backward compatibility: For existing photos without type prefix
+    // First photo without prefix = Location, second = Measurement
+    const untypedPhotos = point.photos.filter((photo: any) => 
+      !photo.annotation || (!photo.annotation.startsWith('Location:') && !photo.annotation.startsWith('Measurement:'))
+    );
+    
+    if (untypedPhotos.length > 0) {
+      if (photoType === 'Location') {
+        return untypedPhotos[0];
+      } else if (photoType === 'Measurement' && untypedPhotos.length > 1) {
+        return untypedPhotos[1];
+      }
+    }
+    
+    return null;
   }
 
   // Capture photo for room elevation point with specific type (Location or Measurement)
@@ -1793,6 +1813,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 isCustom: true  // Mark as custom point
               };
               this.roomElevationData[roomName].elevationPoints.push(elevationPoint);
+            }
+            
+            // Ensure photos array exists
+            if (!elevationPoint.photos) {
+              elevationPoint.photos = [];
             }
             
             if (elevationPoint) {
@@ -2138,9 +2163,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       point.photos.push({
         url: base64Image,
         thumbnailUrl: base64Image,
+        displayUrl: base64Image,  // Add displayUrl for consistency
         annotation: annotation
       });
       point.photoCount = point.photos.length;
+      
+      // Trigger change detection to update UI
+      this.changeDetectorRef.detectChanges();
       
       // Show success toast
       await this.showToast(`${photoType} photo captured`, 'success');
@@ -3272,6 +3301,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             // Process the custom value AFTER alert dismisses to avoid dropdown staying open
             setTimeout(async () => {
+              // Close any open select dropdowns by blurring the active element (mobile fix)
+              const activeElement = document.activeElement as HTMLElement;
+              if (activeElement && activeElement.tagName === 'SELECT') {
+                activeElement.blur();
+              }
 
               // Store in customOtherValues
               this.customOtherValues[fieldName] = customValue;
@@ -3296,6 +3330,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
               // Force change detection to update the UI
               this.changeDetectorRef.detectChanges();
+              
+              // Additional blur to ensure dropdown closes on mobile
+              setTimeout(() => {
+                const selectElements = document.querySelectorAll('select');
+                selectElements.forEach(select => {
+                  if (select.value === customValue || select.name === fieldName) {
+                    select.blur();
+                  }
+                });
+              }, 100);
             }, 200);
 
             return true; // Close alert immediately
