@@ -271,10 +271,10 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
     .service-toggle {
       display: flex;
       align-items: center;
-      color: $gray;
       
       ion-icon {
-        font-size: 20px;
+        font-size: 24px;
+        color: #000;
       }
     }
   }
@@ -373,17 +373,17 @@ ion-modal {
   }
   
   ion-header ion-toolbar {
-    --background: var(--noble-orange, #F15A27);
-    --color: white;
+    --background: var(--noble-light-gray, #F5F5F5);
+    --color: var(--noble-dark-gray, #333333);
     
     ion-title {
-      color: white;
+      color: var(--noble-dark-gray, #333333);
       font-weight: 600;
       font-size: 18px;
     }
     
     ion-button {
-      --color: white;
+      --color: var(--noble-dark-gray, #333333);
     }
   }
   
@@ -494,6 +494,13 @@ ion-modal {
     font-weight: 700;
     color: $dark;
     font-size: 15px;
+    
+    .instance-number {
+      margin-left: 8px;
+      font-weight: 600;
+      color: $orange;
+      font-size: 14px;
+    }
   }
 
   .doc-info-cell {

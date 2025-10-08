@@ -101,7 +101,7 @@
               <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
               {{ service.typeName }}
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
-                (Instance {{ getServiceInstanceNumber(service) }})
+                #{{ getServiceInstanceNumber(service) }}
               </span>
             </div>
 
@@ -113,7 +113,7 @@
     <!-- Service Selection Section -->
     <div class="info-section">
       <div class="section-header-with-total">
-        <h2 class="section-title">Services (Select to Add)</h2>
+        <h2 class="section-title">Services</h2>
         <div *ngIf="selectedServices.length > 0" class="header-total">
           ${{ calculateServicesTotal() | number:'1.2-2' }}
         </div>
@@ -154,7 +154,7 @@
               </ion-button>
             </div>
             <div class="service-toggle">
-              <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+              <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline'"></ion-icon>
             </div>
           </div>
           
@@ -217,6 +217,9 @@
           <tr class="support-doc-row service-row">
             <td class="service-header" colspan="2">
               {{ serviceDoc.serviceName }}
+              <span *ngIf="serviceDoc.instanceNumber > 0" class="instance-number">
+                #{{ serviceDoc.instanceNumber }}
+              </span>
             </td>
           </tr>
 
