@@ -1552,24 +1552,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         if (roomId) {
           try {
-            const columnName = `FDFPhoto${photoType}`;
-            const annotationColumnName = `FDFPhoto${photoType}Annotations`;
-
             // Compress annotations before saving
             const compressedAnnotations = annotationsData ? compressAnnotationData(annotationsData) : null;
             console.log(`[FDF DEBUG] Compressed annotations:`, compressedAnnotations);
 
-            // Update database with photo and annotations (following measurement photo pattern)
+            // Update database with photo and annotations using correct column names
             const updateData: any = {};
-            const drawingsColumnName = `FDFPhoto${photoType}Drawings`;
+            const drawingsColumnName = `FDF${photoType}Drawings`; // FIXED: Correct column name format
+            const annotationColumnName = `FDF${photoType}Annotation`; // ADDED: For captions
             
             // Save annotation graphics to Drawings field (like measurement photos)
             if (compressedAnnotations) {
               updateData[drawingsColumnName] = compressedAnnotations;
             }
+            
+            // ADDED: Save caption to Annotation field  
+            const caption = this.getFdfPhotoCaption(roomName, photoType);
+            if (caption !== undefined) {
+              updateData[annotationColumnName] = caption;
+            }
 
             console.log(`[FDF DEBUG] Update data:`, updateData);
-            console.log(`[FDF DEBUG] Column name:`, drawingsColumnName);
+            console.log(`[FDF DEBUG] Drawings column name:`, drawingsColumnName);
+            console.log(`[FDF DEBUG] Annotation column name:`, annotationColumnName);
 
             // Try to update Services_Rooms table with FDF annotation data
             try {
@@ -8359,8 +8364,8 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      // Use the specific annotation field for this FDF photo type
-      const annotationColumnName = `FDFPhoto${photoType}Annotation`;
+      // FIXED: Use the correct annotation field name for this FDF photo type
+      const annotationColumnName = `FDF${photoType}Annotation`; // Correct format: FDFTopAnnotation, etc.
       const updateData: any = {};
       updateData[annotationColumnName] = caption || '';  // Save caption or empty string
 

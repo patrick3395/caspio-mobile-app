@@ -2284,11 +2284,13 @@ select[name="StructuralSystemsStatus"] {
             // FORCE container positioning
             position: relative !important;
             width: 90px !important;
-            height: 90px !important;
+            // REMOVED: height: 90px !important; // Allow container to expand for caption
+            min-height: 90px !important; // Minimum height for photo, but allow expansion for caption
             display: inline-block !important;
             vertical-align: top !important;
             overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
             margin: 4px !important;
+            padding-bottom: 35px !important; // ADDED: Space for caption input field
             border-radius: 12px !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
             
