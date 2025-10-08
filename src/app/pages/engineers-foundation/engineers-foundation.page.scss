@@ -2469,6 +2469,105 @@ select[name="StructuralSystemsStatus"] {
   }
 }
 
+// MOBILE-SPECIFIC FDF PHOTO SIZING - Fit 3 photos on one line
+// Target mobile devices (phones) specifically
+@media (max-width: 768px) {
+  .fdf-photos-row {
+    gap: 6px !important; // Reduce gap between photos on mobile
+  }
+  
+  .fdf-photo-column {
+    min-width: 85px !important; // Smaller min-width for mobile to fit 3 photos
+    
+    .fdf-photo-button {
+      padding: 6px 4px !important; // Smaller button padding
+      font-size: 10px !important; // Smaller text
+      
+      span {
+        margin-bottom: 2px !important;
+        font-size: 9px !important;
+      }
+      
+      ion-icon {
+        font-size: 14px !important; // Smaller icons
+      }
+    }
+  }
+  
+  // Smaller images on mobile
+  .fdf-photo-preview.image-preview,
+  .fdf-photos-container .image-preview {
+    width: 70px !important; // Smaller image containers
+    min-height: 70px !important;
+    
+    img,
+    .fdf-photo-image {
+      width: 70px !important; // Smaller images
+      height: 70px !important;
+    }
+  }
+  
+  // Direct image class targeting for mobile
+  .fdf-photo-image {
+    width: 70px !important;
+    height: 70px !important;
+  }
+  
+  // Adjust caption width for smaller images
+  .room-photo-caption {
+    width: 70px !important; // Match smaller image width
+    font-size: 10px !important; // Smaller caption text
+    padding: 3px 4px !important;
+  }
+}
+
+// EXTRA SMALL MOBILE DEVICES - Even more compact for very small screens
+@media (max-width: 480px) {
+  .fdf-photos-row {
+    gap: 4px !important; // Even smaller gap for tiny screens
+  }
+  
+  .fdf-photo-column {
+    min-width: 75px !important; // Even smaller for very small phones
+    
+    .fdf-photo-button {
+      padding: 4px 2px !important;
+      
+      span {
+        font-size: 8px !important; // Tiny text for small screens
+      }
+      
+      ion-icon {
+        font-size: 12px !important;
+      }
+    }
+  }
+  
+  // Even smaller images for tiny phones
+  .fdf-photo-preview.image-preview,
+  .fdf-photos-container .image-preview {
+    width: 60px !important;
+    min-height: 60px !important;
+    
+    img,
+    .fdf-photo-image {
+      width: 60px !important;
+      height: 60px !important;
+    }
+  }
+  
+  .fdf-photo-image {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  
+  .room-photo-caption {
+    width: 60px !important;
+    font-size: 9px !important;
+    padding: 2px 3px !important;
+  }
+}
+
 // Clean delete buttons and captions for FDF photos - subtle and professional
 .fdf-photos-container,
 .elevation-points-container {

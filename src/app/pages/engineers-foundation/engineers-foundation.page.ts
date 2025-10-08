@@ -1538,8 +1538,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
             console.log(`[FDF DEBUG] Successfully saved using attachment method`);
             
-            // CRITICAL: Update local display to show annotated image
-            this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
+            // CRITICAL: Update local display to show annotated image and caption
+            this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
             
             await this.showToast('Annotation saved', 'success');
             return; // Exit early since we successfully saved
@@ -1571,9 +1571,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             
             // ADDED: Save caption to Annotation field  
-            const caption = this.getFdfPhotoCaption(roomName, photoType);
-            if (caption !== undefined) {
-              updateData[annotationColumnName] = caption;
+            // Use caption from photo editor if available, otherwise use current local state
+            const captionToSave = data.caption !== undefined ? data.caption : this.getFdfPhotoCaption(roomName, photoType);
+            if (captionToSave !== undefined) {
+              updateData[annotationColumnName] = captionToSave;
+              console.log(`[FDF DEBUG] Saving caption to database:`, captionToSave);
             }
 
             console.log(`[FDF DEBUG] Update data:`, updateData);
@@ -1585,8 +1587,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const result = await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
               console.log(`[FDF DEBUG] Update result:`, result);
               
-              // CRITICAL: Update local display to show annotated image
-              this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
+              // CRITICAL: Update local display to show annotated image and caption
+              this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
               
               await this.showToast('Annotation saved', 'success');
             } catch (updateError) {
@@ -1621,8 +1623,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     console.log(`[FDF DEBUG] Stored AttachID for future use:`, attachId);
                   }
                   
-                  // CRITICAL: Update local display to show annotated image
-                  this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
+                  // CRITICAL: Update local display to show annotated image and caption
+                  this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
                   
                   await this.showToast('Annotation saved (fallback method)', 'success');
                 } else {
@@ -1796,8 +1798,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Update FDF photo display to show annotated image (like measurement photos)
-  private updateFdfPhotoDisplay(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', annotatedBlob: Blob, annotationsData?: any): void {
+  private updateFdfPhotoDisplay(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', annotatedBlob: Blob, annotationsData?: any, caption?: string): void {
     console.log(`[FDF DEBUG] Updating display for ${roomName} ${photoType}`);
+    console.log(`[FDF DEBUG] Caption from editor:`, caption);
     
     this.ensureFdfPhotosStructure(roomName);
     const photoKey = photoType.toLowerCase();
@@ -1818,6 +1821,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     fdfPhotos[`${photoKey}Url`] = annotatedUrl;
     fdfPhotos[`${photoKey}DisplayUrl`] = annotatedUrl;
     fdfPhotos[`${photoKey}HasAnnotations`] = true;
+    
+    // CRITICAL: Update caption from photo editor
+    if (caption !== undefined) {
+      const captionKey = `${photoKey}Caption`;
+      fdfPhotos[captionKey] = caption;
+      console.log(`[FDF DEBUG] Updated caption for ${photoType}:`, caption);
+    }
     
     // Store annotations data locally
     if (annotationsData) {

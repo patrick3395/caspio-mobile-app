@@ -896,9 +896,9 @@
                 <!-- FDF Photos Section (hidden for Base Station) -->
                 <div class="fdf-photos-container" *ngIf="room.RoomName !== 'Base Station'" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
                   <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
-                  <div style="display: flex; gap: 12px;">
+                  <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
-                    <div style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Top')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -909,6 +909,7 @@
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
                              alt="Top"
@@ -932,7 +933,7 @@
                     </div>
                     
                     <!-- Bottom Photo Column -->
-                    <div style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Bottom')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -943,6 +944,7 @@
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom"
@@ -966,7 +968,7 @@
                     </div>
                     
                     <!-- Threshold Photo Column -->
-                    <div style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -977,6 +979,7 @@
                       <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Threshold"
