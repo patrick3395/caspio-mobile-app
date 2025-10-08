@@ -37,6 +37,7 @@ interface DocumentItem {
   filename?: string;
   linkName?: string;  // The Link field from Caspio (filename)
   attachmentUrl?: string;
+  isLink?: boolean; // Flag to identify if this is a manually added link
   additionalFiles?: Array<{  // For multiple uploads of the same document
     attachId: string;
     linkName: string;
@@ -1608,7 +1609,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   async viewDocument(doc: DocumentItem) {
     // If this is a link, open it in a new tab
-    if ((doc as any).isLink && doc.linkName) {
+    if (doc.isLink && doc.linkName) {
       window.open(doc.linkName, '_blank');
       return;
     }
