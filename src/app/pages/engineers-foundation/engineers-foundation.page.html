@@ -100,7 +100,7 @@
               <select [(ngModel)]="serviceData.InAttendance" name="InAttendance"
                       (ngModelChange)="onServiceFieldChange('InAttendance', $event)"
                       class="styled-input">
-                <option value="">Select who was present</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -156,7 +156,7 @@
                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
                       required
                       class="styled-input">
-                <option value="">Select type</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -171,7 +171,7 @@
                       (ngModelChange)="onProjectFieldChange('Style', $event)"
                       required
                       class="styled-input">
-                <option value="">Select style</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -211,7 +211,7 @@
                       (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
                       required
                       class="styled-input">
-                <option value="">Select weather</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -226,7 +226,7 @@
                       (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
                       required
                       class="styled-input">
-                <option value="">Select temperature</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -258,7 +258,7 @@
               <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
                       (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -281,7 +281,7 @@
               <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
                       (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type (if applicable)</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -296,7 +296,7 @@
               <select [(ngModel)]="serviceData.SecondFoundationRooms" name="SecondFoundationRooms"
                       (ngModelChange)="onServiceFieldChange('SecondFoundationRooms', $event)"
                       class="styled-input">
-                <option value="">Select rooms</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -311,7 +311,7 @@
               <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type (if applicable)</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -326,7 +326,7 @@
               <select [(ngModel)]="serviceData.ThirdFoundationRooms" name="ThirdFoundationRooms"
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationRooms', $event)"
                       class="styled-input">
-                <option value="">Select rooms</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -352,34 +352,31 @@
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
       <div class="section-header" data-section="structural" 
-           (click)="onStructuralHeaderClick($event)"
            [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'">
         <div class="section-info"
-             style="flex: 1; pointer-events: none;"
+             (click)="!isStructuralSystemsDisabled() && toggleSection('structural')"
+             style="flex: 1;"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <div class="section-title">
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
           <!-- Structural Systems Status Dropdown - positioned as subtitle -->
-          <div class="structural-status-subtitle" style="pointer-events: auto;">
+          <div class="structural-status-subtitle" (click)="$event.stopPropagation()">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
                     class="structural-status-select"
-                    [class.web-select]="platform.isWeb()"
-                    (click)="$event.stopPropagation()"
-                    (mousedown)="$event.stopPropagation()"
-                    (touchstart)="$event.stopPropagation()">
-              <option value="">Select Status</option>
+                    [class.web-select]="platform.isWeb()">
+              <option value="">-- Select --</option>
               <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>
               <option value="Completed Here">Completed Here</option>
             </select>
           </div>
         </div>
         <div class="section-toggle"
-             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'"
-             style="pointer-events: none;">
+             (click)="!isStructuralSystemsDisabled() && toggleSection('structural')"
+             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
       </div>

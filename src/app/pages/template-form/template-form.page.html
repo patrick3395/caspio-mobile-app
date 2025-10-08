@@ -146,7 +146,7 @@
                 <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
                         (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
                         class="styled-input">
-                  <option value="">Select type</option>
+                  <option value="">-- Select --</option>
                   <option value="Single Family">Single Family</option>
                   <option value="Multi Family">Multi Family</option>
                   <option value="Townhouse">Townhouse</option>
@@ -164,7 +164,7 @@
                 <select [(ngModel)]="projectData.Style" name="Style"
                         (ngModelChange)="onProjectFieldChange('Style', $event)"
                         class="styled-input">
-                  <option value="">Select style</option>
+                  <option value="">-- Select --</option>
                   <option value="Ranch">Ranch</option>
                   <option value="Two Story">Two Story</option>
                   <option value="Split Level">Split Level</option>
@@ -183,7 +183,7 @@
                 <select [(ngModel)]="projectData.OccupancyFurnishings" name="OccupancyFurnishings"
                         (ngModelChange)="onProjectFieldChange('OccupancyFurnishings', $event)"
                         class="styled-input">
-                  <option value="">Select status</option>
+                  <option value="">-- Select --</option>
                   <option value="Occupied - Furnished">Occupied - Furnished</option>
                   <option value="Occupied - Unfurnished">Occupied - Unfurnished</option>
                   <option value="Vacant - Furnished">Vacant - Furnished</option>
@@ -210,7 +210,7 @@
                 <select [(ngModel)]="projectData.WeatherConditions" name="WeatherConditions"
                         (ngModelChange)="onProjectFieldChange('WeatherConditions', $event)"
                         class="styled-input">
-                  <option value="">Select weather</option>
+                  <option value="">-- Select --</option>
                   <option value="Clear">Clear</option>
                   <option value="Partly Cloudy">Partly Cloudy</option>
                   <option value="Cloudy">Cloudy</option>
@@ -253,7 +253,7 @@
                   <select [(ngModel)]="projectData.FirstFoundationType" name="FirstFoundationType"
                           (ngModelChange)="onProjectFieldChange('FirstFoundationType', $event)"
                           class="styled-input">
-                    <option value="">Select type</option>
+                    <option value="">-- Select --</option>
                     <option value="Slab on Grade">Slab on Grade</option>
                     <option value="Pier and Beam">Pier and Beam</option>
                     <option value="Basement">Basement</option>
@@ -272,7 +272,7 @@
                   <select [(ngModel)]="projectData.SecondFoundationType" name="SecondFoundationType"
                           (ngModelChange)="onProjectFieldChange('SecondFoundationType', $event)"
                           class="styled-input">
-                    <option value="">Select type</option>
+                    <option value="">-- Select --</option>
                     <option value="Slab on Grade">Slab on Grade</option>
                     <option value="Pier and Beam">Pier and Beam</option>
                     <option value="Basement">Basement</option>
@@ -298,7 +298,7 @@
                   <select [(ngModel)]="projectData.ThirdFoundationType" name="ThirdFoundationType"
                           (ngModelChange)="onProjectFieldChange('ThirdFoundationType', $event)"
                           class="styled-input">
-                    <option value="">Select type</option>
+                    <option value="">-- Select --</option>
                     <option value="Slab on Grade">Slab on Grade</option>
                     <option value="Pier and Beam">Pier and Beam</option>
                     <option value="Basement">Basement</option>
@@ -413,7 +413,7 @@
                   <ion-select [(ngModel)]="formData.style" name="style"
                               (ionChange)="onFieldChange('style', $event.detail.value)"
                               [class.has-value]="hasValue('style')">
-                    <ion-select-option value="">Select Style</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="Ranch">Ranch</ion-select-option>
                     <ion-select-option value="Two Story">Two Story</ion-select-option>
                     <ion-select-option value="Split Level">Split Level</ion-select-option>
@@ -447,7 +447,7 @@
                   <ion-select [(ngModel)]="formData.weather" name="weather"
                               (ionChange)="onFieldChange('weather', $event.detail.value)"
                               [class.has-value]="hasValue('weather')">
-                    <ion-select-option value="">Select Weather</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="Clear">Clear</ion-select-option>
                     <ion-select-option value="Partly Cloudy">Partly Cloudy</ion-select-option>
                     <ion-select-option value="Cloudy">Cloudy</ion-select-option>
@@ -480,7 +480,7 @@
                   <ion-select [(ngModel)]="formData.occupancy" name="occupancy"
                               (ionChange)="onFieldChange('occupancy', $event.detail.value)"
                               [class.has-value]="hasValue('occupancy')">
-                    <ion-select-option value="">Select Status</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="Occupied - Furnished">Occupied - Furnished</ion-select-option>
                     <ion-select-option value="Occupied - Partially Furnished">Occupied - Partially Furnished</ion-select-option>
                     <ion-select-option value="Vacant - Furnished">Vacant - Furnished</ion-select-option>
@@ -598,7 +598,7 @@
                   <ion-select [(ngModel)]="formData.numberOfStories" name="numberOfStories"
                               (ionChange)="onFieldChange('numberOfStories', $event.detail.value)"
                               [class.has-value]="hasValue('numberOfStories')">
-                    <ion-select-option value="">Select Stories</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="1">1</ion-select-option>
                     <ion-select-option value="1.5">1.5</ion-select-option>
                     <ion-select-option value="2">2</ion-select-option>
@@ -655,7 +655,7 @@
                   <ion-select [(ngModel)]="formData.foundationType" name="foundationType"
                               (ionChange)="onFieldChange('foundationType', $event.detail.value)"
                               [class.has-value]="hasValue('foundationType')">
-                    <ion-select-option value="">Select Foundation Type</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="Slab">Slab</ion-select-option>
                     <ion-select-option value="Pier and Beam">Pier and Beam</ion-select-option>
                     <ion-select-option value="Basement">Basement</ion-select-option>
@@ -671,7 +671,7 @@
                   <ion-select [(ngModel)]="formData.foundationCondition" name="foundationCondition"
                               (ionChange)="onFieldChange('foundationCondition', $event.detail.value)"
                               [class.has-value]="hasValue('foundationCondition')">
-                    <ion-select-option value="">Select Condition</ion-select-option>
+                    <ion-select-option value="">-- Select --</ion-select-option>
                     <ion-select-option value="Good">Good</ion-select-option>
                     <ion-select-option value="Fair">Fair</ion-select-option>
                     <ion-select-option value="Poor">Poor</ion-select-option>

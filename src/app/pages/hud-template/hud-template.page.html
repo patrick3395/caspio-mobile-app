@@ -100,7 +100,7 @@
                       (ngModelChange)="onServiceFieldChange('InAttendance', $event)"
                       required
                       class="styled-input">
-                <option value="">Select who was present</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -151,7 +151,7 @@
                       (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
                       required
                       class="styled-input">
-                <option value="">Select type</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -166,7 +166,7 @@
                       (ngModelChange)="onProjectFieldChange('Style', $event)"
                       required
                       class="styled-input">
-                <option value="">Select style</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -181,7 +181,7 @@
                       (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
                       required
                       class="styled-input">
-                <option value="">Select status</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -206,7 +206,7 @@
                       (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
                       required
                       class="styled-input">
-                <option value="">Select weather</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -221,7 +221,7 @@
                       (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
                       required
                       class="styled-input">
-                <option value="">Select temperature</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -253,7 +253,7 @@
               <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
                       (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -276,7 +276,7 @@
               <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
                       (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type (if applicable)</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -291,7 +291,7 @@
               <select [(ngModel)]="serviceData.SecondFoundationRooms" name="SecondFoundationRooms"
                       (ngModelChange)="onServiceFieldChange('SecondFoundationRooms', $event)"
                       class="styled-input">
-                <option value="">Select rooms</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -305,7 +305,7 @@
               <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                       class="styled-input">
-                <option value="">Select type (if applicable)</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -320,7 +320,7 @@
               <select [(ngModel)]="serviceData.ThirdFoundationRooms" name="ThirdFoundationRooms"
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationRooms', $event)"
                       class="styled-input">
-                <option value="">Select rooms</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
@@ -334,7 +334,7 @@
               <select [(ngModel)]="serviceData.OwnerOccupantInterview" name="OwnerOccupantInterview"
                       (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
                       class="styled-input">
-                <option value="">Select status</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
               </select>
             </div>
