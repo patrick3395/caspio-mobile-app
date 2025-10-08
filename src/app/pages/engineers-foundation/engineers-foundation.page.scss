@@ -2468,7 +2468,7 @@ select[name="StructuralSystemsStatus"] {
   
   div[style*="text-align: center"] .fdf-photo-preview,
   div[style*="text-align: center"] .image-preview {
-    text-align: left !important;
+    text-align: center !important; // Keep captions centered under photos
   }
   
   .fdf-photo-preview,

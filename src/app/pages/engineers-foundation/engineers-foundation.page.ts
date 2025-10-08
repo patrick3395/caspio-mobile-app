@@ -1449,15 +1449,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const roomData = this.roomElevationData[roomName];
       const fdfPhotos = roomData?.fdfPhotos || {};
 
-      // Get any existing annotations from the local drawings data (following measurement photo pattern)
+      // Get any existing annotations from multiple sources (like measurement photos)
       let existingAnnotations = null;
       const drawingsData = fdfPhotos[`${photoKey}Drawings`];
+      const attachId = fdfPhotos[`${photoKey}AttachId`];
       
-      if (drawingsData) {
-        try {
-          existingAnnotations = decompressAnnotationData(drawingsData);
-        } catch (e) {
-          console.error('Failed to decompress existing FDF annotations:', e);
+      console.log(`[FDF DEBUG] Loading annotations for ${roomName} ${photoType}`);
+      console.log(`[FDF DEBUG] Drawings data:`, drawingsData);
+      console.log(`[FDF DEBUG] AttachID:`, attachId);
+      
+      // Try to load annotations from different sources
+      const annotationSources = [
+        drawingsData,
+        fdfPhotos[`${photoKey}Annotations`],
+        fdfPhotos[`${photoKey}AnnotationsData`]
+      ];
+      
+      for (const source of annotationSources) {
+        if (source) {
+          try {
+            if (typeof source === 'string') {
+              existingAnnotations = decompressAnnotationData(source);
+            } else {
+              existingAnnotations = source;
+            }
+            
+            if (existingAnnotations) {
+              console.log(`[FDF DEBUG] Loaded existing annotations:`, existingAnnotations);
+              break;
+            }
+          } catch (e) {
+            console.error(`[FDF DEBUG] Failed to decompress annotations from source:`, e);
+          }
         }
       }
 
@@ -1493,8 +1516,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           fdfPhotos[drawingsField] = compressedAnnotations; // Store in local drawings field
         }
 
-        // Update the FDF photo in Services_Rooms table
+        console.log(`[FDF DEBUG] Starting annotation save for ${roomName} ${photoType}`);
+        console.log(`[FDF DEBUG] Annotations data:`, annotationsData);
+        console.log(`[FDF DEBUG] AttachID available:`, attachId);
+
+        // ENHANCED: Use attachment-based approach if AttachID exists (like measurement photos)
+        if (attachId) {
+          console.log(`[FDF DEBUG] Using attachment-based approach with AttachID:`, attachId);
+          try {
+            const annotatedFile = new File([data.annotatedBlob], `FDF_${photoType}_${roomName}`, { type: 'image/jpeg' });
+            
+            // Get the original file if provided  
+            let originalFile = null;
+            if (data.originalBlob) {
+              originalFile = data.originalBlob instanceof File 
+                ? data.originalBlob 
+                : new File([data.originalBlob], `original_FDF_${photoType}_${roomName}`, { type: 'image/jpeg' });
+            }
+
+            // Use the same method as measurement photos
+            await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
+            console.log(`[FDF DEBUG] Successfully saved using attachment method`);
+            await this.showToast('Annotation saved', 'success');
+            return; // Exit early since we successfully saved
+          } catch (error) {
+            console.error(`[FDF DEBUG] Attachment method failed, falling back to Services_Rooms:`, error);
+            // Continue to Services_Rooms approach below
+          }
+        }
+
+        // FALLBACK: Update the FDF photo in Services_Rooms table
         const roomId = this.roomRecordIds[roomName];
+        console.log(`[FDF DEBUG] Using Services_Rooms approach`);
+        console.log(`[FDF DEBUG] Room ID:`, roomId);
+        
         if (roomId) {
           try {
             const columnName = `FDFPhoto${photoType}`;
@@ -1502,6 +1557,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             // Compress annotations before saving
             const compressedAnnotations = annotationsData ? compressAnnotationData(annotationsData) : null;
+            console.log(`[FDF DEBUG] Compressed annotations:`, compressedAnnotations);
 
             // Update database with photo and annotations (following measurement photo pattern)
             const updateData: any = {};
@@ -1512,13 +1568,63 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               updateData[drawingsColumnName] = compressedAnnotations;
             }
 
-            // Use the new updateServicesRoomByRoomId method
-            await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
-            await this.showToast('Annotation saved', 'success');
+            console.log(`[FDF DEBUG] Update data:`, updateData);
+            console.log(`[FDF DEBUG] Column name:`, drawingsColumnName);
+
+            // Try to update Services_Rooms table with FDF annotation data
+            try {
+              const result = await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
+              console.log(`[FDF DEBUG] Update result:`, result);
+              await this.showToast('Annotation saved', 'success');
+            } catch (updateError) {
+              console.error(`[FDF DEBUG] Services_Rooms update failed:`, updateError);
+              
+              // FALLBACK: Try to store FDF photo as attachment and use updatePhotoAttachment
+              console.log(`[FDF DEBUG] Attempting fallback: Create attachment record for FDF photo`);
+              
+              try {
+                // Check if FDF photo has an attachment ID we can use
+                const photoKey = photoType.toLowerCase();
+                const photoPath = fdfPhotos[`${photoKey}Path`];
+                
+                if (photoPath) {
+                  // Create an attachment record for the FDF photo so we can store annotations
+                  const attachmentData = {
+                    ServiceID: this.serviceId,
+                    TypeID: 7, // FDF photos type
+                    Attachment: photoPath,
+                    Link: `FDF ${photoType} - ${roomName}`,
+                    Annotation: compressedAnnotations || ''
+                  };
+                  
+                  console.log(`[FDF DEBUG] Creating attachment record:`, attachmentData);
+                  const attachResult = await this.caspioService.createAttachment(attachmentData).toPromise();
+                  console.log(`[FDF DEBUG] Attachment created:`, attachResult);
+                  
+                  // Store the AttachID for future reference
+                  const attachId = attachResult?.Result?.[0]?.AttachID || attachResult?.AttachID;
+                  if (attachId) {
+                    fdfPhotos[`${photoKey}AttachId`] = attachId;
+                    console.log(`[FDF DEBUG] Stored AttachID for future use:`, attachId);
+                  }
+                  
+                  await this.showToast('Annotation saved (fallback method)', 'success');
+                } else {
+                  throw new Error('No photo path available for fallback');
+                }
+              } catch (fallbackError) {
+                console.error(`[FDF DEBUG] Fallback method also failed:`, fallbackError);
+                await this.showToast('Failed to save annotation - please try again', 'danger');
+              }
+            }
           } catch (error) {
-            console.error('Error saving FDF annotation:', error);
+            console.error('[FDF DEBUG] Error saving FDF annotation:', error);
+            console.error('[FDF DEBUG] Error details:', JSON.stringify(error, null, 2));
             await this.showToast('Failed to save annotation', 'danger');
           }
+        } else {
+          console.error(`[FDF DEBUG] No room ID found for room: ${roomName}`);
+          console.error(`[FDF DEBUG] Available room IDs:`, this.roomRecordIds);
         }
       }
     } catch (error) {
