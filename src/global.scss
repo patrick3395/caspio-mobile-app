@@ -711,5 +711,92 @@ body.dark-theme .popover-content ion-label {
   background: rgba(241, 90, 39, 0.15);
 }
 
+// Custom Document Alert - Matching theme
+.custom-document-alert {
+  --backdrop-opacity: 0.55;
+
+  .alert-wrapper {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+    padding: 24px 0 12px;
+    min-width: min(380px, 90vw);
+  }
+
+  .alert-head {
+    padding: 8px 24px 16px;
+
+    .alert-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #333333;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .alert-message {
+    display: none;
+  }
+
+  .alert-input-group {
+    padding: 0 24px 20px;
+
+    .alert-input {
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      padding: 14px 16px;
+      font-size: 16px;
+      background: #fff;
+      color: #333;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: #999;
+      }
+
+      &::placeholder {
+        color: #999;
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding: 12px 24px 20px;
+    gap: 12px;
+    justify-content: stretch;
+    display: flex;
+
+    .alert-button {
+      flex: 1 1 0;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: 999px;
+      border: none;
+      padding: 13px 0;
+      text-transform: uppercase;
+      font-size: 14px;
+
+      &.alert-button-cancel {
+        color: #666;
+        background: #e8e8e8;
+
+        &:hover {
+          background: #d8d8d8;
+        }
+      }
+
+      &.alert-button-save {
+        color: #333;
+        background: #e8e8e8;
+
+        &:hover {
+          background: #d8d8d8;
+        }
+      }
+    }
+  }
+}
   
   

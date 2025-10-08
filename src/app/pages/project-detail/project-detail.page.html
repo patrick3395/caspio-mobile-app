@@ -217,7 +217,7 @@
           <tr class="support-doc-row service-row">
             <td class="service-header" colspan="2">
               {{ serviceDoc.serviceName }}
-              <span *ngIf="serviceDoc.instanceNumber > 0" class="instance-number">
+              <span *ngIf="hasMultipleDocumentInstances(serviceDoc.typeId)" class="instance-number">
                 #{{ serviceDoc.instanceNumber }}
               </span>
             </td>

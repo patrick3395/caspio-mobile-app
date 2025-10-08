@@ -943,6 +943,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     return this.selectedServices.filter(s => s.offersId === offersId).length;
   }
 
+  // Check if there are multiple instances of the same service type in documents
+  hasMultipleDocumentInstances(typeId: string): boolean {
+    return this.serviceDocuments.filter(sd => sd.typeId === typeId).length > 1;
+  }
+
   getServiceInstanceNumber(service: ServiceSelection): number {
     const sameTypeServices = this.selectedServices.filter(s => s.offersId === service.offersId);
     return sameTypeServices.findIndex(s => s.instanceId === service.instanceId) + 1;
@@ -1870,22 +1875,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   async promptForCustomDocument() {
     const alert = await this.alertController.create({
-      header: 'Custom Document',
-      message: 'Enter a name for your custom document',
+      header: 'Add Custom Document',
+      cssClass: 'custom-document-alert',
       inputs: [
         {
           name: 'documentName',
           type: 'text',
-          placeholder: 'e.g., Cubicasa, Floor Plan, etc.'
+          placeholder: 'Document Name'
         }
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
-          text: 'Add',
+          text: 'SAVE',
+          cssClass: 'alert-button-save',
           handler: (data) => {
             if (data.documentName && data.documentName.trim()) {
               this.addCustomDocument(data.documentName.trim());
