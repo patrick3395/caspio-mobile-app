@@ -1649,6 +1649,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await alert.present();
   }
   
+  // Ensure FDF photos structure exists for a room
+  private ensureFdfPhotosStructure(roomName: string): void {
+    if (!this.roomElevationData[roomName]) {
+      this.roomElevationData[roomName] = {};
+    }
+    if (!this.roomElevationData[roomName].fdfPhotos) {
+      this.roomElevationData[roomName].fdfPhotos = {};
+    }
+  }
+
+  // Get FDF photo caption with structure initialization
+  getFdfPhotoCaption(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold'): string {
+    this.ensureFdfPhotosStructure(roomName);
+    const photoKey = photoType.toLowerCase() + 'Caption';
+    return this.roomElevationData[roomName].fdfPhotos[photoKey] || '';
+  }
+
+  // Set FDF photo caption with structure initialization
+  setFdfPhotoCaption(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', value: string): void {
+    this.ensureFdfPhotosStructure(roomName);
+    const photoKey = photoType.toLowerCase() + 'Caption';
+    this.roomElevationData[roomName].fdfPhotos[photoKey] = value;
+  }
+
   // Calculate maximum elevation differential for a room
   getRoomMaxDifferential(roomName: string): number | null {
     const roomData = this.roomElevationData[roomName];

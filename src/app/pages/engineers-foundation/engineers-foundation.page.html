@@ -921,8 +921,9 @@
                         <input 
                           type="text" 
                           class="room-photo-caption" 
-                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.topCaption" 
-                          (blur)="saveFDFCaption(room.RoomName, 'Top', roomElevationData[room.RoomName]?.fdfPhotos?.topCaption || '')"
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Top')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Top', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Top', getFdfPhotoCaption(room.RoomName, 'Top'))"
                           (click)="$event.stopPropagation()"
                           placeholder="Caption"
                           maxlength="255">
@@ -953,8 +954,9 @@
                         <input 
                           type="text" 
                           class="room-photo-caption" 
-                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomCaption" 
-                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', roomElevationData[room.RoomName]?.fdfPhotos?.bottomCaption || '')"
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Bottom')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Bottom', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', getFdfPhotoCaption(room.RoomName, 'Bottom'))"
                           (click)="$event.stopPropagation()"
                           placeholder="Caption"
                           maxlength="255">
@@ -985,8 +987,9 @@
                         <input 
                           type="text" 
                           class="room-photo-caption" 
-                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdCaption" 
-                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', roomElevationData[room.RoomName]?.fdfPhotos?.thresholdCaption || '')"
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Threshold')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Threshold', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', getFdfPhotoCaption(room.RoomName, 'Threshold'))"
                           (click)="$event.stopPropagation()"
                           placeholder="Caption"
                           maxlength="255">
