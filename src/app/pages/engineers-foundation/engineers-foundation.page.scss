@@ -2527,11 +2527,15 @@ select[name="StructuralSystemsStatus"] {
     text-align: center !important;
   }
   
-  // Adjust caption width for smaller images
+  // Adjust caption width for smaller images - HIGH SPECIFICITY
+  .fdf-photos-container .room-photo-caption,
+  .elevation-points-container .room-photo-caption,
   .room-photo-caption {
-    width: 70px !important; // Match smaller image width
+    width: 70px !important; // Match smaller image width on mobile
     font-size: 10px !important; // Smaller caption text
     padding: 3px 4px !important;
+    max-width: 70px !important; // Prevent expansion
+    box-sizing: border-box !important; // Include padding in width
   }
 }
 
@@ -2589,10 +2593,15 @@ select[name="StructuralSystemsStatus"] {
     text-align: center !important;
   }
   
+  // Caption sizing for extra small screens - HIGH SPECIFICITY
+  .fdf-photos-container .room-photo-caption,
+  .elevation-points-container .room-photo-caption,
   .room-photo-caption {
-    width: 60px !important;
+    width: 60px !important; // Match 60px image width on small mobile
     font-size: 9px !important;
     padding: 2px 3px !important;
+    max-width: 60px !important; // Prevent expansion
+    box-sizing: border-box !important; // Include padding in width
   }
 }
 
@@ -2654,7 +2663,7 @@ select[name="StructuralSystemsStatus"] {
     
     // STANDARDIZED caption styling for ALL photo types (FDF and Measurement)
     .room-photo-caption {
-      width: 90px !important; // Match the 90px image width for ALL photo types
+      width: 90px !important; // Match the 90px image width for DESKTOP photo types
       padding: 4px 6px !important;
       font-size: 11px !important;
       text-align: center !important;
@@ -2684,6 +2693,40 @@ select[name="StructuralSystemsStatus"] {
         font-size: 10px !important;
       }
     }
+  }
+}
+
+// MOBILE CAPTION WIDTH OVERRIDES - Must be at end to override general rules
+// These rules MUST come after the general .room-photo-caption rules above
+@media (max-width: 768px) {
+  // FORCE mobile caption width to match 70px mobile images
+  .fdf-photos-container .room-photo-caption,
+  .elevation-points-container .room-photo-caption,
+  .elevation-point-card .room-photo-caption,
+  .room-card-content .room-photo-caption,
+  .room-photo-caption {
+    width: 70px !important; // Match 70px mobile image width
+    max-width: 70px !important; // Prevent expansion
+    min-width: 70px !important; // Prevent shrinking
+    font-size: 10px !important;
+    padding: 3px 4px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 480px) {
+  // FORCE small mobile caption width to match 60px mobile images  
+  .fdf-photos-container .room-photo-caption,
+  .elevation-points-container .room-photo-caption,
+  .elevation-point-card .room-photo-caption,
+  .room-card-content .room-photo-caption,
+  .room-photo-caption {
+    width: 60px !important; // Match 60px small mobile image width
+    max-width: 60px !important; // Prevent expansion
+    min-width: 60px !important; // Prevent shrinking
+    font-size: 9px !important;
+    padding: 2px 3px !important;
+    box-sizing: border-box !important;
   }
 }
 
