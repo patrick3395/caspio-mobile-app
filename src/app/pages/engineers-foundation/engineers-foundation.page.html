@@ -352,9 +352,9 @@
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
       <div class="section-header" data-section="structural" 
+           (click)="!isStructuralSystemsDisabled() && toggleSection('structural')"
            [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'">
         <div class="section-info"
-             (click)="!isStructuralSystemsDisabled() && toggleSection('structural')"
              style="flex: 1;"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <div class="section-title">
@@ -362,7 +362,10 @@
             Structural Systems
           </div>
           <!-- Structural Systems Status Dropdown - positioned as subtitle -->
-          <div class="structural-status-subtitle" (click)="$event.stopPropagation()">
+          <div class="structural-status-subtitle" 
+               (click)="$event.stopPropagation()"
+               (mousedown)="$event.stopPropagation()"
+               (touchstart)="$event.stopPropagation()">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
@@ -375,7 +378,6 @@
           </div>
         </div>
         <div class="section-toggle"
-             (click)="!isStructuralSystemsDisabled() && toggleSection('structural')"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
@@ -912,7 +914,6 @@
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              class="fdf-photo-image"
                              width="90" height="90"
-                             (click)="annotateFDFPhoto(room.RoomName, 'Top')"
                              alt="Top"
                              [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.topHasAnnotations">
                         <button class="delete-btn"
@@ -947,7 +948,6 @@
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              class="fdf-photo-image"
                              width="90" height="90"
-                             (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom"
                              [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomHasAnnotations">
                         <button class="delete-btn"
@@ -982,7 +982,6 @@
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              class="fdf-photo-image"
                              width="90" height="90"
-                             (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Threshold"
                              [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
                         <button class="delete-btn"

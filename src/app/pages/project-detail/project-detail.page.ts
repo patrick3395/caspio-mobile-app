@@ -1968,8 +1968,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
     this.isAddingLink = false;
-    
-    await this.showToast('Link added successfully', 'success');
   }
 
   async promptForCustomDocument() {
