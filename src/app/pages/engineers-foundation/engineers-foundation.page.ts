@@ -3490,6 +3490,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
   }
 
+  // PERFORMANCE FIX: Dedicated handler for Structural Systems header click
+  // Ensures header is clickable anywhere except the dropdown
+  onStructuralHeaderClick(event: Event): void {
+    // Don't toggle if disabled
+    if (this.isStructuralSystemsDisabled()) {
+      return;
+    }
+    
+    // Check if click came from the dropdown (shouldn't happen due to stopPropagation, but safety check)
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'SELECT' || target.closest('select') || target.closest('.structural-status-subtitle')) {
+      return; // Don't toggle if clicking on dropdown
+    }
+    
+    // Toggle the section
+    this.toggleSection('structural');
+  }
+
   // Show popup to enter custom "Other" value
   async showOtherInputPopup(fieldName: string, fieldLabel: string, previousValue?: string): Promise<void> {
     const alert = await this.alertController.create({

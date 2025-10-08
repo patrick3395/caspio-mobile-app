@@ -351,23 +351,26 @@
 
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
-      <div class="section-header" data-section="structural" (click)="isStructuralSystemsDisabled() ? null : toggleSection('structural')"
+      <div class="section-header" data-section="structural" 
+           (click)="onStructuralHeaderClick($event)"
            [style.cursor]="isStructuralSystemsDisabled() ? 'default' : 'pointer'">
         <div class="section-info"
-             style="flex: 1;"
+             style="flex: 1; pointer-events: none;"
              [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
           <div class="section-title">
             <ion-icon name="construct-outline"></ion-icon>
             Structural Systems
           </div>
           <!-- Structural Systems Status Dropdown - positioned as subtitle -->
-          <div class="structural-status-subtitle" (click)="$event.stopPropagation()">
+          <div class="structural-status-subtitle" style="pointer-events: auto;">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
                     class="structural-status-select"
                     [class.web-select]="platform.isWeb()"
-                    (click)="$event.stopPropagation()">
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                    (touchstart)="$event.stopPropagation()">
               <option value="">Select Status</option>
               <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>
               <option value="Completed Here">Completed Here</option>
@@ -375,7 +378,8 @@
           </div>
         </div>
         <div class="section-toggle"
-             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'">
+             [style.opacity]="isStructuralSystemsDisabled() ? '0.6' : '1'"
+             style="pointer-events: none;">
           <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
       </div>
