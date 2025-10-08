@@ -186,7 +186,7 @@
                       (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
                       required
                       class="styled-input">
-                <option value="">Select status</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
               </select>
             </div>

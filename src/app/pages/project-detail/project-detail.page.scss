@@ -587,6 +587,18 @@ ion-modal {
     
     .doc-info-cell {
       white-space: nowrap;
+      overflow: visible;
+      
+      // Mobile-only: Allow text to extend into actions column
+      @media (max-width: 768px) {
+        width: 85%;
+      }
+    }
+    
+    .doc-actions-cell {
+      @media (max-width: 768px) {
+        width: 15%;
+      }
     }
   }
 
