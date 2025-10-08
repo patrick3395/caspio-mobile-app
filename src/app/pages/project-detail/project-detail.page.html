@@ -60,20 +60,11 @@
     <div class="info-section">
       <h2 class="section-title">Project Information</h2>
 
-      <div class="info-row-compact">
-        <div class="info-item">
-          <span class="info-label">Company:</span>
-          <span class="info-value">{{ getCompanyName() }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Address:</span>
-          <span class="info-value">{{ project.Address || 'Not specified' }}</span>
-        </div>
-      </div>
-      
-      <div class="info-row">
-        <span class="info-label">City, State Zip:</span>
-        <span class="info-value">{{ getCityStateZip() }}</span>
+      <div class="info-row-single">
+        <span class="info-label">Company:</span>
+        <span class="info-value">{{ getCompanyName() }}</span>
+        <span class="info-label address-label">Address:</span>
+        <span class="info-value">{{ project.Address || 'Not specified' }}, {{ getCityStateZip() }}</span>
       </div>
     </div>
 
@@ -108,7 +99,12 @@
 
     <!-- Service Selection Section -->
     <div class="info-section">
-      <h2 class="section-title">Services</h2>
+      <div class="section-header-with-total">
+        <h2 class="section-title">Services</h2>
+        <div *ngIf="selectedServices.length > 0" class="header-total">
+          Total: ${{ calculateServicesTotal() | number:'1.2-2' }}
+        </div>
+      </div>
       
       <!-- Loading services -->
       <div *ngIf="loadingServices" class="services-loading">
@@ -126,8 +122,20 @@
             <div class="service-name">
               {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
             </div>
-            <div class="service-count" *ngIf="getServiceCount(offer.OffersID) > 0">
-              {{ getServiceCount(offer.OffersID) }}
+            <div class="service-controls-inline" *ngIf="isServiceSelected(offer.OffersID) && !isReadOnly">
+              <ion-button size="small" 
+                          fill="clear"
+                          (click)="removeOneServiceInstance(offer.OffersID, $event)"
+                          [disabled]="updatingServices || getServiceCount(offer.OffersID) <= 0">
+                <ion-icon name="remove-circle-outline"></ion-icon>
+              </ion-button>
+              <span class="count-display">{{ getServiceCount(offer.OffersID) }}</span>
+              <ion-button size="small" 
+                          fill="clear"
+                          (click)="duplicateService(offer.OffersID, offer.TypeName, $event)"
+                          [disabled]="updatingServices">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </ion-button>
             </div>
             <div class="service-toggle">
               <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
@@ -136,37 +144,9 @@
           
           <!-- Expanded details (only when selected) -->
           <div *ngIf="isServiceSelected(offer.OffersID)" class="service-details">
-            <!-- Add/Remove instance controls -->
-            <div class="service-controls" *ngIf="!isReadOnly">
-              <ion-button size="small" 
-                          fill="outline" 
-                          (click)="duplicateService(offer.OffersID, offer.TypeName)"
-                          [disabled]="updatingServices">
-                <ion-icon name="add" slot="icon-only"></ion-icon>
-              </ion-button>
-              <span class="control-label">Add Instance</span>
-            </div>
-            
             <!-- List of instances -->
             <div *ngFor="let service of getServiceInstances(offer.OffersID); let i = index" 
                  class="service-instance">
-              <div class="instance-header">
-                <span class="instance-label">
-                  Instance {{ i + 1 }}
-                  <span *ngIf="getServiceCount(offer.OffersID) > 1" class="instance-badge">
-                    #{{ i + 1 }}
-                  </span>
-                </span>
-                <ion-button size="small"
-                            fill="clear"
-                            style="--color: #F15A27;"
-                            (click)="removeServiceInstance(service)"
-                            [disabled]="updatingServices || isReadOnly"
-                            *ngIf="!isReadOnly">
-                  <ion-icon name="trash-outline"></ion-icon>
-                </ion-button>
-              </div>
-              
               <div class="instance-fields">
                 <div class="field-group">
                   <label>Inspection Date</label>
@@ -195,12 +175,6 @@
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Services Total -->
-      <div *ngIf="selectedServices.length > 0" class="services-total">
-        <span class="total-label">Total:</span>
-        <span class="total-amount">${{ calculateServicesTotal() | number:'1.2-2' }}</span>
       </div>
     </div>
 

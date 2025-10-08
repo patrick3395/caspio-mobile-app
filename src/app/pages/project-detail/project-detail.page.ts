@@ -882,13 +882,32 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  async duplicateService(offersId: string, typeName: string) {
+  async duplicateService(offersId: string, typeName: string, event?: Event) {
+    if (event) {
+      event.stopPropagation(); // Prevent row expansion toggle
+    }
     if (this.isReadOnly) {
       return;
     }
     const offer = this.availableOffers.find(o => o.OffersID === offersId);
     if (offer) {
       await this.addService(offer);
+    }
+  }
+
+  async removeOneServiceInstance(offersId: string, event?: Event) {
+    if (event) {
+      event.stopPropagation(); // Prevent row expansion toggle
+    }
+    if (this.isReadOnly) {
+      return;
+    }
+    
+    const services = this.selectedServices.filter(s => s.offersId === offersId);
+    if (services.length > 0) {
+      // Remove the last instance
+      const lastService = services[services.length - 1];
+      await this.removeServiceInstance(lastService);
     }
   }
 

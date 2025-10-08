@@ -52,6 +52,7 @@
           name="state"
           placeholder="-- Select --"
           interface="popover"
+          class="no-arrow"
           required>
           <ion-select-option [value]="null">-- Select --</ion-select-option>
           <ion-select-option *ngFor="let state of states" [value]="state.StateID">

@@ -164,6 +164,11 @@ input[type="date"] {
   appearance: none;
 }
 
+// Hide arrow on state select
+ion-select.no-arrow::part(icon) {
+  display: none;
+}
+
 // Responsive adjustments
 @media (max-width: 576px) {
   .form-section {

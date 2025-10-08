@@ -155,14 +155,17 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 .section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
 .section-title{margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
+.section-header-with-total{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;
+.section-title{margin:0;padding-bottom:10px;border-bottom:2px solid $orange;flex:1}
+.header-total{font-size:18px;font-weight:700;color:$orange;font-family:'Courier New',monospace;white-space:nowrap;margin-left:20px}}}
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;
 .info-label{font-weight:500;color:$gray;width:140px}
 .info-value{color:$dark;flex:1}}
-.info-row-compact{display:flex;gap:20px;padding:8px 0;
-.info-item{display:flex;flex:1;min-width:0;
-.info-label{font-weight:500;color:$gray;margin-right:8px;white-space:nowrap}
-.info-value{color:$dark;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}}}
+.info-row-single{display:flex;align-items:baseline;padding:8px 0;flex-wrap:wrap;gap:8px;
+.info-label{font-weight:500;color:$gray;white-space:nowrap;
+&.address-label{margin-left:12px}}
+.info-value{color:$dark}}}
 
 // Unified expandable services list
 .services-list {
@@ -202,18 +205,35 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
       color: $dark;
     }
     
-    .service-count {
+    .service-controls-inline {
       display: flex;
       align-items: center;
-      justify-content: center;
-      min-width: 28px;
-      height: 28px;
-      background: $orange;
-      color: white;
-      border-radius: 14px;
-      font-size: 13px;
-      font-weight: 600;
+      gap: 8px;
       margin-right: 12px;
+      
+      ion-button {
+        --padding-start: 4px;
+        --padding-end: 4px;
+        height: 32px;
+        width: 32px;
+        
+        ion-icon {
+          font-size: 24px;
+          color: $orange;
+        }
+        
+        &:disabled {
+          opacity: 0.4;
+        }
+      }
+      
+      .count-display {
+        font-size: 16px;
+        font-weight: 600;
+        color: $dark;
+        min-width: 24px;
+        text-align: center;
+      }
     }
     
     .service-toggle {
@@ -232,31 +252,6 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
     background: $light-gray;
     border-top: 1px solid $border;
     
-    .service-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid $border;
-      
-      ion-button {
-        --padding-start: 8px;
-        --padding-end: 8px;
-        height: 32px;
-        
-        ion-icon {
-          font-size: 20px;
-        }
-      }
-      
-      .control-label {
-        font-size: 14px;
-        color: $gray;
-        font-weight: 500;
-      }
-    }
-    
     .service-instance {
       background: $white;
       border: 1px solid $border;
@@ -266,43 +261,6 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
       
       &:last-child {
         margin-bottom: 0;
-      }
-      
-      .instance-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid $border;
-        
-        .instance-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: $dark;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          
-          .instance-badge {
-            background: rgba(var(--ion-color-primary-rgb, 241, 90, 39), 0.12);
-            color: var(--ion-color-primary, $orange);
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-left: 8px;
-          }
-        }
-        
-        ion-button {
-          --padding-start: 6px;
-          --padding-end: 6px;
-          height: 28px;
-          
-          ion-icon {
-            font-size: 18px;
-          }
-        }
       }
       
       .instance-fields {
@@ -365,31 +323,6 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
         }
       }
     }
-  }
-}
-
-// Services total (simplified)
-.services-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: $white;
-  border: 2px solid $orange;
-  border-radius: 8px;
-  margin-top: 16px;
-  
-  .total-label {
-    font-size: 16px;
-    font-weight: 600;
-    color: $dark;
-  }
-  
-  .total-amount {
-    font-size: 18px;
-    font-weight: 700;
-    color: $orange;
-    font-family: 'Courier New', monospace;
   }
 }
 
