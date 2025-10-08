@@ -1944,16 +1944,22 @@ select[name="StructuralSystemsStatus"] {
                     }
                     
                     .room-photo-caption {
-                      width: 90px; // Match the 90px image width for measurements area
-                      padding: 4px 6px; // More padding for better readability
-                      font-size: 11px; // Slightly larger font
-                      text-align: center;
-                      border: 1px solid #e0e0e0;
-                      border-top: none;
-                      border-radius: 0 0 8px 8px; // Match image border radius
-                      background: white;
-                      color: #666;
-                      transition: all 0.2s ease;
+                      width: 90px !important; // Match the 90px image width for ALL photo types
+                      padding: 4px 6px !important; // More padding for better readability
+                      font-size: 11px !important; // Slightly larger font
+                      text-align: center !important;
+                      border: 1px solid #e0e0e0 !important;
+                      border-top: none !important;
+                      border-radius: 0 0 8px 8px !important; // Match image border radius
+                      background: white !important;
+                      color: #666 !important;
+                      transition: all 0.2s ease !important;
+                      
+                      // STANDARDIZED positioning
+                      position: absolute !important;
+                      bottom: 0 !important;
+                      left: 0 !important;
+                      margin: 0 !important;
                       margin-top: -1px; // Seamless connection to image
                       
                       &:focus {
@@ -2272,8 +2278,8 @@ select[name="StructuralSystemsStatus"] {
             }
           }
           
-          // DIRECT, HIGH-SPECIFICITY FIX for FDF delete buttons  
-          // Target ALL possible FDF photo containers with maximum specificity
+          // STANDARDIZED photo containers for BOTH FDF and Measurement photos
+          // Target ALL possible photo containers with maximum specificity
           .fdf-photos-container .fdf-photo-preview.image-preview,
           .fdf-photos-container .image-preview,
           .elevation-points-container .fdf-photo-preview.image-preview,
@@ -2281,16 +2287,15 @@ select[name="StructuralSystemsStatus"] {
           .elevation-point-card .fdf-photo-preview.image-preview,
           .elevation-point-card .image-preview {
             
-            // FORCE container positioning
+            // STANDARDIZED container positioning - same for all photo types
             position: relative !important;
             width: 90px !important;
-            // REMOVED: height: 90px !important; // Allow container to expand for caption
-            min-height: 90px !important; // Minimum height for photo, but allow expansion for caption
+            min-height: 90px !important; // Minimum height for photo, allows expansion for caption
             display: inline-block !important;
             vertical-align: top !important;
             overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
             margin: 4px !important;
-            padding-bottom: 35px !important; // ADDED: Space for caption input field
+            padding-bottom: 35px !important; // CONSISTENT space for caption input field
             border-radius: 12px !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
             
@@ -2520,9 +2525,9 @@ select[name="StructuralSystemsStatus"] {
       }
     }
     
-    // Caption styling for measurement photos (90px width)
+    // STANDARDIZED caption styling for ALL photo types (FDF and Measurement)
     .room-photo-caption {
-      width: 90px !important; // Match the 90px measurement image width
+      width: 90px !important; // Match the 90px image width for ALL photo types
       padding: 4px 6px !important;
       font-size: 11px !important;
       text-align: center !important;
@@ -2532,6 +2537,12 @@ select[name="StructuralSystemsStatus"] {
       background: white !important;
       color: #666 !important;
       transition: all 0.2s ease !important;
+      
+      // CONSISTENT positioning for all caption types
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      margin: 0 !important;
       margin-top: -1px !important; // Seamless connection to image
       box-sizing: border-box !important;
       
