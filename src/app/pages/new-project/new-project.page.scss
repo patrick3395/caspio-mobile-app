@@ -52,6 +52,11 @@ ion-content {
       max-width: 100%;
       --placeholder-color: #999;
       --placeholder-opacity: 1;
+      color: #333;
+    }
+    
+    ion-select::part(text) {
+      color: #333;
     }
   }
 }

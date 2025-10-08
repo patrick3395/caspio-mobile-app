@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { ImageCompressionService } from '../../services/image-compression.service';
 import { EngineersFoundationDataService } from '../engineers-foundation/engineers-foundation-data.service';
+import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -224,7 +225,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
     private imageCompression: ImageCompressionService,
-    private foundationData: EngineersFoundationDataService
+    private foundationData: EngineersFoundationDataService,
+    public platform: PlatformDetectionService
   ) {}
 
   ngOnInit() {

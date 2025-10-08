@@ -155,9 +155,10 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 .section-header-with-button{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
 .section-title{margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
-.section-header-with-total{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;
-.section-title{margin:0;padding-bottom:10px;border-bottom:2px solid $orange;flex:1}
-.header-total{font-size:18px;font-weight:700;color:$orange;font-family:'Courier New',monospace;white-space:nowrap;margin-left:20px}}
+.section-header-with-total{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;
+.section-title{margin:0;padding-bottom:0;border-bottom:none;flex:1}
+.header-total{font-size:18px;font-weight:700;color:$dark;font-family:'Courier New',monospace;white-space:nowrap;margin-left:20px}}
+.section-divider{width:100%;height:2px;background:$orange;margin-bottom:15px;margin-top:10px}}
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;
 .info-label{font-weight:500;color:$gray;width:140px}
@@ -243,6 +244,28 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
         min-width: 24px;
         text-align: center;
       }
+      
+      // Mobile-only: Make controls smaller for more space
+      @media (max-width: 768px) {
+        gap: 4px;
+        margin-right: 8px;
+        
+        ion-button {
+          height: 24px;
+          width: 24px;
+          --padding-start: 2px;
+          --padding-end: 2px;
+          
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+        
+        .count-display {
+          font-size: 13px;
+          min-width: 18px;
+        }
+      }
     }
     
     .service-toggle {
@@ -322,6 +345,11 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
             font-weight: 600;
             color: $dark;
             font-family: 'Courier New', monospace;
+            
+            // Mobile-only: Center the price text
+            @media (max-width: 768px) {
+              text-align: center;
+            }
           }
           
           .saving-indicator, .saved-indicator {

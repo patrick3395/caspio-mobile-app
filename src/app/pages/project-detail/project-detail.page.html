@@ -60,7 +60,20 @@
     <div class="info-section">
       <h2 class="section-title">Project Information</h2>
 
-      <div class="info-row-single">
+      <!-- Mobile layout: Address on new line -->
+      <div *ngIf="!platform.isWeb()">
+        <div class="info-row">
+          <span class="info-label">Company:</span>
+          <span class="info-value">{{ getCompanyName() }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Address:</span>
+          <span class="info-value">{{ project.Address || 'Not specified' }}, {{ getCityStateZip() }}</span>
+        </div>
+      </div>
+
+      <!-- Web layout: All on one line -->
+      <div *ngIf="platform.isWeb()" class="info-row-single">
         <span class="info-label">Company:</span>
         <span class="info-value">{{ getCompanyName() }}</span>
         <span class="info-label address-label">Address:</span>
@@ -100,11 +113,12 @@
     <!-- Service Selection Section -->
     <div class="info-section">
       <div class="section-header-with-total">
-        <h2 class="section-title">Services</h2>
+        <h2 class="section-title">Services (Select to Add)</h2>
         <div *ngIf="selectedServices.length > 0" class="header-total">
-          Total: ${{ calculateServicesTotal() | number:'1.2-2' }}
+          ${{ calculateServicesTotal() | number:'1.2-2' }}
         </div>
       </div>
+      <div class="section-divider"></div>
       
       <!-- Loading services -->
       <div *ngIf="loadingServices" class="services-loading">
