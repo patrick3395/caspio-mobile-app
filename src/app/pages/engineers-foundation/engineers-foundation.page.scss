@@ -1944,16 +1944,17 @@ select[name="StructuralSystemsStatus"] {
                     }
                     
                     .room-photo-caption {
-                      width: 60px;
-                      padding: 2px 4px;
-                      font-size: 10px;
+                      width: 90px; // Match the 90px image width for measurements area
+                      padding: 4px 6px; // More padding for better readability
+                      font-size: 11px; // Slightly larger font
                       text-align: center;
                       border: 1px solid #e0e0e0;
                       border-top: none;
-                      border-radius: 0 0 3px 3px;
+                      border-radius: 0 0 8px 8px; // Match image border radius
                       background: white;
                       color: #666;
                       transition: all 0.2s ease;
+                      margin-top: -1px; // Seamless connection to image
                       
                       &:focus {
                         outline: none;
@@ -2461,7 +2462,7 @@ select[name="StructuralSystemsStatus"] {
   }
 }
 
-// Clean delete buttons for FDF photos - subtle and professional
+// Clean delete buttons and captions for FDF photos - subtle and professional
 .fdf-photos-container,
 .elevation-points-container {
   
@@ -2514,6 +2515,33 @@ select[name="StructuralSystemsStatus"] {
       
       &:active {
         transform: scale(1.0) !important;
+      }
+    }
+    
+    // Caption styling for measurement photos (90px width)
+    .room-photo-caption {
+      width: 90px !important; // Match the 90px measurement image width
+      padding: 4px 6px !important;
+      font-size: 11px !important;
+      text-align: center !important;
+      border: 1px solid #e0e0e0 !important;
+      border-top: none !important;
+      border-radius: 0 0 8px 8px !important; // Match image border radius
+      background: white !important;
+      color: #666 !important;
+      transition: all 0.2s ease !important;
+      margin-top: -1px !important; // Seamless connection to image
+      box-sizing: border-box !important;
+      
+      &:focus {
+        outline: none !important;
+        border-color: var(--noble-orange) !important;
+        background: #fffbf8 !important;
+      }
+      
+      &::placeholder {
+        color: #ccc !important;
+        font-size: 10px !important;
       }
     }
   }

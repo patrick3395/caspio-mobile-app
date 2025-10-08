@@ -917,6 +917,15 @@
                                 title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
+                        <!-- Caption text underneath FDF Top photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.topCaption" 
+                          (blur)="saveFDFCaption(room.RoomName, 'Top', roomElevationData[room.RoomName]?.fdfPhotos?.topCaption || '')"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
                       </div>
                     </div>
                     
@@ -940,6 +949,15 @@
                                 title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
+                        <!-- Caption text underneath FDF Bottom photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomCaption" 
+                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', roomElevationData[room.RoomName]?.fdfPhotos?.bottomCaption || '')"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
                       </div>
                     </div>
                     
@@ -963,6 +981,15 @@
                                 title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
+                        <!-- Caption text underneath FDF Threshold photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [(ngModel)]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdCaption" 
+                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', roomElevationData[room.RoomName]?.fdfPhotos?.thresholdCaption || '')"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
                       </div>
                     </div>
                   </div>
@@ -1013,6 +1040,15 @@
                                     title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
+                            <!-- Caption text underneath photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption" 
+                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
                           </div>
                         </div>
                         
@@ -1036,6 +1072,15 @@
                                     title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
+                            <!-- Caption text underneath photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption" 
+                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
                           </div>
                         </div>
                       </div>

@@ -347,17 +347,17 @@
     </ion-header>
     <ion-content>
       <ion-list>
+        <ion-item-divider>
+          <ion-label>Suggested Documents</ion-label>
+        </ion-item-divider>
+
         <!-- Custom document option -->
         <ion-item button (click)="promptForCustomDocument()">
           <ion-label>
             <h2>Custom Document</h2>
-            <p>Add a custom document with your own name</p>
+            <p>Optional</p>
           </ion-label>
         </ion-item>
-
-        <ion-item-divider>
-          <ion-label>Suggested Documents</ion-label>
-        </ion-item-divider>
 
         <ion-item *ngFor="let doc of optionalDocumentsList" (click)="addOptionalDocument(doc)">
           <ion-label>

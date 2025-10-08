@@ -802,6 +802,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
                     fdfPhotos.topPath = room.FDFPhotoTop;
+                    // Load caption and drawings from new fields (following measurement photo pattern)
+                    fdfPhotos.topCaption = room.FDFTopAnnotation || '';
+                    fdfPhotos.topDrawings = room.FDFTopDrawings || null;
 
                     try {
                       // Fetch the image as base64 data URL
@@ -823,6 +826,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (room.FDFPhotoBottom) {
                     fdfPhotos.bottom = true;
                     fdfPhotos.bottomPath = room.FDFPhotoBottom;
+                    // Load caption and drawings from new fields (following measurement photo pattern)
+                    fdfPhotos.bottomCaption = room.FDFBottomAnnotation || '';
+                    fdfPhotos.bottomDrawings = room.FDFBottomDrawings || null;
 
                     try {
                       const imageData = await this.foundationData.getImage(room.FDFPhotoBottom);
@@ -841,6 +847,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (room.FDFPhotoThreshold) {
                     fdfPhotos.threshold = true;
                     fdfPhotos.thresholdPath = room.FDFPhotoThreshold;
+                    // Load caption and drawings from new fields (following measurement photo pattern)
+                    fdfPhotos.thresholdCaption = room.FDFThresholdAnnotation || '';
+                    fdfPhotos.thresholdDrawings = room.FDFThresholdDrawings || null;
 
                     try {
                       const imageData = await this.foundationData.getImage(room.FDFPhotoThreshold);
@@ -1293,6 +1302,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const photoKey = photoType.toLowerCase();
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`] = filePath;
+      
+      // Initialize caption and drawings fields for new photos (following measurement photo pattern)
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
 
       // First, create a blob URL from the compressed file for immediate display
       const blobUrl = URL.createObjectURL(compressedFile);
@@ -1436,13 +1449,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const roomData = this.roomElevationData[roomName];
       const fdfPhotos = roomData?.fdfPhotos || {};
 
-      // Get any existing annotations for this FDF photo
+      // Get any existing annotations from the local drawings data (following measurement photo pattern)
       let existingAnnotations = null;
-      const annotationField = `${photoKey}Annotations`;
-      if (fdfPhotos[annotationField]) {
+      const drawingsData = fdfPhotos[`${photoKey}Drawings`];
+      
+      if (drawingsData) {
         try {
-          existingAnnotations = decompressAnnotationData(fdfPhotos[annotationField]);
+          existingAnnotations = decompressAnnotationData(drawingsData);
         } catch (e) {
+          console.error('Failed to decompress existing FDF annotations:', e);
         }
       }
 
@@ -1471,10 +1486,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Get annotation data
         let annotationsData = data.annotationData || data.annotationsData;
 
-        // Store annotations in local data
+        // Store annotations in local data (following measurement photo pattern)
         if (annotationsData) {
           const compressedAnnotations = compressAnnotationData(annotationsData);
-          fdfPhotos[annotationField] = compressedAnnotations;
+          const drawingsField = `${photoKey}Drawings`;
+          fdfPhotos[drawingsField] = compressedAnnotations; // Store in local drawings field
         }
 
         // Update the FDF photo in Services_Rooms table
@@ -1487,14 +1503,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Compress annotations before saving
             const compressedAnnotations = annotationsData ? compressAnnotationData(annotationsData) : null;
 
-            // Update database with photo and annotations
+            // Update database with photo and annotations (following measurement photo pattern)
             const updateData: any = {};
+            const drawingsColumnName = `FDFPhoto${photoType}Drawings`;
+            
+            // Save annotation graphics to Drawings field (like measurement photos)
             if (compressedAnnotations) {
-              updateData[annotationColumnName] = compressedAnnotations;
+              updateData[drawingsColumnName] = compressedAnnotations;
             }
 
-            const query = `RoomID=${roomId}`;
-            await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+            // Use the new updateServicesRoomByRoomId method
+            await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
             await this.showToast('Annotation saved', 'success');
           } catch (error) {
             console.error('Error saving FDF annotation:', error);
@@ -1527,20 +1546,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             try {
               const roomId = this.roomRecordIds[roomName];
               if (roomId) {
-                // Clear the photo column in Services_Rooms
+                // Clear the photo, annotation, and drawings columns in Services_Rooms (following measurement photo pattern)
                 const columnName = `FDFPhoto${photoType}`;
-                const updateData: any = {};
-                updateData[columnName] = null;
+                const annotationColumnName = `FDFPhoto${photoType}Annotation`;
+                const drawingsColumnName = `FDFPhoto${photoType}Drawings`;
                 
-                const query = `RoomID=${roomId}`;
-                await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+                const updateData: any = {};
+                updateData[columnName] = null; // Clear photo path
+                updateData[annotationColumnName] = null; // Clear caption
+                updateData[drawingsColumnName] = null; // Clear annotation graphics
+                
+                await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
               }
               
-              // Clear from local state
+              // Clear from local state (including caption, path, and drawings)
               const photoKey = photoType.toLowerCase();
               if (this.roomElevationData[roomName]?.fdfPhotos) {
                 delete this.roomElevationData[roomName].fdfPhotos[photoKey];
+                delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`];
                 delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+                delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`]; // Clear caption
+                delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`]; // Clear drawings
               }
 
               // No success toast - silent delete
@@ -8165,9 +8191,55 @@ Stack: ${error?.stack}`;
       await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
       
       // Success toast removed per user request
-      
     } catch (error) {
       console.error('Error saving caption:', error);
+    }
+  }
+  
+  // Save caption for room point photos (Location/Measurement in Elevation Plot)
+  async saveRoomPointCaption(photo: any, roomName: string, point: any) {
+    try {
+      // Only save if there's an AttachID
+      if (!photo || !photo.attachId) {
+        console.warn('No AttachID for room point photo, cannot save caption');
+        return;
+      }
+
+      // Update the Services_Rooms_Points_Attach record with the new caption
+      const updateData = {
+        Annotation: photo.caption || ''  // Save caption or empty string
+      };
+
+      await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+      
+      console.log(`Caption saved for ${roomName} - ${point.name}: "${photo.caption}"`);
+      
+    } catch (error) {
+      console.error('Error saving room point caption:', error);
+      await this.showToast('Failed to save caption', 'danger');
+    }
+  }
+  
+  // Save caption for FDF photos (Top, Bottom, Threshold in Elevation Plot)
+  async saveFDFCaption(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', caption: string) {
+    try {
+      const roomId = this.roomRecordIds[roomName];
+      if (!roomId) {
+        console.warn('No RoomID for FDF photo, cannot save caption');
+        return;
+      }
+
+      // Use the specific annotation field for this FDF photo type
+      const annotationColumnName = `FDFPhoto${photoType}Annotation`;
+      const updateData: any = {};
+      updateData[annotationColumnName] = caption || '';  // Save caption or empty string
+
+      await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
+      
+      console.log(`FDF ${photoType} caption saved for ${roomName}: "${caption}"`);
+      
+    } catch (error) {
+      console.error('Error saving FDF caption:', error);
       await this.showToast('Failed to save caption', 'danger');
     }
   }
@@ -9071,11 +9143,11 @@ Stack: ${error?.stack}`;
             const roomRecord = roomRecords[0];
             const fdfPhotosData: any = {};
 
-            // Process each FDF photo type
+            // Process each FDF photo type with new annotation fields
             const fdfPhotoTypes = [
-              { field: 'FDFPhotoTop', key: 'top' },
-              { field: 'FDFPhotoBottom', key: 'bottom' },
-              { field: 'FDFPhotoThreshold', key: 'threshold' }
+              { field: 'FDFPhotoTop', key: 'top', annotationField: 'FDFTopAnnotation', drawingsField: 'FDFTopDrawings' },
+              { field: 'FDFPhotoBottom', key: 'bottom', annotationField: 'FDFBottomAnnotation', drawingsField: 'FDFBottomDrawings' },
+              { field: 'FDFPhotoThreshold', key: 'threshold', annotationField: 'FDFThresholdAnnotation', drawingsField: 'FDFThresholdDrawings' }
             ];
             
             for (const photoType of fdfPhotoTypes) {
@@ -9090,6 +9162,9 @@ Stack: ${error?.stack}`;
                     if (base64Data && base64Data.startsWith('data:')) {
                       fdfPhotosData[photoType.key] = true;
                       fdfPhotosData[`${photoType.key}Url`] = base64Data;
+                      // Load caption and drawings from new fields (following measurement photo pattern)
+                      fdfPhotosData[`${photoType.key}Caption`] = roomRecord[photoType.annotationField] || '';
+                      fdfPhotosData[`${photoType.key}Drawings`] = roomRecord[photoType.drawingsField] || null;
                     } else {
                       console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
                     }
@@ -9101,6 +9176,9 @@ Stack: ${error?.stack}`;
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+                    // Load caption and drawings even in fallback case
+                    fdfPhotosData[`${photoType.key}Caption`] = roomRecord[photoType.annotationField] || '';
+                    fdfPhotosData[`${photoType.key}Drawings`] = roomRecord[photoType.drawingsField] || null;
                   }
                 } else {
                 }

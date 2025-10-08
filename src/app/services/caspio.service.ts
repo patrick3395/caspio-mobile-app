@@ -559,6 +559,20 @@ export class CaspioService {
     return this.put<any>(`/tables/Services_Rooms/records?q.where=PK_ID=${roomId}`, data);
   }
   
+  // Update Services_Rooms record by RoomID (for FDF annotations/drawings)
+  updateServicesRoomByRoomId(roomId: string, data: any): Observable<any> {
+    const url = `/tables/Services_Rooms/records?q.where=RoomID=${roomId}`;
+    return this.put<any>(url, data).pipe(
+      tap(response => {
+        console.log('Services_Rooms updated:', response);
+      }),
+      catchError(error => {
+        console.error('Failed to update Services_Rooms record:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+  
   // Get Services_Rooms_Drop for dropdown options
   getServicesRoomsDrop(): Observable<any[]> {
     return this.get<any>('/tables/Services_Rooms_Drop/records').pipe(

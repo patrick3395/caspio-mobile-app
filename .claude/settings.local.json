@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm start)",
+      "Read(//mnt/c/Users/Owner/Downloads/**)",
+      "Bash(npm run build:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(wait)",
+      "Bash(pkill:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:prod:*)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(awk:*)",
+      "Bash(for comp in document-viewer fabric-photo-annotator help-modal pdf-viewer-modal photo-annotator photo-viewer)",
+      "Bash(do echo \"=== $comp ===\")",
+      "Bash(ls:*)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
