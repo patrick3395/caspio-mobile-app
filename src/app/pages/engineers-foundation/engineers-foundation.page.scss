@@ -3,6 +3,42 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+// PERFORMANCE OPTIMIZATION: Hardware-accelerated transitions for smooth section toggles
+.section-card {
+  transform: translateZ(0); // Hardware acceleration
+  backface-visibility: hidden; // Prevent flickering
+  will-change: auto; // Let browser optimize
+}
+
+.section-content {
+  transform: translateZ(0); // Hardware acceleration
+  will-change: auto; // Browser optimization
+}
+
+// PERFORMANCE: Targeted faster transitions to reduce lag on key elements
+.section-header,
+.section-card,
+.checkbox-item,
+.fdf-photo-button,
+.image-preview {
+  transition-duration: 0.15s !important; // Reduce from 0.2s/0.3s for snappier feel
+  transition-timing-function: ease-out !important; // Smoother easing
+}
+
+// CRITICAL: Optimize accordion transitions specifically
+ion-accordion {
+  --transition: 0.15s ease-out; // Faster accordion animation
+}
+
+// PERFORMANCE: Hardware accelerate heavy elements
+.categories-container,
+.room-elevations-container,
+.image-preview-container {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout style paint; // CSS containment for better performance
+}
+
 ion-toolbar.template-toolbar {
   --padding-start: max(12px, calc((100vw - 1400px) / 2 + 12px));
   --padding-end: max(12px, calc((100vw - 1400px) / 2 + 12px));

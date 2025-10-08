@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController, LoadingController, AlertController } from '@ionic/angular';
@@ -145,7 +145,8 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private toastController: ToastController,
     private loadingController: LoadingController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private cdr: ChangeDetectorRef
   ) {
     // Initialize auto-save with 1 second debounce (same as local server)
     this.autoSaveSubject.pipe(
@@ -357,17 +358,36 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
 
   toggleSubsection(subsectionName: string) {
-    this.expandedSubsections[subsectionName] = !this.expandedSubsections[subsectionName];
+    // PERFORMANCE OPTIMIZATION: Use immutable update for better change detection
+    this.expandedSubsections = {
+      ...this.expandedSubsections,
+      [subsectionName]: !this.expandedSubsections[subsectionName]
+    };
+    
+    // PERFORMANCE: Use RAF for smooth toggle animation
+    requestAnimationFrame(() => {
+      this.cdr?.detectChanges?.();
+    });
   }
 
   goToSection(sectionNum: number) {
-    // Collapse all sections
-    Object.keys(this.expandedSections).forEach(key => {
-      this.expandedSections[parseInt(key)] = false;
-    });
-    // Expand selected section
-    this.expandedSections[sectionNum] = true;
+    // PERFORMANCE OPTIMIZATION: Only change if actually different
+    if (this.currentSection === sectionNum && this.expandedSections[sectionNum]) {
+      return; // Already at this section, no work needed
+    }
+    
+    // OPTIMIZED: Create new object instead of iterating (better for change detection)
+    const newExpandedSections: { [key: number]: boolean } = {};
+    newExpandedSections[sectionNum] = true;
+    
+    this.expandedSections = newExpandedSections;
     this.currentSection = sectionNum;
+    
+    // PERFORMANCE: Use RAF for smooth section transition
+    requestAnimationFrame(() => {
+      // Trigger minimal change detection
+      this.cdr?.detectChanges?.();
+    });
   }
 
   getGeneralCompletion(): number {

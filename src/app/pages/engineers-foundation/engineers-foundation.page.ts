@@ -3074,6 +3074,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Automatically expand the elevation section to show the new room
       this.expandedSections['elevation'] = true;
+      this.markSpacerHeightDirty();
       
       // Automatically select the room (create Services_Rooms record)
       this.savingRooms[roomName] = true;
@@ -3465,7 +3466,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   toggleSection(section: string) {
-    this.expandedSections[section] = !this.expandedSections[section];
+    // PERFORMANCE OPTIMIZATION: Use OnPush-compatible state management
+    this.expandedSections = {
+      ...this.expandedSections,
+      [section]: !this.expandedSections[section]
+    };
+    
+    // PERFORMANCE: Mark cached values as dirty when sections change
+    this.markSpacerHeightDirty();
+    
+    // CRITICAL: Detach change detection during DOM-heavy operations to prevent lag
+    this.changeDetectorRef.detach();
+    
+    // Use RAF to ensure smooth animation and re-attach change detection
+    requestAnimationFrame(() => {
+      this.changeDetectorRef.reattach();
+      this.changeDetectorRef.detectChanges();
+    });
   }
 
   // Check if Structural Systems section should be disabled
@@ -3674,6 +3691,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // If set to "Provided in Home Inspection Report", collapse the section
     if (value === 'Provided in Home Inspection Report') {
       this.expandedSections['structural'] = false;
+      this.markSpacerHeightDirty();
     }
 
     // Save to Services table using the correct database column name "StructStat"
@@ -3760,173 +3778,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Optionally collapse the section after scrolling
       setTimeout(() => {
         this.expandedSections[section] = false;
+        this.markSpacerHeightDirty();
       }, 500);
     }
   }
   
+  // PERFORMANCE OPTIMIZED: Cache spacer height to avoid repeated calculations
+  private cachedSpacerHeight: number = 20;
+  private spacerHeightDirty: boolean = true;
+  
   getBottomSpacerHeight(): number {
-    // Check if any section is expanded
+    // OPTIMIZATION: Only recalculate when sections change
+    if (!this.spacerHeightDirty) {
+      return this.cachedSpacerHeight;
+    }
+    
+    // Quick check without complex operations
     const hasExpandedSection = Object.values(this.expandedSections).some(expanded => expanded);
     
-    if (!hasExpandedSection) {
-      // If no sections are expanded, minimal spacing
-      return 20;
-    }
+    // SIMPLIFIED: Static spacing based on expanded state
+    // Removed complex DOM queries and loops for performance
+    this.cachedSpacerHeight = hasExpandedSection ? 50 : 20;
+    this.spacerHeightDirty = false;
     
-    // Check which section is last expanded
-    const sectionOrder = ['project', 'grading', 'structural', 'elevationPlot'];
-    let lastExpandedSection = '';
-    
-    for (let i = sectionOrder.length - 1; i >= 0; i--) {
-      if (this.expandedSections[sectionOrder[i]]) {
-        lastExpandedSection = sectionOrder[i];
-        break;
-      }
-    }
-    
-    // Adjust spacing based on the last expanded section
-    switch (lastExpandedSection) {
-      case 'elevationPlot':
-        // Elevation plot has Add Room button with its own margin
-        return 20;
-      case 'structural':
-      case 'grading':
-      case 'project':
-        // Regular sections need more spacing
-        return 50;
-      default:
-        return 30;
-    }
+    return this.cachedSpacerHeight;
+  }
+  
+  // PERFORMANCE: Mark spacer height as dirty when sections change
+  private markSpacerHeightDirty(): void {
+    this.spacerHeightDirty = true;
   }
 
+  // PERFORMANCE OPTIMIZED: Throttled scroll to section with minimal DOM queries
+  private scrollThrottleTimeout: any = null;
+  
   scrollToCurrentSectionTop() {
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const viewportTop = scrollTop;
-    const viewportMiddle = scrollTop + (window.innerHeight / 2);
-    
-    // First check if we're in an expanded accordion item (category within Structural Systems)
-    if (this.expandedSections['structural'] && this.expandedAccordions.length > 0) {
-      // Get all accordions in the structural section
-      const allAccordions = Array.from(document.querySelectorAll('.categories-container ion-accordion'));
-      
-      // Find which expanded accordion we're currently viewing
-      let closestAccordion: HTMLElement | null = null;
-      let closestDistance = Infinity;
-      let foundMatch = false;
-      
-      for (const accordion of allAccordions) {
-        const accordionValue = accordion.getAttribute('value');
-        
-        // Only check expanded accordions
-        if (this.expandedAccordions.includes(accordionValue || '')) {
-          const accordionHeader = accordion.querySelector('ion-item[slot="header"]') as HTMLElement;
-          const accordionContent = accordion.querySelector('.categories-content') as HTMLElement;
-          
-          if (accordionHeader) {
-            const headerRect = accordionHeader.getBoundingClientRect();
-            const accordionTop = headerRect.top + scrollTop;
-            
-            // Try to get actual content height
-            let contentHeight = 0;
-            if (accordionContent && accordionContent.offsetHeight > 0) {
-              contentHeight = accordionContent.offsetHeight;
-            } else {
-              // Fallback: look for any content within the accordion
-              const anyContent = accordion.querySelector('[slot="content"]') as HTMLElement;
-              if (anyContent && anyContent.offsetHeight > 0) {
-                contentHeight = anyContent.offsetHeight;
-              }
-            }
-            
-            const accordionBottom = accordionTop + headerRect.height + contentHeight;
-            
-            // Check if we're viewing this accordion (viewport middle is within accordion bounds)
-            if (viewportMiddle >= accordionTop && viewportMiddle <= accordionBottom) {
-              accordionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              foundMatch = true;
-              return;
-            }
-            
-            // Track closest accordion as fallback
-            const distance = Math.abs(accordionTop - viewportTop);
-            if (distance < closestDistance) {
-              closestDistance = distance;
-              closestAccordion = accordionHeader;
-            }
-          }
-        }
-      }
-      
-      // If we found a close accordion, scroll to it
-      if (!foundMatch && closestAccordion) {
-        closestAccordion.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
-      }
+    // CRITICAL: Throttle scroll operations to prevent excessive calls
+    if (this.scrollThrottleTimeout) {
+      clearTimeout(this.scrollThrottleTimeout);
     }
     
-    // Check if we're in an expanded room (within Elevation Plot)
-    if (this.expandedSections['elevation']) {
-      const roomAccordions = Array.from(document.querySelectorAll('.room-elevations-container ion-accordion'));
-      
-      for (let i = 0; i < roomAccordions.length; i++) {
-        const roomAccordion = roomAccordions[i] as HTMLElement;
-        const roomHeader = roomAccordion.querySelector('ion-item[slot="header"]') as HTMLElement;
-        const roomContent = roomAccordion.querySelector('.elevation-content') as HTMLElement;
-        
-        // Check if room is expanded by checking if content has height
-        if (roomHeader && roomContent && roomContent.offsetHeight > 0) {
-          const rect = roomHeader.getBoundingClientRect();
-          const roomTop = rect.top + scrollTop;
-          
-          // Find next boundary
-          let roomBottom = document.documentElement.scrollHeight;
-          if (i < roomAccordions.length - 1) {
-            const nextRoom = roomAccordions[i + 1] as HTMLElement;
-            const nextRect = nextRoom.getBoundingClientRect();
-            roomBottom = nextRect.top + scrollTop;
-          }
-          
-          // Check if we're within this room's bounds
-          if (viewportMiddle >= roomTop && viewportMiddle < roomBottom) {
-            // Scroll to the room header
-            roomHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            return;
-          }
-        }
-      }
-    }
-    
-    // Otherwise, check main sections
-    const sections = ['project', 'structural', 'elevation'];
-    for (const section of sections) {
-      const sectionHeader = document.querySelector(`.section-header[data-section="${section}"]`) as HTMLElement;
-      
-      if (sectionHeader) {
-        const rect = sectionHeader.getBoundingClientRect();
-        const sectionTop = rect.top + scrollTop;
-        const nextSection = sections[sections.indexOf(section) + 1];
-        let sectionBottom = document.documentElement.scrollHeight;
-        
-        if (nextSection) {
-          const nextHeader = document.querySelector(`.section-header[data-section="${nextSection}"]`) as HTMLElement;
-          if (nextHeader) {
-            const nextRect = nextHeader.getBoundingClientRect();
-            sectionBottom = nextRect.top + scrollTop;
-          }
-        }
-        
-        // Check if we're within this section's bounds
-        if (viewportMiddle >= sectionTop && viewportMiddle < sectionBottom) {
-          // Scroll to this section's header
-          sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return;
-        }
-      }
-    }
-    
-    // If no section found, scroll to top of page
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    this.scrollThrottleTimeout = setTimeout(() => {
+      this.performOptimizedScroll();
+    }, 100); // Throttle to 100ms max frequency
   }
+  
+  private performOptimizedScroll() {
+    // SIMPLIFIED: Removed heavy DOM calculations for performance
+    // Just scroll to the first expanded section without complex position calculations
+    const expandedSection = Object.keys(this.expandedSections).find(key => this.expandedSections[key]);
+    
+    if (expandedSection) {
+      const sectionElement = document.querySelector(`[data-section="${expandedSection}"]`);
+      if (sectionElement) {
+        sectionElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    } else {
+      // No sections expanded, scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+  
   
   // TrackBy functions for better list performance
   trackByCategory(index: number, item: any): any {
@@ -3941,25 +3857,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return item.RoomName || index;
   }
   
-  // Track which accordions are expanded
+  // PERFORMANCE OPTIMIZED: Track which accordions are expanded
   onAccordionChange(event: any) {
-
-    // Lock scroll position to prevent jumping when accordion opens
+    // OPTIMIZATION: Reduce scroll manipulation frequency
     const currentScrollY = window.scrollY;
+    let needsScrollRestore = false;
 
-    if (event.detail.value) {
-      // Store the expanded accordion value
-      this.expandedAccordions = Array.isArray(event.detail.value)
-        ? event.detail.value
-        : [event.detail.value];
-    } else {
-      this.expandedAccordions = [];
+    // Check if the accordion state actually changed to avoid unnecessary operations
+    const newValue = event.detail.value;
+    const newExpandedAccordions = newValue
+      ? (Array.isArray(newValue) ? newValue : [newValue])
+      : [];
+
+    // Only proceed if there's an actual change
+    if (JSON.stringify(this.expandedAccordions.sort()) !== JSON.stringify(newExpandedAccordions.sort())) {
+      this.expandedAccordions = newExpandedAccordions;
+      needsScrollRestore = true;
+      this.markSpacerHeightDirty(); // Mark cache as dirty
     }
 
-    // Restore scroll position after accordion DOM updates
-    setTimeout(() => {
-      window.scrollTo(0, currentScrollY);
-    }, 10);
+    // OPTIMIZATION: Only restore scroll if there was actually a change
+    if (needsScrollRestore) {
+      // Use RAF for smoother scroll restoration
+      requestAnimationFrame(() => {
+        if (Math.abs(window.scrollY - currentScrollY) > 5) { // Only restore if scroll changed significantly
+          window.scrollTo(0, currentScrollY);
+        }
+      });
+    }
   }
   
   onRoomAccordionChange(event: any) {
