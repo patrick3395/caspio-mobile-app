@@ -1484,16 +1484,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
+      // Get existing caption for this FDF photo
+      const existingCaption = this.getFdfPhotoCaption(roomName, photoType);
+      console.log(`[FDF DEBUG] Existing caption for ${photoType}:`, existingCaption);
+
       // Open annotation modal
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: viewableUrl,
           existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption || '', // CRITICAL: Pass existing caption to photo editor
           photoData: {
             name: `FDF ${photoType} - ${roomName}`,
             roomName: roomName,
-            photoType: photoType
+            photoType: photoType,
+            caption: existingCaption || '' // Also include in photoData
           },
           isReEdit: !!existingAnnotations
         },
@@ -4340,16 +4346,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
+      // Get existing caption from photo object
+      const existingCaption = photo.caption || photo.Annotation || '';
+      console.log(`[MEASUREMENT DEBUG] Existing caption:`, existingCaption);
+
       // Open annotation modal directly (matching Structural Systems)
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: originalImageUrl,
           existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption, // CRITICAL: Pass existing caption to photo editor
           photoData: {
             ...photo,
             AttachID: attachId,
-            id: attachId
+            id: attachId,
+            caption: existingCaption // Ensure caption is in photoData
           }
         },
         cssClass: 'fullscreen-modal'
@@ -8112,6 +8124,10 @@ Stack: ${error?.stack}`;
       // Save scroll position before opening modal
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
+      // Get existing caption from photo object
+      const existingCaption = photo.caption || photo.Annotation || '';
+      console.log(`[STRUCTURAL DEBUG] Existing caption:`, existingCaption);
+
       // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
@@ -8119,10 +8135,12 @@ Stack: ${error?.stack}`;
           imageUrl: originalImageUrl,  // Always use original, not display URL
           // v1.4.345: Pass properly decompressed annotations
           existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption, // CRITICAL: Pass existing caption to photo editor
           photoData: {
             ...photo,
             AttachID: attachId,
             id: attachId,
+            caption: existingCaption, // Ensure caption is available
             rawDrawingsString: photo.rawDrawingsString // v1.4.341: Pass the raw string
           },
           isReEdit: !!existingAnnotations  // Flag to indicate we're re-editing
