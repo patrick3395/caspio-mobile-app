@@ -200,11 +200,15 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
     }
     
     &.selected {
-      background: rgba(var(--ion-color-primary-rgb, 241, 90, 39), 0.05);
+      background: $white;
       border-bottom: 1px solid $border;
       
       .service-toggle {
         display: none;
+      }
+      
+      .service-name {
+        font-weight: 700;
       }
     }
     
@@ -580,6 +584,10 @@ ion-modal {
   .support-doc-row.add-row {
     background: $white;
     border-top: 1px solid $border;
+    
+    .doc-info-cell {
+      white-space: nowrap;
+    }
   }
 
   .add-doc-link {
@@ -587,6 +595,7 @@ ion-modal {
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    display: inline-block;
   }
 
   .add-doc-link.disabled {
@@ -597,8 +606,9 @@ ion-modal {
 
   .add-link-separator {
     color: #999;
-    margin: 0 8px;
+    margin: 0 6px;
     font-weight: 400;
+    display: inline-block;
   }
 
   .add-doc-actions {
@@ -779,7 +789,12 @@ ion-modal {
 .template-name{font-size:16px;font-weight:600;color:$dark;display:flex;align-items:flex-start;gap:8px;
 .report-icon{width:20px;height:20px;object-fit:contain;flex-shrink:0;margin-top:1px;}
 .service-title{flex:1;min-width:0;word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;}
-.template-instance{font-weight:400;color:$gray;font-size:14px;white-space:nowrap;flex-shrink:0;margin-left:4px}}
+.template-instance{font-weight:400;color:$gray;font-size:14px;white-space:nowrap;flex-shrink:0;margin-left:4px}
+// Mobile-only: Center icon vertically
+@media (max-width: 768px) {
+  align-items:center;
+  .report-icon{margin-top:0;}
+}}
 
 .template-status{display:flex;align-items:center;gap:20px;
 .template-percentage{
