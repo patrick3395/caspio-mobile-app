@@ -927,6 +927,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     return sameTypeServices.findIndex(s => s.instanceId === service.instanceId) + 1;
   }
 
+  // Get all instances of a specific service type
+  getServiceInstances(offersId: string): ServiceSelection[] {
+    return this.selectedServices.filter(s => s.offersId === offersId);
+  }
+
+  // Toggle service expanded (add first instance if not selected, or navigate to it if already selected)
+  async toggleServiceExpanded(offer: any) {
+    if (this.isReadOnly) {
+      return;
+    }
+    
+    const isSelected = this.isServiceSelected(offer.OffersID);
+    
+    if (!isSelected) {
+      // Add first instance of this service
+      await this.addService(offer);
+    }
+    // If already selected, the expansion is handled by the template's *ngIf
+  }
+
   getSortedServices(): ServiceSelection[] {
     const order = ['EIR', 'EFE', 'DCR', 'HUD', 'ELBW', 'ECSA', 'EWPI', 'EDTE', 'OTHER'];
 

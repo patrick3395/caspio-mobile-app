@@ -11,23 +11,11 @@
 
 <ion-content class="ion-padding">
   <form #projectForm="ngForm" (ngSubmit)="createProject()">
-    <!-- PROJECT DETAILS Section -->
-    <div class="form-section">
-      <h3 class="section-title">PROJECT DETAILS</h3>
-      
-      <!-- Hidden Company field with default value of 1 -->
-      <input type="hidden" [(ngModel)]="formData.company" name="company" value="1">
-      
-      <ion-item lines="full">
-        <ion-label position="stacked">Request Date</ion-label>
-        <ion-input
-          type="date"
-          [(ngModel)]="formData.inspectionDate"
-          name="inspectionDate"
-          required>
-        </ion-input>
-      </ion-item>
-    </div>
+    <!-- Hidden Company field with default value of 1 -->
+    <input type="hidden" [(ngModel)]="formData.company" name="company" value="1">
+    
+    <!-- Hidden Inspection Date field with default value (today's date) -->
+    <input type="hidden" [(ngModel)]="formData.inspectionDate" name="inspectionDate">
 
     <!-- PROPERTY ADDRESS Section -->
     <div class="form-section">
@@ -62,10 +50,10 @@
         <ion-select 
           [(ngModel)]="formData.state" 
           name="state"
-          placeholder="--Select--"
+          placeholder="-- Select --"
           interface="popover"
           required>
-          <ion-select-option [value]="null">--Select--</ion-select-option>
+          <ion-select-option [value]="null">-- Select --</ion-select-option>
           <ion-select-option *ngFor="let state of states" [value]="state.StateID">
             {{ state.State }}
           </ion-select-option>
