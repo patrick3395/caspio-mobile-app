@@ -114,7 +114,9 @@
       
       <!-- Unified expandable services list -->
       <div *ngIf="!loadingServices" class="services-list">
-        <div *ngFor="let offer of getSortedOffers()" class="service-list-item">
+        <div *ngFor="let offer of getSortedOffers()" 
+             class="service-list-item"
+             [class.has-selection]="isServiceSelected(offer.OffersID)">
           <!-- Service header row (always visible) -->
           <div class="service-header-row" 
                (click)="toggleServiceExpanded(offer)"

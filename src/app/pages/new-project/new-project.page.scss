@@ -50,6 +50,8 @@ ion-content {
     ion-select {
       width: 100%;
       max-width: 100%;
+      --placeholder-color: #999;
+      --placeholder-opacity: 1;
     }
   }
 }

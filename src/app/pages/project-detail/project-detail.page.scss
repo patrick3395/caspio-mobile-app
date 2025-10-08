@@ -180,6 +180,11 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
   border-radius: 8px;
   overflow: hidden;
   background: $white;
+  transition: border-color 0.2s ease;
+  
+  &.has-selection {
+    border: 2px solid #000;
+  }
   
   .service-header-row {
     display: flex;
@@ -196,6 +201,10 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
     &.selected {
       background: rgba(var(--ion-color-primary-rgb, 241, 90, 39), 0.05);
       border-bottom: 1px solid $border;
+      
+      .service-toggle {
+        display: none;
+      }
     }
     
     .service-name {
