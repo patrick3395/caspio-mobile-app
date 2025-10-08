@@ -908,10 +908,11 @@
                       </button>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
-                             alt="Top">
+                             alt="Top"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.topHasAnnotations">
                         <button class="delete-btn"
                                 (click)="deleteFDFPhoto(room.RoomName, 'Top', $event); $event.stopPropagation()"
                                 title="Delete">
@@ -941,10 +942,11 @@
                       </button>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
-                             alt="Bottom">
+                             alt="Bottom"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomHasAnnotations">
                         <button class="delete-btn"
                                 (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event); $event.stopPropagation()"
                                 title="Delete">
@@ -974,10 +976,11 @@
                       </button>
                       <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                             alt="Threshold">
+                             alt="Threshold"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
                         <button class="delete-btn"
                                 (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
                                 title="Delete">

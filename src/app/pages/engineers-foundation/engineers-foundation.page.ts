@@ -1537,6 +1537,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Use the same method as measurement photos
             await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
             console.log(`[FDF DEBUG] Successfully saved using attachment method`);
+            
+            // CRITICAL: Update local display to show annotated image
+            this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
+            
             await this.showToast('Annotation saved', 'success');
             return; // Exit early since we successfully saved
           } catch (error) {
@@ -1580,6 +1584,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             try {
               const result = await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
               console.log(`[FDF DEBUG] Update result:`, result);
+              
+              // CRITICAL: Update local display to show annotated image
+              this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
+              
               await this.showToast('Annotation saved', 'success');
             } catch (updateError) {
               console.error(`[FDF DEBUG] Services_Rooms update failed:`, updateError);
@@ -1612,6 +1620,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     fdfPhotos[`${photoKey}AttachId`] = attachId;
                     console.log(`[FDF DEBUG] Stored AttachID for future use:`, attachId);
                   }
+                  
+                  // CRITICAL: Update local display to show annotated image
+                  this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData);
                   
                   await this.showToast('Annotation saved (fallback method)', 'success');
                 } else {
@@ -1782,6 +1793,50 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureFdfPhotosStructure(roomName);
     const photoKey = photoType.toLowerCase() + 'Caption';
     this.roomElevationData[roomName].fdfPhotos[photoKey] = value;
+  }
+
+  // Update FDF photo display to show annotated image (like measurement photos)
+  private updateFdfPhotoDisplay(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', annotatedBlob: Blob, annotationsData?: any): void {
+    console.log(`[FDF DEBUG] Updating display for ${roomName} ${photoType}`);
+    
+    this.ensureFdfPhotosStructure(roomName);
+    const photoKey = photoType.toLowerCase();
+    const fdfPhotos = this.roomElevationData[roomName].fdfPhotos;
+    
+    // Store original URL if not already stored
+    const currentUrl = fdfPhotos[`${photoKey}Url`];
+    if (currentUrl && !fdfPhotos[`${photoKey}OriginalUrl`]) {
+      fdfPhotos[`${photoKey}OriginalUrl`] = currentUrl;
+      console.log(`[FDF DEBUG] Stored original URL for ${photoType}`);
+    }
+    
+    // Create blob URL for annotated image
+    const annotatedUrl = URL.createObjectURL(annotatedBlob);
+    console.log(`[FDF DEBUG] Created annotated URL: ${annotatedUrl}`);
+    
+    // Update display URLs to show annotated version
+    fdfPhotos[`${photoKey}Url`] = annotatedUrl;
+    fdfPhotos[`${photoKey}DisplayUrl`] = annotatedUrl;
+    fdfPhotos[`${photoKey}HasAnnotations`] = true;
+    
+    // Store annotations data locally
+    if (annotationsData) {
+      fdfPhotos[`${photoKey}Annotations`] = annotationsData;
+      fdfPhotos[`${photoKey}DrawingsData`] = typeof annotationsData === 'object' 
+        ? JSON.stringify(annotationsData) 
+        : annotationsData;
+    }
+    
+    console.log(`[FDF DEBUG] Updated FDF photo display for ${roomName} ${photoType}`);
+    
+    // Force change detection to update UI immediately
+    this.changeDetectorRef.detectChanges();
+    
+    // Additional UI update after slight delay
+    setTimeout(() => {
+      this.changeDetectorRef.detectChanges();
+      console.log(`[FDF DEBUG] Forced UI update for ${roomName} ${photoType}`);
+    }, 100);
   }
 
   // Calculate maximum elevation differential for a room
