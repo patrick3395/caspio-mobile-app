@@ -2494,16 +2494,20 @@ select[name="StructuralSystemsStatus"] {
     }
   }
   
-  // Smaller images on mobile
+  // Smaller images on mobile with proper alignment
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview {
     width: 70px !important; // Smaller image containers
     min-height: 70px !important;
+    margin: 0 auto !important; // Center the image container
+    text-align: center !important; // Ensure content is centered
     
     img,
     .fdf-photo-image {
       width: 70px !important; // Smaller images
       height: 70px !important;
+      display: block !important; // Ensure proper block display
+      margin: 0 auto !important; // Center the image itself
     }
   }
   
@@ -2511,6 +2515,16 @@ select[name="StructuralSystemsStatus"] {
   .fdf-photo-image {
     width: 70px !important;
     height: 70px !important;
+    display: block !important;
+    margin: 0 auto !important; // Center alignment
+  }
+  
+  // Fix column alignment on mobile
+  .fdf-photo-column {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important; // Center all content in column
+    text-align: center !important;
   }
   
   // Adjust caption width for smaller images
@@ -2543,22 +2557,36 @@ select[name="StructuralSystemsStatus"] {
     }
   }
   
-  // Even smaller images for tiny phones
+  // Even smaller images for tiny phones with proper alignment
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview {
     width: 60px !important;
     min-height: 60px !important;
+    margin: 0 auto !important; // Center the image container
+    text-align: center !important;
     
     img,
     .fdf-photo-image {
       width: 60px !important;
       height: 60px !important;
+      display: block !important;
+      margin: 0 auto !important; // Center the image
     }
   }
   
   .fdf-photo-image {
     width: 60px !important;
     height: 60px !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+  
+  // Enhanced column alignment for extra small screens
+  .fdf-photo-column {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
   }
   
   .room-photo-caption {
