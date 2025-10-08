@@ -107,6 +107,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
+  isAddingLink = false; // Flag to track if adding link vs document
   
   // Navigation flag to prevent double-clicks
   isNavigating = false;
@@ -1606,6 +1607,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   }
 
   async viewDocument(doc: DocumentItem) {
+    // If this is a link, open it in a new tab
+    if ((doc as any).isLink && doc.linkName) {
+      window.open(doc.linkName, '_blank');
+      return;
+    }
+    
     // If doc has an attachId, fetch the actual file from Caspio
     if (doc.attachId) {
       try {
@@ -1832,8 +1839,38 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   async showOptionalDocuments(serviceDoc: ServiceDocumentGroup) {
     this.selectedServiceDoc = serviceDoc;
+    this.isAddingLink = false; // Adding document, not link
     
     // Get optional templates for this type
+    const optionalTemplates = this.attachTemplates.filter(t => 
+      t.TypeID === parseInt(serviceDoc.typeId) && 
+      (t.Auto === 'No' || t.Auto === false || t.Auto === 0 ||
+       (t.Required === 'No' || t.Required === false || t.Required === 0))
+    );
+    
+    if (optionalTemplates.length > 0) {
+      this.optionalDocumentsList = optionalTemplates.map(t => ({
+        title: t.Title || t.AttachmentName || 'Document',
+        required: t.Required === 'Yes' || t.Required === true || t.Required === 1,
+        templateId: t.PK_ID
+      }));
+    } else {
+      // Default optional documents
+      this.optionalDocumentsList = [
+        { title: 'Additional Photos', required: false },
+        { title: 'Client Notes', required: false },
+        { title: 'Supplemental Report', required: false }
+      ];
+    }
+    
+    await this.optionalDocsModal.present();
+  }
+
+  async showOptionalDocumentsForLink(serviceDoc: ServiceDocumentGroup) {
+    this.selectedServiceDoc = serviceDoc;
+    this.isAddingLink = true; // Adding link, not document
+    
+    // Get optional templates for this type (same list as documents)
     const optionalTemplates = this.attachTemplates.filter(t => 
       t.TypeID === parseInt(serviceDoc.typeId) && 
       (t.Auto === 'No' || t.Auto === false || t.Auto === 0 ||
@@ -1861,6 +1898,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   async addOptionalDocument(doc: any) {
     if (!this.selectedServiceDoc) return;
     
+    // If in link mode, prompt for URL
+    if (this.isAddingLink) {
+      await this.promptForDocumentLink(doc);
+      return;
+    }
+    
     // Add document to the service's document list
     this.selectedServiceDoc.documents.push({
       title: doc.title,
@@ -1871,6 +1914,61 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
+  }
+
+  async promptForDocumentLink(doc: any) {
+    const alert = await this.alertController.create({
+      header: 'Add Link',
+      cssClass: 'custom-document-alert',
+      inputs: [
+        {
+          name: 'documentUrl',
+          type: 'url',
+          placeholder: 'Enter URL (https://...)'
+        }
+      ],
+      buttons: [
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'SAVE',
+          cssClass: 'alert-button-save',
+          handler: async (data) => {
+            if (data.documentUrl && data.documentUrl.trim()) {
+              await this.addDocumentLink(doc, data.documentUrl.trim());
+              return true;
+            }
+            return false;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async addDocumentLink(doc: any, url: string) {
+    if (!this.selectedServiceDoc) return;
+    
+    // Add link as an uploaded document
+    this.selectedServiceDoc.documents.push({
+      title: doc.title,
+      required: doc.required,
+      uploaded: true, // Mark as uploaded since we have the URL
+      templateId: doc.templateId,
+      linkName: url,
+      filename: url,
+      isLink: true // Flag to identify this is a link, not an uploaded file
+    });
+    
+    await this.optionalDocsModal.dismiss();
+    this.selectedServiceDoc = null;
+    this.isAddingLink = false;
+    
+    await this.showToast('Link added successfully', 'success');
   }
 
   async promptForCustomDocument() {

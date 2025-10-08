@@ -777,6 +777,15 @@ body.dark-theme .popover-content ion-label {
       padding: 13px 0;
       text-transform: uppercase;
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .alert-button-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
       &.alert-button-cancel {
         color: #666;

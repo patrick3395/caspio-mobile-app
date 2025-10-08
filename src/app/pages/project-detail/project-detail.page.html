@@ -99,7 +99,7 @@
           <div class="template-content">
             <div class="template-name">
               <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
-              {{ service.typeName }}
+              <span class="service-title">{{ service.typeName }}</span>
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
@@ -273,6 +273,8 @@
             <td class="doc-info-cell">
               <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocuments(serviceDoc)">+ Add Document</a>
               <span *ngIf="isReadOnly" class="add-doc-link disabled">+ Add Document</span>
+              <span *ngIf="!isReadOnly" class="add-link-separator"> | </span>
+              <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocumentsForLink(serviceDoc)">+ Add Link</a>
             </td>
             <td class="doc-actions-cell add-doc-actions"></td>
           </tr>
