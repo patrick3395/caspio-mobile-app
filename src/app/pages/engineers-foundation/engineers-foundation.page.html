@@ -1354,7 +1354,7 @@
                               type="text" 
                               class="room-photo-caption" 
                               [(ngModel)]="getPointPhotoByType(point, 'Location').caption"
-                              (blur)="savePhotoCaption(getPointPhotoByType(point, 'Location'))"
+                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Location'))"
                               (click)="$event.stopPropagation()"
                               placeholder="Caption"
                               maxlength="255">
@@ -1386,7 +1386,7 @@
                               type="text" 
                               class="room-photo-caption" 
                               [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption"
-                              (blur)="savePhotoCaption(getPointPhotoByType(point, 'Measurement'))"
+                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Measurement'))"
                               (click)="$event.stopPropagation()"
                               placeholder="Caption"
                               maxlength="255">
