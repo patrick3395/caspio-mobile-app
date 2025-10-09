@@ -20,7 +20,12 @@
       "Bash(ls:*)",
       "Bash(done)",
       "Bash(find:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(identify:*)",
+      "Bash(pngcheck:*)",
+      "Bash(npm run lint:*)",
+      "Bash(node:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []
