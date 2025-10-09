@@ -54,7 +54,7 @@
                   <div class="project-address">{{ project.Address }}</div>
                   <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                   <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project.DateCompleted">{{ formatCreatedDate(project.DateCompleted || project.Date) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project['DateCompleted']">{{ formatCreatedDate(project['DateCompleted'] || project.Date) }}</div>
                 </div>
               </div>
               <div class="project-meta" slot="end">
@@ -83,7 +83,7 @@
                   <div class="project-address">{{ project.Address }}</div>
                   <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                   <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
                 </div>
               </div>
               <div class="project-meta" slot="end">
@@ -112,7 +112,7 @@
                   <div class="project-address">{{ project.Address }}</div>
                   <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                   <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
                 </div>
               </div>
               <div class="project-meta" slot="end">
@@ -141,7 +141,7 @@
                   <div class="project-address">{{ project.Address }}</div>
                   <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                   <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
                 </div>
               </div>
               <div class="project-meta" slot="end">
