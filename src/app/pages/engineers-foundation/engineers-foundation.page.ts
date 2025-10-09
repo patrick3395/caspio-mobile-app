@@ -4357,7 +4357,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Update room point photo attachment with annotations (similar to updatePhotoAttachment for Structural Systems)
-  async updateRoomPointPhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File): Promise<void> {
+  async updateRoomPointPhotoAttachment(attachId: string, file: File, annotations?: any, originalFile?: File, caption?: string): Promise<void> {
     try {
       
       // Validate attachId
@@ -4367,8 +4367,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
-      // Prepare update data with Drawings field
+      // Prepare update data with Drawings and Annotation fields
       const updateData: any = {};
+      
+      // Save caption to Annotation field (without photoType prefix)
+      if (caption !== undefined) {
+        updateData.Annotation = caption || '';
+      }
       
       // Process annotation data for Drawings field
       if (annotations) {
@@ -4473,8 +4478,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Get existing caption from photo object
-      const existingCaption = photo.caption || photo.Annotation || '';
-      console.log(`[MEASUREMENT DEBUG] Existing caption:`, existingCaption);
+      const rawCaption = photo.caption || photo.Annotation || '';
+      const existingCaption = this.extractCaptionFromAnnotation(rawCaption);
+      console.log(`[MEASUREMENT DEBUG] Raw caption:`, rawCaption);
+      console.log(`[MEASUREMENT DEBUG] Cleaned caption:`, existingCaption);
 
       // Open annotation modal directly (matching Structural Systems)
       const modal = await this.modalController.create({
@@ -4482,7 +4489,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         componentProps: {
           imageUrl: originalImageUrl,
           existingAnnotations: existingAnnotations,
-          existingCaption: existingCaption, // CRITICAL: Pass existing caption to photo editor
+          existingCaption: existingCaption, // CRITICAL: Pass cleaned caption to photo editor
           photoData: {
             ...photo,
             AttachID: attachId,
@@ -4509,8 +4516,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             : new File([data.originalBlob], `original_${photoName}`, { type: 'image/jpeg' });
         }
         
-        // Update the attachment with new annotations
-        await this.updateRoomPointPhotoAttachment(attachId, annotatedFile, annotationsData, originalFile);
+        // Update the attachment with new annotations and caption
+        await this.updateRoomPointPhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
         
         // Update local photo data
         if (point && point.photos) {
@@ -4528,6 +4535,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const newUrl = URL.createObjectURL(data.annotatedBlob);
             point.photos[photoIndex].displayUrl = newUrl;
             point.photos[photoIndex].hasAnnotations = true;
+            
+            // Update caption from editor (without photoType prefix)
+            if (data.caption !== undefined) {
+              point.photos[photoIndex].caption = data.caption;
+            }
             
             // Store annotations data
             if (annotationsData) {
