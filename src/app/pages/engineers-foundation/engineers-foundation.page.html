@@ -865,6 +865,32 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
+                  <!-- Room action buttons -->
+                  <div class="room-actions" slot="end" style="display: flex; align-items: center; gap: 4px;">
+                    <!-- Rename button -->
+                    <button class="room-action-btn" 
+                            (click)="renameRoom(room.RoomName, $event)" 
+                            title="Rename Room"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                    <!-- Move up button -->
+                    <button class="room-action-btn" 
+                            (click)="moveRoomUp(room.RoomName, $event)" 
+                            [disabled]="getRoomIndex(room.RoomName) === 0"
+                            title="Move Up"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                    <!-- Move down button -->
+                    <button class="room-action-btn" 
+                            (click)="moveRoomDown(room.RoomName, $event)" 
+                            [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
+                            title="Move Down"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                  </div>
                   <!-- Collapse/expand icon in header when room is selected -->
                   <ion-icon *ngIf="isRoomSelected(room.RoomName)"
                             slot="end"
@@ -980,29 +1006,29 @@
                       </div>
                     </div>
                     
-                    <!-- Threshold Photo Column -->
+                    <!-- Location Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                        <span style="margin-bottom: 4px;">Threshold</span>
+                        <span style="margin-bottom: 4px;">Location</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                         <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
-                      <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
+                      <!-- Location Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              class="fdf-photo-image"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                             alt="Threshold"
+                             alt="Location"
                              [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
                         <button class="delete-btn"
                                 (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
                                 title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
-                        <!-- Caption text underneath FDF Threshold photo -->
+                        <!-- Caption text underneath FDF Location photo -->
                         <input 
                           type="text" 
                           class="room-photo-caption" 
@@ -1178,6 +1204,32 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
+                  <!-- Room action buttons -->
+                  <div class="room-actions" slot="end" style="display: flex; align-items: center; gap: 4px;">
+                    <!-- Rename button -->
+                    <button class="room-action-btn" 
+                            (click)="renameRoom(room.RoomName, $event)" 
+                            title="Rename Room"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                    <!-- Move up button -->
+                    <button class="room-action-btn" 
+                            (click)="moveRoomUp(room.RoomName, $event)" 
+                            [disabled]="getRoomIndex(room.RoomName) === 0"
+                            title="Move Up"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                    <!-- Move down button -->
+                    <button class="room-action-btn" 
+                            (click)="moveRoomDown(room.RoomName, $event)" 
+                            [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
+                            title="Move Down"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
+                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    </button>
+                  </div>
                   <!-- Collapse/expand icon in header when room is selected -->
                   <ion-icon *ngIf="isRoomSelected(room.RoomName)"
                             slot="end"
@@ -1206,7 +1258,7 @@
                 <div class="form-group" [class.filled]="roomElevationData[room.RoomName]?.fdf" style="margin-bottom: 16px;">
                   <label>
                     <ion-icon name="layers-outline"></ion-icon>
-                    FDF Type
+                    FDF
                   </label>
                   <select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
                           (ngModelChange)="onFDFChange(room.RoomName)"
@@ -1290,29 +1342,29 @@
                       </div>
                     </div>
                     
-                    <!-- Threshold Photo Column -->
+                    <!-- Location Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                        <span style="margin-bottom: 4px;">Threshold</span>
+                        <span style="margin-bottom: 4px;">Location</span>
                         <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
                         <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                       </button>
-                      <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
+                      <!-- Location Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              class="fdf-photo-image"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                             alt="Threshold"
+                             alt="Location"
                              [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
                         <button class="delete-btn"
                                 (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
                                 title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
-                        <!-- Caption text underneath FDF Threshold photo -->
+                        <!-- Caption text underneath FDF Location photo -->
                         <input 
                           type="text" 
                           class="room-photo-caption" 

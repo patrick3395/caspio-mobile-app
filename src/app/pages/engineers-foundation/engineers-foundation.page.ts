@@ -2912,6 +2912,163 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     );
   }
   
+  // Get room index in array
+  getRoomIndex(roomName: string): number {
+    return this.roomTemplates.findIndex(room => room.RoomName === roomName);
+  }
+  
+  // Move room up in the list
+  async moveRoomUp(roomName: string, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const currentIndex = this.getRoomIndex(roomName);
+    if (currentIndex > 0) {
+      // Swap with the room above
+      const temp = this.roomTemplates[currentIndex];
+      this.roomTemplates[currentIndex] = this.roomTemplates[currentIndex - 1];
+      this.roomTemplates[currentIndex - 1] = temp;
+      
+      // Trigger change detection
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+  
+  // Move room down in the list
+  async moveRoomDown(roomName: string, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const currentIndex = this.getRoomIndex(roomName);
+    if (currentIndex >= 0 && currentIndex < this.roomTemplates.length - 1) {
+      // Swap with the room below
+      const temp = this.roomTemplates[currentIndex];
+      this.roomTemplates[currentIndex] = this.roomTemplates[currentIndex + 1];
+      this.roomTemplates[currentIndex + 1] = temp;
+      
+      // Trigger change detection
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+  
+  // Rename a room
+  async renameRoom(oldRoomName: string, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const alert = await this.alertController.create({
+      header: 'Rename Room',
+      message: `Enter new name for "${oldRoomName}"`,
+      inputs: [
+        {
+          name: 'newRoomName',
+          type: 'text',
+          placeholder: 'Room Name',
+          value: oldRoomName
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Rename',
+          handler: async (data) => {
+            const newRoomName = data.newRoomName?.trim();
+            
+            if (!newRoomName) {
+              await this.showToast('Room name cannot be empty', 'warning');
+              return false;
+            }
+            
+            if (newRoomName === oldRoomName) {
+              return true; // No change needed
+            }
+            
+            // Check if new name already exists
+            const existingRoom = this.roomTemplates.find(r => r.RoomName === newRoomName);
+            if (existingRoom) {
+              await this.showToast('A room with this name already exists', 'warning');
+              return false;
+            }
+            
+            // Update room name in roomTemplates
+            const roomIndex = this.getRoomIndex(oldRoomName);
+            if (roomIndex >= 0) {
+              this.roomTemplates[roomIndex].RoomName = newRoomName;
+            }
+            
+            // Update room name in database if room record exists
+            const roomId = this.roomRecordIds[oldRoomName];
+            if (roomId && roomId !== '__pending__') {
+              try {
+                const updateData = { RoomName: newRoomName };
+                await this.caspioService.updateServicesRoom(roomId, updateData).toPromise();
+              } catch (error) {
+                console.error('Error updating room name in database:', error);
+                await this.showToast('Failed to update room name in database', 'danger');
+                // Revert the name change
+                if (roomIndex >= 0) {
+                  this.roomTemplates[roomIndex].RoomName = oldRoomName;
+                }
+                return false;
+              }
+            }
+            
+            // Update all references to the old room name
+            // Update roomRecordIds
+            if (this.roomRecordIds[oldRoomName]) {
+              this.roomRecordIds[newRoomName] = this.roomRecordIds[oldRoomName];
+              delete this.roomRecordIds[oldRoomName];
+            }
+            
+            // Update selectedRooms
+            if (this.selectedRooms[oldRoomName]) {
+              this.selectedRooms[newRoomName] = this.selectedRooms[oldRoomName];
+              delete this.selectedRooms[oldRoomName];
+            }
+            
+            // Update expandedRooms
+            if (this.expandedRooms[oldRoomName]) {
+              this.expandedRooms[newRoomName] = this.expandedRooms[oldRoomName];
+              delete this.expandedRooms[oldRoomName];
+            }
+            
+            // Update savingRooms
+            if (this.savingRooms[oldRoomName]) {
+              this.savingRooms[newRoomName] = this.savingRooms[oldRoomName];
+              delete this.savingRooms[oldRoomName];
+            }
+            
+            // Update roomElevationData
+            if (this.roomElevationData[oldRoomName]) {
+              this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
+              delete this.roomElevationData[oldRoomName];
+            }
+            
+            // Update roomPointIds (for all points in this room)
+            const pointKeysToUpdate = Object.keys(this.roomPointIds).filter(key => key.startsWith(oldRoomName + '_'));
+            pointKeysToUpdate.forEach(oldKey => {
+              const pointName = oldKey.substring((oldRoomName + '_').length);
+              const newKey = `${newRoomName}_${pointName}`;
+              this.roomPointIds[newKey] = this.roomPointIds[oldKey];
+              delete this.roomPointIds[oldKey];
+            });
+            
+            // Trigger change detection
+            this.changeDetectorRef.detectChanges();
+            
+            await this.showToast(`Room renamed to "${newRoomName}"`, 'success');
+            return true;
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
   // Handle room selection change from checkbox
   async onRoomSelectionChange(room: any) {
     // Update the selected state in our tracking object
