@@ -858,14 +858,14 @@ ion-content{--overflow:scroll !important;height:100%}
   .structural-status-subtitle {
     margin-top: 6px;
     margin-left: 0; // Align with icon (moved to the left)
-    display: block; // Make wrapper full width to match header
-    width: 100%; // Take full width to match header
+    display: inline-block; // Mobile: only as wide as dropdown
+    width: auto; // Mobile: don't take full width
     pointer-events: auto; // Enable pointer events on this element
 
     .structural-status-select {
-      display: block;
-      width: 100%;
-      min-width: auto;
+      display: inline-block;
+      width: auto;
+      min-width: 238px;
       max-width: 100%;
       white-space: normal;
       line-height: 1.4;
@@ -1055,10 +1055,14 @@ select[name="StructuralSystemsStatus"] {
 // Keep media query as fallback for non-Capacitor environments
 @media (min-width: 768px) {
   .structural-status-subtitle {
+    display: block !important; // Webapp: full width to match header
+    width: 100% !important; // Webapp: take full width
+    
     .structural-status-select:not(.web-select) {
       // Only apply if web-select class isn't present
+      display: block !important;
       padding: 12px 44px 12px 24px;
-      width: 100%;
+      width: 100% !important;
       
       option {
         padding: 14px 20px;
@@ -2580,10 +2584,14 @@ select[name="StructuralSystemsStatus"] {
   
   .fdf-photo-column {
     min-width: 85px !important; // Smaller min-width for mobile to fit 3 photos
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     
     .fdf-photo-button {
       padding: 6px 4px !important; // Smaller button padding
       font-size: 10px !important; // Smaller text
+      margin-bottom: 12px !important; // Always add space below button
       
       span {
         margin-bottom: 2px !important;
@@ -2596,12 +2604,21 @@ select[name="StructuralSystemsStatus"] {
     }
   }
   
-  // Smaller images on mobile with proper alignment
+  // Fix spacing for elevation point measurement/location buttons
+  .elevation-point-card {
+    .fdf-photo-button.measurement-photo-btn {
+      margin-bottom: 12px !important; // Space below button for photo
+    }
+  }
+  
+  // Smaller images on mobile with proper alignment and spacing
   .fdf-photo-preview.image-preview,
-  .fdf-photos-container .image-preview {
+  .fdf-photos-container .image-preview,
+  .elevation-points-container .image-preview {
     width: 70px !important; // Smaller image containers
     min-height: 70px !important;
     margin: 0 auto !important; // Center the image container
+    margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important; // Ensure content is centered
     
     img,
@@ -2649,9 +2666,13 @@ select[name="StructuralSystemsStatus"] {
   
   .fdf-photo-column {
     min-width: 75px !important; // Even smaller for very small phones
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     
     .fdf-photo-button {
       padding: 4px 2px !important;
+      margin-bottom: 12px !important; // Always add space below button
       
       span {
         font-size: 8px !important; // Tiny text for small screens
@@ -2663,12 +2684,21 @@ select[name="StructuralSystemsStatus"] {
     }
   }
   
-  // Even smaller images for tiny phones with proper alignment
+  // Fix spacing for elevation point measurement/location buttons
+  .elevation-point-card {
+    .fdf-photo-button.measurement-photo-btn {
+      margin-bottom: 12px !important; // Space below button for photo
+    }
+  }
+  
+  // Even smaller images for tiny phones with proper alignment and spacing
   .fdf-photo-preview.image-preview,
-  .fdf-photos-container .image-preview {
+  .fdf-photos-container .image-preview,
+  .elevation-points-container .image-preview {
     width: 60px !important;
     min-height: 60px !important;
     margin: 0 auto !important; // Center the image container
+    margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important;
     
     img,

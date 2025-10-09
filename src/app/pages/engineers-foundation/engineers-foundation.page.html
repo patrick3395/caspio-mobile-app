@@ -904,7 +904,7 @@
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
                           (click)="renameRoom(room.RoomName, $event)" 
@@ -1270,7 +1270,7 @@
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
                           (click)="renameRoom(room.RoomName, $event)" 
