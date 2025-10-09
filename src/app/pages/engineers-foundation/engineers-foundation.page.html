@@ -1200,7 +1200,7 @@
                 <!-- FDF Dropdown Selector -->
                 <div class="form-group" style="margin-bottom: 16px;">
                   <select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
-                          (ngModelChange)="onRoomFDFChange(room.RoomName)"
+                          (ngModelChange)="onFDFChange(room.RoomName)"
                           class="styled-input">
                     <option value="None">None</option>
                     <option value="Same Elevation, Same Flooring">Same Elevation, Same Flooring</option>
