@@ -4939,11 +4939,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             processedFiles.push(annotatedResult);
 
             const continueAlert = await this.alertController.create({
-              cssClass: 'compact-photo-selector',
+              header: 'What would you like to do next?',
+              cssClass: 'custom-document-alert',
               buttons: [
                 {
-                  text: 'Take Another Photo',
-                cssClass: 'action-button',
+                  text: 'TAKE ANOTHER PHOTO',
+                cssClass: 'alert-button-cancel',
                 handler: () => {
                   this.currentUploadContext = { category, itemId, item, action: 'add' };
                   this.triggerFileInput('camera', { allowMultiple: false });
@@ -4951,8 +4952,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 }
               },
               {
-                text: 'Done',
-                cssClass: 'done-button',
+                text: 'DONE',
+                cssClass: 'alert-button-save',
                 handler: () => {
                   this.expectingCameraPhoto = false;
                   this.setFileInputMode('library', { allowMultiple: true });

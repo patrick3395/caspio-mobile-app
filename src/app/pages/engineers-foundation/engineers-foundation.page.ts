@@ -95,6 +95,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   currentUploadContext: any = null;
   currentRoomPointContext: any = null;  // For room photo uploads
   currentFDFPhotoContext: any = null;  // For FDF photo uploads
+  skipElevationAnnotation: boolean = false;  // Skip annotation for elevation plot photos
   uploadingPhotos: { [key: string]: number } = {}; // Track uploads per visual
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
@@ -1571,9 +1572,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const drawingsColumnName = `FDF${photoType}Drawings`; // FIXED: Correct column name format
             const annotationColumnName = `FDF${photoType}Annotation`; // ADDED: For captions
             
+            console.log(`[FDF SAVE DEBUG] PhotoType received:`, photoType);
+            console.log(`[FDF SAVE DEBUG] Generated Drawings column:`, drawingsColumnName);
+            console.log(`[FDF SAVE DEBUG] Generated Annotation column:`, annotationColumnName);
+            console.log(`[FDF SAVE DEBUG] Expected: FDFBottomDrawings and FDFBottomAnnotation for Bottom`);
+            
             // Save annotation graphics to Drawings field (like measurement photos)
             if (compressedAnnotations) {
               updateData[drawingsColumnName] = compressedAnnotations;
+              console.log(`[FDF SAVE DEBUG] Added drawings to update data`);
             }
             
             // ADDED: Save caption to Annotation field  
@@ -1581,12 +1588,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const captionToSave = data.caption !== undefined ? data.caption : this.getFdfPhotoCaption(roomName, photoType);
             if (captionToSave !== undefined) {
               updateData[annotationColumnName] = captionToSave;
-              console.log(`[FDF DEBUG] Saving caption to database:`, captionToSave);
+              console.log(`[FDF SAVE DEBUG] Saving caption to database:`, captionToSave);
             }
 
-            console.log(`[FDF DEBUG] Update data:`, updateData);
-            console.log(`[FDF DEBUG] Drawings column name:`, drawingsColumnName);
-            console.log(`[FDF DEBUG] Annotation column name:`, annotationColumnName);
+            console.log(`[FDF SAVE DEBUG] Final update data:`, JSON.stringify(updateData, null, 2));
+            console.log(`[FDF SAVE DEBUG] Room ID for update:`, roomId);
 
             // Try to update Services_Rooms table with FDF annotation data
             try {
@@ -1987,6 +1993,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   roomId,
                   photoType  // Store the photo type
                 };
+                // Set flag to skip annotation for elevation plot photos
+                this.skipElevationAnnotation = true;
                 this.triggerFileInput('system', { allowMultiple: false });
               }
             }
@@ -2003,6 +2011,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomId,
         photoType  // Store the photo type
       };
+
+      // Set flag to skip annotation for elevation plot photos
+      this.skipElevationAnnotation = true;
 
       this.triggerFileInput('system', { allowMultiple: false });
 
@@ -2159,7 +2170,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // If this is a single camera photo, open annotator first
         let annotatedResult: { file: File; annotationData?: any; originalFile?: File };
         
-        if (files.length === 1) {
+        if (files.length === 1 && !this.skipElevationAnnotation) {
           const isCameraFlow = this.expectingCameraPhoto || this.isLikelyCameraCapture(file);
 
           if (isCameraFlow) {
@@ -2200,12 +2211,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.expectingCameraPhoto = false;
           }
         } else {
-          // Multiple files or non-camera selection - no automatic annotation
+          // Multiple files, non-camera selection, or elevation plot photos - no automatic annotation
           annotatedResult = { 
             file: file, 
             annotationData: null, 
             originalFile: undefined 
           };
+          this.expectingCameraPhoto = false;
+          this.skipElevationAnnotation = false; // Reset flag after skipping
         }
         
         // Create preview immediately
@@ -6174,11 +6187,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             processedFiles.push(annotatedResult);
 
             const continueAlert = await this.alertController.create({
-              cssClass: 'compact-photo-selector',
+              header: 'What would you like to do next?',
+              cssClass: 'custom-document-alert',
               buttons: [
                 {
-                  text: 'Take Another Photo',
-                cssClass: 'action-button',
+                  text: 'TAKE ANOTHER PHOTO',
+                cssClass: 'alert-button-cancel',
                 handler: () => {
                   this.currentUploadContext = { category, itemId, item, action: 'add' };
                   this.triggerFileInput('camera', { allowMultiple: false });
@@ -6186,8 +6200,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
               },
               {
-                text: 'Done',
-                cssClass: 'done-button',
+                text: 'DONE',
+                cssClass: 'alert-button-save',
                 handler: () => {
                   this.expectingCameraPhoto = false;
                   this.setFileInputMode('library', { allowMultiple: true });
