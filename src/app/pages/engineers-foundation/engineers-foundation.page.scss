@@ -196,6 +196,7 @@ ion-toolbar.template-toolbar {
 // FDF Photo Buttons - Enhanced for 50% bigger measurements area
 .fdf-photo-button {
   color: #333 !important; // Black text
+  margin-bottom: 0 !important; // No margin by default, only when photo exists
 
   &:hover {
     background: #f0f0f0 !important;
@@ -232,6 +233,11 @@ ion-toolbar.template-toolbar {
       }
     }
   }
+}
+
+// Add spacing below button when photo exists (button + photo present together)
+.fdf-photo-column:has(.fdf-photo-preview) .fdf-photo-button {
+  margin-bottom: 12px !important;
 }
 
 
@@ -1985,15 +1991,16 @@ select[name="StructuralSystemsStatus"] {
                     
                     .room-photo-caption {
                       width: 90px !important; // Match the 90px image width for ALL photo types
-                      padding: 4px 6px !important; // More padding for better readability
+                      padding: 6px 8px !important; // More padding for better readability
                       font-size: 11px !important; // Slightly larger font
                       text-align: center !important;
                       border: 1px solid #e0e0e0 !important;
-                      border-top: none !important;
-                      border-radius: 0 0 8px 8px !important; // Match image border radius
+                      border-radius: 6px !important; // Fully rounded box
                       background: white !important;
                       color: #666 !important;
                       transition: all 0.2s ease !important;
+                      margin-top: 8px !important; // Space below image
+                      display: block !important;
                       
                       // STANDARDIZED positioning
                       position: absolute !important;
@@ -2704,15 +2711,16 @@ select[name="StructuralSystemsStatus"] {
     // STANDARDIZED caption styling for ALL photo types (FDF and Measurement)
     .room-photo-caption {
       width: 90px !important; // Match the 90px image width for DESKTOP photo types
-      padding: 4px 6px !important;
+      padding: 6px 8px !important;
       font-size: 11px !important;
       text-align: center !important;
       border: 1px solid #e0e0e0 !important;
-      border-top: none !important;
-      border-radius: 0 0 8px 8px !important; // Match image border radius
+      border-radius: 6px !important; // Fully rounded box
       background: white !important;
       color: #666 !important;
       transition: all 0.2s ease !important;
+      margin-top: 8px !important; // Space below image
+      display: block !important;
       
       // CONSISTENT positioning for all caption types
       position: absolute !important;

@@ -2529,11 +2529,11 @@ Troubleshooting:
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
   async loadIconImages() {
-    // Load icon images asynchronously using the same method as Engineers Foundation template
-    for (const offer of this.availableOffers) {
-      if (offer.TypeIcon && offer.TypeIcon.startsWith('/')) {
+    // PERFORMANCE FIX: Load all icon images in parallel instead of sequentially
+    const iconPromises = this.availableOffers
+      .filter(offer => offer.TypeIcon && offer.TypeIcon.startsWith('/'))
+      .map(async (offer) => {
         try {
-          // Use the same getImageFromFilesAPI method that Engineers Foundation uses for thumbnails
           const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL
@@ -2549,8 +2549,10 @@ Troubleshooting:
         } catch (error) {
           console.error(`Failed to load icon for ${offer.TypeName}:`, error);
         }
-      }
-    }
+      });
+
+    // Wait for all icons to load in parallel
+    await Promise.all(iconPromises);
   }
 
   getIconUrl(iconPath: string): string {
@@ -2958,17 +2960,32 @@ Troubleshooting:
       if (this.project) {
         this.project['PrimaryPhoto'] = filePath;
         
-        // Clear the cached image data to force reload
-        this.projectImageData = null;
+        // PERFORMANCE FIX: Use the compressed file directly as blob URL for immediate display
+        // Instead of fetching from Caspio again
+        const blobUrl = URL.createObjectURL(compressedFile);
+        this.projectImageData = blobUrl;
         this.imageLoadInProgress = false;
         
         // Trigger change detection to refresh the image immediately
         this.changeDetectorRef.detectChanges();
         
-        // Start loading the new image
-        if (filePath.startsWith('/')) {
-          this.loadProjectImageData();
-        }
+        // Optionally load the actual file from Caspio in the background for persistence
+        // but don't block the UI or wait for it
+        setTimeout(() => {
+          if (filePath.startsWith('/')) {
+            this.caspioService.getImageFromFilesAPI(filePath).toPromise().then(imageData => {
+              if (imageData && imageData.startsWith('data:')) {
+                // Replace blob URL with base64 for permanent storage
+                URL.revokeObjectURL(blobUrl); // Clean up blob URL
+                this.projectImageData = imageData;
+                this.changeDetectorRef.detectChanges();
+              }
+            }).catch(err => {
+              console.error('Background image load failed:', err);
+              // Keep using blob URL
+            });
+          }
+        }, 100); // Small delay to not block UI thread
       }
       
       await loading.dismiss();

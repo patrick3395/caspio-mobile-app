@@ -47,6 +47,8 @@ ion-toolbar.template-toolbar {
 // PDF Header Button
 // FDF Photo Buttons
 .fdf-photo-button {
+  margin-bottom: 0 !important; // No margin by default, only when photo exists
+  
   &:hover {
     background: #f0f0f0 !important;
     border-color: #999 !important;
@@ -59,6 +61,11 @@ ion-toolbar.template-toolbar {
   ion-icon {
     vertical-align: middle;
   }
+}
+
+// Add spacing below button when photo exists (button + photo present together)
+.fdf-photo-column:has(.fdf-photo-preview) .fdf-photo-button {
+  margin-bottom: 12px !important;
 }
 
 // GLOBAL TEXT TRUNCATION FIX - Ensures all item text shows exactly 2 lines
@@ -1522,15 +1529,16 @@ ion-content {
                     
                     .room-photo-caption {
                       width: 60px;
-                      padding: 2px 4px;
+                      padding: 6px 8px;
                       font-size: 10px;
                       text-align: center;
                       border: 1px solid #e0e0e0;
-                      border-top: none;
-                      border-radius: 0 0 3px 3px;
+                      border-radius: 6px;
                       background: white;
                       color: #666;
                       transition: all 0.2s ease;
+                      margin-top: 8px;
+                      display: block;
                       
                       &:focus {
                         outline: none;
