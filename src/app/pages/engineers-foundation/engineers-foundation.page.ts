@@ -590,7 +590,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       if (typeData?.TypeName) {
-        this.typeFull = typeData.TypeName;
+        // Add EFE prefix if not already present
+        const typeName = typeData.TypeName;
+        if (typeName.includes('Engineer') && typeName.includes('Foundation')) {
+          this.typeFull = typeName.startsWith('EFE - ') ? typeName : `EFE - ${typeName}`;
+        } else {
+          this.typeFull = typeName;
+        }
       } else {
         this.typeFull = this.typeShort;
       }

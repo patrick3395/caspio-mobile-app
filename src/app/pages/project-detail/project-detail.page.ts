@@ -2188,6 +2188,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   private projectImageData: string | null = null;
   private imageLoadInProgress = false;
+  private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
+  private readonly CACHE_EXPIRY_HOURS = 24;
 
   getPropertyPhotoUrl(): string {
     // Check if project has a PrimaryPhoto
@@ -2238,6 +2240,33 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       return;
     }
     
+    // Create cache key
+    const projectId = this.project.PK_ID;
+    const cacheKey = `${projectId}_${primaryPhoto}`;
+    const storageCacheKey = `${this.PROJECT_IMAGE_CACHE_PREFIX}${cacheKey}`;
+    
+    // Check localStorage cache first
+    try {
+      const cachedData = localStorage.getItem(storageCacheKey);
+      if (cachedData) {
+        const cacheEntry = JSON.parse(cachedData);
+        const cacheAge = Date.now() - cacheEntry.timestamp;
+        const maxAge = this.CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
+        
+        if (cacheAge < maxAge && cacheEntry.imageData) {
+          // Use cached image
+          this.projectImageData = cacheEntry.imageData;
+          this.changeDetectorRef.detectChanges();
+          return;
+        } else {
+          // Cache expired, remove it
+          localStorage.removeItem(storageCacheKey);
+        }
+      }
+    } catch (e) {
+      console.error('Error reading image cache:', e);
+    }
+    
     this.imageLoadInProgress = true;
     
     try {
@@ -2246,6 +2275,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       if (imageData && imageData.startsWith('data:')) {
         // Store the base64 data
         this.projectImageData = imageData;
+        
+        // Store in localStorage for future visits
+        try {
+          const cacheEntry = {
+            imageData: imageData,
+            timestamp: Date.now()
+          };
+          localStorage.setItem(storageCacheKey, JSON.stringify(cacheEntry));
+        } catch (storageError) {
+          console.warn('Failed to cache image in localStorage (may be full):', storageError);
+        }
         
         // Trigger change detection to update the view
         this.changeDetectorRef.detectChanges();

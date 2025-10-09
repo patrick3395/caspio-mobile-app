@@ -284,6 +284,8 @@ export class ActiveProjectsPage implements OnInit {
   }
   
   private projectImageCache: { [projectId: string]: string } = {};
+  private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
+  private readonly CACHE_EXPIRY_HOURS = 24;
   
   async loadProjectImage(project: Project) {
     const projectId = project.PK_ID;
@@ -295,21 +297,60 @@ export class ActiveProjectsPage implements OnInit {
     
     // Create a cache key that includes the photo path to detect changes
     const cacheKey = `${projectId}_${primaryPhoto}`;
+    const storageCacheKey = `${this.PROJECT_IMAGE_CACHE_PREFIX}${cacheKey}`;
     
-    // Check if we already have this exact image cached
+    // Check memory cache first
     if (this.projectImageCache[cacheKey]) {
       // Update the projectId cache to point to this image
       this.projectImageCache[projectId] = this.projectImageCache[cacheKey];
       return;
     }
     
+    // Check localStorage cache
+    try {
+      const cachedData = localStorage.getItem(storageCacheKey);
+      if (cachedData) {
+        const cacheEntry = JSON.parse(cachedData);
+        const cacheAge = Date.now() - cacheEntry.timestamp;
+        const maxAge = this.CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
+        
+        if (cacheAge < maxAge && cacheEntry.imageData) {
+          // Use cached image
+          this.projectImageCache[projectId] = cacheEntry.imageData;
+          this.projectImageCache[cacheKey] = cacheEntry.imageData;
+          this.changeDetectorRef.detectChanges();
+          return;
+        } else {
+          // Cache expired, remove it
+          localStorage.removeItem(storageCacheKey);
+        }
+      }
+    } catch (e) {
+      console.error('Error reading image cache:', e);
+    }
+    
     try {
       const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
       
       if (imageData && imageData.startsWith('data:')) {
-        // Store in cache with both keys
+        // Store in memory cache with both keys
         this.projectImageCache[projectId] = imageData;
         this.projectImageCache[cacheKey] = imageData;
+        
+        // Store in localStorage for persistence
+        try {
+          const cacheEntry = {
+            imageData: imageData,
+            timestamp: Date.now()
+          };
+          localStorage.setItem(storageCacheKey, JSON.stringify(cacheEntry));
+        } catch (storageError) {
+          console.warn('Failed to cache image in localStorage (may be full):', storageError);
+          // Continue without localStorage cache
+        }
+        
+        // Trigger change detection to update the view
+        this.changeDetectorRef.detectChanges();
       } else {
         // Use fallback
         const address = this.formatAddress(project);
