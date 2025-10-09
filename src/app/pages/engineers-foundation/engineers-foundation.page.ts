@@ -3207,12 +3207,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async addCustomPoint(roomName: string) {
     const alert = await this.alertController.create({
-      header: 'Add Point',
+      header: 'Add Measurement',
       inputs: [
         {
           name: 'pointName',
           type: 'text',
-          placeholder: 'Enter point name',
+          placeholder: 'Enter measurement name',
           attributes: {
             maxlength: 100
           }
@@ -3227,7 +3227,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           text: 'Add',
           handler: async (data) => {
             if (!data.pointName || data.pointName.trim() === '') {
-              await this.showToast('Please enter a point name', 'warning');
+              await this.showToast('Please enter a measurement name', 'warning');
               return false;
             }
             
@@ -3240,7 +3240,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               );
               
               if (exists) {
-                await this.showToast('This point already exists', 'warning');
+                await this.showToast('This measurement already exists', 'warning');
                 return false;
               }
             }
