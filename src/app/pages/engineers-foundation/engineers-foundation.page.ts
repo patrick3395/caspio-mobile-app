@@ -1017,20 +1017,63 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Load FDF options from Services_Rooms_Drop table
   async loadFDFOptions() {
-    // Use fixed hardcoded options only - do not load from database
-    this.fdfOptions = [
-      'Same Elevation',
-      'Same Flooring and Elevation',
-      'None',
-      '1/4"',
-      '1/2"',
-      '3/4"',
-      '1"',
-      '1.25"',
-      '1.5"',
-      '2"',
-      'Other'
-    ];
+    try {
+      const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+      
+      if (dropdownData && dropdownData.length > 0) {
+        // Extract unique dropdown values
+        const options = dropdownData.map((row: any) => row.Dropdown).filter((val: any) => val);
+        
+        // Sort with special ordering
+        this.fdfOptions = options.sort((a: string, b: string) => {
+          // "Same Elevation (0.0)" always first
+          if (a.includes('Same Elevation') && a.includes('0.0')) return -1;
+          if (b.includes('Same Elevation') && b.includes('0.0')) return 1;
+          
+          // "Same Flooring (0.0)" always second
+          if (a.includes('Same Flooring') && a.includes('0.0')) return -1;
+          if (b.includes('Same Flooring') && b.includes('0.0')) return 1;
+          
+          // Extract numbers from strings for numerical sorting
+          const numA = parseFloat(a.match(/[\d.]+/)?.[0] || '999');
+          const numB = parseFloat(b.match(/[\d.]+/)?.[0] || '999');
+          
+          // Sort by numbers in ascending order
+          return numA - numB;
+        });
+      } else {
+        // Fallback to hardcoded options if database is empty
+        this.fdfOptions = [
+          'Same Elevation (0.0)',
+          'Same Flooring (0.0)',
+          'None',
+          '1/4"',
+          '1/2"',
+          '3/4"',
+          '1"',
+          '1.25"',
+          '1.5"',
+          '2"',
+          'Other'
+        ];
+      }
+    } catch (error) {
+      console.error('Error loading FDF options:', error);
+      // Use fallback options on error
+      this.fdfOptions = [
+        'Same Elevation (0.0)',
+        'Same Flooring (0.0)',
+        'None',
+        '1/4"',
+        '1/2"',
+        '3/4"',
+        '1"',
+        '1.25"',
+        '1.5"',
+        '2"',
+        'Other'
+      ];
+    }
   }
   
   // Load dropdown options for visual templates from Services_Visuals_Drop table
@@ -2953,6 +2996,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Show room selection dialog
+  // Check if a room is a Base Station (including numbered variants like "Base Station #2")
+  isBaseStation(roomName: string): boolean {
+    if (!roomName) return false;
+    // Match "Base Station" or "Base Station #2", "Base Station #3", etc.
+    return roomName === 'Base Station' || roomName.startsWith('Base Station #');
+  }
+
   // Add Base Station specifically
   async addBaseStation() {
     const baseStationTemplate = this.allRoomTemplates.find(r => r.RoomName === 'Base Station');
@@ -2969,8 +3019,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const fdfValue = this.roomElevationData[roomName].fdf;
     
-    // Hide photos for these values
-    const hideValues = ['None', 'Same Elevation, Same Flooring', 'Same Elevation'];
+    // Hide photos for these values (checking for both old and new formats)
+    const hideValues = [
+      'None', 
+      'Same Elevation, Same Flooring', 
+      'Same Elevation',
+      'Same Elevation (0.0)',
+      'Same Flooring (0.0)',
+      'Same Flooring and Elevation'
+    ];
     
     return !hideValues.includes(fdfValue);
   }

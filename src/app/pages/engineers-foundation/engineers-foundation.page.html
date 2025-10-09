@@ -838,7 +838,7 @@
               <ng-container *ngFor="let room of roomTemplates; trackBy: trackByRoomName">
               <div class="room-item-container" 
                    [class.selected]="isRoomSelected(room.RoomName)"
-                   *ngIf="room.RoomName === 'Base Station'">
+                   *ngIf="isBaseStation(room.RoomName)">
               
               <!-- Room card header with checkbox and collapse in header -->
               <div class="room-card-header">
@@ -855,7 +855,7 @@
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
                     <h3>
                       {{ room.RoomName }}
-                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'" style="color: #F15A27 !important;">*</span>
+                      <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)" style="color: #F15A27 !important;">*</span>
                     </h3>
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
@@ -874,7 +874,7 @@
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
                 <!-- Flooring Difference Factor Section (hidden for Base Station) -->
-                <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
+                <div class="room-section-delimiter" *ngIf="!isBaseStation(room.RoomName)">
                   <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
                           (click)="openHelp(1, 'FDF Help')"
@@ -885,7 +885,7 @@
                 </div>
 
                 <!-- Flooring Difference Factor dropdown - compact inline (hidden for Base Station) -->
-                <div class="fdf-dropdown-container" *ngIf="room.RoomName !== 'Base Station'">
+                <div class="fdf-dropdown-container" *ngIf="!isBaseStation(room.RoomName)">
                   <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
                     <ion-label style="font-size: 13px; font-weight: 600;">FDF:<span style="color: #F15A27; margin-left: 2px;">*</span></ion-label>
                     <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf"
@@ -902,7 +902,7 @@
                 </div>
 
                 <!-- FDF Photos Section (hidden for Base Station) -->
-                <div class="fdf-photos-container" *ngIf="room.RoomName !== 'Base Station'" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
+                <div class="fdf-photos-container" *ngIf="!isBaseStation(room.RoomName)" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
                   <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
@@ -1017,10 +1017,10 @@
                   <span class="delimiter-label">Measurements</span>
                   <div class="delimiter-actions">
                     <button type="button"
-                            [attr.data-help-id]="room.RoomName === 'Base Station' ? 2 : 3"
-                            (click)="openHelp(room.RoomName === 'Base Station' ? 2 : 3, room.RoomName === 'Base Station' ? 'Base Station Location Help' : 'Elevation Measurements Help')"
-                            [title]="room.RoomName === 'Base Station' ? 'Base Station Location Help' : 'Elevation Measurements Help'"
-                            [attr.aria-label]="room.RoomName === 'Base Station' ? 'Base Station Location Help' : 'Elevation Measurements Help'"
+                            [attr.data-help-id]="isBaseStation(room.RoomName) ? 2 : 3"
+                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help')"
+                            [title]="isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help'"
+                            [attr.aria-label]="isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help'"
                             style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
                       <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                     </button>
@@ -1106,7 +1106,7 @@
                 </div>
 
                 <!-- Add point button at bottom right (hidden for Base Station) -->
-                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="room.RoomName !== 'Base Station'">
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="!isBaseStation(room.RoomName)">
                   <button class="add-point-button" (click)="addCustomPoint(room.RoomName)"
                             style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
                       <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
@@ -1151,7 +1151,7 @@
               <ng-container *ngFor="let room of roomTemplates; trackBy: trackByRoomName">
               <div class="room-item-container" 
                    [class.selected]="isRoomSelected(room.RoomName)"
-                   *ngIf="room.RoomName !== 'Base Station'">
+                   *ngIf="!isBaseStation(room.RoomName)">
               
               <!-- Room card header with checkbox and collapse in header -->
               <div class="room-card-header">
@@ -1168,7 +1168,7 @@
                              [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
                     <h3>
                       {{ room.RoomName }}
-                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'" style="color: #F15A27 !important;">*</span>
+                      <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)" style="color: #F15A27 !important;">*</span>
                     </h3>
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
@@ -1202,14 +1202,7 @@
                   <select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
                           (ngModelChange)="onFDFChange(room.RoomName)"
                           class="styled-input">
-                    <option value="None">None</option>
-                    <option value="Same Elevation, Same Flooring">Same Elevation, Same Flooring</option>
-                    <option value="Same Elevation">Same Elevation</option>
-                    <option value="Concrete">Concrete</option>
-                    <option value="Tile">Tile</option>
-                    <option value="Wood">Wood</option>
-                    <option value="Carpet">Carpet</option>
-                    <option value="Other">Other</option>
+                    <option *ngFor="let option of fdfOptions" [value]="option">{{ option }}</option>
                   </select>
                 </div>
 
@@ -1328,8 +1321,8 @@
                   <span class="delimiter-label">Measurements</span>
                   <div class="delimiter-actions">
                     <button type="button"
-                            [attr.data-help-id]="room.RoomName === 'Base Station' ? 2 : 3"
-                            (click)="openHelp(room.RoomName === 'Base Station' ? 2 : 3, room.RoomName === 'Base Station' ? 'Base Station Location Help' : 'Elevation Measurements Help')"
+                            [attr.data-help-id]="isBaseStation(room.RoomName) ? 2 : 3"
+                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help')"
                             title="Elevation Help"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer;">
                       <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
@@ -1416,7 +1409,7 @@
                 </div>
 
                 <!-- Add point button at bottom right (hidden for Base Station) -->
-                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="room.RoomName !== 'Base Station'">
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="!isBaseStation(room.RoomName)">
                   <button class="add-point-button" (click)="addCustomPoint(room.RoomName)"
                             style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
                       <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
