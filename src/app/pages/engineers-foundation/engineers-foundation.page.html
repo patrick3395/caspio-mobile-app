@@ -830,10 +830,14 @@
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           
-          <!-- Room selection list (like visuals with outlined cards) -->
-          <div class="room-templates-list" *ngIf="roomTemplates.length > 0">
-            <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
-                 [class.selected]="isRoomSelected(room.RoomName)">
+          <!-- Base Station Section -->
+          <div class="elevation-subsection">
+            <h3 class="subsection-header">Base Station</h3>
+            
+            <div class="room-templates-list">
+              <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
+                   [class.selected]="isRoomSelected(room.RoomName)"
+                   *ngIf="room.RoomName === 'Base Station'">
               
               <!-- Room card header with checkbox and collapse in header -->
               <div class="room-card-header">
@@ -1126,8 +1130,301 @@
               </div>
             </div>
           </div>
+            </div>
           
-          <!-- Add Room button - always show at bottom -->
+          <!-- Add Base Station button -->
+          <div class="add-room-container" style="margin-top: 12px; margin-bottom: 20px; text-align: center;">
+            <button class="add-room-button" (click)="showAddRoomDialog()"
+                    style="background: white; border: 1px solid #ddd; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #000;">
+              <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 16px; color: #000;"></ion-icon>
+              Add Base Station
+            </button>
+          </div>
+          </div>
+          
+          <!-- Rooms Section -->
+          <div class="elevation-subsection" style="margin-top: 24px;">
+            <h3 class="subsection-header">Rooms</h3>
+            
+            <div class="room-templates-list">
+              <div class="room-item-container" *ngFor="let room of roomTemplates; trackBy: trackByRoomName" 
+                   [class.selected]="isRoomSelected(room.RoomName)"
+                   *ngIf="room.RoomName !== 'Base Station'">
+              
+              <!-- Room card header with checkbox and collapse in header -->
+              <div class="room-card-header">
+                <ion-item lines="none" class="checkbox-item" [button]="false">
+                  <ion-checkbox 
+                    slot="start" 
+                    [checked]="isRoomSelected(room.RoomName)"
+                    [disabled]="isRoomSaving(room.RoomName)"
+                    (ionChange)="toggleRoomSelection(room.RoomName, $event)"
+                    (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
+                  </ion-checkbox>
+                  <ion-label class="item-label"
+                             (click)="handleRoomLabelClick(room.RoomName, $event)"
+                             [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
+                    <h3>
+                      {{ room.RoomName }}
+                      <span class="required-indicator" *ngIf="room.RoomName === 'Base Station'" style="color: #F15A27 !important;">*</span>
+                    </h3>
+                    <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
+                  </ion-label>
+                  <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
+                  <!-- Collapse/expand icon in header when room is selected -->
+                  <ion-icon *ngIf="isRoomSelected(room.RoomName)"
+                            slot="end"
+                            [name]="isRoomExpanded(room.RoomName) ? 'chevron-up' : 'chevron-down'"
+                            (click)="handleRoomExpandClick(room.RoomName, $event)"
+                            style="cursor: pointer; font-size: 24px; color: var(--ion-color-medium);">
+                  </ion-icon>
+                </ion-item>
+              </div>
+              
+              <!-- Show room content only when selected and expanded -->
+              <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
+
+                <!-- Flooring Difference Factor Section (hidden for Base Station) -->
+                <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
+                  <span class="delimiter-label">Flooring Difference Factor</span>
+                  <button type="button"
+                          (click)="openHelp(1, 'FDF Help')"
+                          title="FDF Help"
+                          style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+                    <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                  </button>
+                </div>
+
+                <!-- FDF Photos Row (hidden for Base Station) -->
+                <div class="fdf-photos-container" *ngIf="room.RoomName !== 'Base Station'">
+                  <div class="fdf-photos-row" style="display: flex; gap: 12px;">
+                    <!-- Top Photo Column -->
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                      <button (click)="takeFDFPhoto(room.RoomName, 'Top')" 
+                              class="fdf-photo-button"
+                              style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                        <span style="margin-bottom: 4px;">Top</span>
+                        <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                      </button>
+                      <!-- Top Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Top')"
+                             alt="Top"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.topHasAnnotations">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Top', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
+                        <!-- Caption text underneath FDF Top photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Top')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Top', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Top', getFdfPhotoCaption(room.RoomName, 'Top'))"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
+                      </div>
+                    </div>
+                    
+                    <!-- Bottom Photo Column -->
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                      <button (click)="takeFDFPhoto(room.RoomName, 'Bottom')" 
+                              class="fdf-photo-button"
+                              style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                        <span style="margin-bottom: 4px;">Bottom</span>
+                        <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                      </button>
+                      <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
+                             alt="Bottom"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomHasAnnotations">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Bottom', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
+                        <!-- Caption text underneath FDF Bottom photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Bottom')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Bottom', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', getFdfPhotoCaption(room.RoomName, 'Bottom'))"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
+                      </div>
+                    </div>
+                    
+                    <!-- Threshold Photo Column -->
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                      <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
+                              class="fdf-photo-button"
+                              style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                        <span style="margin-bottom: 4px;">Threshold</span>
+                        <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                        <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                      </button>
+                      <!-- Threshold Photo Thumbnail - Match Structural Systems structure -->
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                             class="fdf-photo-image"
+                             width="90" height="90"
+                             (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
+                             alt="Threshold"
+                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
+                        <button class="delete-btn"
+                                (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
+                                title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
+                        <!-- Caption text underneath FDF Threshold photo -->
+                        <input 
+                          type="text" 
+                          class="room-photo-caption" 
+                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Threshold')"
+                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Threshold', $event)"
+                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', getFdfPhotoCaption(room.RoomName, 'Threshold'))"
+                          (click)="$event.stopPropagation()"
+                          placeholder="Caption"
+                          maxlength="255">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Measurements Section -->
+                <div class="room-section-delimiter measurement-header" style="margin-top: 15px;">
+                  <span class="delimiter-label">Measurements</span>
+                  <div class="delimiter-actions">
+                    <button type="button"
+                            [attr.data-help-id]="room.RoomName === 'Base Station' ? 2 : 3"
+                            (click)="openHelp(room.RoomName === 'Base Station' ? 2 : 3, room.RoomName === 'Base Station' ? 'Base Station Location Help' : 'Elevation Measurements Help')"
+                            title="Elevation Help"
+                            style="background: transparent; border: none; padding: 4px; cursor: pointer;">
+                      <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Elevation Points with Location and Measurement photos - like FDF section -->
+                <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
+                  <div class="elevation-points-grid">
+                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                      <div class="point-header">
+                        <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                      </div>
+                      
+                      <!-- Location and Measurement Photos -->
+                      <div style="margin-top: 12px; display: flex; gap: 12px;">
+                        <!-- Location Photo -->
+                        <div style="flex: 1; min-width: 120px; text-align: center;">
+                          <button (click)="capturePointPhoto(room.RoomName, point, 'Location', $event)" 
+                                  class="fdf-photo-button measurement-photo-btn"
+                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                            <span style="margin-bottom: 4px;">Location</span>
+                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                            <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                          </button>
+                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                 alt="Location">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
+                            <!-- Caption text underneath Location photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption"
+                              (blur)="savePhotoCaption(getPointPhotoByType(point, 'Location'))"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
+                          </div>
+                        </div>
+                        
+                        <!-- Measurement Photo -->
+                        <div style="flex: 1; min-width: 120px; text-align: center;">
+                          <button (click)="capturePointPhoto(room.RoomName, point, 'Measurement', $event)" 
+                                  class="fdf-photo-button measurement-photo-btn"
+                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                            <span style="margin-bottom: 4px;">Measurement</span>
+                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                            <ion-icon *ngIf="getPointPhotoByType(point, 'Measurement')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                          </button>
+                          <!-- Measurement Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                                 alt="Measurement">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
+                            <!-- Caption text underneath Measurement photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption"
+                              (blur)="savePhotoCaption(getPointPhotoByType(point, 'Measurement'))"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Add point button at bottom right (hidden for Base Station) -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="room.RoomName !== 'Base Station'">
+                  <button class="add-point-button" (click)="addCustomPoint(room.RoomName)"
+                            style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
+                      <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
+                      Add Point
+                    </button>
+                  </div>
+
+                <!-- Notes Section -->
+                <div class="room-section-delimiter" style="margin-top: 15px;">
+                  <span class="delimiter-label">Notes</span>
+                </div>
+                
+                <!-- Room-specific notes - compact -->
+                <div class="room-notes">
+                  <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
+                                rows="2"
+                                placeholder="Notes for {{ room.RoomName }}..."
+                                (ionBlur)="onRoomNotesChange(room.RoomName)"
+                                style="font-size: 13px;">
+                  </ion-textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Add Room button - at bottom of Rooms section -->
           <div class="add-room-container" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
             <button class="add-room-button" (click)="showAddRoomDialog()"
                     style="background: white; border: 1px solid #ddd; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #000; transition: all 0.3s ease;">
@@ -1138,6 +1435,7 @@
         </div>
       </div>
     </div>
+  </div>
 
   </div>
   

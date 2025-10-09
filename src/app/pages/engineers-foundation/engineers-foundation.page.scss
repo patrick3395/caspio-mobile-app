@@ -1644,6 +1644,19 @@ select[name="StructuralSystemsStatus"] {
   border-left: 3px solid var(--noble-orange);
 }
 
+.subsection-header {
+  font-size: 17px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--noble-orange);
+}
+
+.elevation-subsection {
+  margin-bottom: 24px;
+}
+
 // Room section delimiters
 .room-section-delimiter {
   display: flex;
@@ -2001,13 +2014,7 @@ select[name="StructuralSystemsStatus"] {
                       transition: all 0.2s ease !important;
                       margin-top: 8px !important; // Space below image
                       display: block !important;
-                      
-                      // STANDARDIZED positioning
-                      position: absolute !important;
-                      bottom: 0 !important;
-                      left: 0 !important;
-                      margin: 0 !important;
-                      margin-top: -1px; // Seamless connection to image
+                      position: relative !important; // Changed from absolute for proper spacing
                       
                       &:focus {
                         outline: none;
@@ -2721,13 +2728,7 @@ select[name="StructuralSystemsStatus"] {
       transition: all 0.2s ease !important;
       margin-top: 8px !important; // Space below image
       display: block !important;
-      
-      // CONSISTENT positioning for all caption types
-      position: absolute !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      margin: 0 !important;
-      margin-top: -1px !important; // Seamless connection to image
+      position: relative !important; // Changed from absolute for proper spacing
       box-sizing: border-box !important;
       
       &:focus {
