@@ -365,8 +365,7 @@
           <div class="structural-status-subtitle" 
                (click)="$event.stopPropagation()"
                (mousedown)="$event.stopPropagation()"
-               [attr.data-touch-handler]="platform.isWeb() ? 'web' : 'mobile'"
-               (touchstart)="platform.isWeb() && $event.stopPropagation()">
+               (touchstart)="$event.stopPropagation()">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
@@ -374,7 +373,7 @@
                     [class.web-select]="platform.isWeb()"
                     (click)="$event.stopPropagation()"
                     (mousedown)="$event.stopPropagation()"
-                    (touchstart)="platform.isWeb() && $event.stopPropagation()">
+                    (touchstart)="$event.stopPropagation()">
               <option value="">-- Select --</option>
               <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>
               <option value="Completed Here">Completed Here</option>
@@ -864,8 +863,8 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded) -->
-                  <div class="room-actions" slot="end" *ngIf="platform.isWeb()" style="display: flex; align-items: center; gap: 4px;">
+                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; align-items: center; gap: 4px;">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
                             (click)="renameRoom(room.RoomName, $event)" 
@@ -903,8 +902,8 @@
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
-                <!-- Room action buttons (Mobile only - shows under header when expanded) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
                           (click)="renameRoom(room.RoomName, $event)" 
@@ -1230,8 +1229,8 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded) -->
-                  <div class="room-actions" slot="end" *ngIf="platform.isWeb()" style="display: flex; align-items: center; gap: 4px;">
+                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; align-items: center; gap: 4px;">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
                             (click)="renameRoom(room.RoomName, $event)" 
@@ -1269,8 +1268,8 @@
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
-                <!-- Room action buttons (Mobile only - shows under header when expanded) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
                           (click)="renameRoom(room.RoomName, $event)" 

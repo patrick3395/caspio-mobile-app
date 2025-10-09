@@ -1055,14 +1055,14 @@ select[name="StructuralSystemsStatus"] {
 // Keep media query as fallback for non-Capacitor environments
 @media (min-width: 768px) {
   .structural-status-subtitle {
-    display: block !important; // Webapp: full width to match header
-    width: 100% !important; // Webapp: take full width
+    display: inline-block !important; // Webapp: only as wide as dropdown
+    width: auto !important; // Webapp: don't take full width
     
     .structural-status-select:not(.web-select) {
       // Only apply if web-select class isn't present
-      display: block !important;
+      display: inline-block !important;
       padding: 12px 44px 12px 24px;
-      width: 100% !important;
+      min-width: 470px !important; // Wide enough to prevent text wrapping
       
       option {
         padding: 14px 20px;
