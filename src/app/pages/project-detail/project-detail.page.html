@@ -226,7 +226,10 @@
           <ng-container *ngIf="serviceDoc.documents.length > 0; else noServiceDocuments">
             <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents; trackBy: trackDocument" [class.pending]="!doc.uploaded">
               <td class="doc-info-cell">
-                <div class="doc-title">{{ doc.title }}</div>
+                <div class="doc-title">
+                  {{ doc.title }}
+                  <span class="required-indicator" *ngIf="doc.required" style="color: #F15A27; margin-left: 4px;">*</span>
+                </div>
                 <div class="doc-filename" *ngIf="doc.uploaded && (doc.linkName || doc.filename)">
                   {{ doc.linkName || doc.filename }}
                 </div>

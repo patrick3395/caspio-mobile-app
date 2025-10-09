@@ -571,6 +571,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       this.projectData = await this.foundationData.getProject(this.projectId);
 
+      // Format numeric fields after loading
+      this.formatSquareFeet();
+      this.formatYearBuilt();
+
       // Check for custom values and add them to dropdown options
       this.loadCustomValuesIntoDropdowns();
 

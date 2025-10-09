@@ -1141,18 +1141,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     
     for (const service of this.selectedServices) {
       
-      // Get ALL templates for this service type (both required and optional)
-      const requiredTemplates = this.attachTemplates.filter(t => 
+      // Get ALL templates for this service type where Auto = 'Yes'
+      const autoTemplates = this.attachTemplates.filter(t => 
         t.TypeID === parseInt(service.typeId) && 
-        (t.Required === 'Yes' || t.Required === true || t.Required === 1)
+        (t.Auto === 'Yes' || t.Auto === true || t.Auto === 1)
       );
       
       const documents: DocumentItem[] = [];
       
-      // Add documents ONLY from templates in the database
-      if (requiredTemplates.length > 0) {
+      // Add documents ONLY from templates in the database where Auto = 'Yes'
+      if (autoTemplates.length > 0) {
         // Use actual templates from database
-        for (const template of requiredTemplates) {
+        for (const template of autoTemplates) {
           // Find ALL attachments for this type and title (for multiple uploads)
           const attachments = this.existingAttachments.filter(a => 
             a.TypeID === parseInt(service.typeId) && 
@@ -1842,11 +1842,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     this.selectedServiceDoc = serviceDoc;
     this.isAddingLink = false; // Adding document, not link
     
-    // Get optional templates for this type
+    // Get optional templates for this type (Auto = 'No' only, since Auto = 'Yes' are shown automatically)
     const optionalTemplates = this.attachTemplates.filter(t => 
       t.TypeID === parseInt(serviceDoc.typeId) && 
-      (t.Auto === 'No' || t.Auto === false || t.Auto === 0 ||
-       (t.Required === 'No' || t.Required === false || t.Required === 0))
+      (t.Auto === 'No' || t.Auto === false || t.Auto === 0 || !t.Auto)
     );
     
     if (optionalTemplates.length > 0) {
@@ -1871,11 +1870,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     this.selectedServiceDoc = serviceDoc;
     this.isAddingLink = true; // Adding link, not document
     
-    // Get optional templates for this type (same list as documents)
+    // Get optional templates for this type (Auto = 'No' only, since Auto = 'Yes' are shown automatically)
     const optionalTemplates = this.attachTemplates.filter(t => 
       t.TypeID === parseInt(serviceDoc.typeId) && 
-      (t.Auto === 'No' || t.Auto === false || t.Auto === 0 ||
-       (t.Required === 'No' || t.Required === false || t.Required === 0))
+      (t.Auto === 'No' || t.Auto === false || t.Auto === 0 || !t.Auto)
     );
     
     if (optionalTemplates.length > 0) {

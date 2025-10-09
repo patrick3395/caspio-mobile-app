@@ -145,8 +145,9 @@ ion-item-sliding {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: space-between;
   gap: 6px;
+  padding-top: 6px;
   padding-right: 4px;
   min-width: 48px;
   height: 100%;
@@ -166,6 +167,7 @@ ion-item-sliding {
   font-size: 20px;
   color: #{$gray};
   opacity: 0.5;
+  margin-top: auto;
 }
 
 .project-image {
