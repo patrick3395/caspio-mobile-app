@@ -111,16 +111,20 @@ $white: #FFFFFF;
   gap: 12px;
 }
 
+ion-item-sliding {
+  margin-bottom: 12px;
+}
+
 .project-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  background: #{$white};
+  --padding-start: 0;
+  --padding-end: 8px;
+  --inner-padding-end: 16px;
+  --background: #{$white};
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(105, 99, 93, 0.1);
   transition: all 0.3s ease;
-  cursor: pointer;
+  margin-bottom: 0;
 
   &:active {
     transform: scale(0.98);
@@ -128,14 +132,52 @@ $white: #FFFFFF;
   }
 }
 
+.project-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  gap: 16px;
+}
+
+.project-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-top: 6px;
+  padding-right: 4px;
+  min-width: 48px;
+  height: 100%;
+  position: relative;
+}
+
+.project-id {
+  font-size: 12px;
+  color: #{$gray};
+  font-weight: 600;
+  opacity: 0.8;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.project-arrow {
+  font-size: 20px;
+  color: #{$gray};
+  opacity: 0.5;
+  margin-top: auto;
+}
+
 .project-image {
-  width: 60px;
-  height: 60px;
-  margin-right: 16px;
+  width: 80px;
+  height: 80px;
   border-radius: 8px;
   overflow: hidden;
   background: #{$light-gray};
   flex-shrink: 0;
+  border: none;
 
   img {
     width: 100%;
@@ -158,50 +200,31 @@ $white: #FFFFFF;
   line-height: 1.4;
 }
 
-.project-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.project-city-state {
+  font-size: 13px;
+  color: #{$gray};
+  font-weight: 400;
+}
+
+.project-services {
+  font-size: 12px;
+  color: #{$orange};
+  font-weight: 500;
+  font-style: italic;
+  margin-top: 2px;
   
-  .project-id {
-    font-size: 12px;
-    color: #{$orange};
-    font-weight: 600;
-  }
-  
-  .status-text {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    
-    &.completed {
-      background: #d4edda;
-      color: #155724;
-    }
-    
-    &.on-hold {
-      background: #fff3cd;
-      color: #856404;
-    }
-    
-    &.cancelled {
-      background: #f8d7da;
-      color: #721c24;
-    }
-    
-    &.archived {
-      background: #e2e3e5;
-      color: #383d41;
-    }
-  }
+  // Handle long service names gracefully
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .project-date {
   font-size: 11px;
   color: #{$gray};
-  font-style: italic;
+  font-weight: 400;
+  margin-top: 2px;
 }
 
 .loading-container {

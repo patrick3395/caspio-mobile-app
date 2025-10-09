@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -24,6 +24,10 @@ export class AllProjectsPage implements OnInit {
   currentUser: any = null;
   searchTerm = '';
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
+  
+  // Services cache
+  private servicesCache: { [projectId: string]: string } = {};
+  private serviceTypes: any[] = [];
 
   // Get current user info
   getUserInfo(): string {
@@ -39,7 +43,8 @@ export class AllProjectsPage implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private alertController: AlertController,
-    public platform: PlatformDetectionService
+    public platform: PlatformDetectionService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -107,8 +112,24 @@ export class AllProjectsPage implements OnInit {
         this.projects = allProjects.filter(p => 
           p.StatusID !== 1 && p.StatusID !== '1' && p.Status !== 'Active'
         );
-        this.rebuildBuckets();
-        this.loading = false;
+        
+        // Load service types and then services
+        this.projectsService.getServiceTypes().subscribe({
+          next: (serviceTypes) => {
+            this.serviceTypes = serviceTypes || [];
+            
+            // Load services for each project
+            this.loadServicesSimple();
+            
+            this.rebuildBuckets();
+            this.loading = false;
+          },
+          error: (typeError) => {
+            console.error('Error loading service types:', typeError);
+            this.rebuildBuckets();
+            this.loading = false;
+          }
+        });
       },
       error: (error) => {
         this.error = 'Failed to load projects';
@@ -116,6 +137,76 @@ export class AllProjectsPage implements OnInit {
         console.error('Error loading projects:', error);
       }
     });
+  }
+  
+  /**
+   * Load services for all projects
+   */
+  loadServicesSimple() {
+    if (!this.projects || !this.serviceTypes) {
+      return;
+    }
+    
+    // For each project, query Services table directly
+    this.projects.forEach(project => {
+      const projectId = project.ProjectID;
+      
+      if (projectId) {
+        this.caspioService.get(`/tables/Services/records?q.where=ProjectID='${projectId}'`).subscribe({
+          next: (response: any) => {
+            const services = response?.Result || [];
+            
+            if (services.length > 0) {
+              // Convert TypeIDs to service short codes (HUD, EFE, etc.)
+              const serviceNames = services.map((service: any) => {
+                const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
+                return serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
+              }).filter((name: string) => name && name !== 'Unknown').join(', ');
+              
+              this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
+            } else {
+              this.servicesCache[projectId] = '(No Services Selected)';
+            }
+          },
+          error: (error) => {
+            console.error(`Error loading services for ProjectID ${projectId}:`, error);
+            this.servicesCache[projectId] = '(No Services Selected)';
+          }
+        });
+      }
+    });
+  }
+  
+  /**
+   * Get formatted services string for a project
+   */
+  getProjectServices(project: Project): string {
+    const projectId = project.ProjectID;
+    
+    if (!projectId) {
+      return '(No Services Selected)';
+    }
+    
+    // Return cached services or fallback
+    return this.servicesCache[projectId] || '(No Services Selected)';
+  }
+  
+  formatCityStateZip(project: Project): string {
+    const parts = [];
+    if (project.City) parts.push(project.City);
+    if (project.State) parts.push(project.State);
+    if (project.Zip) parts.push(project.Zip);
+    return parts.join(', ');
+  }
+  
+  formatCreatedDate(dateString: string): string {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
   }
 
   handleSearchTermChange(term: string | null | undefined) {
@@ -159,14 +250,138 @@ export class AllProjectsPage implements OnInit {
     return parts.join(', ') || 'No Address';
   }
 
-  // Get project thumbnail image using Google Street View
+  private projectImageCache: { [projectId: string]: string} = {};
+  private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
+  private readonly CACHE_EXPIRY_HOURS = 24;
+  
+  // Get project thumbnail image
   getProjectImage(project: Project): string {
+    // Check if project has a PrimaryPhoto
+    if (project && project['PrimaryPhoto']) {
+      const primaryPhoto = project['PrimaryPhoto'];
+      
+      // If it's already a data URL or http URL, use it directly
+      if (primaryPhoto.startsWith('data:') || primaryPhoto.startsWith('http')) {
+        return primaryPhoto;
+      }
+      
+      // Check if we have it in memory cache
+      const projectId = project.PK_ID;
+      if (projectId && this.projectImageCache[projectId]) {
+        return this.projectImageCache[projectId];
+      }
+
+      // We need to fetch it using the Files API and store the result
+      if (primaryPhoto.startsWith('/')) {
+        // Check if projectId exists and we have the base64 image cached
+        if (projectId && this.projectImageCache && this.projectImageCache[projectId]) {
+          return this.projectImageCache[projectId];
+        }
+        
+        // Start loading the image asynchronously if we have a valid project
+        if (projectId) {
+          this.loadProjectImage(project);
+        }
+        
+        // Return placeholder while loading
+        return 'assets/img/photo-loading.svg';
+      }
+    }
+    
+    // Fall back to Google Street View if no PrimaryPhoto
     const address = this.formatAddress(project);
     if (!address || address === 'No Address') {
       return 'assets/img/project-placeholder.svg';
     }
     const encodedAddress = encodeURIComponent(address);
     return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
+  }
+  
+  async loadProjectImage(project: Project) {
+    const projectId = project.PK_ID;
+    const primaryPhoto = project['PrimaryPhoto'];
+    
+    if (!projectId || !primaryPhoto || !primaryPhoto.startsWith('/')) {
+      return;
+    }
+    
+    // Create a cache key that includes the photo path to detect changes
+    const cacheKey = `${projectId}_${primaryPhoto}`;
+    const storageCacheKey = `${this.PROJECT_IMAGE_CACHE_PREFIX}${cacheKey}`;
+    
+    // Check memory cache first
+    if (this.projectImageCache[cacheKey]) {
+      // Update the projectId cache to point to this image
+      this.projectImageCache[projectId] = this.projectImageCache[cacheKey];
+      return;
+    }
+    
+    // Check localStorage cache
+    try {
+      const cachedData = localStorage.getItem(storageCacheKey);
+      if (cachedData) {
+        const cacheEntry = JSON.parse(cachedData);
+        const cacheAge = Date.now() - cacheEntry.timestamp;
+        const maxAge = this.CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
+        
+        if (cacheAge < maxAge && cacheEntry.imageData) {
+          // Use cached image
+          this.projectImageCache[projectId] = cacheEntry.imageData;
+          this.projectImageCache[cacheKey] = cacheEntry.imageData;
+          this.changeDetectorRef.detectChanges();
+          return;
+        } else {
+          // Cache expired, remove it
+          localStorage.removeItem(storageCacheKey);
+        }
+      }
+    } catch (e) {
+      console.error('Error reading image cache:', e);
+    }
+    
+    try {
+      const imageData = await this.caspioService.getImageFromFilesAPI(primaryPhoto).toPromise();
+      
+      if (imageData && imageData.startsWith('data:')) {
+        // Store in memory cache with both keys
+        this.projectImageCache[projectId] = imageData;
+        this.projectImageCache[cacheKey] = imageData;
+        
+        // Store in localStorage for persistence
+        try {
+          const cacheEntry = {
+            imageData: imageData,
+            timestamp: Date.now()
+          };
+          localStorage.setItem(storageCacheKey, JSON.stringify(cacheEntry));
+        } catch (storageError) {
+          console.warn('Failed to cache image in localStorage (may be full):', storageError);
+          // Continue without localStorage cache
+        }
+        
+        // Trigger change detection to update the view
+        this.changeDetectorRef.detectChanges();
+      } else {
+        // Use fallback
+        const address = this.formatAddress(project);
+        if (address && address !== 'No Address') {
+          const encodedAddress = encodeURIComponent(address);
+          this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
+        } else {
+          this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading project image:', error);
+      // Use fallback on error
+      const address = this.formatAddress(project);
+      if (address && address !== 'No Address') {
+        const encodedAddress = encodeURIComponent(address);
+        this.projectImageCache[projectId] = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
+      } else {
+        this.projectImageCache[projectId] = 'assets/img/project-placeholder.svg';
+      }
+    }
   }
 
   // Handle image loading errors

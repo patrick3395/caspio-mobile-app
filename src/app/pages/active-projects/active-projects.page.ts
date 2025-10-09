@@ -318,7 +318,7 @@ export class ActiveProjectsPage implements OnInit {
           // Use cached image
           this.projectImageCache[projectId] = cacheEntry.imageData;
           this.projectImageCache[cacheKey] = cacheEntry.imageData;
-          this.changeDetectorRef.detectChanges();
+          this.cdr.detectChanges();
           return;
         } else {
           // Cache expired, remove it
@@ -350,7 +350,7 @@ export class ActiveProjectsPage implements OnInit {
         }
         
         // Trigger change detection to update the view
-        this.changeDetectorRef.detectChanges();
+        this.cdr.detectChanges();
       } else {
         // Use fallback
         const address = this.formatAddress(project);

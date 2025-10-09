@@ -44,21 +44,25 @@
           Completed ({{ completedProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of completedProjects; trackBy: trackByProject" (click)="selectProject(project)">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-            </div>
-            <div class="project-details">
-              <div class="project-address">{{ formatAddress(project) }}</div>
-              <div class="project-info">
-                <span class="project-id">{{ formatProjectId(project) }}</span>
-                <span class="status-text completed">Completed</span>
+          <ion-item-sliding *ngFor="let project of completedProjects; trackBy: trackByProject">
+            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+              <div class="project-content">
+                <div class="project-image">
+                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                </div>
+                <div class="project-details">
+                  <div class="project-address">{{ project.Address }}</div>
+                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                  <div class="project-services">{{ getProjectServices(project) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project.DateCompleted">{{ formatCreatedDate(project.DateCompleted || project.Date) }}</div>
+                </div>
               </div>
-              <div class="project-date" *ngIf="project['DateCompleted']">
-                Completed: {{ project['DateCompleted'] | date:'shortDate' }}
+              <div class="project-meta" slot="end">
+                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
-            </div>
-          </div>
+            </ion-item>
+          </ion-item-sliding>
         </div>
       </div>
 
@@ -69,21 +73,25 @@
           On Hold ({{ onHoldProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of onHoldProjects; trackBy: trackByProject" (click)="selectProject(project)">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-            </div>
-            <div class="project-details">
-              <div class="project-address">{{ formatAddress(project) }}</div>
-              <div class="project-info">
-                <span class="project-id">{{ formatProjectId(project) }}</span>
-                <span class="status-text on-hold">On Hold</span>
+          <ion-item-sliding *ngFor="let project of onHoldProjects; trackBy: trackByProject">
+            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+              <div class="project-content">
+                <div class="project-image">
+                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                </div>
+                <div class="project-details">
+                  <div class="project-address">{{ project.Address }}</div>
+                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                  <div class="project-services">{{ getProjectServices(project) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                </div>
               </div>
-              <div class="project-date" *ngIf="project['DateCreated']">
-                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              <div class="project-meta" slot="end">
+                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
-            </div>
-          </div>
+            </ion-item>
+          </ion-item-sliding>
         </div>
       </div>
 
@@ -94,21 +102,25 @@
           Cancelled ({{ cancelledProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of cancelledProjects; trackBy: trackByProject" (click)="selectProject(project)">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-            </div>
-            <div class="project-details">
-              <div class="project-address">{{ formatAddress(project) }}</div>
-              <div class="project-info">
-                <span class="project-id">{{ formatProjectId(project) }}</span>
-                <span class="status-text cancelled">Cancelled</span>
+          <ion-item-sliding *ngFor="let project of cancelledProjects; trackBy: trackByProject">
+            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+              <div class="project-content">
+                <div class="project-image">
+                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                </div>
+                <div class="project-details">
+                  <div class="project-address">{{ project.Address }}</div>
+                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                  <div class="project-services">{{ getProjectServices(project) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                </div>
               </div>
-              <div class="project-date" *ngIf="project['DateCreated']">
-                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              <div class="project-meta" slot="end">
+                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
-            </div>
-          </div>
+            </ion-item>
+          </ion-item-sliding>
         </div>
       </div>
 
@@ -119,21 +131,25 @@
           Archived ({{ archivedProjects.length }})
         </h3>
         <div class="projects-list">
-          <div class="project-item" *ngFor="let project of archivedProjects; trackBy: trackByProject" (click)="selectProject(project)">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
-            </div>
-            <div class="project-details">
-              <div class="project-address">{{ formatAddress(project) }}</div>
-              <div class="project-info">
-                <span class="project-id">{{ formatProjectId(project) }}</span>
-                <span class="status-text archived">Archived</span>
+          <ion-item-sliding *ngFor="let project of archivedProjects; trackBy: trackByProject">
+            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+              <div class="project-content">
+                <div class="project-image">
+                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                </div>
+                <div class="project-details">
+                  <div class="project-address">{{ project.Address }}</div>
+                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                  <div class="project-services">{{ getProjectServices(project) }}</div>
+                  <div class="project-date" *ngIf="project.Date || project.DateCreated">{{ formatCreatedDate(project.DateCreated || project.Date) }}</div>
+                </div>
               </div>
-              <div class="project-date" *ngIf="project['DateCreated']">
-                Created: {{ project['DateCreated'] | date:'shortDate' }}
+              <div class="project-meta" slot="end">
+                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
-            </div>
-          </div>
+            </ion-item>
+          </ion-item-sliding>
         </div>
       </div>
 
