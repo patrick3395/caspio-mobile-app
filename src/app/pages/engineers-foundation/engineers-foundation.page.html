@@ -366,8 +366,7 @@
                (click)="$event.stopPropagation()"
                (mousedown)="$event.stopPropagation()"
                [attr.data-touch-handler]="platform.isWeb() ? 'web' : 'mobile'"
-               (touchstart)="platform.isWeb() && $event.stopPropagation()"
-               style="display: inline-block; width: auto;">
+               (touchstart)="platform.isWeb() && $event.stopPropagation()">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
                     (ngModelChange)="onStructuralSystemsStatusChange($event)"
@@ -1096,40 +1095,8 @@
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
                       </div>
                       
-                      <!-- Location and Measurement Photos -->
+                      <!-- Measurement and Location Photos -->
                       <div style="margin-top: 12px; display: flex; gap: 12px;">
-                        <!-- Location Photo -->
-                        <div style="flex: 1; min-width: 120px; text-align: center;">
-                          <button (click)="capturePointPhoto(room.RoomName, point, 'Location', $event)" 
-                                  class="fdf-photo-button measurement-photo-btn"
-                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                            <span style="margin-bottom: 4px;">Location</span>
-                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                            <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
-                          </button>
-                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
-                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                                 alt="Location">
-                            <button class="delete-btn"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
-                            <!-- Caption text underneath photo -->
-                            <input 
-                              type="text" 
-                              class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption" 
-                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
-                          </div>
-                        </div>
-                        
                         <!-- Measurement Photo -->
                         <div style="flex: 1; min-width: 120px; text-align: center;">
                           <button (click)="capturePointPhoto(room.RoomName, point, 'Measurement', $event)" 
@@ -1156,6 +1123,38 @@
                               class="room-photo-caption" 
                               [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption" 
                               (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
+                          </div>
+                        </div>
+                        
+                        <!-- Location Photo -->
+                        <div style="flex: 1; min-width: 120px; text-align: center;">
+                          <button (click)="capturePointPhoto(room.RoomName, point, 'Location', $event)" 
+                                  class="fdf-photo-button measurement-photo-btn"
+                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                            <span style="margin-bottom: 4px;">Location</span>
+                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                            <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                          </button>
+                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                 alt="Location">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
+                            <!-- Caption text underneath photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption" 
+                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
                               (click)="$event.stopPropagation()"
                               placeholder="Caption"
                               maxlength="255">
@@ -1272,6 +1271,36 @@
               
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
+
+                <!-- Room action buttons (Mobile only - shows under header when expanded) -->
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                  <!-- Rename button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="renameRoom(room.RoomName, $event)" 
+                          title="Rename Room"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="create-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Rename</span>
+                  </button>
+                  <!-- Move up button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="moveRoomUp(room.RoomName, $event)" 
+                          [disabled]="getRoomIndex(room.RoomName) === 0"
+                          title="Move Up"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="arrow-up-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Move Up</span>
+                  </button>
+                  <!-- Move down button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="moveRoomDown(room.RoomName, $event)" 
+                          [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
+                          title="Move Down"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="arrow-down-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Move Down</span>
+                  </button>
+                </div>
 
                 <!-- Flooring Difference Factor Section -->
                 <div class="room-section-delimiter">
@@ -1431,40 +1460,8 @@
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
                       </div>
                       
-                      <!-- Location and Measurement Photos -->
+                      <!-- Measurement and Location Photos -->
                       <div style="margin-top: 12px; display: flex; gap: 12px;">
-                        <!-- Location Photo -->
-                        <div style="flex: 1; min-width: 120px; text-align: center;">
-                          <button (click)="capturePointPhoto(room.RoomName, point, 'Location', $event)" 
-                                  class="fdf-photo-button measurement-photo-btn"
-                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                            <span style="margin-bottom: 4px;">Location</span>
-                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
-                            <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
-                          </button>
-                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
-                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                                 alt="Location">
-                            <button class="delete-btn"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
-                            <!-- Caption text underneath Location photo -->
-                            <input 
-                              type="text" 
-                              class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption"
-                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
-                          </div>
-                        </div>
-                        
                         <!-- Measurement Photo -->
                         <div style="flex: 1; min-width: 120px; text-align: center;">
                           <button (click)="capturePointPhoto(room.RoomName, point, 'Measurement', $event)" 
@@ -1491,6 +1488,38 @@
                               class="room-photo-caption" 
                               [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption"
                               (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                              (click)="$event.stopPropagation()"
+                              placeholder="Caption"
+                              maxlength="255">
+                          </div>
+                        </div>
+                        
+                        <!-- Location Photo -->
+                        <div style="flex: 1; min-width: 120px; text-align: center;">
+                          <button (click)="capturePointPhoto(room.RoomName, point, 'Location', $event)" 
+                                  class="fdf-photo-button measurement-photo-btn"
+                                  style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                            <span style="margin-bottom: 4px;">Location</span>
+                            <ion-icon name="camera-outline" style="font-size: 18px;"></ion-icon>
+                            <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                          </button>
+                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" style="margin-top: 12px;">
+                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                 width="90" height="90"
+                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                 alt="Location">
+                            <button class="delete-btn"
+                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                    title="Delete">
+                              <ion-icon name="close"></ion-icon>
+                            </button>
+                            <!-- Caption text underneath Location photo -->
+                            <input 
+                              type="text" 
+                              class="room-photo-caption" 
+                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption"
+                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
                               (click)="$event.stopPropagation()"
                               placeholder="Caption"
                               maxlength="255">
