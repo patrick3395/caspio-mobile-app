@@ -421,21 +421,21 @@ import { IonicModule, ModalController, AlertController } from '@ionic/angular';
     }
     
     .action-btn.delete:hover:not(.active) {
-      background: rgba(255, 59, 48, 0.1);
-      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
+      background: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     
     .action-btn.delete:hover:not(.active) ion-icon {
-      color: #FF3B30;
+      color: #000000;
     }
     
     .action-btn.delete.active {
-      background: rgba(255, 59, 48, 0.2);
-      border: 2px solid #FF3B30;
+      background: rgba(0, 0, 0, 0.1);
+      border: 2px solid #000000;
     }
     
     .action-btn.delete.active ion-icon {
-      color: #FF3B30;
+      color: #000000;
     }
     
     .action-btn:disabled {

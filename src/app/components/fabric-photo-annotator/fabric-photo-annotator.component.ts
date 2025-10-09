@@ -297,22 +297,22 @@ async function ensureFabricLoaded(): Promise<void> {
     
     .delete-btn {
       background: rgba(255,255,255,0.95);
-      border-color: #ff4444;
+      border-color: #000000;
     }
     
     .delete-btn ion-icon {
-      color: #ff4444;
+      color: #000000;
     }
     
     .delete-btn:hover {
-      background: #ffeeee;
-      border-color: #ff0000;
+      background: #f0f0f0;
+      border-color: #000000;
     }
     
     .delete-btn.active {
-      background: #ffeeee;
-      border-color: #ff0000;
-      color: #ff0000;
+      background: #f0f0f0;
+      border-color: #000000;
+      color: #000000;
     }
     
     .canvas-container {

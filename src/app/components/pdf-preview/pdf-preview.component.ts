@@ -319,7 +319,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   private async addCoverPage(pdf: jsPDF, pageWidth: number, pageHeight: number, margin: number) {
-    const serviceName = this.serviceData?.serviceName || 'Engineer\'s Foundation Evaluation';
+    const serviceName = this.serviceData?.serviceName || 'EFE - Engineer\'s Foundation Evaluation';
     const companyName = this.projectData?.companyName || 'Noble Property Inspections';
     const address = this.projectData?.address || 'Property Address';
     const city = this.projectData?.city || 'City';

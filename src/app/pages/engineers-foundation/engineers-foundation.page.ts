@@ -235,7 +235,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Type information for the header
   typeShort: string = 'Foundation Evaluation';
-  typeFull: string = "Engineer's Foundation Evaluation";
+  typeFull: string = "EFE - Engineer's Foundation Evaluation";
   
   // Dropdown options for AnswerType 2 from Services_Visuals_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
