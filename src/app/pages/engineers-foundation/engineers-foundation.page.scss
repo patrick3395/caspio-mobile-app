@@ -865,7 +865,7 @@ ion-content{--overflow:scroll !important;height:100%}
     .structural-status-select {
       display: inline-block;
       width: auto;
-      min-width: 298px;
+      min-width: 447px;
       max-width: 100%;
       white-space: normal;
       line-height: 1.4;
@@ -1058,7 +1058,7 @@ select[name="StructuralSystemsStatus"] {
     .structural-status-select:not(.web-select) {
       // Only apply if web-select class isn't present
       padding: 12px 44px 12px 24px;
-      min-width: 313px;
+      min-width: 470px;
       
       option {
         padding: 14px 20px;
@@ -1721,7 +1721,7 @@ select[name="StructuralSystemsStatus"] {
       background: white;
       
       .room-card-header {
-        // Room action buttons styling
+        // Room action buttons styling (for webapp header)
         .room-action-btn {
           &:disabled {
             opacity: 0.3;
@@ -1834,6 +1834,33 @@ select[name="StructuralSystemsStatus"] {
       .room-card-content {
         background: white;
         padding: 20px;
+        
+        // Mobile room action buttons (shown under header when expanded)
+        .room-actions-mobile {
+          .room-action-btn-mobile {
+            transition: all 0.2s ease;
+            
+            &:disabled {
+              opacity: 0.4;
+              cursor: not-allowed !important;
+              background: #f5f5f5 !important;
+            }
+            
+            &:not(:disabled):hover {
+              background: #f0f0f0 !important;
+              border-color: var(--ion-color-primary) !important;
+              
+              ion-icon {
+                color: var(--ion-color-primary) !important;
+              }
+            }
+            
+            &:not(:disabled):active {
+              transform: scale(0.98);
+              background: #e8e8e8 !important;
+            }
+          }
+        }
         
         .fdf-dropdown-container {
           margin-bottom: 20px;

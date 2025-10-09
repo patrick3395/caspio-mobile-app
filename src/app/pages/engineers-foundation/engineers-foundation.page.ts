@@ -2958,22 +2958,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const alert = await this.alertController.create({
       header: 'Rename Room',
-      message: `Enter new name for "${oldRoomName}"`,
+      cssClass: 'custom-other-alert',
       inputs: [
         {
           name: 'newRoomName',
           type: 'text',
-          placeholder: 'Room Name',
+          placeholder: 'Enter custom value...',
           value: oldRoomName
         }
       ],
       buttons: [
         {
-          text: 'Cancel',
+          text: 'CANCEL',
           role: 'cancel'
         },
         {
-          text: 'Rename',
+          text: 'SAVE',
           handler: async (data) => {
             const newRoomName = data.newRoomName?.trim();
             
@@ -5114,7 +5114,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             projectData: projectInfo,
             structuralData: structuralSystemsData,
             elevationData: elevationPlotData,
-            serviceData: this.serviceData
+            serviceData: {
+              ...this.serviceData,
+              serviceName: 'EFE - Engineer\'s Foundation Evaluation' // Override with EFE prefix for webapp
+            }
           },
           cssClass: 'fullscreen-modal',
           animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt

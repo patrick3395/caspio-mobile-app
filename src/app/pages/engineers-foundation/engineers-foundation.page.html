@@ -865,8 +865,8 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-                  <!-- Room action buttons -->
-                  <div class="room-actions" slot="end" style="display: flex; align-items: center; gap: 4px;">
+                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded) -->
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb()" style="display: flex; align-items: center; gap: 4px;">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
                             (click)="renameRoom(room.RoomName, $event)" 
@@ -903,6 +903,36 @@
               
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
+
+                <!-- Room action buttons (Mobile only - shows under header when expanded) -->
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb()" style="display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                  <!-- Rename button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="renameRoom(room.RoomName, $event)" 
+                          title="Rename Room"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="create-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Rename</span>
+                  </button>
+                  <!-- Move up button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="moveRoomUp(room.RoomName, $event)" 
+                          [disabled]="getRoomIndex(room.RoomName) === 0"
+                          title="Move Up"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="arrow-up-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Move Up</span>
+                  </button>
+                  <!-- Move down button -->
+                  <button class="room-action-btn-mobile" 
+                          (click)="moveRoomDown(room.RoomName, $event)" 
+                          [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
+                          title="Move Down"
+                          style="background: white; border: 1px solid #ddd; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #333;">
+                    <ion-icon name="arrow-down-outline" style="font-size: 18px;"></ion-icon>
+                    <span>Move Down</span>
+                  </button>
+                </div>
 
                 <!-- Flooring Difference Factor Section (hidden for Base Station) -->
                 <div class="room-section-delimiter" *ngIf="!isBaseStation(room.RoomName)">
@@ -1204,8 +1234,8 @@
                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
-                  <!-- Room action buttons -->
-                  <div class="room-actions" slot="end" style="display: flex; align-items: center; gap: 4px;">
+                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded) -->
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb()" style="display: flex; align-items: center; gap: 4px;">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
                             (click)="renameRoom(room.RoomName, $event)" 
