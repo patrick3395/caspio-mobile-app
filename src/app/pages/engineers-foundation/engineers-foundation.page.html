@@ -365,7 +365,8 @@
           <div class="structural-status-subtitle" 
                (click)="$event.stopPropagation()"
                (mousedown)="$event.stopPropagation()"
-               (touchstart)="$event.stopPropagation()"
+               [attr.data-touch-handler]="platform.isWeb() ? 'web' : 'mobile'"
+               (touchstart)="platform.isWeb() && $event.stopPropagation()"
                style="display: inline-block; width: auto;">
             <select #structuralStatusSelect
                     [(ngModel)]="serviceData.StructuralSystemsStatus"
@@ -373,7 +374,8 @@
                     class="structural-status-select"
                     [class.web-select]="platform.isWeb()"
                     (click)="$event.stopPropagation()"
-                    (mousedown)="$event.stopPropagation()">
+                    (mousedown)="$event.stopPropagation()"
+                    (touchstart)="platform.isWeb() && $event.stopPropagation()">
               <option value="">-- Select --</option>
               <option value="Provided in Home Inspection Report">Provided in Home&#10;Inspection Report</option>
               <option value="Completed Here">Completed Here</option>

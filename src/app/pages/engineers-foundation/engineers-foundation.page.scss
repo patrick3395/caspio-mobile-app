@@ -1283,9 +1283,9 @@ select[name="StructuralSystemsStatus"] {
               margin-bottom: 12px;
               
               &.selected {
-                border: 2px solid var(--noble-orange);
-                box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.1);
-                background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+                border: 2px solid #000000;
+                box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
+                background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
                 
                 .checkbox-item {
                   border-color: transparent;

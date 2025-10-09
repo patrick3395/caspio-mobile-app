@@ -1944,19 +1944,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return null;
     }
     
-    // Look for photo with matching annotation prefix
+    // Look for photo with matching photoType property (new) or annotation prefix (legacy)
     const typedPhoto = point.photos.find((photo: any) => 
-      photo.annotation && photo.annotation.startsWith(`${photoType}:`)
+      (photo.photoType === photoType) ||
+      (photo.annotation && photo.annotation.startsWith(`${photoType}:`))
     );
     
     if (typedPhoto) {
       return typedPhoto;
     }
     
-    // Backward compatibility: For existing photos without type prefix
+    // Backward compatibility: For existing photos without type prefix or photoType property
     // First photo without prefix = Location, second = Measurement
     const untypedPhotos = point.photos.filter((photo: any) => 
-      !photo.annotation || (!photo.annotation.startsWith('Location:') && !photo.annotation.startsWith('Measurement:'))
+      !photo.photoType && (!photo.annotation || (!photo.annotation.startsWith('Location:') && !photo.annotation.startsWith('Measurement:')))
     );
     
     if (untypedPhotos.length > 0) {
@@ -2181,13 +2182,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     }
                   }
                   
+                  // Determine photoType from annotation prefix (for legacy photos)
+                  const annotation = photo.Annotation || '';
+                  let photoType = undefined;
+                  if (annotation.startsWith('Location:')) {
+                    photoType = 'Location';
+                  } else if (annotation.startsWith('Measurement:')) {
+                    photoType = 'Measurement';
+                  }
+                  
                   const photoResult = {
                     url: photoUrl,
                     thumbnailUrl: thumbnailUrl,
                     displayUrl: photoUrl,  // Add displayUrl for consistency
                     originalUrl: photoUrl,  // Store original for re-editing
-                    annotation: photo.Annotation || '',  // Load annotation to identify photo type (Location: or Measurement:)
-                    caption: this.extractCaptionFromAnnotation(photo.Annotation || ''), // Extract caption without photoType prefix
+                    photoType: photoType,  // Store photoType for identification
+                    annotation: annotation,  // Load annotation to identify photo type (Location: or Measurement:)
+                    caption: this.extractCaptionFromAnnotation(annotation), // Extract caption without photoType prefix
                     annotations: annotationData,
                     rawDrawingsString: photo.Drawings,
                     hasAnnotations: !!annotationData,
@@ -2288,14 +2299,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         
         // Check if we should replace an existing photo of this type
+        // Look for photos by photoType property (new) or annotation prefix (legacy)
         const existingPhotoIndex = point.photos.findIndex((p: any) => 
-          p.annotation && p.annotation.startsWith(`${this.currentRoomPointContext.photoType}:`)
+          (p.photoType === this.currentRoomPointContext.photoType) ||
+          (p.annotation && p.annotation.startsWith(`${this.currentRoomPointContext.photoType}:`))
         );
         
         const photoEntry: any = {
           url: photoUrl,
           thumbnailUrl: photoUrl,
-          annotation: `${this.currentRoomPointContext.photoType}:`, // CRITICAL FIX: Add photoType prefix
+          photoType: this.currentRoomPointContext.photoType, // Store photoType for identification
+          annotation: '', // Initialize annotation as blank (user can add their own caption)
           caption: '', // Initialize caption as blank (not with photoType prefix)
           uploading: true,
           file: annotatedResult.file,
@@ -2467,8 +2481,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Upload photo to Services_Rooms_Attach with photo type in annotation
-      const annotation = `${photoType}: `;
+      // Upload photo to Services_Rooms_Attach with blank annotation (user can add their own caption)
+      const annotation = '';
       await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name, annotation);
       
       // Update UI to show photo
@@ -2479,6 +2493,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         url: base64Image,
         thumbnailUrl: base64Image,
         displayUrl: base64Image,  // Add displayUrl for consistency
+        photoType: photoType,  // Store photoType for identification
         annotation: annotation
       });
       point.photoCount = point.photos.length;

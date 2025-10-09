@@ -722,7 +722,7 @@ export class CaspioService {
       const recordData: any = {
         PointID: parseInt(pointId.toString()),
         Photo: filePath,  // Include the file path in initial creation
-        Annotation: photoType ? `${photoType}:` : '' // CRITICAL FIX: Add photoType prefix for correct placement
+        Annotation: '' // Initialize annotation as blank (user can add their own caption)
       };
       
       // Only add Drawings field if we have annotation data
