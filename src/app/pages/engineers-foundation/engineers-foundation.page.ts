@@ -2130,6 +2130,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     displayUrl: photoUrl,  // Add displayUrl for consistency
                     originalUrl: photoUrl,  // Store original for re-editing
                     annotation: photo.Annotation || '',  // Load annotation to identify photo type (Location: or Measurement:)
+                    caption: this.extractCaptionFromAnnotation(photo.Annotation || ''), // Extract caption without photoType prefix
                     annotations: annotationData,
                     rawDrawingsString: photo.Drawings,
                     hasAnnotations: !!annotationData,
@@ -2238,6 +2239,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           url: photoUrl,
           thumbnailUrl: photoUrl,
           annotation: `${this.currentRoomPointContext.photoType}:`, // CRITICAL FIX: Add photoType prefix
+          caption: '', // Initialize caption as blank (not with photoType prefix)
           uploading: true,
           file: annotatedResult.file,
           originalFile: annotatedResult.originalFile,
@@ -2951,6 +2953,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Show room selection dialog
+  // Add Base Station specifically
+  async addBaseStation() {
+    const baseStationTemplate = this.allRoomTemplates.find(r => r.RoomName === 'Base Station');
+    if (baseStationTemplate) {
+      await this.addRoomTemplate(baseStationTemplate);
+    } else {
+      await this.showToast('Base Station template not found', 'warning');
+    }
+  }
+
+  // Check if FDF photos should be shown for a room
+  shouldShowFDFPhotos(roomName: string): boolean {
+    if (!this.roomElevationData[roomName]) return false;
+    
+    const fdfValue = this.roomElevationData[roomName].fdf;
+    
+    // Hide photos for these values
+    const hideValues = ['None', 'Same Elevation, Same Flooring', 'Same Elevation'];
+    
+    return !hideValues.includes(fdfValue);
+  }
+
   async showAddRoomDialog() {
     try {
       // Show ALL room templates, allowing duplicates
@@ -8371,6 +8395,22 @@ Stack: ${error?.stack}`;
     }
   }
   
+  // Extract caption text from annotation field (removes "Location:" or "Measurement:" prefix)
+  private extractCaptionFromAnnotation(annotation: string): string {
+    if (!annotation) return '';
+    
+    // Remove "Location:" or "Measurement:" prefix if present
+    if (annotation.startsWith('Location:')) {
+      return annotation.substring('Location:'.length).trim();
+    }
+    if (annotation.startsWith('Measurement:')) {
+      return annotation.substring('Measurement:'.length).trim();
+    }
+    
+    // Return as-is if no prefix found
+    return annotation;
+  }
+
   // Save caption for room point photos (Location/Measurement in Elevation Plot)
   async saveRoomPointCaption(photo: any, roomName: string, point: any) {
     try {
@@ -8381,6 +8421,7 @@ Stack: ${error?.stack}`;
       }
 
       // Update the Services_Rooms_Points_Attach record with the new caption
+      // Save just the caption text, not the photoType prefix
       const updateData = {
         Annotation: photo.caption || ''  // Save caption or empty string
       };

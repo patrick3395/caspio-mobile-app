@@ -1135,7 +1135,7 @@
           
           <!-- Add Base Station button -->
           <div class="add-room-container" style="margin-top: 12px; margin-bottom: 20px; text-align: center;">
-            <button class="add-room-button" (click)="showAddRoomDialog()"
+            <button class="add-room-button" (click)="addBaseStation()"
                     style="background: white; border: 1px solid #ddd; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #000;">
               <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 16px; color: #000;"></ion-icon>
               Add Base Station
@@ -1186,8 +1186,8 @@
               <!-- Show room content only when selected and expanded -->
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
-                <!-- Flooring Difference Factor Section (hidden for Base Station) -->
-                <div class="room-section-delimiter" *ngIf="room.RoomName !== 'Base Station'">
+                <!-- Flooring Difference Factor Section -->
+                <div class="room-section-delimiter">
                   <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
                           (click)="openHelp(1, 'FDF Help')"
@@ -1196,9 +1196,25 @@
                     <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                   </button>
                 </div>
+                
+                <!-- FDF Dropdown Selector -->
+                <div class="form-group" style="margin-bottom: 16px;">
+                  <select [(ngModel)]="roomElevationData[room.RoomName].fdf" 
+                          (ngModelChange)="onRoomFDFChange(room.RoomName)"
+                          class="styled-input">
+                    <option value="None">None</option>
+                    <option value="Same Elevation, Same Flooring">Same Elevation, Same Flooring</option>
+                    <option value="Same Elevation">Same Elevation</option>
+                    <option value="Concrete">Concrete</option>
+                    <option value="Tile">Tile</option>
+                    <option value="Wood">Wood</option>
+                    <option value="Carpet">Carpet</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-                <!-- FDF Photos Row (hidden for Base Station) -->
-                <div class="fdf-photos-container" *ngIf="room.RoomName !== 'Base Station'">
+                <!-- FDF Photos Row (conditional based on FDF dropdown) -->
+                <div class="fdf-photos-container" *ngIf="shouldShowFDFPhotos(room.RoomName)">
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
