@@ -400,17 +400,17 @@ export class ActiveProjectsPage implements OnInit {
     }
   }
 
-  async deleteProject(project: Project) {
+  async archiveProject(project: Project) {
     const alert = await this.alertController.create({
-      header: 'Delete Project',
-      message: `Are you sure you want to delete the project at ${project.Address}?`,
+      header: 'Archive Project',
+      message: `Are you sure you want to archive the project at ${project.Address}?`,
       buttons: [
         {
           text: 'Cancel',
           role: 'cancel'
         },
         {
-          text: 'Delete',
+          text: 'Archive',
           handler: async () => {
             await this.performProjectDeletion(project);
           }
@@ -423,12 +423,12 @@ export class ActiveProjectsPage implements OnInit {
 
   async performProjectDeletion(project: Project) {
     const loading = await this.alertController.create({
-      message: 'Deleting project...'
+      message: 'Archiving project...'
     });
     await loading.present();
 
     try {
-      // Soft delete by setting StatusID to 5
+      // Archive by setting StatusID to 5
       await this.projectsService.updateProjectStatus(project.PK_ID, 5).toPromise();
 
       // Remove from displayed list
@@ -438,18 +438,18 @@ export class ActiveProjectsPage implements OnInit {
       await loading.dismiss();
 
       const toast = await this.alertController.create({
-        message: 'Project deleted successfully',
+        message: 'Project archived successfully',
         buttons: ['OK']
       });
       await toast.present();
       setTimeout(() => toast.dismiss(), 2000);
     } catch (error) {
-      console.error('Error deleting project:', error);
+      console.error('Error archiving project:', error);
       await loading.dismiss();
 
       const errorAlert = await this.alertController.create({
         header: 'Error',
-        message: 'Failed to delete project. Please try again.',
+        message: 'Failed to archive project. Please try again.',
         buttons: ['OK']
       });
       await errorAlert.present();

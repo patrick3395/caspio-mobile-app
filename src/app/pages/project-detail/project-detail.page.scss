@@ -574,7 +574,7 @@ ion-modal {
   }
 
   .support-doc-row.doc-row.pending {
-    background: #fff9f2;  // Light orange/warning background
+    background: $white;  // Same as other rows (removed light orange background)
   }
 
   .support-doc-row.doc-row.no-docs {

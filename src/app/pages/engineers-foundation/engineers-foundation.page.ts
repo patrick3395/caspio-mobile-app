@@ -907,7 +907,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Set default options first
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-      this.outdoorTemperatureOptions = ['60Ãƒâ€šÃ‚Â°F', '65Ãƒâ€šÃ‚Â°F', '70Ãƒâ€šÃ‚Â°F', '75Ãƒâ€šÃ‚Â°F', '80Ãƒâ€šÃ‚Â°F', '85Ãƒâ€šÃ‚Â°F', '90Ãƒâ€šÃ‚Â°F', '95Ãƒâ€šÃ‚Â°F', '100Ãƒâ€šÃ‚Â°F', 'Other'];
+      this.outdoorTemperatureOptions = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '100°F+', 'Other'];
       this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
       this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
       this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
@@ -952,6 +952,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
+          }
+          
+          // Reorder to put "30°F -" first (if it exists)
+          const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt => 
+            opt.includes('30') && opt.includes('-') && !opt.includes('to')
+          );
+          if (thirtyBelowIndex > 0) {
+            const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
+            this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
           }
         }
 
