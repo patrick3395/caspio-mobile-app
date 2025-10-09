@@ -858,6 +858,9 @@ ion-content{--overflow:scroll !important;height:100%}
   .structural-status-subtitle {
     margin-top: 6px;
     margin-left: 0; // Align with icon (moved to the left)
+    display: inline-block; // CRITICAL: Make wrapper only as wide as dropdown
+    width: auto; // Don't take full width
+    pointer-events: auto; // Enable pointer events on this element
 
     .structural-status-select {
       display: inline-block;

@@ -719,7 +719,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               elevationPoints: elevationPoints,
               pointCount: template.PointCount || elevationPoints.length,
               notes: '',
-              fdf: 'None' // Initialize FDF with default value
+              fdf: '' // Initialize FDF with empty for "-- Select --"
             };
           }
         });
@@ -784,7 +784,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     elevationPoints: elevationPoints,
                     pointCount: template.PointCount || elevationPoints.length,
                     notes: '',
-                    fdf: 'None'
+                    fdf: ''
                   };
                 }
                 
@@ -1021,8 +1021,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
       
       if (dropdownData && dropdownData.length > 0) {
-        // Extract unique dropdown values
-        const options = dropdownData.map((row: any) => row.Dropdown).filter((val: any) => val);
+        // Extract unique dropdown values and filter out invalid entries
+        const options = dropdownData
+          .map((row: any) => row.Dropdown)
+          .filter((val: any) => {
+            if (!val) return false;
+            
+            // Filter out concatenated strings (containing multiple values)
+            // Valid entries should be short (less than 30 characters typically)
+            if (val.length > 50) return false;
+            
+            // Filter out entries that have multiple quotes or multiple parentheses
+            const quoteCount = (val.match(/"/g) || []).length;
+            if (quoteCount > 2) return false; // Valid entries like +0.4" have max 1 quote
+            
+            return true;
+          });
         
         // Sort with special ordering
         this.fdfOptions = options.sort((a: string, b: string) => {
@@ -2854,7 +2868,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             });
           }
           // Reset FDF to default
-          this.roomElevationData[roomName].fdf = 'None';
+          this.roomElevationData[roomName].fdf = '';
         }
       } catch (error) {
         console.error('Error deleting room:', error);
@@ -3005,12 +3019,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Add Base Station specifically
   async addBaseStation() {
-    const baseStationTemplate = this.allRoomTemplates.find(r => r.RoomName === 'Base Station');
-    if (baseStationTemplate) {
-      await this.addRoomTemplate(baseStationTemplate);
-    } else {
-      await this.showToast('Base Station template not found', 'warning');
+    console.log('Adding Base Station, allRoomTemplates:', this.allRoomTemplates.map(r => r.RoomName));
+    
+    // Find Base Station template - should always exist
+    let baseStationTemplate = this.allRoomTemplates.find(r => r.RoomName === 'Base Station');
+    
+    if (!baseStationTemplate) {
+      console.error('Base Station not found in allRoomTemplates, checking alternatives');
+      
+      // Try case-insensitive search
+      baseStationTemplate = this.allRoomTemplates.find(r => 
+        r.RoomName?.toLowerCase() === 'base station'
+      );
+      
+      if (!baseStationTemplate) {
+        console.error('Available templates:', this.allRoomTemplates);
+        await this.showToast('Base Station template not found. Please refresh the page.', 'warning');
+        return;
+      }
     }
+    
+    // Clone the template to avoid any reference issues
+    const templateCopy = JSON.parse(JSON.stringify(baseStationTemplate));
+    await this.addRoomTemplate(templateCopy);
   }
 
   // Check if FDF photos should be shown for a room
@@ -3021,6 +3052,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Hide photos for these values (checking for both old and new formats)
     const hideValues = [
+      '',  // Empty string when "-- Select --" is chosen
       'None', 
       'Same Elevation, Same Flooring', 
       'Same Elevation',
@@ -3167,7 +3199,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomElevationData[roomName] = {
           templateId: template.TemplateID || template.PK_ID,
           elevationPoints: elevationPoints,
-          fdf: 'None',  // Default FDF value
+          fdf: '',  // Default FDF value (empty for "-- Select --")
           notes: ''  // Room-specific notes
         };
       }
