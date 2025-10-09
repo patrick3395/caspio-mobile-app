@@ -1576,12 +1576,7 @@
 
   <!-- No dynamic spacer needed - padding-bottom on container handles it -->
 
-  <!-- Floating Back to Top Button (Mobile only) -->
-  <button *ngIf="!platform.isWeb()" class="floating-back-to-top" (click)="scrollToCurrentSectionTop()" [class.visible]="showBackToTop">
-    <ion-icon name="arrow-up"></ion-icon>
-  </button>
-
-  <!-- Auto-Sync Toggle at Bottom (Mobile only) -->
+  <!-- Footer with Auto-Sync and Back to Top (Mobile only) -->
   <div *ngIf="!platform.isWeb()" class="sync-control-bar">
     <button
       type="button"
@@ -1591,7 +1586,10 @@
       [attr.aria-label]="manualOffline ? 'Enable auto-sync' : 'Disable auto-sync'"
     >
       <ion-icon [name]="manualOffline ? 'cloud-upload' : 'cloud-offline'"></ion-icon>
-      <span>{{ manualOffline ? 'Enable Auto-Sync' : 'Disable Auto-Sync' }}</span>
+    </button>
+    
+    <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()">
+      <ion-icon name="arrow-up-circle"></ion-icon>
     </button>
   </div>
 </ion-content>
