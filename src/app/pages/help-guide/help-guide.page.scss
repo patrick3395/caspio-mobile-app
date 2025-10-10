@@ -31,12 +31,12 @@ ion-content {
   background: white;
   border-bottom: 1px solid #e5e5e5;
   margin-bottom: 0;
-  
+
   ion-segment-button {
-    --indicator-color: #F15A27;
+    --indicator-color: #f5f5f5;
     --color: #666;
-    --color-checked: white;
-    --background-checked: #F15A27;
+    --color-checked: #333;
+    --background-checked: #f5f5f5;
     font-weight: 500;
     text-transform: none;
     font-size: 14px;
