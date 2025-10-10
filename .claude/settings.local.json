@@ -25,7 +25,8 @@
       "Bash(pngcheck:*)",
       "Bash(npm run lint:*)",
       "Bash(node:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
