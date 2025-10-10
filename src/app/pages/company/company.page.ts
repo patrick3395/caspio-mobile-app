@@ -330,7 +330,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Load users from the Users table filtered by the current user's CompanyID
       const response = await firstValueFrom(
-        this.caspioService.getRecords('Users', `CompanyID=${this.currentUserCompanyId}`)
+        this.caspioService.get<any>(`/tables/Users/records?q.where=CompanyID=${this.currentUserCompanyId}`)
       );
 
       if (response && response.Result) {
