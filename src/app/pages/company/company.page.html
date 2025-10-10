@@ -1,7 +1,7 @@
-﻿
+
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar">
-    <ion-title>CRM</ion-title>
+    <ion-title>{{ isCompanyOne ? 'CRM' : 'Company' }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -10,7 +10,8 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <div class="page-shell">
+  <!-- CRM View for Company ID 1 -->
+  <div *ngIf="isCompanyOne" class="page-shell">
     <div class="tab-button-grid">
       <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
         <ion-icon name="business-outline"></ion-icon>
@@ -520,6 +521,53 @@
           <p>Once invoices are generated they will appear here.</p>
         </div>
       </ng-template>
+    </div>
+  </div>
+
+  <!-- Organization Users View for non-Company 1 users -->
+  <div *ngIf="!isCompanyOne" class="page-shell">
+    <div class="section-header">
+      <div>
+        <h3>Organization Users</h3>
+        <p>View users in your organization</p>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="empty-state-modern">
+      <ion-spinner name="crescent"></ion-spinner>
+      <h3>Loading users...</h3>
+    </div>
+
+    <!-- Users List -->
+    <div *ngIf="!isLoading && organizationUsers.length > 0" class="responsive-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of organizationUsers">
+            <td>{{ user.Name }}</td>
+            <td><a [href]="'mailto:' + user.Email">{{ user.Email }}</a></td>
+            <td>{{ user.Phone || '—' }}</td>
+            <td>{{ user.Role || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && organizationUsers.length === 0" class="empty-state-modern">
+      <div class="empty-icon-wrapper">
+        <ion-icon name="people"></ion-icon>
+      </div>
+      <h3>No users found</h3>
+      <p>No users found in your organization</p>
     </div>
   </div>
 </ion-content>

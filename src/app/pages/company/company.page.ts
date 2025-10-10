@@ -189,6 +189,10 @@ interface PaidInvoiceGroup {
   imports: [CommonModule, FormsModule, IonicModule, HttpClientModule]
 })
 export class CompanyPage implements OnInit, OnDestroy {
+  isCompanyOne = false;
+  currentUserCompanyId: number | null = null;
+  organizationUsers: any[] = [];
+
   selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
 
   isLoading = false;
@@ -300,7 +304,49 @@ export class CompanyPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.loadCompanyData();
+    // Check if user is from Company ID 1
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        this.currentUserCompanyId = user.companyId || null;
+        this.isCompanyOne = user.companyId === 1;
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        this.isCompanyOne = false;
+      }
+    }
+
+    // Load appropriate data based on company
+    if (this.isCompanyOne) {
+      this.loadCompanyData();
+    } else {
+      this.loadOrganizationUsers();
+    }
+  }
+
+  async loadOrganizationUsers() {
+    this.isLoading = true;
+    try {
+      // Load users from the Users table filtered by the current user's CompanyID
+      const response = await firstValueFrom(
+        this.caspioService.getRecords('Users', `CompanyID=${this.currentUserCompanyId}`)
+      );
+
+      if (response && response.Result) {
+        this.organizationUsers = response.Result;
+      }
+    } catch (error) {
+      console.error('Error loading organization users:', error);
+      const toast = await this.toastController.create({
+        message: 'Failed to load organization users',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   async loadCompanyData(showSpinner: boolean = true) {
@@ -398,7 +444,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async doRefresh(event: any) {
-    await this.loadCompanyData(false);
+    if (this.isCompanyOne) {
+      await this.loadCompanyData(false);
+    } else {
+      await this.loadOrganizationUsers();
+    }
     event?.target?.complete?.();
   }
 
