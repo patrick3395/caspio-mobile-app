@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.4.mobileapp',
+  appId: 'com.noble.partnership',
   appName: 'Partnership',
   webDir: 'www',
   server: {
