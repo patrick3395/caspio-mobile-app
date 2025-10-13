@@ -328,6 +328,32 @@ ion-textarea {
   background-color: var(--noble-gray) !important;
 }
 
+/* Performance Optimization: Lazy Loading for Images */
+img {
+  loading: lazy;
+  content-visibility: auto;
+  contain-intrinsic-size: 200px 200px; /* Helps with layout shift */
+}
+
+/* Optimize image rendering */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+img[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* Prevent layout shift during image loading */
+.image-container {
+  min-height: 200px;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* -----------------------------------------------------
  * Dark theme overrides
  * ----------------------------------------------------- */

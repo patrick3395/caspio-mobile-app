@@ -19,7 +19,17 @@ export class CacheService {
     MEDIUM: 300000,      // 5 minutes - for semi-static data
     LONG: 900000,        // 15 minutes - for mostly static data
     VERY_LONG: 3600000,  // 1 hour - for static data like templates
-    OFFLINE: 86400000    // 24 hours - for offline mode
+    OFFLINE: 86400000,   // 24 hours - for offline mode
+    
+    // Performance optimization cache times
+    STATIC_DATA: 86400000,      // 24 hours - for static data like templates, service types
+    PROJECT_LIST: 900000,       // 15 minutes - for project lists
+    IMAGES: 604800000,          // 7 days - for images
+    API_RESPONSES: 300000,      // 5 minutes - for API responses
+    USER_DATA: 1800000,         // 30 minutes - for user data
+    SERVICE_TYPES: 86400000,    // 24 hours - for service types (rarely change)
+    TEMPLATES: 86400000,        // 24 hours - for templates (rarely change)
+    STATES: 86400000            // 24 hours - for states list (never changes)
   };
 
   constructor() {
@@ -207,5 +217,76 @@ export class CacheService {
     });
     
     return { memoryEntries, localStorageEntries, totalSize };
+  }
+
+  /**
+   * Cache API response with appropriate strategy
+   */
+  setApiResponse(endpoint: string, params: any, data: any, strategy: keyof typeof this.CACHE_TIMES = 'API_RESPONSES'): void {
+    const key = this.getApiCacheKey(endpoint, params);
+    this.set(key, data, this.CACHE_TIMES[strategy], true); // Always persist API responses
+  }
+
+  /**
+   * Get cached API response
+   */
+  getApiResponse(endpoint: string, params?: any): any | null {
+    const key = this.getApiCacheKey(endpoint, params);
+    return this.get(key);
+  }
+
+  /**
+   * Cache static data (templates, service types, etc.)
+   */
+  setStaticData(key: string, data: any): void {
+    this.set(key, data, this.CACHE_TIMES.STATIC_DATA, true);
+  }
+
+  /**
+   * Cache images with long-term storage
+   */
+  setImage(key: string, data: any): void {
+    this.set(key, data, this.CACHE_TIMES.IMAGES, true);
+  }
+
+  /**
+   * Cache project list data
+   */
+  setProjectList(key: string, data: any): void {
+    this.set(key, data, this.CACHE_TIMES.PROJECT_LIST, true);
+  }
+
+  /**
+   * Cache user data
+   */
+  setUserData(key: string, data: any): void {
+    this.set(key, data, this.CACHE_TIMES.USER_DATA, true);
+  }
+
+  /**
+   * Preload critical data for offline mode
+   */
+  preloadCriticalData(): void {
+    // This can be called during app initialization to preload important data
+    console.log('CacheService: Preloading critical data for offline mode');
+  }
+
+  /**
+   * Clear cache by pattern
+   */
+  clearByPattern(pattern: string): void {
+    const keys = Array.from(this.cache.keys());
+    keys.forEach(key => {
+      if (key.includes(pattern)) {
+        this.clear(key);
+      }
+    });
+
+    // Also clear from localStorage
+    Object.keys(this.localStorage).forEach(key => {
+      if (key.startsWith('cache_') && key.includes(pattern)) {
+        this.localStorage.removeItem(key);
+      }
+    });
   }
 }

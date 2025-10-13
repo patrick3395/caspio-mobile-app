@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError, from, of, firstValueFrom } from 'rxjs';
-import { map, tap, catchError, switchMap } from 'rxjs/operators';
+import { map, tap, catchError, switchMap, finalize } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
@@ -30,6 +30,9 @@ export class CaspioService {
   private imageWorker: Worker | null = null;
   private imageWorkerTaskId = 0;
   private imageWorkerCallbacks = new Map<number, { resolve: (value: string) => void; reject: (reason?: any) => void }>();
+  
+  // Request deduplication
+  private pendingRequests = new Map<string, Observable<any>>();
 
   constructor(
     private http: HttpClient,
@@ -152,7 +155,25 @@ export class CaspioService {
     return match ? match[1] : 'c2hcf092'; // Fallback to known account ID
   }
 
-  get<T>(endpoint: string): Observable<T> {
+  get<T>(endpoint: string, useCache: boolean = true): Observable<T> {
+    // Create a unique key for this request
+    const requestKey = `GET:${endpoint}`;
+    
+    // Check if there's already a pending request for this endpoint
+    if (this.pendingRequests.has(requestKey)) {
+      console.log(`🔄 Request deduplication: reusing pending request for ${endpoint}`);
+      return this.pendingRequests.get(requestKey)!;
+    }
+
+    // Check cache first if enabled
+    if (useCache) {
+      const cachedData = this.cache.getApiResponse(endpoint);
+      if (cachedData !== null) {
+        console.log(`🚀 Cache hit for ${endpoint}`);
+        return of(cachedData);
+      }
+    }
+
     const token = this.getCurrentToken();
     if (!token) {
       console.error('No authentication token available for GET request to:', endpoint);
@@ -166,8 +187,23 @@ export class CaspioService {
 
     const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
     
-    return this.http.get<T>(url, { headers }).pipe(
+    // Create the request observable
+    const request$ = this.http.get<T>(url, { headers }).pipe(
+      tap(data => {
+        // Cache the response
+        if (useCache) {
+          const cacheStrategy = this.getCacheStrategy(endpoint);
+          this.cache.setApiResponse(endpoint, null, data, cacheStrategy);
+          console.log(`💾 Cached ${endpoint} with strategy ${cacheStrategy}`);
+        }
+      }),
+      finalize(() => {
+        // Remove from pending requests when complete
+        this.pendingRequests.delete(requestKey);
+      }),
       catchError(error => {
+        // Remove from pending requests on error
+        this.pendingRequests.delete(requestKey);
         console.error(`GET request failed for ${endpoint}:`, error);
         console.error('GET error details:', {
           status: error.status,
@@ -179,6 +215,11 @@ export class CaspioService {
         return throwError(() => error);
       })
     );
+
+    // Store the pending request
+    this.pendingRequests.set(requestKey, request$);
+    
+    return request$;
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {
@@ -2277,5 +2318,43 @@ export class CaspioService {
         return of([]);
       })
     );
+  }
+
+  private getCacheStrategy(endpoint: string): keyof typeof this.cache.CACHE_TIMES {
+    // Determine cache strategy based on endpoint
+    if (endpoint.includes('/tables/ServiceTypes') || endpoint.includes('/tables/Types')) {
+      return 'SERVICE_TYPES';
+    }
+    if (endpoint.includes('/tables/Services_Visuals_Templates') || endpoint.includes('/tables/Templates')) {
+      return 'TEMPLATES';
+    }
+    if (endpoint.includes('/tables/States')) {
+      return 'STATES';
+    }
+    if (endpoint.includes('/tables/Projects') && !endpoint.includes('/records/')) {
+      return 'PROJECT_LIST';
+    }
+    if (endpoint.includes('/files/') || endpoint.includes('image')) {
+      return 'IMAGES';
+    }
+    if (endpoint.includes('/tables/Users') || endpoint.includes('/tables/Companies')) {
+      return 'USER_DATA';
+    }
+    return 'API_RESPONSES';
+  }
+
+  /**
+   * Clear all pending requests (useful for cleanup or error recovery)
+   */
+  public clearPendingRequests(): void {
+    this.pendingRequests.clear();
+    console.log('🧹 Cleared all pending requests');
+  }
+
+  /**
+   * Get pending requests count (for debugging)
+   */
+  public getPendingRequestsCount(): number {
+    return this.pendingRequests.size;
   }
 }

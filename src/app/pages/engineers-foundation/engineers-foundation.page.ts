@@ -201,6 +201,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private pendingRoomCreates: { [roomName: string]: any } = {}; // Queue room creation when offline
   private pendingPointCreates: { [key: string]: any } = {}; // Queue point creation with room dependency
   
+  // Memory cleanup tracking
+  private canvasCleanup: (() => void)[] = [];
+  private timers: any[] = [];
+  private intervals: any[] = [];
+
+  // Helper methods for memory management
+  private trackTimer(timer: any): any {
+    this.timers.push(timer);
+    return timer;
+  }
+
+  private trackInterval(interval: any): any {
+    this.intervals.push(interval);
+    return interval;
+  }
+
+  private addCanvasCleanup(cleanup: () => void): void {
+    this.canvasCleanup.push(cleanup);
+  }
+  
   // Categories from Services_Visuals_Templates
   visualCategories: string[] = [];
   visualTemplates: any[] = [];
@@ -502,6 +522,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all observables
     this.subscriptions.unsubscribe();
 
     // Clean up timers
@@ -509,6 +530,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       clearTimeout(this.saveDebounceTimer);
       this.saveDebounceTimer = null;
     }
+    
+    // Clean up all tracked timers and intervals
+    this.timers.forEach(timer => clearTimeout(timer));
+    this.intervals.forEach(interval => clearInterval(interval));
+    this.timers = [];
+    this.intervals = [];
+    
+    // Clean up canvas elements
+    this.canvasCleanup.forEach(cleanup => cleanup());
+    this.canvasCleanup = [];
     
     // Clean up object URLs to prevent memory leaks
     Object.values(this.visualPhotos).forEach((photos: any) => {
@@ -521,16 +552,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     });
     
-    // Clear any data to prevent memory leaks
+    // Clear large data structures to prevent memory leaks
     this.visualPhotos = {};
     this.roomElevationData = {};
     this.roomTemplates = [];
+    this.organizedData = {};
+    this.categoryData = {};
+    this.visualCategories = [];
+    this.visualTemplates = [];
+    this.expandedCategories = {};
+    this.selectedItems = {};
+    this.savingItems = {};
+    this.selectedRooms = {};
+    this.expandedRooms = {};
+    this.roomRecordIds = {};
+    this.savingRooms = {};
 
-    // Force garbage collection hints
+    // Clear pending operations
     this.formData = {};
     this.pendingPhotoUploads = {};
     this.pendingVisualCreates = {};
+    this.pendingRoomCreates = {};
+    this.pendingPointCreates = {};
+    this.pendingVisualKeys.clear();
 
+    // Clear thumbnail cache
+    this.thumbnailCache.clear();
+
+    // Clean up DOM elements
     if (this.structuralWidthRaf) {
       cancelAnimationFrame(this.structuralWidthRaf);
       this.structuralWidthRaf = undefined;
@@ -539,6 +588,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.structuralStatusMirror.parentElement.removeChild(this.structuralStatusMirror);
     }
     this.structuralStatusMirror = undefined;
+
+    // Clear template loader
+    if (this.templateLoader) {
+      this.templateLoader.dismiss();
+      this.templateLoader = undefined;
+    }
   }
 
   private navigateBackToProject(): void {
