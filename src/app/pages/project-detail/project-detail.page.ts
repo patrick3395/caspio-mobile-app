@@ -1393,18 +1393,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         
         // Attachment created - update UI immediately without waiting
         if (response) {
-          // Add full attachment record immediately for instant UI update
-          // Response should have all fields including AttachID, Link, and Attachment URL
-          const newAttachment = {
-            AttachID: response.AttachID || response.PK_ID,
-            ProjectID: response.ProjectID || projectIdNum,
-            TypeID: response.TypeID || typeIdNum,
-            Title: response.Title || doc.title || 'Document',
-            Notes: response.Notes || '',
-            Link: response.Link || file.name,
-            Attachment: response.Attachment || ''
-          };
-          this.existingAttachments.push(newAttachment);
+          // Check if this attachment already exists to prevent duplicates
+          const existingIndex = this.existingAttachments.findIndex(a => 
+            a.AttachID === (response.AttachID || response.PK_ID)
+          );
+          
+          if (existingIndex === -1) {
+            // Add full attachment record immediately for instant UI update
+            // Response should have all fields including AttachID, Link, and Attachment URL
+            const newAttachment = {
+              AttachID: response.AttachID || response.PK_ID,
+              ProjectID: response.ProjectID || projectIdNum,
+              TypeID: response.TypeID || typeIdNum,
+              Title: response.Title || doc.title || 'Document',
+              Notes: response.Notes || '',
+              Link: response.Link || file.name,
+              Attachment: response.Attachment || ''
+            };
+            this.existingAttachments.push(newAttachment);
+          }
+          
           // Update documents list immediately - this will show the link and green color
           this.updateDocumentsList();
         }
@@ -1526,16 +1534,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
                 this.existingAttachments.splice(attachIndex, 1);
               }
 
-              // Clear the document data
-              doc.uploaded = false;
-              doc.attachId = undefined;
-              doc.filename = undefined;
-              doc.linkName = undefined;
-              doc.attachmentUrl = undefined;
+              // Remove the document from the serviceDocuments array
+              const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
+              if (serviceDoc) {
+                const docIndex = serviceDoc.documents.findIndex(d => d === doc);
+                if (docIndex > -1) {
+                  serviceDoc.documents.splice(docIndex, 1);
+                }
+              }
 
               await loading.dismiss();
 
-              // Just update the documents list without reloading the entire page
+              // Update the documents list to reflect the removal
               this.updateDocumentsList();
             } catch (error) {
               console.error('Error deleting document:', error);
@@ -1954,16 +1964,49 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   async addDocumentLink(doc: any, url: string) {
     if (!this.selectedServiceDoc) return;
     
-    // Add link as an uploaded document
-    this.selectedServiceDoc.documents.push({
-      title: doc.title,
-      required: doc.required,
-      uploaded: true, // Mark as uploaded since we have the URL
-      templateId: doc.templateId,
-      linkName: url,
-      filename: url,
-      isLink: true // Flag to identify this is a link, not an uploaded file
-    });
+    try {
+      // Create attachment record in Caspio
+      const attachmentData = {
+        ProjectID: this.project?.ProjectID || this.projectId,
+        TypeID: parseInt(this.selectedServiceDoc.typeId),
+        Title: doc.title,
+        Link: url, // Store the URL in the Link field
+        Attachment: '' // Empty attachment field for links
+      };
+      
+      const response = await this.caspioService.createAttachment(attachmentData).toPromise();
+      
+      if (response && (response.PK_ID || response.AttachID)) {
+        // Add link as an uploaded document with server ID
+        this.selectedServiceDoc.documents.push({
+          attachId: response.PK_ID || response.AttachID,
+          title: doc.title,
+          required: doc.required,
+          uploaded: true,
+          templateId: doc.templateId,
+          linkName: url,
+          filename: url,
+          isLink: true // Flag to identify this is a link, not an uploaded file
+        });
+        
+        // Add to existing attachments for persistence
+        this.existingAttachments.push({
+          AttachID: response.PK_ID || response.AttachID,
+          ProjectID: attachmentData.ProjectID,
+          TypeID: attachmentData.TypeID,
+          Title: doc.title,
+          Link: url,
+          Attachment: ''
+        });
+        
+        await this.showToast('Link added successfully', 'success');
+      } else {
+        throw new Error('No ID returned from server');
+      }
+    } catch (error) {
+      console.error('Error adding document link:', error);
+      await this.showToast('Failed to add link', 'danger');
+    }
     
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
