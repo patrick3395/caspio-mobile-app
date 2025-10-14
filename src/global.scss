@@ -762,7 +762,11 @@ body.dark-theme .popover-content ion-label {
   }
 
   .alert-message {
-    display: none;
+    padding: 0 24px 16px;
+    color: #666666;
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.4;
   }
 
   .alert-input-group {
@@ -806,11 +810,36 @@ body.dark-theme .popover-content ion-label {
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s ease;
 
       .alert-button-inner {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      // Cancel button styling
+      &[role="cancel"] {
+        color: #666;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+
+        &:hover {
+          background: #e8e8e8;
+          border-color: #ccc;
+        }
+      }
+
+      // Action button styling (Replace Document)
+      &:not([role="cancel"]) {
+        color: #ffffff;
+        background: var(--noble-orange, #F15A27);
+        border: 1px solid var(--noble-orange, #F15A27);
+
+        &:hover {
+          background: #e04a1f;
+          border-color: #e04a1f;
+        }
       }
 
       &.alert-button-cancel {
