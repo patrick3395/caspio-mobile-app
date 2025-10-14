@@ -1315,8 +1315,32 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       return;
     }
     
-    this.currentUploadContext = { serviceId, typeId, doc, action: 'upload' };
-    this.fileInput.nativeElement.click();
+    // If document already exists (uploaded), show confirmation popup
+    if (doc.uploaded && doc.attachId) {
+      const confirm = await this.alertController.create({
+        header: 'Replace Document',
+        message: `Are you sure you want to replace the existing document "${doc.linkName || doc.filename || doc.title}"?`,
+        cssClass: 'custom-document-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Replace Document',
+            handler: () => {
+              this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
+              this.fileInput.nativeElement.click();
+            }
+          }
+        ]
+      });
+      await confirm.present();
+    } else {
+      // Document doesn't exist yet, proceed with normal upload
+      this.currentUploadContext = { serviceId, typeId, doc, action: 'upload' };
+      this.fileInput.nativeElement.click();
+    }
   }
 
   async replaceDocument(serviceId: string, typeId: string, doc: DocumentItem) {
@@ -2862,12 +2886,6 @@ Troubleshooting:
       });
     }
     
-    // If there's no Attachment field but there's a Link field, it's likely a link
-    if (!attachment.Attachment && attachment.Link) {
-      console.log('✅ Identified as link (no attachment, has link):', attachment.Title);
-      return true;
-    }
-    
     // If the Link field contains a URL (starts with http/https), it's a link
     if (attachment.Link && typeof attachment.Link === 'string') {
       const link = attachment.Link.toLowerCase().trim();
@@ -2877,10 +2895,22 @@ Troubleshooting:
       }
     }
     
-    // If there's an Attachment field, it's likely a file
-    if (attachment.Attachment) {
+    // If there's no Attachment field but there's a Link field, it's likely a link
+    if (!attachment.Attachment && attachment.Link) {
+      console.log('✅ Identified as link (no attachment, has link):', attachment.Title);
+      return true;
+    }
+    
+    // If there's an Attachment field with actual content, it's likely a file
+    if (attachment.Attachment && attachment.Attachment.trim() !== '') {
       console.log('❌ Identified as file (has attachment):', attachment.Title);
       return false;
+    }
+    
+    // If there's a Link field but no meaningful Attachment field, it's likely a link
+    if (attachment.Link && (!attachment.Attachment || attachment.Attachment.trim() === '')) {
+      console.log('✅ Identified as link (link field present, no attachment):', attachment.Title);
+      return true;
     }
     
     // Default to false (file) if we can't determine
