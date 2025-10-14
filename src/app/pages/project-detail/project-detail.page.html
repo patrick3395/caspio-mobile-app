@@ -157,7 +157,7 @@
             <!-- List of instances -->
             <div *ngFor="let service of getServiceInstances(offer.OffersID); let i = index" 
                  class="service-instance">
-              <div class="service-number-header">#{{ i + 1 }}</div>
+              <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
               <div class="instance-fields">
                 <div class="field-group">
                   <label>Inspection Date</label>
@@ -240,7 +240,6 @@
                   <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
                               (click)="doc.isLink ? editLink(serviceDoc.serviceId, doc) : uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
                     <ion-icon [name]="doc.isLink ? 'create-outline' : 'cloud-upload-outline'"></ion-icon>
-                    <span class="button-text" *ngIf="!doc.isLink">Replace Document</span>
                   </ion-button>
                   <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
                               (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)">

@@ -2000,6 +2000,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         });
         
         await this.showToast('Link added successfully', 'success');
+        
+        // Update the documents list to ensure the link appears correctly
+        this.updateDocumentsList();
       } else {
         throw new Error('No ID returned from server');
       }
@@ -2848,8 +2851,20 @@ Troubleshooting:
   private determineIfLink(attachment: any): boolean {
     if (!attachment) return false;
     
+    // Debug logging for custom links
+    if (attachment.Title && attachment.Title.includes('Custom Document')) {
+      console.log('🔍 Determining if custom document is link:', {
+        title: attachment.Title,
+        hasAttachment: !!attachment.Attachment,
+        attachmentValue: attachment.Attachment,
+        hasLink: !!attachment.Link,
+        linkValue: attachment.Link
+      });
+    }
+    
     // If there's no Attachment field but there's a Link field, it's likely a link
     if (!attachment.Attachment && attachment.Link) {
+      console.log('✅ Identified as link (no attachment, has link):', attachment.Title);
       return true;
     }
     
@@ -2857,16 +2872,19 @@ Troubleshooting:
     if (attachment.Link && typeof attachment.Link === 'string') {
       const link = attachment.Link.toLowerCase().trim();
       if (link.startsWith('http://') || link.startsWith('https://')) {
+        console.log('✅ Identified as link (URL format):', attachment.Title);
         return true;
       }
     }
     
     // If there's an Attachment field, it's likely a file
     if (attachment.Attachment) {
+      console.log('❌ Identified as file (has attachment):', attachment.Title);
       return false;
     }
     
     // Default to false (file) if we can't determine
+    console.log('❌ Default to file (can\'t determine):', attachment.Title);
     return false;
   }
 

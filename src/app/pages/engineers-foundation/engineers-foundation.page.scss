@@ -853,9 +853,11 @@ ion-content{--overflow:scroll !important;height:100%}
   // Structural Systems Status Dropdown - positioned as subtitle
   .structural-status-subtitle {
     margin-top: 6px;
-    margin-left: 0; // Align with icon (moved to the left)
-    display: inline-block; // Mobile: only as wide as dropdown
-    width: auto; // Mobile: don't take full width
+    margin-left: auto; // Center the dropdown
+    margin-right: auto; // Center the dropdown
+    display: block; // Mobile: take full width for centering
+    width: fit-content; // Mobile: only as wide as dropdown content
+    text-align: center; // Center the dropdown content
     pointer-events: auto; // Enable pointer events on this element
 
     .structural-status-select {
@@ -1051,8 +1053,11 @@ select[name="StructuralSystemsStatus"] {
 // Keep media query as fallback for non-Capacitor environments
 @media (min-width: 768px) {
   .structural-status-subtitle {
-    display: inline-block !important; // Webapp: only as wide as dropdown
-    width: auto !important; // Webapp: don't take full width
+    display: block !important; // Webapp: take full width for centering
+    width: fit-content !important; // Webapp: only as wide as dropdown content
+    text-align: center !important; // Center the dropdown content
+    margin-left: auto !important; // Center the dropdown
+    margin-right: auto !important; // Center the dropdown
     
     .structural-status-select:not(.web-select) {
       // Only apply if web-select class isn't present
