@@ -35,6 +35,11 @@
                 "glob": "**/*",
                 "input": "node_modules/ngx-extended-pdf-viewer/assets/",
                 "output": "/assets/"
+              },
+              {
+                "glob": "sw.js",
+                "input": "src",
+                "output": "/"
               }
             ],
             "styles": ["src/global.scss", "src/theme/variables.scss"],
@@ -66,7 +71,50 @@
               "vendorChunk": true,
               "extractLicenses": true,
               "sourceMap": false,
-              "namedChunks": false
+              "namedChunks": false,
+              "aot": true,
+              "extractCss": true,
+              "styles": [
+                "src/global.scss",
+                "src/theme/variables.scss"
+              ],
+              "scripts": [],
+              "allowedCommonJsDependencies": [
+                "browser-image-compression",
+                "fabric",
+                "jspdf",
+                "jspdf-autotable"
+              ],
+              "commonChunk": true,
+              "splitChunks": {
+                "chunks": "all",
+                "cacheGroups": {
+                  "vendor": {
+                    "test": /[\\/]node_modules[\\/]/,
+                    "name": "vendors",
+                    "chunks": "all",
+                    "priority": 10
+                  },
+                  "common": {
+                    "name": "common",
+                    "minChunks": 2,
+                    "chunks": "all",
+                    "priority": 5
+                  },
+                  "pdf": {
+                    "test": /[\\/]node_modules[\\/](jspdf|ngx-extended-pdf-viewer)[\\/]/,
+                    "name": "pdf",
+                    "chunks": "all",
+                    "priority": 15
+                  },
+                  "fabric": {
+                    "test": /[\\/]node_modules[\\/]fabric[\\/]/,
+                    "name": "fabric",
+                    "chunks": "all",
+                    "priority": 15
+                  }
+                }
+              }
             },
             "web": {
               "budgets": [

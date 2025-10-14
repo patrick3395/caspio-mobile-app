@@ -7,19 +7,62 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
-    cleartext: false
+    cleartext: false,
+    // Performance optimizations
+    allowNavigation: ['*']
   },
   ios: {
-    preferredContentMode: 'mobile'
+    preferredContentMode: 'mobile',
+    contentInset: 'automatic',
+    scrollEnabled: true,
+    // Performance optimizations
+    allowsLinkPreview: false,
+    // Memory management
+    limitsNavigationsToAppBoundDomains: false,
+    // Security
+    allowsArbitraryLoads: false,
+    allowsLocalNetworking: true
+  },
+  android: {
+    // Performance optimizations
+    allowMixedContent: false,
+    captureInput: true,
+    webContentsDebuggingEnabled: false,
+    // Memory management
+    initialFocus: false,
+    // Network security
+    cleartextTrafficPermitted: false
   },
   plugins: {
     LiveUpdates: {
       appId: '1e8beef6',
       channel: 'Caspio Mobile App',
-      autoUpdateMethod: 'background',  // Enable background updates
-      maxVersions: 2,  // Keep 2 versions for rollback capability
-      disableDeploy: true,  // DISABLED - Use local builds only (was preventing PDF changes)
-      strategy: 'differential'  // Use differential updates to minimize download size
+      autoUpdateMethod: 'background',
+      maxVersions: 1,  // Reduced from 2 for better performance
+      strategy: 'differential',
+      // Performance optimizations
+      updateUrl: 'https://api.ionicjs.com/apps/1e8beef6/deploy/updates',
+      timeout: 30000,  // 30 second timeout
+      retryDelay: 1000,  // 1 second retry delay
+      maxRetries: 3
+    },
+    // Camera optimizations
+    Camera: {
+      iosImagePickerMaxWidth: 1920,
+      iosImagePickerMaxHeight: 1920,
+      iosImagePickerQuality: 0.8,
+      androidImagePickerMaxWidth: 1920,
+      androidImagePickerMaxHeight: 1920,
+      androidImagePickerQuality: 0.8
+    },
+    // Filesystem optimizations
+    Filesystem: {
+      iosIsDocumentPickerEnabled: true,
+      androidIsDocumentPickerEnabled: true
+    },
+    // Network optimizations
+    Network: {
+      timeout: 30000
     }
   }
 };
