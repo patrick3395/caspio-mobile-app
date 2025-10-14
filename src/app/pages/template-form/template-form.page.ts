@@ -909,10 +909,7 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     // Remove the title prefix if present (e.g., "Support Document - filename.pdf" => "filename.pdf")
     const parts = fileName.split(' - ');
     const shortName = parts.length > 1 ? parts[parts.length - 1] : fileName;
-    // Truncate if too long
-    if (shortName.length > 30) {
-      return shortName.substring(0, 27) + '...';
-    }
+    // Return the full name without truncation
     return shortName;
   }
   

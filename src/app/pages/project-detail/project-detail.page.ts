@@ -1169,6 +1169,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
             filename: attachments[0]?.Link,
             linkName: attachments[0]?.Link,
             attachmentUrl: attachments[0]?.Attachment,
+            isLink: this.determineIfLink(attachments[0]), // Determine if this is a link
             // Store all attachments for display
             additionalFiles: attachments.slice(1).map(a => ({
               attachId: a.AttachID,
@@ -1265,6 +1266,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
             filename: attachments[0].Link,
             linkName: attachments[0].Link,
             attachmentUrl: attachments[0].Attachment,
+            isLink: this.determineIfLink(attachments[0]), // Determine if this is a link
             additionalFiles: attachments.slice(1).map(a => ({
               attachId: a.AttachID,
               linkName: a.Link,
@@ -1966,6 +1968,56 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
     this.isAddingLink = false;
+  }
+
+  async editLink(serviceId: string, doc: DocumentItem) {
+    const alert = await this.alertController.create({
+      header: 'Edit Link',
+      cssClass: 'custom-document-alert',
+      inputs: [
+        {
+          name: 'linkUrl',
+          type: 'url',
+          placeholder: 'Enter URL',
+          value: doc.linkName || '',
+          attributes: {
+            required: true
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Update Link',
+          handler: (data) => {
+            if (data.linkUrl && data.linkUrl.trim()) {
+              this.updateDocumentLink(serviceId, doc, data.linkUrl.trim());
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async updateDocumentLink(serviceId: string, doc: DocumentItem, newUrl: string) {
+    // Find the service document group
+    const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
+    if (!serviceDoc) return;
+
+    // Update the document link
+    const docIndex = serviceDoc.documents.findIndex(d => d === doc);
+    if (docIndex !== -1) {
+      serviceDoc.documents[docIndex].linkName = newUrl;
+      serviceDoc.documents[docIndex].filename = newUrl;
+      
+      // Show success message
+      this.showToast('Link updated successfully', 'success');
+    }
   }
 
   async promptForCustomDocument() {
@@ -2748,6 +2800,31 @@ Troubleshooting:
 
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private determineIfLink(attachment: any): boolean {
+    if (!attachment) return false;
+    
+    // If there's no Attachment field but there's a Link field, it's likely a link
+    if (!attachment.Attachment && attachment.Link) {
+      return true;
+    }
+    
+    // If the Link field contains a URL (starts with http/https), it's a link
+    if (attachment.Link && typeof attachment.Link === 'string') {
+      const link = attachment.Link.toLowerCase().trim();
+      if (link.startsWith('http://') || link.startsWith('https://')) {
+        return true;
+      }
+    }
+    
+    // If there's an Attachment field, it's likely a file
+    if (attachment.Attachment) {
+      return false;
+    }
+    
+    // Default to false (file) if we can't determine
+    return false;
   }
 
   private async showDebugAlert(title: string, message: string) {

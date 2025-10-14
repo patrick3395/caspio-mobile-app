@@ -21,7 +21,6 @@ export class ActiveProjectsPage implements OnInit {
   loading = false;
   error = '';
   currentUser: any = null;
-  appVersion = '1.4.576'; // Update this to match package.json version
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   searchTerm = '';
   
@@ -39,10 +38,6 @@ export class ActiveProjectsPage implements OnInit {
     return new Date().toLocaleString();
   }
   
-  // Get app version
-  getAppVersion(): string {
-    return this.appVersion;
-  }
 
   // Get current user info
   getUserInfo(): string {

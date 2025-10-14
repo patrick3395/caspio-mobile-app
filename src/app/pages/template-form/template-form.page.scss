@@ -356,8 +356,9 @@ ion-content {
               font-weight: 500;
               max-width: 200px;
               overflow: visible;
-              text-overflow: ellipsis;
-              white-space: nowrap;
+              word-wrap: break-word;
+              word-break: break-word;
+              white-space: normal;
             }
           }
         }
