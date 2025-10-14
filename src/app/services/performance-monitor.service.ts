@@ -39,6 +39,14 @@ export class PerformanceMonitorService {
   }
 
   /**
+   * Start performance monitoring
+   */
+  start(): void {
+    this.initializeMonitoring();
+    console.log('🚀 Performance monitoring started');
+  }
+
+  /**
    * Initialize performance monitoring
    */
   private initializeMonitoring(): void {
