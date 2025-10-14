@@ -79,11 +79,13 @@ ion-header {
       color: $dark;
     }
 
-    ion-button {
+    // Target only the back button specifically
+    ion-button[slot="start"] {
       --color: white;
-      --background: $orange;
-      --background-hover: rgba(241, 90, 39, 0.9);
-      --background-activated: rgba(241, 90, 39, 0.8);
+      --background: $orange !important;
+      --background-hover: rgba(241, 90, 39, 0.9) !important;
+      --background-activated: rgba(241, 90, 39, 0.8) !important;
+      --background-focused: $orange !important;
       --padding-start: 8px;
       --padding-end: 8px;
       --padding-top: 8px;
@@ -92,19 +94,41 @@ ion-header {
       width: 44px;
       height: 44px;
       box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+      background: $orange !important;
+      background-color: $orange !important;
 
       ion-icon {
-        color: white;
+        color: white !important;
         font-size: 24px;
       }
       
       &:hover {
         transform: scale(1.05);
         box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
+        background: rgba(241, 90, 39, 0.9) !important;
+        background-color: rgba(241, 90, 39, 0.9) !important;
       }
       
       &:active {
         transform: scale(0.95);
+        background: rgba(241, 90, 39, 0.8) !important;
+        background-color: rgba(241, 90, 39, 0.8) !important;
+      }
+      
+      &:focus {
+        background: $orange !important;
+        background-color: $orange !important;
+      }
+    }
+    
+    // Ensure modal close buttons and other buttons remain unaffected
+    ion-button[slot="end"] {
+      --background: transparent;
+      --color: $dark;
+      
+      ion-icon {
+        color: $dark;
+        font-size: 24px;
       }
     }
   }

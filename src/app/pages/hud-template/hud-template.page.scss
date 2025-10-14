@@ -2085,6 +2085,15 @@ ion-content {
   @media (min-width: 768px) {
     display: none !important;
   }
+}
+
+// Global rule to hide any floating back-to-top buttons on web
+@media (min-width: 768px) {
+  .floating-back-to-top,
+  button[class*="floating"],
+  button[class*="back-to-top"] {
+    display: none !important;
+  }
   
   ion-icon {
     font-size: 24px;

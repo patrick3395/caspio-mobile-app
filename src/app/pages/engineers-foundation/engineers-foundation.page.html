@@ -1588,7 +1588,9 @@
       <ion-icon [name]="manualOffline ? 'cloud-upload' : 'cloud-offline'"></ion-icon>
     </button>
     
-    <button class="floating-back-to-top" (click)="scrollToCurrentSectionTop()">
+    <button class="floating-back-to-top" 
+            [class.hide-on-web]="platform.isWeb()"
+            (click)="scrollToCurrentSectionTop()">
       <ion-icon name="arrow-up"></ion-icon>
     </button>
   </div>

@@ -2491,10 +2491,23 @@ select[name="StructuralSystemsStatus"] {
   align-items: center;
   justify-content: center;
   
-  // Hide on web platform - using environment-based approach
-  @media (min-width: 768px) {
+  // Hide on web platform - using platform-specific class
+  &.hide-on-web {
     display: none !important;
   }
+}
+
+// Global rule to hide any floating back-to-top buttons on web
+@media (min-width: 768px) {
+  .floating-back-to-top,
+  button[class*="floating"],
+  button[class*="back-to-top"] {
+    display: none !important;
+  }
+}
+
+// Continue with the original floating button styles
+.floating-back-to-top {
   cursor: pointer;
   transition: all 0.2s ease;
   
