@@ -1030,10 +1030,6 @@ select.structural-status-select {
 // Global override for any structural status select dropdown
 .structural-status-subtitle select,
 select[name="StructuralSystemsStatus"] {
-  // Center the dropdown menu when it opens
-  margin-left: auto !important;
-  margin-right: auto !important;
-  display: block !important;
   
   // Ensure proper option spacing
   option {
