@@ -80,13 +80,31 @@ ion-header {
     }
 
     ion-button {
-      --color: $orange;
-      --padding-start: 12px;
-      --padding-end: 12px;
+      --color: white;
+      --background: $orange;
+      --background-hover: rgba(241, 90, 39, 0.9);
+      --background-activated: rgba(241, 90, 39, 0.8);
+      --padding-start: 8px;
+      --padding-end: 8px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
 
       ion-icon {
-        color: $orange;
-        font-size: 28px;
+        color: white;
+        font-size: 24px;
+      }
+      
+      &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
+      }
+      
+      &:active {
+        transform: scale(0.95);
       }
     }
   }
