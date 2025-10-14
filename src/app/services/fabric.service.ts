@@ -29,7 +29,8 @@ export class FabricService {
   private async loadFabric(): Promise<any> {
     try {
       const module = await import('fabric');
-      return module.fabric;
+      // fabric.js exports the fabric object directly, not as module.fabric
+      return module;
     } catch (error) {
       console.error('Failed to load Fabric.js:', error);
       throw error;

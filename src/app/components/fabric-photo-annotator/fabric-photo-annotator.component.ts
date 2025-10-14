@@ -496,11 +496,11 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   private setupEventListeners() {
     let isDrawingArrow = false;
     let startX = 0, startY = 0;
-    let tempLine: fabric.Line | null = null;
-    let tempArrowHead1: fabric.Line | null = null;
-    let tempArrowHead2: fabric.Line | null = null;
+    let tempLine: any = null;
+    let tempArrowHead1: any = null;
+    let tempArrowHead2: any = null;
     
-    this.canvas.on('mouse:down', async (options: fabric.IEvent) => {
+    this.canvas.on('mouse:down', async (options: any) => {
       // CRITICAL: Skip all drawing logic if in selection mode
       if (this.currentTool === 'select') {
         return;  // Let Fabric.js handle selection and movement
@@ -564,7 +564,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
     });
     
-    this.canvas.on('mouse:move', async (options: fabric.IEvent) => {
+    this.canvas.on('mouse:move', async (options: any) => {
       // Skip all drawing logic if in selection mode
       if (this.currentTool === 'select') {
         return;  // Let Fabric.js handle object movement
@@ -621,7 +621,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.canvas.renderAll();
       } else if (this.isDrawing && this.currentTool === 'rectangle') {
         const pointer = this.canvas.getPointer(options.e);
-        const rect = this.canvas.getObjects().slice(-1)[0] as fabric.Rect;
+        const rect = this.canvas.getObjects().slice(-1)[0] as any;
         if (rect) {
           rect.set({
             width: Math.abs(pointer.x - rect.left!),
@@ -631,7 +631,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         }
       } else if (this.isDrawing && this.currentTool === 'circle') {
         const pointer = this.canvas.getPointer(options.e);
-        const circle = this.canvas.getObjects().slice(-1)[0] as fabric.Circle;
+        const circle = this.canvas.getObjects().slice(-1)[0] as any;
         if (circle) {
           const radius = Math.sqrt(
             Math.pow(pointer.x - circle.left!, 2) + 
@@ -643,7 +643,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       }
     });
     
-    this.canvas.on('mouse:up', async (options: fabric.IEvent) => {
+    this.canvas.on('mouse:up', async (options: any) => {
       // Skip all drawing logic if in selection mode
       if (this.currentTool === 'select') {
         return;  // Let Fabric.js handle selection completion
@@ -672,10 +672,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     });
     
     // Add double-click handler for editing text
-    this.canvas.on('mouse:dblclick', async (options: fabric.IEvent) => {
+    this.canvas.on('mouse:dblclick', async (options: any) => {
       const target = this.canvas.getActiveObject();
       if (target && target.type === 'i-text') {
-        const textObj = target as fabric.IText;
+        const textObj = target as any;
         const currentText = textObj.text || '';
         const newText = prompt('Edit text:', currentText);
         
