@@ -299,6 +299,16 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
         margin-bottom: 0;
       }
       
+      .service-number-header {
+        font-size: 14px;
+        font-weight: 600;
+        color: $dark;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid $light-gray;
+        text-align: center;
+      }
+      
       .instance-fields {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -328,6 +338,8 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
             border-radius: 4px;
             font-size: 14px;
             background: $white;
+            height: 40px;
+            box-sizing: border-box;
             
             &:focus {
               outline: none;
@@ -349,10 +361,15 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
             font-weight: 600;
             color: $dark;
             font-family: 'Courier New', monospace;
+            height: 40px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
             
             // Mobile-only: Center the price text
             @media (max-width: 768px) {
               text-align: center;
+              justify-content: center;
             }
           }
           
@@ -502,7 +519,7 @@ ion-modal {
     .instance-number {
       margin-left: 8px;
       font-weight: 600;
-      color: $orange;
+      color: $dark;
       font-size: 14px;
     }
   }
@@ -550,18 +567,18 @@ ion-modal {
     font-weight: 500;
     color: #333;
     margin-bottom: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
     display: block;
   }
 
   .doc-filename {
     font-size: 12px;
     color: #666;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
     display: block;
   }
   .doc-status {
