@@ -15,11 +15,11 @@ export class EngineersFoundationDataService {
   private serviceCache = new Map<string, CacheEntry<any>>();
   private typeCache = new Map<string, CacheEntry<any>>();
   private imageCache = new Map<string, CacheEntry<string>>();
-  private roomTemplatesCache: CacheEntry<any[]> | null = null;
+  private efeTemplatesCache: CacheEntry<any[]> | null = null;
   private visualsCache = new Map<string, CacheEntry<any[]>>();
   private visualAttachmentsCache = new Map<string, CacheEntry<any[]>>();
-  private roomPointsCache = new Map<string, CacheEntry<any[]>>();
-  private roomAttachmentsCache = new Map<string, CacheEntry<any[]>>();
+  private efePointsCache = new Map<string, CacheEntry<any[]>>();
+  private efeAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
   constructor(private readonly caspioService: CaspioService) {}
 
@@ -50,21 +50,21 @@ export class EngineersFoundationDataService {
     );
   }
 
-  async getRoomTemplates(forceRefresh = false): Promise<any[]> {
-    if (!forceRefresh && this.roomTemplatesCache && !this.isExpired(this.roomTemplatesCache.timestamp)) {
-      return this.roomTemplatesCache.value;
+  async getEFETemplates(forceRefresh = false): Promise<any[]> {
+    if (!forceRefresh && this.efeTemplatesCache && !this.isExpired(this.efeTemplatesCache.timestamp)) {
+      return this.efeTemplatesCache.value;
     }
 
-    const loader = firstValueFrom(this.caspioService.getServicesRoomTemplates());
-    this.roomTemplatesCache = { value: loader, timestamp: Date.now() };
+    const loader = firstValueFrom(this.caspioService.getServicesEFETemplates());
+    this.efeTemplatesCache = { value: loader, timestamp: Date.now() };
     return loader;
   }
 
-  async getRoomsByService(serviceId: string): Promise<any[]> {
+  async getEFEByService(serviceId: string): Promise<any[]> {
     if (!serviceId) {
       return [];
     }
-    return firstValueFrom(this.caspioService.getServicesRooms(serviceId));
+    return firstValueFrom(this.caspioService.getServicesEFE(serviceId));
   }
 
   async getImage(filePath: string): Promise<string> {
@@ -95,23 +95,23 @@ export class EngineersFoundationDataService {
     );
   }
 
-  async getRoomPoints(roomId: string | number): Promise<any[]> {
+  async getEFEPoints(roomId: string | number): Promise<any[]> {
     if (!roomId) {
       return [];
     }
     const key = String(roomId);
-    return this.resolveWithCache(this.roomPointsCache, key, () =>
-      firstValueFrom(this.caspioService.getServicesRoomsPoints(String(roomId)))
+    return this.resolveWithCache(this.efePointsCache, key, () =>
+      firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)))
     );
   }
 
-  async getRoomAttachments(pointIds: string | string[]): Promise<any[]> {
+  async getEFEAttachments(pointIds: string | string[]): Promise<any[]> {
     if (!pointIds || (Array.isArray(pointIds) && pointIds.length === 0)) {
       return [];
     }
     const key = Array.isArray(pointIds) ? pointIds.sort().join('|') : pointIds;
-    return this.resolveWithCache(this.roomAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServicesRoomsAttachments(pointIds))
+    return this.resolveWithCache(this.efeAttachmentsCache, key, () =>
+      firstValueFrom(this.caspioService.getServicesEFEAttachments(pointIds))
     );
   }
 

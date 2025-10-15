@@ -3724,7 +3724,7 @@ Time: ${debugInfo.timestamp}
   }
 
   private async buildElevationDataForService(serviceId: string): Promise<any[]> {
-    const rooms = await this.foundationData.getRoomsByService(serviceId);
+    const rooms = await this.foundationData.getEFEByService(serviceId);
     if (!rooms || rooms.length === 0) {
       return [];
     }
@@ -3757,7 +3757,7 @@ Time: ${debugInfo.timestamp}
     }
 
     try {
-      const pointRecords = await this.foundationData.getRoomPoints(roomId);
+      const pointRecords = await this.foundationData.getEFEPoints(roomId);
       if (pointRecords && pointRecords.length > 0) {
         const pointResults = await Promise.all(pointRecords.map(async (point: any) => {
           const pointId = point?.PointID || point?.PK_ID;
@@ -3767,7 +3767,7 @@ Time: ${debugInfo.timestamp}
           let photos: any[] = [];
           if (pointId) {
             try {
-              const attachments = await this.foundationData.getRoomAttachments(pointId);
+              const attachments = await this.foundationData.getEFEAttachments(pointId);
               photos = (attachments || []).map(att => this.buildPhotoObject(att));
             } catch (error) {
               console.error('Failed to load point attachments:', error);

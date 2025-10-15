@@ -475,7 +475,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   async loadRoomTemplates() {
     try {
-      const allTemplates = await this.caspioService.getServicesRoomTemplates().toPromise();
+      const allTemplates = await this.caspioService.getServicesEFETemplates().toPromise();
       
       if (allTemplates && allTemplates.length > 0) {
         // Store all templates for manual addition
@@ -523,7 +523,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         
         // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
-          const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+          const existingRooms = await this.caspioService.getServicesEFE(this.serviceId).toPromise();
           
           if (existingRooms && existingRooms.length > 0) {
             // Now we can use the RoomName field directly
@@ -782,7 +782,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Try to load room-specific options from Services_EFE_Drop table
       try {
-        const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+        const dropdownData = await this.caspioService.getServicesEFEDrop().toPromise();
         
         if (dropdownData && dropdownData.length > 0) {
           // Group dropdown options by RoomName
@@ -1065,7 +1065,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     if (roomId) {
       try {
         // Get room data from database
-        const rooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
+        const rooms = await this.caspioService.getServicesEFE(this.serviceId).toPromise();
         const room = rooms?.find((r: any) => r.EFEID === parseInt(roomId));
 
         if (room) {

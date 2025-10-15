@@ -743,7 +743,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      const allTemplates = await this.foundationData.getRoomTemplates();
+      const allTemplates = await this.foundationData.getEFETemplates();
       
       if (allTemplates && allTemplates.length > 0) {
         // Store all templates for manual addition
@@ -791,7 +791,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
-          const existingRooms = await this.foundationData.getRoomsByService(this.serviceId);
+          const existingRooms = await this.foundationData.getEFEByService(this.serviceId);
           
           if (existingRooms && existingRooms.length > 0) {
             // Now we can use the RoomName field directly
@@ -1092,7 +1092,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load FDF options from Services_EFE_Drop table
   async loadFDFOptions() {
     try {
-      const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
+      const dropdownData = await this.caspioService.getServicesEFEDrop().toPromise();
       
       if (dropdownData && dropdownData.length > 0) {
         // Extract unique dropdown values and filter out invalid entries
@@ -1523,7 +1523,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const roomId = this.efeRecordIds[roomName];
       if (roomId) {
         try {
-          const rooms = await firstValueFrom(this.caspioService.getServicesRooms(this.serviceId));
+          const rooms = await firstValueFrom(this.caspioService.getServicesEFE(this.serviceId));
           const numericRoomId = Number(roomId);
           const roomRecord = rooms?.find((room: any) => Number(room.EFEID) === numericRoomId);
 
@@ -2160,7 +2160,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       
       // Get all points for this room
-      const points = await this.foundationData.getRoomPoints(roomId);
+      const points = await this.foundationData.getEFEPoints(roomId);
       
       if (points && points.length > 0) {
         for (const point of points) {
@@ -2198,7 +2198,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (elevationPoint) {
               // Get photo count for this point - use the correct PointID
               const actualPointId = point.PointID || pointId;
-              const photos = await this.foundationData.getRoomAttachments(actualPointId);
+              const photos = await this.foundationData.getEFEAttachments(actualPointId);
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 
@@ -9764,7 +9764,7 @@ Stack: ${error?.stack}`;
         
         try {
           // Get all points for this room from the database
-          const dbPoints = await this.foundationData.getRoomPoints(roomId);
+          const dbPoints = await this.foundationData.getEFEPoints(roomId);
           
           // Collect all attachment fetches and image conversions
           const pointPromises = [];
@@ -9791,7 +9791,7 @@ Stack: ${error?.stack}`;
             // Fetch attachments for this specific point
             if (pointId) {
               pointPromises.push(
-                this.foundationData.getRoomAttachments(pointId)
+                this.foundationData.getEFEAttachments(pointId)
                   .then(attachments => ({ pointId, attachments }))
                   .catch(error => {
                     console.error(`Failed to fetch attachments for point ${pointName}:`, error);
@@ -9994,7 +9994,7 @@ Stack: ${error?.stack}`;
     try {
       
       // First get all points for this room
-      const points = await this.foundationData.getRoomPoints(roomId);
+      const points = await this.foundationData.getEFEPoints(roomId);
       
       if (!points || points.length === 0) {
         return [];
@@ -10008,7 +10008,7 @@ Stack: ${error?.stack}`;
       }
       
       // Fetch all attachments for these points
-      const attachments = await this.foundationData.getRoomAttachments(pointIds);
+      const attachments = await this.foundationData.getEFEAttachments(pointIds);
       
       if (!attachments || attachments.length === 0) {
         return [];
