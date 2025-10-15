@@ -2,19 +2,28 @@
 :host {
   display: block;
   color: var(--ion-color-dark);
+  height: 100%;
 }
 
-// Remove scroll limitations and ensure full scrolling
 ion-content {
   --overflow: auto;
   --offset-bottom: 0;
+  height: 100%;
 
+  // Force scroll container to allow full scrolling
   ::ng-deep {
     .inner-scroll {
       height: auto !important;
       min-height: 100% !important;
       max-height: none !important;
       overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      padding-bottom: 0 !important; // Remove conflicting padding
+    }
+
+    .scroll-content {
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
     }
   }
 }
@@ -43,9 +52,16 @@ ion-content {
   flex-direction: column;
   gap: 24px;
   padding: 16px;
-  padding-bottom: 80px; // Extra padding at bottom for full scrolling
+  padding-bottom: 0; // Remove padding, use spacer instead
   min-height: 100vh;
   height: auto;
+}
+
+// Bottom spacer to ensure scrolling works on mobile
+.bottom-spacer {
+  height: 200px;
+  min-height: 200px;
+  flex-shrink: 0;
 }
 
 // Global Company Filter Styling
@@ -213,9 +229,9 @@ ion-content {
 .tab-button-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 20px;
-  padding: 16px;
+  padding: 12px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -226,12 +242,12 @@ ion-content {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  min-height: 70px;
+  padding: 8px 4px;
+  min-height: 65px;
   background: #f8f9fa;
   border: 2px solid #dee2e6;
-  border-radius: 12px;
-  font-size: 0.875rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #495057;
   cursor: pointer;
@@ -240,8 +256,8 @@ ion-content {
   touch-action: manipulation;
 
   ion-icon {
-    font-size: 24px;
-    margin-bottom: 6px;
+    font-size: 22px;
+    margin-bottom: 4px;
     color: #6c757d;
     transition: all 0.15s ease;
   }
@@ -249,6 +265,7 @@ ion-content {
   span {
     display: block;
     text-align: center;
+    line-height: 1.2;
   }
 
   &:hover {
@@ -278,9 +295,22 @@ ion-content {
   }
 }
 
+// Keep 3 columns even on small mobile screens
 @media (max-width: 400px) {
   .tab-button-grid {
-    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .tab-button {
+    padding: 6px 2px;
+    min-height: 60px;
+    font-size: 0.7rem;
+
+    ion-icon {
+      font-size: 20px;
+      margin-bottom: 3px;
+    }
   }
 }
 
@@ -1592,5 +1622,16 @@ ion-content {
 
   .responsive-table {
     box-shadow: none;
+  }
+
+  // Increase spacer height for mobile
+  .bottom-spacer {
+    height: 250px;
+    min-height: 250px;
+  }
+
+  // Ensure tab content doesn't add conflicting padding
+  .tab-content {
+    padding-bottom: 0;
   }
 }
