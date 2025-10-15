@@ -699,14 +699,19 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - **Fixed Red Colors**: Changed all red/danger colors (trash icons, borders) to orange theme
 - **Retitled Table**: Changed "Selected Services & Inspection Dates" to simply "Selected Services"
 
-## 26. Support Documents Link Persistence Fix (v1.4.584-585 - January 2025):
+## 26. Support Documents Link Persistence Fix (v1.4.584-586 - January 2025):
 
 ### Initial Attempt (v1.4.584) - INCOMPLETE:
 - Attempted to fix by calling `updateDocumentsList()` and cache invalidation
 - Problem: Still relied on manually-updated local arrays instead of database data
 - Result: Links still not showing immediately because local state wasn't guaranteed to match database
 
-### Proper Fix (v1.4.585) - WORKING:
+### Second Attempt (v1.4.585) - PARTIAL:
+- Replaced manual array updates with database reload via `loadExistingAttachments()`
+- Problem: **Caspio service was returning cached data** instead of fresh database data
+- Result: Still not showing immediately because database fetch returned cached response
+
+### Final Fix (v1.4.586) - WORKING:
 - **Issues Fixed**:
   1. Links not displaying immediately after add/edit operations
   2. Links not persisting after page reload (even though saved to database)

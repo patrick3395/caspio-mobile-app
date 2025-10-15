@@ -1517,8 +1517,8 @@ export class CaspioService {
   }
 
   // Attach (Attachments) table methods
-  getAttachmentsByProject(projectId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`).pipe(
+  getAttachmentsByProject(projectId: string, useCache: boolean = true): Observable<any[]> {
+    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`, useCache).pipe(
       map(response => response.Result || [])
     );
   }

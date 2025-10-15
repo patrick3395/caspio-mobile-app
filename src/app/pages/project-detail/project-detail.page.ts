@@ -581,12 +581,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  async loadExistingAttachments() {
+  async loadExistingAttachments(bypassCache: boolean = false) {
     this.loadingDocuments = true;
     try {
       // Use actual ProjectID from project data for querying attachments
       const projectId = this.project?.ProjectID || this.projectId;
-      const attachments = await this.caspioService.getAttachmentsByProject(projectId).toPromise();
+      // Pass !bypassCache as useCache parameter (true=useCache, false=bypass cache)
+      const attachments = await this.caspioService.getAttachmentsByProject(projectId, !bypassCache).toPromise();
       this.existingAttachments = attachments || [];
       this.updateDocumentsList();
     } catch (error) {
@@ -2105,9 +2106,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           Link: newUrl
         }).toPromise();
 
-        // Reload attachments from database to ensure we show exactly what's in the table
+        // Reload attachments from database with cache bypass to ensure fresh data
         // This replaces manual local array updates with fresh database data
-        await this.loadExistingAttachments();
+        await this.loadExistingAttachments(true);
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
@@ -2141,9 +2142,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       const response = await this.caspioService.createAttachment(attachmentData).toPromise();
 
       if (response && (response.PK_ID || response.AttachID)) {
-        // Reload attachments from database to ensure we show exactly what's in the table
+        // Reload attachments from database with cache bypass to ensure fresh data
         // This replaces manual local array updates with fresh database data
-        await this.loadExistingAttachments();
+        await this.loadExistingAttachments(true);
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
