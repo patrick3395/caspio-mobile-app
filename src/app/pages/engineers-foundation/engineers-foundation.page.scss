@@ -109,17 +109,6 @@ ion-toolbar.template-toolbar {
   font-size: 20px;
 }
 
-// FDF Dropdown Options - smaller text with black color
-.fdf-select {
-  font-size: 11px !important;
-  color: #000 !important;
-}
-
-.fdf-option {
-  font-size: 11px !important;
-  color: #000 !important;
-}
-
 // Auto-Sync OFF Warning Banner - Fixed at top
 .offline-warning-banner-fixed {
   position: sticky;
@@ -287,30 +276,6 @@ ion-toolbar.template-toolbar {
     .item-text{margin:0;color:#666}
   }
   .dropdown-container{display:flex;align-items:center;gap:10px;
-    .answer-select-dropdown{flex:1;background:white;border:2px solid #e8e8e8;border-radius:8px;padding:12px 36px 12px 16px;font-size:15px;min-height:48px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      &::part(placeholder){color:#999}
-      &::part(text){color:#333;font-size:15px}
-      &::part(icon){color:var(--noble-orange)}
-      
-      // Match the styled-input appearance
-      appearance:none;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-      background-repeat:no-repeat;
-      background-position:right 12px center;
-      cursor:pointer;
-      
-      // Hover and focus states to match styled-input
-      &:hover{
-        border-color:#ddd;
-        background-color:#fafafa;
-      }
-      
-      &:focus{
-        outline:none;
-        border-color:var(--noble-orange);
-        box-shadow:0 0 0 3px rgba(241, 90, 39, 0.1);
-      }
-    }
     .saving-spinner{--color:var(--noble-orange);width:20px;height:20px}
   }
 }
@@ -1927,19 +1892,8 @@ select[name="StructuralSystemsStatus"] {
             color: var(--noble-gray);
             margin-bottom: 8px;
           }
-          
-          ion-select {
-            width: 100%;
-            --padding-start: 12px;
-            --padding-end: 12px;
-            --padding-top: 10px;
-            --padding-bottom: 10px;
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-          }
         }
-        
+
         .elevation-points-container {
           margin-bottom: 20px;
           
@@ -2344,16 +2298,6 @@ select[name="StructuralSystemsStatus"] {
 
               ion-label {
                 margin-right: 10px;
-              }
-
-              ion-select {
-                --padding-start: 8px;
-                --padding-end: 8px;
-                --padding-top: 6px;
-                --padding-bottom: 6px;
-                background: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
               }
             }
           }

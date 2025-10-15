@@ -47,18 +47,16 @@
 
       <ion-item lines="full">
         <ion-label position="stacked">State</ion-label>
-        <ion-select 
-          [(ngModel)]="formData.state" 
+        <select
+          [(ngModel)]="formData.state"
           name="state"
-          placeholder="-- Select --"
-          interface="popover"
-          class="no-arrow"
-          required>
-          <ion-select-option [value]="null">-- Select --</ion-select-option>
-          <ion-select-option *ngFor="let state of states" [value]="state.StateID">
+          required
+          class="styled-input">
+          <option [value]="null">-- Select --</option>
+          <option *ngFor="let state of states" [value]="state.StateID">
             {{ state.State }}
-          </ion-select-option>
-        </ion-select>
+          </option>
+        </select>
       </ion-item>
 
       <ion-item lines="full">

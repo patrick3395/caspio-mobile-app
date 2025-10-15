@@ -392,16 +392,18 @@
                   <ion-label position="stacked" [class.completed]="hasValue('buildingType')">
                     <span *ngIf="hasValue('buildingType')">✓ </span>Type of Building
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.buildingType" name="buildingType"
-                              (ionChange)="onFieldChange('buildingType', $event.detail.value)"
-                              [class.has-value]="hasValue('buildingType')">
-                    <ion-select-option value="Single Family">Single Family</ion-select-option>
-                    <ion-select-option value="Multi Family">Multi Family</ion-select-option>
-                    <ion-select-option value="Townhouse">Townhouse</ion-select-option>
-                    <ion-select-option value="Condominium">Condominium</ion-select-option>
-                    <ion-select-option value="Commercial">Commercial</ion-select-option>
-                    <ion-select-option value="Mixed Use">Mixed Use</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.buildingType" name="buildingType"
+                          (ngModelChange)="onFieldChange('buildingType', $event)"
+                          [class.has-value]="hasValue('buildingType')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Single Family">Single Family</option>
+                    <option value="Multi Family">Multi Family</option>
+                    <option value="Townhouse">Townhouse</option>
+                    <option value="Condominium">Condominium</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Mixed Use">Mixed Use</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -410,20 +412,21 @@
                   <ion-label position="stacked" [class.completed]="hasValue('style')">
                     <span *ngIf="hasValue('style')">✓ </span>Style
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.style" name="style"
-                              (ionChange)="onFieldChange('style', $event.detail.value)"
-                              [class.has-value]="hasValue('style')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="Ranch">Ranch</ion-select-option>
-                    <ion-select-option value="Two Story">Two Story</ion-select-option>
-                    <ion-select-option value="Split Level">Split Level</ion-select-option>
-                    <ion-select-option value="Colonial">Colonial</ion-select-option>
-                    <ion-select-option value="Contemporary">Contemporary</ion-select-option>
-                    <ion-select-option value="Traditional">Traditional</ion-select-option>
-                    <ion-select-option value="Mediterranean">Mediterranean</ion-select-option>
-                    <ion-select-option value="Victorian">Victorian</ion-select-option>
-                    <ion-select-option value="Craftsman">Craftsman</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.style" name="style"
+                          (ngModelChange)="onFieldChange('style', $event)"
+                          [class.has-value]="hasValue('style')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Ranch">Ranch</option>
+                    <option value="Two Story">Two Story</option>
+                    <option value="Split Level">Split Level</option>
+                    <option value="Colonial">Colonial</option>
+                    <option value="Contemporary">Contemporary</option>
+                    <option value="Traditional">Traditional</option>
+                    <option value="Mediterranean">Mediterranean</option>
+                    <option value="Victorian">Victorian</option>
+                    <option value="Craftsman">Craftsman</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -444,19 +447,20 @@
                   <ion-label position="stacked" [class.completed]="hasValue('weather')">
                     <span *ngIf="hasValue('weather')">✓ </span>Weather Conditions
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.weather" name="weather"
-                              (ionChange)="onFieldChange('weather', $event.detail.value)"
-                              [class.has-value]="hasValue('weather')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="Clear">Clear</ion-select-option>
-                    <ion-select-option value="Partly Cloudy">Partly Cloudy</ion-select-option>
-                    <ion-select-option value="Cloudy">Cloudy</ion-select-option>
-                    <ion-select-option value="Light Rain">Light Rain</ion-select-option>
-                    <ion-select-option value="Heavy Rain">Heavy Rain</ion-select-option>
-                    <ion-select-option value="Windy">Windy</ion-select-option>
-                    <ion-select-option value="Foggy">Foggy</ion-select-option>
-                    <ion-select-option value="Snow">Snow</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.weather" name="weather"
+                          (ngModelChange)="onFieldChange('weather', $event)"
+                          [class.has-value]="hasValue('weather')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Clear">Clear</option>
+                    <option value="Partly Cloudy">Partly Cloudy</option>
+                    <option value="Cloudy">Cloudy</option>
+                    <option value="Light Rain">Light Rain</option>
+                    <option value="Heavy Rain">Heavy Rain</option>
+                    <option value="Windy">Windy</option>
+                    <option value="Foggy">Foggy</option>
+                    <option value="Snow">Snow</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -477,17 +481,18 @@
                   <ion-label position="stacked" [class.completed]="hasValue('occupancy')">
                     <span *ngIf="hasValue('occupancy')">✓ </span>Occupancy/Furnishings
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.occupancy" name="occupancy"
-                              (ionChange)="onFieldChange('occupancy', $event.detail.value)"
-                              [class.has-value]="hasValue('occupancy')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="Occupied - Furnished">Occupied - Furnished</ion-select-option>
-                    <ion-select-option value="Occupied - Partially Furnished">Occupied - Partially Furnished</ion-select-option>
-                    <ion-select-option value="Vacant - Furnished">Vacant - Furnished</ion-select-option>
-                    <ion-select-option value="Vacant - Partially Furnished">Vacant - Partially Furnished</ion-select-option>
-                    <ion-select-option value="Vacant - Unfurnished">Vacant - Unfurnished</ion-select-option>
-                    <ion-select-option value="Under Construction">Under Construction</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.occupancy" name="occupancy"
+                          (ngModelChange)="onFieldChange('occupancy', $event)"
+                          [class.has-value]="hasValue('occupancy')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Occupied - Furnished">Occupied - Furnished</option>
+                    <option value="Occupied - Partially Furnished">Occupied - Partially Furnished</option>
+                    <option value="Vacant - Furnished">Vacant - Furnished</option>
+                    <option value="Vacant - Partially Furnished">Vacant - Partially Furnished</option>
+                    <option value="Vacant - Unfurnished">Vacant - Unfurnished</option>
+                    <option value="Under Construction">Under Construction</option>
+                  </select>
                 </ion-item>
               </div>
             </div>
@@ -504,18 +509,18 @@
               <div class="form-row">
                 <ion-item>
                   <ion-label position="stacked">Company</ion-label>
-                  <ion-select [(ngModel)]="formData.company" name="company">
-                    <ion-select-option value="Noble Property Inspections">Noble Property Inspections</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.company" name="company" class="styled-input">
+                    <option value="Noble Property Inspections">Noble Property Inspections</option>
+                  </select>
                 </ion-item>
               </div>
 
               <div class="form-row">
                 <ion-item>
                   <ion-label position="stacked">User</ion-label>
-                  <ion-select [(ngModel)]="formData.user" name="user">
-                    <ion-select-option value="Patrick Bullock">Patrick Bullock</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.user" name="user" class="styled-input">
+                    <option value="Patrick Bullock">Patrick Bullock</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -543,9 +548,9 @@
                 <ion-col size="3">
                   <ion-item>
                     <ion-label position="stacked">State</ion-label>
-                    <ion-select [(ngModel)]="formData.state" name="state">
-                      <ion-select-option value="TX">TX</ion-select-option>
-                    </ion-select>
+                    <select [(ngModel)]="formData.state" name="state" class="styled-input">
+                      <option value="TX">TX</option>
+                    </select>
                   </ion-item>
                 </ion-col>
                 <ion-col size="3">
@@ -559,10 +564,10 @@
               <div class="form-row">
                 <ion-item>
                   <ion-label position="stacked">Service Type</ion-label>
-                  <ion-select [(ngModel)]="formData.serviceType" name="serviceType">
-                    <ion-select-option value="Engineers Foundation Evaluation">Engineer's Foundation Evaluation</ion-select-option>
-                    <ion-select-option value="Engineers Damaged Truss Evaluation">Engineer's Damaged Truss Evaluation</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.serviceType" name="serviceType" class="styled-input">
+                    <option value="Engineers Foundation Evaluation">Engineer's Foundation Evaluation</option>
+                    <option value="Engineers Damaged Truss Evaluation">Engineer's Damaged Truss Evaluation</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -595,17 +600,18 @@
                   <ion-label position="stacked" [class.completed]="hasValue('numberOfStories')">
                     <span *ngIf="hasValue('numberOfStories')">✓ </span>Number of Stories
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.numberOfStories" name="numberOfStories"
-                              (ionChange)="onFieldChange('numberOfStories', $event.detail.value)"
-                              [class.has-value]="hasValue('numberOfStories')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="1">1</ion-select-option>
-                    <ion-select-option value="1.5">1.5</ion-select-option>
-                    <ion-select-option value="2">2</ion-select-option>
-                    <ion-select-option value="2.5">2.5</ion-select-option>
-                    <ion-select-option value="3">3</ion-select-option>
-                    <ion-select-option value="3+">3+</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.numberOfStories" name="numberOfStories"
+                          (ngModelChange)="onFieldChange('numberOfStories', $event)"
+                          [class.has-value]="hasValue('numberOfStories')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="1">1</option>
+                    <option value="1.5">1.5</option>
+                    <option value="2">2</option>
+                    <option value="2.5">2.5</option>
+                    <option value="3">3</option>
+                    <option value="3+">3+</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -652,14 +658,15 @@
                   <ion-label position="stacked" [class.completed]="hasValue('foundationType')">
                     <span *ngIf="hasValue('foundationType')">✓ </span>Foundation Type
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.foundationType" name="foundationType"
-                              (ionChange)="onFieldChange('foundationType', $event.detail.value)"
-                              [class.has-value]="hasValue('foundationType')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="Slab">Slab</ion-select-option>
-                    <ion-select-option value="Pier and Beam">Pier and Beam</ion-select-option>
-                    <ion-select-option value="Basement">Basement</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.foundationType" name="foundationType"
+                          (ngModelChange)="onFieldChange('foundationType', $event)"
+                          [class.has-value]="hasValue('foundationType')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Slab">Slab</option>
+                    <option value="Pier and Beam">Pier and Beam</option>
+                    <option value="Basement">Basement</option>
+                  </select>
                 </ion-item>
               </div>
 
@@ -668,14 +675,15 @@
                   <ion-label position="stacked" [class.completed]="hasValue('foundationCondition')">
                     <span *ngIf="hasValue('foundationCondition')">✓ </span>Foundation Condition
                   </ion-label>
-                  <ion-select [(ngModel)]="formData.foundationCondition" name="foundationCondition"
-                              (ionChange)="onFieldChange('foundationCondition', $event.detail.value)"
-                              [class.has-value]="hasValue('foundationCondition')">
-                    <ion-select-option value="">-- Select --</ion-select-option>
-                    <ion-select-option value="Good">Good</ion-select-option>
-                    <ion-select-option value="Fair">Fair</ion-select-option>
-                    <ion-select-option value="Poor">Poor</ion-select-option>
-                  </ion-select>
+                  <select [(ngModel)]="formData.foundationCondition" name="foundationCondition"
+                          (ngModelChange)="onFieldChange('foundationCondition', $event)"
+                          [class.has-value]="hasValue('foundationCondition')"
+                          class="styled-input">
+                    <option value="">-- Select --</option>
+                    <option value="Good">Good</option>
+                    <option value="Fair">Fair</option>
+                    <option value="Poor">Poor</option>
+                  </select>
                 </ion-item>
               </div>
 

@@ -426,16 +426,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container" (click)="$event.stopPropagation()">
-                          <ion-select
+                          <select
                             [(ngModel)]="item.answer"
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>
@@ -560,16 +559,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container" (click)="$event.stopPropagation()">
-                          <ion-select
+                          <select
                             [(ngModel)]="item.answer"
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>
@@ -694,16 +692,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container" (click)="$event.stopPropagation()">
-                          <ion-select
+                          <select
                             [(ngModel)]="item.answer"
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>
@@ -942,19 +939,18 @@
 
                 <!-- Flooring Difference Factor dropdown - compact inline (hidden for Base Station) -->
                 <div class="fdf-dropdown-container" *ngIf="!isBaseStation(room.RoomName)">
-                  <ion-item lines="none" style="--padding-start: 0; --inner-padding-end: 0;">
-                    <ion-label style="font-size: 13px; font-weight: 600;">FDF:<span style="color: #F15A27; margin-left: 2px;">*</span></ion-label>
-                    <ion-select [(ngModel)]="roomElevationData[room.RoomName].fdf"
-                                placeholder="Select"
-                                interface="action-sheet"
-                                (ionChange)="onFDFChange(room.RoomName)"
-                                class="fdf-select"
-                                style="max-width: 150px;">
-                      <ion-select-option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option" class="fdf-option">
-                        {{ option }}
-                      </ion-select-option>
-                    </ion-select>
-                  </ion-item>
+                  <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+                    FDF:<span style="color: #F15A27; margin-left: 2px;">*</span>
+                  </label>
+                  <select [(ngModel)]="roomElevationData[room.RoomName].fdf"
+                          (ngModelChange)="onFDFChange(room.RoomName)"
+                          class="styled-input"
+                          style="max-width: 100%;">
+                    <option value="">Select</option>
+                    <option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
+                      {{ option }}
+                    </option>
+                  </select>
                 </div>
 
                 <!-- FDF Photos Section (hidden for Base Station) -->

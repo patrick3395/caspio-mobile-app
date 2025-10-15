@@ -400,16 +400,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                          <select
+                            [(ngModel)]="item.answer"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>
@@ -534,16 +533,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                          <select
+                            [(ngModel)]="item.answer"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>
@@ -668,16 +666,15 @@
                           <p class="item-text">{{ item.originalText }}</p>
                         </div>
                         <div class="dropdown-container">
-                          <ion-select 
-                            [(ngModel)]="item.answer" 
-                            placeholder="Select an answer"
-                            interface="popover"
-                            (ionChange)="onAnswerChange(category, item)"
+                          <select
+                            [(ngModel)]="item.answer"
+                            (ngModelChange)="onAnswerChange(category, item)"
                             [disabled]="isItemSaving(category, item.id)"
-                            class="answer-select-dropdown">
-                            <ion-select-option value="Yes">Yes</ion-select-option>
-                            <ion-select-option value="No">No</ion-select-option>
-                          </ion-select>
+                            class="styled-input">
+                            <option value="">Select an answer</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
                         </div>
                       </div>

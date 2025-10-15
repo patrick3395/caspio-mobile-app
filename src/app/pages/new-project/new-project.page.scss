@@ -36,7 +36,7 @@ ion-content {
       margin-bottom: 4px;
     }
     
-    ion-input, ion-select, ion-textarea {
+    ion-input, ion-textarea {
       font-size: 16px;
       --padding-start: 12px;
       --padding-end: 12px;
@@ -45,18 +45,6 @@ ion-content {
       border: 1px solid #ddd;
       border-radius: 4px;
       margin-top: 4px;
-    }
-    
-    ion-select {
-      width: 100%;
-      max-width: 100%;
-      --placeholder-color: #999;
-      --placeholder-opacity: 1;
-      color: #333;
-    }
-    
-    ion-select::part(text) {
-      color: #333;
     }
   }
 }
@@ -169,11 +157,6 @@ input[type="date"] {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-}
-
-// Hide arrow on state select
-ion-select.no-arrow::part(icon) {
-  display: none;
 }
 
 // Responsive adjustments

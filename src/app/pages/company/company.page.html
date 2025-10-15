@@ -203,24 +203,30 @@
           animated="true">
         </ion-searchbar>
 
-        <ion-select
-          label="Status"
-          interface="popover"
-          [(ngModel)]="taskFilters.status"
-          (ionChange)="applyTaskFilters()">
-          <ion-select-option value="all">All</ion-select-option>
-          <ion-select-option value="open">Open</ion-select-option>
-          <ion-select-option value="completed">Completed</ion-select-option>
-        </ion-select>
+        <div class="filter-group">
+          <label for="status-filter">Status</label>
+          <select
+            id="status-filter"
+            [(ngModel)]="taskFilters.status"
+            (ngModelChange)="applyTaskFilters()"
+            class="styled-input">
+            <option value="all">All</option>
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
 
-        <ion-select
-          label="Assignee"
-          interface="popover"
-          [(ngModel)]="taskFilters.assignedTo"
-          (ionChange)="applyTaskFilters()">
-          <ion-select-option value="all">All assignees</ion-select-option>
-          <ion-select-option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</ion-select-option>
-        </ion-select>
+        <div class="filter-group">
+          <label for="assignee-filter">Assignee</label>
+          <select
+            id="assignee-filter"
+            [(ngModel)]="taskFilters.assignedTo"
+            (ngModelChange)="applyTaskFilters()"
+            class="styled-input">
+            <option value="all">All assignees</option>
+            <option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</option>
+          </select>
+        </div>
 
         <div class="task-time-tabs">
           <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
