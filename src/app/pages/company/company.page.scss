@@ -38,11 +38,21 @@ ion-content {
     --padding-bottom: 14px;
 
     ion-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 600;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
       color: #ffffff;
       text-align: center;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+
+      // Override Ionic's default title styles to prevent truncation
+      .toolbar-title {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+      }
     }
   }
 }
