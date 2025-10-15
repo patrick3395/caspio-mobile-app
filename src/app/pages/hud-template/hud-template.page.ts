@@ -1269,7 +1269,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           Elevation: point.elevation || 0
         };
         
-        await this.caspioService.updateServicesRoomsPoint(pointId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPoint(pointId, updateData).toPromise();
       }
     } catch (error) {
       console.error('Error updating elevation:', error);
@@ -1297,7 +1297,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               const pointId = this.efePointIds[pointKey];
               
               if (pointId) {
-                await this.caspioService.deleteServicesRoomsPoint(pointId).toPromise();
+                await this.caspioService.deleteServicesEFEPoint(pointId).toPromise();
                 delete this.efePointIds[pointKey];
               }
               
@@ -1364,7 +1364,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       if (!pointId) {
         // Need to create point - do it quickly and silently
-        const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
+        const existingPoint = await this.caspioService.checkEFEPointExists(roomId, point.name).toPromise();
         
         if (existingPoint) {
           // Point already exists, use its PointID (NOT PK_ID!)
@@ -1376,7 +1376,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             EFEID: parseInt(roomId),
             PointName: point.name
           };
-          const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
           
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
@@ -1760,7 +1760,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           PointName: point.name
         };
         
-        const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
         
         // Use PointID from response, NOT PK_ID!
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
@@ -1859,7 +1859,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         Annotation: ''
       };
       
-      await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      await this.caspioService.createServicesEFEAttach(attachData).toPromise();
       
     } catch (error) {
       console.error('Error uploading room point photo:', error);
@@ -1946,7 +1946,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             Ã¢â‚¬Â¢ Drawings Preview: ${drawingsData ? drawingsData.substring(0, 100) + '...' : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            Ã¢â‚¬Â¢ Method: createServicesRoomsPointsAttachWithFile<br>
+            Ã¢â‚¬Â¢ Method: createServicesEFEPointsAttachWithFile<br>
             Ã¢â‚¬Â¢ Table: Services_EFE_Points_Attach<br>
             Ã¢â‚¬Â¢ Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
             
@@ -1976,7 +1976,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
       
       // Use the new two-step method that matches visual upload
-      const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
+      const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
         pointIdNum,
         drawingsData, // Pass annotation data to Drawings field
         photo
@@ -2128,7 +2128,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         
         // Create room directly without debug popup
         try {
-          const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+          const response = await this.caspioService.createServicesEFE(roomData).toPromise();
           
           if (response) {
             // Use EFEID from the response, NOT PK_ID
@@ -2169,7 +2169,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     if (roomId) {
       try {
         // Delete the room from Services_EFE table
-        await this.caspioService.deleteServicesRoom(roomId).toPromise();
+        await this.caspioService.deleteServicesEFE(roomId).toPromise();
         delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
         
@@ -2500,7 +2500,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         }
         
         // Create room directly
-        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+        const response = await this.caspioService.createServicesEFE(roomData).toPromise();
         
         if (response) {
           // Use EFEID from the response, NOT PK_ID
@@ -2609,7 +2609,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                   PointName: pointName
                 };
                 
-                const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+                const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
                 if (response && (response.PointID || response.PK_ID)) {
                   const pointId = response.PointID || response.PK_ID;
                   const pointKey = `${roomName}_${pointName}`;
@@ -3274,7 +3274,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
-        await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
       }
       
       // Don't show toast for every blur event
@@ -3303,7 +3303,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               try {
                 // Delete from Services_EFE_Points_Attach table if attachId exists
                 if (photo.attachId) {
-                  await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                  await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 }
                 
                 // Remove from point's photos array
@@ -3416,7 +3416,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Update the Services_EFE_Points_Attach record
       if (Object.keys(updateData).length > 0) {
-        await this.caspioService.updateServicesRoomsPointsAttach(attachId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
       }
       
     } catch (error) {

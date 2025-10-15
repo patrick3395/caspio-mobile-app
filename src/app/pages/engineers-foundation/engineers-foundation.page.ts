@@ -1727,7 +1727,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             // Try to update Services_EFE table with FDF annotation data
             try {
-              const result = await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
+              const result = await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
               console.log(`[FDF DEBUG] Update result:`, result);
               
               // CRITICAL: Update local display to show annotated image and caption
@@ -1823,7 +1823,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 updateData[annotationColumnName] = null; // Clear caption
                 updateData[drawingsColumnName] = null; // Clear annotation graphics
                 
-                await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
+                await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
               }
               
               // Clear from local state (including caption, path, and drawings)
@@ -1861,7 +1861,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           Elevation: point.elevation || 0
         };
         
-        await this.caspioService.updateServicesRoomsPoint(pointId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPoint(pointId, updateData).toPromise();
       }
     } catch (error) {
       console.error('Error updating elevation:', error);
@@ -1889,7 +1889,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const pointId = this.efePointIds[pointKey];
               
               if (pointId) {
-                await this.caspioService.deleteServicesRoomsPoint(pointId).toPromise();
+                await this.caspioService.deleteServicesEFEPoint(pointId).toPromise();
                 delete this.efePointIds[pointKey];
               }
               
@@ -2077,7 +2077,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
 
         // Need to create point - do it quickly and silently
-        const existingPoint = await this.caspioService.checkRoomPointExists(roomId, point.name).toPromise();
+        const existingPoint = await this.caspioService.checkEFEPointExists(roomId, point.name).toPromise();
 
         if (existingPoint) {
           // Point already exists, use its PointID (NOT PK_ID!)
@@ -2089,7 +2089,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             EFEID: parseInt(roomId),
             PointName: point.name
           };
-          const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
@@ -2544,7 +2544,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           PointName: point.name
         };
         
-        const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
         
         // Use PointID from response, NOT PK_ID!
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
@@ -2628,7 +2628,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         Annotation: annotation
       };
       
-      await this.caspioService.createServicesRoomsAttach(attachData).toPromise();
+      await this.caspioService.createServicesEFEAttach(attachData).toPromise();
       
     } catch (error) {
       console.error('Error uploading room point photo:', error);
@@ -2716,7 +2716,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Drawings Preview: ${drawingsData ? drawingsData.substring(0, 100) + '...' : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Method: createServicesRoomsPointsAttachWithFile<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Method: createServicesEFEPointsAttachWithFile<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Table: Services_EFE_Points_Attach<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
             
@@ -2746,7 +2746,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } */
       
       // Use the new two-step method that matches visual upload (debug popups removed)
-      const response = await this.caspioService.createServicesRoomsPointsAttachWithFile(
+      const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
         pointIdNum,
         drawingsData, // Pass annotation data to Drawings field
         photo,
@@ -2897,7 +2897,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Create room directly without debug popup
         try {
-          const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+          const response = await this.caspioService.createServicesEFE(roomData).toPromise();
           
           if (response) {
             // Use EFEID from the response, NOT PK_ID
@@ -2942,7 +2942,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (roomId) {
       try {
         // Delete the room from Services_EFE table
-        await this.caspioService.deleteServicesRoom(roomId).toPromise();
+        await this.caspioService.deleteServicesEFE(roomId).toPromise();
         delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
         
@@ -3078,7 +3078,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (roomId && roomId !== '__pending__') {
               try {
                 const updateData = { RoomName: newRoomName };
-                await this.caspioService.updateServicesRoom(roomId, updateData).toPromise();
+                await this.caspioService.updateServicesEFE(roomId, updateData).toPromise();
               } catch (error) {
                 console.error('Error updating room name in database:', error);
                 await this.showToast('Failed to update room name in database', 'danger');
@@ -3499,7 +3499,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Only wrap API call in try-catch (not the offline logic)
       try {
         // Create room directly when online
-        const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+        const response = await this.caspioService.createServicesEFE(roomData).toPromise();
 
         if (response) {
           // Use EFEID from the response, NOT PK_ID
@@ -3623,7 +3623,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     PointName: pointName
                   };
 
-                  const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+                  const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
                   if (response && (response.PointID || response.PK_ID)) {
                     const pointId = response.PointID || response.PK_ID;
                     this.efePointIds[pointKey] = pointId;
@@ -4523,7 +4523,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
-        await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
       }
       
       // Don't show toast for every blur event
@@ -4541,7 +4541,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         try {
                 // Delete from Services_EFE_Points_Attach table if attachId exists
                 if (photo.attachId) {
-                  await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                  await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 }
                 
                 // Remove from point's photos array
@@ -4577,7 +4577,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               try {
                 // Delete from database if attachId exists
                 if (photo.attachId) {
-                  await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
+                  await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 }
                 
                 // Remove from UI
@@ -4647,7 +4647,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Update the Services_EFE_Points_Attach record
       if (Object.keys(updateData).length > 0) {
-        await this.caspioService.updateServicesRoomsPointsAttach(attachId, updateData).toPromise();
+        await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
       }
       
     } catch (error) {
@@ -5570,7 +5570,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         for (const roomName of roomNames) {
           const roomData = this.pendingRoomCreates[roomName];
           try {
-            const response = await this.caspioService.createServicesRoom(roomData).toPromise();
+            const response = await this.caspioService.createServicesEFE(roomData).toPromise();
 
             if (response) {
               const roomId = response.EFEID || response.roomId;
@@ -5601,7 +5601,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 EFEID: parseInt(roomId),
                 PointName: pointInfo.pointName
               };
-              const response = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
+              const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
               if (response && (response.PointID || response.PK_ID)) {
                 const pointId = response.PointID || response.PK_ID;
@@ -8777,7 +8777,7 @@ Stack: ${error?.stack}`;
         Annotation: photo.caption || ''  // Save caption or empty string
       };
 
-      await this.caspioService.updateServicesRoomsPointsAttach(photo.attachId, updateData).toPromise();
+      await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
       
       console.log(`Caption saved for ${roomName} - ${point.name}: "${photo.caption}"`);
       
@@ -8801,7 +8801,7 @@ Stack: ${error?.stack}`;
       const updateData: any = {};
       updateData[annotationColumnName] = caption || '';  // Save caption or empty string
 
-      await this.caspioService.updateServicesRoomByRoomId(roomId, updateData).toPromise();
+      await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
       
       console.log(`FDF ${photoType} caption saved for ${roomName}: "${caption}"`);
       
