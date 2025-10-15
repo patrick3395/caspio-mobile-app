@@ -252,15 +252,6 @@
       </div>
 
       <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
-        <div class="pagination-controls" *ngIf="totalContactPages > 1">
-          <button class="pagination-btn arrow-only" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </button>
-          <span class="page-indicator">{{ currentContactPage }} of {{ totalContactPages }}</span>
-          <button class="pagination-btn arrow-only" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </button>
-        </div>
         <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
             <h4>{{ group.companyName }}</h4>
@@ -274,8 +265,8 @@
               <thead>
                 <tr>
                   <th>Contact</th>
+                  <th>Title</th>
                   <th>Phone</th>
-                  <th>Email</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,19 +278,27 @@
                     <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
                   </td>
                   <td>
+                    {{ contact.Title || '—' }}
+                  </td>
+                  <td>
                     <a *ngIf="contact.Phone1" [href]="'tel:' + contact.Phone1" class="phone-link">
                       {{ formatPhone(contact.Phone1) }}
                     </a>
                     <span *ngIf="!contact.Phone1">—</span>
                   </td>
-                  <td>
-                    <a *ngIf="contact.Email" [href]="'mailto:' + contact.Email">{{ contact.Email }}</a>
-                    <span *ngIf="!contact.Email">—</span>
-                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
+        </div>
+        <div class="pagination-controls" *ngIf="totalContactPages > 1">
+          <button class="pagination-btn arrow-only" (click)="prevContactPage()" [disabled]="currentContactPage === 1">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+          <span class="page-indicator">{{ currentContactPage }} of {{ totalContactPages }}</span>
+          <button class="pagination-btn arrow-only" (click)="nextContactPage()" [disabled]="currentContactPage === totalContactPages">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
         </div>
       </div>
       <ng-template #emptyContacts>
