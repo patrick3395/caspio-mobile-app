@@ -1409,7 +1409,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       
       // Get all points for this room
-      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      const points = await this.caspioService.getServicesEFEPoints(roomId).toPromise();
       
       if (points && points.length > 0) {
         for (const point of points) {
@@ -1442,7 +1442,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             if (elevationPoint) {
               // Get photo count for this point - use the correct PointID
               const actualPointId = point.PointID || pointId;
-              const photos = await this.caspioService.getServicesRoomsAttachments(actualPointId).toPromise();
+              const photos = await this.caspioService.getServicesEFEAttachments(actualPointId).toPromise();
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
                 
@@ -7756,7 +7756,7 @@ Stack: ${error?.stack}`;
         
         try {
           // Get all points for this room from the database
-          const dbPoints = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+          const dbPoints = await this.caspioService.getServicesEFEPoints(roomId).toPromise();
           
           // Collect all attachment fetches and image conversions
           const pointPromises = [];
@@ -7783,9 +7783,9 @@ Stack: ${error?.stack}`;
             // Fetch attachments for this specific point
             if (pointId) {
               pointPromises.push(
-                this.caspioService.getServicesRoomsAttachments(pointId).toPromise()
+                this.caspioService.getServicesEFEAttachments(pointId).toPromise()
                   .then(attachments => ({ pointId, attachments }))
-                  .catch(error => {
+                  .catch((error: any) => {
                     console.error(`Failed to fetch attachments for point ${pointName}:`, error);
                     return { pointId, attachments: [] };
                   })
@@ -7986,21 +7986,21 @@ Stack: ${error?.stack}`;
     try {
       
       // First get all points for this room
-      const points = await this.caspioService.getServicesRoomsPoints(roomId).toPromise();
+      const points = await this.caspioService.getServicesEFEPoints(roomId).toPromise();
       
       if (!points || points.length === 0) {
         return [];
       }
       
       // Get all point IDs
-      const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
+      const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter((id: any) => id);
       
       if (pointIds.length === 0) {
         return [];
       }
       
       // Fetch all attachments for these points
-      const attachments = await this.caspioService.getServicesRoomsAttachments(pointIds).toPromise();
+      const attachments = await this.caspioService.getServicesEFEAttachments(pointIds).toPromise();
       
       if (!attachments || attachments.length === 0) {
         return [];
