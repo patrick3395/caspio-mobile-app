@@ -2258,7 +2258,7 @@ export class CaspioService {
 
   // Types table methods
   getTypes(): Observable<any[]> {
-    return this.get<any>('/tables/Types/records').pipe(
+    return this.get<any>('/tables/Type/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Failed to get types:', error);

@@ -2119,6 +2119,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           if (existingAttach) {
             existingAttach.Link = newUrl;
           }
+
+          // Create new reference for parent array to ensure change detection
+          this.serviceDocuments = [...this.serviceDocuments];
         }
 
         // Trigger change detection to update the view immediately
@@ -2162,6 +2165,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
           // Create new array reference to trigger Angular change detection
           serviceDoc.documents = [...serviceDoc.documents];
+
+          // Create new reference for parent array to ensure change detection
+          this.serviceDocuments = [...this.serviceDocuments];
         }
 
         // Add to existing attachments for persistence
