@@ -343,7 +343,9 @@
           </select>
         </div>
 
-        <div class="task-time-tabs">
+        <div class="filter-group">
+          <label>Timeline</label>
+          <div class="task-time-tabs">
           <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
             Overdue
           </button>
@@ -356,6 +358,7 @@
           <button class="time-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
             All
           </button>
+          </div>
         </div>
       </div>
 
@@ -372,8 +375,8 @@
               <h4>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</h4>
               <p>{{ task.assignmentShort || task.assignment || 'No details provided' }}</p>
             </ion-label>
-            <ion-badge color="success" *ngIf="task.completed">Completed</ion-badge>
-            <ion-badge color="danger" *ngIf="!task.completed && task.isOverdue">Overdue</ion-badge>
+            <ion-badge class="completed-badge" *ngIf="task.completed">Completed</ion-badge>
+            <ion-badge class="overdue-badge" *ngIf="!task.completed && task.isOverdue">Overdue</ion-badge>
           </ion-item>
           <ion-card-content>
             <div class="task-meta">
@@ -386,14 +389,12 @@
       </div>
       <!-- Pagination controls for Tasks -->
       <div class="pagination-controls" *ngIf="filteredTasks.length > tasksPerPage">
-        <button (click)="prevTaskPage()" [disabled]="currentTaskPage === 1" class="pagination-btn">
-          <ion-icon name="chevron-back"></ion-icon>
-          Previous
+        <button (click)="prevTaskPage()" [disabled]="currentTaskPage === 1" class="pagination-btn arrow-only">
+          <ion-icon name="chevron-back-outline"></ion-icon>
         </button>
-        <span class="page-info">Page {{ currentTaskPage }} of {{ totalTaskPages }}</span>
-        <button (click)="nextTaskPage()" [disabled]="currentTaskPage === totalTaskPages" class="pagination-btn">
-          Next
-          <ion-icon name="chevron-forward"></ion-icon>
+        <span class="page-indicator">{{ currentTaskPage }} of {{ totalTaskPages }}</span>
+        <button (click)="nextTaskPage()" [disabled]="currentTaskPage === totalTaskPages" class="pagination-btn arrow-only">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
         </button>
       </div>
       <ng-template #emptyTasks>

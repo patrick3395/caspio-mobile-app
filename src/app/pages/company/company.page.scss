@@ -658,6 +658,16 @@ ion-content {
   background: var(--ion-color-light-shade);
   padding: 12px;
   border-radius: 16px;
+
+  .filter-group {
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 8px;
+    }
+  }
 }
 
 .tasks-filters ion-searchbar {
@@ -1158,7 +1168,7 @@ ion-content {
 .tasks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  gap: 8px; // Reduced from 16px for less white space
 }
 
 .task-card {
@@ -1183,6 +1193,11 @@ ion-content {
 
   ion-checkbox {
     --size: 22px;
+    --border-radius: 4px; // Make it a square/box instead of circle
+    --border-width: 2px;
+    --border-color: #dee2e6;
+    --checkbox-background-checked: #f15a27;
+    --border-color-checked: #f15a27;
     margin-top: 2px;
   }
 }
@@ -1201,6 +1216,16 @@ ion-content {
 
 .task-card-header ion-badge {
   margin-left: 8px;
+
+  &.completed-badge {
+    --background: #e9ecef;
+    --color: #6c757d;
+  }
+
+  &.overdue-badge {
+    --background: #f15a27;
+    --color: #ffffff;
+  }
 }
 
 .contact-name-button {
