@@ -2110,6 +2110,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         // This replaces manual local array updates with fresh database data
         await this.loadExistingAttachments(true);
 
+        // Force Angular to detect changes and update the view immediately
+        this.changeDetectorRef.detectChanges();
+
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
 
@@ -2145,6 +2148,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         // Reload attachments from database with cache bypass to ensure fresh data
         // This replaces manual local array updates with fresh database data
         await this.loadExistingAttachments(true);
+
+        // Force Angular to detect changes and update the view immediately
+        this.changeDetectorRef.detectChanges();
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
