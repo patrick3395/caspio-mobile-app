@@ -80,44 +80,40 @@ ion-header {
     }
 
     // Target only the back button specifically
-    ion-button[slot="start"] {
-      --color: white;
+    ion-buttons[slot="start"] ion-button {
+      --color: white !important;
       --background: $orange !important;
       --background-hover: rgba(241, 90, 39, 0.9) !important;
       --background-activated: rgba(241, 90, 39, 0.8) !important;
       --background-focused: $orange !important;
-      --padding-start: 8px;
-      --padding-end: 8px;
-      --padding-top: 8px;
-      --padding-bottom: 8px;
-      border-radius: 50%;
-      width: 44px;
-      height: 44px;
-      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+      --padding-start: 0 !important;
+      --padding-end: 0 !important;
+      --padding-top: 0 !important;
+      --padding-bottom: 0 !important;
+      border-radius: 50% !important;
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      min-height: 40px !important;
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3) !important;
       background: $orange !important;
-      background-color: $orange !important;
+      margin: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
 
       ion-icon {
         color: white !important;
-        font-size: 24px;
+        font-size: 24px !important;
+        margin: 0 !important;
       }
-      
+
       &:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
         background: rgba(241, 90, 39, 0.9) !important;
-        background-color: rgba(241, 90, 39, 0.9) !important;
       }
-      
+
       &:active {
-        transform: scale(0.95);
         background: rgba(241, 90, 39, 0.8) !important;
-        background-color: rgba(241, 90, 39, 0.8) !important;
-      }
-      
-      &:focus {
-        background: $orange !important;
-        background-color: $orange !important;
       }
     }
     

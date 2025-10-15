@@ -139,16 +139,29 @@
     font-size: 15px;
     --placeholder-color: #999;
     --placeholder-opacity: 1;
+  }
 
-    // Override browser autofill styling
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus,
-    input:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 30px #f8f9fa inset !important;
-      -webkit-text-fill-color: #333 !important;
-      transition: background-color 5000s ease-in-out 0s;
-    }
+  // Override browser autofill styling - must be outside ion-input for proper specificity
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 50px #f8f9fa inset !important;
+    -webkit-text-fill-color: #333 !important;
+    background-color: #f8f9fa !important;
+    background-clip: content-box !important;
+    transition: background-color 5000s ease-in-out 0s !important;
+  }
+
+  // Target native input element inside ion-input
+  ion-input input:-webkit-autofill,
+  ion-input input:-webkit-autofill:hover,
+  ion-input input:-webkit-autofill:focus,
+  ion-input input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 50px #f8f9fa inset !important;
+    -webkit-text-fill-color: #333 !important;
+    background-color: #f8f9fa !important;
+    transition: background-color 5000s ease-in-out 0s !important;
   }
 
   .visibility-toggle {

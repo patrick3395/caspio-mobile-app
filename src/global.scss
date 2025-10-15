@@ -662,7 +662,7 @@ body.dark-theme .popover-content ion-label {
 
       // Cancel button styling
       &[role="cancel"] {
-        color: #666;
+        color: #333;
         background: #f5f5f5;
         border: 2px solid #ddd;
 
@@ -674,7 +674,7 @@ body.dark-theme .popover-content ion-label {
 
       // Action button styling
       &:not([role="cancel"]) {
-        color: var(--noble-orange, #F15A27);
+        color: #333;
         background: #f5f5f5;
         border: 2px solid var(--noble-orange, #F15A27);
 
@@ -791,7 +791,7 @@ body.dark-theme .popover-content ion-label {
 }
 
 .template-loading-alert .alert-button[role="cancel"] {
-  color: #666;
+  color: #333;
   background: #f5f5f5;
   border: 2px solid #ddd;
 }
@@ -802,7 +802,7 @@ body.dark-theme .popover-content ion-label {
 }
 
 .template-loading-alert .alert-button:not([role="cancel"]) {
-  color: var(--noble-orange, #F15A27);
+  color: #333;
   background: #f5f5f5;
   border: 2px solid var(--noble-orange, #F15A27);
 }
@@ -895,7 +895,7 @@ body.dark-theme .popover-content ion-label {
 
       // Cancel button styling
       &[role="cancel"] {
-        color: #666;
+        color: #333;
         background: #f5f5f5;
         border: 2px solid #ddd;
 
@@ -907,7 +907,7 @@ body.dark-theme .popover-content ion-label {
 
       // Action button styling (Replace Document)
       &:not([role="cancel"]) {
-        color: var(--noble-orange, #F15A27);
+        color: #333;
         background: #f5f5f5;
         border: 2px solid var(--noble-orange, #F15A27);
 
@@ -918,7 +918,7 @@ body.dark-theme .popover-content ion-label {
       }
 
       &.alert-button-cancel {
-        color: #666;
+        color: #333;
         background: #e8e8e8;
 
         &:hover {
