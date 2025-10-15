@@ -310,8 +310,46 @@ export class CompanyPage implements OnInit, OnDestroy {
   selectedContact: ContactRecord | null = null;
   isContactModalOpen = false;
 
+  // Add contact modal
+  isAddContactModalOpen = false;
+  newContact: any = {
+    CompanyID: null,
+    Name: '',
+    Title: '',
+    Goal: '',
+    Role: '',
+    Email: '',
+    Phone1: '',
+    Phone2: '',
+    PrimaryContact: false,
+    Notes: ''
+  };
+
   editingCompany: any = null;
   isEditModalOpen = false;
+
+  // Add company modal
+  isAddCompanyModalOpen = false;
+  newCompany: any = {
+    CompanyName: '',
+    DateOnboarded: '',
+    'Onboarding Stage': '',
+    SoftwareID: '',
+    Size: '',
+    Franchise: false,
+    LeadSource: '',
+    Phone: '',
+    Email: '',
+    CC_Email: '',
+    Website: '',
+    Address: '',
+    City: '',
+    State: '',
+    Zip: '',
+    ServiceArea: '',
+    Contract: '',
+    Notes: ''
+  };
 
   // Add task modal
   isAddTaskModalOpen = false;
@@ -510,6 +548,297 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.selectedContact = null;
   }
 
+  async openAddContactModal() {
+    // Reset the contact with default values, pre-fill company if filter is applied
+    this.newContact = {
+      CompanyID: this.globalCompanyFilterId,
+      Name: '',
+      Title: '',
+      Goal: '',
+      Role: '',
+      Email: '',
+      Phone1: '',
+      Phone2: '',
+      PrimaryContact: false,
+      Notes: ''
+    };
+
+    this.isAddContactModalOpen = true;
+  }
+
+  closeAddContactModal() {
+    this.isAddContactModalOpen = false;
+  }
+
+  async openAddCompanyModal() {
+    // Reset the company with default values
+    this.newCompany = {
+      CompanyName: '',
+      DateOnboarded: '',
+      'Onboarding Stage': '',
+      SoftwareID: '',
+      Size: '',
+      Franchise: false,
+      LeadSource: '',
+      Phone: '',
+      Email: '',
+      CC_Email: '',
+      Website: '',
+      Address: '',
+      City: '',
+      State: '',
+      Zip: '',
+      ServiceArea: '',
+      Contract: '',
+      Notes: ''
+    };
+
+    this.isAddCompanyModalOpen = true;
+  }
+
+  closeAddCompanyModal() {
+    this.isAddCompanyModalOpen = false;
+  }
+
+  async saveNewCompany() {
+    if (!this.newCompany) {
+      return;
+    }
+
+    // Validate required field
+    if (!this.newCompany.CompanyName || this.newCompany.CompanyName.trim() === '') {
+      await this.showToast('Please enter a company name', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating company...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with required and optional fields
+      const payload: any = {
+        CompanyName: this.newCompany.CompanyName.trim(),
+        Franchise: this.newCompany.Franchise ? 1 : 0
+      };
+
+      // Add optional fields if provided
+      if (this.newCompany.DateOnboarded && this.newCompany.DateOnboarded.trim() !== '') {
+        payload.DateOnboarded = new Date(this.newCompany.DateOnboarded).toISOString();
+      }
+
+      if (this.newCompany['Onboarding Stage'] && this.newCompany['Onboarding Stage'].trim() !== '') {
+        payload['Onboarding Stage'] = this.newCompany['Onboarding Stage'].trim();
+      }
+
+      if (this.newCompany.SoftwareID && this.newCompany.SoftwareID.trim() !== '') {
+        payload.SoftwareID = this.newCompany.SoftwareID.trim();
+      }
+
+      if (this.newCompany.Size && this.newCompany.Size.trim() !== '') {
+        payload.Size = this.newCompany.Size.trim();
+      }
+
+      if (this.newCompany.LeadSource && this.newCompany.LeadSource.trim() !== '') {
+        payload.LeadSource = this.newCompany.LeadSource.trim();
+      }
+
+      if (this.newCompany.Phone && this.newCompany.Phone.trim() !== '') {
+        payload.Phone = this.newCompany.Phone.trim();
+      }
+
+      if (this.newCompany.Email && this.newCompany.Email.trim() !== '') {
+        payload.Email = this.newCompany.Email.trim();
+      }
+
+      if (this.newCompany.CC_Email && this.newCompany.CC_Email.trim() !== '') {
+        payload.CC_Email = this.newCompany.CC_Email.trim();
+      }
+
+      if (this.newCompany.Website && this.newCompany.Website.trim() !== '') {
+        payload.Website = this.newCompany.Website.trim();
+      }
+
+      if (this.newCompany.Address && this.newCompany.Address.trim() !== '') {
+        payload.Address = this.newCompany.Address.trim();
+      }
+
+      if (this.newCompany.City && this.newCompany.City.trim() !== '') {
+        payload.City = this.newCompany.City.trim();
+      }
+
+      if (this.newCompany.State && this.newCompany.State.trim() !== '') {
+        payload.State = this.newCompany.State.trim();
+      }
+
+      if (this.newCompany.Zip && this.newCompany.Zip.trim() !== '') {
+        payload.Zip = this.newCompany.Zip.trim();
+      }
+
+      if (this.newCompany.ServiceArea && this.newCompany.ServiceArea.trim() !== '') {
+        payload.ServiceArea = this.newCompany.ServiceArea.trim();
+      }
+
+      if (this.newCompany.Contract && this.newCompany.Contract.trim() !== '') {
+        payload.Contract = this.newCompany.Contract.trim();
+      }
+
+      if (this.newCompany.Notes && this.newCompany.Notes.trim() !== '') {
+        payload.Notes = this.newCompany.Notes.trim();
+      }
+
+      console.log('Creating company with payload:', payload);
+
+      // Create the company via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Companies/records', payload)
+      );
+
+      console.log('Company created successfully:', response);
+
+      // Reload companies data to include the new company
+      const companyRecords = await this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' });
+      const filteredCompanyRecords = companyRecords.filter(record => {
+        const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
+        return id !== this.excludedCompanyId;
+      });
+
+      this.companies = filteredCompanyRecords.map(record => this.normalizeCompanyRecord(record));
+      this.companyNameLookup.clear();
+      this.companies.forEach(company => this.companyNameLookup.set(company.CompanyID, company.CompanyName));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyCompanyFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Company created successfully', 'success');
+      this.closeAddCompanyModal();
+    } catch (error: any) {
+      console.error('Error creating company:', error);
+      let errorMessage = 'Failed to create company';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async saveNewContact() {
+    if (!this.newContact) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.newContact.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.newContact.Name || this.newContact.Name.trim() === '') {
+      await this.showToast('Please enter a contact name', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating contact...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with required and optional fields
+      const payload: any = {
+        CompanyID: this.newContact.CompanyID,
+        Name: this.newContact.Name.trim(),
+        PrimaryContact: this.newContact.PrimaryContact ? 1 : 0
+      };
+
+      // Add optional fields if provided
+      if (this.newContact.Title && this.newContact.Title.trim() !== '') {
+        payload.Title = this.newContact.Title.trim();
+      }
+
+      if (this.newContact.Role && this.newContact.Role.trim() !== '') {
+        payload.Role = this.newContact.Role.trim();
+      }
+
+      if (this.newContact.Email && this.newContact.Email.trim() !== '') {
+        payload.Email = this.newContact.Email.trim();
+      }
+
+      if (this.newContact.Phone1 && this.newContact.Phone1.trim() !== '') {
+        payload.Phone1 = this.newContact.Phone1.trim();
+      }
+
+      if (this.newContact.Phone2 && this.newContact.Phone2.trim() !== '') {
+        payload.Phone2 = this.newContact.Phone2.trim();
+      }
+
+      if (this.newContact.Goal && this.newContact.Goal.trim() !== '') {
+        payload.Goal = this.newContact.Goal.trim();
+      }
+
+      if (this.newContact.Notes && this.newContact.Notes.trim() !== '') {
+        payload.Notes = this.newContact.Notes.trim();
+      }
+
+      console.log('Creating contact with payload:', payload);
+
+      // Create the contact via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Contacts/records', payload)
+      );
+
+      console.log('Contact created successfully:', response);
+
+      // Reload contacts data to include the new contact
+      const contactRecords = await this.fetchTableRecords('Contacts', { 'q.orderBy': 'Name', 'q.limit': '2000' });
+      this.contacts = contactRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeContactRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyContactFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Contact created successfully', 'success');
+      this.closeAddContactModal();
+    } catch (error: any) {
+      console.error('Error creating contact:', error);
+      let errorMessage = 'Failed to create contact';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
   async openAddTaskModal() {
     // Reset the task with default values
     this.newTask = {
@@ -616,7 +945,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.applyTaskFilters();
       this.updateSelectedCompanySnapshot();
 
-      await this.showToast('Task created successfully', 'success');
       this.closeAddTaskModal();
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -749,7 +1077,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.applyTaskFilters();
       this.updateSelectedCompanySnapshot();
 
-      await this.showToast('Task updated successfully', 'success');
       this.closeEditTaskModal();
     } catch (error: any) {
       console.error('Error updating task:', error);
@@ -1219,7 +1546,6 @@ export class CompanyPage implements OnInit, OnDestroy {
           payload
         )
       );
-      await this.showToast(completed ? 'Task marked as complete' : 'Task reopened', 'success');
     } catch (error) {
       task.completed = previousCompleted;
       task.isOverdue = !task.completed && task.dueDate ? this.isDateInPast(task.dueDate) : false;

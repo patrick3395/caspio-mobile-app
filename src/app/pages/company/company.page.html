@@ -93,6 +93,13 @@
         </ion-searchbar>
       </div>
 
+      <div class="add-task-button-container">
+        <ion-button size="small" (click)="openAddCompanyModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Company
+        </ion-button>
+      </div>
+
       <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
         <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
           <div class="stage-header" (click)="toggleStageExpand(group.stage, $event)">
@@ -249,6 +256,13 @@
           placeholder="Search contacts by name"
           animated="true">
         </ion-searchbar>
+      </div>
+
+      <div class="add-task-button-container">
+        <ion-button size="small" (click)="openAddContactModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Contact
+        </ion-button>
       </div>
 
       <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
@@ -1040,6 +1054,220 @@
                 <ion-icon name="trash-outline"></ion-icon>
                 Delete Task
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddContactModalOpen" (didDismiss)="closeAddContactModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddContactModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Add New Contact</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewContact()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="newContact.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="newContact.Name" class="form-input" placeholder="Contact name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Title</label>
+              <input type="text" [(ngModel)]="newContact.Title" class="form-input" placeholder="Job title">
+            </div>
+            <div class="form-field">
+              <label>Role</label>
+              <input type="text" [(ngModel)]="newContact.Role" class="form-input" placeholder="Role">
+            </div>
+            <div class="form-field">
+              <label>Primary Contact</label>
+              <ion-toggle [(ngModel)]="newContact.PrimaryContact"></ion-toggle>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Email</label>
+              <input type="email" [(ngModel)]="newContact.Email" class="form-input" placeholder="email@example.com">
+            </div>
+            <div class="form-field">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="newContact.Phone1" class="form-input" placeholder="(555) 555-5555">
+            </div>
+            <div class="form-field">
+              <label>Secondary Phone</label>
+              <input type="tel" [(ngModel)]="newContact.Phone2" class="form-input" placeholder="(555) 555-5555">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Goal</label>
+              <input type="text" [(ngModel)]="newContact.Goal" class="form-input" placeholder="Contact's goal or objective">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="newContact.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this contact..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddCompanyModalOpen" (didDismiss)="closeAddCompanyModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddCompanyModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Add New Company</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewCompany()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company Name</label>
+              <input type="text" [(ngModel)]="newCompany.CompanyName" class="form-input" placeholder="Company name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Onboarding Date</label>
+              <input type="date" [(ngModel)]="newCompany.DateOnboarded" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Onboarding Stage</label>
+              <input type="text" [(ngModel)]="newCompany['Onboarding Stage']" class="form-input" placeholder="Stage">
+            </div>
+            <div class="form-field">
+              <label>Software</label>
+              <input type="text" [(ngModel)]="newCompany.SoftwareID" class="form-input" placeholder="Software">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Size</label>
+              <input type="text" [(ngModel)]="newCompany.Size" class="form-input" placeholder="Company size">
+            </div>
+            <div class="form-field">
+              <label>Franchise</label>
+              <ion-toggle [(ngModel)]="newCompany.Franchise"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Lead Source</label>
+              <input type="text" [(ngModel)]="newCompany.LeadSource" class="form-input" placeholder="Source">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Contact Information</h4>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Company Phone</label>
+              <input type="tel" [(ngModel)]="newCompany.Phone" class="form-input" placeholder="(555) 555-5555">
+            </div>
+            <div class="form-field">
+              <label>Company Email</label>
+              <input type="email" [(ngModel)]="newCompany.Email" class="form-input" placeholder="email@example.com">
+            </div>
+            <div class="form-field">
+              <label>CC Email</label>
+              <input type="email" [(ngModel)]="newCompany.CC_Email" class="form-input" placeholder="cc@example.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Website</label>
+              <input type="text" [(ngModel)]="newCompany.Website" class="form-input" placeholder="https://example.com">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Address</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Address</label>
+              <input type="text" [(ngModel)]="newCompany.Address" class="form-input" placeholder="Street address">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>City</label>
+              <input type="text" [(ngModel)]="newCompany.City" class="form-input" placeholder="City">
+            </div>
+            <div class="form-field">
+              <label>State</label>
+              <input type="text" [(ngModel)]="newCompany.State" class="form-input" placeholder="State">
+            </div>
+            <div class="form-field">
+              <label>Zip</label>
+              <input type="text" [(ngModel)]="newCompany.Zip" class="form-input" placeholder="Zip code">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Additional Details</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Service Area(s)</label>
+              <textarea [(ngModel)]="newCompany.ServiceArea" class="form-textarea" rows="3" placeholder="Service areas..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Contract Document</label>
+              <input type="text" [(ngModel)]="newCompany.Contract" class="form-input" placeholder="Contract document link or reference">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="newCompany.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this company..."></textarea>
             </div>
           </div>
         </div>

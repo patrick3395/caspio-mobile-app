@@ -333,9 +333,16 @@ ion-content {
     gap: 4px; // Minimal gap for contacts tab
 
     .contacts-search-container {
-      margin-bottom: 0; // Remove margin below search
+      margin-bottom: 16px;
+      max-width: 400px;
 
       ion-searchbar {
+        --background: #ffffff;
+        --border-radius: 10px;
+        --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        --placeholder-color: #6c757d;
+        --color: #212529;
+        height: 40px;
         --padding-top: 4px;
         --padding-bottom: 4px;
       }
