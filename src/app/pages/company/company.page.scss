@@ -1168,7 +1168,7 @@ ion-content {
 .tasks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 8px; // Reduced from 16px for less white space
+  gap: 4px; // Minimized white space between tasks
 }
 
 .task-card {
@@ -1318,37 +1318,13 @@ ion-content {
 }
 
 .timeline {
-  position: relative;
-  padding-left: 18px;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-.timeline::before {
-  content: '';
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: 6px;
-  width: 2px;
-  background: rgba(18, 60, 150, 0.2);
-}
-
 .timeline-item {
-  position: relative;
   display: flex;
-  gap: 18px;
-}
-
-.timeline-marker {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--ion-color-primary);
-  position: absolute;
-  left: -6px;
-  top: 4px;
 }
 
 .timeline-content {

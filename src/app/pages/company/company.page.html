@@ -311,12 +311,15 @@
     </div>
     <div *ngIf="selectedTab === 'tasks'" class="tab-content tasks-tab">
       <div class="tasks-filters">
-        <ion-searchbar
-          [(ngModel)]="taskFilters.search"
-          (ionChange)="applyTaskFilters()"
-          placeholder="Search tasks"
-          animated="true">
-        </ion-searchbar>
+        <div class="filter-group">
+          <label>Search</label>
+          <ion-searchbar
+            [(ngModel)]="taskFilters.search"
+            (ionChange)="applyTaskFilters()"
+            placeholder="Search tasks"
+            animated="true">
+          </ion-searchbar>
+        </div>
 
         <div class="filter-group">
           <label for="status-filter">Status</label>
@@ -428,7 +431,6 @@
 
       <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
         <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
-          <div class="timeline-marker"></div>
           <div class="timeline-content">
             <div class="timeline-header">
               <h4>{{ meeting.subject }}</h4>
