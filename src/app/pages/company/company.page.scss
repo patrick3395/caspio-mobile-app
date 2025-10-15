@@ -1168,13 +1168,14 @@ ion-content {
 .tasks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 4px; // Minimized white space between tasks
+  gap: 2px; // Minimal white space between task cards
 }
 
 .task-card {
   --background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 16px 26px rgba(15, 37, 83, 0.1);
+  margin: 0; // Remove default ion-card margin to minimize spacing
 }
 
 .task-card.completed {

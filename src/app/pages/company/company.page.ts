@@ -1205,6 +1205,18 @@ export class CompanyPage implements OnInit, OnDestroy {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
   }
 
+  formatDateShort(value: Date | string | null | undefined): string {
+    const date = value instanceof Date ? value : value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '—';
+    }
+    // Format as M/D/YY for mobile (shorthand format)
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const year = date.getFullYear() % 100; // Get last 2 digits of year
+    return `${month}/${day}/${year}`;
+  }
+
   formatCurrency(value: number | string | null | undefined): string {
     const amount = typeof value === 'number' ? value : Number(value ?? 0);
     if (isNaN(amount)) {
