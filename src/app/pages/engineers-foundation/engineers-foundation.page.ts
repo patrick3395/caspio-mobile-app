@@ -514,19 +514,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('[Lifecycle] ionViewWillEnter - Reloading data for page re-entry');
+    console.log('==========================================');
+    console.log('[Lifecycle] ionViewWillEnter CALLED');
+    console.log('[Lifecycle] ServiceID:', this.serviceId);
+    console.log('[Lifecycle] Current selectedRooms:', Object.keys(this.selectedRooms));
+    console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
+    console.log('==========================================');
 
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
 
     // CRITICAL FIX: Reload existing selections when returning to the page
     // This ensures data persists when navigating back and forth
-    try {
-      await this.loadRoomTemplates(); // Reload room selections and data
-      await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
-      console.log('[Lifecycle] Data reloaded successfully');
-    } catch (error) {
-      console.error('[Lifecycle] Error reloading data on page re-entry:', error);
+    if (this.serviceId) {
+      try {
+        console.log('[Lifecycle] Starting data reload...');
+        await this.loadRoomTemplates(); // Reload room selections and data
+        console.log('[Lifecycle] After loadRoomTemplates - selectedRooms:', Object.keys(this.selectedRooms));
+
+        await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
+        console.log('[Lifecycle] After loadExistingVisualSelections - selectedItems:', Object.keys(this.selectedItems).length);
+
+        console.log('[Lifecycle] Data reload COMPLETE');
+      } catch (error) {
+        console.error('[Lifecycle] ERROR during data reload:', error);
+        // Show toast to make it visible
+        this.showToast('Error loading data: ' + (error as any).message, 'danger');
+      }
+    } else {
+      console.warn('[Lifecycle] No serviceId - skipping data reload');
     }
   }
 
@@ -752,18 +768,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
+      console.log('[loadRoomTemplates] START - Current selectedRooms:', Object.keys(this.selectedRooms));
+
       const allTemplates = await this.foundationData.getEFETemplates();
-      
+      console.log('[loadRoomTemplates] Fetched templates:', allTemplates?.length);
+
       if (allTemplates && allTemplates.length > 0) {
         // Store all templates for manual addition
         this.allRoomTemplates = allTemplates;
-        
+
         // Filter templates where Auto = 'Yes'
-        const autoTemplates = allTemplates.filter((template: any) => 
+        const autoTemplates = allTemplates.filter((template: any) =>
           template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
         );
-        
-        this.roomTemplates = autoTemplates;
+        console.log('[loadRoomTemplates] Auto templates:', autoTemplates.length);
+
+        // IMPORTANT: Start with auto templates but preserve existing manually added rooms
+        // DON'T immediately overwrite - we'll rebuild the full list below
+        const baseTemplates = [...autoTemplates];
         this.availableRoomTemplates = [...autoTemplates]; // v1.4.65 - populate available templates
         
         // Initialize room elevation data for each template (but don't create in Services_EFE yet)
@@ -805,26 +827,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.log('[EFE Load] Found existing rooms:', existingRooms.length, existingRooms);
 
           if (existingRooms && existingRooms.length > 0) {
+            // Build the complete room templates list including saved rooms
+            const roomsToDisplay: any[] = [...baseTemplates];
+
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
               const roomName = room.RoomName;
               // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points
               const roomId = room.EFEID;
-              
+
+              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId);
+
               // Find matching template by RoomName - check all templates, not just auto
-              let template = autoTemplates.find((t: any) => t.RoomName === roomName);
-              
+              let template = baseTemplates.find((t: any) => t.RoomName === roomName);
+
               // If not in auto templates, check all templates (for manually added rooms)
               if (!template) {
                 // Extract base name by removing number suffix if present
                 const baseName = roomName.replace(/ #\d+$/, '');
                 template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);
-                
-                // If found, add it to roomTemplates so it displays
+
+                // If found, add it to the display list so it shows up
                 if (template) {
+                  console.log('[EFE Load] Adding manually added room to display:', roomName);
                   // Create a new template object with the numbered name
                   const roomToAdd = { ...template, RoomName: roomName };
-                  this.roomTemplates.push(roomToAdd);
+                  roomsToDisplay.push(roomToAdd);
+                } else {
+                  console.warn('[EFE Load] No template found for room:', roomName);
                 }
               }
               
@@ -954,10 +984,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 this.loadExistingRoomPoints(roomId, roomName);
               }
             }
+
+            // NOW set roomTemplates with the complete list (auto + saved rooms)
+            this.roomTemplates = roomsToDisplay;
+            console.log('[EFE Load] Final roomTemplates count:', this.roomTemplates.length);
+            console.log('[EFE Load] Final selectedRooms:', Object.keys(this.selectedRooms));
+          } else {
+            // No existing rooms - just use auto templates
+            this.roomTemplates = baseTemplates;
+            console.log('[EFE Load] No existing rooms - using auto templates only');
           }
+        } else {
+          // No serviceId - just use auto templates
+          this.roomTemplates = baseTemplates;
+          console.log('[EFE Load] No serviceId - using auto templates only');
         }
       } else {
         this.roomTemplates = [];
+        console.log('[EFE Load] No templates available');
       }
     } catch (error: any) {
       console.error('Error loading room templates (non-critical):', error);
