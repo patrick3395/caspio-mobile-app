@@ -685,6 +685,25 @@ ion-content {
   border-radius: 12px;
 }
 
+.add-task-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+
+  ion-button {
+    --padding-start: 8px;
+    --padding-end: 8px;
+    --padding-top: 4px;
+    --padding-bottom: 4px;
+    font-size: 0.75rem;
+    height: 28px;
+
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
 .task-time-tabs {
   display: flex;
   gap: 4px;
@@ -1196,6 +1215,20 @@ ion-content {
   --background: #fff4f3;
 }
 
+.task-card.clickable-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 32px rgba(15, 37, 83, 0.15);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
 .task-card-header {
   --inner-padding-start: 12px;
   --inner-padding-end: 12px;
@@ -1685,6 +1718,19 @@ ion-content {
   color: #495057;
 }
 
+// Modal Header Styling
+ion-modal {
+  ion-header {
+    ion-toolbar {
+      ion-title {
+        text-align: center;
+        padding-left: 0;
+        padding-right: 0;
+      }
+    }
+  }
+}
+
 // Edit Modal Styling
 .edit-modal-content {
   --padding-start: 16px;
@@ -1774,6 +1820,38 @@ ion-content {
   resize: vertical;
   min-height: 80px;
   line-height: 1.5;
+}
+
+.delete-task-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: #f15a27;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 16px;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: #e54e1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {

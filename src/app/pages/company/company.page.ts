@@ -323,6 +323,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     Complete: 0,
     CompleteNotes: ''
   };
+
+  // Edit task
+  isEditTaskModalOpen = false;
+  editingTask: any = null;
+  editingTaskOriginal: TaskViewModel | null = null;
+
   communicationTypes: Array<{id: number, name: string}> = [];
   taskUsers: Array<{name: string}> = [];
 
@@ -631,6 +637,207 @@ export class CompanyPage implements OnInit, OnDestroy {
     } finally {
       await loading.dismiss();
     }
+  }
+
+  async openEditTaskModal(task: TaskViewModel) {
+    this.editingTaskOriginal = task;
+
+    // Find CommunicationID from the type name
+    const communicationId = Array.from(this.communicationTypeLookup.entries())
+      .find(([_, name]) => name === task.communicationType)?.[0] || null;
+
+    // Create editable copy
+    this.editingTask = {
+      TaskID: task.TaskID,
+      CompanyID: task.CompanyID,
+      CommunicationID: communicationId,
+      Due: task.dueDate ? this.formatDateForInput(task.dueDate) : '',
+      Assignment: task.assignment,
+      AssignTo: task.assignTo,
+      Complete: task.completed ? 1 : 0,
+      CompleteNotes: task.notes
+    };
+
+    // Populate communication types and users
+    this.communicationTypes = Array.from(this.communicationTypeLookup.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    try {
+      const userRecords = await this.fetchTableRecords('Users', {
+        'q.where': `CompanyID=${this.currentUserCompanyId}`,
+        'q.orderBy': 'Name',
+        'q.limit': '500'
+      });
+
+      this.taskUsers = userRecords
+        .filter(user => user.Name && user.Name.trim().length > 0)
+        .map(user => ({ name: user.Name.trim() }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      console.error('Error loading users for task assignment:', error);
+      this.taskUsers = [];
+    }
+
+    this.isEditTaskModalOpen = true;
+  }
+
+  closeEditTaskModal() {
+    this.isEditTaskModalOpen = false;
+    this.editingTask = null;
+    this.editingTaskOriginal = null;
+  }
+
+  async saveEditedTask() {
+    if (!this.editingTask || !this.editingTaskOriginal) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.editingTask.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.editingTask.Assignment || this.editingTask.Assignment.trim() === '') {
+      await this.showToast('Please enter task details', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating task...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Build payload for task update
+      const payload: any = {
+        CompanyID: this.editingTask.CompanyID,
+        Assignment: this.editingTask.Assignment.trim(),
+        Complete: this.editingTask.Complete ? 1 : 0,
+        CompleteNotes: this.editingTask.CompleteNotes || ''
+      };
+
+      // Add optional fields if provided
+      if (this.editingTask.Due) {
+        payload.Due = new Date(this.editingTask.Due).toISOString();
+      }
+
+      if (this.editingTask.AssignTo) {
+        payload.AssignTo = this.editingTask.AssignTo.trim();
+      }
+
+      if (this.editingTask.CommunicationID) {
+        payload.CommunicationID = this.editingTask.CommunicationID;
+      }
+
+      // Update via Caspio API
+      await firstValueFrom(
+        this.caspioService.put(
+          `/tables/Tasks/records?q.where=TaskID=${this.editingTask.TaskID}`,
+          payload
+        )
+      );
+
+      // Reload tasks data
+      const taskRecords = await this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' });
+      this.tasks = taskRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTaskRecord(record));
+      this.taskAssignees = this.extractUniqueValues(this.tasks.map(task => task.assignTo).filter(Boolean));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyTaskFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Task updated successfully', 'success');
+      this.closeEditTaskModal();
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      let errorMessage = 'Failed to update task';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteTask(task: TaskViewModel, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Confirm deletion
+    const confirmDelete = confirm(`Are you sure you want to delete this task: "${task.assignmentShort}"?`);
+    if (!confirmDelete) {
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Deleting task...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Delete via Caspio API
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Tasks/records?q.where=TaskID=${task.TaskID}`)
+      );
+
+      // Remove from local tasks array
+      const index = this.tasks.findIndex(t => t.TaskID === task.TaskID);
+      if (index !== -1) {
+        this.tasks.splice(index, 1);
+      }
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyTaskFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Task deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      let errorMessage = 'Failed to delete task';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  private formatDateForInput(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   setStageFilter(stageId: number) {

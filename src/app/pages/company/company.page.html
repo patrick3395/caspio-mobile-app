@@ -373,13 +373,14 @@
       </div>
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
-        <ion-card *ngFor="let task of paginatedTasks; trackBy: trackByTask" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
+        <ion-card *ngFor="let task of paginatedTasks; trackBy: trackByTask" class="task-card clickable-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue" (click)="openEditTaskModal(task)">
           <ion-item lines="none" class="task-card-header">
             <ion-checkbox
               slot="start"
               [checked]="task.completed"
               [disabled]="isTaskUpdating(task)"
-              (ionChange)="toggleTaskCompletion(task, $event.detail.checked)">
+              (ionChange)="toggleTaskCompletion(task, $event.detail.checked)"
+              (click)="$event.stopPropagation()">
             </ion-checkbox>
             <ion-label>
               <h4>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</h4>
@@ -964,6 +965,81 @@
             <div class="form-field full-width">
               <label>Assignment Details</label>
               <textarea [(ngModel)]="newTask.Assignment" class="form-textarea" rows="4" placeholder="Describe the task..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditTaskModalOpen" (didDismiss)="closeEditTaskModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditTaskModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Edit Task</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveEditedTask()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="editingTask.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Due Date</label>
+              <input type="date" [(ngModel)]="editingTask.Due" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Assign To</label>
+              <select [(ngModel)]="editingTask.AssignTo" class="form-input">
+                <option [ngValue]="''">Select User</option>
+                <option *ngFor="let user of taskUsers" [ngValue]="user.name">
+                  {{ user.name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Task Type</label>
+              <select [(ngModel)]="editingTask.CommunicationID" class="form-input">
+                <option [ngValue]="null">Select Type</option>
+                <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
+                  {{ type.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Assignment Details</label>
+              <textarea [(ngModel)]="editingTask.Assignment" class="form-textarea" rows="4" placeholder="Describe the task..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="deleteTask(editingTaskOriginal, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete Task
+              </button>
             </div>
           </div>
         </div>
