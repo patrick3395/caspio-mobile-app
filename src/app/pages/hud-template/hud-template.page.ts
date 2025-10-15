@@ -323,11 +323,20 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
+    console.log('[Lifecycle] ionViewWillEnter - Reloading data for page re-entry');
+
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
-    
-    // Photos now use base64 data URLs like Structural section
-    // No need to refresh URLs as they don't expire
+
+    // CRITICAL FIX: Reload existing selections when returning to the page
+    // This ensures data persists when navigating back and forth
+    try {
+      await this.loadRoomTemplates(); // Reload room selections and data
+      await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
+      console.log('[Lifecycle] Data reloaded successfully');
+    } catch (error) {
+      console.error('[Lifecycle] Error reloading data on page re-entry:', error);
+    }
   }
 
   ngOnDestroy() {
