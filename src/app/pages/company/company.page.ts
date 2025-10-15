@@ -26,6 +26,7 @@ interface CompanyRecord {
   StageName: string;
   CompanyName: string;
   SizeLabel: string;
+  Size?: string;
   ServiceArea: string;
   LeadSource: string;
   Phone: string;
@@ -39,6 +40,10 @@ interface CompanyRecord {
   Franchise: boolean;
   DateOnboarded: string;
   CCEmail: string;
+  CC_Email?: string;
+  SoftwareID?: string;
+  'Onboarding Stage'?: string;
+  Contract?: string;
 }
 
 interface InvoiceTotals {
