@@ -110,6 +110,7 @@ interface TaskViewModel {
   completed: boolean;
   notes: string;
   communicationType: string;
+  communicationId: number | null;
   isOverdue: boolean;
 }
 
@@ -642,15 +643,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   async openEditTaskModal(task: TaskViewModel) {
     this.editingTaskOriginal = task;
 
-    // Find CommunicationID from the type name
-    const communicationId = Array.from(this.communicationTypeLookup.entries())
-      .find(([_, name]) => name === task.communicationType)?.[0] || null;
-
     // Create editable copy
     this.editingTask = {
       TaskID: task.TaskID,
       CompanyID: task.CompanyID,
-      CommunicationID: communicationId,
+      CommunicationID: task.communicationId,
       Due: task.dueDate ? this.formatDateForInput(task.dueDate) : '',
       Assignment: task.assignment,
       AssignTo: task.assignTo,
@@ -1209,8 +1206,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.AssignTo = task.assignTo;
       }
 
-      if (task.CommunicationID) {
-        payload.CommunicationID = task.CommunicationID;
+      if (task.communicationId) {
+        payload.CommunicationID = task.communicationId;
       }
 
       if (task.notes) {
@@ -2110,6 +2107,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       completed,
       notes: (raw.CompleteNotes ?? '').trim(),
       communicationType: this.communicationTypeLookup.get(Number(raw.CommunicationID)) ?? 'General',
+      communicationId: raw.CommunicationID !== undefined && raw.CommunicationID !== null ? Number(raw.CommunicationID) : null,
       isOverdue
     };
   }
