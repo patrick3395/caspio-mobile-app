@@ -299,6 +299,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   uniqueCompanySizes: string[] = [];
   uniqueLeadSources: string[] = [];
+  softwareOptions: string[] = [];
 
   // Global company filter
   globalCompanyFilterId: number | null = null;
@@ -316,7 +317,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     CompanyID: null,
     Name: '',
     Title: '',
-    Goal: '',
     Role: '',
     Email: '',
     Phone1: '',
@@ -349,6 +349,21 @@ export class CompanyPage implements OnInit, OnDestroy {
     ServiceArea: '',
     Contract: '',
     Notes: ''
+  };
+
+  // Add meeting modal
+  isAddMeetingModalOpen = false;
+  newMeeting: any = {
+    CompanyID: null,
+    Subject: '',
+    Description: '',
+    StartDate: '',
+    EndDate: '',
+    Attendee1: '',
+    Attendee2: '',
+    Attendee3: '',
+    Attendee4: '',
+    Attendee5: ''
   };
 
   // Add task modal
@@ -439,6 +454,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       const [
         stageRecords,
+        softwareRecords,
         companyRecords,
         contactRecords,
         taskRecords,
@@ -449,6 +465,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         communicationRecords
       ] = await Promise.all([
         this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '2000' }),
         this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' }),
         this.fetchTableRecords('Contacts', { 'q.orderBy': 'CompanyID,Name', 'q.limit': '2000' }),
         this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' }),
@@ -462,6 +479,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.populateStageDefinitions(stageRecords);
       this.populateCommunicationTypes(communicationRecords);
       this.populateProjectLookup(projectRecords);
+
+      // Populate software options from Software table
+      this.softwareOptions = softwareRecords
+        .map(record => record.Software ?? record.Name ?? '')
+        .filter(name => name.trim() !== '')
+        .sort();
 
       const filteredCompanyRecords = companyRecords.filter(record => {
         const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
@@ -554,7 +577,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       CompanyID: this.globalCompanyFilterId,
       Name: '',
       Title: '',
-      Goal: '',
       Role: '',
       Email: '',
       Phone1: '',
@@ -787,10 +809,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Phone2 = this.newContact.Phone2.trim();
       }
 
-      if (this.newContact.Goal && this.newContact.Goal.trim() !== '') {
-        payload.Goal = this.newContact.Goal.trim();
-      }
-
       if (this.newContact.Notes && this.newContact.Notes.trim() !== '') {
         payload.Notes = this.newContact.Notes.trim();
       }
@@ -820,6 +838,135 @@ export class CompanyPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error creating contact:', error);
       let errorMessage = 'Failed to create contact';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async openAddMeetingModal() {
+    // Reset the meeting with default values, pre-fill company if filter is applied
+    this.newMeeting = {
+      CompanyID: this.globalCompanyFilterId,
+      Subject: '',
+      Description: '',
+      StartDate: '',
+      EndDate: '',
+      Attendee1: '',
+      Attendee2: '',
+      Attendee3: '',
+      Attendee4: '',
+      Attendee5: ''
+    };
+
+    this.isAddMeetingModalOpen = true;
+  }
+
+  closeAddMeetingModal() {
+    this.isAddMeetingModalOpen = false;
+  }
+
+  async saveNewMeeting() {
+    if (!this.newMeeting) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.newMeeting.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.newMeeting.Subject || this.newMeeting.Subject.trim() === '') {
+      await this.showToast('Please enter a subject', 'warning');
+      return;
+    }
+
+    if (!this.newMeeting.StartDate || this.newMeeting.StartDate.trim() === '') {
+      await this.showToast('Please select a start date', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating meeting...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with required and optional fields
+      const payload: any = {
+        CompanyID: this.newMeeting.CompanyID,
+        Subject: this.newMeeting.Subject.trim(),
+        StartDate: new Date(this.newMeeting.StartDate).toISOString()
+      };
+
+      // Add optional fields if provided
+      if (this.newMeeting.Description && this.newMeeting.Description.trim() !== '') {
+        payload.Description = this.newMeeting.Description.trim();
+      }
+
+      if (this.newMeeting.EndDate && this.newMeeting.EndDate.trim() !== '') {
+        payload.EndDate = new Date(this.newMeeting.EndDate).toISOString();
+      }
+
+      if (this.newMeeting.Attendee1 && this.newMeeting.Attendee1.trim() !== '') {
+        payload.Attendee1 = this.newMeeting.Attendee1.trim();
+      }
+
+      if (this.newMeeting.Attendee2 && this.newMeeting.Attendee2.trim() !== '') {
+        payload.Attendee2 = this.newMeeting.Attendee2.trim();
+      }
+
+      if (this.newMeeting.Attendee3 && this.newMeeting.Attendee3.trim() !== '') {
+        payload.Attendee3 = this.newMeeting.Attendee3.trim();
+      }
+
+      if (this.newMeeting.Attendee4 && this.newMeeting.Attendee4.trim() !== '') {
+        payload.Attendee4 = this.newMeeting.Attendee4.trim();
+      }
+
+      if (this.newMeeting.Attendee5 && this.newMeeting.Attendee5.trim() !== '') {
+        payload.Attendee5 = this.newMeeting.Attendee5.trim();
+      }
+
+      console.log('Creating meeting with payload:', payload);
+
+      // Create the meeting via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Meetings/records', payload)
+      );
+
+      console.log('Meeting created successfully:', response);
+
+      // Reload meetings data to include the new meeting
+      const meetingRecords = await this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
+      this.meetings = meetingRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeMeetingRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyMeetingFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Meeting created successfully', 'success');
+      this.closeAddMeetingModal();
+    } catch (error: any) {
+      console.error('Error creating meeting:', error);
+      let errorMessage = 'Failed to create meeting';
 
       if (error?.error) {
         if (typeof error.error === 'string') {

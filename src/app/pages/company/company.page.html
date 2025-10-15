@@ -451,6 +451,13 @@
         </ion-segment>
       </div>
 
+      <div class="add-task-button-container">
+        <ion-button size="small" (click)="openAddMeetingModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Meeting
+        </ion-button>
+      </div>
+
       <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
         <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
           <div class="timeline-content">
@@ -823,17 +830,32 @@
             </div>
             <div class="form-field">
               <label>Onboarding Stage</label>
-              <input type="text" [(ngModel)]="editingCompany['Onboarding Stage']" class="form-input">
+              <select [(ngModel)]="editingCompany['Onboarding Stage']" class="form-input">
+                <option value="">Select Stage</option>
+                <option *ngFor="let stage of stages" [value]="stage.name">
+                  {{ formatStageName(stage) }}
+                </option>
+              </select>
             </div>
             <div class="form-field">
               <label>Software</label>
-              <input type="text" [(ngModel)]="editingCompany.SoftwareID" class="form-input">
+              <select [(ngModel)]="editingCompany.SoftwareID" class="form-input">
+                <option value="">Select Software</option>
+                <option *ngFor="let software of softwareOptions" [value]="software">
+                  {{ software }}
+                </option>
+              </select>
             </div>
           </div>
           <div class="form-row">
             <div class="form-field">
               <label>Size</label>
-              <input type="text" [(ngModel)]="editingCompany.Size" class="form-input">
+              <select [(ngModel)]="editingCompany.Size" class="form-input">
+                <option value="">Select Size</option>
+                <option *ngFor="let size of uniqueCompanySizes" [value]="size">
+                  {{ size }}
+                </option>
+              </select>
             </div>
             <div class="form-field">
               <label>Franchise</label>
@@ -1129,12 +1151,6 @@
           </div>
           <div class="form-row">
             <div class="form-field full-width">
-              <label>Goal</label>
-              <input type="text" [(ngModel)]="newContact.Goal" class="form-input" placeholder="Contact's goal or objective">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="newContact.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this contact..."></textarea>
             </div>
@@ -1179,17 +1195,32 @@
             </div>
             <div class="form-field">
               <label>Onboarding Stage</label>
-              <input type="text" [(ngModel)]="newCompany['Onboarding Stage']" class="form-input" placeholder="Stage">
+              <select [(ngModel)]="newCompany['Onboarding Stage']" class="form-input">
+                <option value="">Select Stage</option>
+                <option *ngFor="let stage of stages" [value]="stage.name">
+                  {{ formatStageName(stage) }}
+                </option>
+              </select>
             </div>
             <div class="form-field">
               <label>Software</label>
-              <input type="text" [(ngModel)]="newCompany.SoftwareID" class="form-input" placeholder="Software">
+              <select [(ngModel)]="newCompany.SoftwareID" class="form-input">
+                <option value="">Select Software</option>
+                <option *ngFor="let software of softwareOptions" [value]="software">
+                  {{ software }}
+                </option>
+              </select>
             </div>
           </div>
           <div class="form-row">
             <div class="form-field">
               <label>Size</label>
-              <input type="text" [(ngModel)]="newCompany.Size" class="form-input" placeholder="Company size">
+              <select [(ngModel)]="newCompany.Size" class="form-input">
+                <option value="">Select Size</option>
+                <option *ngFor="let size of uniqueCompanySizes" [value]="size">
+                  {{ size }}
+                </option>
+              </select>
             </div>
             <div class="form-field">
               <label>Franchise</label>
@@ -1268,6 +1299,89 @@
             <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="newCompany.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this company..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddMeetingModalOpen" (didDismiss)="closeAddMeetingModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddMeetingModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Add New Meeting</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewMeeting()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="newMeeting.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Subject</label>
+              <input type="text" [(ngModel)]="newMeeting.Subject" class="form-input" placeholder="Meeting subject">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Start Date</label>
+              <input type="datetime-local" [(ngModel)]="newMeeting.StartDate" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>End Date</label>
+              <input type="datetime-local" [(ngModel)]="newMeeting.EndDate" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Description</label>
+              <textarea [(ngModel)]="newMeeting.Description" class="form-textarea" rows="4" placeholder="Meeting description..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Attendee 1</label>
+              <input type="text" [(ngModel)]="newMeeting.Attendee1" class="form-input" placeholder="First attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 2</label>
+              <input type="text" [(ngModel)]="newMeeting.Attendee2" class="form-input" placeholder="Second attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 3</label>
+              <input type="text" [(ngModel)]="newMeeting.Attendee3" class="form-input" placeholder="Third attendee">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Attendee 4</label>
+              <input type="text" [(ngModel)]="newMeeting.Attendee4" class="form-input" placeholder="Fourth attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 5</label>
+              <input type="text" [(ngModel)]="newMeeting.Attendee5" class="form-input" placeholder="Fifth attendee">
             </div>
           </div>
         </div>
