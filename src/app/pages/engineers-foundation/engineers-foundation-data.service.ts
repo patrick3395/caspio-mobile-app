@@ -146,4 +146,26 @@ export class EngineersFoundationDataService {
   private isExpired(timestamp: number): boolean {
     return Date.now() - timestamp > this.cacheTtlMs;
   }
+
+  // Clear all caches - use when returning to page to force fresh data load
+  clearAllCaches(): void {
+    console.log('[Data Service] Clearing ALL caches to force fresh data load');
+    this.projectCache.clear();
+    this.serviceCache.clear();
+    this.typeCache.clear();
+    this.imageCache.clear();
+    this.efeTemplatesCache = null;
+    this.visualsCache.clear();
+    this.visualAttachmentsCache.clear();
+    this.efePointsCache.clear();
+    this.efeAttachmentsCache.clear();
+  }
+
+  // Clear specific caches for a service - use when service data changes
+  clearServiceCaches(serviceId: string): void {
+    console.log('[Data Service] Clearing caches for ServiceID:', serviceId);
+    this.visualsCache.delete(serviceId);
+    // Note: Can't easily clear EFE points/attachments without knowing all room IDs
+    // Better to use clearAllCaches() when returning to page
+  }
 }

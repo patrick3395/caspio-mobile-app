@@ -521,6 +521,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
     console.log('==========================================');
 
+    // CRITICAL: Clear all caches to force fresh data load from Caspio
+    // This prevents stale cached data from being displayed when returning to the page
+    console.log('[Lifecycle] Clearing all data caches...');
+    this.foundationData.clearAllCaches();
+
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
 
