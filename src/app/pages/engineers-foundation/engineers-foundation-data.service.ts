@@ -150,6 +150,8 @@ export class EngineersFoundationDataService {
   // Clear all caches - use when returning to page to force fresh data load
   clearAllCaches(): void {
     console.log('[Data Service] Clearing ALL caches to force fresh data load');
+
+    // Clear in-memory caches in this service
     this.projectCache.clear();
     this.serviceCache.clear();
     this.typeCache.clear();
@@ -159,6 +161,10 @@ export class EngineersFoundationDataService {
     this.visualAttachmentsCache.clear();
     this.efePointsCache.clear();
     this.efeAttachmentsCache.clear();
+
+    // CRITICAL: Also clear the CaspioService's localStorage cache
+    // This prevents returning stale cached data from previous page visits
+    this.caspioService.clearServicesCache();
   }
 
   // Clear specific caches for a service - use when service data changes

@@ -2359,4 +2359,16 @@ export class CaspioService {
   public getPendingRequestsCount(): number {
     return this.pendingRequests.size;
   }
+
+  /**
+   * Clear cached data for Services-related tables
+   * Call this when reloading template pages to force fresh data from Caspio
+   */
+  public clearServicesCache(): void {
+    console.log('[CaspioService] Clearing Services-related cache entries');
+    this.cache.clearByPattern('Services_Visuals');
+    this.cache.clearByPattern('Services_EFE');
+    this.cache.clearByPattern('Services_EFE_Points');
+    this.cache.clearByPattern('Services_Visuals_Attach');
+  }
 }
