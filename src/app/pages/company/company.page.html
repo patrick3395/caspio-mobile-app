@@ -27,7 +27,7 @@
           [(ngModel)]="globalCompanySearchTerm"
           (ionInput)="onGlobalCompanySearch($event.detail.value)"
           (ionFocus)="showCompanySuggestions = true"
-          placeholder="Search companies (e.g., Amarispect)..."
+          placeholder="Search companies"
           [class.has-selection]="globalCompanyFilterId !== null">
         </ion-searchbar>
 
@@ -117,10 +117,6 @@
                   <p class="company-location">{{ buildCompanyAddress(company) || 'No address' }}</p>
                 </div>
                 <div class="rollup-metrics">
-                  <div class="metric-badge">
-                    <ion-icon name="people-outline"></ion-icon>
-                    <span>{{ company.contactCount || 0 }}</span>
-                  </div>
                   <button class="expand-toggle" (click)="toggleCompanyExpand(company, $event)">
                     <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
                   </button>
@@ -128,13 +124,52 @@
               </div>
 
               <div class="rollup-content" *ngIf="isCompanyExpanded(company)">
-                <div class="company-detail-header">
-                  <h4>{{ company.CompanyName }}</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Onboarding Date</label>
+                    <p>{{ formatDate(company.DateOnboarded) || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Onboarding Stage</label>
+                    <p>{{ company['Onboarding Stage'] || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Software</label>
+                    <p>{{ company.SoftwareID || 'Not provided' }}</p>
+                  </div>
                 </div>
                 <div class="detail-row">
                   <div class="detail-col">
-                    <label>Phone</label>
+                    <label>Size</label>
+                    <p>{{ company.Size || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Franchise</label>
+                    <p>{{ company.Franchise ? 'Yes' : 'No' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Service Area(s)</label>
+                    <p>{{ company.ServiceArea || 'Not provided' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Lead Source</label>
+                    <p>{{ company.LeadSource || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Company Phone</label>
                     <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Company Email</label>
+                    <p class="wrap-text">{{ company.Email || 'Not provided' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>CC Email</label>
+                    <p class="wrap-text">{{ company.CC_Email || 'Not provided' }}</p>
                   </div>
                   <div class="detail-col">
                     <label>Website</label>
@@ -143,8 +178,32 @@
                 </div>
                 <div class="detail-row">
                   <div class="detail-col">
-                    <label>Total Revenue</label>
-                    <p>{{ formatCurrency(company.invoiceTotals?.total || 0) }}</p>
+                    <label>Address</label>
+                    <p>{{ company.Address || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>City</label>
+                    <p>{{ company.City || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>State</label>
+                    <p>{{ company.State || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Zip</label>
+                    <p>{{ company.Zip || 'Not provided' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col" style="grid-column: 1 / -1;">
+                    <label>Notes</label>
+                    <p class="wrap-text">{{ company.Notes || 'No notes' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Contract Document</label>
+                    <p>{{ company.Contract || 'Not provided' }}</p>
                   </div>
                 </div>
                 <div class="rollup-actions">
