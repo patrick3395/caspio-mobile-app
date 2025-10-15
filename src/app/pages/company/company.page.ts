@@ -1362,44 +1362,106 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      // Prepare payload for Caspio API
-      const payload: any = {
-        CompanyName: this.editingCompany.CompanyName,
-        DateOnboarded: this.editingCompany.DateOnboarded,
-        Size: this.editingCompany.Size,
-        Franchise: this.editingCompany.Franchise ? 1 : 0,
-        LeadSource: this.editingCompany.LeadSource,
-        Phone: this.editingCompany.Phone,
-        Email: this.editingCompany.Email,
-        CC_Email: this.editingCompany.CC_Email || this.editingCompany.CCEmail,
-        Website: this.editingCompany.Website,
-        Address: this.editingCompany.Address,
-        City: this.editingCompany.City,
-        State: this.editingCompany.State,
-        Zip: this.editingCompany.Zip,
-        ServiceArea: this.editingCompany.ServiceArea,
-        Notes: this.editingCompany.Notes,
-        Contract: this.editingCompany.Contract,
-        SoftwareID: this.editingCompany.SoftwareID
-      };
+      // Prepare payload for Caspio API - only include editable fields
+      const payload: any = {};
+
+      // Add fields only if they have values or are explicitly set
+      if (this.editingCompany.CompanyName !== undefined) {
+        payload.CompanyName = this.editingCompany.CompanyName || '';
+      }
+
+      if (this.editingCompany.DateOnboarded !== undefined && this.editingCompany.DateOnboarded !== null) {
+        payload.DateOnboarded = this.editingCompany.DateOnboarded;
+      }
+
+      if (this.editingCompany.Size !== undefined) {
+        payload.Size = this.editingCompany.Size || '';
+      }
+
+      if (this.editingCompany.Franchise !== undefined) {
+        payload.Franchise = this.editingCompany.Franchise ? true : false;
+      }
+
+      if (this.editingCompany.LeadSource !== undefined) {
+        payload.LeadSource = this.editingCompany.LeadSource || '';
+      }
+
+      if (this.editingCompany.Phone !== undefined) {
+        payload.Phone = this.editingCompany.Phone || '';
+      }
+
+      if (this.editingCompany.Email !== undefined) {
+        payload.Email = this.editingCompany.Email || '';
+      }
+
+      // Handle CC_Email - use whichever field name exists
+      const ccEmail = this.editingCompany.CC_Email || this.editingCompany.CCEmail;
+      if (ccEmail !== undefined) {
+        payload.CC_Email = ccEmail || '';
+      }
+
+      if (this.editingCompany.Website !== undefined) {
+        payload.Website = this.editingCompany.Website || '';
+      }
+
+      if (this.editingCompany.Address !== undefined) {
+        payload.Address = this.editingCompany.Address || '';
+      }
+
+      if (this.editingCompany.City !== undefined) {
+        payload.City = this.editingCompany.City || '';
+      }
+
+      if (this.editingCompany.State !== undefined) {
+        payload.State = this.editingCompany.State || '';
+      }
+
+      if (this.editingCompany.Zip !== undefined) {
+        payload.Zip = this.editingCompany.Zip || '';
+      }
+
+      if (this.editingCompany.ServiceArea !== undefined) {
+        payload.ServiceArea = this.editingCompany.ServiceArea || '';
+      }
+
+      if (this.editingCompany.Notes !== undefined) {
+        payload.Notes = this.editingCompany.Notes || '';
+      }
+
+      if (this.editingCompany.Contract !== undefined) {
+        payload.Contract = this.editingCompany.Contract || '';
+      }
+
+      if (this.editingCompany.SoftwareID !== undefined) {
+        payload.SoftwareID = this.editingCompany.SoftwareID || '';
+      }
 
       // Add Onboarding Stage if it exists
       if (this.editingCompany['Onboarding Stage'] !== undefined) {
-        payload['Onboarding Stage'] = this.editingCompany['Onboarding Stage'];
+        payload['Onboarding Stage'] = this.editingCompany['Onboarding Stage'] || '';
       }
 
+      console.log('Updating company with payload:', payload);
+      console.log('Company ID:', this.editingCompany.CompanyID);
+
       // Update via Caspio API
-      await firstValueFrom(
+      const response = await firstValueFrom(
         this.caspioService.put(
           `/tables/Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
           payload
         )
       );
 
+      console.log('Update response:', response);
+
       // Update local data
       const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
       if (index !== -1) {
-        this.companies[index] = { ...this.companies[index], ...this.editingCompany };
+        // Merge the updated fields into the existing company record
+        this.companies[index] = {
+          ...this.companies[index],
+          ...this.editingCompany
+        };
       }
 
       // Refresh filters and views
@@ -1410,7 +1472,23 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.closeEditModal();
     } catch (error: any) {
       console.error('Error updating company:', error);
-      await this.showToast(error?.message ?? 'Failed to update company', 'danger');
+      console.error('Error details:', {
+        message: error?.message,
+        status: error?.status,
+        error: error?.error,
+        full: error
+      });
+
+      let errorMessage = 'Failed to update company';
+      if (error?.error?.message) {
+        errorMessage = error.error.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.status) {
+        errorMessage = `Failed to update company (Status: ${error.status})`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
     } finally {
       await loading.dismiss();
     }

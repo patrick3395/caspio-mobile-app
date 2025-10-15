@@ -1218,6 +1218,22 @@ ion-content {
   text-decoration: underline;
 }
 
+.phone-link {
+  color: #f15a27;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+
+  &:hover {
+    text-decoration: underline;
+    color: #e54e1c;
+  }
+
+  &:active {
+    color: #d4451a;
+  }
+}
+
 .task-meta {
   display: flex;
   flex-direction: column;

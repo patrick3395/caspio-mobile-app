@@ -162,7 +162,12 @@
                 <div class="detail-row">
                   <div class="detail-col">
                     <label>Company Phone</label>
-                    <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
+                    <p>
+                      <a *ngIf="company.Phone" [href]="'tel:' + company.Phone" class="phone-link">
+                        {{ formatPhone(company.Phone) }}
+                      </a>
+                      <span *ngIf="!company.Phone">Not provided</span>
+                    </p>
                   </div>
                   <div class="detail-col">
                     <label>Company Email</label>
@@ -281,7 +286,12 @@
                     </button>
                     <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
                   </td>
-                  <td>{{ formatPhone(contact.Phone1) || '—' }}</td>
+                  <td>
+                    <a *ngIf="contact.Phone1" [href]="'tel:' + contact.Phone1" class="phone-link">
+                      {{ formatPhone(contact.Phone1) }}
+                    </a>
+                    <span *ngIf="!contact.Phone1">—</span>
+                  </td>
                   <td>
                     <a *ngIf="contact.Email" [href]="'mailto:' + contact.Email">{{ contact.Email }}</a>
                     <span *ngIf="!contact.Email">—</span>
@@ -733,11 +743,21 @@
           </div>
           <div>
             <strong>Phone</strong>
-            <p>{{ formatPhone(selectedContact.Phone1) || '—' }}</p>
+            <p>
+              <a *ngIf="selectedContact.Phone1" [href]="'tel:' + selectedContact.Phone1" class="phone-link">
+                {{ formatPhone(selectedContact.Phone1) }}
+              </a>
+              <span *ngIf="!selectedContact.Phone1">—</span>
+            </p>
           </div>
           <div>
             <strong>Secondary Phone</strong>
-            <p>{{ formatPhone(selectedContact.Phone2) || '—' }}</p>
+            <p>
+              <a *ngIf="selectedContact.Phone2" [href]="'tel:' + selectedContact.Phone2" class="phone-link">
+                {{ formatPhone(selectedContact.Phone2) }}
+              </a>
+              <span *ngIf="!selectedContact.Phone2">—</span>
+            </p>
           </div>
           <div>
             <strong>Role</strong>
