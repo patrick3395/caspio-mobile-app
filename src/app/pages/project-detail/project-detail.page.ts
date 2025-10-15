@@ -2118,6 +2118,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           }
         }
 
+        // Force change detection to update view
+        this.changeDetectorRef.detectChanges();
+
         this.showToast('Link updated successfully', 'success');
       } catch (error) {
         console.error('Error updating link:', error);
@@ -2165,6 +2168,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           Attachment: '',
           isLink: true
         });
+
+        // Force change detection to update view
+        this.changeDetectorRef.detectChanges();
 
         this.showToast('Link added successfully', 'success');
       }
