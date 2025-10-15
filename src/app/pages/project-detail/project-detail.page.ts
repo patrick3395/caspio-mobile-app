@@ -2111,15 +2111,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           serviceDoc.documents[docIndex].linkName = newUrl;
           serviceDoc.documents[docIndex].filename = newUrl;
 
+          // Create new array reference to trigger Angular change detection
+          serviceDoc.documents = [...serviceDoc.documents];
+
           // Update existingAttachments
           const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
           if (existingAttach) {
             existingAttach.Link = newUrl;
           }
         }
-
-        // Force change detection to update view
-        this.changeDetectorRef.detectChanges();
 
         this.showToast('Link updated successfully', 'success');
       } catch (error) {
@@ -2156,6 +2156,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           serviceDoc.documents[docIndex].uploaded = true;
           serviceDoc.documents[docIndex].linkName = url;
           serviceDoc.documents[docIndex].filename = url;
+
+          // Create new array reference to trigger Angular change detection
+          serviceDoc.documents = [...serviceDoc.documents];
         }
 
         // Add to existing attachments for persistence
@@ -2168,9 +2171,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           Attachment: '',
           isLink: true
         });
-
-        // Force change detection to update view
-        this.changeDetectorRef.detectChanges();
 
         this.showToast('Link added successfully', 'success');
       }
