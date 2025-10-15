@@ -22,6 +22,35 @@ ion-toolbar.template-toolbar {
   }
 }
 
+// Back Button with Orange Circle and White Arrow
+#eng-back-btn {
+  background: var(--noble-orange) !important;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin-left: 8px !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+
+  ion-icon {
+    color: white !important;
+    font-size: 24px !important;
+  }
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4) !important;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
 .template-toolbar-actions {
   display: flex;
   align-items: center;
