@@ -1193,8 +1193,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       const payload: any = {
         CompanyID: task.CompanyID,
         Due: task.dueDate ? new Date(task.dueDate).toISOString() : new Date().toISOString(),
-        Complete: completed ? 1 : 0,
-        CompleteDate: completed ? new Date().toISOString() : null
+        Complete: completed ? 1 : 0
       };
 
       // Add optional fields if they exist
