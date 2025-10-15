@@ -490,58 +490,58 @@ export class CaspioService {
     );
   }
 
-  // Services Room Templates methods - simplified
-  getServicesRoomTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Rooms_Templates/records').pipe(
+  // Services EFE Templates methods - simplified
+  getServicesEFETemplates(): Observable<any[]> {
+    return this.get<any>('/tables/Services_EFE_Templates/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
-        console.error('Room templates error:', error);
+        console.error('EFE templates error:', error);
         return of([]);
       })
     );
   }
   
-  // Services Rooms methods
-  getServicesRooms(serviceId: string): Observable<any[]> {
+  // Services EFE methods
+  getServicesEFE(serviceId: string): Observable<any[]> {
     const query = `ServiceID=${serviceId}`;
-    return this.get<any>(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
-        console.error('Services Rooms error:', error);
+        console.error('Services EFE error:', error);
         return of([]);
       })
     );
   }
 
-  // Get Services_Rooms_Points for a specific room
-  getServicesRoomsPoints(roomId: string): Observable<any[]> {
-    const query = `RoomID=${roomId}`;
-    return this.get<any>(`/tables/Services_Rooms_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+  // Get Services_EFE_Points for a specific EFE
+  getServicesEFEPoints(efeId: string): Observable<any[]> {
+    const query = `EFEID=${efeId}`;
+    return this.get<any>(`/tables/Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
-        console.error('Services Rooms Points error:', error);
+        console.error('Services EFE Points error:', error);
         return of([]);
       })
     );
   }
 
-  // Check if a specific point exists for a room
-  checkRoomPointExists(roomId: string, pointName: string): Observable<any> {
-    const query = `RoomID=${roomId} AND PointName='${pointName}'`;
-    return this.get<any>(`/tables/Services_Rooms_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+  // Check if a specific point exists for an EFE
+  checkEFEPointExists(efeId: string, pointName: string): Observable<any> {
+    const query = `EFEID=${efeId} AND PointName='${pointName}'`;
+    return this.get<any>(`/tables/Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         const results = response.Result || [];
         return results.length > 0 ? results[0] : null;
       }),
       catchError(error => {
-        console.error('Check room point error:', error);
+        console.error('Check EFE point error:', error);
         return of(null);
       })
     );
   }
 
-  // Get Services_Rooms_Points_Attach for specific point IDs
-  getServicesRoomsAttachments(pointIds: string[] | string): Observable<any[]> {
+  // Get Services_EFE_Points_Attach for specific point IDs
+  getServicesEFEAttachments(pointIds: string[] | string): Observable<any[]> {
     // Handle single ID or array of IDs
     const idArray = Array.isArray(pointIds) ? pointIds : [pointIds];
     if (!idArray || idArray.length === 0) {
@@ -549,7 +549,7 @@ export class CaspioService {
     }
     // Build query for multiple PointIDs using OR
     const query = idArray.map(id => `PointID=${id}`).join(' OR ');
-    return this.get<any>(`/tables/Services_Rooms_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/Services_EFE_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         const results = response.Result || [];
         results.forEach((photo: any, index: number) => {
@@ -557,14 +557,14 @@ export class CaspioService {
         return results;
       }),
       catchError(error => {
-        console.error('Services_Rooms_Points_Attach error:', error);
+        console.error('Services_EFE_Points_Attach error:', error);
         return of([]);
       })
     );
   }
 
-  createServicesRoom(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_Rooms/records?response=rows', data).pipe(
+  createServicesEFE(data: any): Observable<any> {
+    return this.post<any>('/tables/Services_EFE/records?response=rows', data).pipe(
       map(response => {
         // Handle various response formats
         if (!response) {
@@ -576,47 +576,47 @@ export class CaspioService {
         return response;
       }),
       catchError(error => {
-        console.error('Services_Rooms creation error:', error);
+        console.error('Services EFE creation error:', error);
         throw error;
       })
     );
   }
 
-  // Delete a Services_Rooms record
-  deleteServicesRoom(roomId: string): Observable<any> {
-    const query = `RoomID=${roomId}`;
-    return this.delete<any>(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).pipe(
+  // Delete a Services_EFE record
+  deleteServicesEFE(efeId: string): Observable<any> {
+    const query = `EFEID=${efeId}`;
+    return this.delete<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
       tap(response => {
       }),
       catchError(error => {
-        console.error('Services_Rooms deletion error:', error);
+        console.error('Services EFE deletion error:', error);
         throw error;
       })
     );
   }
   
-  // Update Services_Rooms record
-  updateServicesRoom(roomId: string, data: any): Observable<any> {
-    return this.put<any>(`/tables/Services_Rooms/records?q.where=PK_ID=${roomId}`, data);
+  // Update Services_EFE record
+  updateServicesEFE(efeId: string, data: any): Observable<any> {
+    return this.put<any>(`/tables/Services_EFE/records?q.where=PK_ID=${efeId}`, data);
   }
-  
-  // Update Services_Rooms record by RoomID (for FDF annotations/drawings)
-  updateServicesRoomByRoomId(roomId: string, data: any): Observable<any> {
-    const url = `/tables/Services_Rooms/records?q.where=RoomID=${roomId}`;
+
+  // Update Services_EFE record by EFEID (for FDF annotations/drawings)
+  updateServicesEFEByEFEID(efeId: string, data: any): Observable<any> {
+    const url = `/tables/Services_EFE/records?q.where=EFEID=${efeId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('Services_Rooms updated:', response);
+        console.log('Services EFE updated:', response);
       }),
       catchError(error => {
-        console.error('Failed to update Services_Rooms record:', error);
+        console.error('Failed to update Services EFE record:', error);
         return throwError(() => error);
       })
     );
   }
   
-  // Get Services_Rooms_Drop for dropdown options
-  getServicesRoomsDrop(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Rooms_Drop/records').pipe(
+  // Get Services_EFE_Drop for dropdown options
+  getServicesEFEDrop(): Observable<any[]> {
+    return this.get<any>('/tables/Services_EFE_Drop/records').pipe(
       map(response => {
         if (response && response.Result) {
           return response.Result;
@@ -662,9 +662,9 @@ export class CaspioService {
     );
   }
   
-  // Create Services_Rooms_Points record
-  createServicesRoomsPoint(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_Rooms_Points/records?response=rows', data).pipe(
+  // Create Services_EFE_Points record
+  createServicesEFEPoint(data: any): Observable<any> {
+    return this.post<any>('/tables/Services_EFE_Points/records?response=rows', data).pipe(
       map(response => {
         if (!response) {
           return {};
@@ -675,44 +675,44 @@ export class CaspioService {
         return response;
       }),
       catchError(error => {
-        console.error('Services_Rooms_Points creation error:', error);
+        console.error('Services EFE Points creation error:', error);
         throw error;
       })
     );
   }
   
-  // Update Services_Rooms_Points record
-  updateServicesRoomsPoint(pointId: string, data: any): Observable<any> {
-    const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
+  // Update Services_EFE_Points record
+  updateServicesEFEPoint(pointId: string, data: any): Observable<any> {
+    const url = `/tables/Services_EFE_Points/records?q.where=PointID=${pointId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
       }),
       catchError(error => {
-        console.error('Services_Rooms_Points update error:', error);
+        console.error('Services EFE Points update error:', error);
         throw error;
       })
     );
   }
   
-  // Delete Services_Rooms_Points record
-  deleteServicesRoomsPoint(pointId: string): Observable<any> {
-    const url = `/tables/Services_Rooms_Points/records?q.where=PointID=${pointId}`;
+  // Delete Services_EFE_Points record
+  deleteServicesEFEPoint(pointId: string): Observable<any> {
+    const url = `/tables/Services_EFE_Points/records?q.where=PointID=${pointId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
       }),
       catchError(error => {
-        console.error('Services_Rooms_Points deletion error:', error);
+        console.error('Services EFE Points deletion error:', error);
         throw error;
       })
     );
   }
   
-  // Create Services_Rooms_Points_Attach record with file using two-step Files API method
-  createServicesRoomsPointsAttachWithFile(pointId: number, drawingsData: string, file: File, photoType?: string): Observable<any> {
+  // Create Services_EFE_Points_Attach record with file using two-step Files API method
+  createServicesEFEPointsAttachWithFile(pointId: number, drawingsData: string, file: File, photoType?: string): Observable<any> {
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadRoomPointsAttachWithFilesAPI(pointId, drawingsData, file, photoType)
+      this.uploadEFEPointsAttachWithFilesAPI(pointId, drawingsData, file, photoType)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -723,8 +723,8 @@ export class CaspioService {
     });
   }
 
-  // Two-step upload method for Services_Rooms_Points_Attach (matching visual method)
-  private async uploadRoomPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File, photoType?: string) {
+  // Two-step upload method for Services_EFE_Points_Attach (matching visual method)
+  private async uploadEFEPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File, photoType?: string) {
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -734,7 +734,7 @@ export class CaspioService {
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `room_point_${pointId}_${timestamp}_${randomId}.${fileExt}`;
+      const uniqueFilename = `efe_point_${pointId}_${timestamp}_${randomId}.${fileExt}`;
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       
@@ -772,7 +772,7 @@ export class CaspioService {
         recordData.Drawings = drawingsData;
       }
       
-      const createUrl = `${API_BASE_URL}/tables/Services_Rooms_Points_Attach/records?response=rows`;
+      const createUrl = `${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?response=rows`;
       const createResponse = await fetch(createUrl, {
         method: 'POST',
         headers: {
@@ -785,7 +785,7 @@ export class CaspioService {
       if (!createResponse.ok) {
         const errorText = await createResponse.text();
         console.error('Record creation failed:', errorText);
-        throw new Error('Failed to create Services_Rooms_Points_Attach record: ' + errorText);
+        throw new Error('Failed to create Services_EFE_Points_Attach record: ' + errorText);
       }
       
       const createdRecord = await createResponse.json();
@@ -800,8 +800,8 @@ export class CaspioService {
   }
 
   // Legacy method for direct data posting (kept for backward compatibility)
-  createServicesRoomsAttach(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_Rooms_Points_Attach/records?response=rows', data).pipe(
+  createServicesEFEAttach(data: any): Observable<any> {
+    return this.post<any>('/tables/Services_EFE_Points_Attach/records?response=rows', data).pipe(
       map(response => {
         if (!response) {
           return {};
@@ -812,7 +812,7 @@ export class CaspioService {
         return response;
       }),
       catchError(error => {
-        console.error('Services_Rooms_Points_Attach creation error:', error);
+        console.error('Services EFE Points Attach creation error:', error);
         console.error('Request data was:', data);
         console.error('Error details:', {
           status: error.status,
@@ -825,29 +825,29 @@ export class CaspioService {
     );
   }
   
-  // Update Services_Rooms_Points_Attach record (for caption/annotation updates)
-  updateServicesRoomsPointsAttach(attachId: string, data: any): Observable<any> {
+  // Update Services_EFE_Points_Attach record (for caption/annotation updates)
+  updateServicesEFEPointsAttach(attachId: string, data: any): Observable<any> {
     
-    const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
       }),
       catchError(error => {
-        console.error('? Failed to update room point annotation:', error);
+        console.error('? Failed to update EFE point annotation:', error);
         return throwError(() => error);
       })
     );
   }
   
-  // Delete Services_Rooms_Points_Attach record
-  deleteServicesRoomsPointsAttach(attachId: string): Observable<any> {
+  // Delete Services_EFE_Points_Attach record
+  deleteServicesEFEPointsAttach(attachId: string): Observable<any> {
     
-    const url = `/tables/Services_Rooms_Points_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
       }),
       catchError(error => {
-        console.error('? Error deleting room point attachment:', error);
+        console.error('? Error deleting EFE point attachment:', error);
         return throwError(() => error);
       })
     );

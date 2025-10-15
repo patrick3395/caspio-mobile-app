@@ -2892,7 +2892,7 @@ Troubleshooting:
 
       // 3. Check elevation plot completion
       const roomsData: any = await this.caspioService.get(
-        `/tables/Services_Rooms/records?q.where=ServiceID=${service.serviceId}`
+        `/tables/Services_EFE/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
       if (roomsData?.ResultSet && roomsData.ResultSet.length > 0) {
@@ -3738,7 +3738,7 @@ Time: ${debugInfo.timestamp}
     if (!roomName) {
       return null;
     }
-    const roomId = room?.RoomID || room?.PK_ID;
+    const roomId = room?.EFEID || room?.PK_ID;
 
     const result: any = {
       name: roomName,

@@ -119,14 +119,14 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   allRoomTemplates: any[] = []; // Store all templates for manual addition
   roomElevationData: { [roomName: string]: any } = {};
   selectedRooms: { [roomName: string]: boolean } = {};
-  roomRecordIds: { [roomName: string]: string } = {}; // Track Services_Rooms IDs
+  efeRecordIds: { [roomName: string]: string } = {}; // Track Services_EFE IDs
   savingRooms: { [roomName: string]: boolean } = {};
-  roomPointIds: { [key: string]: string } = {}; // Track Services_Rooms_Points IDs
+  efePointIds: { [key: string]: string } = {}; // Track Services_EFE_Points IDs
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
   
-  // FDF dropdown options from Services_Rooms_Drop table - mapped by room name
+  // FDF dropdown options from Services_EFE_Drop table - mapped by room name
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
   
@@ -489,7 +489,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         this.roomTemplates = autoTemplates;
         this.availableRoomTemplates = [...autoTemplates]; // v1.4.65 - populate available templates
         
-        // Initialize room elevation data for each template (but don't create in Services_Rooms yet)
+        // Initialize room elevation data for each template (but don't create in Services_EFE yet)
         autoTemplates.forEach((template: any) => {
           if (template.RoomName && !this.roomElevationData[template.RoomName]) {
             // Extract elevation points from Point1Name, Point2Name, etc.
@@ -521,7 +521,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           }
         });
         
-        // Load existing Services_Rooms for this service to check which are already selected
+        // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
           const existingRooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
           
@@ -529,8 +529,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
               const roomName = room.RoomName;
-              // Use RoomID field, NOT PK_ID - RoomID is what links to Services_Rooms_Points
-              const roomId = room.RoomID;
+              // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points
+              const roomId = room.EFEID;
               
               // Find matching template by RoomName - check all templates, not just auto
               let template = autoTemplates.find((t: any) => t.RoomName === roomName);
@@ -552,7 +552,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               if (roomName && roomId) {
                 this.selectedRooms[roomName] = true;
                 this.expandedRooms[roomName] = false; // Start collapsed
-                this.roomRecordIds[roomName] = roomId;
+                this.efeRecordIds[roomName] = roomId;
                 
                 // Initialize room elevation data if not present
                 if (!this.roomElevationData[roomName] && template) {
@@ -773,14 +773,14 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Load FDF options from Services_Rooms_Drop table
+  // Load FDF options from Services_EFE_Drop table
   async loadFDFOptions() {
     try {
       // Set default options first
       const defaultOptions = ['None', '1/4"', '1/2"', '3/4"', '1"', '1.25"', '1.5"', '2"'];
       this.fdfOptions = defaultOptions;
       
-      // Try to load room-specific options from Services_Rooms_Drop table
+      // Try to load room-specific options from Services_EFE_Drop table
       try {
         const dropdownData = await this.caspioService.getServicesRoomsDrop().toPromise();
         
@@ -918,7 +918,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Handle FDF selection change
   async onFDFChange(roomName: string) {
-    const roomId = this.roomRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Room must be saved first', 'warning');
       return;
@@ -927,11 +927,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       const fdfValue = this.roomElevationData[roomName].fdf;
       
-      // Update Services_Rooms record with FDF value using RoomID field
+      // Update Services_EFE record with FDF value using EFEID field
       const updateData = { FDF: fdfValue };
-      const query = `RoomID=${roomId}`;
+      const query = `EFEID=${roomId}`;
       
-      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
     } catch (error) {
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
@@ -940,7 +940,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
-    const roomId = this.roomRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
@@ -999,13 +999,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
       const filePath = `/${uploadedFileName}`;
       
-      // Update the appropriate column in Services_Rooms
+      // Update the appropriate column in Services_EFE
       const columnName = `FDFPhoto${photoType}`;
       const updateData: any = {};
       updateData[columnName] = filePath;
       
-      const query = `RoomID=${roomId}`;
-      await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      const query = `EFEID=${roomId}`;
+      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
       // Store the photo URL in local state for display
       if (!this.roomElevationData[roomName].fdfPhotos) {
@@ -1054,7 +1054,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     const photoKey = photoType.toLowerCase();
     const photoUrl = this.roomElevationData[roomName]?.fdfPhotos?.[`${photoKey}Url`];
     const fdfPhotos = this.roomElevationData[roomName]?.fdfPhotos || {};
-    const roomId = this.roomRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     const columnName = `FDFPhoto${photoType}`;
 
     // [v1.4.424] Enhanced debug - Try to fetch from database first
@@ -1066,7 +1066,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       try {
         // Get room data from database
         const rooms = await this.caspioService.getServicesRooms(this.serviceId).toPromise();
-        const room = rooms?.find((r: any) => r.RoomID === parseInt(roomId));
+        const room = rooms?.find((r: any) => r.EFEID === parseInt(roomId));
 
         if (room) {
           databasePath = room[columnName] || 'No path in database';
@@ -1226,15 +1226,15 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           role: 'destructive',
           handler: async () => {
             try {
-              const roomId = this.roomRecordIds[roomName];
+              const roomId = this.efeRecordIds[roomName];
               if (roomId) {
-                // Clear the photo column in Services_Rooms
+                // Clear the photo column in Services_EFE
                 const columnName = `FDFPhoto${photoType}`;
                 const updateData: any = {};
                 updateData[columnName] = null;
                 
-                const query = `RoomID=${roomId}`;
-                await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+                const query = `EFEID=${roomId}`;
+                await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
               }
               
               // Clear from local state
@@ -1262,7 +1262,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       // Save the elevation value to the database
       const pointKey = `${roomName}_${point.name}`;
-      const pointId = this.roomPointIds[pointKey];
+      const pointId = this.efePointIds[pointKey];
       
       if (pointId) {
         const updateData = {
@@ -1294,11 +1294,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             try {
               // Delete from database if it exists
               const pointKey = `${roomName}_${point.name}`;
-              const pointId = this.roomPointIds[pointKey];
+              const pointId = this.efePointIds[pointKey];
               
               if (pointId) {
                 await this.caspioService.deleteServicesRoomsPoint(pointId).toPromise();
-                delete this.roomPointIds[pointKey];
+                delete this.efePointIds[pointKey];
               }
               
               // Remove from local data
@@ -1352,7 +1352,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     try {
-      const roomId = this.roomRecordIds[roomName];
+      const roomId = this.efeRecordIds[roomName];
       if (!roomId) {
         await this.showToast('Please save the room first', 'warning');
         return;
@@ -1360,7 +1360,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
-      let pointId = this.roomPointIds[pointKey];
+      let pointId = this.efePointIds[pointKey];
       
       if (!pointId) {
         // Need to create point - do it quickly and silently
@@ -1369,11 +1369,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (existingPoint) {
           // Point already exists, use its PointID (NOT PK_ID!)
           pointId = existingPoint.PointID || existingPoint.PK_ID;
-          this.roomPointIds[pointKey] = pointId;
+          this.efePointIds[pointKey] = pointId;
         } else {
-          // Create new Services_Rooms_Points record
+          // Create new Services_EFE_Points record
           const pointData = {
-            RoomID: parseInt(roomId),
+            EFEID: parseInt(roomId),
             PointName: point.name
           };
           const createResponse = await this.caspioService.createServicesRoomsPoint(pointData).toPromise();
@@ -1381,7 +1381,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           // Use PointID from response, NOT PK_ID!
           if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
             pointId = createResponse.PointID || createResponse.PK_ID;
-            this.roomPointIds[pointKey] = pointId;
+            this.efePointIds[pointKey] = pointId;
           } else {
             throw new Error('Failed to create point record');
           }
@@ -1418,7 +1418,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           const pointKey = `${roomName}_${point.PointName}`;
           
           // Store the point ID for future reference
-          this.roomPointIds[pointKey] = pointId;
+          this.efePointIds[pointKey] = pointId;
           
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
@@ -1751,12 +1751,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Check if point record exists, create if not
       const pointKey = `${roomName}_${point.name}`;
-      let pointId = this.roomPointIds[pointKey];
+      let pointId = this.efePointIds[pointKey];
       
       if (!pointId) {
-        // Create Services_Rooms_Points record
+        // Create Services_EFE_Points record
         const pointData = {
-          RoomID: parseInt(roomId),
+          EFEID: parseInt(roomId),
           PointName: point.name
         };
         
@@ -1765,13 +1765,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Use PointID from response, NOT PK_ID!
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
           pointId = createResponse.PointID || createResponse.PK_ID;
-          this.roomPointIds[pointKey] = pointId;
+          this.efePointIds[pointKey] = pointId;
         } else {
           throw new Error('Failed to create point record');
         }
       }
       
-      // Upload photo to Services_Rooms_Attach
+      // Upload photo to Services_EFE_Attach
       await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name);
       
       // Update UI to show photo
@@ -1815,7 +1815,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Upload photo to Services_Rooms_Attach
+  // Upload photo to Services_EFE_Attach
   async uploadPhotoToRoomPoint(pointId: string, base64Image: string, pointName: string) {
     try {
       // Convert base64 to blob
@@ -1852,7 +1852,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('File upload failed');
       }
       
-      // Create Services_Rooms_Attach record
+      // Create Services_EFE_Attach record
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
@@ -1867,7 +1867,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Upload photo from File object to Services_Rooms_Points_Attach with annotation support
+  // Upload photo from File object to Services_EFE_Points_Attach with annotation support
   async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null) {
     try {
       const pointIdNum = parseInt(pointId, 10);
@@ -1947,7 +1947,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             
             <strong>API Call:</strong><br>
             Ã¢â‚¬Â¢ Method: createServicesRoomsPointsAttachWithFile<br>
-            Ã¢â‚¬Â¢ Table: Services_Rooms_Points_Attach<br>
+            Ã¢â‚¬Â¢ Table: Services_EFE_Points_Attach<br>
             Ã¢â‚¬Â¢ Parameters: (${pointIdNum}, "${drawingsData.substring(0, 50)}...", File)<br><br>
             
             <strong style="color: orange;">Note:</strong> We're using the SAME API method as before,<br>
@@ -2035,7 +2035,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Toggle room selection - create or remove from Services_Rooms
+  // Toggle room selection - create or remove from Services_EFE
   async toggleRoomSelection(roomName: string, event?: any) {
     // Only proceed if this is a real checkbox change event
     if (!event || !event.detail || typeof event.detail.checked === 'undefined') {
@@ -2091,7 +2091,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // If selecting, check if room already exists before creating
     if (isSelected) {
       // Check if we already have a record ID for this room
-      if (this.roomRecordIds[roomName]) {
+      if (this.efeRecordIds[roomName]) {
         this.selectedRooms[roomName] = true;
         this.expandedRooms[roomName] = false;
         return; // Room already exists, just update UI state
@@ -2100,7 +2100,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       this.savingRooms[roomName] = true;
       
       try {
-        // Create room in Services_Rooms
+        // Create room in Services_EFE
         const serviceIdNum = parseInt(this.serviceId, 10);
         
         // Validate ServiceID
@@ -2131,13 +2131,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           const response = await this.caspioService.createServicesRoom(roomData).toPromise();
           
           if (response) {
-            // Use RoomID from the response, NOT PK_ID
-            const roomId = response.RoomID || response.roomId;
+            // Use EFEID from the response, NOT PK_ID
+            const roomId = response.EFEID || response.roomId;
             if (!roomId) {
-              console.error('No RoomID in response:', response);
-              throw new Error('RoomID not found in response');
+              console.error('No EFEID in response:', response);
+              throw new Error('EFEID not found in response');
             }
-            this.roomRecordIds[roomName] = roomId;
+            this.efeRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
             this.expandedRooms[roomName] = true;
           }
@@ -2161,16 +2161,16 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Remove room from Services_Rooms
+  // Remove room from Services_EFE
   async removeRoom(roomName: string) {
     this.savingRooms[roomName] = true;
-    const roomId = this.roomRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     
     if (roomId) {
       try {
-        // Delete the room from Services_Rooms table
+        // Delete the room from Services_EFE table
         await this.caspioService.deleteServicesRoom(roomId).toPromise();
-        delete this.roomRecordIds[roomName];
+        delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
         
         // Don't delete the room elevation data structure, just reset it
@@ -2416,9 +2416,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             this.selectedRooms[`${baseName} #1`] = this.selectedRooms[oldName];
             delete this.selectedRooms[oldName];
           }
-          if (this.roomRecordIds[oldName]) {
-            this.roomRecordIds[`${baseName} #1`] = this.roomRecordIds[oldName];
-            delete this.roomRecordIds[oldName];
+          if (this.efeRecordIds[oldName]) {
+            this.efeRecordIds[`${baseName} #1`] = this.efeRecordIds[oldName];
+            delete this.efeRecordIds[oldName];
           }
           if (this.expandedRooms[oldName] !== undefined) {
             this.expandedRooms[`${baseName} #1`] = this.expandedRooms[oldName];
@@ -2469,11 +2469,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Automatically expand the elevation section to show the new room
       
-      // Automatically select the room (create Services_Rooms record)
+      // Automatically select the room (create Services_EFE record)
       this.savingRooms[roomName] = true;
       
       try {
-        // Create room in Services_Rooms
+        // Create room in Services_EFE
         const serviceIdNum = parseInt(this.serviceId, 10);
         
         // Validate ServiceID
@@ -2503,13 +2503,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const response = await this.caspioService.createServicesRoom(roomData).toPromise();
         
         if (response) {
-          // Use RoomID from the response, NOT PK_ID
-          const roomId = response.RoomID || response.roomId;
+          // Use EFEID from the response, NOT PK_ID
+          const roomId = response.EFEID || response.roomId;
           if (!roomId) {
-            console.error('No RoomID in response:', response);
-            throw new Error('RoomID not found in response');
+            console.error('No EFEID in response:', response);
+            throw new Error('EFEID not found in response');
           }
-          this.roomRecordIds[roomName] = roomId;
+          this.efeRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
           this.expandedRooms[roomName] = true;
         }
@@ -2601,11 +2601,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             this.roomElevationData[roomName].elevationPoints.push(newPoint);
             
             // Create the point in the database if room is already saved
-            const roomId = this.roomRecordIds[roomName];
+            const roomId = this.efeRecordIds[roomName];
             if (roomId) {
               try {
                 const pointData = {
-                  RoomID: parseInt(roomId),
+                  EFEID: parseInt(roomId),
                   PointName: pointName
                 };
                 
@@ -2613,7 +2613,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 if (response && (response.PointID || response.PK_ID)) {
                   const pointId = response.PointID || response.PK_ID;
                   const pointKey = `${roomName}_${pointName}`;
-                  this.roomPointIds[pointKey] = pointId;
+                  this.efePointIds[pointKey] = pointId;
                 }
               } catch (error) {
                 console.error('Error creating custom point:', error);
@@ -3137,7 +3137,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   private saveDebounceTimer: any;
   
   async onRoomNotesChange(roomName: string) {
-    const roomId = this.roomRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       // Room not saved yet, just save to draft
       if (this.saveDebounceTimer) {
@@ -3158,11 +3158,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       try {
         const notes = this.roomElevationData[roomName].notes || '';
         
-        // Update Services_Rooms record with Notes using RoomID field
+        // Update Services_EFE record with Notes using EFEID field
         const updateData = { Notes: notes };
-        const query = `RoomID=${roomId}`;
+        const query = `EFEID=${roomId}`;
         
-        await this.caspioService.put(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+        await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
         // Don't show toast for notes to avoid interrupting user typing
       } catch (error) {
         console.error('Error updating room notes:', error);
@@ -3270,7 +3270,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   async saveRoomPhotoCaption(photo: any, roomName: string, point: any) {
     try {
       
-      // Update Services_Rooms_Points_Attach record with annotation
+      // Update Services_EFE_Points_Attach record with annotation
       if (photo.attachId && photo.annotation !== undefined) {
         // Update the annotation in the database
         const updateData = { Annotation: photo.annotation || '' };
@@ -3301,7 +3301,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             cssClass: 'danger-button',
             handler: async () => {
               try {
-                // Delete from Services_Rooms_Points_Attach table if attachId exists
+                // Delete from Services_EFE_Points_Attach table if attachId exists
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesRoomsPointsAttach(photo.attachId).toPromise();
                 }
@@ -3414,7 +3414,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
       
-      // Update the Services_Rooms_Points_Attach record
+      // Update the Services_EFE_Points_Attach record
       if (Object.keys(updateData).length > 0) {
         await this.caspioService.updateServicesRoomsPointsAttach(attachId, updateData).toPromise();
       }
@@ -7685,7 +7685,7 @@ Stack: ${error?.stack}`;
     // Process all rooms in parallel
     const roomPromises = roomsToProcess.map(async (roomName) => {
       const roomData = this.roomElevationData[roomName];
-      const roomId = roomData.roomId || this.roomRecordIds[roomName];
+      const roomId = roomData.roomId || this.efeRecordIds[roomName];
       
       const roomResult: any = {
         name: roomName,
@@ -7696,12 +7696,12 @@ Stack: ${error?.stack}`;
         photos: []
       };
       
-      // Fetch FDF photos from Services_Rooms table and convert to base64
+      // Fetch FDF photos from Services_EFE table and convert to base64
       if (roomId) {
         try {
           // Get the room record to fetch FDF photo paths
-          const query = `RoomID=${roomId}`;
-          const roomResponse = await this.caspioService.get(`/tables/Services_Rooms/records?q.where=${encodeURIComponent(query)}`).toPromise();
+          const query = `EFEID=${roomId}`;
+          const roomResponse = await this.caspioService.get(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).toPromise();
           const roomRecords = (roomResponse as any)?.Result || [];
 
           if (roomRecords && roomRecords.length > 0) {
@@ -7982,7 +7982,7 @@ Stack: ${error?.stack}`;
   }
 
   async getRoomPhotos(roomId: string) {
-    // Get photos for a specific room from Services_Rooms_Points and Services_Rooms_Points_Attach
+    // Get photos for a specific room from Services_EFE_Points and Services_EFE_Points_Attach
     try {
       
       // First get all points for this room
