@@ -1340,8 +1340,33 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   editCompany(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
-    // Create a deep copy of the company to edit
-    this.editingCompany = JSON.parse(JSON.stringify(company));
+    // Create a clean copy with only database fields (exclude computed view model fields)
+    this.editingCompany = {
+      PK_ID: company.PK_ID,
+      CompanyID: company.CompanyID,
+      StageID: company.StageID,
+      StageName: company.StageName,
+      CompanyName: company.CompanyName,
+      SizeLabel: company.SizeLabel,
+      Size: company.Size,
+      ServiceArea: company.ServiceArea,
+      LeadSource: company.LeadSource,
+      Phone: company.Phone,
+      Email: company.Email,
+      Website: company.Website,
+      Address: company.Address,
+      City: company.City,
+      State: company.State,
+      Zip: company.Zip,
+      Notes: company.Notes,
+      Franchise: company.Franchise,
+      DateOnboarded: company.DateOnboarded,
+      CCEmail: company.CCEmail,
+      CC_Email: company.CC_Email,
+      SoftwareID: company.SoftwareID,
+      'Onboarding Stage': company['Onboarding Stage'],
+      Contract: company.Contract
+    };
     this.isEditModalOpen = true;
   }
 
@@ -1362,87 +1387,95 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      // Prepare payload for Caspio API - only include editable fields
+      // Build payload with only valid database fields
+      // Only include fields that should be updated
       const payload: any = {};
 
-      // Add fields only if they have values or are explicitly set
-      if (this.editingCompany.CompanyName !== undefined) {
-        payload.CompanyName = this.editingCompany.CompanyName || '';
+      // Basic company fields - send as-is (allow empty strings for clearing fields)
+      if (this.editingCompany.CompanyName !== undefined && this.editingCompany.CompanyName !== null) {
+        payload.CompanyName = this.editingCompany.CompanyName;
       }
 
       if (this.editingCompany.DateOnboarded !== undefined && this.editingCompany.DateOnboarded !== null) {
         payload.DateOnboarded = this.editingCompany.DateOnboarded;
       }
 
-      if (this.editingCompany.Size !== undefined) {
-        payload.Size = this.editingCompany.Size || '';
+      if (this.editingCompany.Size !== undefined && this.editingCompany.Size !== null) {
+        payload.Size = this.editingCompany.Size;
       }
 
-      if (this.editingCompany.Franchise !== undefined) {
-        payload.Franchise = this.editingCompany.Franchise ? true : false;
+      // IMPORTANT: Franchise must be a number (0 or 1) for Caspio boolean fields
+      if (this.editingCompany.Franchise !== undefined && this.editingCompany.Franchise !== null) {
+        payload.Franchise = (this.editingCompany.Franchise === true || this.editingCompany.Franchise === 1) ? 1 : 0;
       }
 
-      if (this.editingCompany.LeadSource !== undefined) {
-        payload.LeadSource = this.editingCompany.LeadSource || '';
+      if (this.editingCompany.LeadSource !== undefined && this.editingCompany.LeadSource !== null) {
+        payload.LeadSource = this.editingCompany.LeadSource;
       }
 
-      if (this.editingCompany.Phone !== undefined) {
-        payload.Phone = this.editingCompany.Phone || '';
+      // Contact fields
+      if (this.editingCompany.Phone !== undefined && this.editingCompany.Phone !== null) {
+        payload.Phone = this.editingCompany.Phone;
       }
 
-      if (this.editingCompany.Email !== undefined) {
-        payload.Email = this.editingCompany.Email || '';
+      if (this.editingCompany.Email !== undefined && this.editingCompany.Email !== null) {
+        payload.Email = this.editingCompany.Email;
       }
 
-      // Handle CC_Email - use whichever field name exists
-      const ccEmail = this.editingCompany.CC_Email || this.editingCompany.CCEmail;
-      if (ccEmail !== undefined) {
-        payload.CC_Email = ccEmail || '';
+      // CC_Email field
+      if (this.editingCompany.CC_Email !== undefined && this.editingCompany.CC_Email !== null) {
+        payload.CC_Email = this.editingCompany.CC_Email;
       }
 
-      if (this.editingCompany.Website !== undefined) {
-        payload.Website = this.editingCompany.Website || '';
+      if (this.editingCompany.Website !== undefined && this.editingCompany.Website !== null) {
+        payload.Website = this.editingCompany.Website;
       }
 
-      if (this.editingCompany.Address !== undefined) {
-        payload.Address = this.editingCompany.Address || '';
+      // Address fields
+      if (this.editingCompany.Address !== undefined && this.editingCompany.Address !== null) {
+        payload.Address = this.editingCompany.Address;
       }
 
-      if (this.editingCompany.City !== undefined) {
-        payload.City = this.editingCompany.City || '';
+      if (this.editingCompany.City !== undefined && this.editingCompany.City !== null) {
+        payload.City = this.editingCompany.City;
       }
 
-      if (this.editingCompany.State !== undefined) {
-        payload.State = this.editingCompany.State || '';
+      if (this.editingCompany.State !== undefined && this.editingCompany.State !== null) {
+        payload.State = this.editingCompany.State;
       }
 
-      if (this.editingCompany.Zip !== undefined) {
-        payload.Zip = this.editingCompany.Zip || '';
+      if (this.editingCompany.Zip !== undefined && this.editingCompany.Zip !== null) {
+        payload.Zip = this.editingCompany.Zip;
       }
 
-      if (this.editingCompany.ServiceArea !== undefined) {
-        payload.ServiceArea = this.editingCompany.ServiceArea || '';
+      // Additional fields
+      if (this.editingCompany.ServiceArea !== undefined && this.editingCompany.ServiceArea !== null) {
+        payload.ServiceArea = this.editingCompany.ServiceArea;
       }
 
-      if (this.editingCompany.Notes !== undefined) {
-        payload.Notes = this.editingCompany.Notes || '';
+      if (this.editingCompany.Notes !== undefined && this.editingCompany.Notes !== null) {
+        payload.Notes = this.editingCompany.Notes;
       }
 
-      if (this.editingCompany.Contract !== undefined) {
-        payload.Contract = this.editingCompany.Contract || '';
+      if (this.editingCompany.Contract !== undefined && this.editingCompany.Contract !== null) {
+        payload.Contract = this.editingCompany.Contract;
       }
 
-      if (this.editingCompany.SoftwareID !== undefined) {
-        payload.SoftwareID = this.editingCompany.SoftwareID || '';
+      if (this.editingCompany.SoftwareID !== undefined && this.editingCompany.SoftwareID !== null) {
+        payload.SoftwareID = this.editingCompany.SoftwareID;
       }
 
-      // Add Onboarding Stage if it exists
-      if (this.editingCompany['Onboarding Stage'] !== undefined) {
-        payload['Onboarding Stage'] = this.editingCompany['Onboarding Stage'] || '';
+      // CRITICAL FIX: Try field name without space - Caspio typically doesn't allow spaces in field names
+      // The actual field name is likely "OnboardingStage" not "Onboarding Stage"
+      if (this.editingCompany['Onboarding Stage'] !== undefined && this.editingCompany['Onboarding Stage'] !== null) {
+        // Try without space first (more likely to be correct)
+        payload.OnboardingStage = this.editingCompany['Onboarding Stage'];
       }
 
-      console.log('Updating company with payload:', payload);
+      console.log('=== Company Update Debug Info ===');
       console.log('Company ID:', this.editingCompany.CompanyID);
+      console.log('Payload being sent:', JSON.stringify(payload, null, 2));
+      console.log('Payload field count:', Object.keys(payload).length);
 
       // Update via Caspio API
       const response = await firstValueFrom(
@@ -1452,7 +1485,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         )
       );
 
-      console.log('Update response:', response);
+      console.log('Update successful! Response:', response);
 
       // Update local data
       const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
@@ -1471,22 +1504,34 @@ export class CompanyPage implements OnInit, OnDestroy {
       await this.showToast('Company updated successfully', 'success');
       this.closeEditModal();
     } catch (error: any) {
-      console.error('Error updating company:', error);
-      console.error('Error details:', {
-        message: error?.message,
-        status: error?.status,
-        error: error?.error,
-        full: error
-      });
+      console.error('=== Company Update Error ===');
+      console.error('Full error object:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error status:', error?.status);
+      console.error('Error statusText:', error?.statusText);
+      console.error('Error body:', error?.error);
 
+      // Try to extract Caspio-specific error messages
       let errorMessage = 'Failed to update company';
-      if (error?.error?.message) {
-        errorMessage = error.error.message;
+
+      if (error?.error) {
+        // Caspio returns errors in various formats
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        } else if (error.error.error_description) {
+          errorMessage = `Update failed: ${error.error.error_description}`;
+        }
       } else if (error?.message) {
-        errorMessage = error.message;
+        errorMessage = `Update failed: ${error.message}`;
       } else if (error?.status) {
-        errorMessage = `Failed to update company (Status: ${error.status})`;
+        errorMessage = `Update failed with status ${error.status}`;
       }
+
+      console.error('Final error message shown to user:', errorMessage);
 
       await this.showToast(errorMessage, 'danger');
     } finally {
