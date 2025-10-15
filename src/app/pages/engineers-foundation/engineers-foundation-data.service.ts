@@ -62,9 +62,16 @@ export class EngineersFoundationDataService {
 
   async getEFEByService(serviceId: string): Promise<any[]> {
     if (!serviceId) {
+      console.warn('[EFE Data] getEFEByService called with empty serviceId');
       return [];
     }
-    return firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+    console.log('[EFE Data] Loading existing rooms for ServiceID:', serviceId);
+    const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+    console.log('[EFE Data] API returned rooms:', rooms.length, 'rooms');
+    if (rooms.length > 0) {
+      console.log('[EFE Data] Sample room data:', rooms[0]);
+    }
+    return rooms;
   }
 
   async getImage(filePath: string): Promise<string> {
@@ -78,11 +85,18 @@ export class EngineersFoundationDataService {
 
   async getVisualsByService(serviceId: string): Promise<any[]> {
     if (!serviceId) {
+      console.warn('[Visual Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    return this.resolveWithCache(this.visualsCache, serviceId, () =>
+    console.log('[Visual Data] Loading existing visuals for ServiceID:', serviceId);
+    const visuals = await this.resolveWithCache(this.visualsCache, serviceId, () =>
       firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
     );
+    console.log('[Visual Data] API returned visuals:', visuals.length, 'visuals');
+    if (visuals.length > 0) {
+      console.log('[Visual Data] Sample visual data:', visuals[0]);
+    }
+    return visuals;
   }
 
   async getVisualAttachments(visualId: string | number): Promise<any[]> {

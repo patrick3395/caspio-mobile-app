@@ -791,8 +791,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
+          console.log('[EFE Load] Fetching existing rooms for ServiceID:', this.serviceId);
           const existingRooms = await this.foundationData.getEFEByService(this.serviceId);
-          
+          console.log('[EFE Load] Found existing rooms:', existingRooms.length, existingRooms);
+
           if (existingRooms && existingRooms.length > 0) {
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
@@ -818,9 +820,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
               
               if (roomName && roomId) {
+                console.log('[EFE Load] Marking room as selected:', roomName, 'EFEID:', roomId);
                 this.selectedRooms[roomName] = true;
                 this.expandedRooms[roomName] = false; // Start collapsed
                 this.efeRecordIds[roomName] = roomId;
+                console.log('[EFE Load] selectedRooms state:', JSON.stringify(this.selectedRooms));
                 
                 // Initialize room elevation data if not present
                 if (!this.roomElevationData[roomName] && template) {
@@ -3770,11 +3774,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const awaitPhotos = options?.awaitPhotos !== false;
 
     if (!this.serviceId) {
+      console.warn('[Visual Load] No serviceId provided');
       return;
     }
 
     try {
+      console.log('[Visual Load] Fetching existing visuals for ServiceID:', this.serviceId);
       const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
+      console.log('[Visual Load] Found existing visuals:', existingVisuals.length, existingVisuals);
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
@@ -3786,10 +3793,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             if (matchingTemplate) {
               const key = visual.Category + "_" + matchingTemplate.PK_ID;
+              console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visual.VisualID);
               this.selectedItems[key] = true;
 
               const visualId = visual.VisualID || visual.PK_ID || visual.id;
               this.visualRecordIds[key] = String(visualId);
+              console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
 
               const updateItemData = (items: any[]) => {
                 const item = items.find(i => i.id === matchingTemplate.PK_ID);
