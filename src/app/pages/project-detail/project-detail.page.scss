@@ -968,12 +968,69 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   --height: 100%;
   --max-width: 100%;
   --max-height: 100%;
-  
+
   .modal-wrapper {
     width: 100%;
     height: 100%;
     max-width: 100%;
     max-height: 100%;
+  }
+}
+
+// Notes section
+.notes-container {
+  position: relative;
+
+  .notes-textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 12px;
+    border: 1px solid $border;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    background: $white;
+    color: $dark;
+    transition: border-color 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: $orange;
+    }
+
+    &:disabled, &:read-only {
+      background: $light-gray;
+      color: $gray;
+      cursor: not-allowed;
+    }
+
+    &::placeholder {
+      color: #999;
+    }
+  }
+
+  .saving-indicator, .saved-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: $gray;
+
+    ion-spinner {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .saved-indicator {
+    color: #28a745;
+
+    ion-icon {
+      font-size: 18px;
+    }
   }
 }
 

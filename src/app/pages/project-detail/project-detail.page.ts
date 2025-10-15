@@ -105,7 +105,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   loadingDocuments = false;
   optionalDocumentsList: any[] = [];
   currentUploadContext: any = null;
-  
+
+  // Notes
+  savingNotes = false;
+  notesSaved = false;
+
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
   isAddingLink = false; // Flag to track if adding link vs document
@@ -1129,6 +1133,38 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       await this.showToast('Failed to update date', 'danger');
     } finally {
       service.saving = false;
+    }
+  }
+
+  async updateNotes() {
+    if (!this.project || this.isReadOnly) {
+      return;
+    }
+
+    this.savingNotes = true;
+    this.notesSaved = false;
+
+    try {
+      const projectId = this.project.PK_ID || this.project.ProjectID;
+      if (!projectId) {
+        throw new Error('Project ID not found');
+      }
+
+      await this.caspioService.updateProject(projectId.toString(), {
+        Notes: this.project.Notes || ''
+      }).toPromise();
+
+      // Show saved indicator briefly
+      this.notesSaved = true;
+      setTimeout(() => {
+        this.notesSaved = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      await this.showToast('Failed to update notes', 'danger');
+    } finally {
+      this.savingNotes = false;
     }
   }
 

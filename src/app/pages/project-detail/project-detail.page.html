@@ -283,6 +283,30 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Notes Section -->
+    <div class="info-section">
+      <h2 class="section-title">Notes</h2>
+
+      <div class="notes-container">
+        <textarea
+          class="notes-textarea"
+          [(ngModel)]="project.Notes"
+          (blur)="updateNotes()"
+          [disabled]="isReadOnly"
+          [readonly]="isReadOnly"
+          placeholder="Add notes for this project...">
+        </textarea>
+        <span *ngIf="savingNotes" class="saving-indicator">
+          <ion-spinner name="dots"></ion-spinner>
+          Saving...
+        </span>
+        <span *ngIf="notesSaved" class="saved-indicator">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          Saved
+        </span>
+      </div>
+    </div>
   </div>
 
   <!-- File upload input (hidden) -->
