@@ -366,7 +366,7 @@
       </div>
 
       <div class="add-task-button-container">
-        <ion-button expand="block" (click)="openAddTaskModal()" color="primary">
+        <ion-button size="small" (click)="openAddTaskModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
           <ion-icon name="add-circle-outline" slot="start"></ion-icon>
           Add Task
         </ion-button>
@@ -909,19 +909,22 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Add New Task</ion-title>
         <ion-buttons slot="start">
-          <ion-button (click)="closeAddTaskModal()">Cancel</ion-button>
+          <ion-button (click)="closeAddTaskModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
         </ion-buttons>
+        <ion-title>Add New Task</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="saveNewTask()" [strong]="true">Save</ion-button>
+          <ion-button (click)="saveNewTask()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content class="edit-modal-content">
       <div class="edit-form">
         <div class="form-section">
-          <h4>Task Details</h4>
           <div class="form-row">
             <div class="form-field full-width">
               <label>Company</label>
@@ -940,7 +943,12 @@
             </div>
             <div class="form-field">
               <label>Assign To</label>
-              <input type="text" [(ngModel)]="newTask.AssignTo" class="form-input" placeholder="Enter name">
+              <select [(ngModel)]="newTask.AssignTo" class="form-input">
+                <option [ngValue]="''">Select User</option>
+                <option *ngFor="let user of taskUsers" [ngValue]="user.name">
+                  {{ user.name }}
+                </option>
+              </select>
             </div>
             <div class="form-field">
               <label>Task Type</label>

@@ -324,6 +324,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     CompleteNotes: ''
   };
   communicationTypes: Array<{id: number, name: string}> = [];
+  taskUsers: Array<{name: string}> = [];
 
   constructor(
     private caspioService: CaspioService,
@@ -502,7 +503,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.selectedContact = null;
   }
 
-  openAddTaskModal() {
+  async openAddTaskModal() {
     // Reset the task with default values
     this.newTask = {
       CompanyID: this.globalCompanyFilterId,
@@ -518,6 +519,23 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.communicationTypes = Array.from(this.communicationTypeLookup.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Load users from the Users table filtered by current user's CompanyID
+    try {
+      const userRecords = await this.fetchTableRecords('Users', {
+        'q.where': `CompanyID=${this.currentUserCompanyId}`,
+        'q.orderBy': 'Name',
+        'q.limit': '500'
+      });
+
+      this.taskUsers = userRecords
+        .filter(user => user.Name && user.Name.trim().length > 0)
+        .map(user => ({ name: user.Name.trim() }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      console.error('Error loading users for task assignment:', error);
+      this.taskUsers = [];
+    }
 
     this.isAddTaskModalOpen = true;
   }
