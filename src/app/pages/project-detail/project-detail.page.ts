@@ -1170,6 +1170,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   // Document management methods
   updateDocumentsList() {
+    console.log('[UpdateDocs] Starting updateDocumentsList()');
+    console.log('[UpdateDocs] existingAttachments.length:', this.existingAttachments.length);
+    console.log('[UpdateDocs] selectedServices.length:', this.selectedServices.length);
+
     // Store ALL pending (non-uploaded) documents before rebuilding
     const pendingDocs: Map<string, DocumentItem[]> = new Map();
     for (const serviceDoc of this.serviceDocuments) {
@@ -1178,28 +1182,33 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         pendingDocs.set(serviceDoc.serviceId, pending);
       }
     }
-    
+
     this.serviceDocuments = [];
-    
+
     for (const service of this.selectedServices) {
-      
+      console.log('[UpdateDocs] Processing service:', service.typeId, service.typeName);
+
       // Get ALL templates for this service type where Auto = 'Yes'
-      const autoTemplates = this.attachTemplates.filter(t => 
-        t.TypeID === parseInt(service.typeId) && 
+      const autoTemplates = this.attachTemplates.filter(t =>
+        t.TypeID === parseInt(service.typeId) &&
         (t.Auto === 'Yes' || t.Auto === true || t.Auto === 1)
       );
-      
+
+      console.log('[UpdateDocs] autoTemplates.length:', autoTemplates.length);
+
       const documents: DocumentItem[] = [];
-      
+
       // Add documents ONLY from templates in the database where Auto = 'Yes'
       if (autoTemplates.length > 0) {
         // Use actual templates from database
         for (const template of autoTemplates) {
           // Find ALL attachments for this type and title (for multiple uploads)
-          const attachments = this.existingAttachments.filter(a => 
-            a.TypeID === parseInt(service.typeId) && 
+          const attachments = this.existingAttachments.filter(a =>
+            a.TypeID === parseInt(service.typeId) &&
             a.Title === template.Title
           );
+
+          console.log(`[UpdateDocs] Template "${template.Title}" - found ${attachments.length} attachments`);
           
           // Create the main document entry
           const docItem: DocumentItem = {
@@ -2183,15 +2192,47 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         Attachment: '' // Empty attachment field for links
       };
 
+      console.log('[Link Create] Creating attachment:', attachmentData);
+
       const response = await this.caspioService.createAttachment(attachmentData).toPromise();
 
+      console.log('[Link Create] Response from Caspio:', response);
+
       if (response && (response.PK_ID || response.AttachID)) {
-        // Reload attachments from database with cache bypass to ensure fresh data
-        // This replaces manual local array updates with fresh database data
-        await this.loadExistingAttachments(true);
+        // Optimistically add the new attachment to the local array immediately
+        // This ensures the UI updates right away without waiting for database round-trip
+        const newAttachment = {
+          AttachID: response.AttachID || response.PK_ID,
+          ProjectID: attachmentData.ProjectID,
+          TypeID: attachmentData.TypeID,
+          Title: attachmentData.Title,
+          Link: attachmentData.Link,
+          Attachment: attachmentData.Attachment
+        };
+
+        console.log('[Link Create] Adding to existingAttachments:', newAttachment);
+        console.log('[Link Create] Before add - existingAttachments length:', this.existingAttachments.length);
+
+        // Add to the array
+        this.existingAttachments.push(newAttachment);
+
+        console.log('[Link Create] After add - existingAttachments length:', this.existingAttachments.length);
+
+        // Rebuild the documents list with the new attachment
+        this.updateDocumentsList();
+
+        console.log('[Link Create] After updateDocumentsList()');
 
         // Force Angular to detect changes and update the view immediately
         this.changeDetectorRef.detectChanges();
+
+        console.log('[Link Create] After detectChanges()');
+
+        // Reload attachments in background to ensure consistency with database
+        // Don't await this - let it happen in background
+        this.loadExistingAttachments(true).then(() => {
+          console.log('[Link Create] Background reload complete');
+        });
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);

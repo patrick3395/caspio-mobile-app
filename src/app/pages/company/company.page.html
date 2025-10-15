@@ -71,7 +71,7 @@
       </button>
       <button class="tab-button" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
         <ion-icon name="chatbubbles-outline"></ion-icon>
-        <span>Touches</span>
+        <span>Communication</span>
       </button>
       <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
         <ion-icon name="receipt-outline"></ion-icon>
@@ -365,6 +365,13 @@
         </div>
       </div>
 
+      <div class="add-task-button-container">
+        <ion-button expand="block" (click)="openAddTaskModal()" color="primary">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Task
+        </ion-button>
+      </div>
+
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
         <ion-card *ngFor="let task of paginatedTasks; trackBy: trackByTask" class="task-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue">
           <ion-item lines="none" class="task-card-header">
@@ -466,10 +473,6 @@
     </div>
     <div *ngIf="selectedTab === 'communications'" class="tab-content communications-tab">
       <div class="section-header">
-        <div>
-          <h3>Touches</h3>
-          <p>Communication history across all companies</p>
-        </div>
         <ion-searchbar
           [(ngModel)]="communicationSearchTerm"
           (ionChange)="applyCommunicationFilters()"
@@ -507,7 +510,7 @@
       <ng-template #emptyCommunications>
         <div class="empty-tab-state">
           <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
-          <h3>No touches found</h3>
+          <h3>No communication found</h3>
           <p>Log calls, emails or messages to build your timeline.</p>
         </div>
       </ng-template>
@@ -894,6 +897,65 @@
             <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="editingCompany.Notes" class="form-textarea" rows="4"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddTaskModalOpen" (didDismiss)="closeAddTaskModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Add New Task</ion-title>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddTaskModal()">Cancel</ion-button>
+        </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewTask()" [strong]="true">Save</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <h4>Task Details</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="newTask.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Due Date</label>
+              <input type="date" [(ngModel)]="newTask.Due" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Assign To</label>
+              <input type="text" [(ngModel)]="newTask.AssignTo" class="form-input" placeholder="Enter name">
+            </div>
+            <div class="form-field">
+              <label>Task Type</label>
+              <select [(ngModel)]="newTask.CommunicationID" class="form-input">
+                <option [ngValue]="null">Select Type</option>
+                <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
+                  {{ type.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Assignment Details</label>
+              <textarea [(ngModel)]="newTask.Assignment" class="form-textarea" rows="4" placeholder="Describe the task..."></textarea>
             </div>
           </div>
         </div>

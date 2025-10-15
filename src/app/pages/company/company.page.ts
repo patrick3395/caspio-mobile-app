@@ -312,6 +312,19 @@ export class CompanyPage implements OnInit, OnDestroy {
   editingCompany: any = null;
   isEditModalOpen = false;
 
+  // Add task modal
+  isAddTaskModalOpen = false;
+  newTask: any = {
+    CompanyID: null,
+    CommunicationID: null,
+    Due: '',
+    Assignment: '',
+    AssignTo: '',
+    Complete: 0,
+    CompleteNotes: ''
+  };
+  communicationTypes: Array<{id: number, name: string}> = [];
+
   constructor(
     private caspioService: CaspioService,
     private loadingController: LoadingController,
@@ -487,6 +500,119 @@ export class CompanyPage implements OnInit, OnDestroy {
   closeContactModal() {
     this.isContactModalOpen = false;
     this.selectedContact = null;
+  }
+
+  openAddTaskModal() {
+    // Reset the task with default values
+    this.newTask = {
+      CompanyID: this.globalCompanyFilterId,
+      CommunicationID: null,
+      Due: '',
+      Assignment: '',
+      AssignTo: '',
+      Complete: 0,
+      CompleteNotes: ''
+    };
+
+    // Populate communication types from the lookup
+    this.communicationTypes = Array.from(this.communicationTypeLookup.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    this.isAddTaskModalOpen = true;
+  }
+
+  closeAddTaskModal() {
+    this.isAddTaskModalOpen = false;
+  }
+
+  async saveNewTask() {
+    if (!this.newTask) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.newTask.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.newTask.Assignment || this.newTask.Assignment.trim() === '') {
+      await this.showToast('Please enter task details', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating task...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Build payload for task creation
+      const payload: any = {
+        CompanyID: this.newTask.CompanyID,
+        Assignment: this.newTask.Assignment.trim(),
+        Complete: 0,
+        CompleteNotes: this.newTask.CompleteNotes || ''
+      };
+
+      // Add optional fields if provided
+      if (this.newTask.Due) {
+        payload.Due = new Date(this.newTask.Due).toISOString();
+      }
+
+      if (this.newTask.AssignTo) {
+        payload.AssignTo = this.newTask.AssignTo.trim();
+      }
+
+      if (this.newTask.CommunicationID) {
+        payload.CommunicationID = this.newTask.CommunicationID;
+      }
+
+      console.log('Creating task with payload:', payload);
+
+      // Create the task via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Tasks/records', payload)
+      );
+
+      console.log('Task created successfully:', response);
+
+      // Reload tasks data to include the new task
+      const taskRecords = await this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' });
+      this.tasks = taskRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTaskRecord(record));
+      this.taskAssignees = this.extractUniqueValues(this.tasks.map(task => task.assignTo).filter(Boolean));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyTaskFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Task created successfully', 'success');
+      this.closeAddTaskModal();
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      let errorMessage = 'Failed to create task';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   setStageFilter(stageId: number) {
