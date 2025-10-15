@@ -504,7 +504,8 @@ export class CaspioService {
   // Services EFE methods
   getServicesEFE(serviceId: string): Observable<any[]> {
     const query = `ServiceID=${serviceId}`;
-    return this.get<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
+    // Add limit parameter to ensure we get all records (Caspio default might be limited)
+    return this.get<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}&q.limit=1000`).pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Services EFE error:', error);
@@ -899,7 +900,8 @@ export class CaspioService {
   }
   
   getServicesVisualsByServiceId(serviceId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Services_Visuals/records?q.where=ServiceID=${serviceId}`).pipe(
+    // Add limit parameter to ensure we get all records (Caspio default might be limited)
+    return this.get<any>(`/tables/Services_Visuals/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
       map(response => response.Result || [])
     );
   }
