@@ -1,7 +1,7 @@
 
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar">
-    <ion-title>{{ isCompanyOne ? 'CRM' : 'Company' }}</ion-title>
+    <ion-title>{{ isCompanyOne ? 'Noble Client Management' : 'Company' }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -36,6 +36,10 @@
       <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
         <ion-icon name="receipt-outline"></ion-icon>
         <span>Invoices</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
+        <ion-icon name="analytics-outline"></ion-icon>
+        <span>Metrics</span>
       </button>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
@@ -393,6 +397,20 @@
           <p>Log calls, emails or messages to build your timeline.</p>
         </div>
       </ng-template>
+    </div>
+    <div *ngIf="selectedTab === 'metrics'" class="tab-content metrics-tab">
+      <div class="section-header">
+        <div>
+          <h3>Metrics</h3>
+          <p>Business metrics and analytics</p>
+        </div>
+      </div>
+
+      <div class="empty-tab-state">
+        <ion-icon name="analytics-outline"></ion-icon>
+        <h3>Metrics Dashboard Coming Soon</h3>
+        <p>Key performance indicators and analytics will be displayed here.</p>
+      </div>
     </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
       <div class="invoice-filters">

@@ -2124,6 +2124,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           this.serviceDocuments = [...this.serviceDocuments];
         }
 
+        // Rebuild documents list to reflect changes immediately
+        this.updateDocumentsList();
+
+        // Invalidate cache to ensure fresh data on reload
+        ProjectDetailPage.detailStateCache.delete(this.projectId);
+
+        // Update cache with latest state
+        this.cacheCurrentState();
+
         // Trigger change detection to update the view immediately
         this.changeDetectorRef.detectChanges();
 
@@ -2180,6 +2189,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           Attachment: '',
           isLink: true
         });
+
+        // Rebuild documents list to reflect changes immediately
+        this.updateDocumentsList();
+
+        // Invalidate cache to ensure fresh data on reload
+        ProjectDetailPage.detailStateCache.delete(this.projectId);
+
+        // Update cache with latest state
+        this.cacheCurrentState();
 
         // Trigger change detection to update the view immediately
         this.changeDetectorRef.detectChanges();

@@ -4,15 +4,17 @@
   color: var(--ion-color-dark);
 }
 
-// Remove scroll limitations
+// Remove scroll limitations and ensure full scrolling
 ion-content {
-  --overflow: scroll;
+  --overflow: auto;
+  --offset-bottom: 0;
 
   ::ng-deep {
     .inner-scroll {
       height: auto !important;
       min-height: 100% !important;
       max-height: none !important;
+      overflow-y: auto !important;
     }
   }
 }
@@ -41,6 +43,7 @@ ion-content {
   flex-direction: column;
   gap: 24px;
   padding: 16px;
+  padding-bottom: 80px; // Extra padding at bottom for full scrolling
   min-height: 100vh;
   height: auto;
 }

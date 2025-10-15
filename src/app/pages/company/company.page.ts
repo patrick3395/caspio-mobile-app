@@ -193,7 +193,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyId: number | null = null;
   organizationUsers: any[] = [];
 
-  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' = 'companies';
+  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' = 'companies';
 
   isLoading = false;
   isInitialLoad = true;
@@ -508,7 +508,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     tasks: false,
     meetings: false,
     communications: false,
-    invoices: false
+    invoices: false,
+    metrics: false
   };
 
   private loadTabData(tab: string) {
@@ -529,6 +530,9 @@ export class CompanyPage implements OnInit, OnDestroy {
           break;
         case 'invoices':
           this.categorizeInvoices();
+          break;
+        case 'metrics':
+          // Metrics tab - placeholder for future implementation
           break;
       }
     });

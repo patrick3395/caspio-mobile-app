@@ -698,3 +698,27 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - **Aligned Inspection Date**: Changed from center to right-aligned for better visual alignment
 - **Fixed Red Colors**: Changed all red/danger colors (trash icons, borders) to orange theme
 - **Retitled Table**: Changed "Selected Services & Inspection Dates" to simply "Selected Services"
+
+## 26. Support Documents Link Persistence Fix (v1.4.584 - January 2025):
+- **Issues Fixed**:
+  1. Links not displaying immediately after add/edit operations
+  2. Links not persisting after page reload (even though saved to database)
+- **Root Causes Identified**:
+  - **Immediate Display Issue**: After adding or editing links, `updateDocumentsList()` was never called to rebuild the UI
+  - **Reload Issue**: Page used 5-minute cache that contained OLD state from before link changes
+  - Cache only updated on page destroy (`ngOnDestroy()`), not after link operations
+- **Fixes Applied in `/mnt/c/Users/Owner/Caspio/src/app/pages/project-detail/project-detail.page.ts`**:
+  - **In `updateDocumentLink()` method (~line 2127)**:
+    - Added `this.updateDocumentsList()` to rebuild serviceDocuments array
+    - Added `ProjectDetailPage.detailStateCache.delete(this.projectId)` to invalidate stale cache
+    - Added `this.cacheCurrentState()` to save updated state for quick restoration
+  - **In `createDocumentLink()` method (~line 2193)**:
+    - Added `this.updateDocumentsList()` to rebuild serviceDocuments array
+    - Added `ProjectDetailPage.detailStateCache.delete(this.projectId)` to invalidate stale cache
+    - Added `this.cacheCurrentState()` to save updated state for quick restoration
+- **Pattern Consistency**: This mirrors the successful approach already used for file uploads and deletions
+- **Results**:
+  - ✅ Links display immediately after add/edit (no reload needed)
+  - ✅ Links persist correctly after page reload
+  - ✅ Cache stays synchronized with database state
+  - ✅ All link changes reflected in real-time
