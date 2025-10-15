@@ -2080,8 +2080,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
                 // Create new link in database
                 await this.createDocumentLink(serviceId, doc, data.linkUrl.trim());
               }
+              // Manually dismiss after operations complete
+              await alert.dismiss();
+              return false; // Prevent auto-dismissal
             }
-            return true;
+            return false; // Don't dismiss if URL is empty
           }
         }
       ]
@@ -2209,15 +2212,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     if (!this.selectedServiceDoc || !documentName || !documentName.trim()) return;
 
     // Add custom document to the service's document list
-    this.selectedServiceDoc.documents.push({
+    // If in link mode, mark as link document
+    const newDoc: any = {
       title: documentName.trim(),
       required: false,
       uploaded: false,
       templateId: undefined  // No template for custom documents
-    });
+    };
+
+    // If adding via Add Link button, mark as link
+    if (this.isAddingLink) {
+      newDoc.isLink = true;
+    }
+
+    this.selectedServiceDoc.documents.push(newDoc);
 
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
+    this.isAddingLink = false; // Reset link mode flag
   }
 
   async removeOptionalDocument(serviceId: string, doc: DocumentItem) {
@@ -2233,6 +2245,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   closeOptionalDocsModal() {
     this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
+    this.isAddingLink = false; // Reset link mode flag
   }
 
   handleTemplateClick(service: ServiceSelection, event?: Event): void {
