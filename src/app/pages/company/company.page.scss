@@ -1848,6 +1848,16 @@ ion-modal {
   }
 }
 
+// Ensure date inputs match the height of select dropdowns
+.form-input[type="date"],
+.form-input[type="text"],
+.form-input select,
+select.form-input {
+  height: 42px;
+  min-height: 42px;
+  line-height: 1.5;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 80px;

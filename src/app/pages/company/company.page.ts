@@ -561,8 +561,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.newTask.Assignment || this.newTask.Assignment.trim() === '') {
-      await this.showToast('Please enter task details', 'warning');
+    if (!this.newTask.Due) {
+      await this.showToast('Please select a due date', 'warning');
       return;
     }
 
@@ -576,14 +576,14 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Build payload for task creation
       const payload: any = {
         CompanyID: this.newTask.CompanyID,
-        Assignment: this.newTask.Assignment.trim(),
+        Due: new Date(this.newTask.Due).toISOString(),
         Complete: 0,
         CompleteNotes: this.newTask.CompleteNotes || ''
       };
 
       // Add optional fields if provided
-      if (this.newTask.Due) {
-        payload.Due = new Date(this.newTask.Due).toISOString();
+      if (this.newTask.Assignment && this.newTask.Assignment.trim() !== '') {
+        payload.Assignment = this.newTask.Assignment.trim();
       }
 
       if (this.newTask.AssignTo) {
@@ -699,8 +699,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.editingTask.Assignment || this.editingTask.Assignment.trim() === '') {
-      await this.showToast('Please enter task details', 'warning');
+    if (!this.editingTask.Due) {
+      await this.showToast('Please select a due date', 'warning');
       return;
     }
 
@@ -714,14 +714,14 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Build payload for task update
       const payload: any = {
         CompanyID: this.editingTask.CompanyID,
-        Assignment: this.editingTask.Assignment.trim(),
+        Due: new Date(this.editingTask.Due).toISOString(),
         Complete: this.editingTask.Complete ? 1 : 0,
         CompleteNotes: this.editingTask.CompleteNotes || ''
       };
 
       // Add optional fields if provided
-      if (this.editingTask.Due) {
-        payload.Due = new Date(this.editingTask.Due).toISOString();
+      if (this.editingTask.Assignment && this.editingTask.Assignment.trim() !== '') {
+        payload.Assignment = this.editingTask.Assignment.trim();
       }
 
       if (this.editingTask.AssignTo) {
@@ -1192,10 +1192,31 @@ export class CompanyPage implements OnInit, OnDestroy {
     task.isOverdue = !completed && task.dueDate ? this.isDateInPast(task.dueDate) : false;
 
     try {
+      // Build payload with required fields
       const payload: any = {
+        CompanyID: task.CompanyID,
+        Due: task.dueDate ? new Date(task.dueDate).toISOString() : new Date().toISOString(),
         Complete: completed ? 1 : 0,
         CompleteDate: completed ? new Date().toISOString() : null
       };
+
+      // Add optional fields if they exist
+      if (task.assignment) {
+        payload.Assignment = task.assignment;
+      }
+
+      if (task.assignTo) {
+        payload.AssignTo = task.assignTo;
+      }
+
+      if (task.CommunicationID) {
+        payload.CommunicationID = task.CommunicationID;
+      }
+
+      if (task.notes) {
+        payload.CompleteNotes = task.notes;
+      }
+
       await firstValueFrom(
         this.caspioService.put(
           '/tables/Tasks/records?q.where=TaskID=' + task.TaskID,
