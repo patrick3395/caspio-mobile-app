@@ -1373,12 +1373,18 @@ select[name="StructuralSystemsStatus"] {
                 // Multi-select container styling
                 .multi-select-container {
                   margin-bottom: 10px;
-                  
+                  padding: 12px;
+                  background: white;
+                  border-radius: 8px;
+
                   .multi-select-options {
                     padding-left: 16px;
+                    padding-right: 12px;
                     background: #f9f9f9;
                     border-left: 3px solid #e0e0e0;
                     margin-top: 8px;
+                    margin-right: 0;
+                    border-radius: 4px;
                     
                     .option-item {
                       --background: transparent;
