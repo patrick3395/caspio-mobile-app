@@ -1446,17 +1446,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           message: 'Replacing file...'
         });
         await loading.present();
+
+        // uploadFileToCaspio calls replaceAttachmentFile which updates both Attachment and Link fields
         await this.uploadFileToCaspio(doc.attachId, file);
-        
-        // Update Link field with new filename
-        await this.caspioService.updateAttachment(doc.attachId, {
-          Link: file.name
-        }).toPromise();
-        
-        // Update the attachment in our local list immediately
+
+        // Update the attachment in our local list immediately with new file info
         const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
         if (existingAttach) {
           existingAttach.Link = file.name;
+          existingAttach.Attachment = `/${file.name}`; // Update file path too
         }
         // Update documents list immediately
         this.updateDocumentsList();

@@ -3542,6 +3542,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async addCustomPoint(roomName: string) {
     const alert = await this.alertController.create({
+      cssClass: 'custom-document-alert',
       header: 'Add Measurement',
       inputs: [
         {
