@@ -584,6 +584,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   async loadExistingAttachments(bypassCache: boolean = false) {
     this.loadingDocuments = true;
     try {
+      // CRITICAL: Clear localStorage cache when bypassing cache to ensure fresh data
+      if (bypassCache) {
+        this.caspioService.clearAttachmentsCache();
+      }
+
       // Use actual ProjectID from project data for querying attachments
       const projectId = this.project?.ProjectID || this.projectId;
       // Pass !bypassCache as useCache parameter (true=useCache, false=bypass cache)

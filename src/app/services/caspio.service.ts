@@ -2371,4 +2371,13 @@ export class CaspioService {
     this.cache.clearByPattern('Services_EFE_Points');
     this.cache.clearByPattern('Services_Visuals_Attach');
   }
+
+  /**
+   * Clear cached data for Attach table (Support Documents)
+   * Call this when adding/updating/deleting attachments to force fresh data from Caspio
+   */
+  public clearAttachmentsCache(): void {
+    console.log('[CaspioService] Clearing Attachments cache entries');
+    this.cache.clearByPattern('Attach/records');
+  }
 }
