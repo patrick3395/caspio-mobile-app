@@ -678,11 +678,43 @@ ion-content {
       margin-bottom: 8px;
     }
   }
+
+  .styled-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #212529;
+    background: #ffffff;
+    height: 42px;
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: #f15a27;
+      box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+    }
+  }
 }
 
 .tasks-filters ion-searchbar {
   --background: #fff;
-  border-radius: 12px;
+  --border-radius: 8px;
+  --box-shadow: none;
+  --height: 42px;
+  min-height: 42px;
+  height: 42px;
+
+  .searchbar-input {
+    height: 42px !important;
+    padding-inline-start: 12px !important;
+    padding-inline-end: 12px !important;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
 }
 
 .add-task-button-container {

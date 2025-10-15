@@ -1036,7 +1036,7 @@
           </div>
           <div class="form-row">
             <div class="form-field full-width">
-              <button class="delete-task-btn" (click)="deleteTask(editingTaskOriginal, $event)">
+              <button class="delete-task-btn" (click)="editingTaskOriginal && deleteTask(editingTaskOriginal, $event)">
                 <ion-icon name="trash-outline"></ion-icon>
                 Delete Task
               </button>
