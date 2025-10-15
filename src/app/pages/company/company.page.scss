@@ -944,7 +944,7 @@ ion-content {
 .rollup-metrics {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -972,6 +972,47 @@ ion-content {
     ion-icon {
       color: #f39c12;
     }
+  }
+}
+
+.filter-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f8f9fa;
+    border-color: #f15a27;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(241, 90, 39, 0.15);
+  }
+
+  &.active {
+    background: #f15a27;
+    border-color: #f15a27;
+    box-shadow: 0 2px 8px rgba(241, 90, 39, 0.25);
+
+    ion-icon {
+      color: #ffffff;
+    }
+
+    &:hover {
+      background: #e54e1c;
+      border-color: #e54e1c;
+    }
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: #495057;
+    transition: color 0.2s ease;
   }
 }
 
@@ -1017,9 +1058,18 @@ ion-content {
 
 .detail-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 24px;
+  margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 769px) and (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .company-detail-header {
@@ -1037,22 +1087,28 @@ ion-content {
 
 .detail-col {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 
   label {
     display: block;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     color: #6c757d;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 2px;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    margin-bottom: 0;
   }
 
   p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     color: #212529;
     font-weight: 500;
+    line-height: 1.5;
     word-break: break-word;
+    min-height: 1.35rem;
 
     &.wrap-text {
       word-wrap: break-word;
@@ -1599,6 +1655,97 @@ ion-content {
   font-size: 0.875rem;
   font-weight: 600;
   color: #495057;
+}
+
+// Edit Modal Styling
+.edit-modal-content {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 20px;
+  --padding-bottom: 40px;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.form-section {
+  h4 {
+    margin: 0 0 16px 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #212529;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f15a27;
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 769px) and (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+
+  label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  ion-toggle {
+    width: fit-content;
+  }
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #212529;
+  background: #ffffff;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #f15a27;
+    box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+  }
+
+  &::placeholder {
+    color: #adb5bd;
+  }
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {

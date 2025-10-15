@@ -308,6 +308,10 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   selectedContact: ContactRecord | null = null;
   isContactModalOpen = false;
+
+  editingCompany: any = null;
+  isEditModalOpen = false;
+
   constructor(
     private caspioService: CaspioService,
     private loadingController: LoadingController,
@@ -1318,16 +1322,98 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  applyCompanyFilter(company: CompanyViewModel, event: Event): void {
+    event.stopPropagation();
+
+    // If this company is already filtered, clear the filter
+    if (this.globalCompanyFilterId === company.CompanyID) {
+      this.clearGlobalCompanyFilter();
+    } else {
+      // Apply filter to this company
+      this.selectGlobalCompany(company.CompanyID, company.CompanyName);
+    }
+  }
+
   viewCompanyDetails(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
   }
 
   editCompany(company: CompanyViewModel, event: Event): void {
     event.stopPropagation();
+    // Create a deep copy of the company to edit
+    this.editingCompany = JSON.parse(JSON.stringify(company));
+    this.isEditModalOpen = true;
   }
 
-  addTask(company: CompanyViewModel, event: Event): void {
-    event.stopPropagation();
+  closeEditModal(): void {
+    this.isEditModalOpen = false;
+    this.editingCompany = null;
+  }
+
+  async saveCompanyChanges(): Promise<void> {
+    if (!this.editingCompany) {
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Saving changes...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Prepare payload for Caspio API
+      const payload: any = {
+        CompanyName: this.editingCompany.CompanyName,
+        DateOnboarded: this.editingCompany.DateOnboarded,
+        Size: this.editingCompany.Size,
+        Franchise: this.editingCompany.Franchise ? 1 : 0,
+        LeadSource: this.editingCompany.LeadSource,
+        Phone: this.editingCompany.Phone,
+        Email: this.editingCompany.Email,
+        CC_Email: this.editingCompany.CC_Email || this.editingCompany.CCEmail,
+        Website: this.editingCompany.Website,
+        Address: this.editingCompany.Address,
+        City: this.editingCompany.City,
+        State: this.editingCompany.State,
+        Zip: this.editingCompany.Zip,
+        ServiceArea: this.editingCompany.ServiceArea,
+        Notes: this.editingCompany.Notes,
+        Contract: this.editingCompany.Contract,
+        SoftwareID: this.editingCompany.SoftwareID
+      };
+
+      // Add Onboarding Stage if it exists
+      if (this.editingCompany['Onboarding Stage'] !== undefined) {
+        payload['Onboarding Stage'] = this.editingCompany['Onboarding Stage'];
+      }
+
+      // Update via Caspio API
+      await firstValueFrom(
+        this.caspioService.put(
+          `/tables/Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
+          payload
+        )
+      );
+
+      // Update local data
+      const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
+      if (index !== -1) {
+        this.companies[index] = { ...this.companies[index], ...this.editingCompany };
+      }
+
+      // Refresh filters and views
+      this.applyCompanyFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Company updated successfully', 'success');
+      this.closeEditModal();
+    } catch (error: any) {
+      console.error('Error updating company:', error);
+      await this.showToast(error?.message ?? 'Failed to update company', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   trackByStage = (_: number, group: StageGroup) => group.stage.id;

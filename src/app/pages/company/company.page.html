@@ -117,6 +117,13 @@
                   <p class="company-location">{{ buildCompanyAddress(company) || 'No address' }}</p>
                 </div>
                 <div class="rollup-metrics">
+                  <button
+                    class="filter-toggle-btn"
+                    (click)="applyCompanyFilter(company, $event)"
+                    [class.active]="globalCompanyFilterId === company.CompanyID"
+                    title="Filter all data to this company">
+                    <ion-icon name="funnel-outline"></ion-icon>
+                  </button>
                   <button class="expand-toggle" (click)="toggleCompanyExpand(company, $event)">
                     <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
                   </button>
@@ -148,15 +155,11 @@
                     <p>{{ company.Franchise ? 'Yes' : 'No' }}</p>
                   </div>
                   <div class="detail-col">
-                    <label>Service Area(s)</label>
-                    <p>{{ company.ServiceArea || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col">
                     <label>Lead Source</label>
                     <p>{{ company.LeadSource || 'Not provided' }}</p>
                   </div>
+                </div>
+                <div class="detail-row">
                   <div class="detail-col">
                     <label>Company Phone</label>
                     <p>{{ formatPhone(company.Phone) || 'Not provided' }}</p>
@@ -165,18 +168,16 @@
                     <label>Company Email</label>
                     <p class="wrap-text">{{ company.Email || 'Not provided' }}</p>
                   </div>
-                </div>
-                <div class="detail-row">
                   <div class="detail-col">
                     <label>CC Email</label>
                     <p class="wrap-text">{{ company.CC_Email || 'Not provided' }}</p>
                   </div>
+                </div>
+                <div class="detail-row">
                   <div class="detail-col">
                     <label>Website</label>
                     <p class="wrap-text">{{ company.Website || 'Not provided' }}</p>
                   </div>
-                </div>
-                <div class="detail-row">
                   <div class="detail-col">
                     <label>Address</label>
                     <p>{{ company.Address || 'Not provided' }}</p>
@@ -185,6 +186,8 @@
                     <label>City</label>
                     <p>{{ company.City || 'Not provided' }}</p>
                   </div>
+                </div>
+                <div class="detail-row">
                   <div class="detail-col">
                     <label>State</label>
                     <p>{{ company.State || 'Not provided' }}</p>
@@ -193,6 +196,16 @@
                     <label>Zip</label>
                     <p>{{ company.Zip || 'Not provided' }}</p>
                   </div>
+                  <div class="detail-col">
+                    <label>Contract Document</label>
+                    <p>{{ company.Contract || 'Not provided' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col" style="grid-column: 1 / -1;">
+                    <label>Service Area(s)</label>
+                    <p class="wrap-text">{{ company.ServiceArea || 'Not provided' }}</p>
+                  </div>
                 </div>
                 <div class="detail-row">
                   <div class="detail-col" style="grid-column: 1 / -1;">
@@ -200,20 +213,10 @@
                     <p class="wrap-text">{{ company.Notes || 'No notes' }}</p>
                   </div>
                 </div>
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>Contract Document</label>
-                    <p>{{ company.Contract || 'Not provided' }}</p>
-                  </div>
-                </div>
                 <div class="rollup-actions">
                   <button class="action-btn" (click)="editCompany(company, $event)">
                     <ion-icon name="create-outline"></ion-icon>
-                    <span>Edit</span>
-                  </button>
-                  <button class="action-btn" (click)="addTask(company, $event)">
-                    <ion-icon name="add-circle-outline"></ion-icon>
-                    <span>Add Task</span>
+                    <span>Edit Company</span>
                   </button>
                 </div>
               </div>
@@ -743,6 +746,133 @@
           <div>
             <strong>Notes</strong>
             <p>{{ selectedContact.Notes || 'No notes recorded.' }}</p>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditModalOpen" (didDismiss)="closeEditModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Edit Company</ion-title>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditModal()">Cancel</ion-button>
+        </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveCompanyChanges()" [strong]="true">Save</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingCompany">
+      <div class="edit-form">
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Company Name</label>
+              <input type="text" [(ngModel)]="editingCompany.CompanyName" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Onboarding Date</label>
+              <input type="date" [(ngModel)]="editingCompany.DateOnboarded" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Onboarding Stage</label>
+              <input type="text" [(ngModel)]="editingCompany['Onboarding Stage']" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Software</label>
+              <input type="text" [(ngModel)]="editingCompany.SoftwareID" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Size</label>
+              <input type="text" [(ngModel)]="editingCompany.Size" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Franchise</label>
+              <ion-toggle [(ngModel)]="editingCompany.Franchise"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Lead Source</label>
+              <input type="text" [(ngModel)]="editingCompany.LeadSource" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Contact Information</h4>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Company Phone</label>
+              <input type="tel" [(ngModel)]="editingCompany.Phone" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Company Email</label>
+              <input type="email" [(ngModel)]="editingCompany.Email" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>CC Email</label>
+              <input type="email" [(ngModel)]="editingCompany.CC_Email" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Website</label>
+              <input type="text" [(ngModel)]="editingCompany.Website" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Address</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Address</label>
+              <input type="text" [(ngModel)]="editingCompany.Address" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>City</label>
+              <input type="text" [(ngModel)]="editingCompany.City" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>State</label>
+              <input type="text" [(ngModel)]="editingCompany.State" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Zip</label>
+              <input type="text" [(ngModel)]="editingCompany.Zip" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Additional Details</h4>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Service Area(s)</label>
+              <textarea [(ngModel)]="editingCompany.ServiceArea" class="form-textarea" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Contract Document</label>
+              <input type="text" [(ngModel)]="editingCompany.Contract" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="editingCompany.Notes" class="form-textarea" rows="4"></textarea>
+            </div>
           </div>
         </div>
       </div>
