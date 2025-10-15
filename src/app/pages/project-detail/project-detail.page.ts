@@ -2105,36 +2105,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           Link: newUrl
         }).toPromise();
 
-        // Update local state
-        const docIndex = serviceDoc.documents.findIndex(d => d === doc);
-        if (docIndex !== -1) {
-          serviceDoc.documents[docIndex].linkName = newUrl;
-          serviceDoc.documents[docIndex].filename = newUrl;
-
-          // Create new array reference to trigger Angular change detection
-          serviceDoc.documents = [...serviceDoc.documents];
-
-          // Update existingAttachments
-          const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
-          if (existingAttach) {
-            existingAttach.Link = newUrl;
-          }
-
-          // Create new reference for parent array to ensure change detection
-          this.serviceDocuments = [...this.serviceDocuments];
-        }
-
-        // Rebuild documents list to reflect changes immediately
-        this.updateDocumentsList();
+        // Reload attachments from database to ensure we show exactly what's in the table
+        // This replaces manual local array updates with fresh database data
+        await this.loadExistingAttachments();
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
 
         // Update cache with latest state
         this.cacheCurrentState();
-
-        // Trigger change detection to update the view immediately
-        this.changeDetectorRef.detectChanges();
 
         this.showToast('Link updated successfully', 'success');
       } catch (error) {
@@ -2162,45 +2141,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       const response = await this.caspioService.createAttachment(attachmentData).toPromise();
 
       if (response && (response.PK_ID || response.AttachID)) {
-        const attachId = response.PK_ID || response.AttachID;
-
-        // Update the document in the list
-        const docIndex = serviceDoc.documents.findIndex(d => d === doc);
-        if (docIndex !== -1) {
-          serviceDoc.documents[docIndex].attachId = attachId;
-          serviceDoc.documents[docIndex].uploaded = true;
-          serviceDoc.documents[docIndex].linkName = url;
-          serviceDoc.documents[docIndex].filename = url;
-
-          // Create new array reference to trigger Angular change detection
-          serviceDoc.documents = [...serviceDoc.documents];
-
-          // Create new reference for parent array to ensure change detection
-          this.serviceDocuments = [...this.serviceDocuments];
-        }
-
-        // Add to existing attachments for persistence
-        this.existingAttachments.push({
-          AttachID: attachId,
-          ProjectID: attachmentData.ProjectID,
-          TypeID: attachmentData.TypeID,
-          Title: doc.title,
-          Link: url,
-          Attachment: '',
-          isLink: true
-        });
-
-        // Rebuild documents list to reflect changes immediately
-        this.updateDocumentsList();
+        // Reload attachments from database to ensure we show exactly what's in the table
+        // This replaces manual local array updates with fresh database data
+        await this.loadExistingAttachments();
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
 
         // Update cache with latest state
         this.cacheCurrentState();
-
-        // Trigger change detection to update the view immediately
-        this.changeDetectorRef.detectChanges();
 
         this.showToast('Link added successfully', 'success');
       }

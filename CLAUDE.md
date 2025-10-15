@@ -699,26 +699,58 @@ A user describing a bug for the third time isn't thinking "this AI is trying har
 - **Fixed Red Colors**: Changed all red/danger colors (trash icons, borders) to orange theme
 - **Retitled Table**: Changed "Selected Services & Inspection Dates" to simply "Selected Services"
 
-## 26. Support Documents Link Persistence Fix (v1.4.584 - January 2025):
+## 26. Support Documents Link Persistence Fix (v1.4.584-585 - January 2025):
+
+### Initial Attempt (v1.4.584) - INCOMPLETE:
+- Attempted to fix by calling `updateDocumentsList()` and cache invalidation
+- Problem: Still relied on manually-updated local arrays instead of database data
+- Result: Links still not showing immediately because local state wasn't guaranteed to match database
+
+### Proper Fix (v1.4.585) - WORKING:
 - **Issues Fixed**:
   1. Links not displaying immediately after add/edit operations
   2. Links not persisting after page reload (even though saved to database)
-- **Root Causes Identified**:
-  - **Immediate Display Issue**: After adding or editing links, `updateDocumentsList()` was never called to rebuild the UI
-  - **Reload Issue**: Page used 5-minute cache that contained OLD state from before link changes
-  - Cache only updated on page destroy (`ngOnDestroy()`), not after link operations
-- **Fixes Applied in `/mnt/c/Users/Owner/Caspio/src/app/pages/project-detail/project-detail.page.ts`**:
-  - **In `updateDocumentLink()` method (~line 2127)**:
-    - Added `this.updateDocumentsList()` to rebuild serviceDocuments array
-    - Added `ProjectDetailPage.detailStateCache.delete(this.projectId)` to invalidate stale cache
-    - Added `this.cacheCurrentState()` to save updated state for quick restoration
-  - **In `createDocumentLink()` method (~line 2193)**:
-    - Added `this.updateDocumentsList()` to rebuild serviceDocuments array
-    - Added `ProjectDetailPage.detailStateCache.delete(this.projectId)` to invalidate stale cache
-    - Added `this.cacheCurrentState()` to save updated state for quick restoration
-- **Pattern Consistency**: This mirrors the successful approach already used for file uploads and deletions
+  3. UI showing stale cached data instead of actual database content
+
+- **Root Cause**:
+  - Methods were manually updating local arrays (`existingAttachments`, `serviceDocuments`)
+  - Manual updates could get out of sync with database
+  - No guarantee that UI reflected actual database state
+  - User needed "complete app reload" to see database changes
+
+- **Solution - Reload from Database**:
+  - Replaced ALL manual local array updates with `await this.loadExistingAttachments()`
+  - This method fetches fresh data directly from database via `getAttachmentsByProject()`
+  - Automatically calls `updateDocumentsList()` to rebuild UI from fresh data
+  - Guarantees UI shows exactly what's in the database table
+
+- **Changes in `/mnt/c/Users/Owner/Caspio/src/app/pages/project-detail/project-detail.page.ts`**:
+
+  **In `updateDocumentLink()` method (~line 2096)**:
+  ```typescript
+  // Before: Manual local array updates
+  // After: Fresh database reload
+  await this.loadExistingAttachments();
+  ProjectDetailPage.detailStateCache.delete(this.projectId);
+  this.cacheCurrentState();
+  ```
+
+  **In `createDocumentLink()` method (~line 2126)**:
+  ```typescript
+  // Before: Manual local array updates
+  // After: Fresh database reload
+  await this.loadExistingAttachments();
+  ProjectDetailPage.detailStateCache.delete(this.projectId);
+  this.cacheCurrentState();
+  ```
+
+- **Key Principle**:
+  - **Database is source of truth** - always reload from database after mutations
+  - Never trust manually-updated local state to stay in sync
+  - Brief loading spinner acceptable for data integrity guarantee
+
 - **Results**:
-  - ✅ Links display immediately after add/edit (no reload needed)
+  - ✅ Links display immediately after add/edit with exact database content
   - ✅ Links persist correctly after page reload
-  - ✅ Cache stays synchronized with database state
-  - ✅ All link changes reflected in real-time
+  - ✅ UI guaranteed to show database state, not cached/local state
+  - ✅ No more "reload app to see changes" needed

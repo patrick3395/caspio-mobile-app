@@ -12,6 +12,46 @@
 
   <!-- CRM View for Company ID 1 -->
   <div *ngIf="isCompanyOne" class="page-shell">
+    <!-- Global Company Filter -->
+    <div class="global-company-filter">
+      <div class="filter-header">
+        <h3>Filter by Company</h3>
+        <button *ngIf="globalCompanyFilterId" (click)="clearGlobalCompanyFilter()" class="clear-filter-btn">
+          <ion-icon name="close-circle"></ion-icon>
+          Clear Filter
+        </button>
+      </div>
+
+      <div class="search-container">
+        <ion-searchbar
+          [(ngModel)]="globalCompanySearchTerm"
+          (ionInput)="onGlobalCompanySearch($event.detail.value)"
+          (ionFocus)="showCompanySuggestions = true"
+          placeholder="Search companies (e.g., Amarispect)..."
+          [class.has-selection]="globalCompanyFilterId !== null">
+        </ion-searchbar>
+
+        <!-- Autocomplete dropdown -->
+        <div class="company-suggestions" *ngIf="showCompanySuggestions && filteredCompanySuggestions.length > 0 && !globalCompanyFilterId">
+          <div
+            *ngFor="let company of filteredCompanySuggestions"
+            class="suggestion-item"
+            (click)="selectGlobalCompany(company.CompanyID, company.CompanyName)">
+            <div class="company-info">
+              <strong>{{ company.CompanyName }}</strong>
+              <span class="company-location">{{ buildCompanyAddress(company) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active filter indicator -->
+      <div class="active-filter-badge" *ngIf="globalCompanyFilterId">
+        <ion-icon name="filter"></ion-icon>
+        <span>Showing data for: <strong>{{ globalCompanySearchTerm }}</strong></span>
+      </div>
+    </div>
+
     <div class="tab-button-grid">
       <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
         <ion-icon name="business-outline"></ion-icon>

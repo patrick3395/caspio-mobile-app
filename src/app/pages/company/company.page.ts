@@ -294,6 +294,13 @@ export class CompanyPage implements OnInit, OnDestroy {
   uniqueCompanySizes: string[] = [];
   uniqueLeadSources: string[] = [];
 
+  // Global company filter
+  globalCompanyFilterId: number | null = null;
+  globalCompanySearchTerm: string = '';
+  filteredCompanySuggestions: CompanyRecord[] = [];
+  showCompanySuggestions: boolean = false;
+  private companySearchDebounce: any = null;
+
   selectedContact: ContactRecord | null = null;
   isContactModalOpen = false;
   constructor(
@@ -557,7 +564,13 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
 
     const filtered = this.companies
-      .filter(company => this.matchesCompanyFilters(company))
+      .filter(company => {
+        // Global company filter takes precedence
+        if (this.globalCompanyFilterId !== null && company.CompanyID !== this.globalCompanyFilterId) {
+          return false;
+        }
+        return this.matchesCompanyFilters(company);
+      })
       .map(company => this.enrichCompany(company));
 
     filtered.forEach(company => {
@@ -603,6 +616,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     const grouped = new Map<number | null, ContactRecord[]>();
 
     this.contacts.forEach(contact => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && contact.CompanyID !== this.globalCompanyFilterId) {
+        return;
+      }
+
       if (searchTerm) {
         const haystack = [
           contact.Name,
@@ -720,6 +738,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
     this.filteredTasks = this.tasks.filter(task => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && task.CompanyID !== this.globalCompanyFilterId) {
+        return false;
+      }
+
       // Timeframe filtering
       if (timeframeFilter === 'overdue') {
         // Show only overdue tasks (past due date and not completed)
@@ -840,6 +863,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     const now = new Date();
 
     this.filteredMeetings = this.meetings.filter(meeting => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && meeting.CompanyID !== this.globalCompanyFilterId) {
+        return false;
+      }
+
       const startDate = meeting.startDate;
       if (timeframe === "upcoming") {
         if (!startDate || startDate < now) {
@@ -895,6 +923,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     const searchTerm = this.communicationSearchTerm.trim().toLowerCase();
 
     this.filteredCommunications = this.communications.filter(comm => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && comm.CompanyID !== this.globalCompanyFilterId) {
+        return false;
+      }
+
       if (!searchTerm) {
         return true;
       }
@@ -943,6 +976,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     const searchTerm = this.invoiceSearchTerm.trim().toLowerCase();
 
     const filtered = this.invoices.filter(invoice => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && invoice.CompanyID !== this.globalCompanyFilterId) {
+        return false;
+      }
+
       if (!searchTerm) {
         return true;
       }
@@ -1303,6 +1341,73 @@ export class CompanyPage implements OnInit, OnDestroy {
       clearTimeout(this.contactSearchDebounce);
       this.contactSearchDebounce = null;
     }
+    if (this.companySearchDebounce) {
+      clearTimeout(this.companySearchDebounce);
+      this.companySearchDebounce = null;
+    }
+  }
+
+  // Global company filter methods
+  onGlobalCompanySearch(searchTerm: string | null | undefined) {
+    const term = (searchTerm ?? '').trim().toLowerCase();
+    this.globalCompanySearchTerm = term;
+
+    if (this.companySearchDebounce) {
+      clearTimeout(this.companySearchDebounce);
+    }
+
+    this.companySearchDebounce = setTimeout(() => {
+      if (term.length === 0) {
+        this.filteredCompanySuggestions = [];
+        this.showCompanySuggestions = false;
+        return;
+      }
+
+      // Filter companies based on search term
+      this.filteredCompanySuggestions = this.companies
+        .filter(company => {
+          const haystack = [
+            company.CompanyName,
+            company.City,
+            company.State,
+            company.Address
+          ].join(' ').toLowerCase();
+          return haystack.includes(term);
+        })
+        .sort((a, b) => a.CompanyName.localeCompare(b.CompanyName))
+        .slice(0, 10); // Limit to 10 suggestions
+
+      this.showCompanySuggestions = this.filteredCompanySuggestions.length > 0;
+    }, 200);
+  }
+
+  selectGlobalCompany(companyId: number, companyName: string) {
+    this.globalCompanyFilterId = companyId;
+    this.globalCompanySearchTerm = companyName;
+    this.showCompanySuggestions = false;
+    this.filteredCompanySuggestions = [];
+
+    // Apply filters across all tabs
+    this.applyAllFilters();
+  }
+
+  clearGlobalCompanyFilter() {
+    this.globalCompanyFilterId = null;
+    this.globalCompanySearchTerm = '';
+    this.showCompanySuggestions = false;
+    this.filteredCompanySuggestions = [];
+
+    // Reapply all filters to show all data
+    this.applyAllFilters();
+  }
+
+  applyAllFilters() {
+    this.applyCompanyFilters();
+    this.applyContactFilters();
+    this.applyTaskFilters();
+    this.applyMeetingFilters();
+    this.applyCommunicationFilters();
+    this.categorizeInvoices();
   }
   private populateStageDefinitions(records: any[]) {
     const definitions = records.map(record => {
