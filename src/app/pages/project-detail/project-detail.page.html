@@ -248,8 +248,8 @@
                 </ng-container>
                 <ng-template #pendingDoc>
                   <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                              (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                              (click)="doc.isLink ? editLink(serviceDoc.serviceId, doc) : uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
+                    <ion-icon [name]="doc.isLink ? 'create-outline' : 'cloud-upload-outline'"></ion-icon>
                   </ion-button>
                   <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
                               (click)="removePendingDocument(serviceDoc.serviceId, doc)">

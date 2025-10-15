@@ -1930,13 +1930,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   async addOptionalDocument(doc: any) {
     if (!this.selectedServiceDoc) return;
-    
-    // If in link mode, prompt for URL
+
+    // If in link mode, add document immediately with isLink flag (no URL prompt yet)
     if (this.isAddingLink) {
-      await this.promptForDocumentLink(doc);
+      this.selectedServiceDoc.documents.push({
+        title: doc.title,
+        required: doc.required,
+        uploaded: false,
+        templateId: doc.templateId,
+        isLink: true // Mark as link document
+      });
+
+      await this.optionalDocsModal.dismiss();
+      this.selectedServiceDoc = null;
       return;
     }
-    
+
     // Add document to the service's document list
     this.selectedServiceDoc.documents.push({
       title: doc.title,
@@ -1944,7 +1953,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       uploaded: false,
       templateId: doc.templateId
     });
-    
+
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
   }
@@ -2040,13 +2049,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   async editLink(serviceId: string, doc: DocumentItem) {
     const alert = await this.alertController.create({
-      header: 'Edit Link',
+      header: doc.attachId ? 'Edit Link' : 'Add Link',
       cssClass: 'custom-document-alert',
       inputs: [
         {
           name: 'linkUrl',
           type: 'url',
-          placeholder: 'Enter URL',
+          placeholder: 'Enter URL (https://...)',
           value: doc.linkName || '',
           attributes: {
             required: true
@@ -2055,15 +2064,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
-          text: 'Update Link',
-          handler: (data) => {
+          text: doc.attachId ? 'UPDATE LINK' : 'SAVE',
+          cssClass: 'alert-button-save',
+          handler: async (data) => {
             if (data.linkUrl && data.linkUrl.trim()) {
-              this.updateDocumentLink(serviceId, doc, data.linkUrl.trim());
+              if (doc.attachId) {
+                // Update existing link
+                await this.updateDocumentLink(serviceId, doc, data.linkUrl.trim());
+              } else {
+                // Create new link in database
+                await this.createDocumentLink(serviceId, doc, data.linkUrl.trim());
+              }
             }
+            return true;
           }
         }
       ]
@@ -2077,14 +2095,79 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
     if (!serviceDoc) return;
 
-    // Update the document link
-    const docIndex = serviceDoc.documents.findIndex(d => d === doc);
-    if (docIndex !== -1) {
-      serviceDoc.documents[docIndex].linkName = newUrl;
-      serviceDoc.documents[docIndex].filename = newUrl;
-      
-      // Show success message
-      this.showToast('Link updated successfully', 'success');
+    // Update the document link in database
+    if (doc.attachId) {
+      try {
+        await this.caspioService.updateAttachment(doc.attachId, {
+          Link: newUrl
+        }).toPromise();
+
+        // Update local state
+        const docIndex = serviceDoc.documents.findIndex(d => d === doc);
+        if (docIndex !== -1) {
+          serviceDoc.documents[docIndex].linkName = newUrl;
+          serviceDoc.documents[docIndex].filename = newUrl;
+
+          // Update existingAttachments
+          const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
+          if (existingAttach) {
+            existingAttach.Link = newUrl;
+          }
+        }
+
+        this.showToast('Link updated successfully', 'success');
+      } catch (error) {
+        console.error('Error updating link:', error);
+        this.showToast('Failed to update link', 'danger');
+      }
+    }
+  }
+
+  async createDocumentLink(serviceId: string, doc: DocumentItem, url: string) {
+    // Find the service document group
+    const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
+    if (!serviceDoc) return;
+
+    try {
+      // Create attachment record in Caspio
+      const attachmentData = {
+        ProjectID: this.project?.ProjectID || this.projectId,
+        TypeID: parseInt(serviceDoc.typeId),
+        Title: doc.title,
+        Link: url, // Store the URL in the Link field
+        Attachment: '' // Empty attachment field for links
+      };
+
+      const response = await this.caspioService.createAttachment(attachmentData).toPromise();
+
+      if (response && (response.PK_ID || response.AttachID)) {
+        const attachId = response.PK_ID || response.AttachID;
+
+        // Update the document in the list
+        const docIndex = serviceDoc.documents.findIndex(d => d === doc);
+        if (docIndex !== -1) {
+          serviceDoc.documents[docIndex].attachId = attachId;
+          serviceDoc.documents[docIndex].uploaded = true;
+          serviceDoc.documents[docIndex].linkName = url;
+          serviceDoc.documents[docIndex].filename = url;
+        }
+
+        // Add to existing attachments for persistence
+        this.existingAttachments.push({
+          AttachID: attachId,
+          ProjectID: attachmentData.ProjectID,
+          TypeID: attachmentData.TypeID,
+          Title: doc.title,
+          Link: url,
+          Attachment: '',
+          isLink: true
+        });
+
+        this.showToast('Link added successfully', 'success');
+      }
+    } catch (error) {
+      console.error('Error creating link:', error);
+      this.showToast('Failed to add link', 'danger');
     }
   }
 
