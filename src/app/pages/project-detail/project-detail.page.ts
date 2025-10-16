@@ -129,20 +129,30 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
   private restoreStateFromCache(): boolean {
     if (!this.projectId) {
+      console.log('❌ No projectId for cache restoration');
       return false;
     }
 
     const cached = ProjectDetailPage.detailStateCache.get(this.projectId);
     if (!cached) {
+      console.log('❌ No cache found for project:', this.projectId);
       return false;
     }
 
-    if (Date.now() - cached.timestamp > ProjectDetailPage.DETAIL_CACHE_TTL) {
+    const cacheAge = Date.now() - cached.timestamp;
+    if (cacheAge > ProjectDetailPage.DETAIL_CACHE_TTL) {
+      console.log('⏰ Cache expired (age:', cacheAge, 'ms, TTL:', ProjectDetailPage.DETAIL_CACHE_TTL, 'ms)');
       ProjectDetailPage.detailStateCache.delete(this.projectId);
       return false;
     }
 
     try {
+      console.log('💾 Restoring from cache:', {
+        projectId: this.projectId,
+        cachedServicesCount: cached.selectedServices?.length || 0,
+        cachedServices: cached.selectedServices
+      });
+
       this.project = ProjectDetailPage.deepClone(cached.project);
       this.isReadOnly = cached.isReadOnly;
       this.availableOffers = ProjectDetailPage.deepClone(cached.availableOffers);
@@ -158,6 +168,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       this.loadingServices = false;
       this.loadingDocuments = false;
       this.error = '';
+
+      console.log('✅ Cache restored, selectedServices count:', this.selectedServices?.length || 0);
 
       return true;
     } catch (error) {
@@ -241,6 +253,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     const restoredFromCache = this.restoreStateFromCache();
 
+    // Check for finalized service from navigation state
+    const navigation = this.router.getCurrentNavigation();
+    if (navigation?.extras?.state) {
+      const finalizedServiceId = navigation.extras.state['finalizedServiceId'];
+      const finalizedDate = navigation.extras.state['finalizedDate'];
+
+      if (finalizedServiceId) {
+        // Mark the service as finalized locally
+        setTimeout(() => {
+          const service = this.selectedServices.find(s => s.id === finalizedServiceId);
+          if (service) {
+            service.ReportFinalized = true;
+            this.changeDetectorRef.detectChanges();
+          }
+        }, 100);
+      }
+    }
+
     // Check for add-service mode
     this.route.queryParams.subscribe(params => {
       if (params['mode'] === 'add-service') {
@@ -248,7 +278,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         this.isReadOnly = false;
       }
     });
-    
+
     if (this.projectId) {
       if (!restoredFromCache) {
         this.loadProject();
@@ -354,6 +384,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
       // [v1.4.498] PERFORMANCE FIX: Load icon images in parallel with other processing
       const iconLoadPromise = this.loadIconImages();
+
+      console.log('📥 Loading services for project:', {
+        projectPK_ID: projectData?.PK_ID,
+        projectProjectID: projectData?.ProjectID,
+        actualProjectId,
+        servicesCount: servicesData?.length || 0,
+        servicesData: servicesData
+      });
 
       // Process existing services
       this.selectedServices = (servicesData || []).map((service: any) => {
@@ -785,13 +823,35 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       
       // Create service record in Caspio - Services table only has ProjectID, TypeID, DateOfInspection
       // IMPORTANT: Use project.ProjectID (not PK_ID) for the Services table relationship
+
+      // Ensure we're using the correct ProjectID (the actual ProjectID field, not PK_ID)
+      const projectIdToUse = this.project?.ProjectID;
+
+      if (!projectIdToUse) {
+        throw new Error(`Cannot create service: ProjectID not found. Project data: ${JSON.stringify({
+          PK_ID: this.project?.PK_ID,
+          ProjectID: this.project?.ProjectID,
+          routeId: this.projectId
+        })}`);
+      }
+
       const serviceData = {
-        ProjectID: this.project?.ProjectID || this.projectId, // Use actual ProjectID from project, not PK_ID
+        ProjectID: projectIdToUse, // Use actual ProjectID from project (the numeric ProjectID field)
         TypeID: offer.TypeID,
         DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
       };
-      
+
+      console.log('🔧 Creating service with data:', {
+        serviceData,
+        projectPK_ID: this.project?.PK_ID,
+        projectProjectID: this.project?.ProjectID,
+        routeProjectId: this.projectId,
+        offer: { OffersID: offer.OffersID, TypeID: offer.TypeID, TypeName: offer.TypeName }
+      });
+
       const newService = await this.caspioService.createService(serviceData).toPromise();
+
+      console.log('✅ Service created successfully:', newService);
       
       // Caspio returns the service instantly - get the ID
       if (!newService || (!newService.PK_ID && !newService.ServiceID)) {
