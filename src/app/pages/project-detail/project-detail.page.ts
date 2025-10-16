@@ -321,7 +321,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If services are already loaded, apply immediately
       if (this.selectedServices.length > 0) {
         console.log('[ProjectDetail] Services already loaded, applying immediately');
-        const service = this.selectedServices.find(s => s.serviceId === finalizedServiceId);
+        console.log('[ProjectDetail] Looking for serviceId:', finalizedServiceId, 'Type:', typeof finalizedServiceId);
+        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
+          serviceId: s.serviceId,
+          serviceIdType: typeof s.serviceId,
+          typeName: s.typeName,
+          offersId: s.offersId
+        })));
+
+        // Try both string and number comparison
+        const service = this.selectedServices.find(s =>
+          s.serviceId === finalizedServiceId ||
+          s.serviceId === String(finalizedServiceId) ||
+          String(s.serviceId) === String(finalizedServiceId)
+        );
+
         if (service) {
           console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
@@ -329,6 +343,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.pendingFinalizedServiceId = null;
         } else {
           console.warn('[ProjectDetail] Service not found with serviceId:', finalizedServiceId);
+          console.warn('[ProjectDetail] Tried matching against:', this.selectedServices.map(s => s.serviceId));
         }
       }
     } else {
@@ -462,7 +477,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           ReportFinalized: s.ReportFinalized
         })));
 
-        const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
+        // Try both string and number comparison
+        const service = this.selectedServices.find(s =>
+          s.serviceId === this.pendingFinalizedServiceId ||
+          s.serviceId === String(this.pendingFinalizedServiceId) ||
+          String(s.serviceId) === String(this.pendingFinalizedServiceId)
+        );
+
         if (service) {
           console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
@@ -656,7 +677,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           ReportFinalized: s.ReportFinalized
         })));
 
-        const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
+        // Try both string and number comparison
+        const service = this.selectedServices.find(s =>
+          s.serviceId === this.pendingFinalizedServiceId ||
+          s.serviceId === String(this.pendingFinalizedServiceId) ||
+          String(s.serviceId) === String(this.pendingFinalizedServiceId)
+        );
+
         if (service) {
           console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;

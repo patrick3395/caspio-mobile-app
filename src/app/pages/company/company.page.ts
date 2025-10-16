@@ -17,6 +17,7 @@ interface StageDefinition {
 interface ProjectMetadata {
   companyId: number | null;
   projectDate: Date | null;
+  offersId: number | null;
 }
 
 interface CompanyRecord {
@@ -301,6 +302,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   private stageLookup = new Map<number, StageDefinition>();
   private companyNameLookup = new Map<number, string>();
   private projectDetailsLookup = new Map<number, ProjectMetadata>();
+  private servicesLookup = new Map<number, string>(); // ServiceID -> TypeName
+  private servicesByProjectLookup = new Map<number, number[]>(); // ProjectID -> ServiceID[]
+  private offersLookup = new Map<number, string>(); // OffersID -> TypeName
   private contactCountByCompany = new Map<number, number>();
   private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
   private touchSummaryByCompany = new Map<number, { total: number; lastDate: Date | null; label: string; channels: string[] }>();
@@ -506,7 +510,9 @@ export class CompanyPage implements OnInit, OnDestroy {
         meetingRecords,
         invoiceRecords,
         projectRecords,
-        communicationRecords
+        communicationRecords,
+        servicesRecords,
+        offersRecords
       ] = await Promise.all([
         this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
         this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '2000' }),
@@ -516,13 +522,17 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date', 'q.limit': '2000' }),
-        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' })
+        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID,TypeName', 'q.limit': '2000' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeName', 'q.limit': '2000' })
       ]);
 
       this.populateStageDefinitions(stageRecords);
       this.populateCommunicationTypes(communicationRecords);
       this.populateProjectLookup(projectRecords);
+      this.populateServicesLookup(servicesRecords);
+      this.populateOffersLookup(offersRecords);
 
       // Populate software options from Software table
       this.softwareOptions = softwareRecords
@@ -2891,6 +2901,39 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.paginateInvoices();
   }
 
+  private getServiceNameForInvoice(invoice: InvoiceViewModel): string {
+    // First, try to get service name from invoice's ServiceID
+    if (invoice.ServiceID !== null) {
+      const serviceName = this.servicesLookup.get(invoice.ServiceID);
+      if (serviceName) {
+        return serviceName;
+      }
+    }
+
+    // Second, try to get service name from project's services
+    if (invoice.ProjectID !== null) {
+      const serviceIds = this.servicesByProjectLookup.get(invoice.ProjectID);
+      if (serviceIds && serviceIds.length > 0) {
+        // Use the first service's name
+        const serviceName = this.servicesLookup.get(serviceIds[0]);
+        if (serviceName) {
+          return serviceName;
+        }
+      }
+
+      // Third, try to get service name from project's OffersID
+      const projectMetadata = this.projectDetailsLookup.get(invoice.ProjectID);
+      if (projectMetadata?.offersId !== null && projectMetadata?.offersId !== undefined) {
+        const offerName = this.offersLookup.get(projectMetadata.offersId);
+        if (offerName) {
+          return offerName;
+        }
+      }
+    }
+
+    return 'Service Not Specified';
+  }
+
   paginateInvoices() {
     // Paginate open invoices
     const openStartIndex = (this.currentInvoicePage - 1) * this.invoicesPerPage;
@@ -2928,7 +2971,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       const companyId = pair.positive.CompanyID ?? pair.negative?.CompanyID ?? null;
       const invoiceWithService: InvoicePairWithService = {
         ...pair,
-        serviceName: pair.positive.Address ? 'Service' : 'Unknown Service' // Placeholder for now
+        serviceName: this.getServiceNameForInvoice(pair.positive)
       };
 
       if (!byCompany.has(companyId)) {
@@ -3519,7 +3562,44 @@ export class CompanyPage implements OnInit, OnDestroy {
         return;
       }
       const projectDate = this.toDate(record.Date);
-      this.projectDetailsLookup.set(projectId, { companyId, projectDate });
+      const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) : null;
+      this.projectDetailsLookup.set(projectId, { companyId, projectDate, offersId });
+    });
+  }
+
+  private populateServicesLookup(records: any[]) {
+    this.servicesLookup.clear();
+    this.servicesByProjectLookup.clear();
+
+    records.forEach(record => {
+      const serviceId = record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null;
+      const projectId = record.ProjectID !== undefined && record.ProjectID !== null ? Number(record.ProjectID) : null;
+      const typeName = record.TypeName ?? '';
+
+      if (serviceId !== null && typeName) {
+        this.servicesLookup.set(serviceId, typeName);
+      }
+
+      if (projectId !== null && serviceId !== null) {
+        if (!this.servicesByProjectLookup.has(projectId)) {
+          this.servicesByProjectLookup.set(projectId, []);
+        }
+        this.servicesByProjectLookup.get(projectId)!.push(serviceId);
+      }
+    });
+  }
+
+  private populateOffersLookup(records: any[]) {
+    this.offersLookup.clear();
+
+    records.forEach(record => {
+      const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
+                       (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
+      const typeName = record.TypeName ?? '';
+
+      if (offersId !== null && typeName) {
+        this.offersLookup.set(offersId, typeName);
+      }
     });
   }
 
