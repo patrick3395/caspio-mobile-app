@@ -26,6 +26,7 @@ interface ServiceSelection {
   typeIconUrl?: string; // Base64 data URL for the icon
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
+  FinalizedDate?: string; // ISO date string when the report was finalized
   saving?: boolean;
   saved?: boolean;
 }
