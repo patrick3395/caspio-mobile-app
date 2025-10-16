@@ -2340,12 +2340,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Link: url,
             Attachment: ''
           });
+          console.log('[AddDocLink] Added new attachment to existingAttachments');
+        } else {
+          console.log('[AddDocLink] Attachment already exists, not adding duplicate');
         }
-        
-        await this.showToast('Link added successfully', 'success');
         
         // Update the documents list - this will rebuild from existingAttachments and templates
         this.updateDocumentsList();
+        
+        // Force Angular to detect changes immediately
+        this.changeDetectorRef.detectChanges();
+        
+        await this.showToast('Link added successfully', 'success');
         
         // Clear Attach table cache for this project
         const actualProjectId = this.project?.ProjectID || this.projectId;
@@ -2364,8 +2370,42 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async editLink(serviceId: string, doc: DocumentItem) {
+    // Check if this document has an uploaded file (not a link)
+    const hasUploadedFile = doc.uploaded && !doc.isLink && doc.attachmentUrl && doc.attachmentUrl.trim() !== '';
+    
+    // If there's an uploaded file, show confirmation to replace it with a link
+    if (hasUploadedFile) {
+      const confirmAlert = await this.alertController.create({
+        header: 'Replace Document with Link',
+        message: `Are you sure you want to replace the uploaded file "${doc.linkName || doc.filename}" with a link? This will remove the file.`,
+        cssClass: 'custom-document-alert',
+        buttons: [
+          {
+            text: 'CANCEL',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
+          },
+          {
+            text: 'REPLACE',
+            cssClass: 'alert-button-save',
+            handler: () => {
+              // Show the URL input popup
+              this.showLinkInputPopup(serviceId, doc, true);
+              return true;
+            }
+          }
+        ]
+      });
+      await confirmAlert.present();
+    } else {
+      // No file to replace, just show the link input
+      this.showLinkInputPopup(serviceId, doc, false);
+    }
+  }
+  
+  private async showLinkInputPopup(serviceId: string, doc: DocumentItem, isReplacing: boolean) {
     const alert = await this.alertController.create({
-      header: doc.attachId ? 'Edit Link' : 'Add Link',
+      header: isReplacing ? 'Replace with Link' : (doc.attachId ? 'Edit Link' : 'Add Link'),
       cssClass: 'custom-document-alert',
       inputs: [
         {
@@ -2385,13 +2425,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           cssClass: 'alert-button-cancel'
         },
         {
-          text: doc.attachId ? 'UPDATE LINK' : 'SAVE',
+          text: isReplacing ? 'REPLACE' : (doc.attachId ? 'UPDATE LINK' : 'SAVE'),
           cssClass: 'alert-button-save',
           handler: async (data) => {
             if (data.linkUrl && data.linkUrl.trim()) {
               if (doc.attachId) {
-                // Update existing link
-                await this.updateDocumentLink(serviceId, doc, data.linkUrl.trim());
+                // Update existing attachment - replace file with link
+                await this.replaceDocumentWithLink(serviceId, doc, data.linkUrl.trim());
               } else {
                 // Create new link in database
                 await this.createDocumentLink(serviceId, doc, data.linkUrl.trim());
@@ -2408,39 +2448,47 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     await alert.present();
   }
+  
+  async replaceDocumentWithLink(serviceId: string, doc: DocumentItem, newUrl: string) {
+    if (!doc.attachId) return;
+    
+    try {
+      // Update the attachment to clear the Attachment field and set Link field
+      await this.caspioService.updateAttachment(doc.attachId, {
+        Link: newUrl,
+        Attachment: '' // Clear the file attachment
+      }).toPromise();
 
-  async updateDocumentLink(serviceId: string, doc: DocumentItem, newUrl: string) {
-    // Find the service document group
-    const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
-    if (!serviceDoc) return;
-
-    // Update the document link in database
-    if (doc.attachId) {
-      try {
-        await this.caspioService.updateAttachment(doc.attachId, {
-          Link: newUrl
-        }).toPromise();
-
-        // Reload attachments from database with cache bypass to ensure fresh data
-        // This replaces manual local array updates with fresh database data
-        await this.loadExistingAttachments(true);
-
-        // Force Angular to detect changes and update the view immediately
-        this.changeDetectorRef.detectChanges();
-
-        // Invalidate cache to ensure fresh data on reload
-        ProjectDetailPage.detailStateCache.delete(this.projectId);
-
-        // Update cache with latest state
-        this.cacheCurrentState();
-
-        this.showToast('Link updated successfully', 'success');
-      } catch (error) {
-        console.error('Error updating link:', error);
-        this.showToast('Failed to update link', 'danger');
+      // Update local existingAttachments array
+      const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
+      if (existingAttach) {
+        existingAttach.Link = newUrl;
+        existingAttach.Attachment = ''; // Clear the attachment
       }
+
+      // Rebuild documents list to reflect the change
+      this.updateDocumentsList();
+
+      // Force Angular to detect changes immediately
+      this.changeDetectorRef.detectChanges();
+
+      // Invalidate cache to ensure fresh data on reload
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+
+      // Update cache with latest state
+      this.cacheCurrentState();
+      
+      // Clear Attach table cache for this project
+      const actualProjectId = this.project?.ProjectID || this.projectId;
+      this.caspioService.clearAttachmentsCache(actualProjectId);
+
+      this.showToast('Document replaced with link successfully', 'success');
+    } catch (error) {
+      console.error('Error replacing document with link:', error);
+      this.showToast('Failed to replace document with link', 'danger');
     }
   }
+
 
   async createDocumentLink(serviceId: string, doc: DocumentItem, url: string) {
     // Find the service document group
@@ -2478,10 +2526,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log('[Link Create] Adding to existingAttachments:', newAttachment);
         console.log('[Link Create] Before add - existingAttachments length:', this.existingAttachments.length);
 
-        // Add to the array
-        this.existingAttachments.push(newAttachment);
-
-        console.log('[Link Create] After add - existingAttachments length:', this.existingAttachments.length);
+        // Check for duplicates before adding
+        const existingIndex = this.existingAttachments.findIndex(a => a.AttachID === newAttachment.AttachID);
+        
+        if (existingIndex === -1) {
+          // Add to the array
+          this.existingAttachments.push(newAttachment);
+          console.log('[Link Create] After add - existingAttachments length:', this.existingAttachments.length);
+        } else {
+          // Update existing attachment
+          this.existingAttachments[existingIndex] = newAttachment;
+          console.log('[Link Create] Updated existing attachment at index:', existingIndex);
+        }
 
         // Rebuild the documents list with the new attachment
         this.updateDocumentsList();
