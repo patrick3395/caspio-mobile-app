@@ -10,6 +10,7 @@ import { EngineersFoundationDataService } from '../engineers-foundation/engineer
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -3979,6 +3980,94 @@ Time: ${debugInfo.timestamp}
     } catch (error) {
       console.error('Unable to present PDF modal:', error);
       await this.showToast('Failed to open PDF preview', 'danger');
+    }
+  }
+
+  /**
+   * Open PayPal payment modal for the project
+   */
+  async openPaymentModal() {
+    if (!this.project || !this.project.PK_ID) {
+      await this.showToast('Project information not available', 'danger');
+      return;
+    }
+
+    const totalAmount = this.calculateServicesTotal();
+
+    if (totalAmount <= 0) {
+      await this.showToast('No amount due for this project', 'warning');
+      return;
+    }
+
+    const modal = await this.modalController.create({
+      component: PaypalPaymentModalComponent,
+      componentProps: {
+        invoice: {
+          InvoiceID: this.project.PK_ID,
+          Amount: totalAmount.toFixed(2),
+          Description: `Payment for ${this.project.Address || 'Project'}, ${this.project.City || ''}`,
+          DueDate: this.project.Date || this.project.InspectionDate
+        }
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.success) {
+      // Process the payment
+      await this.processPayment(data.paymentData);
+    }
+  }
+
+  /**
+   * Process payment and update invoice
+   */
+  async processPayment(paymentData: any) {
+    const loading = await this.loadingController.create({
+      message: 'Processing payment...'
+    });
+    await loading.present();
+
+    try {
+      // Update invoice with payment information
+      await firstValueFrom(
+        this.caspioService.updateInvoiceWithPayment(paymentData.invoiceID, {
+          amount: parseFloat(paymentData.amount),
+          orderID: paymentData.orderID,
+          payerID: paymentData.payerID,
+          payerEmail: paymentData.payerEmail,
+          payerName: paymentData.payerName,
+          status: paymentData.status,
+          createTime: paymentData.createTime,
+          updateTime: paymentData.updateTime
+        })
+      );
+
+      await loading.dismiss();
+
+      // Show success message
+      const alert = await this.alertController.create({
+        header: 'Payment Successful!',
+        message: `Your payment of $${paymentData.amount} has been processed successfully.`,
+        buttons: ['OK']
+      });
+      await alert.present();
+
+      // Show success toast
+      await this.showToast('Payment processed successfully', 'success');
+
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Payment processing error:', error);
+
+      const alert = await this.alertController.create({
+        header: 'Payment Error',
+        message: 'Failed to process payment. Please contact support.',
+        buttons: ['OK']
+      });
+      await alert.present();
     }
   }
 }

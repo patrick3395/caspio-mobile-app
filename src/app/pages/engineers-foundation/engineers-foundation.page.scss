@@ -1441,6 +1441,31 @@ select[name="StructuralSystemsStatus"] {
                     font-style: italic;
                     font-size: 14px;
                   }
+
+                  // "Other" custom input field
+                  .other-input-container {
+                    padding: 12px 16px 16px;
+                    background: white;
+
+                    .other-input {
+                      width: 100%;
+                      padding: 10px 12px;
+                      border: 1px solid #ddd;
+                      border-radius: 6px;
+                      font-size: 14px;
+                      transition: border-color 0.2s;
+
+                      &:focus {
+                        outline: none;
+                        border-color: var(--noble-orange);
+                      }
+
+                      &::placeholder {
+                        color: #999;
+                        font-style: italic;
+                      }
+                    }
+                  }
                 }
                 
                 .item-text {
@@ -3001,6 +3026,7 @@ select[name="StructuralSystemsStatus"] {
       letter-spacing: 0.5px;
       color: #333;
       transition: all 0.2s ease;
+      text-align: center;
 
       &:hover {
         background: #e8e8e8;

@@ -109,8 +109,14 @@
     <div class="info-section">
       <div class="section-header-with-total">
         <h2 class="section-title">Services</h2>
-        <div *ngIf="selectedServices.length > 0" class="header-total">
-          ${{ calculateServicesTotal() | number:'1.2-2' }}
+        <div *ngIf="selectedServices.length > 0" class="header-total-with-button">
+          <div class="header-total">
+            ${{ calculateServicesTotal() | number:'1.2-2' }}
+          </div>
+          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateServicesTotal() > 0 && !isReadOnly">
+            <ion-icon name="card-outline"></ion-icon>
+            Pay Now
+          </button>
         </div>
       </div>
       <div class="section-divider"></div>

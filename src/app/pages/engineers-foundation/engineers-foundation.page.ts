@@ -1258,6 +1258,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Log details about what dropdown options are available for each TemplateID
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
+          // Add "Other" option to all multi-select dropdowns if not already present
+          const optionsArray = options as string[];
+          if (!optionsArray.includes('Other')) {
+            optionsArray.push('Other');
+          }
         });
       } else {
       }
@@ -3889,6 +3894,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   } else if (visual.Text) {
                     item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
                   }
+
+                  // Extract custom "Other" value if present
+                  if (item.selectedOptions) {
+                    const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                    if (customOther) {
+                      item.otherValue = customOther.substring(7); // Extract text after "Other: "
+                      // Replace with plain "Other" for checkbox matching
+                      const index = item.selectedOptions.indexOf(customOther);
+                      item.selectedOptions[index] = 'Other';
+                    }
+                  }
                 } else {
                   item.text = visual.Text || "";
                 }
@@ -6141,7 +6157,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Update the text field and save
     await this.onMultiSelectChange(category, item);
   }
-  
+
+  // Handle custom "Other" input for multi-select
+  async onMultiSelectOtherChange(category: string, item: any) {
+    // Update the selected options to include the custom value
+    // Replace "Other" with "Other: {custom value}" in selectedOptions
+    if (item.otherValue && item.otherValue.trim()) {
+      const otherIndex = item.selectedOptions.indexOf('Other');
+      if (otherIndex > -1) {
+        // Remove plain "Other" and add custom value
+        item.selectedOptions[otherIndex] = `Other: ${item.otherValue.trim()}`;
+      }
+    } else {
+      // If custom value is cleared, revert to just "Other"
+      const customOtherIndex = item.selectedOptions.findIndex((opt: string) => opt.startsWith('Other: '));
+      if (customOtherIndex > -1) {
+        item.selectedOptions[customOtherIndex] = 'Other';
+      }
+    }
+
+    // Save the updated selections
+    await this.onMultiSelectChange(category, item);
+  }
+
   // Save visual selection to Services_Visuals table
   async saveVisualSelection(category: string, templateId: string) {
     if (!this.serviceId) {

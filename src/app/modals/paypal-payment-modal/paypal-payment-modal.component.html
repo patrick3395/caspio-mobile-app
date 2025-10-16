@@ -1,0 +1,74 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Pay Invoice</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()" [disabled]="isLoading">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Invoice Details -->
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Invoice Details</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list lines="none">
+        <ion-item>
+          <ion-label>
+            <h3>Invoice Number</h3>
+            <p>{{ invoice?.InvoiceID || 'N/A' }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item>
+          <ion-label>
+            <h3>Description</h3>
+            <p>{{ invoice?.Description || 'Payment' }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item>
+          <ion-label>
+            <h3>Amount Due</h3>
+            <p class="amount">${{ invoice?.Amount || '0.00' }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item *ngIf="invoice?.DueDate">
+          <ion-label>
+            <h3>Due Date</h3>
+            <p>{{ invoice?.DueDate | date: 'MMM d, y' }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Payment Section -->
+  <ion-card *ngIf="!paymentCompleted">
+    <ion-card-header>
+      <ion-card-title>Payment Method</ion-card-title>
+      <ion-card-subtitle>Pay securely with PayPal</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <!-- PayPal Button Container -->
+      <div #paypalButtonContainer class="paypal-button-container"></div>
+
+      <!-- Loading Spinner -->
+      <div *ngIf="isLoading" class="loading-overlay">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Processing payment...</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Payment Success Message -->
+  <ion-card *ngIf="paymentCompleted" color="success">
+    <ion-card-content class="success-message">
+      <ion-icon name="checkmark-circle" size="large"></ion-icon>
+      <h2>Payment Successful!</h2>
+      <p>Your payment has been processed.</p>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

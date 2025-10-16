@@ -458,7 +458,7 @@
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
-                            <ion-checkbox 
+                            <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
@@ -466,6 +466,14 @@
                             </ion-checkbox>
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
+                        </div>
+                        <!-- Custom input for "Other" option -->
+                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                          <input type="text"
+                                 [(ngModel)]="item.otherValue"
+                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 placeholder="Please specify..."
+                                 class="styled-input other-input">
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>
@@ -591,7 +599,7 @@
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
-                            <ion-checkbox 
+                            <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
@@ -599,6 +607,14 @@
                             </ion-checkbox>
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
+                        </div>
+                        <!-- Custom input for "Other" option -->
+                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                          <input type="text"
+                                 [(ngModel)]="item.otherValue"
+                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 placeholder="Please specify..."
+                                 class="styled-input other-input">
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>
@@ -724,7 +740,7 @@
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                           <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
-                            <ion-checkbox 
+                            <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
                               (ionChange)="onOptionToggle(category, item, option, $event)"
@@ -732,6 +748,14 @@
                             </ion-checkbox>
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
+                        </div>
+                        <!-- Custom input for "Other" option -->
+                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                          <input type="text"
+                                 [(ngModel)]="item.otherValue"
+                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 placeholder="Please specify..."
+                                 class="styled-input other-input">
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>

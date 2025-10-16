@@ -2380,4 +2380,84 @@ export class CaspioService {
     console.log('[CaspioService] Clearing Attachments cache entries');
     this.cache.clearByPattern('Attach/records');
   }
+
+  // ============================================================================
+  // PAYMENT & INVOICE METHODS
+  // ============================================================================
+
+  /**
+   * Get invoices by company ID
+   */
+  getInvoicesByCompany(companyId: string | number): Observable<any[]> {
+    return this.get<any>(`/tables/Invoices/records?q.where=CompanyID=${companyId}`).pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Failed to get invoices:', error);
+        return of([]);
+      })
+    );
+  }
+
+  /**
+   * Get single invoice by ID
+   */
+  getInvoiceById(invoiceId: string | number): Observable<any> {
+    return this.get<any>(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`).pipe(
+      map(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return null;
+      }),
+      catchError(error => {
+        console.error('Failed to get invoice:', error);
+        return of(null);
+      })
+    );
+  }
+
+  /**
+   * Update invoice with payment information
+   * Uses existing Invoices table fields: Paid, PaymentProcessor, InvoiceNotes, Status
+   */
+  updateInvoiceWithPayment(invoiceId: string | number, paymentData: {
+    amount: number;
+    orderID: string;
+    payerID: string;
+    payerEmail: string;
+    payerName: string;
+    status: string;
+    createTime: string;
+    updateTime: string;
+  }): Observable<any> {
+    const paymentNotes = `PayPal Payment - Order: ${paymentData.orderID}\n` +
+                        `Payer: ${paymentData.payerName} (${paymentData.payerEmail})\n` +
+                        `Transaction ID: ${paymentData.payerID}\n` +
+                        `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
+                        `Status: ${paymentData.status}`;
+
+    return this.put<any>(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`, {
+      Paid: paymentData.amount,
+      PaymentProcessor: 'PayPal',
+      InvoiceNotes: paymentNotes,
+      Status: 'Paid'
+    }).pipe(
+      tap(response => {
+        console.log('[Payment] Invoice updated with payment details');
+        this.clearInvoicesCache();
+      }),
+      catchError(error => {
+        console.error('[Payment] Failed to update invoice with payment:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Clear invoices cache
+   */
+  public clearInvoicesCache(): void {
+    console.log('[CaspioService] Clearing Invoices cache entries');
+    this.cache.clearByPattern('Invoices/records');
+  }
 }
