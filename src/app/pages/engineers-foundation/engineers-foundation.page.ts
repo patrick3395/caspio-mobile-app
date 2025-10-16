@@ -5192,6 +5192,99 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  // Check if all required fields are filled (used for button styling)
+  areAllRequiredFieldsFilled(): boolean {
+    // Check required Project Information fields
+    const requiredProjectFields = {
+      'ClientName': 'Client Name',
+      'InspectorName': 'Inspector Name',
+      'YearBuilt': 'Year Built',
+      'SquareFeet': 'Square Feet',
+      'TypeOfBuilding': 'Building Type',
+      'Style': 'Style'
+    };
+
+    for (const field of Object.keys(requiredProjectFields)) {
+      if (!this.projectData[field]) {
+        return false;
+      }
+    }
+
+    // Check required Service fields
+    const requiredServiceFields = {
+      'InAttendance': 'In Attendance',
+      'OccupancyFurnishings': 'Occupancy/Furnishings',
+      'WeatherConditions': 'Weather Conditions',
+      'OutdoorTemperature': 'Outdoor Temperature',
+      'StructuralSystemsStatus': 'Structural Systems Status'
+    };
+
+    for (const field of Object.keys(requiredServiceFields)) {
+      if (!this.serviceData[field]) {
+        return false;
+      }
+    }
+
+    // Check required visual items across all categories
+    // Skip if Structural Systems status is "Provided in Home Inspection Report"
+    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
+
+    if (!skipStructuralSystems) {
+      for (const category of this.visualCategories) {
+        if (!this.organizedData[category]) continue;
+
+        const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
+
+        for (const sectionType of sections) {
+          const items = this.organizedData[category][sectionType] || [];
+
+          for (const item of items) {
+            if (item.required) {
+              const key = `${category}_${item.id}`;
+              let isComplete = false;
+
+              // For Yes/No questions (AnswerType 1)
+              if (item.answerType === 1) {
+                isComplete = item.answer === 'Yes' || item.answer === 'No';
+              }
+              // For multi-select questions (AnswerType 2)
+              else if (item.answerType === 2) {
+                isComplete = item.selectedOptions && item.selectedOptions.length > 0;
+              }
+              // For text questions (AnswerType 0 or undefined)
+              else {
+                isComplete = this.selectedItems[key] === true;
+              }
+
+              if (!isComplete) {
+                return false;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Check Base Station requirement for elevation plot
+    const baseStationSelected = this.selectedRooms['Base Station'] === true;
+    if (!baseStationSelected) {
+      return false;
+    }
+
+    // Check that all selected rooms (except Base Station) have FDF answered
+    for (const roomName in this.selectedRooms) {
+      if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
+        const roomData = this.roomElevationData[roomName];
+        if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
+          return false;
+        }
+      }
+    }
+
+    // All required fields are filled
+    return true;
+  }
+
   // Prevent touch event bubbling
   preventTouch(event: TouchEvent) {
     event.preventDefault();

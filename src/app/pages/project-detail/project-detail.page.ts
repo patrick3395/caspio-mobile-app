@@ -51,6 +51,7 @@ interface DocumentItem {
 interface ServiceDocumentGroup {
   serviceId: string;
   serviceName: string;
+  typeShort?: string;
   typeId: string;
   instanceNumber: number;
   documents: DocumentItem[];
@@ -1483,6 +1484,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const serviceDocGroup = {
         serviceId: service.serviceId || service.instanceId,
         serviceName: service.typeName,
+        typeShort: service.typeShort,
         typeId: service.typeId,
         instanceNumber: this.getServiceInstanceNumber(service),
         documents: [] as DocumentItem[]  // Will set this after all documents are added
@@ -1958,9 +1960,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async viewDocument(doc: DocumentItem) {
-    // If this is a link, open it in a new tab
-    if (doc.isLink && doc.linkName) {
-      window.open(doc.linkName, '_blank');
+    // Check if this is a link - either marked as link or linkName/filename contains URL patterns
+    const linkToOpen = this.extractLinkUrl(doc);
+    
+    if (linkToOpen) {
+      // Open the link in a new tab
+      window.open(linkToOpen, '_blank');
       return;
     }
     
@@ -3370,6 +3375,41 @@ Troubleshooting:
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  /**
+   * Extract link URL from document if it's a link
+   * Returns the URL string if document is a link, null otherwise
+   */
+  private extractLinkUrl(doc: DocumentItem): string | null {
+    // Check if explicitly marked as link
+    if (doc.isLink && doc.linkName) {
+      return doc.linkName;
+    }
+    
+    // Check linkName for URL patterns (.com, http://, https://)
+    if (doc.linkName && typeof doc.linkName === 'string') {
+      const linkName = doc.linkName.trim();
+      // Check if it's a URL
+      if (linkName.startsWith('http://') || linkName.startsWith('https://') || 
+          linkName.includes('.com') || linkName.includes('.org') || 
+          linkName.includes('.net') || linkName.includes('.edu')) {
+        return linkName.startsWith('http') ? linkName : `https://${linkName}`;
+      }
+    }
+    
+    // Check filename for URL patterns
+    if (doc.filename && typeof doc.filename === 'string') {
+      const filename = doc.filename.trim();
+      // Check if it's a URL
+      if (filename.startsWith('http://') || filename.startsWith('https://') || 
+          filename.includes('.com') || filename.includes('.org') || 
+          filename.includes('.net') || filename.includes('.edu')) {
+        return filename.startsWith('http') ? filename : `https://${filename}`;
+      }
+    }
+    
+    return null;
+  }
+
   private determineIfLink(attachment: any): boolean {
     if (!attachment) return false;
     
@@ -4309,6 +4349,54 @@ Time: ${debugInfo.timestamp}
   }
 
   /**
+   * Handle submit button click - show explanation if not enabled
+   */
+  async handleSubmitClick(service: ServiceSelection) {
+    if (this.isSubmitButtonEnabled(service)) {
+      // Button is enabled, proceed with submission
+      await this.submitFinalizedReport(service);
+    } else {
+      // Button is gray/disabled, show explanation
+      await this.showSubmitDisabledExplanation(service);
+    }
+  }
+
+  /**
+   * Show explanation for why submit button is disabled
+   */
+  async showSubmitDisabledExplanation(service: ServiceSelection) {
+    const typeName = service.typeName?.toLowerCase() || '';
+    const typeShort = service.typeShort?.toUpperCase() || '';
+    const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
+    const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
+    const isEFE = typeShort === 'EFE' || typeName.includes('engineers foundation') || typeName.includes("engineer's foundation");
+
+    let message = '';
+    
+    if (isEFE) {
+      message = 'The report must be finalized before it can be submitted. Complete the Engineers Foundation template and finalize the report.';
+    } else if (isDCR || isEIR) {
+      message = 'A Property Inspection Report or Home Inspection Report must be uploaded before this report can be submitted.';
+    } else {
+      message = 'The report must be finalized or required documents must be uploaded before submission.';
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Submit Not Available',
+      message: message,
+      cssClass: 'custom-document-alert',
+      buttons: [
+        {
+          text: 'OK',
+          cssClass: 'alert-button-save'
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
    * Open PayPal payment modal for the project
    */
   async submitFinalizedReport(service: ServiceSelection) {
@@ -4317,7 +4405,8 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
-    // Check if button should be enabled (report finalized or required document uploaded)
+    // This check is now redundant since handleSubmitClick already checks
+    // But keeping it as a safety check
     if (!this.isSubmitButtonEnabled(service)) {
       await this.showToast('Report must be finalized or required documents uploaded before submission', 'warning');
       return;

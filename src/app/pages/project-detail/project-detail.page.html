@@ -93,7 +93,9 @@
           <div class="template-content">
             <div class="template-name">
               <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
-              <span class="service-title">{{ service.typeName }}</span>
+              <span class="service-title">
+                <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+              </span>
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
@@ -195,8 +197,7 @@
                 <button
                   class="submit-report-btn"
                   [class.finalized]="isSubmitButtonEnabled(service)"
-                  [disabled]="!isSubmitButtonEnabled(service)"
-                  (click)="submitFinalizedReport(service)">
+                  (click)="handleSubmitClick(service)">
                   Submit
                 </button>
               </div>
@@ -228,7 +229,7 @@
         <tbody *ngFor="let serviceDoc of serviceDocuments; trackBy: trackServiceDocument" class="support-doc-group">
           <tr class="support-doc-row service-row">
             <td class="service-header" colspan="2">
-              {{ serviceDoc.serviceName }}
+              <span *ngIf="serviceDoc.typeShort">{{ serviceDoc.typeShort }} - </span>{{ serviceDoc.serviceName }}
               <span *ngIf="hasMultipleDocumentInstances(serviceDoc.typeId)" class="instance-number">
                 #{{ serviceDoc.instanceNumber }}
               </span>
@@ -332,8 +333,8 @@
       <ion-toolbar>
         <ion-title style="text-align: center;">Add Document</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="closeOptionalDocsModal()">
-            <ion-icon name="close" slot="icon-only"></ion-icon>
+          <ion-button (click)="closeOptionalDocsModal()" style="--color: #F15A27;">
+            <ion-icon name="close" slot="icon-only" style="color: #F15A27;"></ion-icon>
           </ion-button>
         </ion-buttons>
       </ion-toolbar>

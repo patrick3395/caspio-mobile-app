@@ -477,13 +477,20 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
           border: none;
           padding: 10px 24px;
           border-radius: 6px;
-          cursor: not-allowed;
+          cursor: pointer; // Changed from not-allowed - now always clickable
           font-size: 14px;
           font-weight: 600;
           transition: all 0.2s ease;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          opacity: 0.6;
+          opacity: 0.8; // Increased from 0.6 to make it look more clickable
+
+          // Gray button hover effect
+          &:not(.finalized):hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+          }
 
           &.finalized {
             background: $orange;
@@ -498,15 +505,6 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 
             &:active {
               transform: translateY(0);
-            }
-          }
-
-          &:disabled {
-            cursor: not-allowed;
-
-            &:hover {
-              transform: none;
-              box-shadow: none;
             }
           }
         }
