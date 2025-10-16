@@ -4972,6 +4972,152 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  async finalizeReport() {
+    const incompleteAreas: string[] = [];
+
+    // Check required Project Information fields
+    const requiredProjectFields = {
+      'ClientName': 'Client Name',
+      'AgentName': 'Agent Name',
+      'InspectorName': 'Inspector Name',
+      'YearBuilt': 'Year Built',
+      'SquareFeet': 'Square Feet',
+      'TypeOfBuilding': 'Building Type',
+      'Style': 'Style'
+    };
+
+    Object.entries(requiredProjectFields).forEach(([field, label]) => {
+      if (!this.projectData[field]) {
+        incompleteAreas.push(`Project Information: ${label}`);
+      }
+    });
+
+    // Check required Service fields
+    const requiredServiceFields = {
+      'InAttendance': 'In Attendance',
+      'OccupancyFurnishings': 'Occupancy/Furnishings',
+      'WeatherConditions': 'Weather Conditions',
+      'OutdoorTemperature': 'Outdoor Temperature'
+    };
+
+    Object.entries(requiredServiceFields).forEach(([field, label]) => {
+      if (!this.serviceData[field]) {
+        incompleteAreas.push(`Project Information: ${label}`);
+      }
+    });
+
+    // Check foundation fields if applicable
+    if (!this.formData.foundationType) {
+      incompleteAreas.push('Foundation: Foundation Type');
+    }
+    if (!this.formData.foundationCondition) {
+      incompleteAreas.push('Foundation: Foundation Condition');
+    }
+
+    // Check required visual items across all categories
+    for (const category of this.visualCategories) {
+      if (!this.organizedData[category]) continue;
+
+      const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
+
+      for (const sectionType of sections) {
+        const items = this.organizedData[category][sectionType] || [];
+
+        for (const item of items) {
+          if (item.required) {
+            const key = `${category}_${item.id}`;
+            let isComplete = false;
+
+            // For Yes/No questions (AnswerType 1)
+            if (item.answerType === 1) {
+              isComplete = item.answer === 'Yes' || item.answer === 'No';
+            }
+            // For multi-select questions (AnswerType 2)
+            else if (item.answerType === 2) {
+              isComplete = item.selectedOptions && item.selectedOptions.length > 0;
+            }
+            // For text questions (AnswerType 0 or undefined)
+            else {
+              isComplete = this.selectedItems[key] === true;
+            }
+
+            if (!isComplete) {
+              const sectionLabel = sectionType.charAt(0).toUpperCase() + sectionType.slice(1);
+              incompleteAreas.push(`${category} - ${sectionLabel}: ${item.name || item.text || 'Unnamed item'}`);
+            }
+          }
+        }
+      }
+    }
+
+    // Check Base Station requirement for elevation plot
+    const baseStationSelected = this.selectedRooms['Base Station'] === true;
+    if (!baseStationSelected) {
+      incompleteAreas.push('Elevation Plot: Base Station (required)');
+    }
+
+    // Show results
+    if (incompleteAreas.length > 0) {
+      const alert = await this.alertController.create({
+        header: 'Incomplete Required Fields',
+        message: `The following required fields are not complete:\n\n${incompleteAreas.map(area => `• ${area}`).join('\n')}`,
+        cssClass: 'finalize-alert',
+        buttons: ['OK']
+      });
+      await alert.present();
+    } else {
+      const alert = await this.alertController.create({
+        header: 'Report Complete',
+        message: 'All required fields have been completed. Your report is ready to be finalized.',
+        cssClass: 'finalize-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Finalize',
+            handler: () => {
+              this.markReportAsFinalized();
+            }
+          }
+        ]
+      });
+      await alert.present();
+    }
+  }
+
+  async markReportAsFinalized() {
+    const loading = await this.loadingController.create({
+      message: 'Finalizing report...'
+    });
+    await loading.present();
+
+    try {
+      // Update the service data to mark report as finalized
+      const updateData = {
+        ...this.serviceData,
+        ReportFinalized: true,
+        FinalizedDate: new Date().toISOString()
+      };
+
+      // Save to Caspio
+      await firstValueFrom(this.caspioService.updateService(this.serviceId, updateData));
+
+      await loading.dismiss();
+      await this.showToast('Report has been finalized successfully', 'success');
+
+      // Update local data
+      this.serviceData.ReportFinalized = true;
+      this.serviceData.FinalizedDate = updateData.FinalizedDate;
+
+    } catch (error) {
+      console.error('Error finalizing report:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to finalize report', 'danger');
+    }
+  }
+
   // Prevent touch event bubbling
   preventTouch(event: TouchEvent) {
     event.preventDefault();

@@ -2841,7 +2841,7 @@ select[name="StructuralSystemsStatus"] {
 }
 
 @media (max-width: 480px) {
-  // FORCE small mobile caption width to match 60px mobile images  
+  // FORCE small mobile caption width to match 60px mobile images
   .fdf-photos-container .room-photo-caption,
   .elevation-points-container .room-photo-caption,
   .elevation-point-card .room-photo-caption,
@@ -2853,6 +2853,105 @@ select[name="StructuralSystemsStatus"] {
     font-size: 9px !important;
     padding: 2px 3px !important;
     box-sizing: border-box !important;
+  }
+}
+
+// Finalize Report Button
+.finalize-button-container {
+  text-align: center;
+  padding: 30px 20px;
+  margin-bottom: 20px;
+
+  .finalize-button {
+    background: linear-gradient(135deg, var(--noble-orange) 0%, #ff7645 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(241, 90, 39, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    ion-icon {
+      font-size: 28px;
+    }
+
+    &:hover {
+      background: linear-gradient(135deg, #d94e23 0%, #ff6b35 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(241, 90, 39, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 20px rgba(241, 90, 39, 0.3);
+    }
+
+    @media (max-width: 768px) {
+      width: 100%;
+      max-width: 400px;
+      padding: 14px 30px;
+      font-size: 16px;
+
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
+}
+
+// Finalize Alert Styling
+::ng-deep .finalize-alert {
+  .alert-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+
+  .alert-head {
+    padding: 20px 20px 10px;
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #333;
+    }
+  }
+
+  .alert-message {
+    padding: 10px 20px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #666;
+    white-space: pre-line;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .alert-button-group {
+    padding: 12px;
+    border-top: 1px solid #e0e0e0;
+
+    button {
+      border-radius: 8px;
+      font-weight: 600;
+      padding: 12px 20px;
+      margin: 4px;
+
+      &[role="cancel"] {
+        color: #666;
+      }
+
+      &:not([role="cancel"]) {
+        color: var(--noble-orange);
+      }
+    }
   }
 }
 

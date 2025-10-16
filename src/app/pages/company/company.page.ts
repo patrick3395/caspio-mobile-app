@@ -385,6 +385,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     AlsoEmailed: false
   };
 
+  // Edit communication modal
+  isEditCommunicationModalOpen = false;
+  editingCommunication: any = null;
+
   // Add task modal
   isAddTaskModalOpen = false;
   newTask: any = {
@@ -1234,6 +1238,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       AlsoEmailed: false
     };
 
+    // Populate communication types from the Communication table's Type column
+    this.communicationTypes = Array.from(this.communicationTypeLookup.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     this.isAddCommunicationModalOpen = true;
   }
 
@@ -1318,6 +1327,236 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       } else if (error?.message) {
         errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async openEditCommunicationModal(communication: CommunicationViewModel) {
+    // Format date for datetime-local input
+    let formattedDate = '';
+    if (communication.date) {
+      const d = new Date(communication.date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    // Find the raw communication record from the communications array
+    const rawComm = this.communications.find(c => c.PK_ID === communication.PK_ID);
+
+    // Determine the CommunicationID and channel flags from the raw data
+    let communicationID = null;
+    let conversed = false;
+    let leftVM = false;
+    let alsoTexted = false;
+    let alsoEmailed = false;
+
+    if (rawComm) {
+      // Extract the actual database values
+      if (communication.channels.includes('Call')) conversed = true;
+      if (communication.channels.includes('Voicemail')) leftVM = true;
+      if (communication.channels.includes('Text')) alsoTexted = true;
+      if (communication.channels.includes('Email')) alsoEmailed = true;
+
+      // Find the CommunicationID from the lookup
+      for (const [id, name] of this.communicationTypeLookup.entries()) {
+        if (name === communication.communicationType) {
+          communicationID = id;
+          break;
+        }
+      }
+    }
+
+    this.editingCommunication = {
+      PK_ID: communication.PK_ID,
+      TouchID: communication.TouchID,
+      CompanyID: communication.CompanyID,
+      Date: formattedDate,
+      CommunicationID: communicationID,
+      Notes: communication.notes,
+      Conversed: conversed,
+      LeftVM: leftVM,
+      AlsoTexted: alsoTexted,
+      AlsoEmailed: alsoEmailed
+    };
+
+    // Populate communication types from the lookup
+    this.communicationTypes = Array.from(this.communicationTypeLookup.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    this.isEditCommunicationModalOpen = true;
+  }
+
+  closeEditCommunicationModal() {
+    this.isEditCommunicationModalOpen = false;
+    this.editingCommunication = null;
+  }
+
+  async saveEditedCommunication() {
+    if (!this.editingCommunication) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.editingCommunication.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.editingCommunication.Date || this.editingCommunication.Date.trim() === '') {
+      await this.showToast('Please select a date', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating communication...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload
+      const payload: any = {
+        CompanyID: this.editingCommunication.CompanyID,
+        Date: new Date(this.editingCommunication.Date).toISOString(),
+        Conversed: this.editingCommunication.Conversed ? 1 : 0,
+        LeftVM: this.editingCommunication.LeftVM ? 1 : 0,
+        AlsoTexted: this.editingCommunication.AlsoTexted ? 1 : 0,
+        AlsoEmailed: this.editingCommunication.AlsoEmailed ? 1 : 0
+      };
+
+      // Add optional fields
+      if (this.editingCommunication.CommunicationID !== null) {
+        payload.CommunicationID = this.editingCommunication.CommunicationID;
+      }
+
+      if (this.editingCommunication.Notes && this.editingCommunication.Notes.trim() !== '') {
+        payload.Notes = this.editingCommunication.Notes.trim();
+      }
+
+      console.log('Updating communication with payload:', payload);
+
+      // Update via Caspio API using PK_ID
+      const response = await firstValueFrom(
+        this.caspioService.put(`/tables/Touch/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
+      );
+
+      console.log('Communication updated successfully:', response);
+
+      // Reload communications data
+      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.communications = touchRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTouchRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyCommunicationFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Communication updated successfully', 'success');
+      this.closeEditCommunicationModal();
+    } catch (error: any) {
+      console.error('Error updating communication:', error);
+      let errorMessage = 'Failed to update communication';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteCommunication(communication: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Communication',
+      message: 'Are you sure you want to delete this communication? This action cannot be undone.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteCommunication(communication);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteCommunication(communication: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting communication...'
+    });
+    await loading.present();
+
+    try {
+      console.log('Deleting communication with PK_ID:', communication.PK_ID);
+
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Touch/records?q.where=PK_ID=${communication.PK_ID}`)
+      );
+
+      console.log('Communication deleted successfully');
+
+      // Reload communications data
+      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.communications = touchRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTouchRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyCommunicationFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Communication deleted successfully', 'success');
+      this.closeEditCommunicationModal();
+    } catch (error: any) {
+      console.error('Error deleting communication:', error);
+      let errorMessage = 'Failed to delete communication';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
       }
 
       await this.showToast(errorMessage, 'danger');

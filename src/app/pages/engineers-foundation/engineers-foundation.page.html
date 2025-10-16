@@ -1559,8 +1559,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Finalize Report Button -->
+    <div class="finalize-button-container">
+      <button class="finalize-button" (click)="finalizeReport()">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <span>Finalize Report</span>
+      </button>
+    </div>
   </div>
-  
+
   <!-- File upload input (hidden, supports multiple files) -->
   <input 
     #fileInput 

@@ -667,11 +667,11 @@ ion-content {
     padding: 4px;
 
     ion-segment-button {
-      --indicator-color: #ffffff;
+      --indicator-color: #f15a27;
       --indicator-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       --border-radius: 8px;
       --color: #666;
-      --color-checked: #f15a27;
+      --color-checked: #ffffff;
       min-height: 32px;
       font-size: 0.875rem;
       font-weight: 500;
@@ -1471,11 +1471,17 @@ ion-content {
 .communication-card {
   background: #fff;
   border-radius: 16px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: 0 18px 30px rgba(10, 31, 68, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
 }
 
 .communication-header {
@@ -1483,14 +1489,27 @@ ion-content {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+  margin-bottom: 2px;
+
+  h4 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  span {
+    font-size: 0.85rem;
+    color: var(--ion-color-medium);
+    font-weight: 400;
+  }
 }
 
 .communication-meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   font-size: 0.85rem;
   color: var(--ion-color-medium);
+  margin-top: 2px;
 }
 
 .communication-meta ion-icon {

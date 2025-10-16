@@ -515,7 +515,7 @@
       </div>
 
       <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
-        <div class="communication-card" *ngFor="let comm of paginatedCommunications">
+        <div class="communication-card clickable-card" *ngFor="let comm of paginatedCommunications" (click)="openEditCommunicationModal(comm)">
           <div class="communication-header">
             <h4>{{ comm.communicationType }}</h4>
             <span>{{ formatDate(comm.date) }}</span>
@@ -1578,6 +1578,92 @@
             <div class="form-field">
               <label>Also Emailed</label>
               <ion-toggle [(ngModel)]="newCommunication.AlsoEmailed"></ion-toggle>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditCommunicationModalOpen" (didDismiss)="closeEditCommunicationModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditCommunicationModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Edit Communication</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveEditedCommunication()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingCommunication">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="editingCommunication.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Date</label>
+              <input type="datetime-local" [(ngModel)]="editingCommunication.Date" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Communication Type</label>
+              <select [(ngModel)]="editingCommunication.CommunicationID" class="form-input">
+                <option [ngValue]="null">Select Type</option>
+                <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
+                  {{ type.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="editingCommunication.Notes" class="form-textarea" rows="4" placeholder="Communication notes..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Connected (Call)</label>
+              <ion-toggle [(ngModel)]="editingCommunication.Conversed"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Left Voicemail</label>
+              <ion-toggle [(ngModel)]="editingCommunication.LeftVM"></ion-toggle>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Also Texted</label>
+              <ion-toggle [(ngModel)]="editingCommunication.AlsoTexted"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Also Emailed</label>
+              <ion-toggle [(ngModel)]="editingCommunication.AlsoEmailed"></ion-toggle>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="deleteCommunication(editingCommunication, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete Communication
+              </button>
             </div>
           </div>
         </div>
