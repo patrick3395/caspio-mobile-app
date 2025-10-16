@@ -372,6 +372,19 @@ export class CompanyPage implements OnInit, OnDestroy {
     Attendee5: ''
   };
 
+  // Add communication modal
+  isAddCommunicationModalOpen = false;
+  newCommunication: any = {
+    CompanyID: null,
+    Date: '',
+    CommunicationID: null,
+    Notes: '',
+    Conversed: false,
+    LeftVM: false,
+    AlsoTexted: false,
+    AlsoEmailed: false
+  };
+
   // Add task modal
   isAddTaskModalOpen = false;
   newTask: any = {
@@ -1189,6 +1202,111 @@ export class CompanyPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error creating meeting:', error);
       let errorMessage = 'Failed to create meeting';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async openAddCommunicationModal() {
+    // Reset the communication with default values, pre-fill company if filter is applied
+    this.newCommunication = {
+      CompanyID: this.globalCompanyFilterId,
+      Date: '',
+      CommunicationID: null,
+      Notes: '',
+      Conversed: false,
+      LeftVM: false,
+      AlsoTexted: false,
+      AlsoEmailed: false
+    };
+
+    this.isAddCommunicationModalOpen = true;
+  }
+
+  closeAddCommunicationModal() {
+    this.isAddCommunicationModalOpen = false;
+  }
+
+  async saveNewCommunication() {
+    if (!this.newCommunication) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.newCommunication.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.newCommunication.Date || this.newCommunication.Date.trim() === '') {
+      await this.showToast('Please select a date', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating communication...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with required and optional fields
+      const payload: any = {
+        CompanyID: this.newCommunication.CompanyID,
+        Date: new Date(this.newCommunication.Date).toISOString(),
+        Conversed: this.newCommunication.Conversed ? 1 : 0,
+        LeftVM: this.newCommunication.LeftVM ? 1 : 0,
+        AlsoTexted: this.newCommunication.AlsoTexted ? 1 : 0,
+        AlsoEmailed: this.newCommunication.AlsoEmailed ? 1 : 0
+      };
+
+      // Add optional fields if provided
+      if (this.newCommunication.CommunicationID !== null) {
+        payload.CommunicationID = this.newCommunication.CommunicationID;
+      }
+
+      if (this.newCommunication.Notes && this.newCommunication.Notes.trim() !== '') {
+        payload.Notes = this.newCommunication.Notes.trim();
+      }
+
+      console.log('Creating communication with payload:', payload);
+
+      // Create the communication via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Touch/records', payload)
+      );
+
+      console.log('Communication created successfully:', response);
+
+      // Reload communications data to include the new communication
+      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.communications = touchRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeTouchRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyCommunicationFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Communication created successfully', 'success');
+      this.closeAddCommunicationModal();
+    } catch (error: any) {
+      console.error('Error creating communication:', error);
+      let errorMessage = 'Failed to create communication';
 
       if (error?.error) {
         if (typeof error.error === 'string') {

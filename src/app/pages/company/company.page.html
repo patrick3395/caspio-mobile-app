@@ -507,6 +507,13 @@
         </ion-searchbar>
       </div>
 
+      <div class="add-task-button-container">
+        <ion-button size="small" (click)="openAddCommunicationModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Communication
+        </ion-button>
+      </div>
+
       <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
         <div class="communication-card" *ngFor="let comm of paginatedCommunications">
           <div class="communication-header">
@@ -1493,6 +1500,84 @@
             <div class="form-field">
               <label>Attendee 5</label>
               <input type="text" [(ngModel)]="newMeeting.Attendee5" class="form-input" placeholder="Fifth attendee">
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isAddCommunicationModalOpen" (didDismiss)="closeAddCommunicationModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddCommunicationModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Add New Communication</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewCommunication()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="newCommunication.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Date</label>
+              <input type="datetime-local" [(ngModel)]="newCommunication.Date" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>Communication Type</label>
+              <select [(ngModel)]="newCommunication.CommunicationID" class="form-input">
+                <option [ngValue]="null">Select Type</option>
+                <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
+                  {{ type.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="newCommunication.Notes" class="form-textarea" rows="4" placeholder="Communication notes..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Connected (Call)</label>
+              <ion-toggle [(ngModel)]="newCommunication.Conversed"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Left Voicemail</label>
+              <ion-toggle [(ngModel)]="newCommunication.LeftVM"></ion-toggle>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Also Texted</label>
+              <ion-toggle [(ngModel)]="newCommunication.AlsoTexted"></ion-toggle>
+            </div>
+            <div class="form-field">
+              <label>Also Emailed</label>
+              <ion-toggle [(ngModel)]="newCommunication.AlsoEmailed"></ion-toggle>
             </div>
           </div>
         </div>
