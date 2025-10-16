@@ -578,13 +578,16 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.selectedContact = null;
   }
 
-  openEditContactModal() {
-    if (!this.selectedContact) {
+  openEditContactModal(contact?: ContactRecord) {
+    // If a contact is provided, use it; otherwise use selectedContact
+    const contactToEdit = contact || this.selectedContact;
+
+    if (!contactToEdit) {
       return;
     }
 
-    // Create a copy of the selected contact for editing
-    this.editingContact = { ...this.selectedContact };
+    // Create a copy of the contact for editing
+    this.editingContact = { ...contactToEdit };
 
     // Close the view modal and open the edit modal
     this.isContactModalOpen = false;
