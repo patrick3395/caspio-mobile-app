@@ -63,10 +63,16 @@
       <!-- Zelle Payment Note -->
       <p class="zelle-note">NOTE: We would prefer payments through Zelle to avoid transaction fees. If able please Zelle to: 5122989395 (Patrick Bullock). Your account will be updated after receipt ASAP.</p>
 
-      <!-- PayPal Button Container -->
-      <div #paypalButtonContainer class="paypal-button-container"></div>
+      <!-- SDK Loading Spinner -->
+      <div *ngIf="sdkLoading" class="loading-overlay">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading payment options...</p>
+      </div>
 
-      <!-- Loading Spinner -->
+      <!-- PayPal Button Container -->
+      <div #paypalButtonContainer class="paypal-button-container" [style.display]="sdkLoading ? 'none' : 'block'"></div>
+
+      <!-- Payment Processing Spinner -->
       <div *ngIf="isLoading" class="loading-overlay">
         <ion-spinner name="crescent"></ion-spinner>
         <p>Processing payment...</p>

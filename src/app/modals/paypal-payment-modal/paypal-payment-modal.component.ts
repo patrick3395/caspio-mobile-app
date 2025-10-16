@@ -21,6 +21,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
   isLoading = false;
   paymentCompleted = false;
+  sdkLoading = true; // Track SDK loading state
 
   constructor(
     private modalController: ModalController,
@@ -32,13 +33,37 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit() {
-    // Render PayPal button after view is initialized
-    this.renderPayPalButton();
+    // Wait for PayPal SDK to load before rendering button
+    this.waitForPayPalSDK();
+  }
+
+  private waitForPayPalSDK(retries = 0, maxRetries = 20) {
+    // Check if PayPal SDK is loaded
+    if (typeof paypal !== 'undefined') {
+      console.log('PayPal SDK loaded successfully');
+      this.sdkLoading = false;
+      this.renderPayPalButton();
+      return;
+    }
+
+    // If max retries reached, show error
+    if (retries >= maxRetries) {
+      console.error('PayPal SDK failed to load after max retries');
+      this.sdkLoading = false;
+      this.showError('PayPal SDK failed to load. Please refresh and try again.');
+      return;
+    }
+
+    // Retry after 250ms
+    console.log(`Waiting for PayPal SDK... (attempt ${retries + 1}/${maxRetries})`);
+    setTimeout(() => {
+      this.waitForPayPalSDK(retries + 1, maxRetries);
+    }, 250);
   }
 
   renderPayPalButton() {
     if (typeof paypal === 'undefined') {
-      console.error('PayPal SDK not loaded');
+      console.error('PayPal SDK not loaded in renderPayPalButton');
       this.showError('PayPal SDK failed to load. Please refresh and try again.');
       return;
     }
