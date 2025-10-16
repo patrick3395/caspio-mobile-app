@@ -262,7 +262,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       if (finalizedServiceId) {
         // Mark the service as finalized locally
         setTimeout(() => {
-          const service = this.selectedServices.find(s => s.id === finalizedServiceId);
+          const service = this.selectedServices.find(s => s.serviceId === finalizedServiceId);
           if (service) {
             service.ReportFinalized = true;
             this.changeDetectorRef.detectChanges();
