@@ -18,6 +18,7 @@ interface ProjectMetadata {
   companyId: number | null;
   projectDate: Date | null;
   offersId: number | null;
+  statusId: number | null;
 }
 
 interface CompanyRecord {
@@ -524,7 +525,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
         this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
@@ -2854,21 +2855,28 @@ export class CompanyPage implements OnInit, OnDestroy {
           netAmount: projectNetAmount // Sum of all invoices for this ProjectID
         };
 
-        if (hasPayments) {
-          // If there's any payment, it goes to paid
-          paidPairs.push(pair);
-        } else if (totalPositiveAmount > 0) {
-          // No payments but has positive invoices
-          const projectHasOccurred = projectDate ? projectDate <= today : true;
-          if (!projectHasOccurred && projectNetAmount > 0) {
-            // Future/active project with amount due > 0 - goes to Open
-            open.push(pair);
-          } else if (projectHasOccurred && projectNetAmount > 0) {
-            // Past project without payment and amount due > 0 - goes to Unpaid
+        // Get StatusID from project metadata
+        const statusId = metadata?.statusId ?? null;
+
+        // Categorize based on StatusID and amount due:
+        // Open: StatusID != 2 AND amount due != 0
+        // Past: StatusID == 2 AND amount due == 0
+        // Unpaid: StatusID == 2 AND amount due != 0
+
+        if (statusId === 2) {
+          // StatusID is 2
+          if (projectNetAmount === 0) {
+            // StatusID == 2 AND amount due == 0 -> Past
+            paidPairs.push(pair);
+          } else if (projectNetAmount > 0) {
+            // StatusID == 2 AND amount due > 0 -> Unpaid
             unpaid.push(pair);
           }
-          // If projectNetAmount <= 0, don't include in any category
+        } else if (statusId !== 2 && projectNetAmount > 0) {
+          // StatusID != 2 AND amount due > 0 -> Open
+          open.push(pair);
         }
+        // If amount due <= 0 and StatusID != 2, don't include in any category
       }
     });
 
@@ -2945,6 +2953,25 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     return 'Service Not Specified';
+  }
+
+  getInvoiceStatus(invoice: InvoicePairWithService): string {
+    const statusId = invoice.positive.ProjectID !== null
+      ? this.projectDetailsLookup.get(invoice.positive.ProjectID)?.statusId ?? null
+      : null;
+    const amountDue = invoice.netAmount;
+
+    if (statusId === 2) {
+      if (amountDue === 0) {
+        return 'Paid/Complete';
+      } else if (amountDue > 0) {
+        return 'Unpaid';
+      }
+    } else if (statusId !== 2 && amountDue > 0) {
+      return 'Open';
+    }
+
+    return 'Unknown';
   }
 
   paginateInvoices() {
@@ -3576,7 +3603,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
       const projectDate = this.toDate(record.Date);
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) : null;
-      this.projectDetailsLookup.set(projectId, { companyId, projectDate, offersId });
+      const statusId = record.StatusID !== undefined && record.StatusID !== null ? Number(record.StatusID) : null;
+      this.projectDetailsLookup.set(projectId, { companyId, projectDate, offersId, statusId });
     });
   }
 

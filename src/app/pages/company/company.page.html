@@ -1780,7 +1780,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Status</label>
-              <p class="read-only-field">{{ editingInvoice.positive.Status }}</p>
+              <p class="read-only-field">{{ getInvoiceStatus(editingInvoice) }}</p>
             </div>
           </div>
           <div class="form-row" *ngIf="editingInvoice.positive.InvoiceNotes">

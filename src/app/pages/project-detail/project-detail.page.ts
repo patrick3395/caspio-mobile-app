@@ -4188,6 +4188,12 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
+    // Check if report is finalized
+    if (!service.ReportFinalized) {
+      await this.showToast('Report must be finalized before submission', 'warning');
+      return;
+    }
+
     // Show confirmation alert
     const alert = await this.alertController.create({
       header: 'Submit Report',

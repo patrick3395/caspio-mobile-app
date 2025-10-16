@@ -190,9 +190,13 @@
                 </div>
               </div>
 
-              <!-- Submit button for finalized reports -->
-              <div *ngIf="service.ReportFinalized" class="submit-button-container">
-                <button class="submit-report-btn" (click)="submitFinalizedReport(service)">
+              <!-- Submit button for all services -->
+              <div class="submit-button-container">
+                <button
+                  class="submit-report-btn"
+                  [class.finalized]="service.ReportFinalized"
+                  [disabled]="!service.ReportFinalized"
+                  (click)="submitFinalizedReport(service)">
                   Submit
                 </button>
               </div>
