@@ -663,7 +663,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Close modal and refresh
       this.closeEditContactModal();
-      this.updateContactGroups();
+      this.applyContactFilters();
 
       await this.showToast('Contact updated successfully', 'success');
     } catch (error: any) {
@@ -741,7 +741,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.closeEditContactModal();
 
       // Refresh contact groups
-      this.updateContactGroups();
+      this.applyContactFilters();
 
       await this.showToast('Contact deleted successfully', 'success');
     } catch (error: any) {
