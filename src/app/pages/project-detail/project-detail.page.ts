@@ -2637,6 +2637,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
+      // Pass ReportFinalized flag in navigation state
+      if (service.ReportFinalized) {
+        extras.state = {
+          ReportFinalized: service.ReportFinalized,
+          FinalizedDate: service.FinalizedDate
+        };
+      }
 
       this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], extras).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
@@ -4187,6 +4194,12 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
+    // Build services breakdown
+    const servicesBreakdown = this.selectedServices.map(service => ({
+      name: service.typeName,
+      price: this.getServicePrice(service)
+    }));
+
     const modal = await this.modalController.create({
       component: PaypalPaymentModalComponent,
       componentProps: {
@@ -4194,7 +4207,9 @@ Time: ${debugInfo.timestamp}
           InvoiceID: this.project.PK_ID,
           Amount: totalAmount.toFixed(2),
           Description: `Payment for ${this.project.Address || 'Project'}, ${this.project.City || ''}`,
-          DueDate: this.project.Date || this.project.InspectionDate
+          Address: this.project.Address,
+          City: this.project.City,
+          Services: servicesBreakdown
         }
       }
     });

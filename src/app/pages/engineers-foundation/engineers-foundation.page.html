@@ -1591,7 +1591,7 @@
     <div class="finalize-button-container">
       <button class="finalize-button" (click)="finalizeReport()">
         <ion-icon name="checkmark-circle-outline"></ion-icon>
-        <span>Finalize Report</span>
+        <span>{{ serviceData?.ReportFinalized ? 'Update' : 'Finalize Report' }}</span>
       </button>
     </div>
   </div>

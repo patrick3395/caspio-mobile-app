@@ -302,8 +302,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   private stageLookup = new Map<number, StageDefinition>();
   private companyNameLookup = new Map<number, string>();
   private projectDetailsLookup = new Map<number, ProjectMetadata>();
-  private servicesLookup = new Map<number, string>(); // ServiceID -> TypeName
+  private servicesLookup = new Map<number, number>(); // ServiceID -> TypeID
   private servicesByProjectLookup = new Map<number, number[]>(); // ProjectID -> ServiceID[]
+  private typeIdToNameLookup = new Map<number, string>(); // TypeID -> TypeName
   private offersLookup = new Map<number, string>(); // OffersID -> TypeName
   private contactCountByCompany = new Map<number, number>();
   private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
@@ -524,8 +525,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID,TypeName', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeName', 'q.limit': '2000' })
+        this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID,TypeName', 'q.limit': '2000' })
       ]);
 
       this.populateStageDefinitions(stageRecords);
@@ -2904,9 +2905,12 @@ export class CompanyPage implements OnInit, OnDestroy {
   private getServiceNameForInvoice(invoice: InvoiceViewModel): string {
     // First, try to get service name from invoice's ServiceID
     if (invoice.ServiceID !== null) {
-      const serviceName = this.servicesLookup.get(invoice.ServiceID);
-      if (serviceName) {
-        return serviceName;
+      const typeId = this.servicesLookup.get(invoice.ServiceID);
+      if (typeId !== null && typeId !== undefined) {
+        const typeName = this.typeIdToNameLookup.get(typeId);
+        if (typeName) {
+          return typeName;
+        }
       }
     }
 
@@ -2914,10 +2918,13 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (invoice.ProjectID !== null) {
       const serviceIds = this.servicesByProjectLookup.get(invoice.ProjectID);
       if (serviceIds && serviceIds.length > 0) {
-        // Use the first service's name
-        const serviceName = this.servicesLookup.get(serviceIds[0]);
-        if (serviceName) {
-          return serviceName;
+        // Use the first service's TypeID to get the name
+        const typeId = this.servicesLookup.get(serviceIds[0]);
+        if (typeId !== null && typeId !== undefined) {
+          const typeName = this.typeIdToNameLookup.get(typeId);
+          if (typeName) {
+            return typeName;
+          }
         }
       }
 
@@ -3574,10 +3581,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     records.forEach(record => {
       const serviceId = record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null;
       const projectId = record.ProjectID !== undefined && record.ProjectID !== null ? Number(record.ProjectID) : null;
-      const typeName = record.TypeName ?? '';
+      const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
 
-      if (serviceId !== null && typeName) {
-        this.servicesLookup.set(serviceId, typeName);
+      if (serviceId !== null && typeId !== null) {
+        this.servicesLookup.set(serviceId, typeId);
       }
 
       if (projectId !== null && serviceId !== null) {
@@ -3591,14 +3598,20 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   private populateOffersLookup(records: any[]) {
     this.offersLookup.clear();
+    this.typeIdToNameLookup.clear();
 
     records.forEach(record => {
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
                        (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
+      const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
       const typeName = record.TypeName ?? '';
 
       if (offersId !== null && typeName) {
         this.offersLookup.set(offersId, typeName);
+      }
+
+      if (typeId !== null && typeName) {
+        this.typeIdToNameLookup.set(typeId, typeName);
       }
     });
   }

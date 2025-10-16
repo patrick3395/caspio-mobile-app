@@ -367,6 +367,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
 
+    // Check for ReportFinalized flag from navigation state
+    const navigation = this.router.getCurrentNavigation();
+    if (navigation?.extras?.state) {
+      if (navigation.extras.state['ReportFinalized']) {
+        // Initialize serviceData if not exists
+        if (!this.serviceData) {
+          this.serviceData = {} as any;
+        }
+        this.serviceData.ReportFinalized = navigation.extras.state['ReportFinalized'];
+        this.serviceData.FinalizedDate = navigation.extras.state['FinalizedDate'];
+        console.log('[EngFoundation ngOnInit] Received ReportFinalized state:', this.serviceData.ReportFinalized);
+      }
+    }
+
     this.isOnline = this.offlineService.isOnline();
     this.manualOffline = this.offlineService.isManualOffline();
     this.updateOfflineBanner();
@@ -520,6 +534,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[Lifecycle] Current selectedRooms:', Object.keys(this.selectedRooms));
     console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
     console.log('==========================================');
+
+    // Check for ReportFinalized flag from history state
+    const historyState = window.history.state;
+    if (historyState?.ReportFinalized) {
+      // Initialize serviceData if not exists
+      if (!this.serviceData) {
+        this.serviceData = {} as any;
+      }
+      this.serviceData.ReportFinalized = historyState.ReportFinalized;
+      this.serviceData.FinalizedDate = historyState.FinalizedDate;
+      console.log('[EngFoundation ionViewWillEnter] Received ReportFinalized from history:', this.serviceData.ReportFinalized);
+    }
 
     // CRITICAL: Clear all caches to force fresh data load from Caspio
     // This prevents stale cached data from being displayed when returning to the page
@@ -727,12 +753,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!this.serviceId) {
       return;
     }
-    
+
     try {
+      // Preserve ReportFinalized flag if it was already set locally
+      const wasFinalized = this.serviceData?.ReportFinalized;
+      const finalizedDate = this.serviceData?.FinalizedDate;
+
       // Load service data from Services table
       const serviceResponse = await this.foundationData.getService(this.serviceId);
       if (serviceResponse) {
         this.serviceData = serviceResponse;
+
+        // Restore locally set finalized flag (not stored in database)
+        if (wasFinalized) {
+          this.serviceData.ReportFinalized = wasFinalized;
+          this.serviceData.FinalizedDate = finalizedDate;
+        }
+
         // Map database column StructStat to UI property StructuralSystemsStatus
         if (serviceResponse.StructStat) {
           this.serviceData.StructuralSystemsStatus = serviceResponse.StructStat;

@@ -1,7 +1,41 @@
+// Center the header title
+ion-header {
+  ion-toolbar {
+    ion-title {
+      text-align: center;
+    }
+  }
+}
+
 .amount {
   font-size: 1.5rem;
   font-weight: bold;
   color: var(--ion-color-primary);
+}
+
+.services-list {
+  margin-top: 0.5rem;
+
+  .service-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .service-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .service-price {
+      font-weight: 600;
+      color: var(--ion-color-primary);
+    }
+  }
 }
 
 .zelle-note {

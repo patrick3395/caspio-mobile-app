@@ -28,20 +28,25 @@
         </ion-item>
         <ion-item>
           <ion-label>
-            <h3>Description</h3>
-            <p>{{ invoice?.Description || 'Payment' }}</p>
+            <h3>Address</h3>
+            <p>{{ invoice?.Address || 'N/A' }}, {{ invoice?.City || '' }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item *ngIf="invoice?.Services && invoice.Services.length > 0">
+          <ion-label>
+            <h3>Services</h3>
+            <div class="services-list">
+              <div *ngFor="let service of invoice.Services" class="service-item">
+                <span class="service-name">{{ service.name }}</span>
+                <span class="service-price">${{ service.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
           </ion-label>
         </ion-item>
         <ion-item>
           <ion-label>
-            <h3>Amount Due</h3>
+            <h3>Total Amount Due</h3>
             <p class="amount">${{ invoice?.Amount || '0.00' }}</p>
-          </ion-label>
-        </ion-item>
-        <ion-item *ngIf="invoice?.DueDate">
-          <ion-label>
-            <h3>Due Date</h3>
-            <p>{{ invoice?.DueDate | date: 'MMM d, y' }}</p>
           </ion-label>
         </ion-item>
       </ion-list>
