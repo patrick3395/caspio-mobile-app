@@ -46,6 +46,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     const amount = this.invoice?.Amount || '0.00';
 
     paypal.Buttons({
+      fundingSource: paypal.FUNDING.PAYPAL,  // Only show PayPal button (no pay later)
       style: {
         layout: 'vertical',
         color: 'gold',
