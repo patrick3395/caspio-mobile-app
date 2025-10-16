@@ -4924,7 +4924,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async submitTemplate() {
     // Validate all required Project Information fields
-    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName',
+    const requiredProjectFields = ['ClientName', 'InspectorName',
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
     const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature', 'StructuralSystemsStatus'];
 
@@ -4985,7 +4985,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Check required Project Information fields
     const requiredProjectFields = {
       'ClientName': 'Client Name',
-      'AgentName': 'Agent Name',
       'InspectorName': 'Inspector Name',
       'YearBuilt': 'Year Built',
       'SquareFeet': 'Square Feet',
@@ -5964,7 +5963,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Required fields from projectData
     const requiredProjectFields = [
       'ClientName',
-      'AgentName', 
       'InspectorName',
       'YearBuilt',
       'SquareFeet',
