@@ -3,6 +3,14 @@ ion-toolbar {
   --background: var(--noble-orange);
 }
 
+ion-header {
+  z-index: 1001 !important;
+}
+
+ion-toolbar {
+  pointer-events: auto !important;
+}
+
 // Back Button with Orange Circle and White Arrow
 #eng-back-btn {
   background: var(--noble-orange) !important;
@@ -15,11 +23,18 @@ ion-toolbar {
   padding: 0 !important;
   margin-left: 8px !important;
   transition: all 0.3s ease !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 10000 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  border: none !important;
+  outline: none !important;
 
   ion-icon {
     color: white !important;
     font-size: 24px !important;
+    pointer-events: none !important; // Prevent icon from blocking clicks
   }
 
   &:hover {
@@ -29,6 +44,11 @@ ion-toolbar {
 
   &:active {
     transform: scale(0.95);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
   }
 }
 

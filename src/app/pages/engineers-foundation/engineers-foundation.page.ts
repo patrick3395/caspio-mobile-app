@@ -304,7 +304,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // UI state
   expandedSections: { [key: string]: boolean } = {
     project: false,  // Project Details collapsed by default
-    structural: false,  // Structural Systems collapsed by default
+    structural: true,  // Structural Systems expanded by default to show status dropdown
     elevation: false
   };
   

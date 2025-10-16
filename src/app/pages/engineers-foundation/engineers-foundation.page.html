@@ -1,8 +1,8 @@
 ﻿<ion-header>
   <ion-toolbar color="primary" class="template-toolbar">
-    <div slot="start">
-      <button id="eng-back-btn" (click)="goBack()" style="background: transparent; border: none; color: white; padding: 10px; display: flex; align-items: center; cursor: pointer;">
-        <ion-icon name="arrow-back" style="font-size: 24px;"></ion-icon>
+    <div slot="start" style="pointer-events: auto; z-index: 10001;">
+      <button id="eng-back-btn" (click)="goBack()" type="button">
+        <ion-icon name="arrow-back"></ion-icon>
       </button>
     </div>
     <ion-title class="toolbar-title">
@@ -354,7 +354,19 @@
 
     <!-- Structural Systems Section -->
     <div class="section-card structural-section">
-      <div class="section-content" style="display: block;">
+      <div class="section-header" data-section="structural" (click)="toggleSection('structural')">
+        <div class="section-info">
+          <div class="section-title">
+            <ion-icon name="construct-outline"></ion-icon>
+            Structural Systems
+          </div>
+        </div>
+        <div class="section-toggle">
+          <ion-icon [name]="expandedSections['structural'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+      </div>
+
+      <div class="section-content" *ngIf="expandedSections['structural']">
         <!-- Visual Assessment Location -->
         <div class="info-group">
           <div class="form-grid">
