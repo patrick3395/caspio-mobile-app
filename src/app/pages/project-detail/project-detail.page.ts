@@ -1732,6 +1732,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           
           // Update documents list immediately - this will show the link and green color
           this.updateDocumentsList();
+          
+          // Clear Attach table cache for this project
+          const actualProjectId = this.project?.ProjectID || this.projectId;
+          this.caspioService.clearAttachmentsCache(actualProjectId);
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -1751,6 +1755,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         // Update documents list immediately
         this.updateDocumentsList();
+        
+        // Clear Attach table cache for this project
+        const actualProjectId = this.project?.ProjectID || this.projectId;
+        this.caspioService.clearAttachmentsCache(actualProjectId);
       }
       
       // Don't reload - UI is already updated
@@ -1823,14 +1831,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const confirm = await this.alertController.create({
       header: 'Delete Document',
       message: `Are you sure you want to delete "${doc.linkName || doc.filename}"?`,
+      cssClass: 'custom-document-alert',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
-          text: 'Delete',
-          cssClass: 'danger-button',
+          text: 'DELETE',
+          cssClass: 'alert-button-save',
           handler: async () => {
             const loading = await this.loadingController.create({
               message: 'Deleting document...'
@@ -1862,6 +1872,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Update the documents list to reflect the removal
               this.updateDocumentsList();
+              
+              // Clear Attach table cache for this project
+              const actualProjectId = this.project?.ProjectID || this.projectId;
+              this.caspioService.clearAttachmentsCache(actualProjectId);
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -1890,14 +1904,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const confirm = await this.alertController.create({
       header: 'Delete Document',
       message: `Are you sure you want to delete "${additionalFile.linkName}"?`,
+      cssClass: 'custom-document-alert',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
-          text: 'Delete',
-          cssClass: 'danger-button',
+          text: 'DELETE',
+          cssClass: 'alert-button-save',
           handler: async () => {
             const loading = await this.loadingController.create({
               message: 'Deleting document...'
@@ -1922,6 +1938,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               }
               
               await loading.dismiss();
+              
+              // Clear Attach table cache for this project
+              const actualProjectId = this.project?.ProjectID || this.projectId;
+              this.caspioService.clearAttachmentsCache(actualProjectId);
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -2327,6 +2347,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Update the documents list to ensure the link appears correctly
         this.updateDocumentsList();
+        
+        // Clear Attach table cache for this project
+        const actualProjectId = this.project?.ProjectID || this.projectId;
+        this.caspioService.clearAttachmentsCache(actualProjectId);
       } else {
         throw new Error('No ID returned from server');
       }
@@ -2481,6 +2505,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Update cache with latest state
         this.cacheCurrentState();
+
+        // Clear Attach table cache for this project
+        const actualProjectId = this.project?.ProjectID || this.projectId;
+        this.caspioService.clearAttachmentsCache(actualProjectId);
 
         this.showToast('Link added successfully', 'success');
       }

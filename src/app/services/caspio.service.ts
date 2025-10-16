@@ -2386,10 +2386,19 @@ export class CaspioService {
   /**
    * Clear cached data for Attach table (Support Documents)
    * Call this when adding/updating/deleting attachments to force fresh data from Caspio
+   * @param projectId Optional - if provided, clears Attach cache for specific project
    */
-  public clearAttachmentsCache(): void {
-    console.log('[CaspioService] Clearing Attachments cache entries');
+  public clearAttachmentsCache(projectId?: string): void {
+    console.log('[CaspioService] Clearing Attachments cache entries', projectId ? `for project: ${projectId}` : '');
     this.cache.clearByPattern('Attach/records');
+    
+    // Clear the main Attach table cache for specific project if provided
+    if (projectId) {
+      const endpoint = `/tables/Attach/records?q.where=ProjectID=${projectId}`;
+      const cacheKey = this.cache.getApiCacheKey(endpoint, null);
+      this.cache.clear(cacheKey);
+      console.log('🗑️ Cleared Attach table cache for project:', projectId);
+    }
   }
 
   // ============================================================================
