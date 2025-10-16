@@ -588,6 +588,17 @@ ion-content{--overflow:scroll !important;height:100%}
       margin-top: 2px;
     }
   }
+
+  .field-description {
+    margin-top: -4px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #666;
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.5;
+  }
   
   &.filled {
     .styled-input {

@@ -443,7 +443,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
-    this.queueStructuralStatusWidthUpdate();
   }
 
   private tryAutoOpenPdf(): void {
@@ -776,7 +775,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           this.serviceData.StructuralSystemsStatus = '';
         }
-        this.queueStructuralStatusWidthUpdate();
         
         // TypeID loaded from service data
         
@@ -4206,7 +4204,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         mapping.dataSource[mapping.fieldName] = value;
       }
     });
-    this.queueStructuralStatusWidthUpdate();
   }
 
   // Handle Structural Systems status change
@@ -4215,15 +4212,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Store in local serviceData with the UI property name
     this.serviceData.StructuralSystemsStatus = value;
 
-    // If set to "Provided in Home Inspection Report", collapse the section
-    if (value === 'Provided in Home Inspection Report') {
-      this.expandedSections['structural'] = false;
-      this.markSpacerHeightDirty();
-    }
+    // No need to collapse section - it's always visible now
+    // Just trigger change detection for conditional content visibility
+    this.changeDetectorRef.detectChanges();
 
     // Save to Services table using the correct database column name "StructStat"
     this.autoSaveServiceField('StructStat', value);
-    this.queueStructuralStatusWidthUpdate();
   }
 
   private queueStructuralStatusWidthUpdate(): void {

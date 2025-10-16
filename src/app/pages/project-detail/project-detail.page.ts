@@ -3380,33 +3380,60 @@ Troubleshooting:
    * Returns the URL string if document is a link, null otherwise
    */
   private extractLinkUrl(doc: DocumentItem): string | null {
-    // Check if explicitly marked as link
+    console.log('🔍 [extractLinkUrl] Checking document:', {
+      title: doc.title,
+      isLink: doc.isLink,
+      linkName: doc.linkName,
+      filename: doc.filename,
+      attachmentUrl: doc.attachmentUrl
+    });
+    
+    // Check if explicitly marked as link AND has a valid URL in linkName
     if (doc.isLink && doc.linkName) {
-      return doc.linkName;
+      const linkName = doc.linkName.trim();
+      // Only return if it's actually a URL (not a file path or vercel link)
+      if ((linkName.startsWith('http://') || linkName.startsWith('https://')) && 
+          !linkName.includes('vercel.app')) {
+        console.log('✅ [extractLinkUrl] Found link via isLink flag:', linkName);
+        return linkName;
+      }
     }
     
-    // Check linkName for URL patterns (.com, http://, https://)
+    // Check linkName for URL patterns - but EXCLUDE vercel.app and file paths
     if (doc.linkName && typeof doc.linkName === 'string') {
       const linkName = doc.linkName.trim();
-      // Check if it's a URL
-      if (linkName.startsWith('http://') || linkName.startsWith('https://') || 
-          linkName.includes('.com') || linkName.includes('.org') || 
-          linkName.includes('.net') || linkName.includes('.edu')) {
-        return linkName.startsWith('http') ? linkName : `https://${linkName}`;
+      // Only process if it looks like a URL and is NOT a vercel link or file path
+      const looksLikeUrl = linkName.startsWith('http://') || linkName.startsWith('https://') || 
+                          linkName.includes('.com') || linkName.includes('.org') || 
+                          linkName.includes('.net') || linkName.includes('.edu');
+      const isVercelLink = linkName.includes('vercel.app');
+      const isFilePath = linkName.startsWith('/') || linkName.endsWith('.pdf') || linkName.endsWith('.jpg') || linkName.endsWith('.png');
+      
+      if (looksLikeUrl && !isVercelLink && !isFilePath) {
+        const url = linkName.startsWith('http') ? linkName : `https://${linkName}`;
+        console.log('✅ [extractLinkUrl] Found link via linkName:', url);
+        return url;
       }
     }
     
-    // Check filename for URL patterns
+    // Check filename for URL patterns - but EXCLUDE vercel.app and file paths
     if (doc.filename && typeof doc.filename === 'string') {
       const filename = doc.filename.trim();
-      // Check if it's a URL
-      if (filename.startsWith('http://') || filename.startsWith('https://') || 
-          filename.includes('.com') || filename.includes('.org') || 
-          filename.includes('.net') || filename.includes('.edu')) {
-        return filename.startsWith('http') ? filename : `https://${filename}`;
+      // Only process if it looks like a URL and is NOT a vercel link or file path
+      const looksLikeUrl = filename.startsWith('http://') || filename.startsWith('https://') || 
+                          filename.includes('.com') || filename.includes('.org') || 
+                          filename.includes('.net') || filename.includes('.edu');
+      const isVercelLink = filename.includes('vercel.app');
+      const isFilePath = filename.startsWith('/') || filename.endsWith('.pdf') || filename.endsWith('.jpg') || filename.endsWith('.png');
+      
+      if (looksLikeUrl && !isVercelLink && !isFilePath) {
+        const url = filename.startsWith('http') ? filename : `https://${filename}`;
+        console.log('✅ [extractLinkUrl] Found link via filename:', url);
+        return url;
       }
     }
     
+    console.log('❌ [extractLinkUrl] No valid link found');
     return null;
   }
 
