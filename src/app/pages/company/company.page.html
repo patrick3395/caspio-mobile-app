@@ -610,6 +610,7 @@
                   <th>Address</th>
                   <th>Service</th>
                   <th>Amount Due</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -624,6 +625,12 @@
                   </td>
                   <td>
                     {{ formatCurrency(invoice.netAmount) }}
+                  </td>
+                  <td>
+                    <button class="pay-invoice-btn" (click)="openInvoicePaymentModal(invoice)" *ngIf="invoice.netAmount > 0">
+                      <ion-icon name="card-outline"></ion-icon>
+                      Pay
+                    </button>
                   </td>
                 </tr>
               </tbody>

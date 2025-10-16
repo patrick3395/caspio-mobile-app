@@ -2,9 +2,10 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
 import { CaspioService } from '../../services/caspio.service';
+import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 
@@ -440,6 +441,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController,
+    private modalController: ModalController,
     private http: HttpClient
   ) {}
 
@@ -830,6 +832,44 @@ export class CompanyPage implements OnInit, OnDestroy {
   closeEditInvoiceModal() {
     this.isEditInvoiceModalOpen = false;
     this.editingInvoice = null;
+  }
+
+  async openInvoicePaymentModal(invoice: InvoicePairWithService) {
+    // Build services array from invoice data
+    const servicesBreakdown = invoice.serviceName ? [{
+      name: invoice.serviceName,
+      price: invoice.netAmount
+    }] : [];
+
+    const modal = await this.modalController.create({
+      component: PaypalPaymentModalComponent,
+      componentProps: {
+        invoice: {
+          InvoiceID: invoice.positive.InvoiceID,
+          Amount: invoice.netAmount.toFixed(2),
+          Address: invoice.positive.Address,
+          City: invoice.positive.City,
+          Services: servicesBreakdown
+        }
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.success) {
+      // Refresh invoices after successful payment
+      await this.categorizeInvoices();
+      // Show success toast
+      const toast = await this.toastController.create({
+        message: 'Payment processed successfully',
+        duration: 3000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    }
   }
 
   async openAddContactModal() {

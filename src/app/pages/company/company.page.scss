@@ -2039,12 +2039,12 @@ ion-alert.custom-alert {
   .alert-button {
     flex: 1;
     margin: 0;
-    border-radius: 12px;
+    border-radius: 24px;
     font-size: 0.875rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    height: 44px;
+    height: 48px;
     border: 2px solid #f15a27;
     background: #ffffff;
     color: #212529;
@@ -2052,12 +2052,16 @@ ion-alert.custom-alert {
 
     &.alert-button-cancel {
       background: #ffffff;
-      color: #495057;
-      border-color: #dee2e6;
+      color: #212529;
+      border-color: #f15a27;
 
       &:hover {
+        background: #fff5f0;
+        border-color: #e54e1c;
+      }
+
+      &:active {
         background: #f8f9fa;
-        border-color: #ced4da;
       }
     }
 
@@ -2077,5 +2081,45 @@ ion-alert.custom-alert {
         color: #ffffff;
       }
     }
+  }
+}
+
+// Pay Invoice Button in Invoices Table
+.pay-invoice-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f15a27;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    background: #e54e1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.25);
+  }
+
+  &:active {
+    transform: translateY(0);
+    background: #d4451a;
+  }
+
+  &:disabled {
+    background: #dee2e6;
+    color: #adb5bd;
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }

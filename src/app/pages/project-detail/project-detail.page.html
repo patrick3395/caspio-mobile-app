@@ -194,8 +194,8 @@
               <div class="submit-button-container">
                 <button
                   class="submit-report-btn"
-                  [class.finalized]="service.ReportFinalized"
-                  [disabled]="!service.ReportFinalized"
+                  [class.finalized]="isSubmitButtonEnabled(service)"
+                  [disabled]="!isSubmitButtonEnabled(service)"
                   (click)="submitFinalizedReport(service)">
                   Submit
                 </button>

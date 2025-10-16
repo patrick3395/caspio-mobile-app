@@ -1164,6 +1164,41 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.selectedServices.filter(s => s.offersId === offersId);
   }
 
+  // Check if submit button should be enabled (orange) for a service
+  isSubmitButtonEnabled(service: ServiceSelection): boolean {
+    // For finalized reports (like EFE), enable if ReportFinalized is true
+    if (service.ReportFinalized) {
+      console.log(`[SubmitButton] ${service.typeName} enabled: ReportFinalized = true`);
+      return true;
+    }
+
+    // For DCR and EIR, enable if required document (Property Inspection Report) is uploaded
+    const typeName = service.typeName?.toLowerCase() || '';
+    const typeShort = service.typeShort?.toUpperCase() || '';
+    const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
+    const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
+
+    if (isDCR || isEIR) {
+      // Find the service documents for this service
+      const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === service.serviceId);
+      if (serviceDoc) {
+        // Check if Property Inspection Report or Home Inspection Report is uploaded
+        const requiredDoc = serviceDoc.documents.find(doc =>
+          doc.uploaded && (
+            doc.title.toLowerCase().includes('property inspection report') ||
+            doc.title.toLowerCase().includes('home inspection report')
+          )
+        );
+        const enabled = !!requiredDoc;
+        console.log(`[SubmitButton] ${service.typeName} (${isDCR ? 'DCR' : 'EIR'}) enabled: ${enabled}, required doc found: ${requiredDoc?.title || 'none'}`);
+        return enabled;
+      }
+      console.log(`[SubmitButton] ${service.typeName} (${isDCR ? 'DCR' : 'EIR'}) - no serviceDoc found`);
+    }
+
+    return false;
+  }
+
   // Toggle service expanded (add first instance if not selected, or navigate to it if already selected)
   async toggleServiceExpanded(offer: any) {
     if (this.isReadOnly) {
@@ -4188,9 +4223,9 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
-    // Check if report is finalized
-    if (!service.ReportFinalized) {
-      await this.showToast('Report must be finalized before submission', 'warning');
+    // Check if button should be enabled (report finalized or required document uploaded)
+    if (!this.isSubmitButtonEnabled(service)) {
+      await this.showToast('Report must be finalized or required documents uploaded before submission', 'warning');
       return;
     }
 
