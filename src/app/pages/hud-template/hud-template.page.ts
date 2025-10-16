@@ -3638,9 +3638,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Clear draft
       const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
       localStorage.removeItem(draftKey);
-      
+
       // Navigate back
-      this.router.navigate(['/project-detail', this.projectId]);
+      this.router.navigate(['/project', this.projectId]);
       
     } catch (error) {
       console.error('Error submitting template:', error);

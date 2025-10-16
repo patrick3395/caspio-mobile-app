@@ -4984,9 +4984,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Clear draft
       const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
       localStorage.removeItem(draftKey);
-      
+
       // Navigate back
-      this.router.navigate(['/project-detail', this.projectId]);
+      this.router.navigate(['/project', this.projectId]);
       
     } catch (error) {
       console.error('Error submitting template:', error);
@@ -5134,7 +5134,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await loading.dismiss();
 
       // Navigate back to project detail page with finalized state
-      this.router.navigate(['/project-detail', this.projectId], {
+      this.router.navigate(['/project', this.projectId], {
         state: {
           finalizedServiceId: this.serviceId,
           finalizedDate: this.serviceData.FinalizedDate
