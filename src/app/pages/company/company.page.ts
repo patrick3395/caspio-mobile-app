@@ -2,7 +2,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, ToastController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
 import { CaspioService } from '../../services/caspio.service';
 import { environment } from '../../../environments/environment';
@@ -313,6 +313,10 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   // Add contact modal
   isAddContactModalOpen = false;
+
+  // Edit contact modal
+  isEditContactModalOpen = false;
+  editingContact: any = null;
   newContact: any = {
     CompanyID: null,
     Name: '',
@@ -347,9 +351,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     State: '',
     Zip: '',
     ServiceArea: '',
-    Contract: '',
+    Contract: null,
     Notes: ''
   };
+  newCompanyContractFile: File | null = null;
+  editingCompanyContractFile: File | null = null;
 
   // Add meeting modal
   isAddMeetingModalOpen = false;
@@ -390,6 +396,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     private caspioService: CaspioService,
     private loadingController: LoadingController,
     private toastController: ToastController,
+    private alertController: AlertController,
     private http: HttpClient
   ) {}
 
@@ -571,6 +578,194 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.selectedContact = null;
   }
 
+  openEditContactModal() {
+    if (!this.selectedContact) {
+      return;
+    }
+
+    // Create a copy of the selected contact for editing
+    this.editingContact = { ...this.selectedContact };
+
+    // Close the view modal and open the edit modal
+    this.isContactModalOpen = false;
+    this.isEditContactModalOpen = true;
+  }
+
+  closeEditContactModal() {
+    this.isEditContactModalOpen = false;
+    this.editingContact = null;
+  }
+
+  async saveEditedContact() {
+    if (!this.editingContact) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.editingContact.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.editingContact.Name || this.editingContact.Name.trim() === '') {
+      await this.showToast('Please enter a contact name', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating contact...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with all fields
+      const payload: any = {
+        CompanyID: this.editingContact.CompanyID,
+        Name: this.editingContact.Name.trim(),
+        PrimaryContact: this.editingContact.PrimaryContact ? 1 : 0
+      };
+
+      // Add optional fields
+      if (this.editingContact.Title && this.editingContact.Title.trim() !== '') {
+        payload.Title = this.editingContact.Title.trim();
+      }
+
+      if (this.editingContact.Role && this.editingContact.Role.trim() !== '') {
+        payload.Role = this.editingContact.Role.trim();
+      }
+
+      if (this.editingContact.Email && this.editingContact.Email.trim() !== '') {
+        payload.Email = this.editingContact.Email.trim();
+      }
+
+      if (this.editingContact.Phone1 && this.editingContact.Phone1.trim() !== '') {
+        payload.Phone1 = this.editingContact.Phone1.trim();
+      }
+
+      if (this.editingContact.Phone2 && this.editingContact.Phone2.trim() !== '') {
+        payload.Phone2 = this.editingContact.Phone2.trim();
+      }
+
+      if (this.editingContact.Notes && this.editingContact.Notes.trim() !== '') {
+        payload.Notes = this.editingContact.Notes.trim();
+      }
+
+      // Update via Caspio API
+      await firstValueFrom(
+        this.caspioService.put(`/tables/Contacts/records?q.where=ContactID=${this.editingContact.ContactID}`, payload)
+      );
+
+      // Update the contact in the local array
+      const index = this.contacts.findIndex(c => c.ContactID === this.editingContact.ContactID);
+      if (index !== -1) {
+        this.contacts[index] = { ...this.contacts[index], ...payload };
+      }
+
+      // Close modal and refresh
+      this.closeEditContactModal();
+      this.updateContactGroups();
+
+      await this.showToast('Contact updated successfully', 'success');
+    } catch (error: any) {
+      console.error('Error updating contact:', error);
+      let errorMessage = 'Failed to update contact';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteContact(contact: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Contact',
+      message: `Are you sure you want to delete contact "${contact.Name}"? This action cannot be undone.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteContact(contact);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteContact(contact: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting contact...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Delete via Caspio API
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Contacts/records?q.where=ContactID=${contact.ContactID}`)
+      );
+
+      // Remove from local contacts array
+      const index = this.contacts.findIndex(c => c.ContactID === contact.ContactID);
+      if (index !== -1) {
+        this.contacts.splice(index, 1);
+      }
+
+      // Close the edit modal
+      this.closeEditContactModal();
+
+      // Refresh contact groups
+      this.updateContactGroups();
+
+      await this.showToast('Contact deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting contact:', error);
+      let errorMessage = 'Failed to delete contact';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
   async openAddContactModal() {
     // Reset the contact with default values, pre-fill company if filter is applied
     this.newContact = {
@@ -611,15 +806,30 @@ export class CompanyPage implements OnInit, OnDestroy {
       State: '',
       Zip: '',
       ServiceArea: '',
-      Contract: '',
+      Contract: null,
       Notes: ''
     };
+    this.newCompanyContractFile = null;
 
     this.isAddCompanyModalOpen = true;
   }
 
   closeAddCompanyModal() {
     this.isAddCompanyModalOpen = false;
+  }
+
+  onNewCompanyContractChange(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.newCompanyContractFile = file;
+    }
+  }
+
+  onEditCompanyContractChange(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.editingCompanyContractFile = file;
+    }
   }
 
   async saveNewCompany() {
@@ -702,8 +912,17 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.ServiceArea = this.newCompany.ServiceArea.trim();
       }
 
-      if (this.newCompany.Contract && this.newCompany.Contract.trim() !== '') {
-        payload.Contract = this.newCompany.Contract.trim();
+      if (this.newCompanyContractFile) {
+        // Convert file to base64 for Caspio file field
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Contract = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.newCompanyContractFile!);
+        });
       }
 
       if (this.newCompany.Notes && this.newCompany.Notes.trim() !== '') {
@@ -1253,11 +1472,31 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     // Confirm deletion
-    const confirmDelete = confirm(`Are you sure you want to delete this task: "${task.assignmentShort}"?`);
-    if (!confirmDelete) {
-      return;
-    }
+    const alert = await this.alertController.create({
+      header: 'Delete Task',
+      message: `Are you sure you want to delete this task: "${task.assignmentShort}"?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteTask(task);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
 
+    await alert.present();
+  }
+
+  private async performDeleteTask(task: TaskViewModel) {
     const loading = await this.loadingController.create({
       message: 'Deleting task...',
       spinner: 'lines'
@@ -1285,6 +1524,85 @@ export class CompanyPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error deleting task:', error);
       let errorMessage = 'Failed to delete task';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteCompany(company: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Company',
+      message: `Are you sure you want to delete the company "${company.CompanyName}"? This action cannot be undone.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteCompany(company);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteCompany(company: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting company...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      // Delete via Caspio API
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Company/records?q.where=CompanyID=${company.CompanyID}`)
+      );
+
+      // Remove from local companies array
+      const index = this.companies.findIndex(c => c.CompanyID === company.CompanyID);
+      if (index !== -1) {
+        this.companies.splice(index, 1);
+      }
+
+      // Close the edit modal
+      this.closeEditModal();
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyCompanyFilters();
+
+      await this.showToast('Company deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting company:', error);
+      let errorMessage = 'Failed to delete company';
 
       if (error?.error) {
         if (typeof error.error === 'string') {
@@ -2220,6 +2538,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       'Onboarding Stage': company['Onboarding Stage'],
       Contract: company.Contract
     };
+    this.editingCompanyContractFile = null;
     this.isEditModalOpen = true;
   }
 
@@ -2310,8 +2629,17 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Notes = this.editingCompany.Notes;
       }
 
-      if (this.editingCompany.Contract !== undefined && this.editingCompany.Contract !== null) {
-        payload.Contract = this.editingCompany.Contract;
+      if (this.editingCompanyContractFile) {
+        // Convert file to base64 for Caspio file field
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Contract = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.editingCompanyContractFile!);
+        });
       }
 
       if (this.editingCompany.SoftwareID !== undefined && this.editingCompany.SoftwareID !== null) {

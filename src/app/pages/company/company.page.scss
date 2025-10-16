@@ -1937,3 +1937,84 @@ select.form-input {
     padding-bottom: 0;
   }
 }
+
+// Custom Alert Styling
+ion-alert.custom-alert {
+  --background: #ffffff;
+  --max-width: 400px;
+  --backdrop-opacity: 0.5;
+
+  .alert-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  }
+
+  .alert-head {
+    padding: 20px 20px 0 20px;
+  }
+
+  .alert-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #212529;
+    text-align: center;
+  }
+
+  .alert-message {
+    padding: 16px 20px;
+    font-size: 0.9rem;
+    color: #495057;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  .alert-button-group {
+    padding: 8px 20px 20px 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .alert-button {
+    flex: 1;
+    margin: 0;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    height: 44px;
+    border: 2px solid #f15a27;
+    background: #ffffff;
+    color: #212529;
+    transition: all 0.2s ease;
+
+    &.alert-button-cancel {
+      background: #ffffff;
+      color: #495057;
+      border-color: #dee2e6;
+
+      &:hover {
+        background: #f8f9fa;
+        border-color: #ced4da;
+      }
+    }
+
+    &.alert-button-confirm {
+      background: #ffffff;
+      color: #f15a27;
+      border-color: #f15a27;
+
+      &:hover {
+        background: #fff5f0;
+        border-color: #e54e1c;
+        color: #e54e1c;
+      }
+
+      &:active {
+        background: #f15a27;
+        color: #ffffff;
+      }
+    }
+  }
+}

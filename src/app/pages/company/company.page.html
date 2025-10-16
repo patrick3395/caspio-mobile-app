@@ -431,13 +431,15 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'meetings'" class="tab-content meetings-tab">
-      <div class="meetings-filters">
+      <div class="contacts-search-container">
         <ion-searchbar
           [(ngModel)]="meetingFilters.search"
           (ionChange)="applyMeetingFilters()"
           placeholder="Search subjects or attendees"
           animated="true">
         </ion-searchbar>
+      </div>
+      <div class="meetings-filters">
         <ion-segment size="small" [(ngModel)]="meetingFilters.timeframe" (ionChange)="applyMeetingFilters()">
           <ion-segment-button value="upcoming">
             <ion-label>Upcoming</ion-label>
@@ -494,7 +496,7 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'communications'" class="tab-content communications-tab">
-      <div class="section-header">
+      <div class="contacts-search-container">
         <ion-searchbar
           [(ngModel)]="communicationSearchTerm"
           (ionChange)="applyCommunicationFilters()"
@@ -552,13 +554,15 @@
       </div>
     </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
-      <div class="invoice-filters">
+      <div class="contacts-search-container">
         <ion-searchbar
           [(ngModel)]="invoiceSearchTerm"
           (ionChange)="categorizeInvoices()"
           placeholder="Search invoice, project, or company"
           animated="true">
         </ion-searchbar>
+      </div>
+      <div class="invoice-filters">
         <div class="invoice-tabs">
           <button class="invoice-tab" [class.active]="invoiceViewMode === 'open'" (click)="setInvoiceViewMode('open')">
             Open
@@ -742,9 +746,16 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeContactModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
         <ion-title>{{ selectedContact?.Name || 'Contact Details' }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="closeContactModal()">Close</ion-button>
+          <ion-button (click)="openEditContactModal()" [strong]="true">
+            <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -804,12 +815,16 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Edit Company</ion-title>
         <ion-buttons slot="start">
-          <ion-button (click)="closeEditModal()">Cancel</ion-button>
+          <ion-button (click)="closeEditModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
         </ion-buttons>
+        <ion-title>Edit Company</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="saveCompanyChanges()" [strong]="true">Save</ion-button>
+          <ion-button (click)="saveCompanyChanges()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -927,13 +942,21 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Contract Document</label>
-              <input type="text" [(ngModel)]="editingCompany.Contract" class="form-input">
+              <input type="file" (change)="onEditCompanyContractChange($event)" class="form-input" accept=".pdf,.doc,.docx">
             </div>
           </div>
           <div class="form-row">
             <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="editingCompany.Notes" class="form-textarea" rows="4"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="deleteCompany(editingCompany, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete Company
+              </button>
             </div>
           </div>
         </div>
@@ -1161,6 +1184,91 @@
   </ng-template>
 </ion-modal>
 
+<ion-modal [isOpen]="isEditContactModalOpen" (didDismiss)="closeEditContactModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditContactModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Edit Contact</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveEditedContact()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingContact">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="editingContact.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="editingContact.Name" class="form-input" placeholder="Contact name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Title</label>
+              <input type="text" [(ngModel)]="editingContact.Title" class="form-input" placeholder="Job title">
+            </div>
+            <div class="form-field">
+              <label>Role</label>
+              <input type="text" [(ngModel)]="editingContact.Role" class="form-input" placeholder="Role">
+            </div>
+            <div class="form-field">
+              <label>Primary Contact</label>
+              <ion-toggle [(ngModel)]="editingContact.PrimaryContact"></ion-toggle>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Email</label>
+              <input type="email" [(ngModel)]="editingContact.Email" class="form-input" placeholder="email@example.com">
+            </div>
+            <div class="form-field">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="editingContact.Phone1" class="form-input" placeholder="(555) 555-5555">
+            </div>
+            <div class="form-field">
+              <label>Secondary Phone</label>
+              <input type="tel" [(ngModel)]="editingContact.Phone2" class="form-input" placeholder="(555) 555-5555">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea [(ngModel)]="editingContact.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this contact..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="deleteContact(editingContact, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete Contact
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
 <ion-modal [isOpen]="isAddCompanyModalOpen" (didDismiss)="closeAddCompanyModal()">
   <ng-template>
     <ion-header>
@@ -1292,7 +1400,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Contract Document</label>
-              <input type="text" [(ngModel)]="newCompany.Contract" class="form-input" placeholder="Contract document link or reference">
+              <input type="file" (change)="onNewCompanyContractChange($event)" class="form-input" accept=".pdf,.doc,.docx">
             </div>
           </div>
           <div class="form-row">
