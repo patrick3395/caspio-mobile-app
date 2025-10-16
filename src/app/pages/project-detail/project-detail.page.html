@@ -250,29 +250,25 @@
                 </div>
               </td>
               <td class="doc-actions-cell">
-                <ng-container *ngIf="doc.uploaded; else pendingDoc">
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="viewDocument(doc)">
-                    <ion-icon name="eye-outline"></ion-icon>
-                  </ion-button>
-                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                              (click)="doc.isLink ? editLink(serviceDoc.serviceId, doc) : uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                    <ion-icon [name]="doc.isLink ? 'create-outline' : 'cloud-upload-outline'"></ion-icon>
-                  </ion-button>
-                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                              (click)="deleteRequiredDocument(serviceDoc.serviceId, doc)">
-                    <ion-icon name="trash-outline"></ion-icon>
-                  </ion-button>
-                </ng-container>
-                <ng-template #pendingDoc>
-                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                              (click)="doc.isLink ? editLink(serviceDoc.serviceId, doc) : uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)">
-                    <ion-icon [name]="doc.isLink ? 'create-outline' : 'cloud-upload-outline'"></ion-icon>
-                  </ion-button>
-                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                              (click)="removePendingDocument(serviceDoc.serviceId, doc)">
-                    <ion-icon name="trash-outline"></ion-icon>
-                  </ion-button>
-                </ng-template>
+                <!-- View button - only show if document is uploaded -->
+                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="doc.uploaded" (click)="viewDocument(doc)">
+                  <ion-icon name="eye-outline"></ion-icon>
+                </ion-button>
+                <!-- Edit Link button - always show if not read-only -->
+                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                            (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
+                  <ion-icon name="create-outline"></ion-icon>
+                </ion-button>
+                <!-- Upload Document button - always show if not read-only -->
+                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                            (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)" title="Upload Document">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                </ion-button>
+                <!-- Delete button - always show if not read-only -->
+                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                            (click)="doc.uploaded ? deleteRequiredDocument(serviceDoc.serviceId, doc) : removePendingDocument(serviceDoc.serviceId, doc)" title="Delete">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </ion-button>
               </td>
             </tr>
           </ng-container>
@@ -292,8 +288,6 @@
             <td class="doc-info-cell">
               <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocuments(serviceDoc)">+ Add Document</a>
               <span *ngIf="isReadOnly" class="add-doc-link disabled">+ Add Document</span>
-              <span *ngIf="!isReadOnly" class="add-link-separator"> | </span>
-              <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocumentsForLink(serviceDoc)">+ Add Link</a>
             </td>
             <td class="doc-actions-cell add-doc-actions"></td>
           </tr>

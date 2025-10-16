@@ -2324,31 +2324,27 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const response = await this.caspioService.createAttachment(attachmentData).toPromise();
       
       if (response && (response.PK_ID || response.AttachID)) {
-        // Add link as an uploaded document with server ID
-        this.selectedServiceDoc.documents.push({
-          attachId: response.PK_ID || response.AttachID,
-          title: doc.title,
-          required: doc.required,
-          uploaded: true,
-          templateId: doc.templateId,
-          linkName: url,
-          filename: url,
-          isLink: true // Flag to identify this is a link, not an uploaded file
-        });
+        // DON'T manually add to selectedServiceDoc.documents - updateDocumentsList will rebuild it
+        // Just add to existing attachments for persistence
+        const newAttachmentId = response.PK_ID || response.AttachID;
         
-        // Add to existing attachments for persistence
-        this.existingAttachments.push({
-          AttachID: response.PK_ID || response.AttachID,
-          ProjectID: attachmentData.ProjectID,
-          TypeID: attachmentData.TypeID,
-          Title: doc.title,
-          Link: url,
-          Attachment: ''
-        });
+        // Check if attachment already exists to prevent duplicates
+        const existingIndex = this.existingAttachments.findIndex(a => a.AttachID === newAttachmentId);
+        
+        if (existingIndex === -1) {
+          this.existingAttachments.push({
+            AttachID: newAttachmentId,
+            ProjectID: attachmentData.ProjectID,
+            TypeID: attachmentData.TypeID,
+            Title: doc.title,
+            Link: url,
+            Attachment: ''
+          });
+        }
         
         await this.showToast('Link added successfully', 'success');
         
-        // Update the documents list to ensure the link appears correctly
+        // Update the documents list - this will rebuild from existingAttachments and templates
         this.updateDocumentsList();
         
         // Clear Attach table cache for this project
@@ -2497,11 +2493,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         console.log('[Link Create] After detectChanges()');
 
-        // Reload attachments in background to ensure consistency with database
-        // Don't await this - let it happen in background
-        this.loadExistingAttachments(true).then(() => {
-          console.log('[Link Create] Background reload complete');
-        });
+        // REMOVED: Background reload was causing duplicate documents in the list
+        // The document is already added to existingAttachments and updateDocumentsList() was called
+        // No need to reload from database immediately
 
         // Invalidate cache to ensure fresh data on reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
