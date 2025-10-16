@@ -683,7 +683,14 @@ ion-content{--overflow:scroll !important;height:100%}
         transition: all 0.3s ease;
         font-size: 12px;
         z-index: 10; // Higher z-index to ensure it's above other elements
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); // Add shadow for depth
+        
+        // Halo effect - white glow to blur text underneath
+        box-shadow: 
+          0 0 0 4px rgba(255, 255, 255, 0.9),  // White halo ring
+          0 0 12px 6px rgba(255, 255, 255, 0.8), // Blurred white glow
+          0 2px 8px rgba(0,0,0,0.15); // Depth shadow
+        backdrop-filter: blur(4px); // Blur the background text
+        -webkit-backdrop-filter: blur(4px); // Safari support
         
         ion-icon {
           font-size: 16px;
@@ -703,7 +710,11 @@ ion-content{--overflow:scroll !important;height:100%}
         &:hover {
           background: darken(#ff6b35, 10%);
           transform: scale(1.05);
-          box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+          // Enhanced halo on hover
+          box-shadow: 
+            0 0 0 5px rgba(255, 255, 255, 0.95),  // Larger white halo ring
+            0 0 16px 8px rgba(255, 255, 255, 0.9), // Bigger blurred white glow
+            0 3px 10px rgba(0,0,0,0.2); // Stronger depth shadow
         }
         
         &:active {
@@ -1391,83 +1402,6 @@ select[name="StructuralSystemsStatus"] {
                   }
                 }
                 
-                // Multi-select container styling
-                .multi-select-container {
-                  margin-bottom: 10px;
-                  border: 1px solid #f0f0f0;
-                  border-radius: 8px;
-                  background: white;
-                  transition: all 0.3s ease;
-
-                  &:hover {
-                    border-color: var(--noble-orange);
-                  }
-
-                  // Remove border from checkbox-item when inside multi-select
-                  .checkbox-item {
-                    border: none !important;
-                    border-radius: 8px 8px 0 0;
-
-                    &:hover {
-                      border: none !important;
-                    }
-                  }
-
-                  .multi-select-options {
-                    padding-left: 16px;
-                    padding-right: 12px;
-                    padding-bottom: 8px;
-                    background: white;
-                    border-top: 1px solid #f0f0f0;
-                    margin-top: 0;
-                    margin-right: 0;
-                    border-radius: 0 0 8px 8px;
-
-                    .option-item {
-                      --background: transparent;
-                      --padding-start: 8px;
-                      font-size: 14px;
-
-                      ion-checkbox {
-                        --size: 18px;
-                        margin-right: 10px;
-                      }
-                    }
-                  }
-
-                  .no-options-message {
-                    padding: 12px 16px;
-                    color: #666;
-                    font-style: italic;
-                    font-size: 14px;
-                  }
-
-                  // "Other" custom input field
-                  .other-input-container {
-                    padding: 12px 16px 16px;
-                    background: white;
-
-                    .other-input {
-                      width: 100%;
-                      padding: 10px 12px;
-                      border: 1px solid #ddd;
-                      border-radius: 6px;
-                      font-size: 14px;
-                      transition: border-color 0.2s;
-
-                      &:focus {
-                        outline: none;
-                        border-color: var(--noble-orange);
-                      }
-
-                      &::placeholder {
-                        color: #999;
-                        font-style: italic;
-                      }
-                    }
-                  }
-                }
-                
                 .item-text {
                   font-size: 13px;
                   color: var(--noble-gray);
@@ -1479,6 +1413,84 @@ select[name="StructuralSystemsStatus"] {
                   -webkit-line-clamp: 2;
                   -webkit-box-orient: vertical;
                   pointer-events: none; // Prevent text from being clickable
+                }
+              }
+            }
+            
+            // Multi-select container styling - moved to correct level
+            .multi-select-container {
+              margin-bottom: 10px;
+              border: 1px solid #f0f0f0;
+              border-radius: 8px;
+              background: white;
+              transition: all 0.3s ease;
+
+              &:hover {
+                border-color: var(--noble-orange);
+              }
+
+              // Remove border from checkbox-item when inside multi-select
+              .checkbox-item {
+                border: none !important;
+                border-radius: 8px 8px 0 0;
+
+                &:hover {
+                  border: none !important;
+                  transform: none !important; // Prevent translate on hover inside multi-select
+                }
+              }
+
+              .multi-select-options {
+                padding-left: 16px;
+                padding-right: 12px;
+                padding-bottom: 8px;
+                background: white;
+                border-top: 1px solid #f0f0f0;
+                margin-top: 0;
+                margin-right: 0;
+                border-radius: 0 0 8px 8px;
+
+                .option-item {
+                  --background: transparent;
+                  --padding-start: 8px;
+                  font-size: 14px;
+
+                  ion-checkbox {
+                    --size: 18px;
+                    margin-right: 10px;
+                  }
+                }
+              }
+
+              .no-options-message {
+                padding: 12px 16px;
+                color: #666;
+                font-style: italic;
+                font-size: 14px;
+              }
+
+              // "Other" custom input field
+              .other-input-container {
+                padding: 12px 16px 16px;
+                background: white;
+
+                .other-input {
+                  width: 100%;
+                  padding: 10px 12px;
+                  border: 1px solid #ddd;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  transition: border-color 0.2s;
+
+                  &:focus {
+                    outline: none;
+                    border-color: var(--noble-orange);
+                  }
+
+                  &::placeholder {
+                    color: #999;
+                    font-style: italic;
+                  }
                 }
               }
             }

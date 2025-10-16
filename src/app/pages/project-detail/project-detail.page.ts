@@ -1023,13 +1023,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const alert = await this.alertController.create({
       header: 'Remove Service',
       message: `Are you sure you want to remove ${service.typeName}?`,
+      cssClass: 'custom-document-alert',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
-          text: 'Remove',
+          text: 'REMOVE',
+          cssClass: 'alert-button-save',
           handler: async () => {
             await this.performRemoveService(service);
           }

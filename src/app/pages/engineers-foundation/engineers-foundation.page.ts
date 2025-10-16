@@ -2921,10 +2921,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const confirmAlert = await this.alertController.create({
         header: 'Confirm Remove Room',
         message: `Are you sure you want to remove "${roomName}"? This will delete all photos and data for this room.`,
+        cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'Cancel',
+            text: 'CANCEL',
             role: 'cancel',
+            cssClass: 'alert-button-cancel',
             handler: () => {
               // User cancelled - revert the checkbox state
               event.target.checked = true; // Revert the checkbox visually
@@ -2933,8 +2935,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
           },
           {
-            text: 'Remove',
-            cssClass: 'danger-button',
+            text: 'REMOVE',
+            cssClass: 'alert-button-save',
             handler: async () => {
               // User confirmed - proceed with deletion
               event.target.checked = false; // Keep unchecked
