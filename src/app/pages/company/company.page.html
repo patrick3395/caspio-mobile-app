@@ -594,109 +594,51 @@
         </div>
       </div>
 
-      <div class="invoice-summary">
-        <div class="summary-row">
-          <div class="summary-pill">
-            <span>Total</span>
-            <strong>{{ formatCurrency(invoiceMetrics.total) }}</strong>
-          </div>
-          <div class="summary-pill success">
-            <span>Paid</span>
-            <strong>{{ formatCurrency(invoiceMetrics.paid) }}</strong>
-          </div>
-        </div>
-        <div class="summary-row">
-          <div class="summary-pill warning full-width">
-            <span>Outstanding</span>
-            <strong>{{ formatCurrency(invoiceMetrics.outstanding) }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <ng-container *ngIf="openInvoices.length || unpaidInvoices.length || paidInvoiceGroups.length; else emptyInvoices">
-        <div class="invoice-section" *ngIf="invoiceViewMode === 'open' && openInvoices.length">
-          <div class="responsive-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Project Date</th>
-                  <th>Project Address</th>
-                  <th>Amount Due</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let pair of openInvoices">
-                  <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                  <td>{{ pair.positive.Address || '—' }}</td>
-                  <td>{{ formatCurrency(pair.netAmount) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="invoice-section" *ngIf="invoiceViewMode === 'unpaid' && unpaidInvoices.length">
-          <div class="responsive-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Project Date</th>
-                  <th>Project Address</th>
-                  <th>Amount Due</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let pair of unpaidInvoices">
-                  <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                  <td>{{ pair.positive.Address || '—' }}</td>
-                  <td>{{ formatCurrency(pair.netAmount) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="invoice-section" *ngIf="invoiceViewMode === 'past' && paidInvoiceGroups.length">
-          <div class="invoice-paid-groups">
-            <div class="invoice-group-card" *ngFor="let group of paginatedPaidGroups">
-              <div class="invoice-group-header">
-                <h5>{{ group.companyName }}</h5>
-                <span>{{ group.items.length }} {{ group.items.length === 1 ? 'project' : 'projects' }}</span>
-              </div>
-              <div class="responsive-table slim">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Project Date</th>
-                      <th>Project Address</th>
-                      <th>Amount Due</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let pair of group.items">
-                      <td>{{ formatDate(pair.projectDate || pair.positive.DateValue) }}</td>
-                      <td>{{ pair.positive.Address || '—' }}</td>
-                      <td>{{ formatCurrency(pair.netAmount) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+      <div class="invoice-groups" *ngIf="paginatedInvoiceGroups.length; else emptyInvoices">
+        <div class="invoice-group" *ngFor="let group of paginatedInvoiceGroups; trackBy: trackByInvoiceGroup">
+          <div class="invoice-group-header">
+            <h4>{{ group.companyName }}</h4>
+            <div class="metric-badge">
+              <ion-icon name="receipt-outline"></ion-icon>
+              <span>{{ group.invoices.length }}</span>
             </div>
           </div>
+          <div class="responsive-table dark-outline">
+            <table>
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Service</th>
+                  <th>Amount Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
+                  <td>
+                    <button type="button" class="contact-name-button" (click)="openEditInvoiceModal(invoice)">
+                      {{ invoice.positive.Address || '—' }}
+                    </button>
+                  </td>
+                  <td>
+                    {{ invoice.serviceName || '—' }}
+                  </td>
+                  <td>
+                    {{ formatCurrency(invoice.netAmount) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </ng-container>
-
-      <!-- Pagination controls for Invoices -->
-      <div class="pagination-controls" *ngIf="(openInvoices.length || unpaidInvoices.length || paidInvoiceGroups.length) && totalInvoicePages > 1">
-        <button (click)="prevInvoicePage()" [disabled]="currentInvoicePage === 1" class="pagination-btn">
-          <ion-icon name="chevron-back"></ion-icon>
-          Previous
-        </button>
-        <span class="page-info">Page {{ currentInvoicePage }} of {{ totalInvoicePages }}</span>
-        <button (click)="nextInvoicePage()" [disabled]="currentInvoicePage === totalInvoicePages" class="pagination-btn">
-          Next
-          <ion-icon name="chevron-forward"></ion-icon>
-        </button>
+        <div class="pagination-controls" *ngIf="totalInvoicePages > 1">
+          <button class="pagination-btn arrow-only" (click)="prevInvoicePage()" [disabled]="currentInvoicePage === 1">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+          <span class="page-indicator">{{ currentInvoicePage }} of {{ totalInvoicePages }}</span>
+          <button class="pagination-btn arrow-only" (click)="nextInvoicePage()" [disabled]="currentInvoicePage === totalInvoicePages">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
+        </div>
       </div>
 
       <ng-template #emptyInvoices>
@@ -1763,6 +1705,88 @@
                 <ion-icon name="trash-outline"></ion-icon>
                 Delete Meeting
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditInvoiceModalOpen" (didDismiss)="closeEditInvoiceModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditInvoiceModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Invoice Details</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingInvoice">
+      <div class="edit-form">
+        <div class="form-section">
+          <h4>Invoice Information</h4>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Company</label>
+              <p class="read-only-field">{{ getCompanyName(editingInvoice.positive.CompanyID) }}</p>
+            </div>
+            <div class="form-field">
+              <label>Invoice ID</label>
+              <p class="read-only-field">{{ editingInvoice.positive.InvoiceID }}</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Address</label>
+              <p class="read-only-field">{{ editingInvoice.positive.Address || 'Not specified' }}</p>
+            </div>
+            <div class="form-field">
+              <label>City</label>
+              <p class="read-only-field">{{ editingInvoice.positive.City || 'Not specified' }}</p>
+            </div>
+            <div class="form-field">
+              <label>Zip</label>
+              <p class="read-only-field">{{ editingInvoice.positive.Zip || 'Not specified' }}</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Service</label>
+              <p class="read-only-field">{{ editingInvoice.serviceName || 'Not specified' }}</p>
+            </div>
+            <div class="form-field">
+              <label>Date</label>
+              <p class="read-only-field">{{ formatDate(editingInvoice.positive.DateValue) || 'Not specified' }}</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Amount</label>
+              <p class="read-only-field">{{ formatCurrency(editingInvoice.positive.Fee) }}</p>
+            </div>
+            <div class="form-field">
+              <label>Paid</label>
+              <p class="read-only-field">{{ editingInvoice.negative ? formatCurrency(editingInvoice.negative.Fee) : '$0.00' }}</p>
+            </div>
+            <div class="form-field">
+              <label>Amount Due</label>
+              <p class="read-only-field">{{ formatCurrency(editingInvoice.netAmount) }}</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Status</label>
+              <p class="read-only-field">{{ editingInvoice.positive.Status }}</p>
+            </div>
+          </div>
+          <div class="form-row" *ngIf="editingInvoice.positive.InvoiceNotes">
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <p class="read-only-field">{{ editingInvoice.positive.InvoiceNotes }}</p>
             </div>
           </div>
         </div>

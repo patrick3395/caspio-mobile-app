@@ -187,6 +187,17 @@ interface PaidInvoiceGroup {
   companyName: string;
   items: InvoicePair[];
 }
+
+interface InvoiceGroup {
+  companyId: number | null;
+  companyName: string;
+  invoices: InvoicePairWithService[];
+}
+
+interface InvoicePairWithService extends InvoicePair {
+  serviceName: string;
+}
+
 @Component({
   selector: 'app-company',
   templateUrl: './company.page.html',
@@ -280,6 +291,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   paginatedOpenInvoices: InvoicePair[] = [];
   paginatedUnpaidInvoices: InvoicePair[] = [];
   paginatedPaidGroups: PaidInvoiceGroup[] = [];
+  paginatedInvoiceGroups: InvoiceGroup[] = [];
   invoicesPerPage = 150;
   currentInvoicePage = 1;
   totalInvoicePages = 1;
@@ -328,6 +340,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     PrimaryContact: false,
     Notes: ''
   };
+
+  // Invoice edit modal
+  isEditInvoiceModalOpen = false;
+  editingInvoice: InvoicePairWithService | null = null;
 
   editingCompany: any = null;
   isEditModalOpen = false;
@@ -788,6 +804,17 @@ export class CompanyPage implements OnInit, OnDestroy {
     } finally {
       await loading.dismiss();
     }
+  }
+
+  // Invoice modal methods
+  openEditInvoiceModal(invoice: InvoicePairWithService) {
+    this.editingInvoice = { ...invoice };
+    this.isEditInvoiceModalOpen = true;
+  }
+
+  closeEditInvoiceModal() {
+    this.isEditInvoiceModalOpen = false;
+    this.editingInvoice = null;
   }
 
   async openAddContactModal() {
@@ -2880,11 +2907,57 @@ export class CompanyPage implements OnInit, OnDestroy {
     const paidEndIndex = paidStartIndex + this.invoicesPerPage;
     this.paginatedPaidGroups = this.paidInvoiceGroups.slice(paidStartIndex, paidEndIndex);
 
+    // Create unified invoice groups based on view mode
+    let sourceInvoices: InvoicePair[] = [];
+    switch (this.invoiceViewMode) {
+      case 'open':
+        sourceInvoices = this.openInvoices;
+        break;
+      case 'unpaid':
+        sourceInvoices = this.unpaidInvoices;
+        break;
+      case 'past':
+        // Flatten paid groups
+        sourceInvoices = this.paidInvoiceGroups.flatMap(group => group.items);
+        break;
+    }
+
+    // Group invoices by company
+    const byCompany = new Map<number | null, InvoicePairWithService[]>();
+    sourceInvoices.forEach(pair => {
+      const companyId = pair.positive.CompanyID ?? pair.negative?.CompanyID ?? null;
+      const invoiceWithService: InvoicePairWithService = {
+        ...pair,
+        serviceName: pair.positive.Address ? 'Service' : 'Unknown Service' // Placeholder for now
+      };
+
+      if (!byCompany.has(companyId)) {
+        byCompany.set(companyId, []);
+      }
+      byCompany.get(companyId)!.push(invoiceWithService);
+    });
+
+    // Convert to invoice groups
+    const allGroups: InvoiceGroup[] = Array.from(byCompany.entries()).map(([companyId, invoices]) => ({
+      companyId,
+      companyName: this.getCompanyName(companyId),
+      invoices
+    }));
+
+    // Sort groups by company name
+    allGroups.sort((a, b) => a.companyName.localeCompare(b.companyName));
+
+    // Paginate the groups
+    const groupStartIndex = (this.currentInvoicePage - 1) * this.invoicesPerPage;
+    const groupEndIndex = groupStartIndex + this.invoicesPerPage;
+    this.paginatedInvoiceGroups = allGroups.slice(groupStartIndex, groupEndIndex);
+
     // Calculate total pages based on the category with most items
     const maxInvoices = Math.max(
       this.openInvoices.length,
       this.unpaidInvoices.length,
-      this.paidInvoiceGroups.length
+      this.paidInvoiceGroups.length,
+      allGroups.length
     );
     this.totalInvoicePages = Math.ceil(maxInvoices / this.invoicesPerPage);
   }
@@ -3327,6 +3400,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     group.companyId !== null ? group.companyId : -1 - index;
 
   trackByContact = (_: number, contact: ContactRecord) => contact.ContactID;
+
+  trackByInvoiceGroup = (index: number, group: InvoiceGroup) =>
+    group.companyId !== null ? group.companyId : -1 - index;
+
+  trackByInvoice = (_: number, invoice: InvoicePairWithService) => invoice.positive.InvoiceID;
 
   trackByTask = (_: number, task: TaskViewModel) => task.TaskID;
 

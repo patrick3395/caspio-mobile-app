@@ -270,9 +270,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       const finalizedServiceId = navigation.extras.state['finalizedServiceId'];
       const finalizedDate = navigation.extras.state['finalizedDate'];
 
+      console.log('[ProjectDetail] Navigation state received:', { finalizedServiceId, finalizedDate });
+
       if (finalizedServiceId) {
         // Store for later - will apply after services are loaded
         this.pendingFinalizedServiceId = finalizedServiceId;
+        console.log('[ProjectDetail] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
       }
     }
 
@@ -417,10 +420,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
       // Apply pending finalized service flag if present
       if (this.pendingFinalizedServiceId) {
+        console.log('[ProjectDetail] Applying finalized flag. Looking for serviceId:', this.pendingFinalizedServiceId);
+        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
+          serviceId: s.serviceId,
+          typeName: s.typeName,
+          ReportFinalized: s.ReportFinalized
+        })));
+
         const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
         if (service) {
+          console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
           this.changeDetectorRef.detectChanges();
+        } else {
+          console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
         }
         this.pendingFinalizedServiceId = null;
       }
@@ -601,10 +614,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
 
       // Apply pending finalized service flag if present
       if (this.pendingFinalizedServiceId) {
+        console.log('[ProjectDetail] Applying finalized flag. Looking for serviceId:', this.pendingFinalizedServiceId);
+        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
+          serviceId: s.serviceId,
+          typeName: s.typeName,
+          ReportFinalized: s.ReportFinalized
+        })));
+
         const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
         if (service) {
+          console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
           this.changeDetectorRef.detectChanges();
+        } else {
+          console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
         }
         this.pendingFinalizedServiceId = null;
       }

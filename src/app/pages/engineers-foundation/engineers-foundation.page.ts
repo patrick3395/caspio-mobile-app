@@ -5128,6 +5128,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.serviceData.ReportFinalized = true;
       this.serviceData.FinalizedDate = new Date().toISOString();
 
+      console.log('[EngFoundation] Finalizing report with serviceId:', this.serviceId);
+      console.log('[EngFoundation] ProjectId:', this.projectId);
+
       await loading.dismiss();
 
       // Navigate back to project detail page with finalized state
@@ -5136,6 +5139,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           finalizedServiceId: this.serviceId,
           finalizedDate: this.serviceData.FinalizedDate
         }
+      });
+
+      console.log('[EngFoundation] Navigation complete with state:', {
+        finalizedServiceId: this.serviceId,
+        finalizedDate: this.serviceData.FinalizedDate
       });
 
     } catch (error) {
