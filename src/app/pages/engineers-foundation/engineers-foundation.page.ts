@@ -4381,6 +4381,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Calculate completion percentage based on filled fields
     switch(section) {
       case 'structural':
+        // If status is "Provided in Home Inspection Report", section is considered 100% complete
+        if (this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report') {
+          return 100;
+        }
+
         // Count all required items across all categories
         let totalRequired = 0;
         let completedRequired = 0;
@@ -4919,10 +4924,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async submitTemplate() {
     // Validate all required Project Information fields
-    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName', 
+    const requiredProjectFields = ['ClientName', 'AgentName', 'InspectorName',
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
-    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
-    
+    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature', 'StructuralSystemsStatus'];
+
     const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
     const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
     
@@ -5005,7 +5010,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       'InAttendance': 'In Attendance',
       'OccupancyFurnishings': 'Occupancy/Furnishings',
       'WeatherConditions': 'Weather Conditions',
-      'OutdoorTemperature': 'Outdoor Temperature'
+      'OutdoorTemperature': 'Outdoor Temperature',
+      'StructuralSystemsStatus': 'Structural Systems Status'
     };
 
     Object.entries(requiredServiceFields).forEach(([field, label]) => {
@@ -5023,35 +5029,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     // Check required visual items across all categories
-    for (const category of this.visualCategories) {
-      if (!this.organizedData[category]) continue;
+    // Skip if Structural Systems status is "Provided in Home Inspection Report"
+    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
 
-      const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
+    if (!skipStructuralSystems) {
+      for (const category of this.visualCategories) {
+        if (!this.organizedData[category]) continue;
 
-      for (const sectionType of sections) {
-        const items = this.organizedData[category][sectionType] || [];
+        const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
 
-        for (const item of items) {
-          if (item.required) {
-            const key = `${category}_${item.id}`;
-            let isComplete = false;
+        for (const sectionType of sections) {
+          const items = this.organizedData[category][sectionType] || [];
 
-            // For Yes/No questions (AnswerType 1)
-            if (item.answerType === 1) {
-              isComplete = item.answer === 'Yes' || item.answer === 'No';
-            }
-            // For multi-select questions (AnswerType 2)
-            else if (item.answerType === 2) {
-              isComplete = item.selectedOptions && item.selectedOptions.length > 0;
-            }
-            // For text questions (AnswerType 0 or undefined)
-            else {
-              isComplete = this.selectedItems[key] === true;
-            }
+          for (const item of items) {
+            if (item.required) {
+              const key = `${category}_${item.id}`;
+              let isComplete = false;
 
-            if (!isComplete) {
-              const sectionLabel = sectionType.charAt(0).toUpperCase() + sectionType.slice(1);
-              incompleteAreas.push(`${category} - ${sectionLabel}: ${item.name || item.text || 'Unnamed item'}`);
+              // For Yes/No questions (AnswerType 1)
+              if (item.answerType === 1) {
+                isComplete = item.answer === 'Yes' || item.answer === 'No';
+              }
+              // For multi-select questions (AnswerType 2)
+              else if (item.answerType === 2) {
+                isComplete = item.selectedOptions && item.selectedOptions.length > 0;
+              }
+              // For text questions (AnswerType 0 or undefined)
+              else {
+                isComplete = this.selectedItems[key] === true;
+              }
+
+              if (!isComplete) {
+                const sectionLabel = sectionType.charAt(0).toUpperCase() + sectionType.slice(1);
+                incompleteAreas.push(`${category} - ${sectionLabel}: ${item.name || item.text || 'Unnamed item'}`);
+              }
             }
           }
         }
@@ -5980,19 +5991,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       'InAttendance',
       'OccupancyFurnishings',
       'WeatherConditions',
-      'OutdoorTemperature'
+      'OutdoorTemperature',
+      'StructuralSystemsStatus'
     ];
-    
+
     let totalRequired = requiredProjectFields.length + requiredServiceFields.length;
     let completed = 0;
-    
+
     // Check projectData required fields
     requiredProjectFields.forEach(field => {
       if (this.projectData[field] && this.projectData[field] !== '') {
         completed++;
       }
     });
-    
+
     // Check serviceData required fields
     requiredServiceFields.forEach(field => {
       if (this.serviceData[field] && this.serviceData[field] !== '') {
