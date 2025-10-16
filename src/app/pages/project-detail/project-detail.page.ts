@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef 
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
-import { IonModal, ToastController, AlertController, LoadingController, ModalController } from '@ionic/angular';
+import { IonModal, ToastController, AlertController, LoadingController, ModalController, ViewWillEnter } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 import { ImageCompressionService } from '../../services/image-compression.service';
@@ -82,7 +82,7 @@ interface ProjectDetailCacheState {
   styleUrls: ['./project-detail.page.scss'],
   standalone: false
 })
-export class ProjectDetailPage implements OnInit, OnDestroy {
+export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   @ViewChild('optionalDocsModal') optionalDocsModal!: IonModal;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('photoInput') photoInput!: ElementRef<HTMLInputElement>;
@@ -298,6 +298,41 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       }
     } else {
       console.error('❌ DEBUG: No projectId provided!');
+    }
+  }
+
+  ionViewWillEnter() {
+    console.log('[ProjectDetail] ionViewWillEnter - checking for finalized state');
+
+    // Check for finalized service from history state (works after navigation completes)
+    const historyState = window.history.state;
+    console.log('[ProjectDetail] History state:', historyState);
+
+    if (historyState?.finalizedServiceId) {
+      const finalizedServiceId = historyState.finalizedServiceId;
+      const finalizedDate = historyState.finalizedDate;
+
+      console.log('[ProjectDetail] Found finalized state in history:', { finalizedServiceId, finalizedDate });
+
+      // Store for later - will apply after services are loaded
+      this.pendingFinalizedServiceId = finalizedServiceId;
+      console.log('[ProjectDetail] Set pendingFinalizedServiceId from history:', this.pendingFinalizedServiceId);
+
+      // If services are already loaded, apply immediately
+      if (this.selectedServices.length > 0) {
+        console.log('[ProjectDetail] Services already loaded, applying immediately');
+        const service = this.selectedServices.find(s => s.serviceId === finalizedServiceId);
+        if (service) {
+          console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
+          service.ReportFinalized = true;
+          this.changeDetectorRef.detectChanges();
+          this.pendingFinalizedServiceId = null;
+        } else {
+          console.warn('[ProjectDetail] Service not found with serviceId:', finalizedServiceId);
+        }
+      }
+    } else {
+      console.log('[ProjectDetail] No finalized state found in history');
     }
   }
 

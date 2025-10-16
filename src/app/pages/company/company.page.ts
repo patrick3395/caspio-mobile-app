@@ -2978,6 +2978,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   setInvoiceViewMode(mode: 'open' | 'past' | 'unpaid') {
     this.invoiceViewMode = mode;
+    this.paginateInvoices();
   }
 
   updateInvoiceMetrics() {

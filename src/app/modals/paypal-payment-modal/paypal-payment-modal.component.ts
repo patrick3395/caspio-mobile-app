@@ -46,8 +46,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     const amount = this.invoice?.Amount || '0.00';
 
     paypal.Buttons({
-      // Disable only Pay Later, keep PayPal and Credit/Debit card options
-      disableFunding: [paypal.FUNDING.PAYLATER],
       style: {
         layout: 'vertical',
         color: 'gold',
