@@ -4942,13 +4942,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
       return;
     }
-    
-    // Validate other required fields
-    if (!this.formData.foundationType || !this.formData.foundationCondition) {
-      await this.showToast('Please fill in foundation type and condition', 'warning');
-      return;
-    }
-    
+
     const loading = await this.loadingController.create({
       message: 'Submitting evaluation...'
     });
