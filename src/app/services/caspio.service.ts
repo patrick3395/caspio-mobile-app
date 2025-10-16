@@ -1526,10 +1526,14 @@ export class CaspioService {
   }
 
   createAttachment(attachData: any, serviceId?: string): Observable<any> {
-    // Add ServiceID if provided to tie document to specific service instance
+    // Store ServiceID in Notes field with special format to tie document to specific service instance
     const dataToSend = { ...attachData };
     if (serviceId) {
-      dataToSend.ServiceID = parseInt(serviceId);
+      // Prepend ServiceID to Notes field: [SID:123] existing notes
+      const serviceIdPrefix = `[SID:${serviceId}]`;
+      dataToSend.Notes = dataToSend.Notes 
+        ? `${serviceIdPrefix} ${dataToSend.Notes}`
+        : serviceIdPrefix;
     }
     
     // Remove ?response=rows as per Caspio best practices
@@ -1606,9 +1610,12 @@ export class CaspioService {
         Attachment: filePath  // Store the file path from Files API
       };
       
-      // Add ServiceID if provided to tie document to specific service instance
+      // Store ServiceID in Notes field with special format to tie document to specific service instance
       if (serviceId) {
-        recordData.ServiceID = parseInt(serviceId);
+        const serviceIdPrefix = `[SID:${serviceId}]`;
+        recordData.Notes = recordData.Notes 
+          ? `${serviceIdPrefix} ${recordData.Notes}`
+          : serviceIdPrefix;
       }
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {

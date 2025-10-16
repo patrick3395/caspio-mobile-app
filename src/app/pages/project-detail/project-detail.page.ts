@@ -1449,18 +1449,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Use actual templates from database
         for (const template of autoTemplates) {
           // Find ALL attachments for this specific service instance
-          // Filter by ServiceID if available (for multiple instances of same type)
-          // Otherwise fall back to TypeID only (for backward compatibility)
+          // Filter by ServiceID stored in Notes field (for multiple instances of same type)
           const attachments = this.existingAttachments.filter(a => {
             // Must match TypeID
             if (a.TypeID !== parseInt(service.typeId)) return false;
             // Must match Title
             if (a.Title !== template.Title) return false;
-            // If ServiceID exists in attachment, must match this service instance
-            if (a.ServiceID && service.serviceId) {
-              return a.ServiceID === parseInt(service.serviceId);
+            
+            // Extract ServiceID from Notes field [SID:123]
+            const attachServiceId = this.extractServiceIdFromNotes(a.Notes);
+            
+            // If attachment has ServiceID in Notes, must match this service instance
+            if (attachServiceId && service.serviceId) {
+              return attachServiceId === parseInt(service.serviceId);
             }
-            // If no ServiceID in attachment, include it (backward compatibility)
+            // If no ServiceID in Notes, include it (backward compatibility with old attachments)
             return true;
           });
 
@@ -1509,11 +1512,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const uploadedAttachment = this.existingAttachments.find(a => {
             if (a.TypeID !== parseInt(service.typeId)) return false;
             if (a.Title !== pendingDoc.title) return false;
-            // If ServiceID exists, must match this service instance
-            if (a.ServiceID && service.serviceId) {
-              return a.ServiceID === parseInt(service.serviceId);
+            
+            // Extract ServiceID from Notes field [SID:123]
+            const attachServiceId = this.extractServiceIdFromNotes(a.Notes);
+            
+            // If attachment has ServiceID in Notes, must match this service instance
+            if (attachServiceId && service.serviceId) {
+              return attachServiceId === parseInt(service.serviceId);
             }
-            // If no ServiceID, include it (backward compatibility)
+            // If no ServiceID in Notes, include it (backward compatibility)
             return true;
           });
 
@@ -1547,9 +1554,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Must match the TypeID
         if (a.TypeID !== parseInt(service.typeId)) return false;
         
-        // If ServiceID exists in attachment, must match this service instance
-        if (a.ServiceID && service.serviceId) {
-          if (a.ServiceID !== parseInt(service.serviceId)) return false;
+        // Extract ServiceID from Notes field [SID:123]
+        const attachServiceId = this.extractServiceIdFromNotes(a.Notes);
+        
+        // If attachment has ServiceID in Notes, must match this service instance
+        if (attachServiceId && service.serviceId) {
+          if (attachServiceId !== parseInt(service.serviceId)) return false;
         }
         
         // Check if this title is already accounted for in the documents
@@ -1750,9 +1760,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               AttachID: response.AttachID || response.PK_ID,
               ProjectID: response.ProjectID || projectIdNum,
               TypeID: response.TypeID || typeIdNum,
-              ServiceID: response.ServiceID || parseInt(serviceId),
               Title: response.Title || doc.title || 'Document',
-              Notes: response.Notes || '',
+              Notes: response.Notes || `[SID:${serviceId}]`,
               Link: response.Link || file.name,
               Attachment: response.Attachment || ''
             };
@@ -2365,8 +2374,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             AttachID: newAttachmentId,
             ProjectID: attachmentData.ProjectID,
             TypeID: attachmentData.TypeID,
-            ServiceID: parseInt(this.selectedServiceDoc.serviceId),
             Title: doc.title,
+            Notes: `[SID:${this.selectedServiceDoc.serviceId}]`,
             Link: url,
             Attachment: ''
           });
@@ -2548,8 +2557,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           AttachID: response.AttachID || response.PK_ID,
           ProjectID: attachmentData.ProjectID,
           TypeID: attachmentData.TypeID,
-          ServiceID: parseInt(serviceDoc.serviceId),
           Title: attachmentData.Title,
+          Notes: response.Notes || `[SID:${serviceDoc.serviceId}]`,
           Link: attachmentData.Link,
           Attachment: attachmentData.Attachment
         };
@@ -3399,6 +3408,16 @@ Troubleshooting:
 
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Extract ServiceID from Notes field
+   * Format: [SID:123] rest of notes
+   */
+  private extractServiceIdFromNotes(notes: string): number | null {
+    if (!notes) return null;
+    const match = notes.match(/\[SID:(\d+)\]/);
+    return match ? parseInt(match[1]) : null;
   }
 
   /**
