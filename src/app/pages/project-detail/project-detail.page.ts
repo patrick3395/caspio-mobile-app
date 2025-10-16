@@ -874,6 +874,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       
       this.selectedServices.push(selection);
       this.updateDocumentsList();
+
+      // CRITICAL: Clear all caches to ensure fresh data on page reload
+      // Clear the static component cache (in-memory)
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+      console.log('🗑️ Cleared component cache for project:', this.projectId);
+
+      // Clear the ProjectsService cache for this specific project
+      this.projectsService.clearProjectDetailCache(this.projectId);
+
       // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error adding service - Full details:', error);
@@ -933,9 +942,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       if (index > -1) {
         this.selectedServices.splice(index, 1);
       }
-      
+
       this.updateDocumentsList();
-      
+
+      // Clear all caches to ensure fresh data on page reload
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+      this.projectsService.clearProjectDetailCache(this.projectId);
+      console.log('🗑️ Cleared caches after removing service');
+
       // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error removing service:', error);
@@ -944,6 +958,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       if (index > -1) {
         this.selectedServices.splice(index, 1);
         this.updateDocumentsList();
+
+        // Clear caches even on error since UI was updated
+        ProjectDetailPage.detailStateCache.delete(this.projectId);
+        this.projectsService.clearProjectDetailCache(this.projectId);
       }
       await this.showToast('Service removed locally', 'warning');
     } finally {

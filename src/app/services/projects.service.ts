@@ -82,6 +82,15 @@ export class ProjectsService {
     this.cache.clear(this.cache.getApiCacheKey('projects_active', { companyId: 1 }));
   }
 
+  /**
+   * Clear cache for a specific project detail
+   */
+  clearProjectDetailCache(projectId: string): void {
+    const cacheKey = this.getProjectDetailCacheKey(projectId);
+    this.cache.clear(cacheKey);
+    console.log('🗑️ Cleared ProjectsService cache for project:', projectId);
+  }
+
   getActiveProjects(companyId?: number): Observable<Project[]> {
     // Build cache key
     const cacheKey = this.cache.getApiCacheKey('projects_active', { companyId });
