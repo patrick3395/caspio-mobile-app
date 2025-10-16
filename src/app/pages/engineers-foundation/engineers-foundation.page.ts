@@ -8896,24 +8896,37 @@ Stack: ${error?.stack}`;
               // NOTE: Blob URLs are temporary and won't persist across page reloads
               const newUrl = URL.createObjectURL(data.annotatedBlob);
               this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
-              // Don't overwrite thumbnailUrl if it has base64 data - only set if undefined
-              if (!this.visualPhotos[visualId][photoIndex].thumbnailUrl ||
-                  this.visualPhotos[visualId][photoIndex].thumbnailUrl.startsWith('blob:')) {
-                this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+              
+              // Keep thumbnailUrl as base64 if it exists and is valid
+              // Only update if it's placeholder, blob, or undefined
+              const currentThumbnail = this.visualPhotos[visualId][photoIndex].thumbnailUrl;
+              const isPlaceholder = currentThumbnail === this.photoPlaceholder || currentThumbnail?.includes('photo-placeholder');
+              const isBlob = currentThumbnail?.startsWith('blob:');
+              const isValidBase64 = currentThumbnail?.startsWith('data:');
+              
+              if (!currentThumbnail || isPlaceholder || isBlob || !isValidBase64) {
+                // If we have a valid base64 url, keep it; otherwise use blob
+                const validUrl = this.visualPhotos[visualId][photoIndex].url;
+                if (validUrl && validUrl.startsWith('data:')) {
+                  // Keep the existing valid base64 thumbnailUrl
+                  this.visualPhotos[visualId][photoIndex].thumbnailUrl = validUrl;
+                } else {
+                  // Use blob URL temporarily
+                  this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+                }
               }
+              // If thumbnailUrl already has valid base64 data, keep it
+              
               this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
               
-              // CRITICAL FIX: Update main URL for immediate annotation display
-              this.visualPhotos[visualId][photoIndex].url = newUrl;
+              // DO NOT overwrite the url field with blob URL - keep original base64/file path
+              // The displayUrl will show the annotated version
 
               // Update caption if provided
               if (data.caption !== undefined) {
                 this.visualPhotos[visualId][photoIndex].caption = data.caption;
                 this.visualPhotos[visualId][photoIndex].Annotation = data.caption;
               }
-
-              // Keep the original URL intact in the url field
-              // DO NOT change this.visualPhotos[visualId][photoIndex].url!
 
               // Store annotations in the photo object
               if (annotationsData) {
@@ -8936,18 +8949,23 @@ Stack: ${error?.stack}`;
             // Additional UI update - force template refresh for annotation visibility
             setTimeout(() => {
               this.changeDetectorRef.detectChanges();
+              
+              // [v1.4.576] Restore scroll position AFTER ALL change detection completes
+              // This prevents the DOM update from scrolling the page
+              setTimeout(() => {
+                this.restoreScrollPosition(scrollPosition);
+              }, 50); // Small delay to ensure DOM updates are complete
             }, 100);
-
-            // [v1.4.576] Restore scroll position AFTER change detection
-            // This prevents the DOM update from scrolling the page
-            this.restoreScrollPosition(scrollPosition);
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
         }
       } else {
         // Restore scroll if user cancels (no data returned)
-        this.restoreScrollPosition(scrollPosition);
+        // Use a small delay to ensure modal is fully dismissed
+        setTimeout(() => {
+          this.restoreScrollPosition(scrollPosition);
+        }, 100);
       }
 
     } catch (error) {

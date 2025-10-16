@@ -471,7 +471,8 @@
                         <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (click)="$event.stopPropagation()"
                                  placeholder="Please specify..."
                                  class="styled-input other-input">
                         </div>
@@ -612,7 +613,8 @@
                         <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (click)="$event.stopPropagation()"
                                  placeholder="Please specify..."
                                  class="styled-input other-input">
                         </div>
@@ -753,7 +755,8 @@
                         <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (ngModelChange)="onMultiSelectOtherChange(category, item)"
+                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (click)="$event.stopPropagation()"
                                  placeholder="Please specify..."
                                  class="styled-input other-input">
                         </div>
