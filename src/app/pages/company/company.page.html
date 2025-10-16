@@ -250,11 +250,11 @@
     <div *ngIf="selectedTab === 'contacts'" class="tab-content contacts-tab">
       <div class="contacts-search-container">
         <ion-searchbar
-          [value]="contactsSearchTerm"
-          (ionInput)="onContactSearchChange($event.detail.value)"
-          (ionClear)="onContactSearchChange('')"
+          [(ngModel)]="contactsSearchTerm"
+          (ionChange)="onContactSearchChange($event.detail.value)"
           placeholder="Search contacts by name"
-          animated="true">
+          animated="true"
+          class="modern-search">
         </ion-searchbar>
       </div>
 
@@ -436,7 +436,8 @@
           [(ngModel)]="meetingFilters.search"
           (ionChange)="applyMeetingFilters()"
           placeholder="Search subjects or attendees"
-          animated="true">
+          animated="true"
+          class="modern-search">
         </ion-searchbar>
       </div>
       <div class="meetings-filters">
@@ -501,7 +502,8 @@
           [(ngModel)]="communicationSearchTerm"
           (ionChange)="applyCommunicationFilters()"
           placeholder="Search notes or outcomes"
-          animated="true">
+          animated="true"
+          class="modern-search">
         </ion-searchbar>
       </div>
 
@@ -559,7 +561,8 @@
           [(ngModel)]="invoiceSearchTerm"
           (ionChange)="categorizeInvoices()"
           placeholder="Search invoice, project, or company"
-          animated="true">
+          animated="true"
+          class="modern-search">
         </ion-searchbar>
       </div>
       <div class="invoice-filters">
