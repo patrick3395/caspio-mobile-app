@@ -286,7 +286,7 @@
               <tbody>
                 <tr *ngFor="let contact of group.contacts; trackBy: trackByContact">
                   <td>
-                    <button type="button" class="contact-name-button" (click)="openContactModal(contact)">
+                    <button type="button" class="contact-name-button" (click)="openEditContactModal(contact)">
                       {{ contact.Name }}
                     </button>
                     <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
