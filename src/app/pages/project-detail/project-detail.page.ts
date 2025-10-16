@@ -1448,13 +1448,23 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (autoTemplates.length > 0) {
         // Use actual templates from database
         for (const template of autoTemplates) {
-          // Find ALL attachments for this type and title (for multiple uploads)
-          const attachments = this.existingAttachments.filter(a =>
-            a.TypeID === parseInt(service.typeId) &&
-            a.Title === template.Title
-          );
+          // Find ALL attachments for this specific service instance
+          // Filter by ServiceID if available (for multiple instances of same type)
+          // Otherwise fall back to TypeID only (for backward compatibility)
+          const attachments = this.existingAttachments.filter(a => {
+            // Must match TypeID
+            if (a.TypeID !== parseInt(service.typeId)) return false;
+            // Must match Title
+            if (a.Title !== template.Title) return false;
+            // If ServiceID exists in attachment, must match this service instance
+            if (a.ServiceID && service.serviceId) {
+              return a.ServiceID === parseInt(service.serviceId);
+            }
+            // If no ServiceID in attachment, include it (backward compatibility)
+            return true;
+          });
 
-          console.log(`[UpdateDocs] Template "${template.Title}" - found ${attachments.length} attachments`);
+          console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
           
           // Create the main document entry
           const docItem: DocumentItem = {
@@ -1495,11 +1505,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (pending) {
         // Add all pending documents back to the list
         for (const pendingDoc of pending) {
-          // Check if this pending document has now been uploaded
-          const uploadedAttachment = this.existingAttachments.find(a =>
-            a.TypeID === parseInt(service.typeId) &&
-            a.Title === pendingDoc.title
-          );
+          // Check if this pending document has now been uploaded for THIS specific service instance
+          const uploadedAttachment = this.existingAttachments.find(a => {
+            if (a.TypeID !== parseInt(service.typeId)) return false;
+            if (a.Title !== pendingDoc.title) return false;
+            // If ServiceID exists, must match this service instance
+            if (a.ServiceID && service.serviceId) {
+              return a.ServiceID === parseInt(service.serviceId);
+            }
+            // If no ServiceID, include it (backward compatibility)
+            return true;
+          });
 
           if (uploadedAttachment) {
             const updatedDoc = {
@@ -1530,6 +1546,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const orphanAttachments = this.existingAttachments.filter(a => {
         // Must match the TypeID
         if (a.TypeID !== parseInt(service.typeId)) return false;
+        
+        // If ServiceID exists in attachment, must match this service instance
+        if (a.ServiceID && service.serviceId) {
+          if (a.ServiceID !== parseInt(service.serviceId)) return false;
+        }
         
         // Check if this title is already accounted for in the documents
         // This prevents duplicates when a document is uploaded
@@ -1705,12 +1726,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         await loading.present();
         
         // Create attachment WITH file in ONE request (using Observable converted to Promise)
+        // Pass serviceId to tie document to specific service instance
         const response = await this.caspioService.createAttachmentWithFile(
           projectIdNum,
           typeIdNum,
           doc.title || 'Document',
           '', // notes
-          file
+          file,
+          serviceId // Pass serviceId to differentiate between multiple instances
         ).toPromise();
         
         // Attachment created - update UI immediately without waiting
@@ -1727,6 +1750,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               AttachID: response.AttachID || response.PK_ID,
               ProjectID: response.ProjectID || projectIdNum,
               TypeID: response.TypeID || typeIdNum,
+              ServiceID: response.ServiceID || parseInt(serviceId),
               Title: response.Title || doc.title || 'Document',
               Notes: response.Notes || '',
               Link: response.Link || file.name,
@@ -2341,6 +2365,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             AttachID: newAttachmentId,
             ProjectID: attachmentData.ProjectID,
             TypeID: attachmentData.TypeID,
+            ServiceID: parseInt(this.selectedServiceDoc.serviceId),
             Title: doc.title,
             Link: url,
             Attachment: ''
@@ -2512,7 +2537,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[Link Create] Creating attachment:', attachmentData);
 
-      const response = await this.caspioService.createAttachment(attachmentData).toPromise();
+      const response = await this.caspioService.createAttachment(attachmentData, serviceDoc.serviceId).toPromise();
 
       console.log('[Link Create] Response from Caspio:', response);
 
@@ -2523,6 +2548,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           AttachID: response.AttachID || response.PK_ID,
           ProjectID: attachmentData.ProjectID,
           TypeID: attachmentData.TypeID,
+          ServiceID: parseInt(serviceDoc.serviceId),
           Title: attachmentData.Title,
           Link: attachmentData.Link,
           Attachment: attachmentData.Attachment

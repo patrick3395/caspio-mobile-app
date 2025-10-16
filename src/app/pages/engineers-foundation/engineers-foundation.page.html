@@ -2,9 +2,7 @@
   <ion-toolbar color="primary" class="template-toolbar">
     <div slot="start" style="pointer-events: auto; z-index: 10001;">
       <button id="eng-back-btn" 
-              (click)="goBack()" 
-              (mousedown)="goBack()"
-              (touchstart)="goBack()"
+              (click)="goBack()"
               type="button">
         <ion-icon name="arrow-back"></ion-icon>
       </button>
@@ -893,29 +891,38 @@
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
                   <!-- Room action buttons (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->
-                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; align-items: center; gap: 4px;">
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" 
+                       style="display: flex; align-items: center; gap: 4px;"
+                       (click)="$event.stopPropagation(); $event.stopImmediatePropagation();"
+                       (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
-                            (click)="renameRoom(room.RoomName, $event)" 
+                            (click)="renameRoom(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             title="Rename Room"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                     <!-- Move up button -->
                     <button class="room-action-btn" 
-                            (click)="moveRoomUp(room.RoomName, $event)" 
+                            (click)="moveRoomUp(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             [disabled]="getRoomIndex(room.RoomName) === 0"
                             title="Move Up"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                     <!-- Move down button -->
                     <button class="room-action-btn" 
-                            (click)="moveRoomDown(room.RoomName, $event)" 
+                            (click)="moveRoomDown(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
                             title="Move Down"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                   </div>
                   <!-- Collapse/expand icon in header when room is selected -->
@@ -932,29 +939,38 @@
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" 
+                     style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;"
+                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation();"
+                     (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="renameRoom(room.RoomName, $event)" 
+                          (click)="renameRoom(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           title="Rename Room"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                   <!-- Move up button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="moveRoomUp(room.RoomName, $event)" 
+                          (click)="moveRoomUp(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           [disabled]="getRoomIndex(room.RoomName) === 0"
                           title="Move Up"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                   <!-- Move down button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="moveRoomDown(room.RoomName, $event)" 
+                          (click)="moveRoomDown(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
                           title="Move Down"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                 </div>
 
@@ -1258,29 +1274,38 @@
                   </ion-label>
                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>
                   <!-- Room action buttons (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->
-                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; align-items: center; gap: 4px;">
+                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" 
+                       style="display: flex; align-items: center; gap: 4px;"
+                       (click)="$event.stopPropagation(); $event.stopImmediatePropagation();"
+                       (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();">
                     <!-- Rename button -->
                     <button class="room-action-btn" 
-                            (click)="renameRoom(room.RoomName, $event)" 
+                            (click)="renameRoom(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             title="Rename Room"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                     <!-- Move up button -->
                     <button class="room-action-btn" 
-                            (click)="moveRoomUp(room.RoomName, $event)" 
+                            (click)="moveRoomUp(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             [disabled]="getRoomIndex(room.RoomName) === 0"
                             title="Move Up"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                     <!-- Move down button -->
                     <button class="room-action-btn" 
-                            (click)="moveRoomDown(room.RoomName, $event)" 
+                            (click)="moveRoomDown(room.RoomName, $event)"
+                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                             [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
                             title="Move Down"
+                            type="button"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">
-                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                     </button>
                   </div>
                   <!-- Collapse/expand icon in header when room is selected -->
@@ -1297,29 +1322,38 @@
               <div class="room-card-content" *ngIf="isRoomSelected(room.RoomName) && isRoomExpanded(room.RoomName)">
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->
-                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;">
+                <div class="room-actions-mobile" *ngIf="!platform.isWeb() && !isBaseStation(room.RoomName)" 
+                     style="display: flex; justify-content: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: #f9f9f9; border-radius: 8px;"
+                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation();"
+                     (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();">
                   <!-- Rename button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="renameRoom(room.RoomName, $event)" 
+                          (click)="renameRoom(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           title="Rename Room"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                   <!-- Move up button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="moveRoomUp(room.RoomName, $event)" 
+                          (click)="moveRoomUp(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           [disabled]="getRoomIndex(room.RoomName) === 0"
                           title="Move Up"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                   <!-- Move down button -->
                   <button class="room-action-btn-mobile" 
-                          (click)="moveRoomDown(room.RoomName, $event)" 
+                          (click)="moveRoomDown(room.RoomName, $event)"
+                          (touchstart)="$event.stopPropagation(); $event.stopImmediatePropagation();"
                           [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"
                           title="Move Down"
+                          type="button"
                           style="background: white; border: 1px solid #ddd; padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; width: 40px; height: 40px;">
-                    <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium);"></ion-icon>
+                    <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>
                   </button>
                 </div>
 

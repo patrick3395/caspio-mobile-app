@@ -1525,9 +1525,15 @@ export class CaspioService {
     );
   }
 
-  createAttachment(attachData: any): Observable<any> {
+  createAttachment(attachData: any, serviceId?: string): Observable<any> {
+    // Add ServiceID if provided to tie document to specific service instance
+    const dataToSend = { ...attachData };
+    if (serviceId) {
+      dataToSend.ServiceID = parseInt(serviceId);
+    }
+    
     // Remove ?response=rows as per Caspio best practices
-    return this.post<any>('/tables/Attach/records', attachData).pipe(
+    return this.post<any>('/tables/Attach/records', dataToSend).pipe(
       tap(response => {
       }),
       catchError(error => {
@@ -1544,11 +1550,11 @@ export class CaspioService {
   }
 
   // Create attachment with file using two-step upload (like Services_Visuals_Attach)
-  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File): Observable<any> {
+  createAttachmentWithFile(projectId: number, typeId: number, title: string, notes: string, file: File, serviceId?: string): Observable<any> {
     
     // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.twoStepUploadForAttach(projectId, typeId, title, notes, file)
+      this.twoStepUploadForAttach(projectId, typeId, title, notes, file, serviceId)
         .then(result => {
           observer.next(result); // Return the created record
           observer.complete();
@@ -1560,7 +1566,7 @@ export class CaspioService {
   }
 
   // Two-step upload method for Attach table - Upload to Files API then create record with path
-  private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File) {
+  private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File, serviceId?: string) {
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1591,15 +1597,19 @@ export class CaspioService {
       
       // The file path for the Attachment field (use root path or folder path)
       const filePath = `/${uploadResult.Name || file.name}`;
-      const recordData = {
+      const recordData: any = {
         ProjectID: parseInt(projectId.toString()),
         TypeID: parseInt(typeId.toString()),
         Title: title || file.name,
         Notes: notes || 'Uploaded from mobile',
         Link: file.name,
         Attachment: filePath  // Store the file path from Files API
-        // NO ServiceID - this field doesn't exist in Attach table
       };
+      
+      // Add ServiceID if provided to tie document to specific service instance
+      if (serviceId) {
+        recordData.ServiceID = parseInt(serviceId);
+      }
       
       const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
         method: 'POST',
