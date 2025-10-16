@@ -5124,22 +5124,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the service data to mark report as finalized
-      const updateData = {
-        ...this.serviceData,
-        ReportFinalized: true,
-        FinalizedDate: new Date().toISOString()
-      };
-
-      // Save to Caspio
-      await firstValueFrom(this.caspioService.updateService(this.serviceId, updateData));
+      // Mark as finalized locally only - no Caspio update
+      this.serviceData.ReportFinalized = true;
+      this.serviceData.FinalizedDate = new Date().toISOString();
 
       await loading.dismiss();
       await this.showToast('Report has been finalized successfully', 'success');
 
-      // Update local data
-      this.serviceData.ReportFinalized = true;
-      this.serviceData.FinalizedDate = updateData.FinalizedDate;
+      // Navigate back to project detail page with finalized state
+      this.router.navigate(['/project-detail', this.projectId], {
+        state: {
+          finalizedServiceId: this.serviceId,
+          finalizedDate: this.serviceData.FinalizedDate
+        }
+      });
 
     } catch (error) {
       console.error('Error finalizing report:', error);

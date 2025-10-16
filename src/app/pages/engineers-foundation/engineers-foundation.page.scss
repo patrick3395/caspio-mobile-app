@@ -3027,6 +3027,17 @@ select[name="StructuralSystemsStatus"] {
       color: #333;
       transition: all 0.2s ease;
       text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .button-inner,
+      span {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+      }
 
       &:hover {
         background: #e8e8e8;
