@@ -4182,6 +4182,57 @@ Time: ${debugInfo.timestamp}
   /**
    * Open PayPal payment modal for the project
    */
+  async submitFinalizedReport(service: ServiceSelection) {
+    if (!service || !service.serviceId) {
+      await this.showToast('Service information not available', 'danger');
+      return;
+    }
+
+    // Show confirmation alert
+    const alert = await this.alertController.create({
+      header: 'Submit Report',
+      message: `Are you sure you want to submit the finalized ${service.typeName} report?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Submit',
+          handler: async () => {
+            await this.processReportSubmission(service);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async processReportSubmission(service: ServiceSelection) {
+    const loading = await this.loadingController.create({
+      message: 'Submitting report...'
+    });
+    await loading.present();
+
+    try {
+      // TODO: Implement actual submission logic here
+      // This could involve calling a backend API to submit the report
+      console.log('[Submit Report] Submitting service:', service.serviceId, service.typeName);
+
+      // Simulate submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      await loading.dismiss();
+      await this.showToast(`${service.typeName} report submitted successfully`, 'success');
+
+    } catch (error) {
+      console.error('[Submit Report] Error:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to submit report', 'danger');
+    }
+  }
+
   async openPaymentModal() {
     if (!this.project || !this.project.PK_ID) {
       await this.showToast('Project information not available', 'danger');

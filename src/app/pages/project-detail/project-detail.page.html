@@ -167,8 +167,8 @@
               <div class="instance-fields">
                 <div class="field-group">
                   <label>Inspection Date</label>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     class="date-input"
                     [value]="formatDateForInput(service.dateOfInspection)"
                     (change)="updateServiceDateFromInput(service, $event)"
@@ -181,13 +181,20 @@
                     <ion-icon name="checkmark-circle" color="success"></ion-icon>
                   </span>
                 </div>
-                
+
                 <div class="field-group">
                   <label>Price</label>
                   <div class="price-display">
                     ${{ getServicePrice(service) | number:'1.2-2' }}
                   </div>
                 </div>
+              </div>
+
+              <!-- Submit button for finalized reports -->
+              <div *ngIf="service.ReportFinalized" class="submit-button-container">
+                <button class="submit-report-btn" (click)="submitFinalizedReport(service)">
+                  Submit
+                </button>
               </div>
             </div>
           </div>

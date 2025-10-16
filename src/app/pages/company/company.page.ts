@@ -304,8 +304,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   private projectDetailsLookup = new Map<number, ProjectMetadata>();
   private servicesLookup = new Map<number, number>(); // ServiceID -> TypeID
   private servicesByProjectLookup = new Map<number, number[]>(); // ProjectID -> ServiceID[]
-  private typeIdToNameLookup = new Map<number, string>(); // TypeID -> TypeName
-  private offersLookup = new Map<number, string>(); // OffersID -> TypeName
+  private typeIdToNameLookup = new Map<number, string>(); // TypeID -> TypeName (from Type table)
+  private offersLookup = new Map<number, number>(); // OffersID -> TypeID
   private contactCountByCompany = new Map<number, number>();
   private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
   private touchSummaryByCompany = new Map<number, { total: number; lastDate: Date | null; label: string; channels: string[] }>();
@@ -513,7 +513,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         projectRecords,
         communicationRecords,
         servicesRecords,
-        offersRecords
+        offersRecords,
+        typeRecords
       ] = await Promise.all([
         this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
         this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '2000' }),
@@ -526,12 +527,14 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID,TypeName', 'q.limit': '2000' })
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' })
       ]);
 
       this.populateStageDefinitions(stageRecords);
       this.populateCommunicationTypes(communicationRecords);
       this.populateProjectLookup(projectRecords);
+      this.populateTypeLookup(typeRecords);
       this.populateServicesLookup(servicesRecords);
       this.populateOffersLookup(offersRecords);
 
@@ -2931,9 +2934,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Third, try to get service name from project's OffersID
       const projectMetadata = this.projectDetailsLookup.get(invoice.ProjectID);
       if (projectMetadata?.offersId !== null && projectMetadata?.offersId !== undefined) {
-        const offerName = this.offersLookup.get(projectMetadata.offersId);
-        if (offerName) {
-          return offerName;
+        const typeId = this.offersLookup.get(projectMetadata.offersId);
+        if (typeId !== null && typeId !== undefined) {
+          const typeName = this.typeIdToNameLookup.get(typeId);
+          if (typeName) {
+            return typeName;
+          }
         }
       }
     }
@@ -3596,22 +3602,29 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
   }
 
+  private populateTypeLookup(records: any[]) {
+    this.typeIdToNameLookup.clear();
+
+    records.forEach(record => {
+      const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
+      const typeName = record.TypeName ?? '';
+
+      if (typeId !== null && typeName) {
+        this.typeIdToNameLookup.set(typeId, typeName);
+      }
+    });
+  }
+
   private populateOffersLookup(records: any[]) {
     this.offersLookup.clear();
-    this.typeIdToNameLookup.clear();
 
     records.forEach(record => {
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
                        (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
       const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
-      const typeName = record.TypeName ?? '';
 
-      if (offersId !== null && typeName) {
-        this.offersLookup.set(offersId, typeName);
-      }
-
-      if (typeId !== null && typeName) {
-        this.typeIdToNameLookup.set(typeId, typeName);
+      if (offersId !== null && typeId !== null) {
+        this.offersLookup.set(offersId, typeId);
       }
     });
   }

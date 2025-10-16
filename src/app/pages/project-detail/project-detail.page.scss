@@ -463,6 +463,38 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
           }
         }
       }
+
+      .submit-button-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid $border;
+
+        .submit-report-btn {
+          background: $orange;
+          color: white;
+          border: none;
+          padding: 10px 24px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          transition: all 0.2s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+
+          &:hover {
+            background: rgba(241, 90, 39, 0.9);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
+        }
+      }
     }
   }
 }

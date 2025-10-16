@@ -14,26 +14,41 @@ ion-header {
 }
 
 .services-list {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 0.5rem;
 
   .service-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #e8e8e8;
 
     &:last-child {
       border-bottom: none;
+      padding-bottom: 0.5rem;
+    }
+
+    &:first-child {
+      padding-top: 0.5rem;
     }
 
     .service-name {
-      font-weight: 500;
-      color: #333;
+      font-weight: 400;
+      color: #555;
+      font-size: 0.95rem;
+      flex: 1;
     }
 
     .service-price {
-      font-weight: 600;
-      color: var(--ion-color-primary);
+      font-weight: 500;
+      color: #666;
+      font-size: 0.95rem;
+      font-family: 'Courier New', monospace;
+      white-space: nowrap;
+      margin-left: 1rem;
     }
   }
 }
