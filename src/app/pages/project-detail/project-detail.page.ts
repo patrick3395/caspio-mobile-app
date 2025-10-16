@@ -994,6 +994,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Clear the ProjectsService cache for this specific project
       this.projectsService.clearProjectDetailCache(this.projectId);
 
+      // Clear the CaspioService cache for Services table
+      const actualProjectId = this.project?.ProjectID || this.projectId;
+      this.caspioService.clearServicesCache(actualProjectId);
+
       // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error adding service - Full details:', error);
@@ -1059,6 +1063,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Clear all caches to ensure fresh data on page reload
       ProjectDetailPage.detailStateCache.delete(this.projectId);
       this.projectsService.clearProjectDetailCache(this.projectId);
+      
+      // Clear the CaspioService cache for Services table
+      const actualProjectId = this.project?.ProjectID || this.projectId;
+      this.caspioService.clearServicesCache(actualProjectId);
+      
       console.log('🗑️ Cleared caches after removing service');
 
       // Success toast removed per user request
@@ -1073,6 +1082,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Clear caches even on error since UI was updated
         ProjectDetailPage.detailStateCache.delete(this.projectId);
         this.projectsService.clearProjectDetailCache(this.projectId);
+        
+        // Clear the CaspioService cache for Services table
+        const actualProjectId = this.project?.ProjectID || this.projectId;
+        this.caspioService.clearServicesCache(actualProjectId);
       }
       await this.showToast('Service removed locally', 'warning');
     } finally {

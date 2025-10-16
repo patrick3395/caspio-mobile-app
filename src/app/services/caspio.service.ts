@@ -461,6 +461,17 @@ export class CaspioService {
     return this.delete<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`);
   }
 
+  /**
+   * Clear the cache for Services by ProjectID
+   * This should be called after adding/deleting services to ensure fresh data on page reload
+   */
+  clearServicesCache(projectId: string): void {
+    const endpoint = `/tables/Services/records?q.where=ProjectID=${projectId}`;
+    const cacheKey = this.cache.getApiCacheKey(endpoint, null);
+    this.cache.clear(cacheKey);
+    console.log('🗑️ Cleared CaspioService Services cache for project:', projectId);
+  }
+
   // Attach Templates methods
   getAttachTemplates(): Observable<any[]> {
     return this.get<any>('/tables/Attach_Templates/records').pipe(
