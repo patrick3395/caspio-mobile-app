@@ -5,7 +5,10 @@
         <ion-icon name="arrow-back" style="font-size: 24px;"></ion-icon>
       </button>
     </div>
-    <ion-title class="toolbar-title">{{ platform.isWeb() ? typeFull : typeShort }}</ion-title>
+    <ion-title class="toolbar-title">
+      {{ platform.isWeb() ? typeFull : typeShort }}
+      <ion-icon *ngIf="serviceData?.ReportFinalized" name="checkmark-circle" class="finalized-check-icon"></ion-icon>
+    </ion-title>
     <div slot="end" class="template-toolbar-actions">
       <button id="eng-pdf-btn" (click)="generatePDF()">
         <ion-icon name="document-text-outline"></ion-icon>

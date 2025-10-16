@@ -5056,6 +5056,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       incompleteAreas.push('Elevation Plot: Base Station (required)');
     }
 
+    // Check that all selected rooms (except Base Station) have FDF answered
+    for (const roomName in this.selectedRooms) {
+      if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
+        const roomData = this.roomElevationData[roomName];
+        if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
+          incompleteAreas.push(`Elevation Plot - ${roomName}: FDF (Flooring Difference Factor) required`);
+        }
+      }
+    }
+
     // Show results
     if (incompleteAreas.length > 0) {
       const alert = await this.alertController.create({

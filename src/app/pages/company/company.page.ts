@@ -389,6 +389,10 @@ export class CompanyPage implements OnInit, OnDestroy {
   isEditCommunicationModalOpen = false;
   editingCommunication: any = null;
 
+  // Edit meeting modal
+  isEditMeetingModalOpen = false;
+  editingMeeting: any = null;
+
   // Add task modal
   isAddTaskModalOpen = false;
   newTask: any = {
@@ -1546,6 +1550,236 @@ export class CompanyPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error deleting communication:', error);
       let errorMessage = 'Failed to delete communication';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async openEditMeetingModal(meeting: MeetingViewModel) {
+    // Format dates for datetime-local input
+    let formattedStartDate = '';
+    let formattedEndDate = '';
+
+    if (meeting.startDate) {
+      const d = new Date(meeting.startDate);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      formattedStartDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    if (meeting.endDate) {
+      const d = new Date(meeting.endDate);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      formattedEndDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    this.editingMeeting = {
+      PK_ID: meeting.PK_ID,
+      MeetingID: meeting.MeetingID,
+      CompanyID: meeting.CompanyID,
+      Subject: meeting.subject,
+      Description: meeting.description,
+      StartDate: formattedStartDate,
+      EndDate: formattedEndDate,
+      Attendee1: meeting.attendees[0] || '',
+      Attendee2: meeting.attendees[1] || '',
+      Attendee3: meeting.attendees[2] || '',
+      Attendee4: meeting.attendees[3] || '',
+      Attendee5: meeting.attendees[4] || ''
+    };
+
+    this.isEditMeetingModalOpen = true;
+  }
+
+  closeEditMeetingModal() {
+    this.isEditMeetingModalOpen = false;
+    this.editingMeeting = null;
+  }
+
+  async saveEditedMeeting() {
+    if (!this.editingMeeting) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.editingMeeting.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.editingMeeting.Subject || this.editingMeeting.Subject.trim() === '') {
+      await this.showToast('Please enter a subject', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating meeting...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload
+      const payload: any = {
+        CompanyID: this.editingMeeting.CompanyID,
+        Subject: this.editingMeeting.Subject.trim()
+      };
+
+      // Add optional fields
+      if (this.editingMeeting.Description && this.editingMeeting.Description.trim() !== '') {
+        payload.Description = this.editingMeeting.Description.trim();
+      }
+
+      if (this.editingMeeting.StartDate && this.editingMeeting.StartDate.trim() !== '') {
+        payload.StartDate = new Date(this.editingMeeting.StartDate).toISOString();
+      }
+
+      if (this.editingMeeting.EndDate && this.editingMeeting.EndDate.trim() !== '') {
+        payload.EndDate = new Date(this.editingMeeting.EndDate).toISOString();
+      }
+
+      // Add attendees
+      if (this.editingMeeting.Attendee1 && this.editingMeeting.Attendee1.trim() !== '') {
+        payload.Attendee1 = this.editingMeeting.Attendee1.trim();
+      }
+      if (this.editingMeeting.Attendee2 && this.editingMeeting.Attendee2.trim() !== '') {
+        payload.Attendee2 = this.editingMeeting.Attendee2.trim();
+      }
+      if (this.editingMeeting.Attendee3 && this.editingMeeting.Attendee3.trim() !== '') {
+        payload.Attendee3 = this.editingMeeting.Attendee3.trim();
+      }
+      if (this.editingMeeting.Attendee4 && this.editingMeeting.Attendee4.trim() !== '') {
+        payload.Attendee4 = this.editingMeeting.Attendee4.trim();
+      }
+      if (this.editingMeeting.Attendee5 && this.editingMeeting.Attendee5.trim() !== '') {
+        payload.Attendee5 = this.editingMeeting.Attendee5.trim();
+      }
+
+      console.log('Updating meeting with payload:', payload);
+
+      // Update via Caspio API using PK_ID
+      const response = await firstValueFrom(
+        this.caspioService.put(`/tables/Meeting/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
+      );
+
+      console.log('Meeting updated successfully:', response);
+
+      // Reload meetings data
+      const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
+      this.meetings = meetingRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeMeetingRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyMeetingFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Meeting updated successfully', 'success');
+      this.closeEditMeetingModal();
+    } catch (error: any) {
+      console.error('Error updating meeting:', error);
+      let errorMessage = 'Failed to update meeting';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteMeeting(meeting: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Meeting',
+      message: 'Are you sure you want to delete this meeting? This action cannot be undone.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteMeeting(meeting);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteMeeting(meeting: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting meeting...'
+    });
+    await loading.present();
+
+    try {
+      console.log('Deleting meeting with PK_ID:', meeting.PK_ID);
+
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Meeting/records?q.where=PK_ID=${meeting.PK_ID}`)
+      );
+
+      console.log('Meeting deleted successfully');
+
+      // Reload meetings data
+      const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
+      this.meetings = meetingRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
+        .map(record => this.normalizeMeetingRecord(record));
+
+      // Recalculate aggregates and reapply filters
+      this.recalculateCompanyAggregates();
+      this.applyMeetingFilters();
+      this.updateSelectedCompanySnapshot();
+
+      await this.showToast('Meeting deleted successfully', 'success');
+      this.closeEditMeetingModal();
+    } catch (error: any) {
+      console.error('Error deleting meeting:', error);
+      let errorMessage = 'Failed to delete meeting';
 
       if (error?.error) {
         if (typeof error.error === 'string') {

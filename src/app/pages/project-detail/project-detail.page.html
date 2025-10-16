@@ -94,6 +94,7 @@
             <div class="template-name">
               <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
               <span class="service-title">{{ service.typeName }}</span>
+              <ion-icon *ngIf="service.ReportFinalized" name="checkmark-circle" class="finalized-check"></ion-icon>
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 #{{ getServiceInstanceNumber(service) }}
               </span>

@@ -24,6 +24,7 @@ interface ServiceSelection {
   typeIcon?: string; // Icon path from Types table
   typeIconUrl?: string; // Base64 data URL for the icon
   dateOfInspection: string;
+  ReportFinalized?: boolean; // Whether the report has been finalized
   saving?: boolean;
   saved?: boolean;
 }
@@ -365,7 +366,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           typeShort: offer?.TypeShort || '',
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
-          dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString()
+          dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
+          ReportFinalized: service.ReportFinalized || false
         };
       });
 
@@ -538,7 +540,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           typeName: offer?.TypeName || offer?.Service_Name || 'Service',
           typeShort: offer?.TypeShort || '',
           typeIcon: offer?.TypeIcon || '',
-          dateOfInspection: service.DateOfInspection || new Date().toISOString()
+          dateOfInspection: service.DateOfInspection || new Date().toISOString(),
+          ReportFinalized: service.ReportFinalized || false
         };
       });
 
@@ -804,7 +807,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
         typeShort: offer.TypeShort || '',
         typeIcon: offer.TypeIcon || '',
         typeIconUrl: offer.TypeIconUrl || '',  // Include the pre-loaded base64 icon
-        dateOfInspection: serviceData.DateOfInspection
+        dateOfInspection: serviceData.DateOfInspection,
+        ReportFinalized: false  // New services are not finalized
       };
       
       this.selectedServices.push(selection);

@@ -80,10 +80,31 @@ ion-toolbar.template-toolbar {
     text-align: center;
     font-weight: 600;
     font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .finalized-check-icon {
+      color: var(--noble-orange);
+      font-size: 22px;
+      animation: checkmarkFadeIn 0.5s ease-in-out;
+    }
   }
 
   .template-toolbar-actions {
     margin-left: auto;
+  }
+}
+
+@keyframes checkmarkFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -2907,49 +2928,76 @@ select[name="StructuralSystemsStatus"] {
   }
 }
 
-// Finalize Alert Styling
+// Finalize Alert Styling - Match standard popup design
 ::ng-deep .finalize-alert {
   .alert-wrapper {
-    border-radius: 16px;
+    border-radius: 20px;
+    background: white;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
   }
 
   .alert-head {
-    padding: 20px 20px 10px;
+    padding: 30px 30px 20px;
+    text-align: center;
 
     h2 {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
       color: #333;
+      margin: 0;
     }
   }
 
   .alert-message {
-    padding: 10px 20px 20px;
+    padding: 10px 30px 30px;
     font-size: 14px;
     line-height: 1.6;
     color: #666;
     white-space: pre-line;
     max-height: 400px;
     overflow-y: auto;
+    text-align: left;
   }
 
   .alert-button-group {
-    padding: 12px;
-    border-top: 1px solid #e0e0e0;
+    padding: 0 30px 30px;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    border-top: none;
 
     button {
-      border-radius: 8px;
-      font-weight: 600;
-      padding: 12px 20px;
-      margin: 4px;
+      flex: 1;
+      max-width: 200px;
+      min-width: 140px;
+      background: #f5f5f5;
+      border: 2px solid var(--noble-orange);
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 24px;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #e8e8e8;
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
 
       &[role="cancel"] {
-        color: #666;
+        color: #333;
       }
 
       &:not([role="cancel"]) {
-        color: var(--noble-orange);
+        color: #333;
       }
     }
   }

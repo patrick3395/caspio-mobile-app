@@ -627,15 +627,102 @@ ion-content {
   font-size: 0.9rem;
 }
 
-// Modern Companies Tab Styling
-.companies-search-container {
+// Tab Header - Unified styling for all tabs
+.tab-header {
   margin-bottom: 16px;
-  max-width: 400px;
-}
 
-.contacts-search-container {
-  margin-bottom: 16px;
-  max-width: 400px;
+  .search-and-action {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .search-wrapper {
+      flex: 1;
+      max-width: 600px;
+    }
+
+    .add-button {
+      flex-shrink: 0;
+      --background: #d3d3d3;
+      --color: #000000;
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --border-radius: 12px;
+      text-transform: none;
+      font-weight: 500;
+      white-space: nowrap;
+      height: 40px;
+
+      ion-icon {
+        font-size: 18px;
+        margin-right: 6px;
+      }
+    }
+  }
+
+  .search-wrapper {
+    width: 100%;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    background: var(--ion-color-light-shade);
+    padding: 12px;
+    border-radius: 12px;
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 150px;
+
+      label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 4px;
+      }
+
+      .styled-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        color: #212529;
+        background: #ffffff;
+        height: 42px;
+        transition: all 0.2s ease;
+
+        &:focus {
+          outline: none;
+          border-color: #f15a27;
+          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        }
+      }
+    }
+
+    .filter-segment {
+      flex: 1;
+      max-width: 400px;
+      margin-top: auto;
+    }
+
+    .invoice-tabs {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+      background: #f5f5f5;
+      border-radius: 12px;
+      padding: 4px;
+    }
+  }
 }
 
 .modern-search {
@@ -649,140 +736,57 @@ ion-content {
   --padding-bottom: 4px;
 }
 
-.contacts-filters,
-.tasks-filters,
-.meetings-filters,
-.communications-filters,
-.invoices-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  align-items: center;
-}
-
-.meetings-filters {
-  ion-segment {
-    --background: #f5f5f5;
-    border-radius: 12px;
-    padding: 4px;
-
-    ion-segment-button {
-      --indicator-color: #f15a27;
-      --indicator-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      --border-radius: 8px;
-      --color: #666;
-      --color-checked: #ffffff;
-      min-height: 32px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin: 0;
-
-      ion-label {
-        margin: 0;
-      }
-    }
-  }
-}
-
-.tasks-filters {
-  background: var(--ion-color-light-shade);
-  padding: 12px;
-  border-radius: 16px;
-
-  .filter-group {
-    label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 8px;
-    }
-  }
-
-  .styled-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-family: inherit;
-    color: #212529;
-    background: #ffffff;
-    height: 42px;
-    transition: all 0.2s ease;
-
-    &:focus {
-      outline: none;
-      border-color: #f15a27;
-      box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
-    }
-  }
-}
-
-.tasks-filters ion-searchbar {
-  --background: #fff;
-  --border-radius: 8px;
-  --box-shadow: none;
-  --height: 42px;
-  min-height: 42px;
-  height: 42px;
-
-  .searchbar-input {
-    height: 42px !important;
-    padding-inline-start: 12px !important;
-    padding-inline-end: 12px !important;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.9rem;
-  }
-}
-
-.add-task-button-container {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-
-  ion-button {
-    --padding-start: 8px;
-    --padding-end: 8px;
-    --padding-top: 4px;
-    --padding-bottom: 4px;
-    font-size: 0.75rem;
-    height: 28px;
-
-    ion-icon {
-      font-size: 16px;
-    }
-  }
-}
-
+// Task time tabs styling
 .task-time-tabs {
   display: flex;
   gap: 4px;
-  background: #f5f5f5;
-  border-radius: 12px;
+  background: #ffffff;
   padding: 4px;
+  border-radius: 8px;
 
   .time-tab {
     flex: 1;
-    padding: 8px 16px;
-    background: transparent;
+    padding: 8px 12px;
     border: none;
-    border-radius: 8px;
+    background: transparent;
+    color: #666;
+    border-radius: 6px;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #666;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 
-    &.active {
-      background: #ffffff;
-      color: #f15a27;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    &:hover:not(.active) {
+      background: #f8f9fa;
     }
 
-    &:not(.active):hover {
-      background: rgba(255, 255, 255, 0.5);
+    &.active {
+      background: #f15a27;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+// Meetings segment styling
+ion-segment.filter-segment {
+  --background: #ffffff;
+  border-radius: 8px;
+  padding: 4px;
+
+  ion-segment-button {
+    --color: #666;
+    --color-checked: #ffffff;
+    --indicator-color: #f15a27;
+    --indicator-height: 100%;
+    --indicator-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-height: 36px;
+    font-size: 0.875rem;
+    border-radius: 6px;
+
+    &.segment-button-checked {
+      font-weight: 500;
     }
   }
 }
@@ -1941,13 +1945,38 @@ select.form-input {
     align-items: flex-end;
   }
 
-  .company-filters,
-  .contacts-filters,
-  .tasks-filters,
-  .meetings-filters,
-  .communications-filters,
-  .invoices-filters {
-    grid-template-columns: 1fr;
+  // Tab header responsive layout
+  .tab-header {
+    .search-and-action {
+      flex-direction: column;
+      gap: 8px;
+
+      .search-wrapper {
+        max-width: 100%;
+      }
+
+      .add-button {
+        width: 100%;
+      }
+    }
+
+    .filter-row {
+      flex-direction: column;
+      gap: 12px;
+
+      .filter-group {
+        width: 100%;
+      }
+
+      .filter-segment {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .invoice-tabs {
+        width: 100%;
+      }
+    }
   }
 
   .stage-board {

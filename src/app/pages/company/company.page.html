@@ -83,21 +83,22 @@
       </button>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
-      <div class="companies-search-container">
-        <ion-searchbar
-          [(ngModel)]="companyFilters.search"
-          (ionChange)="applyCompanyFilters()"
-          placeholder="Search companies"
-          animated="true"
-          class="modern-search">
-        </ion-searchbar>
-      </div>
-
-      <div class="add-task-button-container">
-        <ion-button size="small" (click)="openAddCompanyModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add Company
-        </ion-button>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="companyFilters.search"
+              (ionChange)="applyCompanyFilters()"
+              placeholder="Search companies"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+          <ion-button size="small" (click)="openAddCompanyModal()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Company
+          </ion-button>
+        </div>
       </div>
 
       <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
@@ -248,21 +249,22 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'contacts'" class="tab-content contacts-tab">
-      <div class="contacts-search-container">
-        <ion-searchbar
-          [(ngModel)]="contactsSearchTerm"
-          (ionChange)="onContactSearchChange($event.detail.value)"
-          placeholder="Search contacts by name"
-          animated="true"
-          class="modern-search">
-        </ion-searchbar>
-      </div>
-
-      <div class="add-task-button-container">
-        <ion-button size="small" (click)="openAddContactModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add Contact
-        </ion-button>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="contactsSearchTerm"
+              (ionChange)="onContactSearchChange($event.detail.value)"
+              placeholder="Search contacts by name"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+          <ion-button size="small" (click)="openAddContactModal()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Contact
+          </ion-button>
+        </div>
       </div>
 
       <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
@@ -324,66 +326,66 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'tasks'" class="tab-content tasks-tab">
-      <div class="tasks-filters">
-        <div class="filter-group">
-          <label>Search</label>
-          <ion-searchbar
-            [(ngModel)]="taskFilters.search"
-            (ionChange)="applyTaskFilters()"
-            placeholder="Search tasks"
-            animated="true">
-          </ion-searchbar>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="taskFilters.search"
+              (ionChange)="applyTaskFilters()"
+              placeholder="Search tasks"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+          <ion-button size="small" (click)="openAddTaskModal()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Task
+          </ion-button>
         </div>
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="status-filter">Status</label>
+            <select
+              id="status-filter"
+              [(ngModel)]="taskFilters.status"
+              (ngModelChange)="applyTaskFilters()"
+              class="styled-input">
+              <option value="all">All</option>
+              <option value="open">Open</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
 
-        <div class="filter-group">
-          <label for="status-filter">Status</label>
-          <select
-            id="status-filter"
-            [(ngModel)]="taskFilters.status"
-            (ngModelChange)="applyTaskFilters()"
-            class="styled-input">
-            <option value="all">All</option>
-            <option value="open">Open</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
+          <div class="filter-group">
+            <label for="assignee-filter">Assignee</label>
+            <select
+              id="assignee-filter"
+              [(ngModel)]="taskFilters.assignedTo"
+              (ngModelChange)="applyTaskFilters()"
+              class="styled-input">
+              <option value="all">All assignees</option>
+              <option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</option>
+            </select>
+          </div>
 
-        <div class="filter-group">
-          <label for="assignee-filter">Assignee</label>
-          <select
-            id="assignee-filter"
-            [(ngModel)]="taskFilters.assignedTo"
-            (ngModelChange)="applyTaskFilters()"
-            class="styled-input">
-            <option value="all">All assignees</option>
-            <option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>Timeline</label>
-          <div class="task-time-tabs">
-          <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
-            Overdue
-          </button>
-          <button class="time-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
-            Past
-          </button>
-          <button class="time-tab" [class.active]="taskFilters.timeframe === '7day'" (click)="setTaskTimeframe('7day')">
-            7 Day
-          </button>
-          <button class="time-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
-            All
-          </button>
+          <div class="filter-group">
+            <label>Timeline</label>
+            <div class="task-time-tabs">
+              <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
+                Overdue
+              </button>
+              <button class="time-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
+                Past
+              </button>
+              <button class="time-tab" [class.active]="taskFilters.timeframe === '7day'" (click)="setTaskTimeframe('7day')">
+                7 Day
+              </button>
+              <button class="time-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
+                All
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="add-task-button-container">
-        <ion-button size="small" (click)="openAddTaskModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add Task
-        </ion-button>
       </div>
 
       <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
@@ -431,38 +433,39 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'meetings'" class="tab-content meetings-tab">
-      <div class="contacts-search-container">
-        <ion-searchbar
-          [(ngModel)]="meetingFilters.search"
-          (ionChange)="applyMeetingFilters()"
-          placeholder="Search subjects or attendees"
-          animated="true"
-          class="modern-search">
-        </ion-searchbar>
-      </div>
-      <div class="meetings-filters">
-        <ion-segment size="small" [(ngModel)]="meetingFilters.timeframe" (ionChange)="applyMeetingFilters()">
-          <ion-segment-button value="upcoming">
-            <ion-label>Upcoming</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="past">
-            <ion-label>Past</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="all">
-            <ion-label>All</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-
-      <div class="add-task-button-container">
-        <ion-button size="small" (click)="openAddMeetingModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add Meeting
-        </ion-button>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="meetingFilters.search"
+              (ionChange)="applyMeetingFilters()"
+              placeholder="Search subjects or attendees"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+          <ion-button size="small" (click)="openAddMeetingModal()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Meeting
+          </ion-button>
+        </div>
+        <div class="filter-row">
+          <ion-segment size="small" [(ngModel)]="meetingFilters.timeframe" (ionChange)="applyMeetingFilters()" class="filter-segment">
+            <ion-segment-button value="upcoming">
+              <ion-label>Upcoming</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="past">
+              <ion-label>Past</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="all">
+              <ion-label>All</ion-label>
+            </ion-segment-button>
+          </ion-segment>
+        </div>
       </div>
 
       <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
-        <div class="timeline-item" *ngFor="let meeting of paginatedMeetings">
+        <div class="timeline-item clickable-card" *ngFor="let meeting of paginatedMeetings" (click)="openEditMeetingModal(meeting)">
           <div class="timeline-content">
             <div class="timeline-header">
               <h4>{{ meeting.subject }}</h4>
@@ -497,21 +500,22 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'communications'" class="tab-content communications-tab">
-      <div class="contacts-search-container">
-        <ion-searchbar
-          [(ngModel)]="communicationSearchTerm"
-          (ionChange)="applyCommunicationFilters()"
-          placeholder="Search notes or outcomes"
-          animated="true"
-          class="modern-search">
-        </ion-searchbar>
-      </div>
-
-      <div class="add-task-button-container">
-        <ion-button size="small" (click)="openAddCommunicationModal()" style="--background: #d3d3d3; --color: #000000; margin-left: auto; display: block; width: auto;">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add Communication
-        </ion-button>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="communicationSearchTerm"
+              (ionChange)="applyCommunicationFilters()"
+              placeholder="Search notes or outcomes"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+          <ion-button size="small" (click)="openAddCommunicationModal()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Communication
+          </ion-button>
+        </div>
       </div>
 
       <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
@@ -563,26 +567,30 @@
       </div>
     </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
-      <div class="contacts-search-container">
-        <ion-searchbar
-          [(ngModel)]="invoiceSearchTerm"
-          (ionChange)="categorizeInvoices()"
-          placeholder="Search invoice, project, or company"
-          animated="true"
-          class="modern-search">
-        </ion-searchbar>
-      </div>
-      <div class="invoice-filters">
-        <div class="invoice-tabs">
-          <button class="invoice-tab" [class.active]="invoiceViewMode === 'open'" (click)="setInvoiceViewMode('open')">
-            Open
-          </button>
-          <button class="invoice-tab" [class.active]="invoiceViewMode === 'past'" (click)="setInvoiceViewMode('past')">
-            Past
-          </button>
-          <button class="invoice-tab" [class.active]="invoiceViewMode === 'unpaid'" (click)="setInvoiceViewMode('unpaid')">
-            Unpaid
-          </button>
+      <div class="tab-header">
+        <div class="search-and-action">
+          <div class="search-wrapper">
+            <ion-searchbar
+              [(ngModel)]="invoiceSearchTerm"
+              (ionChange)="categorizeInvoices()"
+              placeholder="Search invoice, project, or company"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="invoice-tabs">
+            <button class="invoice-tab" [class.active]="invoiceViewMode === 'open'" (click)="setInvoiceViewMode('open')">
+              Open
+            </button>
+            <button class="invoice-tab" [class.active]="invoiceViewMode === 'past'" (click)="setInvoiceViewMode('past')">
+              Past
+            </button>
+            <button class="invoice-tab" [class.active]="invoiceViewMode === 'unpaid'" (click)="setInvoiceViewMode('unpaid')">
+              Unpaid
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1663,6 +1671,97 @@
               <button class="delete-task-btn" (click)="deleteCommunication(editingCommunication, $event)">
                 <ion-icon name="trash-outline"></ion-icon>
                 Delete Communication
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditMeetingModalOpen" (didDismiss)="closeEditMeetingModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditMeetingModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Edit Meeting</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveEditedMeeting()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingMeeting">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="editingMeeting.CompanyID" class="form-input">
+                <option [ngValue]="null">Select Company</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Subject</label>
+              <input type="text" [(ngModel)]="editingMeeting.Subject" class="form-input" placeholder="Meeting subject">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Start Date</label>
+              <input type="datetime-local" [(ngModel)]="editingMeeting.StartDate" class="form-input">
+            </div>
+            <div class="form-field">
+              <label>End Date</label>
+              <input type="datetime-local" [(ngModel)]="editingMeeting.EndDate" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Description</label>
+              <textarea [(ngModel)]="editingMeeting.Description" class="form-textarea" rows="4" placeholder="Meeting description..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Attendee 1</label>
+              <input type="text" [(ngModel)]="editingMeeting.Attendee1" class="form-input" placeholder="First attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 2</label>
+              <input type="text" [(ngModel)]="editingMeeting.Attendee2" class="form-input" placeholder="Second attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 3</label>
+              <input type="text" [(ngModel)]="editingMeeting.Attendee3" class="form-input" placeholder="Third attendee">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Attendee 4</label>
+              <input type="text" [(ngModel)]="editingMeeting.Attendee4" class="form-input" placeholder="Fourth attendee">
+            </div>
+            <div class="form-field">
+              <label>Attendee 5</label>
+              <input type="text" [(ngModel)]="editingMeeting.Attendee5" class="form-input" placeholder="Fifth attendee">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="deleteMeeting(editingMeeting, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete Meeting
               </button>
             </div>
           </div>
