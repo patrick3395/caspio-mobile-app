@@ -60,12 +60,22 @@ export class EngineersFoundationDataService {
     return loader;
   }
 
-  async getEFEByService(serviceId: string): Promise<any[]> {
+  async getEFEByService(serviceId: string, forceRefresh = true): Promise<any[]> {
     if (!serviceId) {
       console.warn('[EFE Data] getEFEByService called with empty serviceId');
       return [];
     }
-    console.log('[EFE Data] Loading existing rooms for ServiceID:', serviceId);
+    
+    // CRITICAL: Always bypass cache for room data to ensure we get latest changes
+    // Room data changes frequently (adding, renaming, deleting rooms)
+    if (forceRefresh) {
+      console.log('[EFE Data] FORCE REFRESH - Clearing cache and loading fresh rooms for ServiceID:', serviceId);
+      // Clear the specific cache in CaspioService for this service's EFE data
+      this.caspioService.clearServicesCache();
+    } else {
+      console.log('[EFE Data] Loading existing rooms for ServiceID:', serviceId);
+    }
+    
     const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
     console.log('[EFE Data] API returned rooms:', rooms.length, 'rooms');
     if (rooms.length > 0) {

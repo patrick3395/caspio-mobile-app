@@ -475,12 +475,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Add listener to back button using ID
       const backButton = document.getElementById('eng-back-btn') as HTMLElement;
       if (backButton) {
-        backButton.removeEventListener('click', this.handleBackClick); // Remove any existing listener
-        backButton.addEventListener('click', this.handleBackClick);
-        // Also try onclick directly
+        console.log('[Button Listeners] Back button found in DOM');
+        
+        // Remove all existing listeners
+        backButton.removeEventListener('click', this.handleBackClick);
+        backButton.removeEventListener('mousedown', this.handleBackClick);
+        backButton.removeEventListener('touchstart', this.handleBackClick);
+        
+        // Add all types of listeners
+        backButton.addEventListener('click', this.handleBackClick, { capture: true });
+        backButton.addEventListener('mousedown', this.handleBackClick, { capture: true });
+        backButton.addEventListener('touchstart', this.handleBackClick, { capture: true });
+        
+        // Also try onclick directly as fallback
         (backButton as any).onclick = this.handleBackClick;
+        
+        console.log('[Button Listeners] Back button listeners added');
       } else {
-        console.error('[v1.4.400] Back button not found in DOM');
+        console.error('[Button Listeners] Back button NOT found in DOM');
       }
 
       // Add listener to PDF button using ID
@@ -497,7 +509,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Bound methods for event listeners
-  private handleBackClick = () => {
+  private handleBackClick = (event?: Event) => {
+    console.log('[Back Button] Click detected!');
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.goBack();
   }
 
@@ -669,12 +686,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Navigation method for back button
   goBack() {
+    console.log('[goBack] Called! Platform:', this.platform.isWeb() ? 'Web' : 'Mobile', 'ProjectId:', this.projectId);
 
     if (this.platform.isWeb()) {
+      console.log('[goBack] Web platform - navigating to project');
       this.navigateBackToProject();
       return;
     }
 
+    console.log('[goBack] Mobile platform - using location.back()');
     try {
       this.location.back();
     } catch (error) {
@@ -871,7 +891,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
           console.log('[EFE Load] Fetching existing rooms for ServiceID:', this.serviceId);
-          const existingRooms = await this.foundationData.getEFEByService(this.serviceId);
+          // CRITICAL: Force refresh to bypass cache and get latest room data
+          const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
           console.log('[EFE Load] Found existing rooms:', existingRooms.length, existingRooms);
 
           if (existingRooms && existingRooms.length > 0) {
@@ -3021,6 +3042,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.efeRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
             this.expandedRooms[roomName] = true;
+            
+            // CRITICAL: Clear cache after adding room so future reloads get fresh data
+            console.log('[Room Toggle] Clearing cache after room creation');
+            this.foundationData.clearAllCaches();
           }
         } catch (err: any) {
           console.error('Room creation error:', err);
@@ -3071,6 +3096,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Reset FDF to default
           this.roomElevationData[roomName].fdf = '';
         }
+        
+        // CRITICAL: Clear cache after removing room so future reloads get fresh data
+        console.log('[Room Remove] Clearing cache after room deletion');
+        this.foundationData.clearAllCaches();
       } catch (error) {
         console.error('Error deleting room:', error);
         await this.showToast('Failed to remove room', 'danger');
@@ -3241,6 +3270,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.efePointIds[newKey] = this.efePointIds[oldKey];
               delete this.efePointIds[oldKey];
             });
+            
+            // CRITICAL: Clear cache after renaming room so future reloads get fresh data
+            console.log('[Room Rename] Clearing cache after room rename');
+            this.foundationData.clearAllCaches();
             
             // Trigger change detection
             this.changeDetectorRef.detectChanges();

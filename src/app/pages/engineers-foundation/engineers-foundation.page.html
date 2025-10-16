@@ -1,7 +1,11 @@
 ﻿<ion-header>
   <ion-toolbar color="primary" class="template-toolbar">
     <div slot="start" style="pointer-events: auto; z-index: 10001;">
-      <button id="eng-back-btn" (click)="goBack()" type="button">
+      <button id="eng-back-btn" 
+              (click)="goBack()" 
+              (mousedown)="goBack()"
+              (touchstart)="goBack()"
+              type="button">
         <ion-icon name="arrow-back"></ion-icon>
       </button>
     </div>
