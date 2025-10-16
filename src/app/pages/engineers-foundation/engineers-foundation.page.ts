@@ -5020,14 +5020,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     });
 
-    // Check foundation fields if applicable
-    if (!this.formData.foundationType) {
-      incompleteAreas.push('Foundation: Foundation Type');
-    }
-    if (!this.formData.foundationCondition) {
-      incompleteAreas.push('Foundation: Foundation Condition');
-    }
-
     // Check required visual items across all categories
     // Skip if Structural Systems status is "Provided in Home Inspection Report"
     const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
