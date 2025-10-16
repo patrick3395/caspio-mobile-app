@@ -534,6 +534,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.serviceId) {
       try {
         console.log('[Lifecycle] Starting data reload...');
+
+        // Reload project and service data (including all form fields)
+        await this.loadProjectData();
+        console.log('[Lifecycle] After loadProjectData - Project fields reloaded');
+
+        await this.loadServiceData();
+        console.log('[Lifecycle] After loadServiceData - Service fields reloaded');
+
         await this.loadRoomTemplates(); // Reload room selections and data
         console.log('[Lifecycle] After loadRoomTemplates - selectedRooms:', Object.keys(this.selectedRooms));
 
