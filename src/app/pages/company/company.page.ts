@@ -2660,6 +2660,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.paginateMeetings();
   }
 
+  setMeetingTimeframe(timeframe: string) {
+    this.meetingFilters.timeframe = timeframe;
+    this.applyMeetingFilters();
+  }
+
   paginateMeetings() {
     this.totalMeetingPages = Math.ceil(this.filteredMeetings.length / this.meetingsPerPage);
     const startIndex = (this.currentMeetingPage - 1) * this.meetingsPerPage;

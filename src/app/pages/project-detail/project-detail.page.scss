@@ -916,6 +916,11 @@ ion-modal {
   .finalized-check{margin-top:0;}
 }}
 
+.finalized-check-report{color:$orange;font-size:22px;flex-shrink:0;margin-left:12px;
+@media (max-width: 768px) {
+  font-size:20px;
+}}
+
 .template-status{display:flex;align-items:center;gap:20px;
 .template-percentage{
   font-size:11px;

@@ -5129,7 +5129,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.serviceData.FinalizedDate = new Date().toISOString();
 
       await loading.dismiss();
-      await this.showToast('Report has been finalized successfully', 'success');
 
       // Navigate back to project detail page with finalized state
       this.router.navigate(['/project-detail', this.projectId], {

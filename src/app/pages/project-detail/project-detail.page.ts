@@ -123,6 +123,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
   private pdfPreviewComponent?: PdfPreviewCtor;
   private templateServicesCache: ServiceSelection[] = [];
   private templateServicesCacheKey = '';
+  private pendingFinalizedServiceId: string | null = null;
 
   private static readonly DETAIL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private static detailStateCache = new Map<string, ProjectDetailCacheState>();
@@ -163,6 +164,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       this.optionalDocumentsList = ProjectDetailPage.deepClone(cached.optionalDocumentsList);
       this.templateServicesCache = ProjectDetailPage.deepClone(cached.templateServicesCache);
       this.templateServicesCacheKey = cached.templateServicesCacheKey;
+
+      // Apply pending finalized service flag if present (from cache restoration)
+      if (this.pendingFinalizedServiceId) {
+        const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
+        if (service) {
+          service.ReportFinalized = true;
+          this.changeDetectorRef.detectChanges();
+        }
+        this.pendingFinalizedServiceId = null;
+      }
 
       this.loading = false;
       this.loadingServices = false;
@@ -260,14 +271,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
       const finalizedDate = navigation.extras.state['finalizedDate'];
 
       if (finalizedServiceId) {
-        // Mark the service as finalized locally
-        setTimeout(() => {
-          const service = this.selectedServices.find(s => s.serviceId === finalizedServiceId);
-          if (service) {
-            service.ReportFinalized = true;
-            this.changeDetectorRef.detectChanges();
-          }
-        }, 100);
+        // Store for later - will apply after services are loaded
+        this.pendingFinalizedServiceId = finalizedServiceId;
       }
     }
 
@@ -409,6 +414,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           ReportFinalized: service.ReportFinalized || false
         };
       });
+
+      // Apply pending finalized service flag if present
+      if (this.pendingFinalizedServiceId) {
+        const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
+        if (service) {
+          service.ReportFinalized = true;
+          this.changeDetectorRef.detectChanges();
+        }
+        this.pendingFinalizedServiceId = null;
+      }
 
       // Process attach templates
       this.attachTemplates = attachTemplatesData || [];
@@ -583,6 +598,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy {
           ReportFinalized: service.ReportFinalized || false
         };
       });
+
+      // Apply pending finalized service flag if present
+      if (this.pendingFinalizedServiceId) {
+        const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
+        if (service) {
+          service.ReportFinalized = true;
+          this.changeDetectorRef.detectChanges();
+        }
+        this.pendingFinalizedServiceId = null;
+      }
 
       // Trigger progress calculation for Engineers Foundation services
       let foundEngineersFoundation = false;
