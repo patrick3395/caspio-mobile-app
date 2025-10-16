@@ -2046,39 +2046,37 @@ ion-alert.custom-alert {
     letter-spacing: 0.5px;
     height: 48px;
     border: 2px solid #f15a27;
-    background: #ffffff;
-    color: #212529;
+    background: #e8e8e8;
+    color: #333;
     transition: all 0.2s ease;
 
     &.alert-button-cancel {
-      background: #ffffff;
-      color: #212529;
+      background: #e8e8e8;
+      color: #333;
       border-color: #f15a27;
 
       &:hover {
-        background: #fff5f0;
-        border-color: #e54e1c;
+        background: #d8d8d8;
+        border-color: #f15a27;
       }
 
       &:active {
-        background: #f8f9fa;
+        background: #d0d0d0;
       }
     }
 
     &.alert-button-confirm {
-      background: #ffffff;
-      color: #f15a27;
+      background: #e8e8e8;
+      color: #333;
       border-color: #f15a27;
 
       &:hover {
-        background: #fff5f0;
-        border-color: #e54e1c;
-        color: #e54e1c;
+        background: #d8d8d8;
+        border-color: #f15a27;
       }
 
       &:active {
-        background: #f15a27;
-        color: #ffffff;
+        background: #d0d0d0;
       }
     }
   }
