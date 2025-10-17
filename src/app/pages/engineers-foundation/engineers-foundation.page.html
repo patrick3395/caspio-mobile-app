@@ -535,7 +535,8 @@
                             </button>
                             <input 
                               type="text" 
-                              class="image-caption" 
+                              class="image-caption"
+                              name="caption_{{photo.AttachID}}"
                               [(ngModel)]="photo.caption" 
                               (blur)="saveCaption(photo, category, item.id)"
                               (click)="$event.stopPropagation()"
@@ -680,7 +681,8 @@
                             </button>
                             <input 
                               type="text" 
-                              class="image-caption" 
+                              class="image-caption"
+                              name="caption_{{photo.AttachID}}"
                               [(ngModel)]="photo.caption" 
                               (blur)="saveCaption(photo, category, item.id)"
                               (click)="$event.stopPropagation()"
@@ -825,7 +827,8 @@
                             </button>
                             <input 
                               type="text" 
-                              class="image-caption" 
+                              class="image-caption"
+                              name="caption_{{photo.AttachID}}"
                               [(ngModel)]="photo.caption" 
                               (blur)="saveCaption(photo, category, item.id)"
                               (click)="$event.stopPropagation()"
