@@ -2643,9 +2643,13 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Reduce gap for Structural Systems image container on mobile
+  // Reduce padding and gap for Structural Systems on mobile to fit 3 images
+  .image-preview-section {
+    padding: 8px !important; // Reduce padding to give more space for images
+  }
+  
   .image-preview-section .image-preview-container {
-    gap: 8px !important; // Smaller gap to fit 3 images
+    gap: 4px !important; // Smaller gap to fit 3 images
   }
   
   // Smaller images on mobile with proper alignment and spacing - INCLUDING Structural Systems
@@ -2653,23 +2657,25 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 70px !important; // Smaller image containers
-    min-height: 70px !important;
-    margin: 4px !important; // Smaller margin
+    width: 60px !important; // Smaller image containers to fit 3 per row
+    min-height: 60px !important;
+    margin: 2px !important; // Smaller margin to fit 3
     margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important; // Ensure content is centered
-    padding-bottom: 35px !important; // Keep space for caption
+    padding-bottom: 30px !important; // Slightly reduced space for caption
     
     img,
     .fdf-photo-image {
-      width: 70px !important; // Smaller images
-      height: 70px !important;
+      width: 60px !important; // Smaller images
+      height: 60px !important;
       display: block !important; // Ensure proper block display
       margin: 0 auto !important; // Center the image itself
     }
     
     .image-caption {
-      width: 70px !important; // Match mobile image width
+      width: 60px !important; // Match mobile image width
+      font-size: 10px !important; // Smaller font for mobile
+      padding: 4px 6px !important; // Smaller padding
     }
   }
   
@@ -2734,9 +2740,13 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Reduce gap for Structural Systems image container on extra small mobile
+  // Reduce padding and gap for Structural Systems on extra small mobile
+  .image-preview-section {
+    padding: 6px !important; // Even less padding for tiny phones
+  }
+  
   .image-preview-section .image-preview-container {
-    gap: 6px !important; // Even smaller gap for tiny phones
+    gap: 3px !important; // Even smaller gap for tiny phones
   }
   
   // Even smaller images for tiny phones with proper alignment and spacing - INCLUDING Structural Systems
@@ -2744,23 +2754,25 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 60px !important;
-    min-height: 60px !important;
-    margin: 3px !important; // Even smaller margin for tiny phones
+    width: 55px !important; // Even smaller for tiny phones to ensure 3 fit
+    min-height: 55px !important;
+    margin: 2px !important; // Even smaller margin for tiny phones
     margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important;
-    padding-bottom: 35px !important; // Keep space for caption
+    padding-bottom: 28px !important; // Smaller space for caption
     
     img,
     .fdf-photo-image {
-      width: 60px !important;
-      height: 60px !important;
+      width: 55px !important;
+      height: 55px !important;
       display: block !important;
       margin: 0 auto !important; // Center the image
     }
     
     .image-caption {
-      width: 60px !important; // Match small mobile image width
+      width: 55px !important; // Match small mobile image width
+      font-size: 9px !important; // Even smaller font
+      padding: 3px 4px !important; // Smaller padding
     }
   }
   
