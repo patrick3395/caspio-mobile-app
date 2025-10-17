@@ -2,9 +2,10 @@
   <ion-toolbar color="primary" class="template-toolbar">
     <div slot="start" style="pointer-events: auto; z-index: 10001;">
       <button id="eng-back-btn" 
-              (click)="goBack()"
-              type="button">
-        <ion-icon name="arrow-back"></ion-icon>
+              (click)="goBack($event)"
+              type="button"
+              style="cursor: pointer;">
+        <ion-icon name="arrow-back" style="pointer-events: none;"></ion-icon>
       </button>
     </div>
     <ion-title class="toolbar-title">
@@ -876,7 +877,7 @@
                   <ion-checkbox 
                     slot="start" 
                     [checked]="isRoomSelected(room.RoomName)"
-                    [disabled]="isRoomSaving(room.RoomName)"
+                    [disabled]="isRoomSaving(room.RoomName) || renamingRooms[room.RoomName]"
                     (ionChange)="toggleRoomSelection(room.RoomName, $event)"
                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>
@@ -1259,7 +1260,7 @@
                   <ion-checkbox 
                     slot="start" 
                     [checked]="isRoomSelected(room.RoomName)"
-                    [disabled]="isRoomSaving(room.RoomName)"
+                    [disabled]="isRoomSaving(room.RoomName) || renamingRooms[room.RoomName]"
                     (ionChange)="toggleRoomSelection(room.RoomName, $event)"
                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>

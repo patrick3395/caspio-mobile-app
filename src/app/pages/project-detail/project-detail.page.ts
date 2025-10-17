@@ -1463,8 +1463,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (attachServiceId && service.serviceId) {
               return attachServiceId === parseInt(service.serviceId);
             }
-            // If no ServiceID in Notes, include it (backward compatibility with old attachments)
-            return true;
+            
+            // BACKWARD COMPATIBILITY: If no ServiceID in Notes
+            // Only show in FIRST instance (#1) of this service type to prevent duplicates
+            if (!attachServiceId) {
+              const instanceNum = this.getServiceInstanceNumber(service);
+              return instanceNum === 1; // Only show in first instance
+            }
+            
+            return false;
           });
 
           console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
@@ -1520,8 +1527,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (attachServiceId && service.serviceId) {
               return attachServiceId === parseInt(service.serviceId);
             }
-            // If no ServiceID in Notes, include it (backward compatibility)
-            return true;
+            
+            // BACKWARD COMPATIBILITY: If no ServiceID in Notes
+            // Only match for FIRST instance (#1) to prevent duplicates across instances
+            if (!attachServiceId) {
+              const instanceNum = this.getServiceInstanceNumber(service);
+              return instanceNum === 1;
+            }
+            
+            return false;
           });
 
           if (uploadedAttachment) {
@@ -1560,6 +1574,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // If attachment has ServiceID in Notes, must match this service instance
         if (attachServiceId && service.serviceId) {
           if (attachServiceId !== parseInt(service.serviceId)) return false;
+        }
+        
+        // BACKWARD COMPATIBILITY: If no ServiceID in Notes
+        // Only show in FIRST instance (#1) of this service type to prevent duplicates
+        if (!attachServiceId) {
+          const instanceNum = this.getServiceInstanceNumber(service);
+          if (instanceNum !== 1) return false; // Skip for instances #2, #3, etc.
         }
         
         // Check if this title is already accounted for in the documents

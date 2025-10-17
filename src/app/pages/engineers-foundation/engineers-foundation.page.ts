@@ -273,6 +273,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   selectedRooms: { [roomName: string]: boolean } = {};
   efeRecordIds: { [roomName: string]: string } = {}; // Track Services_EFE IDs
   savingRooms: { [roomName: string]: boolean } = {};
+  renamingRooms: { [roomName: string]: boolean } = {}; // Track rooms being renamed to prevent checkbox toggles
   efePointIds: { [key: string]: string } = {}; // Track Services_EFE_Points IDs
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
@@ -366,6 +367,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
+    
+    console.log('[ngOnInit] ProjectId from route:', this.projectId);
+    console.log('[ngOnInit] ServiceId from route:', this.serviceId);
 
     // Check for ReportFinalized flag from navigation state
     const navigation = this.router.getCurrentNavigation();
@@ -653,19 +657,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Navigation method for back button
-  goBack() {
-    console.log('[goBack] Called! Platform:', this.platform.isWeb() ? 'Web' : 'Mobile', 'ProjectId:', this.projectId);
+  goBack(event?: Event) {
+    console.log('='.repeat(50));
+    console.log('[goBack] CALLED!');
+    console.log('[goBack] Event:', event);
+    console.log('[goBack] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
+    console.log('[goBack] ProjectId:', this.projectId);
+    console.log('[goBack] ServiceId:', this.serviceId);
+    console.log('='.repeat(50));
+    
+    // Prevent default and stop propagation
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     
     // CRITICAL: Check if projectId exists
-    if (!this.projectId) {
-      console.error('[goBack] No projectId found! Navigating to active projects');
-      void this.router.navigate(['/tabs/active-projects']);
+    if (!this.projectId || this.projectId === '') {
+      console.error('[goBack] ERROR: No projectId found! Navigating to active projects');
+      console.error('[goBack] Route params:', this.route.snapshot.paramMap);
+      this.router.navigate(['/tabs/active-projects']).then(() => {
+        console.log('[goBack] Navigation to active projects completed');
+      });
       return;
     }
 
     // Always navigate to the project detail page
-    console.log('[goBack] Navigating to project:', this.projectId);
-    void this.router.navigate(['/project', this.projectId]);
+    console.log('[goBack] Navigating to project detail page:', this.projectId);
+    this.router.navigate(['/project', this.projectId]).then((success) => {
+      console.log('[goBack] Navigation completed. Success:', success);
+    }).catch((error) => {
+      console.error('[goBack] Navigation FAILED:', error);
+    });
   }
 
   async loadProjectData() {
@@ -2891,13 +2914,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Toggle room selection - create or remove from Services_EFE
   async toggleRoomSelection(roomName: string, event?: any) {
+    console.log('[Toggle Room] Called for:', roomName, 'Event:', event);
+    
+    // CRITICAL: Prevent checkbox toggles during rename operations
+    if (this.renamingRooms[roomName]) {
+      console.log('[Toggle Room] BLOCKED - Room is being renamed');
+      if (event && event.target) {
+        event.target.checked = this.selectedRooms[roomName]; // Revert to current state
+      }
+      return;
+    }
+    
     // Only proceed if this is a real checkbox change event
     if (!event || !event.detail || typeof event.detail.checked === 'undefined') {
+      console.log('[Toggle Room] BLOCKED - Not a valid checkbox event');
       return;
     }
     
     const wasSelected = this.selectedRooms[roomName];
     const isSelected = event.detail.checked; // Use the event's checked value instead of toggling
+    
+    console.log('[Toggle Room] wasSelected:', wasSelected, 'isSelected:', isSelected);
     
     // If deselecting, ask for confirmation first
     if (wasSelected && !isSelected) {
@@ -3141,6 +3178,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     console.log('[Rename Room] Starting rename for:', oldRoomName);
+    console.log('[Rename Room] Event:', event);
+    
+    // CRITICAL: Set flag to block checkbox toggles during rename
+    this.renamingRooms[oldRoomName] = true;
+    console.log('[Rename Room] Set renamingRooms flag for:', oldRoomName);
     
     const alert = await this.alertController.create({
       header: 'Rename Room',
@@ -3249,6 +3291,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Trigger change detection
             this.changeDetectorRef.detectChanges();
             
+            // Clear rename flag for new room name
+            delete this.renamingRooms[oldRoomName];
+            console.log('[Rename Room] Cleared renamingRooms flag after successful rename');
+            
             await this.showToast(`Room renamed to "${newRoomName}"`, 'success');
             return true;
           }
@@ -3257,6 +3303,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     });
     
     await alert.present();
+    const result = await alert.onDidDismiss();
+    
+    // CRITICAL: Clear rename flag after alert is dismissed (whether saved or cancelled)
+    delete this.renamingRooms[oldRoomName];
+    console.log('[Rename Room] Cleared renamingRooms flag after alert dismissed');
   }
   
   // Handle room selection change from checkbox
