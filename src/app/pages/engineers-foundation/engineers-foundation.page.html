@@ -522,7 +522,6 @@
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  width="90" height="90" 
-                                 loading="lazy" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)"
@@ -668,7 +667,6 @@
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  width="90" height="90" 
-                                 loading="lazy" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)"
@@ -814,7 +812,6 @@
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
                                  width="90" height="90" 
-                                 loading="lazy" 
                                  [alt]="photo.name" 
                                  (click)="viewPhoto(photo, category, item.id)"
                                  (error)="handleImageError($event, photo)"
