@@ -9192,63 +9192,64 @@ Stack: ${error?.stack}`;
             // Update the existing attachment with annotations and original
             await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
             
-            // Update the local photo data
-            const photoIndex = this.visualPhotos[visualId]?.findIndex(
+            // CRITICAL FIX: Use key instead of visualId to access photos array
+            // Photos are stored by key (category_itemId), not by visualId
+            const photoIndex = this.visualPhotos[key]?.findIndex(
               (p: any) => this.getValidAttachIdFromPhoto(p) === attachId
             );
             
-            if (photoIndex !== -1 && this.visualPhotos[visualId]) {
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
               // CRITICAL FIX: Store original URL before updating display
-              if (!this.visualPhotos[visualId][photoIndex].originalUrl) {
+              if (!this.visualPhotos[key][photoIndex].originalUrl) {
                 // Save the original URL on first annotation
-                this.visualPhotos[visualId][photoIndex].originalUrl = this.visualPhotos[visualId][photoIndex].url;
+                this.visualPhotos[key][photoIndex].originalUrl = this.visualPhotos[key][photoIndex].url;
               }
               
               // Update ONLY the display URL with annotated version for preview
               // NOTE: Blob URLs are temporary and won't persist across page reloads
               const newUrl = URL.createObjectURL(data.annotatedBlob);
-              this.visualPhotos[visualId][photoIndex].displayUrl = newUrl;
+              this.visualPhotos[key][photoIndex].displayUrl = newUrl;
               
               // Keep thumbnailUrl as base64 if it exists and is valid
               // Only update if it's placeholder, blob, or undefined
-              const currentThumbnail = this.visualPhotos[visualId][photoIndex].thumbnailUrl;
+              const currentThumbnail = this.visualPhotos[key][photoIndex].thumbnailUrl;
               const isPlaceholder = currentThumbnail === this.photoPlaceholder || currentThumbnail?.includes('photo-placeholder');
               const isBlob = currentThumbnail?.startsWith('blob:');
               const isValidBase64 = currentThumbnail?.startsWith('data:');
               
               if (!currentThumbnail || isPlaceholder || isBlob || !isValidBase64) {
                 // If we have a valid base64 url, keep it; otherwise use blob
-                const validUrl = this.visualPhotos[visualId][photoIndex].url;
+                const validUrl = this.visualPhotos[key][photoIndex].url;
                 if (validUrl && validUrl.startsWith('data:')) {
                   // Keep the existing valid base64 thumbnailUrl
-                  this.visualPhotos[visualId][photoIndex].thumbnailUrl = validUrl;
+                  this.visualPhotos[key][photoIndex].thumbnailUrl = validUrl;
                 } else {
                   // Use blob URL temporarily
-                  this.visualPhotos[visualId][photoIndex].thumbnailUrl = newUrl;
+                  this.visualPhotos[key][photoIndex].thumbnailUrl = newUrl;
                 }
               }
               // If thumbnailUrl already has valid base64 data, keep it
               
-              this.visualPhotos[visualId][photoIndex].hasAnnotations = true;
+              this.visualPhotos[key][photoIndex].hasAnnotations = true;
               
               // DO NOT overwrite the url field with blob URL - keep original base64/file path
               // The displayUrl will show the annotated version
 
               // Update caption if provided
               if (data.caption !== undefined) {
-                this.visualPhotos[visualId][photoIndex].caption = data.caption;
-                this.visualPhotos[visualId][photoIndex].Annotation = data.caption;
+                this.visualPhotos[key][photoIndex].caption = data.caption;
+                this.visualPhotos[key][photoIndex].Annotation = data.caption;
               }
 
               // Store annotations in the photo object
               if (annotationsData) {
-                this.visualPhotos[visualId][photoIndex].annotations = annotationsData;
+                this.visualPhotos[key][photoIndex].annotations = annotationsData;
                 // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
                 // The updatePhotoAttachment method saves to Drawings field, so we need to mirror that here
                 if (typeof annotationsData === 'object') {
-                  this.visualPhotos[visualId][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
+                  this.visualPhotos[key][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
                 } else {
-                  this.visualPhotos[visualId][photoIndex].rawDrawingsString = annotationsData;
+                  this.visualPhotos[key][photoIndex].rawDrawingsString = annotationsData;
                 }
               }
             }

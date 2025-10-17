@@ -147,7 +147,7 @@ ion-toolbar.template-toolbar {
 }
 
 .template-toolbar-actions button ion-icon {
-  font-size: 20px;
+  font-size: 24px;
 }
 
 // Auto-Sync OFF Warning Banner - Fixed at top
@@ -1326,6 +1326,7 @@ ion-content{--overflow:scroll !important;height:100%}
               clear: both; // Clear any floats
               display: block; // Ensure block display
               width: 100%; // Full width
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
               
               .upload-status {
                 display: flex;
@@ -1351,6 +1352,7 @@ ion-content{--overflow:scroll !important;height:100%}
                 flex-wrap: wrap;
                 align-items: flex-start;
                 min-height: 0; // Remove minimum height requirement
+                overflow: visible; // CRITICAL: Allow delete buttons to show outside container
                 
                 .no-photos-message {
                   display: none; // Hide the no photos message since we removed the button
@@ -1383,7 +1385,7 @@ ion-content{--overflow:scroll !important;height:100%}
                   min-height: 135px !important; // Increased to accommodate image + spacing + caption (90px + 10px + 35px)
                   display: inline-block !important;
                   vertical-align: top !important;
-                  overflow: visible !important;
+                  overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
                   margin: 4px !important;
                   padding-bottom: 0 !important; // Remove padding, use explicit spacing instead
                   flex-shrink: 0;
@@ -1414,7 +1416,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     cursor: pointer;
                     transition: all 0.3s ease;
                     background: #f5f5f5;
-                    margin-bottom: 0 !important; // No margin, caption will be positioned below
+                    margin-bottom: 10px !important; // Space for caption below
                     
                     &:hover {
                       border-color: var(--noble-orange) !important;
@@ -1462,10 +1464,9 @@ ion-content{--overflow:scroll !important;height:100%}
                   }
                   
                   .image-caption {
-                    position: absolute !important;
-                    top: 100px !important; // Position 10px below the 90px image
-                    left: 0 !important;
-                    width: 100% !important;
+                    position: relative !important; // Changed from absolute to allow natural flow
+                    display: block !important;
+                    width: 90px !important;
                     padding: 6px 8px !important;
                     border: 1px solid #ddd !important;
                     border-radius: 6px !important;
