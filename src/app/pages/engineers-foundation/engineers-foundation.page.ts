@@ -939,10 +939,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
                 
                 // Add the room with its saved name if not already present
-                if (!roomsToDisplay.find((t: any) => t.RoomName === roomName)) {
+                const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                if (existingRoomIndex >= 0) {
+                  // Room already exists in display list - mark it as selected
+                  console.log('[EFE Load] Room already in display list, marking as selected:', roomName);
+                  roomsToDisplay[existingRoomIndex].selected = true;
+                } else {
                   console.log('[EFE Load] Adding room to display with saved name:', roomName);
-                  // Create a new template object with the saved room name
-                  const roomToAdd = { ...template, RoomName: roomName };
+                  // Create a new template object with the saved room name AND mark as selected
+                  const roomToAdd = { ...template, RoomName: roomName, selected: true };
                   roomsToDisplay.push(roomToAdd);
                 }
               }
@@ -1080,6 +1085,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             // NOW set roomTemplates with the complete list (auto + saved rooms)
             this.roomTemplates = roomsToDisplay;
+            
+            // CRITICAL: Verify and synchronize room.selected with selectedRooms dictionary
+            this.roomTemplates.forEach((room: any) => {
+              if (this.selectedRooms[room.RoomName]) {
+                room.selected = true; // Ensure room object has selected property
+                console.log('[EFE Load] Verified room as selected:', room.RoomName);
+              }
+            });
+            
             console.log('[EFE Load] Final roomTemplates count:', this.roomTemplates.length);
             console.log('[EFE Load] Final selectedRooms:', Object.keys(this.selectedRooms));
           } else {
