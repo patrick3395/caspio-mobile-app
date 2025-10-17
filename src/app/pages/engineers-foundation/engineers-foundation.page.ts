@@ -9280,13 +9280,13 @@ Stack: ${error?.stack}`;
             // Additional UI update - force template refresh for annotation visibility
             setTimeout(() => {
               this.changeDetectorRef.detectChanges();
-              
-              // [v1.4.576] Restore scroll position AFTER ALL change detection completes
-              // This prevents the DOM update from scrolling the page
-              setTimeout(() => {
-                this.restoreScrollPosition(scrollPosition);
-              }, 50); // Small delay to ensure DOM updates are complete
             }, 100);
+            
+            // [v1.4.576] Restore scroll position AFTER ALL change detection completes
+            // This prevents the DOM update from scrolling the page
+            setTimeout(() => {
+              this.restoreScrollPosition(scrollPosition);
+            }, 200); // Increased delay to ensure all DOM updates and animations are complete
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
@@ -9296,7 +9296,7 @@ Stack: ${error?.stack}`;
         // Use a small delay to ensure modal is fully dismissed
         setTimeout(() => {
           this.restoreScrollPosition(scrollPosition);
-        }, 100);
+        }, 200);
       }
 
     } catch (error) {
