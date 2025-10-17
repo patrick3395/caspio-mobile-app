@@ -864,7 +864,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             this.roomElevationData[template.RoomName] = {
               roomName: template.RoomName,
-              templateId: template.PK_ID || template.TemplateId,
+              templateId: template.TemplateID || template.PK_ID, // Use TemplateID field first
               elevationPoints: elevationPoints,
               pointCount: template.PointCount || elevationPoints.length,
               notes: '',
@@ -889,27 +889,47 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const roomName = room.RoomName;
               // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points
               const roomId = room.EFEID;
+              const templateId = room.TemplateID; // Use TemplateID to match templates
 
-              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId);
+              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId, 'TemplateID:', templateId);
 
-              // Find matching template by RoomName - check all templates, not just auto
-              let template = baseTemplates.find((t: any) => t.RoomName === roomName);
-
-              // If not in auto templates, check all templates (for manually added rooms)
+              // Find matching template by TemplateID first (handles renamed rooms), fallback to RoomName
+              let template = null;
+              
+              if (templateId) {
+                // Try to find by TemplateID (works even if room was renamed)
+                template = this.allRoomTemplates.find((t: any) => 
+                  t.TemplateID === templateId || t.PK_ID === templateId
+                );
+                console.log('[EFE Load] Found template by TemplateID:', template?.RoomName);
+              }
+              
+              // Fallback: try to match by RoomName for backward compatibility
               if (!template) {
-                // Extract base name by removing number suffix if present
-                const baseName = roomName.replace(/ #\d+$/, '');
-                template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);
-
-                // If found, add it to the display list so it shows up
-                if (template) {
-                  console.log('[EFE Load] Adding manually added room to display:', roomName);
-                  // Create a new template object with the numbered name
-                  const roomToAdd = { ...template, RoomName: roomName };
-                  roomsToDisplay.push(roomToAdd);
-                } else {
-                  console.warn('[EFE Load] No template found for room:', roomName);
+                template = baseTemplates.find((t: any) => t.RoomName === roomName);
+                
+                // If not in auto templates, check all templates (for manually added rooms)
+                if (!template) {
+                  // Extract base name by removing number suffix if present
+                  const baseName = roomName.replace(/ #\d+$/, '');
+                  template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);
                 }
+                
+                if (template) {
+                  console.log('[EFE Load] Found template by RoomName (fallback):', template.RoomName);
+                }
+              }
+
+              // If found, add it to the display list so it shows up with the saved name
+              if (template && !baseTemplates.find((t: any) => t.RoomName === roomName)) {
+                console.log('[EFE Load] Adding room to display with saved name:', roomName);
+                // Create a new template object with the saved room name
+                const roomToAdd = { ...template, RoomName: roomName };
+                roomsToDisplay.push(roomToAdd);
+              }
+              
+              if (!template) {
+                console.warn('[EFE Load] No template found for room:', roomName, 'TemplateID:', templateId);
               }
               
               if (roomName && roomId) {
@@ -942,7 +962,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   this.roomElevationData[roomName] = {
                     roomName: roomName,
-                    templateId: template.PK_ID || template.TemplateId,
+                    templateId: template.TemplateID || template.PK_ID, // Use TemplateID field first
                     elevationPoints: elevationPoints,
                     pointCount: template.PointCount || elevationPoints.length,
                     notes: '',
@@ -3000,11 +3020,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
         
-        // Send ServiceID and RoomName
+        // Send ServiceID, RoomName, and TemplateID (critical for matching after renames)
         const roomData: any = {
           ServiceID: serviceIdNum,
           RoomName: roomName
         };
+        
+        // Include TemplateID to link back to template (critical for room name changes)
+        if (this.roomElevationData[roomName] && this.roomElevationData[roomName].templateId) {
+          roomData.TemplateID = this.roomElevationData[roomName].templateId;
+        }
         
         // Include FDF and Notes if they exist
         if (this.roomElevationData[roomName]) {
