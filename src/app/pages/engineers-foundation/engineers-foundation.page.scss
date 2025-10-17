@@ -2643,15 +2643,22 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Smaller images on mobile with proper alignment and spacing
+  // Reduce gap for Structural Systems image container on mobile
+  .image-preview-section .image-preview-container {
+    gap: 8px !important; // Smaller gap to fit 3 images
+  }
+  
+  // Smaller images on mobile with proper alignment and spacing - INCLUDING Structural Systems
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
-  .elevation-points-container .image-preview {
+  .elevation-points-container .image-preview,
+  .image-preview.structural-photo-preview {
     width: 70px !important; // Smaller image containers
     min-height: 70px !important;
-    margin: 0 auto !important; // Center the image container
+    margin: 4px !important; // Smaller margin
     margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important; // Ensure content is centered
+    padding-bottom: 35px !important; // Keep space for caption
     
     img,
     .fdf-photo-image {
@@ -2659,6 +2666,10 @@ ion-content{--overflow:scroll !important;height:100%}
       height: 70px !important;
       display: block !important; // Ensure proper block display
       margin: 0 auto !important; // Center the image itself
+    }
+    
+    .image-caption {
+      width: 70px !important; // Match mobile image width
     }
   }
   
@@ -2723,15 +2734,22 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Even smaller images for tiny phones with proper alignment and spacing
+  // Reduce gap for Structural Systems image container on extra small mobile
+  .image-preview-section .image-preview-container {
+    gap: 6px !important; // Even smaller gap for tiny phones
+  }
+  
+  // Even smaller images for tiny phones with proper alignment and spacing - INCLUDING Structural Systems
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
-  .elevation-points-container .image-preview {
+  .elevation-points-container .image-preview,
+  .image-preview.structural-photo-preview {
     width: 60px !important;
     min-height: 60px !important;
-    margin: 0 auto !important; // Center the image container
+    margin: 3px !important; // Even smaller margin for tiny phones
     margin-top: 0 !important; // No extra top margin - button has margin-bottom
     text-align: center !important;
+    padding-bottom: 35px !important; // Keep space for caption
     
     img,
     .fdf-photo-image {
@@ -2739,6 +2757,10 @@ ion-content{--overflow:scroll !important;height:100%}
       height: 60px !important;
       display: block !important;
       margin: 0 auto !important; // Center the image
+    }
+    
+    .image-caption {
+      width: 60px !important; // Match small mobile image width
     }
   }
   
