@@ -895,13 +895,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
               // Find matching template by TemplateID first (handles renamed rooms), fallback to RoomName
               let template = null;
+              let matchedByTemplateId = false;
               
               if (templateId) {
                 // Try to find by TemplateID (works even if room was renamed)
                 template = this.allRoomTemplates.find((t: any) => 
                   t.TemplateID === templateId || t.PK_ID === templateId
                 );
-                console.log('[EFE Load] Found template by TemplateID:', template?.RoomName);
+                if (template) {
+                  matchedByTemplateId = true;
+                  console.log('[EFE Load] Found template by TemplateID:', template?.RoomName, '-> Renamed to:', roomName);
+                }
               }
               
               // Fallback: try to match by RoomName for backward compatibility
@@ -920,12 +924,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
               }
 
-              // If found, add it to the display list so it shows up with the saved name
-              if (template && !baseTemplates.find((t: any) => t.RoomName === roomName)) {
-                console.log('[EFE Load] Adding room to display with saved name:', roomName);
-                // Create a new template object with the saved room name
-                const roomToAdd = { ...template, RoomName: roomName };
-                roomsToDisplay.push(roomToAdd);
+              // If found, handle adding/updating in roomsToDisplay
+              if (template) {
+                // CRITICAL: If matched by TemplateID and room was renamed, remove the original template first
+                if (matchedByTemplateId && template.RoomName !== roomName) {
+                  // Room was renamed - remove the original template from roomsToDisplay
+                  const originalIndex = roomsToDisplay.findIndex((t: any) => 
+                    (t.TemplateID === templateId || t.PK_ID === templateId) && t.RoomName === template.RoomName
+                  );
+                  if (originalIndex >= 0) {
+                    console.log('[EFE Load] Removing original template:', template.RoomName, 'because it was renamed to:', roomName);
+                    roomsToDisplay.splice(originalIndex, 1);
+                  }
+                }
+                
+                // Add the room with its saved name if not already present
+                if (!roomsToDisplay.find((t: any) => t.RoomName === roomName)) {
+                  console.log('[EFE Load] Adding room to display with saved name:', roomName);
+                  // Create a new template object with the saved room name
+                  const roomToAdd = { ...template, RoomName: roomName };
+                  roomsToDisplay.push(roomToAdd);
+                }
               }
               
               if (!template) {
