@@ -3228,18 +3228,42 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const roomIndex = this.getRoomIndex(oldRoomName);
             const roomId = this.efeRecordIds[oldRoomName];
             
-            // CRITICAL: Update database FIRST before changing any local state
-            if (roomId && roomId !== '__pending__') {
-              try {
-                console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
-                const updateData = { RoomName: newRoomName };
-                await this.caspioService.updateServicesEFE(roomId, updateData).toPromise();
-                console.log('[Rename Room] Database update successful');
-              } catch (error) {
-                console.error('[Rename Room] Database update FAILED:', error);
-                await this.showToast('Failed to update room name in database', 'danger');
+            // CRITICAL: Verify this room belongs to the current service
+            if (!roomId || roomId === '__pending__') {
+              await this.showToast('Cannot rename room: Room not yet saved to database', 'warning');
+              return false;
+            }
+            
+            // Double-check we have the right room by loading it from database
+            try {
+              console.log('[Rename Room] Verifying room belongs to current service...');
+              const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
+              const roomToRename = existingRooms.find(r => r.EFEID === roomId);
+              
+              if (!roomToRename) {
+                console.error('[Rename Room] Room not found in current service!');
+                console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
+                await this.showToast('Error: Room does not belong to this service', 'danger');
                 return false;
               }
+              
+              if (roomToRename.RoomName !== oldRoomName) {
+                console.warn('[Rename Room] Room name mismatch in database');
+                console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
+              }
+              
+              console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
+              
+              // Update database using the verified EFEID
+              console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
+              const updateData = { RoomName: newRoomName };
+              // Use updateServicesEFEByEFEID which uses EFEID in the where clause (not PK_ID)
+              await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
+              console.log('[Rename Room] Database update successful for EFEID:', roomId);
+            } catch (error) {
+              console.error('[Rename Room] Database update FAILED:', error);
+              await this.showToast('Failed to update room name in database', 'danger');
+              return false;
             }
             
             // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
