@@ -739,18 +739,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  async loadExistingAttachments(bypassCache: boolean = false) {
+  async loadExistingAttachments(bypassCache: boolean = true) {
     this.loadingDocuments = true;
     try {
-      // CRITICAL: Clear localStorage cache when bypassing cache to ensure fresh data
-      if (bypassCache) {
-        this.caspioService.clearAttachmentsCache();
-      }
-
+      // ALWAYS bypass cache on page entry for critical user-facing data
+      // This ensures users see the most recent data after mutations
+      // Cache invalidation happens automatically after mutations, but this is a safety measure
+      
       // Use actual ProjectID from project data for querying attachments
       const projectId = this.project?.ProjectID || this.projectId;
-      // Pass !bypassCache as useCache parameter (true=useCache, false=bypass cache)
-      const attachments = await this.caspioService.getAttachmentsByProject(projectId, !bypassCache).toPromise();
+      // Always bypass cache (useCache = false) for fresh data
+      const attachments = await this.caspioService.getAttachmentsByProject(projectId, false).toPromise();
       this.existingAttachments = attachments || [];
       this.updateDocumentsList();
     } catch (error) {
@@ -1792,9 +1791,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Update documents list immediately - this will show the link and green color
           this.updateDocumentsList();
           
-          // Clear Attach table cache for this project
-          const actualProjectId = this.project?.ProjectID || this.projectId;
-          this.caspioService.clearAttachmentsCache(actualProjectId);
+          // Cache is automatically invalidated by CaspioService after POST/PUT operations
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -1815,9 +1812,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Update documents list immediately
         this.updateDocumentsList();
         
-        // Clear Attach table cache for this project
-        const actualProjectId = this.project?.ProjectID || this.projectId;
-        this.caspioService.clearAttachmentsCache(actualProjectId);
+        // Cache is automatically invalidated by CaspioService after POST/PUT operations
       }
       
       // Don't reload - UI is already updated
@@ -1932,9 +1927,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               // Update the documents list to reflect the removal
               this.updateDocumentsList();
               
-              // Clear Attach table cache for this project
-              const actualProjectId = this.project?.ProjectID || this.projectId;
-              this.caspioService.clearAttachmentsCache(actualProjectId);
+              // Cache is automatically invalidated by CaspioService after DELETE operations
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -1998,9 +1991,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               
               await loading.dismiss();
               
-              // Clear Attach table cache for this project
-              const actualProjectId = this.project?.ProjectID || this.projectId;
-              this.caspioService.clearAttachmentsCache(actualProjectId);
+              // Cache is automatically invalidated by CaspioService after DELETE operations
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -2413,9 +2404,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         await this.showToast('Link added successfully', 'success');
         
-        // Clear Attach table cache for this project
-        const actualProjectId = this.project?.ProjectID || this.projectId;
-        this.caspioService.clearAttachmentsCache(actualProjectId);
+        // Cache is automatically invalidated by CaspioService after POST operations
       } else {
         throw new Error('No ID returned from server');
       }
@@ -2538,9 +2527,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Update cache with latest state
       this.cacheCurrentState();
       
-      // Clear Attach table cache for this project
-      const actualProjectId = this.project?.ProjectID || this.projectId;
-      this.caspioService.clearAttachmentsCache(actualProjectId);
+      // Cache is automatically invalidated by CaspioService after PUT operations
 
       this.showToast('Document replaced with link successfully', 'success');
     } catch (error) {
@@ -2620,9 +2607,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Update cache with latest state
         this.cacheCurrentState();
 
-        // Clear Attach table cache for this project
-        const actualProjectId = this.project?.ProjectID || this.projectId;
-        this.caspioService.clearAttachmentsCache(actualProjectId);
+        // Cache is automatically invalidated by CaspioService after POST operations
 
         this.showToast('Link added successfully', 'success');
       }

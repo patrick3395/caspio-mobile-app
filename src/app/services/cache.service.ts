@@ -15,7 +15,7 @@ export class CacheService {
   
   // Default cache times (in milliseconds)
   readonly CACHE_TIMES = {
-    SHORT: 60000,        // 1 minute - for frequently changing data
+    SHORT: 60000,        // 1 minute - for frequently changing data (mutable data)
     MEDIUM: 300000,      // 5 minutes - for semi-static data
     LONG: 900000,        // 15 minutes - for mostly static data
     VERY_LONG: 3600000,  // 1 hour - for static data like templates
@@ -23,9 +23,9 @@ export class CacheService {
     
     // Performance optimization cache times
     STATIC_DATA: 86400000,      // 24 hours - for static data like templates, service types
-    PROJECT_LIST: 900000,       // 15 minutes - for project lists
+    PROJECT_LIST: 120000,       // 2 minutes - for project lists (REDUCED from 15 min)
     IMAGES: 604800000,          // 7 days - for images
-    API_RESPONSES: 300000,      // 5 minutes - for API responses
+    API_RESPONSES: 60000,       // 1 minute - for API responses (REDUCED from 5 min for mutable data)
     USER_DATA: 1800000,         // 30 minutes - for user data
     SERVICE_TYPES: 86400000,    // 24 hours - for service types (rarely change)
     TEMPLATES: 86400000,        // 24 hours - for templates (rarely change)
@@ -288,5 +288,56 @@ export class CacheService {
         this.localStorage.removeItem(key);
       }
     });
+  }
+
+  /**
+   * Clear cache for a specific table
+   * @param tableName - Name of the table to clear cache for
+   */
+  clearTableCache(tableName: string): void {
+    console.log(`[CacheService] Clearing cache for table: ${tableName}`);
+    // Clear all cache entries that contain this table name
+    this.clearByPattern(`/tables/${tableName}/records`);
+  }
+
+  /**
+   * Clear all caches related to a project
+   * @param projectId - The project ID to clear caches for
+   */
+  clearProjectRelatedCaches(projectId: string): void {
+    console.log(`[CacheService] Clearing all project-related caches for projectId: ${projectId}`);
+    
+    // Clear project-specific caches
+    this.clearByPattern(`ProjectID=${projectId}`);
+    
+    // Clear related tables
+    this.clearTableCache('Projects');
+    this.clearTableCache('Services');
+    this.clearTableCache('Attach');
+    this.clearTableCache('Services_Visuals');
+    this.clearTableCache('Services_Visuals_Attach');
+    this.clearTableCache('Services_EFE');
+    this.clearTableCache('Services_EFE_Points');
+    this.clearTableCache('Services_EFE_Points_Attach');
+  }
+
+  /**
+   * Clear all caches related to a service
+   * @param serviceId - The service ID to clear caches for
+   */
+  clearServiceRelatedCaches(serviceId: string): void {
+    console.log(`[CacheService] Clearing all service-related caches for serviceId: ${serviceId}`);
+    
+    // Clear service-specific caches
+    this.clearByPattern(`ServiceID=${serviceId}`);
+    
+    // Clear related tables
+    this.clearTableCache('Services');
+    this.clearTableCache('Services_Visuals');
+    this.clearTableCache('Services_Visuals_Attach');
+    this.clearTableCache('Services_EFE');
+    this.clearTableCache('Services_EFE_Points');
+    this.clearTableCache('Services_EFE_Points_Attach');
+    this.clearTableCache('Service_EFE');
   }
 }

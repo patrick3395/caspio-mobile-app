@@ -251,6 +251,8 @@ export class CaspioService {
     
     return this.http.post<T>(url, data, { headers }).pipe(
       tap(response => {
+        // Automatically clear cache after successful POST (create) operations
+        this.invalidateCacheForEndpoint(endpoint, 'POST');
       }),
       catchError(error => {
         console.error('? DEBUG [CaspioService.post]: Request failed!');
@@ -287,7 +289,12 @@ export class CaspioService {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' })
     });
 
-    return this.http.put<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers });
+    return this.http.put<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers }).pipe(
+      tap(response => {
+        // Automatically clear cache after successful PUT (update) operations
+        this.invalidateCacheForEndpoint(endpoint, 'PUT');
+      })
+    );
   }
 
   delete<T>(endpoint: string): Observable<T> {
@@ -309,7 +316,12 @@ export class CaspioService {
       'Content-Type': 'application/json'
     });
 
-    return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers });
+    return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers }).pipe(
+      tap(response => {
+        // Automatically clear cache after successful DELETE operations
+        this.invalidateCacheForEndpoint(endpoint, 'DELETE');
+      })
+    );
   }
 
   private async queueOfflineRequest<T>(method: QueuedRequest['type'], endpoint: string, data: any): Promise<T> {
@@ -2340,26 +2352,102 @@ export class CaspioService {
   }
 
   private getCacheStrategy(endpoint: string): keyof typeof this.cache.CACHE_TIMES {
-    // Determine cache strategy based on endpoint
-    if (endpoint.includes('/tables/ServiceTypes') || endpoint.includes('/tables/Types')) {
+    // Immutable data - long cache (24 hours)
+    if (endpoint.includes('/tables/Type/records') || endpoint.includes('/tables/ServiceTypes')) {
       return 'SERVICE_TYPES';
     }
-    if (endpoint.includes('/tables/Services_Visuals_Templates') || endpoint.includes('/tables/Templates')) {
+    if (endpoint.includes('/tables/Services_Visuals_Templates') || 
+        endpoint.includes('/tables/Services_EFE_Templates') ||
+        endpoint.includes('/tables/Attach_Templates') ||
+        endpoint.includes('/tables/Templates')) {
       return 'TEMPLATES';
     }
     if (endpoint.includes('/tables/States')) {
       return 'STATES';
     }
-    if (endpoint.includes('/tables/Projects') && !endpoint.includes('/records/')) {
-      return 'PROJECT_LIST';
+    if (endpoint.includes('/tables/Offers/records')) {
+      return 'STATIC_DATA';
     }
+    
+    // Mutable data - short cache (1-2 minutes)
+    if (endpoint.includes('/tables/Attach/records')) {
+      return 'SHORT';
+    }
+    if (endpoint.includes('/tables/Services/records')) {
+      return 'SHORT';
+    }
+    if (endpoint.includes('/tables/Services_Visuals/records') || 
+        endpoint.includes('/tables/Services_Visuals_Attach/records')) {
+      return 'SHORT';
+    }
+    if (endpoint.includes('/tables/Services_EFE/records') || 
+        endpoint.includes('/tables/Services_EFE_Points/records') ||
+        endpoint.includes('/tables/Services_EFE_Points_Attach/records') ||
+        endpoint.includes('/tables/Service_EFE/records')) {
+      return 'SHORT';
+    }
+    if (endpoint.includes('/tables/Projects/records')) {
+      return 'PROJECT_LIST'; // 2 minutes
+    }
+    
+    // Images - long cache
     if (endpoint.includes('/files/') || endpoint.includes('image')) {
       return 'IMAGES';
     }
+    
+    // User data - medium cache
     if (endpoint.includes('/tables/Users') || endpoint.includes('/tables/Companies')) {
       return 'USER_DATA';
     }
-    return 'API_RESPONSES';
+    
+    // Default to short cache for mutable data
+    return 'SHORT';
+  }
+
+  /**
+   * Extract table name from endpoint for cache invalidation
+   */
+  private extractTableName(endpoint: string): string | null {
+    const match = endpoint.match(/\/tables\/([^\/]+)\/records/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Invalidate cache for an endpoint after mutation operations
+   */
+  private invalidateCacheForEndpoint(endpoint: string, operation: 'POST' | 'PUT' | 'DELETE'): void {
+    const tableName = this.extractTableName(endpoint);
+    
+    if (!tableName) {
+      console.log(`[CaspioService] No table name found in endpoint: ${endpoint}`);
+      return;
+    }
+
+    console.log(`[CaspioService] Cache invalidation triggered: ${operation} on table ${tableName}`);
+    
+    // Clear cache for this specific table
+    this.cache.clearTableCache(tableName);
+    
+    // Clear related caches based on table relationships
+    if (tableName === 'Services') {
+      // When Services change, also clear related service tables
+      this.cache.clearTableCache('Services_Visuals');
+      this.cache.clearTableCache('Services_Visuals_Attach');
+      this.cache.clearTableCache('Services_EFE');
+      this.cache.clearTableCache('Services_EFE_Points');
+      this.cache.clearTableCache('Service_EFE');
+      this.cache.clearTableCache('Projects'); // Projects list may need refresh
+    } else if (tableName === 'Attach') {
+      // When attachments change, projects may need refresh
+      this.cache.clearTableCache('Projects');
+    } else if (tableName === 'Projects') {
+      // When projects change, clear related data
+      this.cache.clearTableCache('Services');
+      this.cache.clearTableCache('Attach');
+    } else if (tableName.startsWith('Services_')) {
+      // Any services-related table change should clear Services cache
+      this.cache.clearTableCache('Services');
+    }
   }
 
   /**
