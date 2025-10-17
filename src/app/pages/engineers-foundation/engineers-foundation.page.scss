@@ -1391,17 +1391,19 @@ ion-content{--overflow:scroll !important;height:100%}
                   }
                 }
                 
-                // Updated styling to match Elevation Plot photos
+                // EXACT Elevation Plot styling applied to Structural Systems
                 .image-preview.structural-photo-preview {
+                  // STANDARDIZED container positioning - EXACT match to Elevation Plot
                   position: relative !important;
                   width: 90px !important;
-                  min-width: 90px !important;
-                  min-height: 135px !important; // Increased to accommodate image + spacing + caption (90px + 10px + 35px)
+                  min-height: 90px !important; // Minimum height for photo, allows expansion for caption
                   display: inline-block !important;
                   vertical-align: top !important;
                   overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
                   margin: 4px !important;
-                  padding-bottom: 0 !important; // Remove padding, use explicit spacing instead
+                  padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
+                  border-radius: 12px !important;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
                   flex-shrink: 0;
                   
                   &.uploading img {
@@ -1430,7 +1432,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     cursor: pointer;
                     transition: all 0.3s ease;
                     background: #f5f5f5;
-                    margin-bottom: 10px !important; // Space for caption below
+                    // NO margin-bottom - caption goes in padding-bottom space
                     
                     &:hover {
                       border-color: var(--noble-orange) !important;
@@ -1442,44 +1444,48 @@ ion-content{--overflow:scroll !important;height:100%}
                     }
                   }
                   
+                  // Clean delete button styling - EXACT match to Elevation Plot
                   .delete-btn {
                     position: absolute !important;
-                    top: -6px !important;
+                    top: -6px !important;  // Slightly outside image bounds
                     right: -6px !important;
-                    width: 22px !important;
-                    height: 22px !important;
+                    width: 22px !important;  // Smaller size
+                    height: 22px !important; // Smaller size
                     border-radius: 50% !important;
-                    background: white !important;
-                    border: 2px solid #333333 !important;
+                    background: white !important; // White background
+                    border: 2px solid #333333 !important; // Black border
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
                     cursor: pointer !important;
                     z-index: 1000 !important;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
                     transition: all 0.2s ease !important;
                     padding: 0 !important;
                     
                     ion-icon {
-                      font-size: 10px !important;
-                      color: #333333 !important;
+                      font-size: 12px !important; // Smaller icon - EXACT match
+                      color: #333333 !important; // Black color
                       font-weight: 600 !important;
                     }
                     
                     &:hover {
-                      background: #f44336 !important;
-                      border-color: #f44336 !important;
+                      background: #f5f5f5 !important; // Light gray hover - EXACT match
+                      border-color: #000000 !important; // Darker black on hover
                       transform: scale(1.1) !important;
-                      
-                      ion-icon {
-                        color: white !important;
-                      }
+                      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
+                    }
+                    
+                    &:active {
+                      transform: scale(1.0) !important;
                     }
                   }
                   
+                  // Caption styling - position inside the padding-bottom space
                   .image-caption {
-                    position: relative !important; // Changed from absolute to allow natural flow
-                    display: block !important;
+                    position: absolute !important; // Back to absolute - positioned in padding space
+                    bottom: 0 !important; // At bottom of container (in the padding-bottom area)
+                    left: 0 !important;
                     width: 90px !important;
                     padding: 6px 8px !important;
                     border: 1px solid #ddd !important;
