@@ -3278,18 +3278,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
             if (roomIndex >= 0) {
-              this.roomTemplates[roomIndex].RoomName = newRoomName;
+              // Create a NEW object reference to force Angular to recognize the change
+              this.roomTemplates[roomIndex] = {
+                ...this.roomTemplates[roomIndex],
+                RoomName: newRoomName
+              };
+              console.log('[Rename Room] Updated roomTemplates array with new object reference');
             }
             
             // Step 3: NOW delete old entries (while change detection is still detached)
-            delete this.efeRecordIds[oldRoomName];
-            delete this.selectedRooms[oldRoomName];
-            delete this.expandedRooms[oldRoomName];
-            delete this.savingRooms[oldRoomName];
-            delete this.roomElevationData[oldRoomName];
-            pointKeysToUpdate.forEach(oldKey => {
-              delete this.efePointIds[oldKey];
-            });
+            setTimeout(() => {
+              delete this.efeRecordIds[oldRoomName];
+              delete this.selectedRooms[oldRoomName];
+              delete this.expandedRooms[oldRoomName];
+              delete this.savingRooms[oldRoomName];
+              delete this.roomElevationData[oldRoomName];
+              pointKeysToUpdate.forEach(oldKey => {
+                delete this.efePointIds[oldKey];
+              });
+              console.log('[Rename Room] Deleted old entries after timeout');
+            }, 100);
             
             // Clear rename flag for both old and new names (be extra safe)
             delete this.renamingRooms[oldRoomName];
