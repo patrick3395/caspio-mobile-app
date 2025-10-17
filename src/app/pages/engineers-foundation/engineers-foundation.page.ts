@@ -1133,6 +1133,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             });
             console.log('[EFE Load] ===== END FINAL ROOMS =====');
             
+            // Sort rooms: checked rooms at the top (alphabetically), then unchecked rooms (alphabetically)
+            roomsToDisplay.sort((a: any, b: any) => {
+              const aSelected = this.selectedRooms[a.RoomName] || a.selected || false;
+              const bSelected = this.selectedRooms[b.RoomName] || b.selected || false;
+              
+              // If one is selected and the other isn't, selected comes first
+              if (aSelected && !bSelected) return -1;
+              if (!aSelected && bSelected) return 1;
+              
+              // Both have same selection state, sort alphabetically by RoomName
+              return a.RoomName.localeCompare(b.RoomName);
+            });
+            
+            console.log('[EFE Load] Rooms sorted: checked at top, alphabetically');
+            
             this.roomTemplates = roomsToDisplay;
             
             // CRITICAL: Verify and synchronize room.selected with selectedRooms dictionary
@@ -1146,14 +1161,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             console.log('[EFE Load] Final roomTemplates count:', this.roomTemplates.length);
             console.log('[EFE Load] Final selectedRooms:', Object.keys(this.selectedRooms));
           } else {
-            // No existing rooms - just use auto templates
+            // No existing rooms - just use auto templates, sorted alphabetically
+            baseTemplates.sort((a: any, b: any) => a.RoomName.localeCompare(b.RoomName));
             this.roomTemplates = baseTemplates;
-            console.log('[EFE Load] No existing rooms - using auto templates only');
+            console.log('[EFE Load] No existing rooms - using auto templates only (sorted alphabetically)');
           }
         } else {
-          // No serviceId - just use auto templates
+          // No serviceId - just use auto templates, sorted alphabetically
+          baseTemplates.sort((a: any, b: any) => a.RoomName.localeCompare(b.RoomName));
           this.roomTemplates = baseTemplates;
-          console.log('[EFE Load] No serviceId - using auto templates only');
+          console.log('[EFE Load] No serviceId - using auto templates only (sorted alphabetically)');
         }
       } else {
         this.roomTemplates = [];
