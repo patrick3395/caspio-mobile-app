@@ -29,8 +29,8 @@ export class ActiveProjectsPage implements OnInit {
   private readonly LOAD_MORE = 10; // Number of projects to load on scroll
   private currentIndex = 0;
   
-  // Services cache
-  private servicesCache: { [projectId: string]: string } = {};
+  // Services cache - now stores array of service objects with status
+  private servicesCache: { [projectId: string]: Array<{shortCode: string, status: string}> } = {};
   private serviceTypes: any[] = [];
 
   // Force update timestamp
@@ -194,30 +194,31 @@ export class ActiveProjectsPage implements OnInit {
             console.log(`📥 Services API response for ProjectID ${projectId}:`, services);
             
             if (services.length > 0) {
-              // Convert TypeIDs to service short codes (HUD, EFE, etc.)
-              const serviceNames = services.map((service: any) => {
+              // Create array of service objects with status
+              const serviceObjects = services.map((service: any) => {
                 const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
-                const name = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
-                console.log(`  TypeID ${service.TypeID} → "${name}" (using TypeShort)`);
-                return name;
-              }).filter((name: string) => name && name !== 'Unknown').join(', ');
+                const shortCode = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
+                const status = service.Status || 'Not Started';
+                console.log(`  TypeID ${service.TypeID} → "${shortCode}: ${status}"`);
+                return { shortCode, status };
+              }).filter((obj: any) => obj.shortCode && obj.shortCode !== 'Unknown');
               
-              this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
-              console.log(`✅ CACHED: ProjectID ${projectId} → "${serviceNames}"`);
+              this.servicesCache[projectId] = serviceObjects;
+              console.log(`✅ CACHED: ProjectID ${projectId} →`, serviceObjects);
             } else {
-              this.servicesCache[projectId] = '(No Services Selected)';
+              this.servicesCache[projectId] = [];
               console.log(`❌ No services found for ProjectID ${projectId}`);
             }
           },
           error: (error) => {
             console.error(`Error loading services for ProjectID ${projectId}:`, error);
-            this.servicesCache[projectId] = '(No Services Selected)';
+            this.servicesCache[projectId] = [];
           }
         });
       } else {
         console.log(`❌ No ProjectID found for ${project.Address}`);
         if (displayId) {
-          this.servicesCache[displayId] = '(No Services Selected)';
+          this.servicesCache[displayId] = [];
         }
       }
     });
@@ -226,7 +227,21 @@ export class ActiveProjectsPage implements OnInit {
 
 
   /**
-   * Get formatted services string for a project
+   * Get services array for a project (for vertical display with status)
+   */
+  getProjectServicesArray(project: Project): Array<{shortCode: string, status: string}> {
+    const projectId = project.ProjectID; // Use ProjectID for Services table lookup
+    
+    if (!projectId) {
+      return [];
+    }
+    
+    // Return cached services array or empty array
+    return this.servicesCache[projectId] || [];
+  }
+
+  /**
+   * Get formatted services string for a project (deprecated - kept for compatibility)
    */
   getProjectServices(project: Project): string {
     const projectId = project.ProjectID; // Use ProjectID for Services table lookup
@@ -235,8 +250,13 @@ export class ActiveProjectsPage implements OnInit {
       return '(No Services Selected)';
     }
     
-    // Return cached services or fallback
-    return this.servicesCache[projectId] || '(No Services Selected)';
+    // Return cached services as comma-separated string or fallback
+    const services = this.servicesCache[projectId];
+    if (!services || services.length === 0) {
+      return '(No Services Selected)';
+    }
+    
+    return services.map(s => s.shortCode).join(', ');
   }
 
   getProjectImage(project: Project): string {

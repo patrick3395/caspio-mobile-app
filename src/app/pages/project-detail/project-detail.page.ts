@@ -949,7 +949,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const serviceData = {
         ProjectID: projectIdToUse, // Use actual ProjectID from project (the numeric ProjectID field)
         TypeID: offer.TypeID,
-        DateOfInspection: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD for date input
+        DateOfInspection: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for date input
+        Status: "In Progress" // Set default status when service is added
       };
 
       console.log('🔧 Creating service with data:', {

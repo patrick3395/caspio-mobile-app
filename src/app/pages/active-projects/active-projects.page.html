@@ -75,7 +75,14 @@
             <div class="project-details">
               <div class="project-address">{{ project.Address }}</div>
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-              <div class="project-services">{{ getProjectServices(project) }}</div>
+              <div class="project-services-vertical">
+                <div *ngFor="let service of getProjectServicesArray(project)" class="service-item">
+                  {{ service.shortCode }}: {{ service.status }}
+                </div>
+                <div *ngIf="getProjectServicesArray(project).length === 0" class="no-services">
+                  (No Services Selected)
+                </div>
+              </div>
               <div class="project-date" *ngIf="project.Date">{{ formatCreatedDate(project.Date) }}</div>
             </div>
           </div>
