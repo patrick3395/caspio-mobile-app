@@ -910,40 +910,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               let matchedByTemplateId = false;
               
               if (templateId) {
-                console.log('[EFE Load] Searching for template with TemplateID:', templateId, '(type:', typeof templateId, ')');
-                console.log('[EFE Load] allRoomTemplates count:', this.allRoomTemplates.length);
-                
-                // Log first few templates to see structure
-                if (this.allRoomTemplates.length > 0) {
-                  console.log('[EFE Load] Sample template structure:', {
-                    RoomName: this.allRoomTemplates[0].RoomName,
-                    TemplateID: this.allRoomTemplates[0].TemplateID,
-                    TemplateID_type: typeof this.allRoomTemplates[0].TemplateID,
-                    PK_ID: this.allRoomTemplates[0].PK_ID,
-                    PK_ID_type: typeof this.allRoomTemplates[0].PK_ID
-                  });
-                }
+                // CRITICAL FIX: Convert templateId to number for comparison
+                // Database returns string but templates have numeric TemplateID
+                const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
+                console.log('[EFE Load] Searching for template with TemplateID:', templateId, '(converted to:', templateIdNum, ')');
                 
                 // Try to find by TemplateID (works even if room was renamed)
-                template = this.allRoomTemplates.find((t: any) => {
-                  const matches = t.TemplateID === templateId || t.PK_ID === templateId;
-                  if (t.TemplateID === templateId || t.PK_ID === templateId) {
-                    console.log('[EFE Load] MATCH FOUND! Template:', t.RoomName, 't.TemplateID=', t.TemplateID, 't.PK_ID=', t.PK_ID);
-                  }
-                  return matches;
-                });
+                // Use == for loose equality to handle type differences
+                template = this.allRoomTemplates.find((t: any) => 
+                  t.TemplateID == templateIdNum || t.PK_ID == templateIdNum
+                );
                 
                 if (template) {
                   matchedByTemplateId = true;
-                  console.log('[EFE Load] Found template by TemplateID:', template?.RoomName, '-> Renamed to:', roomName);
+                  console.log('[EFE Load] ✓ Found template by TemplateID:', template.RoomName, 'TemplateID=', template.TemplateID);
                 } else {
-                  console.log('[EFE Load] NO MATCH FOUND by TemplateID! Searched for:', templateId);
-                  console.log('[EFE Load] Checking all templates for TemplateID=' + templateId + ':');
-                  this.allRoomTemplates.forEach((t: any, idx: number) => {
-                    if (idx < 15) { // Only log first 15 to avoid spam
-                      console.log(`  Template ${idx}: RoomName="${t.RoomName}", TemplateID=${t.TemplateID}, PK_ID=${t.PK_ID}, Match? ${t.TemplateID === templateId || t.PK_ID === templateId}`);
-                    }
-                  });
+                  console.log('[EFE Load] ✗ No template found for TemplateID:', templateIdNum);
                 }
               }
               
