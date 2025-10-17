@@ -305,7 +305,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // UI state
   expandedSections: { [key: string]: boolean } = {
     project: false,  // Project Details collapsed by default
-    structural: true,  // Structural Systems expanded by default to show status dropdown
+    structural: false,  // Structural Systems collapsed by default
     elevation: false
   };
   
@@ -672,23 +672,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event.stopPropagation();
     }
     
-    // CRITICAL: Check if projectId exists
-    if (!this.projectId || this.projectId === '') {
-      console.error('[goBack] ERROR: No projectId found! Navigating to active projects');
-      console.error('[goBack] Route params:', this.route.snapshot.paramMap);
-      this.router.navigate(['/tabs/active-projects']).then(() => {
-        console.log('[goBack] Navigation to active projects completed');
-      });
+    // Method 1: Use Location.back() - this is the simplest and most reliable way
+    try {
+      this.location.back();
       return;
+    } catch (error) {
+      console.error('[goBack] Location.back() failed:', error);
     }
 
-    // Always navigate to the project detail page
-    console.log('[goBack] Navigating to project detail page:', this.projectId);
-    this.router.navigate(['/project', this.projectId]).then((success) => {
-      console.log('[goBack] Navigation completed. Success:', success);
-    }).catch((error) => {
-      console.error('[goBack] Navigation FAILED:', error);
-    });
+    // Fallback to manual navigation if location.back() fails
+    if (this.projectId) {
+      void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+    } else {
+      void this.router.navigate(['/tabs/active-projects'], { replaceUrl: true });
+    }
   }
 
   async loadProjectData() {
