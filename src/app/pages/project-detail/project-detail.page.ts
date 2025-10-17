@@ -27,6 +27,8 @@ interface ServiceSelection {
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
   FinalizedDate?: string; // ISO date string when the report was finalized
+  Status?: string; // Status field (e.g., "Under Review")
+  SubmittedDate?: string; // ISO date string when the report was submitted
   saving?: boolean;
   saved?: boolean;
 }
@@ -666,7 +668,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeShort: offer?.TypeShort || '',
           typeIcon: offer?.TypeIcon || '',
           dateOfInspection: service.DateOfInspection || new Date().toISOString(),
-          ReportFinalized: service.ReportFinalized || false
+          ReportFinalized: service.ReportFinalized || false,
+          Status: service.Status || '',
+          SubmittedDate: service.SubmittedDate || ''
         };
       });
 
@@ -4419,12 +4423,29 @@ Time: ${debugInfo.timestamp}
     await loading.present();
 
     try {
-      // TODO: Implement actual submission logic here
-      // This could involve calling a backend API to submit the report
       console.log('[Submit Report] Submitting service:', service.serviceId, service.typeName);
 
-      // Simulate submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!service.serviceId) {
+        throw new Error('Service ID not found');
+      }
+
+      // Get current date/time in ISO format
+      const submittedDateTime = new Date().toISOString();
+
+      // Update Status to "Under Review" and save submission date in Caspio Services table
+      const updateData = {
+        Status: 'Under Review',
+        SubmittedDate: submittedDateTime
+      };
+
+      await this.caspioService.put(
+        `/tables/Services/records?q.where=PK_ID='${service.serviceId}'`,
+        updateData
+      ).toPromise();
+
+      // Update local service object
+      service.Status = 'Under Review';
+      service.SubmittedDate = submittedDateTime;
 
       await loading.dismiss();
       await this.showToast(`${service.typeName} report submitted successfully`, 'success');
@@ -4432,7 +4453,7 @@ Time: ${debugInfo.timestamp}
     } catch (error) {
       console.error('[Submit Report] Error:', error);
       await loading.dismiss();
-      await this.showToast('Failed to submit report', 'danger');
+      await this.showToast('Failed to submit report. Please try again.', 'danger');
     }
   }
 
