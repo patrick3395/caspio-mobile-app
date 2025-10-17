@@ -986,8 +986,11 @@
           Service Fee: <span class="fee-amount">${{serviceFee}}</span>
         </div>
         <ion-button expand="block" type="submit" color="primary" size="large">
-          Submit
+          {{ isSubmitted ? 'Update' : 'Submit' }}
         </ion-button>
+        <div *ngIf="isSubmitted && submittedDate" class="submitted-note">
+          Submitted {{ submittedDate | date:'short' }}
+        </div>
       </div>
     </form>
   </div>

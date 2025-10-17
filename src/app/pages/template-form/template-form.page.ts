@@ -25,6 +25,10 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   serviceFee: number = 285.00;
   currentServiceID: number | null = null;
   
+  // Submission tracking
+  isSubmitted: boolean = false;
+  submittedDate: string = '';
+  
   // Auto-save related
   private destroy$ = new Subject<void>();
   private autoSaveSubject = new Subject<{field: string, value: any}>();
@@ -210,6 +214,12 @@ export class TemplateFormPage implements OnInit, OnDestroy {
         // Load existing data
         if (checkResult.record) {
           this.loadExistingData(checkResult.record);
+          
+          // Check if service was previously submitted
+          if (checkResult.record['Status'] === 'Under Review') {
+            this.isSubmitted = true;
+            this.submittedDate = checkResult.record['SubmittedDate'] || '';
+          }
         }
       } else {
         const newRecord = await this.serviceEfeService.createServiceEFE(this.projectId).toPromise();
@@ -664,20 +674,43 @@ export class TemplateFormPage implements OnInit, OnDestroy {
     
     // Validate required fields
     if (!this.formData['requestedAddress'] || !this.formData['city']) {
-      alert('Please fill in all required fields');
+      await this.showToast('Please fill in all required fields', 'error');
       return;
     }
     
+    // Check if we have a service record to update
+    if (!this.currentServiceID) {
+      await this.showToast('No service record found. Please try again.', 'error');
+      return;
+    }
+    
+    // Show loading indicator
+    const loading = await this.loadingController.create({
+      message: 'Submitting service...'
+    });
+    await loading.present();
+    
     try {
-      // TODO: Submit to Caspio API
-      // For now, just show success message
-      alert('Template form submitted successfully!');
+      // Get current date/time in ISO format
+      const submittedDateTime = new Date().toISOString();
       
-      // Clear saved data
-      localStorage.removeItem('templateFormData');
+      // Update Status to "Under Review" and save submission date
+      await this.serviceEfeService.updateMultipleFields(this.currentServiceID, {
+        Status: 'Under Review',
+        SubmittedDate: submittedDateTime
+      }).toPromise();
+      
+      // Update local state
+      this.isSubmitted = true;
+      this.submittedDate = submittedDateTime;
+      
+      await loading.dismiss();
+      await this.showToast('Service submitted successfully!', 'success');
+      
     } catch (error) {
       console.error('Submit error:', error);
-      alert('Error submitting form. Please try again.');
+      await loading.dismiss();
+      await this.showToast('Error submitting service. Please try again.', 'error');
     }
   }
 
