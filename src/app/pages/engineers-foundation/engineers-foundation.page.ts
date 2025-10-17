@@ -909,10 +909,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               let template = null;
               let matchedByTemplateId = false;
               
+              // CRITICAL FIX: Convert templateId to number for comparison (declare at higher scope)
+              // Database returns string but templates have numeric TemplateID
+              const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
+              
               if (templateId) {
-                // CRITICAL FIX: Convert templateId to number for comparison
-                // Database returns string but templates have numeric TemplateID
-                const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
                 console.log('[EFE Load] Searching for template with TemplateID:', templateId, '(converted to:', templateIdNum, ')');
                 
                 // Try to find by TemplateID (works even if room was renamed)
@@ -958,8 +959,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   console.log('[EFE Load] New room name from DB:', roomName);
                   
                   // Room was renamed - remove the original template from roomsToDisplay
+                  // CRITICAL FIX: Use the converted number for comparison
                   const originalIndex = roomsToDisplay.findIndex((t: any) => 
-                    (t.TemplateID === templateId || t.PK_ID === templateId) && t.RoomName === template.RoomName
+                    (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
                   );
                   console.log('[EFE Load] Looking for original template in roomsToDisplay, found at index:', originalIndex);
                   
