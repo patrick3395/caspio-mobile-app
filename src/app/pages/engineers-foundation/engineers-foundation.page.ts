@@ -878,11 +878,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.log('[EFE Load] Fetching existing rooms for ServiceID:', this.serviceId);
           // CRITICAL: Force refresh to bypass cache and get latest room data
           const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-          console.log('[EFE Load] Found existing rooms:', existingRooms.length, existingRooms);
+          console.log('[EFE Load] ===== DATABASE RETURNED ROOMS =====');
+          console.log('[EFE Load] Found existing rooms count:', existingRooms.length);
+          existingRooms.forEach((room: any, index: number) => {
+            console.log(`[EFE Load] Room ${index + 1}: RoomName="${room.RoomName}", EFEID=${room.EFEID}, TemplateID=${room.TemplateID}`);
+          });
+          console.log('[EFE Load] ===== END DATABASE ROOMS =====');
 
           if (existingRooms && existingRooms.length > 0) {
             // Build the complete room templates list including saved rooms
             const roomsToDisplay: any[] = [...baseTemplates];
+            console.log('[EFE Load] ===== BASE TEMPLATES =====');
+            console.log('[EFE Load] Base templates count:', roomsToDisplay.length);
+            roomsToDisplay.forEach((template: any, index: number) => {
+              console.log(`[EFE Load] Base Template ${index + 1}: RoomName="${template.RoomName}", TemplateID=${template.TemplateID || template.PK_ID}`);
+            });
+            console.log('[EFE Load] ===== END BASE TEMPLATES =====');
 
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
@@ -891,7 +902,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const roomId = room.EFEID;
               const templateId = room.TemplateID; // Use TemplateID to match templates
 
-              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId, 'TemplateID:', templateId);
+              console.log('[EFE Load] ===== PROCESSING ROOM =====');
+              console.log('[EFE Load] Room from DB: RoomName="' + roomName + '", EFEID=' + roomId + ', TemplateID=' + templateId);
 
               // Find matching template by TemplateID first (handles renamed rooms), fallback to RoomName
               let template = null;
@@ -926,31 +938,50 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
               // If found, handle adding/updating in roomsToDisplay
               if (template) {
+                console.log('[EFE Load] Template found! Original template RoomName="' + template.RoomName + '", TemplateID=' + (template.TemplateID || template.PK_ID));
+                console.log('[EFE Load] Matched by TemplateID?', matchedByTemplateId);
+                console.log('[EFE Load] Room name changed?', template.RoomName !== roomName);
+                
                 // CRITICAL: If matched by TemplateID and room was renamed, remove the original template first
                 if (matchedByTemplateId && template.RoomName !== roomName) {
+                  console.log('[EFE Load] *** ROOM WAS RENAMED ***');
+                  console.log('[EFE Load] Original template name:', template.RoomName);
+                  console.log('[EFE Load] New room name from DB:', roomName);
+                  
                   // Room was renamed - remove the original template from roomsToDisplay
                   const originalIndex = roomsToDisplay.findIndex((t: any) => 
                     (t.TemplateID === templateId || t.PK_ID === templateId) && t.RoomName === template.RoomName
                   );
+                  console.log('[EFE Load] Looking for original template in roomsToDisplay, found at index:', originalIndex);
+                  
                   if (originalIndex >= 0) {
-                    console.log('[EFE Load] Removing original template:', template.RoomName, 'because it was renamed to:', roomName);
+                    console.log('[EFE Load] REMOVING original template:', template.RoomName);
                     roomsToDisplay.splice(originalIndex, 1);
+                    console.log('[EFE Load] roomsToDisplay count after removal:', roomsToDisplay.length);
+                  } else {
+                    console.log('[EFE Load] WARNING: Original template not found in roomsToDisplay!');
                   }
                 }
                 
                 // Add the room with its saved name if not already present
                 const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                console.log('[EFE Load] Checking if renamed room already in display list, found at index:', existingRoomIndex);
+                
                 if (existingRoomIndex >= 0) {
                   // Room already exists in display list - mark it as selected
                   console.log('[EFE Load] Room already in display list, marking as selected:', roomName);
                   roomsToDisplay[existingRoomIndex].selected = true;
                 } else {
-                  console.log('[EFE Load] Adding room to display with saved name:', roomName);
+                  console.log('[EFE Load] ADDING renamed room to display:', roomName);
                   // Create a new template object with the saved room name AND mark as selected
                   const roomToAdd = { ...template, RoomName: roomName, selected: true };
                   roomsToDisplay.push(roomToAdd);
+                  console.log('[EFE Load] roomsToDisplay count after adding:', roomsToDisplay.length);
                 }
+              } else {
+                console.log('[EFE Load] ERROR: No template found for this room!');
               }
+              console.log('[EFE Load] ===== END PROCESSING ROOM =====');
               
               if (!template) {
                 console.warn('[EFE Load] No template found for room:', roomName, 'TemplateID:', templateId);
@@ -1084,6 +1115,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
 
             // NOW set roomTemplates with the complete list (auto + saved rooms)
+            console.log('[EFE Load] ===== FINAL ROOMS TO DISPLAY =====');
+            console.log('[EFE Load] roomsToDisplay count before assignment:', roomsToDisplay.length);
+            roomsToDisplay.forEach((room: any, index: number) => {
+              console.log(`[EFE Load] Final Room ${index + 1}: RoomName="${room.RoomName}", selected=${room.selected}, TemplateID=${room.TemplateID || room.PK_ID}`);
+            });
+            console.log('[EFE Load] ===== END FINAL ROOMS =====');
+            
             this.roomTemplates = roomsToDisplay;
             
             // CRITICAL: Verify and synchronize room.selected with selectedRooms dictionary
