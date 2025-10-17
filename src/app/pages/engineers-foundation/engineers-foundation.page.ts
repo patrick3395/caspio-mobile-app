@@ -101,6 +101,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
   private templateLoader?: HTMLIonAlertElement;
+  private _loggedPhotoKeys?: Set<string>; // Track which photo keys have been logged to reduce console spam
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
   private readonly templateLoaderMinDuration = 1000;
@@ -7797,15 +7798,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // [v1.4.387] ONLY use key-based storage for consistency
     const photos = this.visualPhotos[key] || [];
     if (photos.length > 0) {
-      console.log(`[STRUCTURAL DEBUG] getPhotosForVisual(${key}) returning ${photos.length} photos:`, 
-        photos.map(p => ({ 
-          AttachID: p.AttachID, 
-          url: p.url?.substring(0, 30), 
-          thumbnailUrl: p.thumbnailUrl?.substring(0, 30),
-          displayUrl: p.displayUrl?.substring(0, 30),
-          caption: p.caption
-        }))
-      );
+      // Only log once per key to reduce console spam
+      if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
+      if (!this._loggedPhotoKeys.has(key)) {
+        this._loggedPhotoKeys.add(key);
+        console.log(`[STRUCTURAL DEBUG] Photos for ${key}:`, 
+          photos.map(p => ({ 
+            AttachID: p.AttachID,
+            hasUrl: !!p.url,
+            urlType: p.url?.startsWith('data:') ? 'base64' : p.url?.startsWith('blob:') ? 'blob' : 'none',
+            hasThumbnail: !!p.thumbnailUrl,
+            thumbnailType: p.thumbnailUrl?.startsWith('data:') ? 'base64' : p.thumbnailUrl?.startsWith('blob:') ? 'blob' : 'placeholder',
+            hasDisplay: !!p.displayUrl,
+            displayType: p.displayUrl?.startsWith('data:') ? 'base64' : p.displayUrl?.startsWith('blob:') ? 'blob' : 'none',
+            caption: p.caption,
+            // Show first 50 chars of actual URL for debugging
+            urlPreview: p.displayUrl?.substring(0, 50) || p.thumbnailUrl?.substring(0, 50) || p.url?.substring(0, 50)
+          }))
+        );
+      }
     }
     
     return photos;
