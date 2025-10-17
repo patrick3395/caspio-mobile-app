@@ -1347,7 +1347,7 @@ ion-content{--overflow:scroll !important;height:100%}
               
               .image-preview-container {
                 display: flex;
-                gap: 8px; // Reduced gap
+                gap: 12px; // Match elevation plot gap
                 flex-wrap: wrap;
                 align-items: flex-start;
                 min-height: 0; // Remove minimum height requirement
@@ -1372,6 +1372,119 @@ ion-content{--overflow:scroll !important;height:100%}
                     margin: 0;
                     font-size: 14px;
                     color: #888;
+                  }
+                }
+                
+                // Updated styling to match Elevation Plot photos
+                .image-preview.structural-photo-preview {
+                  position: relative !important;
+                  width: 90px !important;
+                  min-width: 90px !important;
+                  min-height: 90px !important;
+                  display: inline-block !important;
+                  vertical-align: top !important;
+                  overflow: visible !important;
+                  margin: 4px !important;
+                  padding-bottom: 35px !important; // Space for caption
+                  border-radius: 12px !important;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+                  flex-shrink: 0;
+                  
+                  &.uploading img {
+                    opacity: 0.6;
+                  }
+                  
+                  .upload-indicator {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    z-index: 10;
+                    
+                    ion-spinner {
+                      --color: var(--noble-orange);
+                    }
+                  }
+                  
+                  img {
+                    width: 90px !important;
+                    height: 90px !important;
+                    border-radius: 12px !important;
+                    object-fit: cover !important;
+                    display: block !important;
+                    border: 2px solid #ddd !important;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    background: #f5f5f5;
+                    
+                    &:hover {
+                      border-color: var(--noble-orange) !important;
+                      transform: scale(1.05);
+                    }
+                    
+                    &.has-annotations {
+                      border-color: var(--noble-orange) !important;
+                    }
+                  }
+                  
+                  .delete-btn {
+                    position: absolute !important;
+                    top: -6px !important;
+                    right: -6px !important;
+                    width: 22px !important;
+                    height: 22px !important;
+                    border-radius: 50% !important;
+                    background: white !important;
+                    border: 2px solid #333333 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    z-index: 1000 !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+                    transition: all 0.2s ease !important;
+                    padding: 0 !important;
+                    
+                    ion-icon {
+                      font-size: 10px !important;
+                      color: #333333 !important;
+                      font-weight: 600 !important;
+                    }
+                    
+                    &:hover {
+                      background: #f44336 !important;
+                      border-color: #f44336 !important;
+                      transform: scale(1.1) !important;
+                      
+                      ion-icon {
+                        color: white !important;
+                      }
+                    }
+                  }
+                  
+                  .image-caption {
+                    position: absolute !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    padding: 6px 8px !important;
+                    border: 1px solid #ddd !important;
+                    border-radius: 6px !important;
+                    font-size: 11px !important;
+                    background: white !important;
+                    box-sizing: border-box !important;
+                    margin: 0 !important;
+                    
+                    &::placeholder {
+                      color: #aaa !important;
+                      font-size: 11px !important;
+                    }
+                    
+                    &:focus {
+                      outline: none !important;
+                      border-color: var(--noble-orange) !important;
+                      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1) !important;
+                    }
                   }
                 }
                 

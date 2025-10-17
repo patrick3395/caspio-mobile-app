@@ -9614,11 +9614,10 @@ Stack: ${error?.stack}`;
           record.url = imageData;
           record.originalUrl = imageData;
           record.thumbnailUrl = imageData;
-          if (!record.hasAnnotations) {
-            record.displayUrl = imageData;
-          }
+          record.displayUrl = imageData;  // Always set displayUrl, regardless of annotations
         } else {
           record.thumbnailUrl = this.photoPlaceholder;
+          record.displayUrl = this.photoPlaceholder;
         }
       }
     });
