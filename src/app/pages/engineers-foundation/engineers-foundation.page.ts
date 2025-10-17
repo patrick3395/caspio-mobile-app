@@ -7797,8 +7797,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // [v1.4.387] ONLY use key-based storage for consistency
     const photos = this.visualPhotos[key] || [];
     if (photos.length > 0) {
-      photos.forEach((photo: any, index: number) => {
-      });
+      console.log(`[STRUCTURAL DEBUG] getPhotosForVisual(${key}) returning ${photos.length} photos:`, 
+        photos.map(p => ({ 
+          AttachID: p.AttachID, 
+          url: p.url?.substring(0, 30), 
+          thumbnailUrl: p.thumbnailUrl?.substring(0, 30),
+          displayUrl: p.displayUrl?.substring(0, 30),
+          caption: p.caption
+        }))
+      );
     }
     
     return photos;
@@ -9663,9 +9670,18 @@ Stack: ${error?.stack}`;
         return true;
       });
       this.visualPhotos[key] = uniquePhotoRecords;
+      console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photos for KEY: ${key}`);
       this.changeDetectorRef.detectChanges();
 
       await this.hydratePhotoRecords(uniquePhotoRecords);
+      console.log(`[STRUCTURAL DEBUG] Hydrated photos for KEY: ${key}`, uniquePhotoRecords.map(p => ({ 
+        AttachID: p.AttachID, 
+        hasUrl: !!p.url, 
+        hasThumbnail: !!p.thumbnailUrl, 
+        hasDisplay: !!p.displayUrl 
+      })));
+      // Force another change detection after hydration
+      this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
       this.visualPhotos[key] = [];

@@ -1011,8 +1011,9 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 
 // Categories
-.categories-container {
-  margin-top: 10px;
+  .categories-container {
+    margin-top: 10px;
+    overflow: visible; // CRITICAL: Allow delete buttons to show outside
   
   .categories-title {
     font-size: 20px;
@@ -1034,12 +1035,13 @@ ion-content{--overflow:scroll !important;height:100%}
   ion-accordion-group {
     // Disable auto-scroll when accordion opens
     scroll-behavior: auto !important;
+    overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
 
     ion-accordion {
       border: 1px solid #e0e0e0;
       border-radius: 8px;
       margin-bottom: 10px;
-      overflow: visible;
+      overflow: visible !important;
       scroll-margin: 0 !important;
 
       // Force accordion content to always expand downward
@@ -1051,6 +1053,12 @@ ion-content{--overflow:scroll !important;height:100%}
         position: relative !important;
         top: 0 !important;
         transform-origin: top !important;
+        overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
+      }
+      
+      // Also target the internal accordion container
+      .accordion-content {
+        overflow: visible !important;
       }
       
       ion-item[slot="header"] {
@@ -1069,9 +1077,11 @@ ion-content{--overflow:scroll !important;height:100%}
       .category-content {
         background: white;
         padding: 20px;
+        overflow: visible; // CRITICAL: Allow delete buttons to show outside
         
         .type-section {
           margin-bottom: 20px;
+          overflow: visible; // CRITICAL: Allow delete buttons to show outside
           
           &:last-child {
             margin-bottom: 0;
@@ -1131,6 +1141,7 @@ ion-content{--overflow:scroll !important;height:100%}
           
           .template-item {
             margin-bottom: 12px;
+            overflow: visible; // CRITICAL: Allow delete buttons to show outside
             
             .visual-item-container {
               position: relative;
@@ -1139,11 +1150,13 @@ ion-content{--overflow:scroll !important;height:100%}
               display: block;
               width: 100%;
               margin-bottom: 12px;
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
               
               &.selected {
                 border: 2px solid #000000;
                 box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
                 background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+                border-radius: 12px 12px 0 0; // Only round top corners to prevent clipping delete buttons
                 
                 .checkbox-item {
                   border-color: transparent;
@@ -1158,6 +1171,7 @@ ion-content{--overflow:scroll !important;height:100%}
               border-radius: 8px;
               transition: all 0.3s ease;
               border: 1px solid #f0f0f0;
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
               
               &:hover {
                 background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
@@ -1319,7 +1333,7 @@ ion-content{--overflow:scroll !important;height:100%}
             
             // Image preview section
             .image-preview-section {
-              padding: 8px 12px; // Reduced padding since no Add Photos button
+              padding: 12px; // Increased padding to give space for delete buttons at edges
               background: #f8f8f8;
               border-top: 1px solid #e0e0e0;
               border-radius: 0 0 12px 12px;
