@@ -1768,30 +1768,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Attachment created - update UI immediately without waiting
         if (response) {
-          // Check if this attachment already exists to prevent duplicates
-          const existingIndex = this.existingAttachments.findIndex(a => 
-            a.AttachID === (response.AttachID || response.PK_ID)
-          );
-          
-          if (existingIndex === -1) {
-            // Add full attachment record immediately for instant UI update
-            // Response should have all fields including AttachID, Link, and Attachment URL
-            const newAttachment = {
-              AttachID: response.AttachID || response.PK_ID,
-              ProjectID: response.ProjectID || projectIdNum,
-              TypeID: response.TypeID || typeIdNum,
-              Title: response.Title || doc.title || 'Document',
-              Notes: response.Notes || `[SID:${serviceId}]`,
-              Link: response.Link || file.name,
-              Attachment: response.Attachment || ''
-            };
-            this.existingAttachments.push(newAttachment);
-          }
-          
-          // Update documents list immediately - this will show the link and green color
-          this.updateDocumentsList();
-          
-          // Cache is automatically invalidated by CaspioService after POST/PUT operations
+          // Reload attachments from database to ensure UI matches server state
+          // Cache was automatically cleared by CaspioService, so this gets fresh data
+          await this.loadExistingAttachments();
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -1803,19 +1782,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // uploadFileToCaspio calls replaceAttachmentFile which updates both Attachment and Link fields
         await this.uploadFileToCaspio(doc.attachId, file);
 
-        // Update the attachment in our local list immediately with new file info
-        const existingAttach = this.existingAttachments.find(a => a.AttachID === doc.attachId);
-        if (existingAttach) {
-          existingAttach.Link = file.name;
-          existingAttach.Attachment = `/${file.name}`; // Update file path too
-        }
-        // Update documents list immediately
-        this.updateDocumentsList();
-        
-        // Cache is automatically invalidated by CaspioService after POST/PUT operations
+        // Reload attachments from database to ensure UI matches server state
+        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        await this.loadExistingAttachments();
       }
       
-      // Don't reload - UI is already updated
+      // UI updated by reloading from database after successful mutation
     } catch (error: any) {
       console.error('❌ Error handling file upload:', error);
       console.error('Error details:', {
@@ -1924,10 +1896,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               await loading.dismiss();
 
-              // Update the documents list to reflect the removal
-              this.updateDocumentsList();
-              
-              // Cache is automatically invalidated by CaspioService after DELETE operations
+              // Reload attachments from database to ensure UI matches server state
+              // Cache was automatically cleared by CaspioService, so this gets fresh data
+              await this.loadExistingAttachments();
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -1991,7 +1962,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               
               await loading.dismiss();
               
-              // Cache is automatically invalidated by CaspioService after DELETE operations
+              // Reload attachments from database to ensure UI matches server state
+              // Cache was automatically cleared by CaspioService, so this gets fresh data
+              await this.loadExistingAttachments();
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -2374,37 +2347,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const response = await this.caspioService.createAttachment(attachmentData).toPromise();
       
       if (response && (response.PK_ID || response.AttachID)) {
-        // DON'T manually add to selectedServiceDoc.documents - updateDocumentsList will rebuild it
-        // Just add to existing attachments for persistence
-        const newAttachmentId = response.PK_ID || response.AttachID;
+        // Reload attachments from database to ensure UI matches server state
+        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        await this.loadExistingAttachments();
         
-        // Check if attachment already exists to prevent duplicates
-        const existingIndex = this.existingAttachments.findIndex(a => a.AttachID === newAttachmentId);
-        
-        if (existingIndex === -1) {
-          this.existingAttachments.push({
-            AttachID: newAttachmentId,
-            ProjectID: attachmentData.ProjectID,
-            TypeID: attachmentData.TypeID,
-            Title: doc.title,
-            Notes: `[SID:${this.selectedServiceDoc.serviceId}]`,
-            Link: url,
-            Attachment: ''
-          });
-          console.log('[AddDocLink] Added new attachment to existingAttachments');
-        } else {
-          console.log('[AddDocLink] Attachment already exists, not adding duplicate');
-        }
-        
-        // Update the documents list - this will rebuild from existingAttachments and templates
-        this.updateDocumentsList();
-        
-        // Force Angular to detect changes immediately
-        this.changeDetectorRef.detectChanges();
-        
-        await this.showToast('Link added successfully', 'success');
-        
-        // Cache is automatically invalidated by CaspioService after POST operations
+        await this.showToast('Link added successfully', 'success')
       } else {
         throw new Error('No ID returned from server');
       }
@@ -2524,10 +2471,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Invalidate cache to ensure fresh data on reload
       ProjectDetailPage.detailStateCache.delete(this.projectId);
 
-      // Update cache with latest state
-      this.cacheCurrentState();
-      
-      // Cache is automatically invalidated by CaspioService after PUT operations
+      // Reload attachments from database to ensure UI matches server state
+      // Cache was automatically cleared by CaspioService, so this gets fresh data
+      await this.loadExistingAttachments();
 
       this.showToast('Document replaced with link successfully', 'success');
     } catch (error) {
@@ -2559,55 +2505,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[Link Create] Response from Caspio:', response);
 
       if (response && (response.PK_ID || response.AttachID)) {
-        // Optimistically add the new attachment to the local array immediately
-        // This ensures the UI updates right away without waiting for database round-trip
-        const newAttachment = {
-          AttachID: response.AttachID || response.PK_ID,
-          ProjectID: attachmentData.ProjectID,
-          TypeID: attachmentData.TypeID,
-          Title: attachmentData.Title,
-          Notes: response.Notes || `[SID:${serviceDoc.serviceId}]`,
-          Link: attachmentData.Link,
-          Attachment: attachmentData.Attachment
-        };
-
-        console.log('[Link Create] Adding to existingAttachments:', newAttachment);
-        console.log('[Link Create] Before add - existingAttachments length:', this.existingAttachments.length);
-
-        // Check for duplicates before adding
-        const existingIndex = this.existingAttachments.findIndex(a => a.AttachID === newAttachment.AttachID);
-        
-        if (existingIndex === -1) {
-          // Add to the array
-          this.existingAttachments.push(newAttachment);
-          console.log('[Link Create] After add - existingAttachments length:', this.existingAttachments.length);
-        } else {
-          // Update existing attachment
-          this.existingAttachments[existingIndex] = newAttachment;
-          console.log('[Link Create] Updated existing attachment at index:', existingIndex);
-        }
-
-        // Rebuild the documents list with the new attachment
-        this.updateDocumentsList();
-
-        console.log('[Link Create] After updateDocumentsList()');
-
-        // Force Angular to detect changes and update the view immediately
-        this.changeDetectorRef.detectChanges();
-
-        console.log('[Link Create] After detectChanges()');
-
-        // REMOVED: Background reload was causing duplicate documents in the list
-        // The document is already added to existingAttachments and updateDocumentsList() was called
-        // No need to reload from database immediately
-
-        // Invalidate cache to ensure fresh data on reload
-        ProjectDetailPage.detailStateCache.delete(this.projectId);
-
-        // Update cache with latest state
-        this.cacheCurrentState();
-
-        // Cache is automatically invalidated by CaspioService after POST operations
+        // Reload attachments from database to ensure UI matches server state
+        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        await this.loadExistingAttachments();
 
         this.showToast('Link added successfully', 'success');
       }
