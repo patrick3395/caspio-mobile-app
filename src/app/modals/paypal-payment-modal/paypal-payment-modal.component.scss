@@ -55,8 +55,7 @@ ion-header {
 
 .zelle-button {
   margin-bottom: 1.5rem;
-  --padding-top: 14px;
-  --padding-bottom: 14px;
+  height: 48px;
   font-weight: 600;
   font-size: 1rem;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -142,5 +141,24 @@ ion-item {
   p {
     font-size: 1rem;
     color: var(--ion-color-dark);
+  }
+}
+
+// Zelle alert styling
+:host ::ng-deep .zelle-alert {
+  .alert-message {
+    text-align: left;
+    
+    p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    
+    h4 {
+      margin-top: 16px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
   }
 }
