@@ -280,24 +280,10 @@ import { FabricService } from '../../services/fabric.service';
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
+    // Delete button now uses default .tool-btn styling to match other buttons
+    // No special styling needed - it will inherit the light borders and icons
     .delete-btn {
-      background: rgba(255,255,255,0.95);
-      border-color: #000000;
-    }
-    
-    .delete-btn ion-icon {
-      color: #000000;
-    }
-    
-    .delete-btn:hover {
-      background: #f0f0f0;
-      border-color: #000000;
-    }
-    
-    .delete-btn.active {
-      background: #f0f0f0;
-      border-color: #000000;
-      color: #000000;
+      // Inherits all styling from .tool-btn
     }
     
     .canvas-container {
