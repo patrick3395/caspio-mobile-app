@@ -2197,6 +2197,9 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.applyTaskFilters();
       this.updateSelectedCompanySnapshot();
 
+      // Close the edit task modal if it's open
+      this.closeEditTaskModal();
+
       await this.showToast('Task deleted successfully', 'success');
     } catch (error: any) {
       console.error('Error deleting task:', error);

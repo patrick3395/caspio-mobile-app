@@ -1447,8 +1447,8 @@ ion-content{--overflow:scroll !important;height:100%}
                   // Clean delete button styling - EXACT match to Elevation Plot
                   .delete-btn {
                     position: absolute !important;
-                    top: -6px !important;  // Slightly outside image bounds
-                    right: -6px !important;
+                    top: 4px !important;  // Positioned inside container to prevent cutoff
+                    right: 4px !important;
                     width: 22px !important;  // Smaller size
                     height: 22px !important; // Smaller size
                     border-radius: 50% !important;
@@ -2448,8 +2448,8 @@ ion-content{--overflow:scroll !important;height:100%}
             // Clean delete button styling - white background with black border
             .delete-btn {
               position: absolute !important;
-              top: -6px !important;  // Slightly outside image bounds
-              right: -6px !important;
+              top: 4px !important;  // Positioned inside container to prevent cutoff
+              right: 4px !important;
               width: 22px !important;  // Smaller size
               height: 22px !important; // Smaller size
               border-radius: 50% !important;
@@ -2694,7 +2694,7 @@ ion-content{--overflow:scroll !important;height:100%}
       width: 16px !important;
       height: 16px !important;
       top: 3px !important;
-      right: -4px !important;
+      right: 3px !important;
       border-width: 1px !important;
       z-index: 100 !important;
       
@@ -2829,7 +2829,7 @@ ion-content{--overflow:scroll !important;height:100%}
       width: 14px !important;
       height: 14px !important;
       top: 2px !important;
-      right: -3px !important;
+      right: 2px !important;
       border-width: 1px !important;
       z-index: 100 !important;
       
@@ -2898,8 +2898,8 @@ ion-content{--overflow:scroll !important;height:100%}
     
     .delete-btn {
       position: absolute !important;
-      top: -8px !important;  // Less prominent positioning
-      right: -8px !important;
+      top: 4px !important;  // Positioned inside container to prevent cutoff
+      right: 4px !important;
       width: 20px !important;  // Smaller size
       height: 20px !important; // Smaller size
       z-index: 99999 !important;
