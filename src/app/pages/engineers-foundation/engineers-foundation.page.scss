@@ -2668,10 +2668,14 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
+    padding-top: 6px !important; // Top space so delete button doesn't get cut off
+    padding-bottom: 0 !important; // No bottom padding, caption flows naturally
     text-align: center !important;
-    padding-bottom: 20px !important; // Space for caption below image
     box-shadow: none !important;
     overflow: visible !important; // CRITICAL: Allow delete button to show outside
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     
     img,
     .fdf-photo-image {
@@ -2679,7 +2683,7 @@ ion-content{--overflow:scroll !important;height:100%}
       height: auto !important; // Maintain aspect ratio
       aspect-ratio: 1 / 1; // Keep square
       display: block !important;
-      margin: 0 auto 6px auto !important; // 6px gap between image and caption
+      margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
       border-radius: 8px !important;
     }
@@ -2688,7 +2692,7 @@ ion-content{--overflow:scroll !important;height:100%}
       position: absolute !important;
       width: 16px !important;
       height: 16px !important;
-      top: -4px !important;
+      top: 2px !important; // Position within the top padding
       right: -4px !important;
       border-width: 1px !important;
       z-index: 100 !important;
@@ -2699,9 +2703,9 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      position: relative !important; // Changed from absolute to flow naturally
+      position: relative !important;
       display: block !important;
-      width: 100% !important; // Match container width
+      width: 100% !important; // Match image width exactly
       box-sizing: border-box !important;
       font-size: 7px !important;
       padding: 3px 2px !important;
@@ -2798,10 +2802,14 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
+    padding-top: 5px !important; // Top space so delete button doesn't get cut off
+    padding-bottom: 0 !important; // No bottom padding, caption flows naturally
     text-align: center !important;
-    padding-bottom: 18px !important; // Space for caption below image
     box-shadow: none !important;
     overflow: visible !important; // CRITICAL: Allow delete button to show outside
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     
     img,
     .fdf-photo-image {
@@ -2809,7 +2817,7 @@ ion-content{--overflow:scroll !important;height:100%}
       height: auto !important;
       aspect-ratio: 1 / 1;
       display: block !important;
-      margin: 0 auto 5px auto !important; // 5px gap between image and caption
+      margin: 0 0 3px 0 !important; // 3px gap between image and caption
       border-width: 1px !important;
       border-radius: 6px !important;
     }
@@ -2818,7 +2826,7 @@ ion-content{--overflow:scroll !important;height:100%}
       position: absolute !important;
       width: 14px !important;
       height: 14px !important;
-      top: -3px !important;
+      top: 1px !important; // Position within the top padding
       right: -3px !important;
       border-width: 1px !important;
       z-index: 100 !important;
@@ -2829,9 +2837,9 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      position: relative !important; // Changed from absolute to flow naturally
+      position: relative !important;
       display: block !important;
-      width: 100% !important; // Match container width
+      width: 100% !important; // Match image width exactly
       box-sizing: border-box !important;
       font-size: 6px !important;
       padding: 2px 1px !important;
