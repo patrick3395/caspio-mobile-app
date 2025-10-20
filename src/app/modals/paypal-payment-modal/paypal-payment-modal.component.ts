@@ -175,13 +175,34 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     const alert = await this.alertController.create({
       header: 'Zelle Information',
       cssClass: 'zelle-info-alert',
-      message: `<div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass on transaction fees to our partners).</div><div class="zelle-pay-to">Pay To</div><div class="zelle-recipient"><div class="zelle-name">Name: Patrick Bullock</div><div class="zelle-number">Phone: (512) 298-9395</div></div>`,
+      message: 'Loading...',
       buttons: [{
         text: 'OK',
         cssClass: 'alert-button-ok'
       }]
     });
+    
     await alert.present();
+    
+    // Manually set innerHTML after alert is presented
+    setTimeout(() => {
+      const messageElement = document.querySelector('.zelle-info-alert .alert-message');
+      console.log('Message Element Found:', messageElement);
+      
+      if (messageElement) {
+        messageElement.innerHTML = `
+          <div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass on transaction fees to our partners).</div>
+          <div class="zelle-pay-to">Pay To</div>
+          <div class="zelle-recipient">
+            <div class="zelle-name">Name: Patrick Bullock</div>
+            <div class="zelle-number">Phone: (512) 298-9395</div>
+          </div>
+        `;
+        console.log('HTML set successfully. InnerHTML:', messageElement.innerHTML);
+      } else {
+        console.error('Could not find message element');
+      }
+    }, 50);
   }
 
   cancel() {
