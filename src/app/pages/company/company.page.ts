@@ -845,6 +845,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       component: PaypalPaymentModalComponent,
       componentProps: {
         invoice: {
+          ProjectID: invoice.positive.ProjectID,
           InvoiceID: invoice.positive.InvoiceID,
           Amount: invoice.netAmount.toFixed(2),
           Address: invoice.positive.Address,

@@ -253,6 +253,40 @@ export class AllProjectsPage implements OnInit {
   private projectImageCache: { [projectId: string]: string} = {};
   private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
   private readonly CACHE_EXPIRY_HOURS = 24;
+  private savingPrimaryPhoto: Set<string> = new Set(); // Track which projects are currently being saved
+  
+  /**
+   * Save the Google Street View image URL to the database as PrimaryPhoto
+   */
+  private saveGoogleImageToDatabase(project: Project, googleImageUrl: string): void {
+    const projectId = project.PK_ID;
+    
+    if (!projectId) {
+      return;
+    }
+    
+    // Prevent duplicate saves for the same project
+    if (this.savingPrimaryPhoto.has(projectId)) {
+      return;
+    }
+    
+    this.savingPrimaryPhoto.add(projectId);
+    
+    console.log(`📸 Saving Google image URL to database for project ${projectId}`);
+    
+    this.projectsService.updateProjectPrimaryPhoto(projectId, googleImageUrl).subscribe({
+      next: () => {
+        // Update the local project object so we don't try to save again
+        project['PrimaryPhoto'] = googleImageUrl;
+        this.savingPrimaryPhoto.delete(projectId);
+        console.log(`✅ Successfully saved Google image URL for project ${projectId}`);
+      },
+      error: (error) => {
+        console.error(`❌ Error saving Google image URL for project ${projectId}:`, error);
+        this.savingPrimaryPhoto.delete(projectId);
+      }
+    });
+  }
   
   // Get project thumbnail image
   getProjectImage(project: Project): string {
@@ -294,7 +328,14 @@ export class AllProjectsPage implements OnInit {
       return 'assets/img/project-placeholder.svg';
     }
     const encodedAddress = encodeURIComponent(address);
-    return `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
+    const googleImageUrl = `https://maps.googleapis.com/maps/api/streetview?size=120x120&location=${encodedAddress}&key=${this.googleMapsApiKey}`;
+    
+    // Save the Google image URL to the database if PrimaryPhoto is empty
+    if (project && project.PK_ID && !project['PrimaryPhoto']) {
+      this.saveGoogleImageToDatabase(project, googleImageUrl);
+    }
+    
+    return googleImageUrl;
   }
   
   async loadProjectImage(project: Project) {

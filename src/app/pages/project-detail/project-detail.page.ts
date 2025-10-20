@@ -4480,6 +4480,7 @@ Time: ${debugInfo.timestamp}
       component: PaypalPaymentModalComponent,
       componentProps: {
         invoice: {
+          ProjectID: this.project.ProjectID,
           InvoiceID: this.project.PK_ID,
           Amount: totalAmount.toFixed(2),
           Description: `Payment for ${this.project.Address || 'Project'}, ${this.project.City || ''}`,

@@ -459,6 +459,40 @@ export class ProjectsService {
     );
   }
 
+  updateProjectPrimaryPhoto(projectId: string | undefined, photoUrl: string): Observable<any> {
+    if (!projectId) {
+      return throwError(() => new Error('No project ID provided'));
+    }
+
+    return this.caspioService.authenticate().pipe(
+      switchMap(() => {
+        const account = this.caspioService.getAccountID();
+        const token = this.caspioService.getCurrentToken();
+        const url = `https://${account}.caspio.com/rest/v2/tables/Projects/records?q.where=PK_ID=${projectId}`;
+
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
+
+        const updateData = {
+          PrimaryPhoto: photoUrl
+        };
+
+        return this.http.put(url, updateData, { headers }).pipe(
+          tap(() => {
+            console.log(`✅ Updated PrimaryPhoto for project ${projectId}`);
+            this.cache.clear(this.getProjectDetailCacheKey(projectId));
+          }),
+          catchError(error => {
+            console.error('Error updating project primary photo:', error);
+            return throwError(() => error);
+          })
+        );
+      })
+    );
+  }
+
   // Fetch newly created project immediately
   private fetchNewProject(address: string, city: string, date: string): Observable<Project | null> {
     // Caspio is instantaneous, fetch immediately

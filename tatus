@@ -1,0 +1,106 @@
+[1mdiff --git a/src/app/pages/engineers-foundation/engineers-foundation.page.ts b/src/app/pages/engineers-foundation/engineers-foundation.page.ts[m
+[1mindex 5ecb2de..d4477f5 100644[m
+[1m--- a/src/app/pages/engineers-foundation/engineers-foundation.page.ts[m
+[1m+++ b/src/app/pages/engineers-foundation/engineers-foundation.page.ts[m
+[36m@@ -864,7 +864,7 @@[m [mexport class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy[m
+             [m
+             this.roomElevationData[template.RoomName] = {[m
+               roomName: template.RoomName,[m
+[31m-              templateId: template.PK_ID || template.TemplateId,[m
+[32m+[m[32m              templateId: template.TemplateID || template.PK_ID, // Use TemplateID field first[m[41m[m
+               elevationPoints: elevationPoints,[m
+               pointCount: template.PointCount || elevationPoints.length,[m
+               notes: '',[m
+[36m@@ -889,28 +889,48 @@[m [mexport class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy[m
+               const roomName = room.RoomName;[m
+               // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points[m
+               const roomId = room.EFEID;[m
+[32m+[m[32m              const templateId = room.TemplateID; // Use TemplateID to match templates[m[41m[m
+ [m
+[31m-              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId);[m
+[32m+[m[32m              console.log('[EFE Load] Processing room:', roomName, 'EFEID:', roomId, 'TemplateID:', templateId);[m[41m[m
+ [m
+[31m-              // Find matching template by RoomName - check all templates, not just auto[m
+[31m-              let template = baseTemplates.find((t: any) => t.RoomName === roomName);[m
+[31m-[m
+[31m-              // If not in auto templates, check all templates (for manually added rooms)[m
+[32m+[m[32m              // Find matching template by TemplateID first (handles renamed rooms), fallback to RoomName[m[41m[m
+[32m+[m[32m              let template = null;[m[41m[m
+[32m+[m[41m              [m
+[32m+[m[32m              if (templateId) {[m[41m[m
+[32m+[m[32m                // Try to find by TemplateID (works even if room was renamed)[m[41m[m
+[32m+[m[32m                template = this.allRoomTemplates.find((t: any) =>[m[41m [m
+[32m+[m[32m                  t.TemplateID === templateId || t.PK_ID === templateId[m[41m[m
+[32m+[m[32m                );[m[41m[m
+[32m+[m[32m                console.log('[EFE Load] Found template by TemplateID:', template?.RoomName);[m[41m[m
+[32m+[m[32m              }[m[41m[m
+[32m+[m[41m              [m
+[32m+[m[32m              // Fallback: try to match by RoomName for backward compatibility[m[41m[m
+               if (!template) {[m
+[31m-                // Extract base name by removing number suffix if present[m
+[31m-                const baseName = roomName.replace(/ #\d+$/, '');[m
+[31m-                template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);[m
+[31m-[m
+[31m-                // If found, add it to the display list so it shows up[m
+[32m+[m[32m                template = baseTemplates.find((t: any) => t.RoomName === roomName);[m[41m[m
+[32m+[m[41m                [m
+[32m+[m[32m                // If not in auto templates, check all templates (for manually added rooms)[m[41m[m
+[32m+[m[32m                if (!template) {[m[41m[m
+[32m+[m[32m                  // Extract base name by removing number suffix if present[m[41m[m
+[32m+[m[32m                  const baseName = roomName.replace(/ #\d+$/, '');[m[41m[m
+[32m+[m[32m                  template = this.allRoomTemplates.find((t: any) => t.RoomName === baseName);[m[41m[m
+[32m+[m[32m                }[m[41m[m
+[32m+[m[41m                [m
+                 if (template) {[m
+[31m-                  console.log('[EFE Load] Adding manually added room to display:', roomName);[m
+[31m-                  // Create a new template object with the numbered name[m
+[31m-                  const roomToAdd = { ...template, RoomName: roomName };[m
+[31m-                  roomsToDisplay.push(roomToAdd);[m
+[31m-                } else {[m
+[31m-                  console.warn('[EFE Load] No template found for room:', roomName);[m
+[32m+[m[32m                  console.log('[EFE Load] Found template by RoomName (fallback):', template.RoomName);[m[41m[m
+                 }[m
+               }[m
+[32m+[m[41m[m
+[32m+[m[32m              // If found, add it to the display list so it shows up with the saved name[m[41m[m
+[32m+[m[32m              if (template && !baseTemplates.find((t: any) => t.RoomName === roomName)) {[m[41m[m
+[32m+[m[32m                console.log('[EFE Load] Adding room to display with saved name:', roomName);[m[41m[m
+[32m+[m[32m                // Create a new template object with the saved room name[m[41m[m
+[32m+[m[32m                const roomToAdd = { ...template, RoomName: roomName };[m[41m[m
+[32m+[m[32m                roomsToDisplay.push(roomToAdd);[m[41m[m
+[32m+[m[32m              }[m[41m[m
+[32m+[m[41m              [m
+[32m+[m[32m              if (!template) {[m[41m[m
+[32m+[m[32m                console.warn('[EFE Load] No template found for room:', roomName, 'TemplateID:', templateId);[m[41m[m
+[32m+[m[32m              }[m[41m[m
+               [m
+               if (roomName && roomId) {[m
+                 console.log('[EFE Load] Marking room as selected:', roomName, 'EFEID:', roomId);[m
+[36m@@ -942,7 +962,7 @@[m [mexport class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy[m
+                   [m
+                   this.roomElevationData[roomName] = {[m
+                     roomName: roomName,[m
+[31m-                    templateId: template.PK_ID || template.TemplateId,[m
+[32m+[m[32m                    templateId: template.TemplateID || template.PK_ID, // Use TemplateID field first[m[41m[m
+                     elevationPoints: elevationPoints,[m
+                     pointCount: template.PointCount || elevationPoints.length,[m
+                     notes: '',[m
+[36m@@ -3000,12 +3020,17 @@[m [mexport class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy[m
+           return;[m
+         }[m
+         [m
+[31m-        // Send ServiceID and RoomName[m
+[32m+[m[32m        // Send ServiceID, RoomName, and TemplateID (critical for matching after renames)[m[41m[m
+         const roomData: any = {[m
+           ServiceID: serviceIdNum,[m
+           RoomName: roomName[m
+         };[m
+         [m
+[32m+[m[32m        // Include TemplateID to link back to template (critical for room name changes)[m[41m[m
+[32m+[m[32m        if (this.roomElevationData[roomName] && this.roomElevationData[roomName].templateId) {[m[41m[m
+[32m+[m[32m          roomData.TemplateID = this.roomElevationData[roomName].templateId;[m[41m[m
+[32m+[m[32m        }[m[41m[m
+[32m+[m[41m        [m
+         // Include FDF and Notes if they exist[m
+         if (this.roomElevationData[roomName]) {[m
+           if (this.roomElevationData[roomName].fdf) {[m

@@ -1,0 +1,94 @@
+[1mdiff --git a/src/app/pages/engineers-foundation/engineers-foundation.page.html b/src/app/pages/engineers-foundation/engineers-foundation.page.html[m
+[1mindex f0e54b9..f3d439e 100644[m
+[1m--- a/src/app/pages/engineers-foundation/engineers-foundation.page.html[m
+[1m+++ b/src/app/pages/engineers-foundation/engineers-foundation.page.html[m
+[36m@@ -872,8 +872,8 @@[m
+                    *ngIf="isBaseStation(room.RoomName)">[m
+               [m
+               <!-- Room card header with checkbox and collapse in header -->[m
+[31m-              <div class="room-card-header">[m
+[31m-                <ion-item lines="none" class="checkbox-item" [button]="false">[m
+[32m+[m[32m              <div class="room-card-header" style="position: relative;">[m[41m[m
+[32m+[m[32m                <ion-item lines="none" class="checkbox-item" [button]="false" [detail]="false">[m[41m[m
+                   <ion-checkbox [m
+                     slot="start" [m
+                     [checked]="isRoomSelected(room.RoomName)"[m
+[36m@@ -891,41 +891,6 @@[m
+                     <p class="item-text">{{ room.PointCount || 0 }} elevation points</p>[m
+                   </ion-label>[m
+                   <ion-spinner *ngIf="isRoomSaving(room.RoomName)" name="crescent" slot="end"></ion-spinner>[m
+[31m-                  <!-- Room action buttons (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->[m
+[31m-                  <div class="room-actions" slot="end" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)" [m
+[31m-                       style="display: flex; align-items: center; gap: 4px;"[m
+[31m-                       (click)="$event.stopPropagation(); $event.stopImmediatePropagation();"[m
+[31m-                       (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();">[m
+[31m-                    <!-- Rename button -->[m
+[31m-                    <button class="room-action-btn" [m
+[31m-                            (click)="renameRoom(room.RoomName, $event)"[m
+[31m-                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"[m
+[31m-                            title="Rename Room"[m
+[31m-                            type="button"[m
+[31m-                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">[m
+[31m-                      <ion-icon name="create-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m
+[31m-                    </button>[m
+[31m-                    <!-- Move up button -->[m
+[31m-                    <button class="room-action-btn" [m
+[31m-                            (click)="moveRoomUp(room.RoomName, $event)"[m
+[31m-                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"[m
+[31m-                            [disabled]="getRoomIndex(room.RoomName) === 0"[m
+[31m-                            title="Move Up"[m
+[31m-                            type="button"[m
+[31m-                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">[m
+[31m-                      <ion-icon name="arrow-up-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m
+[31m-                    </button>[m
+[31m-                    <!-- Move down button -->[m
+[31m-                    <button class="room-action-btn" [m
+[31m-                            (click)="moveRoomDown(room.RoomName, $event)"[m
+[31m-                            (mousedown)="$event.stopPropagation(); $event.stopImmediatePropagation();"[m
+[31m-                            [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"[m
+[31m-                            title="Move Down"[m
+[31m-                            type="button"[m
+[31m-                            style="background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">[m
+[31m-                      <ion-icon name="arrow-down-outline" style="font-size: 20px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m
+[31m-                    </button>[m
+[31m-                  </div>[m
+                   <!-- Collapse/expand icon in header when room is selected -->[m
+                   <ion-icon *ngIf="isRoomSelected(room.RoomName)"[m
+                             slot="end"[m
+[36m@@ -934,6 +899,36 @@[m
+                             style="cursor: pointer; font-size: 24px; color: var(--ion-color-medium);">[m
+                   </ion-icon>[m
+                 </ion-item>[m
+[32m+[m[32m                <!-- Room action buttons OUTSIDE ion-item (Webapp only - Mobile shows below when expanded, hidden for Base Station) -->[m[41m[m
+[32m+[m[32m                <div class="room-actions-external" *ngIf="platform.isWeb() && !isBaseStation(room.RoomName)"[m[41m [m
+[32m+[m[32m                     style="position: absolute; right: 50px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; z-index: 100; pointer-events: auto;">[m[41m[m
+[32m+[m[32m                  <!-- Rename button -->[m[41m[m
+[32m+[m[32m                  <button class="room-action-btn"[m[41m [m
+[32m+[m[32m                          (click)="renameRoom(room.RoomName, $event)"[m[41m[m
+[32m+[m[32m                          title="Rename Room"[m[41m[m
+[32m+[m[32m                          type="button"[m[41m[m
+[32m+[m[32m                          style="background: rgba(255,255,255,0.9); border: 1px solid #ddd; padding: 6px; cursor: pointer; display: flex; align-items: center; border-radius: 4px; pointer-events: auto;">[m[41m[m
+[32m+[m[32m                    <ion-icon name="create-outline" style="font-size: 18px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m[41m[m
+[32m+[m[32m                  </button>[m[41m[m
+[32m+[m[32m                  <!-- Move up button -->[m[41m[m
+[32m+[m[32m                  <button class="room-action-btn"[m[41m [m
+[32m+[m[32m                          (click)="moveRoomUp(room.RoomName, $event)"[m[41m[m
+[32m+[m[32m                          [disabled]="getRoomIndex(room.RoomName) === 0"[m[41m[m
+[32m+[m[32m                          title="Move Up"[m[41m[m
+[32m+[m[32m                          type="button"[m[41m[m
+[32m+[m[32m                          style="background: rgba(255,255,255,0.9); border: 1px solid #ddd; padding: 6px; cursor: pointer; display: flex; align-items: center; border-radius: 4px; pointer-events: auto;">[m[41m[m
+[32m+[m[32m                    <ion-icon name="arrow-up-outline" style="font-size: 18px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m[41m[m
+[32m+[m[32m                  </button>[m[41m[m
+[32m+[m[32m                  <!-- Move down button -->[m[41m[m
+[32m+[m[32m                  <button class="room-action-btn"[m[41m [m
+[32m+[m[32m                          (click)="moveRoomDown(room.RoomName, $event)"[m[41m[m
+[32m+[m[32m                          [disabled]="getRoomIndex(room.RoomName) === roomTemplates.length - 1"[m[41m[m
+[32m+[m[32m                          title="Move Down"[m[41m[m
+[32m+[m[32m                          type="button"[m[41m[m
+[32m+[m[32m                          style="background: rgba(255,255,255,0.9); border: 1px solid #ddd; padding: 6px; cursor: pointer; display: flex; align-items: center; border-radius: 4px; pointer-events: auto;">[m[41m[m
+[32m+[m[32m                    <ion-icon name="arrow-down-outline" style="font-size: 18px; color: var(--ion-color-medium); pointer-events: none;"></ion-icon>[m[41m[m
+[32m+[m[32m                  </button>[m[41m[m
+[32m+[m[32m                </div>[m[41m[m
+               </div>[m
+               [m
+               <!-- Show room content only when 
