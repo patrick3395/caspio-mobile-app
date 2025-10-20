@@ -972,3 +972,106 @@ textarea.styled-input {
   }
 }
 
+// Zelle Information Alert - matches app popup style
+.zelle-info-alert {
+  --backdrop-opacity: 0.55;
+
+  .alert-wrapper {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+    padding: 24px 0 12px;
+    min-width: min(380px, 90vw);
+  }
+
+  .alert-head {
+    padding: 8px 24px 16px;
+
+    .alert-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #333333;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .alert-message {
+    padding: 0 24px 20px;
+    color: #666666;
+    font-size: 15px;
+    line-height: 1.5;
+
+    .zelle-pay-to {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #666666;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .zelle-details {
+      color: #666666;
+      font-size: 15px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .zelle-recipient {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 14px 16px;
+      border: 1px solid #e8e8e8;
+
+      .zelle-name,
+      .zelle-number {
+        color: #333333;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.6;
+      }
+
+      .zelle-name {
+        margin-bottom: 4px;
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding: 12px 24px 20px;
+    justify-content: stretch;
+    display: flex;
+
+    .alert-button {
+      flex: 1 1 0;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: 999px;
+      border: none;
+      padding: 13px 0;
+      text-transform: uppercase;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+
+      .alert-button-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &.alert-button-ok {
+        color: #333;
+        background: #e8e8e8;
+
+        &:hover {
+          background: #d8d8d8;
+        }
+      }
+    }
+  }
+}
+
