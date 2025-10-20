@@ -194,6 +194,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private autoPdfRequested = false;
   private viewInitialized = false;
   private dataInitialized = false;
+  private isFirstLoad = true; // Prevent ionViewWillEnter from reloading on initial page load
   private pdfPreviewComponent?: PdfPreviewCtor;
   private subscriptions = new Subscription();
   private pendingVisualKeys: Set<string> = new Set();
@@ -437,6 +438,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error loading template data:', error);
     } finally {
       await this.dismissTemplateLoader();
+      this.isFirstLoad = false; // Mark first load as complete
     }
   }
   
@@ -519,6 +521,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async ionViewWillEnter() {
     console.log('==========================================');
     console.log('[Lifecycle] ionViewWillEnter CALLED');
+    console.log('[Lifecycle] isFirstLoad:', this.isFirstLoad);
     console.log('[Lifecycle] ServiceID:', this.serviceId);
     console.log('[Lifecycle] Current selectedRooms:', Object.keys(this.selectedRooms));
     console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
@@ -536,13 +539,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation ionViewWillEnter] Received ReportFinalized from history:', this.serviceData.ReportFinalized);
     }
 
+    // Re-add button listeners in case they were removed
+    this.addButtonEventListeners();
+
+    // Skip data reload on first load - ngOnInit already handles it
+    // Only reload when returning to the page after navigating away
+    if (this.isFirstLoad) {
+      console.log('[Lifecycle] Skipping data reload on first load - handled by ngOnInit');
+      return;
+    }
+
     // CRITICAL: Clear all caches to force fresh data load from Caspio
     // This prevents stale cached data from being displayed when returning to the page
     console.log('[Lifecycle] Clearing all data caches...');
     this.foundationData.clearAllCaches();
-
-    // Re-add button listeners in case they were removed
-    this.addButtonEventListeners();
 
     // CRITICAL FIX: Reload existing selections when returning to the page
     // This ensures data persists when navigating back and forth

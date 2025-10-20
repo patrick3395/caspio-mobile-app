@@ -769,7 +769,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       ],
-      cssClass: 'custom-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -1596,7 +1596,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       ],
-      cssClass: 'custom-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -1826,7 +1826,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       ],
-      cssClass: 'custom-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -2167,7 +2167,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       ],
-      cssClass: 'custom-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -2244,7 +2244,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       ],
-      cssClass: 'custom-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
