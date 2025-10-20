@@ -59,11 +59,27 @@ ion-header {
   --padding-bottom: 14px;
   font-weight: 600;
   font-size: 1rem;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --border-width: 1px;
+  --border-color: #d0d0d0;
+  --border-style: solid;
 }
 
 .paypal-button-container {
-  margin-top: 1rem;
+  margin-top: 0;
   min-height: 150px;
+  
+  // Make PayPal buttons match Zelle button size
+  ::ng-deep {
+    .paypal-buttons {
+      min-height: 48px !important;
+    }
+    
+    .paypal-button {
+      height: 48px !important;
+      min-height: 48px !important;
+    }
+  }
 }
 
 .loading-overlay {

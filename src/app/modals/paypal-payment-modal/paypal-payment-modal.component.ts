@@ -75,7 +75,8 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
         layout: 'vertical',
         color: 'gold',
         shape: 'rect',
-        label: 'paypal'
+        label: 'paypal',
+        height: 48
       },
 
       // Create order
@@ -173,14 +174,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   async showZelleInfo() {
     const alert = await this.alertController.create({
       header: 'Zelle Information',
-      message: `
-        <p style="margin-bottom: 16px;">We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).</p>
-        <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-top: 12px;">
-          <p style="margin: 0 0 8px 0; font-weight: 600; color: #333;">Patrick Bullock</p>
-          <p style="margin: 0; color: #666;">Zelle to: (512) 298-9395</p>
-        </div>
-        <p style="margin-top: 16px; font-size: 14px; color: #666;">Your account will be updated after receipt ASAP.</p>
-      `,
+      message: 'We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).\n\nPatrick Bullock\nZelle to: (512) 298-9395\n\nYour account will be updated after receipt ASAP.',
       buttons: ['OK']
     });
     await alert.present();
