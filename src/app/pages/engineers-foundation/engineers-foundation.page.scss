@@ -2653,46 +2653,44 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   // Smaller images on mobile with proper alignment and spacing - INCLUDING Structural Systems
-  // For ~375px mobile width: Need to fit 3 images with margins and caption space
-  // Total per image = 45px image + 4px margins + padding-bottom = ~75px total
-  // 75px × 3 = 225px + gaps (6px) + padding (8px) = 239px < 375px ✓
+  // For ~375px mobile width: 35px × 3 = 105px + margins (12px) + gaps (6px) + padding (8px) = 131px ✓
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 45px !important; // Smaller to ensure 3 fit per row
-    min-height: 45px !important;
-    margin: 2px !important; // Minimal margin
+    width: 35px !important; // Compact size to fit 3 per row
+    min-height: 35px !important;
+    margin: 2px !important;
     margin-top: 0 !important;
     text-align: center !important;
-    padding-bottom: 26px !important; // Space for caption
-    box-shadow: none !important; // Remove shadow on mobile for cleaner look
+    padding-bottom: 22px !important; // Compact caption space
+    box-shadow: none !important;
     
     img,
     .fdf-photo-image {
-      width: 45px !important;
-      height: 45px !important;
+      width: 35px !important;
+      height: 35px !important;
       display: block !important;
       margin: 0 auto !important;
-      border-width: 1px !important; // Thinner border on mobile
+      border-width: 1px !important;
     }
     
     .delete-btn {
-      width: 18px !important; // Smaller delete button on mobile
-      height: 18px !important;
-      top: -4px !important;
-      right: -4px !important;
-      border-width: 1px !important; // Thinner border
+      width: 16px !important;
+      height: 16px !important;
+      top: -3px !important;
+      right: -3px !important;
+      border-width: 1px !important;
       
       ion-icon {
-        font-size: 8px !important;
+        font-size: 7px !important;
       }
     }
     
     .image-caption {
-      width: 45px !important;
-      font-size: 8px !important;
-      padding: 2px 3px !important;
+      width: 35px !important;
+      font-size: 7px !important;
+      padding: 2px !important;
     }
   }
   
@@ -2767,45 +2765,44 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   // Even smaller images for tiny phones with proper alignment and spacing - INCLUDING Structural Systems
-  // For ~320px tiny mobile: Need very compact sizing
-  // 40px × 3 = 120px + margins (12px) + gaps (4px) + padding (6px) = 142px < 320px ✓
+  // For ~320px tiny mobile: 30px × 3 = 90px + margins (12px) + gaps (4px) + padding (6px) = 112px ✓
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 40px !important; // Very compact for tiny phones
-    min-height: 40px !important;
+    width: 30px !important; // Very compact for tiny phones
+    min-height: 30px !important;
     margin: 2px !important;
     margin-top: 0 !important;
     text-align: center !important;
-    padding-bottom: 24px !important; // Compact caption space
-    box-shadow: none !important; // Remove shadow on tiny phones
+    padding-bottom: 20px !important; // Compact caption space
+    box-shadow: none !important;
     
     img,
     .fdf-photo-image {
-      width: 40px !important;
-      height: 40px !important;
+      width: 30px !important;
+      height: 30px !important;
       display: block !important;
       margin: 0 auto !important;
-      border-width: 1px !important; // Thinner border
+      border-width: 1px !important;
     }
     
     .delete-btn {
-      width: 16px !important; // Even smaller delete button on tiny phones
-      height: 16px !important;
-      top: -3px !important;
-      right: -3px !important;
-      border-width: 1px !important; // Thinner border
+      width: 14px !important;
+      height: 14px !important;
+      top: -2px !important;
+      right: -2px !important;
+      border-width: 1px !important;
       
       ion-icon {
-        font-size: 7px !important;
+        font-size: 6px !important;
       }
     }
     
     .image-caption {
-      width: 40px !important;
-      font-size: 7px !important;
-      padding: 2px !important;
+      width: 30px !important;
+      font-size: 6px !important;
+      padding: 1px !important;
     }
   }
   
