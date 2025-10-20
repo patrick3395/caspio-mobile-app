@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
-import { ModalController, AlertController } from '@ionic/angular';
+import { ModalController, AlertController, IonicSafeString } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -172,14 +172,14 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   }
 
   async showZelleInfo() {
-    const content = `
+    const content = new IonicSafeString(`
       <div class="zelle-pay-to">Pay to</div>
       <div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).</div>
       <div class="zelle-recipient">
         <div class="zelle-name">Name: Patrick Bullock</div>
         <div class="zelle-number">Number: (512) 298-9395</div>
       </div>
-    `;
+    `);
 
     const alert = await this.alertController.create({
       header: 'Zelle Information',
