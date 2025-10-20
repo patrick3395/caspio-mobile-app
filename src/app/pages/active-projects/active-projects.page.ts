@@ -463,15 +463,18 @@ export class ActiveProjectsPage implements OnInit {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
           text: 'Archive',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.performProjectDeletion(project);
           }
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();

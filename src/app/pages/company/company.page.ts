@@ -4224,7 +4224,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   private isDateInPast(date: Date): boolean {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return date.getTime() < today.getTime();
+    const compareDate = new Date(date);
+    compareDate.setHours(0, 0, 0, 0);
+    return compareDate.getTime() < today.getTime();
   }
 
   private formatShortDate(value: Date | string | null | undefined): string {
