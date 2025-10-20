@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
-import { ModalController, AlertController, IonicSafeString } from '@ionic/angular';
+import { ModalController, AlertController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -22,14 +22,11 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   isLoading = false;
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
-  private readonly zelleInfoMessage: IonicSafeString;
 
   constructor(
     private modalController: ModalController,
     private alertController: AlertController
-  ) {
-    this.zelleInfoMessage = this.buildZelleInfoMessage();
-  }
+  ) {}
 
   ngOnInit() {
     console.log('PayPal Payment Modal initialized with invoice:', this.invoice);
@@ -175,21 +172,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   }
 
   async showZelleInfo() {
-    const alert = await this.alertController.create({
-      header: 'Zelle Information',
-      cssClass: 'zelle-info-alert',
-      message: this.zelleInfoMessage,
-      buttons: [
-        {
-          text: 'OK',
-          cssClass: 'alert-button-ok'
-        }
-      ]
-    });
-    await alert.present();
-  }
-
-  private buildZelleInfoMessage(): IonicSafeString {
     const content = `
       <div class="zelle-pay-to">Pay to</div>
       <div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).</div>
@@ -199,7 +181,18 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
       </div>
     `;
 
-    return new IonicSafeString(content);
+    const alert = await this.alertController.create({
+      header: 'Zelle Information',
+      cssClass: 'zelle-info-alert',
+      message: content,
+      buttons: [
+        {
+          text: 'OK',
+          cssClass: 'alert-button-ok'
+        }
+      ]
+    });
+    await alert.present();
   }
 
   cancel() {

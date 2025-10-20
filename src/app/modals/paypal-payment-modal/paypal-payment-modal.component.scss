@@ -68,7 +68,9 @@ ion-header {
   --border-style: solid;
   --border-width: 1px;
   --box-shadow: none;
-  width: 100%;
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
 
   ion-icon {
     font-size: 1.2rem;
@@ -78,14 +80,17 @@ ion-header {
 .paypal-button-container {
   margin-top: 0;
   min-height: 150px;
-  
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
+
   // Make PayPal buttons match Zelle button size
   ::ng-deep {
     .paypal-buttons {
       min-height: 48px !important;
       width: 100% !important;
     }
-    
+
     .paypal-button {
       height: 48px !important;
       min-height: 48px !important;
