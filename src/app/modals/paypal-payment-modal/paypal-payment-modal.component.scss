@@ -55,6 +55,8 @@ ion-header {
 
 .zelle-button {
   margin-bottom: 1.5rem;
+  min-height: 48px;
+  max-height: 48px;
   height: 48px;
   font-weight: 600;
   font-size: 1rem;
@@ -62,6 +64,10 @@ ion-header {
   --border-width: 1px;
   --border-color: #d0d0d0;
   --border-style: solid;
+  
+  ion-icon {
+    font-size: 1.2rem;
+  }
 }
 
 .paypal-button-container {
@@ -144,21 +150,30 @@ ion-item {
   }
 }
 
-// Zelle alert styling
-:host ::ng-deep .zelle-alert {
+// Zelle alert styling - Global styles
+::ng-deep .zelle-alert {
   .alert-message {
     text-align: left;
     
-    p {
-      margin: 8px 0;
-      line-height: 1.5;
-    }
-    
-    h4 {
-      margin-top: 16px;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: #333;
+    .zelle-info-content {
+      p {
+        margin: 8px 0 !important;
+        line-height: 1.5 !important;
+        color: #333 !important;
+      }
+      
+      h4 {
+        margin-top: 16px !important;
+        margin-bottom: 8px !important;
+        font-weight: 600 !important;
+        color: #333 !important;
+        font-size: 1.1rem !important;
+      }
+      
+      strong {
+        font-weight: 600;
+        color: #000;
+      }
     }
   }
 }
