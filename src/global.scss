@@ -1002,27 +1002,30 @@ textarea.styled-input {
     font-size: 15px;
     line-height: 1.5;
 
-    .zelle-pay-to {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #666666;
-      margin-bottom: 12px;
-      text-align: left;
-    }
-
     .zelle-details {
       color: #666666;
       font-size: 15px;
       line-height: 1.5;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .zelle-pay-to {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #333333;
+      margin: 20px 0 14px;
       text-align: left;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e8e8e8;
     }
 
     .zelle-recipient {
       background: #f9f9f9;
       border-radius: 8px;
-      padding: 14px 16px;
+      padding: 16px 18px;
       border: 1px solid #e8e8e8;
+      margin-top: 12px;
 
       .zelle-name,
       .zelle-number {
@@ -1033,7 +1036,7 @@ textarea.styled-input {
       }
 
       .zelle-name {
-        margin-bottom: 4px;
+        margin-bottom: 6px;
       }
     }
   }
