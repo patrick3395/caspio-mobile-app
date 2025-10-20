@@ -149,31 +149,3 @@ ion-item {
     color: var(--ion-color-dark);
   }
 }
-
-// Zelle alert styling - Global styles
-::ng-deep .zelle-alert {
-  .alert-message {
-    text-align: left;
-    
-    .zelle-info-content {
-      p {
-        margin: 8px 0 !important;
-        line-height: 1.5 !important;
-        color: #333 !important;
-      }
-      
-      h4 {
-        margin-top: 16px !important;
-        margin-bottom: 8px !important;
-        font-weight: 600 !important;
-        color: #333 !important;
-        font-size: 1.1rem !important;
-      }
-      
-      strong {
-        font-weight: 600;
-        color: #000;
-      }
-    }
-  }
-}
