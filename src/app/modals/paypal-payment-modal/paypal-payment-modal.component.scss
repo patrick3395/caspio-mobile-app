@@ -53,13 +53,12 @@ ion-header {
   }
 }
 
-.zelle-note {
-  text-align: left;
-  margin: 0 0 1.5rem 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: #666;
-  font-style: italic;
+.zelle-button {
+  margin-bottom: 1.5rem;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .paypal-button-container {
