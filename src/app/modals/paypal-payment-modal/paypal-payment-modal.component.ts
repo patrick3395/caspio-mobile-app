@@ -174,12 +174,13 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   async showZelleInfo() {
     const alert = await this.alertController.create({
       header: 'Zelle Information',
-      subHeader: 'Pay to',
       cssClass: 'zelle-info-alert',
-      message: `We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).
+      message: `We prefer Zelle payments to avoid transaction fees (we choose not to pass on transaction fees to our partners).
+
+Pay To
 
 Name: Patrick Bullock
-Number: (512) 298-9395`,
+Phone: (512) 298-9395`,
       buttons: ['OK']
     });
     await alert.present();
