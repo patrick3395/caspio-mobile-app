@@ -2663,25 +2663,26 @@ ion-content{--overflow:scroll !important;height:100%}
   .image-preview.structural-photo-preview {
     position: relative !important;
     width: calc((100% - 8px) / 3) !important; // Dynamic: always 3 per row
-    max-width: 100px !important; // Cap at 100px to prevent too large on tablets
-    min-width: 28px !important; // Minimum 28px for tiny screens
+    max-width: 100px !important;
+    min-width: 28px !important;
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
-    padding-top: 8px !important; // Increased top space for delete button (was 6px)
+    padding-top: 8px !important; // Top space for delete button
     padding-bottom: 0 !important;
     text-align: center !important;
     box-shadow: none !important;
-    overflow: visible !important; // CRITICAL: Allow delete button to show outside
+    background: transparent !important; // Remove white background
+    overflow: visible !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     
     img,
     .fdf-photo-image {
-      width: 100% !important; // Fill container dynamically
+      width: 100% !important;
       height: auto !important;
-      aspect-ratio: 1 / 1; // Keep square
+      aspect-ratio: 1 / 1;
       display: block !important;
       margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
@@ -2692,7 +2693,7 @@ ion-content{--overflow:scroll !important;height:100%}
       position: absolute !important;
       width: 16px !important;
       height: 16px !important;
-      top: 3px !important; // Position within increased top padding
+      top: 3px !important;
       right: -4px !important;
       border-width: 1px !important;
       z-index: 100 !important;
@@ -2705,8 +2706,7 @@ ion-content{--overflow:scroll !important;height:100%}
     .image-caption {
       position: relative !important;
       display: block !important;
-      width: 95% !important; // Slightly smaller than image to stay within bounds
-      max-width: calc(100% - 4px) !important; // Ensure it doesn't overflow
+      width: 100% !important; // Match image width
       box-sizing: border-box !important;
       font-size: 7px !important;
       padding: 2px !important;
@@ -2714,7 +2714,7 @@ ion-content{--overflow:scroll !important;height:100%}
       border-radius: 3px !important;
       background: white !important;
       text-align: center !important;
-      margin: 0 !important;
+      margin: 0 auto !important; // Center the caption
     }
   }
   
@@ -2798,23 +2798,24 @@ ion-content{--overflow:scroll !important;height:100%}
   .image-preview.structural-photo-preview {
     position: relative !important;
     width: calc((100% - 6px) / 3) !important; // Dynamic: always 3 per row
-    max-width: 80px !important; // Smaller cap for tiny phones
-    min-width: 26px !important; // Minimum for very small screens
+    max-width: 80px !important;
+    min-width: 26px !important;
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
-    padding-top: 7px !important; // Increased top space for delete button (was 5px)
+    padding-top: 7px !important; // Top space for delete button
     padding-bottom: 0 !important;
     text-align: center !important;
     box-shadow: none !important;
-    overflow: visible !important; // CRITICAL: Allow delete button to show outside
+    background: transparent !important; // Remove white background
+    overflow: visible !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     
     img,
     .fdf-photo-image {
-      width: 100% !important; // Fill container dynamically
+      width: 100% !important;
       height: auto !important;
       aspect-ratio: 1 / 1;
       display: block !important;
@@ -2827,7 +2828,7 @@ ion-content{--overflow:scroll !important;height:100%}
       position: absolute !important;
       width: 14px !important;
       height: 14px !important;
-      top: 2px !important; // Position within increased top padding
+      top: 2px !important;
       right: -3px !important;
       border-width: 1px !important;
       z-index: 100 !important;
@@ -2840,8 +2841,7 @@ ion-content{--overflow:scroll !important;height:100%}
     .image-caption {
       position: relative !important;
       display: block !important;
-      width: 95% !important; // Slightly smaller than image
-      max-width: calc(100% - 4px) !important; // Ensure it doesn't overflow
+      width: 100% !important; // Match image width
       box-sizing: border-box !important;
       font-size: 6px !important;
       padding: 2px !important;
@@ -2849,7 +2849,7 @@ ion-content{--overflow:scroll !important;height:100%}
       border-radius: 3px !important;
       background: white !important;
       text-align: center !important;
-      margin: 0 !important;
+      margin: 0 auto !important; // Center the caption
     }
   }
   
