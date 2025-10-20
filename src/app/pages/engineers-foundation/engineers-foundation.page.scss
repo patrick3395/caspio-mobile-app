@@ -2643,36 +2643,41 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Reduce padding and gap for Structural Systems on mobile to fit 3 images
+  // DYNAMIC sizing for Structural Systems on mobile - ALWAYS fits 3 per row
   .image-preview-section {
-    padding: 4px !important; // Minimal padding to maximize space
+    padding: 4px !important;
   }
   
   .image-preview-section .image-preview-container {
-    gap: 3px !important; // Minimal gap between images
+    gap: 4px !important;
+    justify-content: flex-start; // Align items to start
   }
   
-  // Smaller images on mobile with proper alignment and spacing - INCLUDING Structural Systems
-  // For ~375px mobile width: 35px × 3 = 105px + margins (12px) + gaps (6px) + padding (8px) = 131px ✓
+  // DYNAMIC width calculation: (100% - gaps) / 3 images
+  // calc((100% - 8px) / 3) ensures exactly 3 images fit regardless of screen width
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 35px !important; // Compact size to fit 3 per row
-    min-height: 35px !important;
-    margin: 2px !important;
-    margin-top: 0 !important;
+    width: calc((100% - 8px) / 3) !important; // Dynamic: always 3 per row
+    max-width: 100px !important; // Cap at 100px to prevent too large on tablets
+    min-width: 28px !important; // Minimum 28px for tiny screens
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
     text-align: center !important;
-    padding-bottom: 22px !important; // Compact caption space
+    padding-bottom: 22px !important;
     box-shadow: none !important;
     
     img,
     .fdf-photo-image {
-      width: 35px !important;
-      height: 35px !important;
+      width: 100% !important; // Fill container dynamically
+      height: auto !important; // Maintain aspect ratio
+      aspect-ratio: 1 / 1; // Keep square
       display: block !important;
       margin: 0 auto !important;
       border-width: 1px !important;
+      border-radius: 8px !important;
     }
     
     .delete-btn {
@@ -2688,7 +2693,7 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      width: 35px !important;
+      width: 100% !important; // Match image width dynamically
       font-size: 7px !important;
       padding: 2px !important;
     }
@@ -2755,36 +2760,40 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Reduce padding and gap for Structural Systems on extra small mobile
+  // DYNAMIC sizing for extra small mobile - ALWAYS fits 3 per row
   .image-preview-section {
-    padding: 3px !important; // Minimal padding for tiny phones
+    padding: 3px !important;
   }
   
   .image-preview-section .image-preview-container {
-    gap: 2px !important; // Minimal gap for tiny phones
+    gap: 3px !important;
+    justify-content: flex-start;
   }
   
-  // Even smaller images for tiny phones with proper alignment and spacing - INCLUDING Structural Systems
-  // For ~320px tiny mobile: 30px × 3 = 90px + margins (12px) + gaps (4px) + padding (6px) = 112px ✓
+  // DYNAMIC width for tiny phones: calc((100% - 6px) / 3)
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
-    width: 30px !important; // Very compact for tiny phones
-    min-height: 30px !important;
-    margin: 2px !important;
-    margin-top: 0 !important;
+    width: calc((100% - 6px) / 3) !important; // Dynamic: always 3 per row
+    max-width: 80px !important; // Smaller cap for tiny phones
+    min-width: 26px !important; // Minimum for very small screens
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
     text-align: center !important;
-    padding-bottom: 20px !important; // Compact caption space
+    padding-bottom: 20px !important;
     box-shadow: none !important;
     
     img,
     .fdf-photo-image {
-      width: 30px !important;
-      height: 30px !important;
+      width: 100% !important; // Fill container dynamically
+      height: auto !important;
+      aspect-ratio: 1 / 1;
       display: block !important;
       margin: 0 auto !important;
       border-width: 1px !important;
+      border-radius: 6px !important;
     }
     
     .delete-btn {
@@ -2800,7 +2809,7 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      width: 30px !important;
+      width: 100% !important; // Match image width dynamically
       font-size: 6px !important;
       padding: 1px !important;
     }
