@@ -3153,6 +3153,13 @@ export class CompanyPage implements OnInit, OnDestroy {
     return this.companyNameLookup.get(companyId) ?? 'Unassigned';
   }
 
+  getFirstName(fullName: string | null | undefined): string {
+    if (!fullName) {
+      return '';
+    }
+    return fullName.split(' ')[0];
+  }
+
   formatDate(value: Date | string | null | undefined): string {
     const date = value instanceof Date ? value : value ? new Date(value) : null;
     if (!date || isNaN(date.getTime())) {

@@ -1215,6 +1215,29 @@ ion-segment.filter-segment {
       color: #f39c12;
     }
   }
+
+  .website-link {
+    display: inline-block;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--noble-orange, #F15A27);
+    font-weight: 500;
+    line-height: 1.5;
+    text-decoration: none;
+    word-break: break-word;
+    transition: opacity 0.2s ease, text-decoration 0.2s ease;
+
+    &:hover {
+      opacity: 0.8;
+      text-decoration: underline;
+    }
+
+    &.wrap-text {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+  }
 }
 
 .rollup-actions {

@@ -366,12 +366,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   ) {}
 
   async ngOnInit() {
+    console.log('[ngOnInit] ========== START ==========');
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
     
     console.log('[ngOnInit] ProjectId from route:', this.projectId);
     console.log('[ngOnInit] ServiceId from route:', this.serviceId);
+    console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
     // Check for ReportFinalized flag from navigation state
     const navigation = this.router.getCurrentNavigation();
@@ -417,9 +419,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
+    console.log('[ngOnInit] About to call presentTemplateLoader()');
     await this.presentTemplateLoader();
+    console.log('[ngOnInit] presentTemplateLoader() completed');
 
     try {
+      console.log('[ngOnInit] Starting Promise.all data loading...');
       await Promise.all([
         this.loadProjectData(),
         this.loadVisualCategories(),
@@ -429,16 +434,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadServicesDropdownOptions(),
         this.loadVisualDropdownOptions()
       ]);
+      console.log('[ngOnInit] Promise.all completed');
       
       // Then load any existing template data (including visual selections)
+      console.log('[ngOnInit] Starting loadExistingData...');
       await this.loadExistingData();
+      console.log('[ngOnInit] loadExistingData completed');
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
     } finally {
+      console.log('[ngOnInit] About to dismiss loader and set isFirstLoad = false');
       await this.dismissTemplateLoader();
       this.isFirstLoad = false; // Mark first load as complete
+      console.log('[ngOnInit] ========== END ==========');
     }
   }
   
@@ -9820,11 +9830,16 @@ Stack: ${error?.stack}`;
   }
 
   private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
+    console.log('[presentTemplateLoader] Called with message:', message);
+    console.log('[presentTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
+    
     if (this.templateLoaderPresented) {
+      console.log('[presentTemplateLoader] Loader already presented, returning early');
       return;
     }
 
     this.templateLoadStart = Date.now();
+    console.log('[presentTemplateLoader] Creating alert controller...');
 
     try {
       // Create loading popup with cancel button
@@ -9843,8 +9858,10 @@ Stack: ${error?.stack}`;
       });
 
       if (this.templateLoader) {
+        console.log('[presentTemplateLoader] Presenting loader...');
         await this.templateLoader.present();
         this.templateLoaderPresented = true;
+        console.log('[presentTemplateLoader] Loader presented successfully');
       }
 
     } catch (error) {
@@ -9869,24 +9886,33 @@ Stack: ${error?.stack}`;
   }
 
   private async dismissTemplateLoader(): Promise<void> {
+    console.log('[dismissTemplateLoader] Called');
+    console.log('[dismissTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
+    
     if (!this.templateLoaderPresented) {
+      console.log('[dismissTemplateLoader] No loader to dismiss, returning early');
       return;
     }
 
     const elapsed = Date.now() - this.templateLoadStart;
     const remaining = this.templateLoaderMinDuration - elapsed;
+    console.log('[dismissTemplateLoader] Elapsed:', elapsed, 'ms, Remaining:', remaining, 'ms');
 
     if (remaining > 0) {
+      console.log('[dismissTemplateLoader] Waiting for minimum duration...');
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
     try {
+      console.log('[dismissTemplateLoader] Dismissing loader...');
       await this.templateLoader?.dismiss();
+      console.log('[dismissTemplateLoader] Loader dismissed successfully');
     } catch (error) {
       console.warn('[TemplateLoader] Failed to dismiss loading overlay:', error);
     } finally {
       this.templateLoaderPresented = false;
       this.templateLoader = undefined;
+      console.log('[dismissTemplateLoader] Cleanup complete');
     }
   }
 

@@ -189,7 +189,10 @@
                 <div class="detail-row">
                   <div class="detail-col">
                     <label>Website</label>
-                    <p class="wrap-text">{{ company.Website || 'Not provided' }}</p>
+                    <p class="wrap-text" *ngIf="!company.Website">Not provided</p>
+                    <a *ngIf="company.Website" [href]="company.Website" target="_blank" rel="noopener noreferrer" class="website-link wrap-text">
+                      {{ company.Website }}
+                    </a>
                   </div>
                   <div class="detail-col">
                     <label>Address</label>
@@ -399,7 +402,7 @@
               (click)="$event.stopPropagation()">
             </ion-checkbox>
             <ion-label>
-              <h4>{{ task.assignTo || 'Unassigned' }} • {{ task.communicationType || 'General' }}</h4>
+              <h4>{{ getFirstName(task.assignTo) || 'Unassigned' }} • {{ task.communicationType || 'General' }}</h4>
               <p>{{ task.assignmentShort || task.assignment || 'No details provided' }}</p>
             </ion-label>
             <ion-badge class="completed-badge" *ngIf="task.completed">Completed</ion-badge>
