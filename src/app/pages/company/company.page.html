@@ -472,7 +472,10 @@
           <div class="timeline-content">
             <div class="timeline-header">
               <h4>{{ meeting.subject }}</h4>
-              <span>{{ formatDateShort(meeting.startDate) }}</span>
+              <div class="meeting-datetime">
+                <span>{{ formatDateShort(meeting.startDate) }}</span>
+                <span class="meeting-time">{{ formatTime(meeting.startDate) }}</span>
+              </div>
             </div>
             <p>{{ meeting.description || 'No description provided.' }}</p>
             <div class="timeline-meta">

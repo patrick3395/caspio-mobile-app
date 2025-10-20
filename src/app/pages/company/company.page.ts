@@ -2563,8 +2563,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     const assignedFilter = this.taskFilters.assignedTo;
     const timeframeFilter = this.taskFilters.timeframe;
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    sevenDaysFromNow.setHours(23, 59, 59, 999);
 
     this.filteredTasks = this.tasks.filter(task => {
       // Global company filter
@@ -2575,15 +2577,30 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Timeframe filtering
       if (timeframeFilter === 'overdue') {
         // Show only overdue tasks (past due date and not completed)
-        if (!task.dueDate || task.dueDate >= now || task.completed) {
+        if (!task.dueDate) {
+          return false;
+        }
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(0, 0, 0, 0);
+        if (taskDate >= now || task.completed) {
           return false;
         }
       } else if (timeframeFilter === 'past') {
-        if (!task.dueDate || task.dueDate > now) {
+        if (!task.dueDate) {
+          return false;
+        }
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(23, 59, 59, 999);
+        if (taskDate > now) {
           return false;
         }
       } else if (timeframeFilter === '7day') {
-        if (!task.dueDate || task.dueDate < now || task.dueDate > sevenDaysFromNow) {
+        if (!task.dueDate) {
+          return false;
+        }
+        const taskDate = new Date(task.dueDate);
+        taskDate.setHours(0, 0, 0, 0);
+        if (taskDate < now || taskDate > sevenDaysFromNow) {
           return false;
         }
       }
@@ -3181,6 +3198,18 @@ export class CompanyPage implements OnInit, OnDestroy {
     const day = date.getDate();
     const year = date.getFullYear() % 100; // Get last 2 digits of year
     return `${month}/${day}/${year}`;
+  }
+
+  formatTime(value: Date | string | null | undefined): string {
+    const date = value instanceof Date ? value : value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '';
+    }
+    return new Intl.DateTimeFormat(undefined, { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    }).format(date);
   }
 
   formatCurrency(value: number | string | null | undefined): string {

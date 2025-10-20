@@ -299,6 +299,27 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.loading = false;
         this.loadingServices = false;
         this.loadingDocuments = false;
+        
+        // CRITICAL FIX: Apply pending finalized service flag if data was restored from cache
+        // Without this, the finalized flag won't be applied when returning from engineers-foundation
+        if (this.pendingFinalizedServiceId && this.selectedServices.length > 0) {
+          console.log('[ProjectDetail] Applying finalized flag after cache restore. Looking for serviceId:', this.pendingFinalizedServiceId);
+          
+          const service = this.selectedServices.find(s =>
+            s.serviceId === this.pendingFinalizedServiceId ||
+            s.serviceId === String(this.pendingFinalizedServiceId) ||
+            String(s.serviceId) === String(this.pendingFinalizedServiceId)
+          );
+          
+          if (service) {
+            console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
+            service.ReportFinalized = true;
+            this.changeDetectorRef.detectChanges();
+          } else {
+            console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
+          }
+          this.pendingFinalizedServiceId = null;
+        }
       }
     } else {
       console.error('❌ DEBUG: No projectId provided!');

@@ -1471,6 +1471,24 @@ ion-segment.filter-segment {
   font-weight: 600;
 }
 
+.timeline-header .meeting-datetime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.timeline-header .meeting-datetime span {
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.timeline-header .meeting-datetime .meeting-time {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ion-color-medium);
+}
+
 .timeline-header span {
   font-size: 0.85rem;
   color: var(--ion-color-medium);
