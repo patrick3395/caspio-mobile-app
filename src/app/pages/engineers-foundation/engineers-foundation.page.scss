@@ -1439,9 +1439,10 @@ ion-content{--overflow:scroll !important;height:100%}
                       transform: scale(1.05);
                     }
                     
-                    &.has-annotations {
-                      border-color: var(--noble-orange) !important;
-                    }
+                    // Removed orange border for annotated photos - keep consistent styling
+                    // &.has-annotations {
+                    //   border-color: var(--noble-orange) !important;
+                    // }
                   }
                   
                   // Clean delete button styling - EXACT match to Elevation Plot
@@ -1576,9 +1577,10 @@ ion-content{--overflow:scroll !important;height:100%}
                     pointer-events: none; // Ensure they can't block clicks
                   }
                   
-                  &.annotated img {
-                    border: 2px solid #F15A27;
-                  }
+                  // Removed orange border for annotated photos - keep consistent styling
+                  // &.annotated img {
+                  //   border: 2px solid #F15A27;
+                  // }
                   
                   .delete-btn {
                     position: absolute;

@@ -1228,11 +1228,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         },
         {
           text: 'Delete',
-          role: 'destructive',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             try {
               const roomId = this.efeRecordIds[roomName];
@@ -1260,7 +1261,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
     
     await alert.present();
@@ -3303,11 +3305,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         buttons: [
           {
             text: 'Cancel',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           },
           {
             text: 'Delete',
-            cssClass: 'danger-button',
+            cssClass: 'alert-button-confirm',
             handler: async () => {
               try {
                 // Delete from Services_EFE_Points_Attach table if attachId exists
@@ -3329,7 +3332,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               }
             }
           }
-        ]
+        ],
+        cssClass: 'custom-document-alert'
       });
       
       await alert.present();
@@ -6850,10 +6854,12 @@ Stack: ${error?.stack}`;
         buttons: [
           {
             text: 'Cancel',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           },
           {
             text: 'Delete',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               // Return false to prevent auto-dismiss, dismiss manually after delete
               // This prevents the handler from blocking the alert dismissal
@@ -6892,7 +6898,8 @@ Stack: ${error?.stack}`;
               return true; // Allow alert to dismiss immediately
             }
           }
-        ]
+        ],
+        cssClass: 'custom-document-alert'
       });
       
       await alert.present();
