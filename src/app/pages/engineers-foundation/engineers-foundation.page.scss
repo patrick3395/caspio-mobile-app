@@ -2706,7 +2706,7 @@ ion-content{--overflow:scroll !important;height:100%}
     .image-caption {
       position: relative !important;
       display: block !important;
-      width: 100% !important; // Match image width
+      width: 90% !important; // 10% smaller than image
       box-sizing: border-box !important;
       font-size: 7px !important;
       padding: 2px !important;
