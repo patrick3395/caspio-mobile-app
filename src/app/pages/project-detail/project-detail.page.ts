@@ -303,7 +303,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // CRITICAL FIX: Apply pending finalized service flag if data was restored from cache
         // Without this, the finalized flag won't be applied when returning from engineers-foundation
         if (this.pendingFinalizedServiceId && this.selectedServices.length > 0) {
-          console.log('[ProjectDetail] Applying finalized flag after cache restore. Looking for serviceId:', this.pendingFinalizedServiceId);
+          console.log('[ProjectDetail ngOnInit] ✅ Cache restored, applying finalized flag');
+          console.log('[ProjectDetail ngOnInit] Looking for serviceId:', this.pendingFinalizedServiceId, 'Type:', typeof this.pendingFinalizedServiceId);
+          console.log('[ProjectDetail ngOnInit] Available services:', this.selectedServices.map(s => ({
+            serviceId: s.serviceId,
+            typeName: s.typeName,
+            ReportFinalized: s.ReportFinalized
+          })));
           
           const service = this.selectedServices.find(s =>
             s.serviceId === this.pendingFinalizedServiceId ||
@@ -312,11 +318,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           );
           
           if (service) {
-            console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
+            console.log('[ProjectDetail ngOnInit] ✅ Found service:', service.typeName);
+            console.log('[ProjectDetail ngOnInit] Service BEFORE:', { ReportFinalized: service.ReportFinalized });
             service.ReportFinalized = true;
+            console.log('[ProjectDetail ngOnInit] Service AFTER:', { ReportFinalized: service.ReportFinalized });
+            
+            // Force change detection
             this.changeDetectorRef.detectChanges();
+            setTimeout(() => {
+              this.changeDetectorRef.detectChanges();
+              console.log('[ProjectDetail ngOnInit] Change detection triggered (delayed)');
+            }, 100);
+            
+            console.log('[ProjectDetail ngOnInit] ✅ Finalized flag applied successfully');
           } else {
-            console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
+            console.warn('[ProjectDetail ngOnInit] ❌ Service not found with serviceId:', this.pendingFinalizedServiceId);
+            console.warn('[ProjectDetail ngOnInit] Available serviceIds:', this.selectedServices.map(s => s.serviceId));
           }
           this.pendingFinalizedServiceId = null;
         }
@@ -327,7 +344,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ionViewWillEnter() {
-    console.log('[ProjectDetail] ionViewWillEnter - checking for finalized state');
+    console.log('[ProjectDetail] ========== ionViewWillEnter START ==========');
+    console.log('[ProjectDetail] Checking for finalized state...');
+    console.log('[ProjectDetail] Current selectedServices count:', this.selectedServices.length);
+    console.log('[ProjectDetail] Current pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
 
     // Check for finalized service from history state (works after navigation completes)
     const historyState = window.history.state;
@@ -337,7 +357,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const finalizedServiceId = historyState.finalizedServiceId;
       const finalizedDate = historyState.finalizedDate;
 
-      console.log('[ProjectDetail] Found finalized state in history:', { finalizedServiceId, finalizedDate });
+      console.log('[ProjectDetail] ✅ Found finalized state in history:', { finalizedServiceId, finalizedDate });
 
       // Store for later - will apply after services are loaded
       this.pendingFinalizedServiceId = finalizedServiceId;
@@ -351,7 +371,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           serviceId: s.serviceId,
           serviceIdType: typeof s.serviceId,
           typeName: s.typeName,
-          offersId: s.offersId
+          ReportFinalized: s.ReportFinalized
         })));
 
         // Try both string and number comparison
@@ -362,18 +382,32 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (service) {
-          console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
+          console.log('[ProjectDetail] ✅ Found service, setting ReportFinalized to true:', service.typeName);
+          console.log('[ProjectDetail] Service BEFORE update:', { ReportFinalized: service.ReportFinalized });
           service.ReportFinalized = true;
+          console.log('[ProjectDetail] Service AFTER update:', { ReportFinalized: service.ReportFinalized });
+          
+          // Force change detection multiple times to ensure UI updates
           this.changeDetectorRef.detectChanges();
+          setTimeout(() => {
+            this.changeDetectorRef.detectChanges();
+            console.log('[ProjectDetail] Change detection triggered (delayed)');
+          }, 100);
+          
           this.pendingFinalizedServiceId = null;
+          console.log('[ProjectDetail] ✅ Finalized flag applied successfully');
         } else {
-          console.warn('[ProjectDetail] Service not found with serviceId:', finalizedServiceId);
+          console.warn('[ProjectDetail] ❌ Service not found with serviceId:', finalizedServiceId);
           console.warn('[ProjectDetail] Tried matching against:', this.selectedServices.map(s => s.serviceId));
         }
+      } else {
+        console.log('[ProjectDetail] ⏳ Services not loaded yet, will apply after load');
       }
     } else {
       console.log('[ProjectDetail] No finalized state found in history');
     }
+    
+    console.log('[ProjectDetail] ========== ionViewWillEnter END ==========');
   }
 
   ngOnDestroy(): void {
