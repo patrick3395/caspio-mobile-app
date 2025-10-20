@@ -61,8 +61,8 @@ export class AddCustomVisualModalComponent {
   }
 
   // Dismiss modal without saving
-  dismiss() {
-    this.modalController.dismiss();
+  async dismiss() {
+    await this.modalController.dismiss();
   }
 
   // Save and close modal
