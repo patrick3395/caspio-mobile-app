@@ -374,17 +374,17 @@
           <div class="form-grid">
             <div class="form-group full-width" [class.filled]="serviceData.StructuralSystemsStatus">
               <label>
-                Structural Systems<span class="required">*</span>
+                Where will you provide the Visuals<span class="required">*</span>
               </label>
               <p class="field-description">
-                Structural systems is a determination based on visual foundation-related criteria only and not based on other trades (electrical, plumbing, HVAC, etc.)
+                If you are providing the visuals in the inspection report select "Provided in Property Inspection Report"
               </p>
               <select #structuralStatusSelect
                       [(ngModel)]="serviceData.StructuralSystemsStatus"
                       (ngModelChange)="onStructuralSystemsStatusChange($event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option value="Provided in Home Inspection Report">Provided in Home Inspection Report</option>
+                <option value="Provided in Property Inspection Report">Provided in Property Inspection Report</option>
                 <option value="Completed Here">Completed Here</option>
               </select>
             </div>

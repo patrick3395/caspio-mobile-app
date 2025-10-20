@@ -56,15 +56,20 @@ ion-header {
 .zelle-button {
   margin-bottom: 1.5rem;
   min-height: 48px;
-  max-height: 48px;
   height: 48px;
   font-weight: 600;
   font-size: 1rem;
-  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --border-width: 1px;
-  --border-color: #d0d0d0;
+  --background: #f0f4ff;
+  --background-activated: #e2ebff;
+  --background-focused: #e2ebff;
+  --background-hover: #e2ebff;
+  --border-color: #d4dcff;
+  --border-radius: 8px;
   --border-style: solid;
-  
+  --border-width: 1px;
+  --box-shadow: none;
+  width: 100%;
+
   ion-icon {
     font-size: 1.2rem;
   }
@@ -78,11 +83,13 @@ ion-header {
   ::ng-deep {
     .paypal-buttons {
       min-height: 48px !important;
+      width: 100% !important;
     }
     
     .paypal-button {
       height: 48px !important;
       min-height: 48px !important;
+      width: 100% !important;
     }
   }
 }

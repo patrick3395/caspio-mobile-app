@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
-import { ModalController, AlertController } from '@ionic/angular';
+import { ModalController, AlertController, IonicSafeString } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -22,11 +22,14 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   isLoading = false;
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
+  private readonly zelleInfoMessage: IonicSafeString;
 
   constructor(
     private modalController: ModalController,
     private alertController: AlertController
-  ) {}
+  ) {
+    this.zelleInfoMessage = this.buildZelleInfoMessage();
+  }
 
   ngOnInit() {
     console.log('PayPal Payment Modal initialized with invoice:', this.invoice);
@@ -175,12 +178,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     const alert = await this.alertController.create({
       header: 'Zelle Information',
       cssClass: 'zelle-info-alert',
-      message: `<div class="zelle-pay-to">Pay to</div>
-<div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).</div>
-<div class="zelle-recipient">
-  <div class="zelle-name">Name: Patrick Bullock</div>
-  <div class="zelle-number">Number: (512) 298-9395</div>
-</div>`,
+      message: this.zelleInfoMessage,
       buttons: [
         {
           text: 'OK',
@@ -189,6 +187,19 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
       ]
     });
     await alert.present();
+  }
+
+  private buildZelleInfoMessage(): IonicSafeString {
+    const content = `
+      <div class="zelle-pay-to">Pay to</div>
+      <div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass these fees on to our partners).</div>
+      <div class="zelle-recipient">
+        <div class="zelle-name">Name: Patrick Bullock</div>
+        <div class="zelle-number">Number: (512) 298-9395</div>
+      </div>
+    `;
+
+    return new IonicSafeString(content);
   }
 
   cancel() {
