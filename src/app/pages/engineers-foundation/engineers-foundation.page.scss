@@ -2646,11 +2646,13 @@ ion-content{--overflow:scroll !important;height:100%}
   // DYNAMIC sizing for Structural Systems on mobile - ALWAYS fits 3 per row
   .image-preview-section {
     padding: 4px !important;
+    overflow: visible !important; // Allow delete buttons to show
   }
   
   .image-preview-section .image-preview-container {
     gap: 4px !important;
     justify-content: flex-start; // Align items to start
+    overflow: visible !important; // Allow delete buttons to show
   }
   
   // DYNAMIC width calculation: (100% - gaps) / 3 images
@@ -2659,6 +2661,7 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
+    position: relative !important;
     width: calc((100% - 8px) / 3) !important; // Dynamic: always 3 per row
     max-width: 100px !important; // Cap at 100px to prevent too large on tablets
     min-width: 28px !important; // Minimum 28px for tiny screens
@@ -2666,8 +2669,9 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-grow: 0;
     margin: 0 !important;
     text-align: center !important;
-    padding-bottom: 22px !important;
+    padding-bottom: 20px !important; // Space for caption below image
     box-shadow: none !important;
+    overflow: visible !important; // CRITICAL: Allow delete button to show outside
     
     img,
     .fdf-photo-image {
@@ -2675,17 +2679,19 @@ ion-content{--overflow:scroll !important;height:100%}
       height: auto !important; // Maintain aspect ratio
       aspect-ratio: 1 / 1; // Keep square
       display: block !important;
-      margin: 0 auto !important;
+      margin: 0 auto 6px auto !important; // 6px gap between image and caption
       border-width: 1px !important;
       border-radius: 8px !important;
     }
     
     .delete-btn {
+      position: absolute !important;
       width: 16px !important;
       height: 16px !important;
-      top: -3px !important;
-      right: -3px !important;
+      top: -4px !important;
+      right: -4px !important;
       border-width: 1px !important;
+      z-index: 100 !important;
       
       ion-icon {
         font-size: 7px !important;
@@ -2693,10 +2699,9 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      position: absolute !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      width: 100% !important; // Match image width dynamically
+      position: relative !important; // Changed from absolute to flow naturally
+      display: block !important;
+      width: 100% !important; // Match container width
       box-sizing: border-box !important;
       font-size: 7px !important;
       padding: 3px 2px !important;
@@ -2704,6 +2709,7 @@ ion-content{--overflow:scroll !important;height:100%}
       border-radius: 4px !important;
       background: white !important;
       text-align: center !important;
+      margin: 0 !important;
     }
   }
   
@@ -2771,11 +2777,13 @@ ion-content{--overflow:scroll !important;height:100%}
   // DYNAMIC sizing for extra small mobile - ALWAYS fits 3 per row
   .image-preview-section {
     padding: 3px !important;
+    overflow: visible !important; // Allow delete buttons to show
   }
   
   .image-preview-section .image-preview-container {
     gap: 3px !important;
     justify-content: flex-start;
+    overflow: visible !important; // Allow delete buttons to show
   }
   
   // DYNAMIC width for tiny phones: calc((100% - 6px) / 3)
@@ -2783,6 +2791,7 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container .image-preview,
   .elevation-points-container .image-preview,
   .image-preview.structural-photo-preview {
+    position: relative !important;
     width: calc((100% - 6px) / 3) !important; // Dynamic: always 3 per row
     max-width: 80px !important; // Smaller cap for tiny phones
     min-width: 26px !important; // Minimum for very small screens
@@ -2790,8 +2799,9 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-grow: 0;
     margin: 0 !important;
     text-align: center !important;
-    padding-bottom: 20px !important;
+    padding-bottom: 18px !important; // Space for caption below image
     box-shadow: none !important;
+    overflow: visible !important; // CRITICAL: Allow delete button to show outside
     
     img,
     .fdf-photo-image {
@@ -2799,17 +2809,19 @@ ion-content{--overflow:scroll !important;height:100%}
       height: auto !important;
       aspect-ratio: 1 / 1;
       display: block !important;
-      margin: 0 auto !important;
+      margin: 0 auto 5px auto !important; // 5px gap between image and caption
       border-width: 1px !important;
       border-radius: 6px !important;
     }
     
     .delete-btn {
+      position: absolute !important;
       width: 14px !important;
       height: 14px !important;
-      top: -2px !important;
-      right: -2px !important;
+      top: -3px !important;
+      right: -3px !important;
       border-width: 1px !important;
+      z-index: 100 !important;
       
       ion-icon {
         font-size: 6px !important;
@@ -2817,10 +2829,9 @@ ion-content{--overflow:scroll !important;height:100%}
     }
     
     .image-caption {
-      position: absolute !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      width: 100% !important; // Match image width dynamically
+      position: relative !important; // Changed from absolute to flow naturally
+      display: block !important;
+      width: 100% !important; // Match container width
       box-sizing: border-box !important;
       font-size: 6px !important;
       padding: 2px 1px !important;
@@ -2828,6 +2839,7 @@ ion-content{--overflow:scroll !important;height:100%}
       border-radius: 3px !important;
       background: white !important;
       text-align: center !important;
+      margin: 0 !important;
     }
   }
   
