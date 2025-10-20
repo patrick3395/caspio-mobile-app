@@ -813,7 +813,7 @@
             <div class="form-field">
               <label>Onboarding Stage</label>
               <select [(ngModel)]="editingCompany['Onboarding Stage']" class="form-input">
-                <option value="">Select Stage</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let stage of stages" [value]="stage.name">
                   {{ formatStageName(stage) }}
                 </option>
@@ -822,7 +822,7 @@
             <div class="form-field">
               <label>Software</label>
               <select [(ngModel)]="editingCompany.SoftwareID" class="form-input">
-                <option value="">Select Software</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let software of softwareOptions" [value]="software">
                   {{ software }}
                 </option>
@@ -833,7 +833,7 @@
             <div class="form-field">
               <label>Size</label>
               <select [(ngModel)]="editingCompany.Size" class="form-input">
-                <option value="">Select Size</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let size of uniqueCompanySizes" [value]="size">
                   {{ size }}
                 </option>
@@ -956,7 +956,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="newTask.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -971,7 +971,7 @@
             <div class="form-field">
               <label>Assign To</label>
               <select [(ngModel)]="newTask.AssignTo" class="form-input">
-                <option [ngValue]="''">Select User</option>
+                <option [ngValue]="''">-- Select --</option>
                 <option *ngFor="let user of taskUsers" [ngValue]="user.name">
                   {{ user.name }}
                 </option>
@@ -980,7 +980,7 @@
             <div class="form-field">
               <label>Task Type</label>
               <select [(ngModel)]="newTask.CommunicationID" class="form-input">
-                <option [ngValue]="null">Select Type</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
                   {{ type.name }}
                 </option>
@@ -1023,7 +1023,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="editingTask.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1038,7 +1038,7 @@
             <div class="form-field">
               <label>Assign To</label>
               <select [(ngModel)]="editingTask.AssignTo" class="form-input">
-                <option [ngValue]="''">Select User</option>
+                <option [ngValue]="''">-- Select --</option>
                 <option *ngFor="let user of taskUsers" [ngValue]="user.name">
                   {{ user.name }}
                 </option>
@@ -1047,7 +1047,7 @@
             <div class="form-field">
               <label>Task Type</label>
               <select [(ngModel)]="editingTask.CommunicationID" class="form-input">
-                <option [ngValue]="null">Select Type</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
                   {{ type.name }}
                 </option>
@@ -1098,7 +1098,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="newContact.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1175,7 +1175,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="editingContact.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1271,7 +1271,7 @@
             <div class="form-field">
               <label>Onboarding Stage</label>
               <select [(ngModel)]="newCompany['Onboarding Stage']" class="form-input">
-                <option value="">Select Stage</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let stage of stages" [value]="stage.name">
                   {{ formatStageName(stage) }}
                 </option>
@@ -1280,7 +1280,7 @@
             <div class="form-field">
               <label>Software</label>
               <select [(ngModel)]="newCompany.SoftwareID" class="form-input">
-                <option value="">Select Software</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let software of softwareOptions" [value]="software">
                   {{ software }}
                 </option>
@@ -1291,7 +1291,7 @@
             <div class="form-field">
               <label>Size</label>
               <select [(ngModel)]="newCompany.Size" class="form-input">
-                <option value="">Select Size</option>
+                <option value="">-- Select --</option>
                 <option *ngFor="let size of uniqueCompanySizes" [value]="size">
                   {{ size }}
                 </option>
@@ -1406,7 +1406,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="newMeeting.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1489,7 +1489,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="newCommunication.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1504,7 +1504,7 @@
             <div class="form-field">
               <label>Communication Type</label>
               <select [(ngModel)]="newCommunication.CommunicationID" class="form-input">
-                <option [ngValue]="null">Select Type</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
                   {{ type.name }}
                 </option>
@@ -1567,7 +1567,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="editingCommunication.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
@@ -1582,7 +1582,7 @@
             <div class="form-field">
               <label>Communication Type</label>
               <select [(ngModel)]="editingCommunication.CommunicationID" class="form-input">
-                <option [ngValue]="null">Select Type</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
                   {{ type.name }}
                 </option>
@@ -1653,7 +1653,7 @@
             <div class="form-field full-width">
               <label>Company</label>
               <select [(ngModel)]="editingMeeting.CompanyID" class="form-input">
-                <option [ngValue]="null">Select Company</option>
+                <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
                   {{ company.CompanyName }}
                 </option>
