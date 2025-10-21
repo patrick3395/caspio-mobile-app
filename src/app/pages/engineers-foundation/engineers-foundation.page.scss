@@ -1402,7 +1402,7 @@ ion-content{--overflow:scroll !important;height:100%}
                   overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
                   margin: 4px !important;
                   padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
-                  border-radius: 16px !important;
+                  border-radius: 20px !important;
                   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
                   flex-shrink: 0;
                   
@@ -1425,13 +1425,14 @@ ion-content{--overflow:scroll !important;height:100%}
                   img {
                     width: 90px !important;
                     height: 90px !important;
-                    border-radius: 16px !important;
+                    border-radius: 20px !important;
                     object-fit: cover !important;
                     display: block !important;
                     border: 2px solid #ddd !important;
                     cursor: pointer;
                     transition: all 0.3s ease;
                     background: #f5f5f5;
+                    overflow: hidden !important;
                     // NO margin-bottom - caption goes in padding-bottom space
                     
                     &:hover {
@@ -2431,16 +2432,17 @@ ion-content{--overflow:scroll !important;height:100%}
             overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
             margin: 4px !important;
             padding-bottom: 35px !important; // CONSISTENT space for caption input field
-            border-radius: 16px !important;
+            border-radius: 20px !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
             
             img {
               width: 90px !important;
               height: 90px !important;
-              border-radius: 16px !important;
+              border-radius: 20px !important;
               object-fit: cover !important;
               display: block !important;
               border: 2px solid #ddd !important;
+              overflow: hidden !important;
 
         &:hover {
                 border-color: var(--noble-orange) !important;
@@ -2687,7 +2689,8 @@ ion-content{--overflow:scroll !important;height:100%}
       display: block !important;
       margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
-      border-radius: 12px !important;
+      border-radius: 16px !important;
+      overflow: hidden !important;
     }
     
     .delete-btn {
@@ -2814,7 +2817,8 @@ ion-content{--overflow:scroll !important;height:100%}
       display: block !important;
       margin: 0 0 3px 0 !important; // 3px gap between image and caption
       border-width: 1px !important;
-      border-radius: 9px !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
     }
     
     .delete-btn {
