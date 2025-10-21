@@ -583,7 +583,7 @@
             <ion-searchbar
               [(ngModel)]="usersSearchTerm"
               (ionChange)="onUserSearchChange($event.detail.value)"
-              placeholder="Search users by name, email, or role"
+              placeholder="Search users by name, email, or title"
               animated="true"
               class="modern-search">
             </ion-searchbar>
@@ -607,7 +607,7 @@
               </div>
               <div class="user-info">
                 <h4>{{ user.Name || 'Unnamed User' }}</h4>
-                <p class="user-role">{{ user.Role || 'No role assigned' }}</p>
+                <p class="user-role">{{ user.Title || 'No title assigned' }}</p>
               </div>
             </div>
             <div class="user-details">
@@ -1896,17 +1896,18 @@
             <div class="form-field full-width">
               <label>Headshot</label>
               <div class="headshot-upload-container">
-                <div class="headshot-preview">
-                  <img *ngIf="newUserHeadshotPreview" [src]="newUserHeadshotPreview" alt="Headshot preview" class="headshot-preview-image">
-                  <div *ngIf="!newUserHeadshotPreview" class="headshot-preview-placeholder">
-                    <ion-icon name="person"></ion-icon>
+                <div class="headshot-preview-wrapper">
+                  <div class="headshot-preview" (click)="userHeadshotInput.click()">
+                    <img *ngIf="newUserHeadshotPreview" [src]="newUserHeadshotPreview" alt="Headshot preview" class="headshot-preview-image">
+                    <div *ngIf="!newUserHeadshotPreview" class="headshot-preview-placeholder">
+                      <ion-icon name="person"></ion-icon>
+                    </div>
                   </div>
+                  <button type="button" class="headshot-add-btn" (click)="userHeadshotInput.click()">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
                 </div>
                 <input type="file" #userHeadshotInput accept="image/*" (change)="onNewUserHeadshotChange($event)" style="display: none;">
-                <button type="button" class="upload-headshot-btn" (click)="userHeadshotInput.click()">
-                  <ion-icon name="camera-outline"></ion-icon>
-                  {{ newUserHeadshotPreview ? 'Change Photo' : 'Upload Photo' }}
-                </button>
               </div>
             </div>
           </div>
@@ -1937,8 +1938,8 @@
           </div>
           <div class="form-row">
             <div class="form-field full-width">
-              <label>Role</label>
-              <input type="text" [(ngModel)]="newUser.Role" class="form-input" placeholder="Role/Title">
+              <label>Title</label>
+              <input type="text" [(ngModel)]="newUser.Title" class="form-input" placeholder="Job Title">
             </div>
           </div>
         </div>

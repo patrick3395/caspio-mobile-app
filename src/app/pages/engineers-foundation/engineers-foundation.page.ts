@@ -4598,16 +4598,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Load custom values from database into dropdown options (called after loading data)
   loadCustomValuesIntoDropdowns() {
+    // CRITICAL FIX: Exclude multi-select fields (InAttendance, SecondFoundationRooms, ThirdFoundationRooms)
+    // They handle their own custom values via parseXXXField() methods
     const fieldMappings = [
-      { fieldName: 'InAttendance', dataSource: this.serviceData, options: this.inAttendanceOptions },
       { fieldName: 'WeatherConditions', dataSource: this.serviceData, options: this.weatherConditionsOptions },
       { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, options: this.outdoorTemperatureOptions },
       { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, options: this.occupancyFurnishingsOptions },
       { fieldName: 'FirstFoundationType', dataSource: this.serviceData, options: this.firstFoundationTypeOptions },
       { fieldName: 'SecondFoundationType', dataSource: this.serviceData, options: this.secondFoundationTypeOptions },
       { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, options: this.thirdFoundationTypeOptions },
-      { fieldName: 'SecondFoundationRooms', dataSource: this.serviceData, options: this.secondFoundationRoomsOptions },
-      { fieldName: 'ThirdFoundationRooms', dataSource: this.serviceData, options: this.thirdFoundationRoomsOptions },
       { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, options: this.ownerOccupantInterviewOptions },
       { fieldName: 'TypeOfBuilding', dataSource: this.projectData, options: this.typeOfBuildingOptions },
       { fieldName: 'Style', dataSource: this.projectData, options: this.styleOptions }

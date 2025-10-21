@@ -360,7 +360,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     Name: '',
     Email: '',
     Phone: '',
-    Role: ''
+    Title: ''
   };
   newUserHeadshotFile: File | null = null;
   newUserHeadshotPreview: string | null = null;
@@ -1232,7 +1232,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       Name: '',
       Email: '',
       Phone: '',
-      Role: ''
+      Title: ''
     };
     this.newUserHeadshotFile = null;
     this.newUserHeadshotPreview = null;
@@ -1297,8 +1297,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Phone = this.newUser.Phone.trim();
       }
 
-      if (this.newUser.Role && this.newUser.Role.trim() !== '') {
-        payload.Role = this.newUser.Role.trim();
+      if (this.newUser.Title && this.newUser.Title.trim() !== '') {
+        payload.Title = this.newUser.Title.trim();
       }
 
       // Add headshot if provided
@@ -2730,7 +2730,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           user.Name,
           user.Email,
           user.Phone,
-          user.Role,
+          user.Title,
           this.getCompanyName(user.CompanyID)
         ].join(' ').toLowerCase();
 
