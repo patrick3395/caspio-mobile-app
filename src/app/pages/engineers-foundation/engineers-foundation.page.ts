@@ -2715,6 +2715,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         point.photoCount = point.photos.length;
         
+        // PERFORMANCE: Trigger change detection with OnPush strategy
+        this.changeDetectorRef.detectChanges();
+        
         // Upload in background with annotation data including photoType
         const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData, this.currentRoomPointContext.photoType)
           .then(async (response) => {
@@ -2738,6 +2741,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 // Keep the blob URL as fallback
               }
             }
+            
+            // PERFORMANCE: Trigger change detection with OnPush strategy
+            this.changeDetectorRef.detectChanges();
+            
             uploadSuccessCount++;
             return response;
           })
@@ -4903,6 +4910,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Update photo count
         point.photoCount = point.photos.length;
+        
+        // PERFORMANCE: Trigger change detection with OnPush strategy
+        this.changeDetectorRef.detectChanges();
+        
         // Success toast removed per user request
         
         // TODO: Upload to Caspio when saving
@@ -7523,6 +7534,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         annotations: annotationData || null
       };
       this.visualPhotos[key].push(photoData);
+      
+      // PERFORMANCE: Trigger change detection with OnPush strategy
+      this.changeDetectorRef.detectChanges();
 
       if (isPendingVisual) {
         if (!this.pendingPhotoUploads[key]) {
@@ -7785,6 +7799,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           originalUrl: imageUrl,
           uploading: false // Remove uploading flag
         };
+        
+        // PERFORMANCE: Trigger change detection with OnPush strategy
+        this.changeDetectorRef.detectChanges();
 
         // Also update in visualId-based storage for backward compatibility
         const actualVisualId = String(this.visualRecordIds[key]);
@@ -9837,15 +9854,14 @@ Stack: ${error?.stack}`;
           continue;
         }
 
-        // PERFORMANCE: Use blob URLs instead of base64 for 75% memory reduction
-        const blobUrl = await this.fetchPhotoAsBlobUrl(record.filePath);
+        // Fetch photo as base64 for reliable display
+        const imageData = await this.fetchPhotoBase64(record.filePath);
 
-        if (blobUrl) {
-          record.url = blobUrl;
-          record.originalUrl = blobUrl;
-          record.thumbnailUrl = blobUrl;
-          record.displayUrl = blobUrl;  // Always set displayUrl, regardless of annotations
-          record.isObjectUrl = true;  // Flag for cleanup in ngOnDestroy
+        if (imageData) {
+          record.url = imageData;
+          record.originalUrl = imageData;
+          record.thumbnailUrl = imageData;
+          record.displayUrl = imageData;  // Always set displayUrl, regardless of annotations
         } else {
           record.thumbnailUrl = this.photoPlaceholder;
           record.displayUrl = this.photoPlaceholder;
@@ -9886,47 +9902,6 @@ Stack: ${error?.stack}`;
     }
 
     return this.thumbnailCache.get(photoPath)!;
-  }
-
-  // PERFORMANCE: Fetch photo as Blob URL instead of base64 (75% less memory usage)
-  private async fetchPhotoAsBlobUrl(photoPath: string): Promise<string | null> {
-    if (!photoPath || typeof photoPath !== 'string') {
-      return null;
-    }
-
-    // Check cache first
-    const cacheKey = `blob_${photoPath}`;
-    if (this.thumbnailCache.has(cacheKey)) {
-      return this.thumbnailCache.get(cacheKey) as Promise<string | null>;
-    }
-
-    // Create promise to fetch and convert to blob URL
-    const blobUrlPromise = (async () => {
-      try {
-        const token = await firstValueFrom(this.caspioService.getValidToken());
-        const account = this.caspioService.getAccountID();
-        
-        // Fetch the image as blob
-        const url = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          console.error(`Failed to fetch image: ${response.statusText}`);
-          return null;
-        }
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        
-        return blobUrl;
-      } catch (error) {
-        console.error(`Error fetching photo as blob URL for ${photoPath}:`, error);
-        return null;
-      }
-    })();
-
-    this.thumbnailCache.set(cacheKey, blobUrlPromise);
-    return blobUrlPromise;
   }
 
   private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
