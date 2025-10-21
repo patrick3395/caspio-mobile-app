@@ -4118,13 +4118,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             category: template.Category,
             answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
             required: template.Required || false,
-            templateId: String(template.PK_ID), // CRITICAL FIX: Always use PK_ID to match dropdown options
+            templateId: String(template.TemplateID || template.PK_ID), // CRITICAL FIX: Use TemplateID field (268) not PK_ID (496) for dropdown lookup!
             selectedOptions: [] // For multi-select (AnswerType 2)
           };
           
           // Debug logging for AnswerType 2 items (multi-select dropdowns)
           if (template.AnswerType === 2) {
-            console.log(`[Template Load] Multi-select item: "${template.Name}" - TemplateID for dropdown lookup: ${templateData.templateId}`);
+            console.log(`[Template Load] Multi-select item: "${template.Name}" - PK_ID: ${template.PK_ID}, TemplateID: ${template.TemplateID}, Using for dropdown: ${templateData.templateId}`);
           }
           
           // Initialize selection state
@@ -4237,7 +4237,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 if (isFirstInstance) {
                   // First instance: update the template item in-place (backward compatibility)
                   templateItem.id = visualId;
-                  templateItem.templateId = String(matchingTemplate.PK_ID); // CRITICAL: Ensure string for dropdown lookup
+                  templateItem.templateId = String(matchingTemplate.TemplateID || matchingTemplate.PK_ID); // CRITICAL: Use TemplateID field for dropdown lookup!
                   const item = templateItem;  // Use template item
 
                 const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
@@ -4275,7 +4275,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   const newItem = {
                     ...templateItem,
                     id: visualId,
-                    templateId: String(matchingTemplate.PK_ID), // CRITICAL: Ensure templateId is string for dropdown lookup
+                    templateId: String(matchingTemplate.TemplateID || matchingTemplate.PK_ID), // CRITICAL: Use TemplateID field for dropdown lookup!
                     visualRecordId: visualId
                   };
                   

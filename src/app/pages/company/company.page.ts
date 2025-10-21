@@ -2558,8 +2558,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     const searchTerm = this.usersSearchTerm.trim().toLowerCase();
 
     this.filteredUsers = this.allUsers.filter(user => {
-      // Global company filter
-      if (this.globalCompanyFilterId !== null && user.CompanyID !== this.globalCompanyFilterId) {
+      // Filter by company - use global filter if set, otherwise use current user's company
+      const targetCompanyId = this.globalCompanyFilterId !== null ? this.globalCompanyFilterId : this.currentUserCompanyId;
+      
+      if (targetCompanyId !== null && user.CompanyID !== targetCompanyId) {
         return false;
       }
 
