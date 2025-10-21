@@ -1335,7 +1335,11 @@ export class CaspioService {
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
         const originalFormData = new FormData();
-        const originalFileName = `original_${originalFile.name}`;
+        // CRITICAL FIX: Generate UNIQUE filename for original to prevent duplicates
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `visual_${visualId}_original_${timestamp}_${randomId}.${fileExt}`;
         originalFormData.append('file', originalFile, originalFileName);
         
         const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
