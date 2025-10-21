@@ -2594,10 +2594,13 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    min-width: 85px !important; // Smaller min-width for mobile to fit 3 photos
+    flex: 0 0 auto !important; // Don't grow or shrink
+    min-width: unset !important; // Remove min-width on mobile
+    width: calc((100% - 12px) / 3) !important; // Match 3-column layout
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
+    text-align: center !important;
     
     .fdf-photo-button {
       padding: 6px 4px !important; // Smaller button padding
@@ -2727,10 +2730,13 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    min-width: 75px !important; // Even smaller for very small phones
+    flex: 0 0 auto !important; // Don't grow or shrink
+    min-width: unset !important; // Remove min-width on small mobile
+    width: calc((100% - 8px) / 3) !important; // Match 3-column layout
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
+    text-align: center !important;
     
     .fdf-photo-button {
       padding: 4px 2px !important;

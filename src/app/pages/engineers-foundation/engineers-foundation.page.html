@@ -106,7 +106,7 @@
                       (ngModelChange)="onServiceFieldChange('InAttendance', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of inAttendanceOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of inAttendanceOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>
@@ -162,7 +162,7 @@
                       required
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of typeOfBuildingOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -177,7 +177,7 @@
                       required
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of styleOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -192,7 +192,7 @@
                       required
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of occupancyFurnishingsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>
@@ -217,7 +217,7 @@
                       required
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of weatherConditionsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -232,7 +232,7 @@
                       required
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of outdoorTemperatureOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>
@@ -264,7 +264,7 @@
                       (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of firstFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -287,7 +287,7 @@
                       (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of secondFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -302,7 +302,7 @@
                       (ngModelChange)="onServiceFieldChange('SecondFoundationRooms', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of secondFoundationRoomsOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of secondFoundationRoomsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -317,7 +317,7 @@
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of thirdFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -332,7 +332,7 @@
                       (ngModelChange)="onServiceFieldChange('ThirdFoundationRooms', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of thirdFoundationRoomsOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of thirdFoundationRoomsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
 
@@ -346,7 +346,7 @@
                       (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
                       class="styled-input">
                 <option value="">-- Select --</option>
-                <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
+                <option *ngFor="let option of ownerOccupantInterviewOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
               </select>
             </div>
           </div>
@@ -415,7 +415,7 @@
                   <div *ngIf="organizedData[category].comments.length === 0" class="no-items-message">
                     No general information yet. Click + to add one.
                   </div>
-                  <div class="template-item" *ngFor="let item of organizedData[category].comments">
+                  <div class="template-item" *ngFor="let item of organizedData[category].comments; trackBy: trackByItemId">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
                       <div class="answer-type-1-container" *ngIf="item.answerType === 1">
@@ -457,7 +457,7 @@
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                             <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
@@ -517,7 +517,7 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId" 
                                [class.uploading]="photo.uploading" 
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
@@ -560,7 +560,7 @@
                   <div *ngIf="organizedData[category].limitations.length === 0" class="no-items-message">
                     No limitations yet. Click + to add one.
                   </div>
-                  <div class="template-item" *ngFor="let item of organizedData[category].limitations">
+                  <div class="template-item" *ngFor="let item of organizedData[category].limitations; trackBy: trackByItemId">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
                       <div class="answer-type-1-container" *ngIf="item.answerType === 1">
@@ -602,7 +602,7 @@
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                             <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
@@ -662,7 +662,7 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId" 
                                [class.uploading]="photo.uploading" 
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
@@ -705,7 +705,7 @@
                   <div *ngIf="organizedData[category].deficiencies.length === 0" class="no-items-message">
                     No deficiencies yet. Click + to add one.
                   </div>
-                  <div class="template-item" *ngFor="let item of organizedData[category].deficiencies">
+                  <div class="template-item" *ngFor="let item of organizedData[category].deficiencies; trackBy: trackByItemId">
                     <div class="visual-item-container" [class.selected]="isItemSelected(category, item.id)">
                       <!-- Yes/No questions - vertical layout with dropdown below -->
                       <div class="answer-type-1-container" *ngIf="item.answerType === 1">
@@ -747,7 +747,7 @@
                           <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                         </ion-item>
                         <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]" class="option-item">
+                          <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                             <ion-checkbox
                               slot="start"
                               [checked]="isOptionSelectedV1(item, option)"
@@ -807,7 +807,7 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId" 
                                [class.uploading]="photo.uploading" 
                                [class.annotated]="photo.hasAnnotations">
                             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" 
@@ -999,7 +999,7 @@
                           class="styled-input"
                           style="max-width: 100%;">
                     <option value="">-- Select --</option>
-                    <option *ngFor="let option of getFDFOptionsForRoom(room.RoomName)" [value]="option">
+                    <option *ngFor="let option of getFDFOptionsForRoom(room.RoomName); trackBy: trackByOption" [value]="option">
                       {{ option }}
                     </option>
                   </select>
@@ -1010,7 +1010,7 @@
                   <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Top')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1044,7 +1044,7 @@
                     </div>
                     
                     <!-- Bottom Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Bottom')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1078,7 +1078,7 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1131,7 +1131,7 @@
                 <!-- Elevation Points with Location and Measurement photos - like FDF section -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
                   <div class="elevation-points-grid">
-                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
                       </div>
@@ -1375,7 +1375,7 @@
                           class="styled-input"
                           required>
                     <option value="">-- Select --</option>
-                    <option *ngFor="let option of fdfOptions" [value]="option">{{ option }}</option>
+                    <option *ngFor="let option of fdfOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
                   </select>
                 </div>
 
@@ -1383,7 +1383,7 @@
                 <div class="fdf-photos-container" *ngIf="shouldShowFDFPhotos(room.RoomName)">
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Top')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1417,7 +1417,7 @@
                     </div>
                     
                     <!-- Bottom Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Bottom')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1451,7 +1451,7 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div class="fdf-photo-column">
                       <button (click)="takeFDFPhoto(room.RoomName, 'Threshold')" 
                               class="fdf-photo-button"
                               style="width: 100%; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1503,7 +1503,7 @@
                 <!-- Elevation Points with Location and Measurement photos - like FDF section -->
                 <div class="elevation-points-container" *ngIf="roomElevationData[room.RoomName]?.elevationPoints?.length > 0">
                   <div class="elevation-points-grid">
-                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints">
+                    <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
                       </div>
