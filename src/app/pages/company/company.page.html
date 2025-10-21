@@ -599,11 +599,16 @@
         <div class="user-card" *ngFor="let user of filteredUsers">
           <div class="user-card-content">
             <div class="user-header">
-              <div class="user-avatar">
-                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
-                <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
-                  <ion-icon name="person"></ion-icon>
+              <div class="user-avatar-wrapper">
+                <div class="user-avatar" (click)="openEditUserHeadshot(user)">
+                  <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
+                  <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
                 </div>
+                <button type="button" class="user-avatar-add-btn" (click)="openEditUserHeadshot(user)">
+                  <ion-icon name="add"></ion-icon>
+                </button>
               </div>
               <div class="user-info">
                 <h4>{{ user.Name || 'Unnamed User' }}</h4>
@@ -1940,6 +1945,56 @@
             <div class="form-field full-width">
               <label>Title</label>
               <input type="text" [(ngModel)]="newUser.Title" class="form-input" placeholder="Job Title">
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditUserHeadshotModalOpen" (didDismiss)="closeEditUserHeadshotModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditUserHeadshotModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Update Headshot</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveUserHeadshot()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingUser">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="headshot-edit-info">
+            <h4>{{ editingUser.Name }}</h4>
+            <p>{{ editingUser.Title || 'No title' }}</p>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Photo</label>
+              <div class="headshot-upload-container">
+                <div class="headshot-preview-wrapper">
+                  <div class="headshot-preview" (click)="editUserHeadshotInput.click()">
+                    <img *ngIf="editUserHeadshotPreview" [src]="editUserHeadshotPreview" alt="Headshot preview" class="headshot-preview-image">
+                    <div *ngIf="!editUserHeadshotPreview" class="headshot-preview-placeholder">
+                      <ion-icon name="person"></ion-icon>
+                    </div>
+                  </div>
+                  <button type="button" class="headshot-add-btn" (click)="editUserHeadshotInput.click()">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
+                </div>
+                <input type="file" #editUserHeadshotInput accept="image/*" (change)="onEditUserHeadshotChange($event)" style="display: none;">
+              </div>
+              <p class="form-hint">Click the photo or plus button to select a new image</p>
             </div>
           </div>
         </div>

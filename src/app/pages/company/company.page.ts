@@ -365,6 +365,12 @@ export class CompanyPage implements OnInit, OnDestroy {
   newUserHeadshotFile: File | null = null;
   newUserHeadshotPreview: string | null = null;
 
+  // Edit user headshot modal
+  isEditUserHeadshotModalOpen = false;
+  editingUser: any = null;
+  editUserHeadshotFile: File | null = null;
+  editUserHeadshotPreview: string | null = null;
+
   // Invoice edit modal
   isEditInvoiceModalOpen = false;
   editingInvoice: InvoicePairWithService | null = null;
@@ -3503,6 +3509,108 @@ export class CompanyPage implements OnInit, OnDestroy {
   onUserSearchChange(value: string | null | undefined) {
     this.usersSearchTerm = value ?? '';
     this.applyUserFilters();
+  }
+
+  openEditUserHeadshot(user: any) {
+    this.editingUser = { ...user };
+    this.editUserHeadshotFile = null;
+    this.editUserHeadshotPreview = this.getUserHeadshot(user);
+    this.isEditUserHeadshotModalOpen = true;
+  }
+
+  closeEditUserHeadshotModal() {
+    this.isEditUserHeadshotModalOpen = false;
+    this.editingUser = null;
+    this.editUserHeadshotFile = null;
+    this.editUserHeadshotPreview = null;
+  }
+
+  onEditUserHeadshotChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.editUserHeadshotFile = input.files[0];
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.editUserHeadshotPreview = e.target.result;
+      };
+      reader.readAsDataURL(this.editUserHeadshotFile);
+    }
+  }
+
+  async saveUserHeadshot() {
+    if (!this.editingUser || !this.editUserHeadshotFile) {
+      await this.showToast('Please select a photo to upload', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating headshot...'
+    });
+    await loading.present();
+
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      const base64Image = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(this.editUserHeadshotFile!);
+      });
+
+      // Find the user's PK_ID or UserID
+      const userId = this.editingUser.UserID || this.editingUser.PK_ID;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      // Update via Caspio API
+      const payload = {
+        Headshot: base64Image
+      };
+
+      await firstValueFrom(
+        this.caspioService.put(`/tables/Users/records?q.where=UserID=${userId}`, payload)
+      );
+
+      // Update the user in the local array
+      const userIndex = this.allUsers.findIndex(u => 
+        (u.UserID || u.PK_ID) === userId
+      );
+      
+      if (userIndex !== -1) {
+        this.allUsers[userIndex].Headshot = base64Image;
+      }
+
+      // Reapply filters to update the view
+      this.applyUserFilters();
+
+      await this.showToast('Headshot updated successfully', 'success');
+      this.closeEditUserHeadshotModal();
+    } catch (error: any) {
+      console.error('Error updating headshot:', error);
+      let errorMessage = 'Failed to update headshot';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   // Additional helper methods for the new Companies UI
