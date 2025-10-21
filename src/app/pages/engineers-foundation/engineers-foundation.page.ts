@@ -102,9 +102,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
   
-  // PERFORMANCE: Memoization caches for frequently-called getter functions
-  private pointPhotoCache = new Map<string, any>();  // Cache for getPointPhotoByType results
-  private photoArrayCache = new Map<string, any[]>(); // Cache for getPhotosForVisual results
+  // Note: Removed memoization caches - direct lookups are already fast enough
+  // and proper unique cache keys were causing complexity issues
   
   private templateLoader?: HTMLIonAlertElement;
   private _loggedPhotoKeys?: Set<string>; // Track which photo keys have been logged to reduce console spam
@@ -657,10 +656,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Clear thumbnail cache
     this.thumbnailCache.clear();
-    
-    // PERFORMANCE: Clear memoization caches
-    this.pointPhotoCache.clear();
-    this.photoArrayCache.clear();
 
     // Clean up DOM elements
     if (this.structuralWidthRaf) {
@@ -2315,15 +2310,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Get a specific photo by type (Location or Measurement) for a point
+  // PERFORMANCE NOTE: No caching needed - find() on 1-2 photo array is already ultra-fast
   getPointPhotoByType(point: any, photoType: 'Location' | 'Measurement'): any {
-    // PERFORMANCE: Memoization - use cached result if available
-    const cacheKey = `${point.name}_${photoType}_${point.photos?.length || 0}`;
-    if (this.pointPhotoCache.has(cacheKey)) {
-      return this.pointPhotoCache.get(cacheKey);
-    }
-    
     if (!point.photos || point.photos.length === 0) {
-      this.pointPhotoCache.set(cacheKey, null);
       return null;
     }
     
@@ -2334,7 +2323,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     );
     
     if (typedPhoto) {
-      this.pointPhotoCache.set(cacheKey, typedPhoto);
       return typedPhoto;
     }
     
@@ -2345,17 +2333,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     );
     
     if (untypedPhotos.length > 0) {
-      let result = null;
       if (photoType === 'Location') {
-        result = untypedPhotos[0];
+        return untypedPhotos[0];
       } else if (photoType === 'Measurement' && untypedPhotos.length > 1) {
-        result = untypedPhotos[1];
+        return untypedPhotos[1];
       }
-      this.pointPhotoCache.set(cacheKey, result);
-      return result;
     }
     
-    this.pointPhotoCache.set(cacheKey, null);
     return null;
   }
 
@@ -2715,9 +2699,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         point.photoCount = point.photos.length;
         
-        // PERFORMANCE: Clear point photo cache when photos added
-        this.pointPhotoCache.clear();
-        
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
@@ -2744,9 +2725,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 // Keep the blob URL as fallback
               }
             }
-            
-            // PERFORMANCE: Clear point photo cache when photos updated
-            this.pointPhotoCache.clear();
             
             // PERFORMANCE: Trigger change detection with OnPush strategy
             this.changeDetectorRef.detectChanges();
@@ -4917,9 +4895,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Update photo count
         point.photoCount = point.photos.length;
         
-        // PERFORMANCE: Clear point photo cache when photos added
-        this.pointPhotoCache.clear();
-        
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
@@ -4992,9 +4967,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (index > -1) {
                     point.photos.splice(index, 1);
                     point.photoCount = point.photos.length;
-                    
-                    // PERFORMANCE: Clear point photo cache when photos deleted
-                    this.pointPhotoCache.clear();
                   }
                 }
               } catch (error) {
@@ -5032,9 +5004,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (index > -1) {
                     point.photos.splice(index, 1);
                     point.photoCount = point.photos.length;
-                    
-                    // PERFORMANCE: Clear point photo cache when photos deleted
-                    this.pointPhotoCache.clear();
                   }
                 }
               } catch (error) {
@@ -7550,9 +7519,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       this.visualPhotos[key].push(photoData);
       
-      // PERFORMANCE: Clear photo cache when new photos added
-      this.photoArrayCache.clear();
-      
       // PERFORMANCE: Trigger change detection with OnPush strategy
       this.changeDetectorRef.detectChanges();
 
@@ -7817,9 +7783,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           originalUrl: imageUrl,
           uploading: false // Remove uploading flag
         };
-        
-        // PERFORMANCE: Clear photo cache when photos updated
-        this.photoArrayCache.clear();
         
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
@@ -9453,9 +9416,6 @@ Stack: ${error?.stack}`;
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => (p.AttachID || p.id) !== attachId
                     );
-                    
-                    // PERFORMANCE: Clear photo cache when photos deleted
-                    this.photoArrayCache.clear();
                   }
                   
                   // Force UI update
