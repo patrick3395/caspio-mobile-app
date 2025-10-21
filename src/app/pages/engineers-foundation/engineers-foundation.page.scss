@@ -1482,30 +1482,31 @@ ion-content{--overflow:scroll !important;height:100%}
                     }
                   }
                   
-                  // Caption styling - position inside the padding-bottom space
-                  .image-caption {
-                    position: absolute !important; // Back to absolute - positioned in padding space
-                    bottom: 0 !important; // At bottom of container (in the padding-bottom area)
-                    left: 0 !important;
+                  // Caption styling - UNIFIED with Elevation Plot
+                  .room-photo-caption {
                     width: 90px !important;
                     padding: 6px 8px !important;
-                    border: 1px solid #ddd !important;
-                    border-radius: 6px !important;
                     font-size: 11px !important;
+                    text-align: center !important;
+                    border: 1px solid #e0e0e0 !important;
+                    border-radius: 6px !important;
                     background: white !important;
+                    color: #666 !important;
+                    transition: all 0.2s ease !important;
+                    margin-top: 8px !important;
+                    display: block !important;
+                    position: relative !important;
                     box-sizing: border-box !important;
-                    margin: 0 !important;
-                    min-height: 28px !important; // Ensure consistent height
                     
                     &::placeholder {
-                      color: #aaa !important;
-                      font-size: 11px !important;
+                      color: #ccc !important;
+                      font-size: 10px !important;
                     }
                     
                     &:focus {
                       outline: none !important;
                       border-color: var(--noble-orange) !important;
-                      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1) !important;
+                      background: #fffbf8 !important;
                     }
                   }
                 }
@@ -1615,39 +1616,6 @@ ion-content{--overflow:scroll !important;height:100%}
                     
                     &:active {
                       transform: scale(1.0);
-                    }
-                  }
-                  
-                  
-                  .image-caption {
-                    display: block;
-                    width: 60px;
-                    padding: 2px;
-                    font-size: 9px;
-                    text-align: center;
-                    border: 1px solid #e0e0e0;
-                    border-top: none;
-                    background: rgba(255, 255, 255, 0.98);
-                    border-radius: 0 0 4px 4px;
-                    margin-top: -2px;
-                    color: #333;
-                    outline: none;
-                    transition: all 0.2s ease;
-                    
-                    &::placeholder {
-                      color: #999;
-                      font-style: italic;
-                      font-size: 10px;
-                    }
-                    
-                    &:focus {
-                      background: white;
-                      border-top-color: var(--noble-orange);
-                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                    }
-                    
-                    &:hover {
-                      background: white;
                     }
                   }
                 }
@@ -2714,20 +2682,6 @@ ion-content{--overflow:scroll !important;height:100%}
         font-size: 7px !important;
       }
     }
-    
-    .image-caption {
-      position: relative !important;
-      display: block !important;
-      width: 90% !important; // 10% smaller than image
-      box-sizing: border-box !important;
-      font-size: 7px !important;
-      padding: 2px !important;
-      border: 1px solid #ddd !important;
-      border-radius: 3px !important;
-      background: white !important;
-      text-align: center !important;
-      margin: 0 auto !important; // Center the caption
-    }
   }
   
   
@@ -2840,20 +2794,6 @@ ion-content{--overflow:scroll !important;height:100%}
       ion-icon {
         font-size: 6px !important;
       }
-    }
-    
-    .image-caption {
-      position: relative !important;
-      display: block !important;
-      width: 100% !important; // Match image width
-      box-sizing: border-box !important;
-      font-size: 6px !important;
-      padding: 2px !important;
-      border: 1px solid #ddd !important;
-      border-radius: 3px !important;
-      background: white !important;
-      text-align: center !important;
-      margin: 0 auto !important; // Center the caption
     }
   }
   
