@@ -9804,18 +9804,23 @@ Stack: ${error?.stack}`;
         seenAttachIds.add(attachId);
         return true;
       });
-      this.visualPhotos[key] = uniquePhotoRecords;
-      console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photos for KEY: ${key}`);
-      this.changeDetectorRef.detectChanges();
-
+      console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photo records for KEY: ${key}`);
+      
+      // CRITICAL FIX: Hydrate photos BEFORE assigning to visualPhotos
+      // This ensures OnPush change detection sees photos with actual URLs, not placeholders
       await this.hydratePhotoRecords(uniquePhotoRecords);
+      
       console.log(`[STRUCTURAL DEBUG] Hydrated photos for KEY: ${key}`, uniquePhotoRecords.map(p => ({ 
         AttachID: p.AttachID, 
         hasUrl: !!p.url, 
         hasThumbnail: !!p.thumbnailUrl, 
         hasDisplay: !!p.displayUrl 
       })));
-      // Force another change detection after hydration
+      
+      // NOW assign to visualPhotos AFTER hydration completes
+      this.visualPhotos[key] = uniquePhotoRecords;
+      
+      // Trigger change detection with OnPush strategy
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
