@@ -3027,6 +3027,47 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 }
 
+// In Attendance Multi-Select Inline Styling
+.multi-select-container-inline {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  
+  .multi-select-options-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    
+    .option-item-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: var(--noble-orange);
+        --border-color-checked: var(--noble-orange);
+        margin: 0;
+      }
+      
+      ion-label {
+        font-size: 14px;
+        color: #333;
+        margin: 0;
+      }
+    }
+  }
+  
+  .other-input-container {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+  }
+}
+
 // Finalize Report Button
 .finalize-button-container {
   text-align: center;
@@ -3180,6 +3221,47 @@ ion-content{--overflow:scroll !important;height:100%}
         color: #333;
       }
     }
+  }
+}
+
+// In Attendance Multi-Select Inline Styling
+.multi-select-container-inline {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  
+  .multi-select-options-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    
+    .option-item-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: var(--noble-orange);
+        --border-color-checked: var(--noble-orange);
+        margin: 0;
+      }
+      
+      ion-label {
+        font-size: 14px;
+        color: #333;
+        margin: 0;
+      }
+    }
+  }
+  
+  .other-input-container {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
   }
 }
 

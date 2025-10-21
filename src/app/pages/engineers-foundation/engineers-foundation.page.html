@@ -96,18 +96,32 @@
                      class="styled-input">
             </div>
 
-            <!-- In Attendance -->
-            <div class="form-group full-width" [class.filled]="serviceData.InAttendance">
+            <!-- In Attendance - Multi-Select -->
+            <div class="form-group full-width" [class.filled]="inAttendanceSelections && inAttendanceSelections.length > 0">
               <label>
                 <ion-icon name="people-circle-outline"></ion-icon>
                 In Attendance
               </label>
-              <select [(ngModel)]="serviceData.InAttendance" name="InAttendance"
-                      (ngModelChange)="onServiceFieldChange('InAttendance', $event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of inAttendanceOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
+              <div class="multi-select-container-inline">
+                <div class="multi-select-options-inline">
+                  <div class="option-item-inline" *ngFor="let option of inAttendanceOptions; trackBy: trackByOption">
+                    <ion-checkbox
+                      [checked]="isInAttendanceSelected(option)"
+                      (ionChange)="onInAttendanceToggle(option, $event)">
+                    </ion-checkbox>
+                    <ion-label>{{ option }}</ion-label>
+                  </div>
+                </div>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="isInAttendanceSelected('Other')">
+                  <input type="text"
+                         [(ngModel)]="inAttendanceOtherValue"
+                         (blur)="onInAttendanceOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify..."
+                         class="styled-input other-input">
+                </div>
+              </div>
             </div>
           </div>
         </div>

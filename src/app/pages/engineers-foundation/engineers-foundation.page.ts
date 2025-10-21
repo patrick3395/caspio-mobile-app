@@ -295,6 +295,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   outdoorTemperatureOptions: string[] = [];
   occupancyFurnishingsOptions: string[] = [];
   inAttendanceOptions: string[] = [];
+  inAttendanceSelections: string[] = []; // Multi-select array for In Attendance
+  inAttendanceOtherValue: string = ''; // Custom value for "Other" option
   firstFoundationTypeOptions: string[] = [];
   secondFoundationTypeOptions: string[] = [];
   thirdFoundationTypeOptions: string[] = [];
@@ -760,6 +762,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Check for custom values and add them to dropdown options
       this.loadCustomValuesIntoDropdowns();
+      
+      // Parse In Attendance multi-select field
+      this.parseInAttendanceField();
 
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
@@ -851,6 +856,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
 
         this.loadCustomValuesIntoDropdowns();
+        this.parseInAttendanceField();
       } else {
         console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No service response received');
       }
@@ -6680,6 +6686,140 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const options = this.visualDropdownOptions[item.templateId];
     return `TemplateID: ${item.templateId}, HasOptions: ${!!options}, Count: ${options?.length || 0}, Options: ${options?.join(', ') || 'NONE'}`;
   }
+  
+  // ========== In Attendance Multi-Select Methods ==========
+  
+  // Check if an option is selected in In Attendance
+  isInAttendanceSelected(option: string): boolean {
+    if (!this.inAttendanceSelections || !Array.isArray(this.inAttendanceSelections)) {
+      return false;
+    }
+    
+    // Check for "Other" - either explicit or via otherValue
+    if (option === 'Other') {
+      return this.inAttendanceSelections.includes('Other') || 
+             !!(this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim().length > 0);
+    }
+    
+    return this.inAttendanceSelections.includes(option);
+  }
+  
+  // Handle toggling an option in In Attendance
+  async onInAttendanceToggle(option: string, event: any) {
+    // Initialize selections array if not present
+    if (!this.inAttendanceSelections) {
+      this.inAttendanceSelections = [];
+    }
+    
+    if (event.detail.checked) {
+      // Add option if not already present
+      if (!this.inAttendanceSelections.includes(option)) {
+        this.inAttendanceSelections.push(option);
+      }
+    } else {
+      // Remove option
+      const index = this.inAttendanceSelections.indexOf(option);
+      if (index > -1) {
+        this.inAttendanceSelections.splice(index, 1);
+      }
+      // If unchecking "Other", clear the custom value
+      if (option === 'Other') {
+        this.inAttendanceOtherValue = '';
+      }
+    }
+    
+    // Convert to comma-delimited string and save
+    await this.saveInAttendanceSelections();
+  }
+  
+  // Handle custom "Other" input for In Attendance
+  async onInAttendanceOtherChange() {
+    // Ensure "Other" is in selections when there's a custom value
+    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      if (!this.inAttendanceSelections) {
+        this.inAttendanceSelections = [];
+      }
+      const otherIndex = this.inAttendanceSelections.indexOf('Other');
+      if (otherIndex > -1) {
+        // Replace "Other" with the actual custom value
+        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
+      } else {
+        // Check if there's already a custom value and replace it
+        const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
+          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
+        );
+        if (customIndex > -1) {
+          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
+        } else {
+          // Add the custom value
+          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
+        }
+      }
+    } else {
+      // If custom value is cleared, revert to just "Other"
+      const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
+        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
+      );
+      if (customIndex > -1) {
+        this.inAttendanceSelections[customIndex] = 'Other';
+      }
+    }
+    
+    // Save the updated selections
+    await this.saveInAttendanceSelections();
+  }
+  
+  // Save In Attendance selections
+  async saveInAttendanceSelections() {
+    // Convert array to comma-delimited string
+    const attendanceText = this.inAttendanceSelections.join(', ');
+    
+    // Save to serviceData.InAttendance field
+    this.serviceData.InAttendance = attendanceText;
+    
+    // Save to database
+    await this.onServiceFieldChange('InAttendance', attendanceText);
+    
+    // Trigger change detection
+    this.changeDetectorRef.detectChanges();
+  }
+  
+  // Parse In Attendance field from database (comma-delimited string to array)
+  parseInAttendanceField() {
+    if (!this.serviceData.InAttendance || !this.serviceData.InAttendance.trim()) {
+      this.inAttendanceSelections = [];
+      this.inAttendanceOtherValue = '';
+      return;
+    }
+    
+    // Split comma-delimited string into array
+    const selections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    
+    // Find any custom values (not in the predefined options list)
+    const customValues = selections.filter((opt: string) => 
+      !this.inAttendanceOptions.includes(opt) && opt !== 'Other'
+    );
+    
+    if (customValues.length > 0) {
+      // Store the custom value and add "Other" to selections
+      this.inAttendanceOtherValue = customValues[0];
+      // Replace custom value with "Other" in array for checkbox
+      this.inAttendanceSelections = selections.map((opt: string) => 
+        customValues.includes(opt) ? 'Other' : opt
+      );
+    } else {
+      this.inAttendanceSelections = selections;
+      this.inAttendanceOtherValue = '';
+    }
+    
+    console.log('[In Attendance] Parsed field:', {
+      raw: this.serviceData.InAttendance,
+      selections: this.inAttendanceSelections,
+      otherValue: this.inAttendanceOtherValue
+    });
+  }
+  
+  // ========== End In Attendance Multi-Select Methods ==========
   
   // Handle toggling an option in multi-select
   async onOptionToggle(category: string, item: any, option: string, event: any) {
