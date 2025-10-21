@@ -2670,6 +2670,8 @@ ion-content{--overflow:scroll !important;height:100%}
       margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
       border-radius: 16px !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
     }
     
     .delete-btn {
@@ -2707,6 +2709,16 @@ ion-content{--overflow:scroll !important;height:100%}
     box-sizing: border-box !important; // Include padding in width
     text-align: center !important; // Center text in caption
     margin: 4px auto 0 auto !important; // Center caption under image
+  }
+  
+  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems
+  .fdf-photos-container img[width="90"],
+  .elevation-points-container img[width="90"],
+  .elevation-point-card img[width="90"] {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
   }
 }
 
@@ -2790,6 +2802,8 @@ ion-content{--overflow:scroll !important;height:100%}
       margin: 0 0 3px 0 !important; // 3px gap between image and caption
       border-width: 1px !important;
       border-radius: 12px !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
     }
     
     .delete-btn {
@@ -2827,6 +2841,16 @@ ion-content{--overflow:scroll !important;height:100%}
     box-sizing: border-box !important; // Include padding in width
     text-align: center !important; // Center text in caption
     margin: 3px auto 0 auto !important; // Center caption under image
+  }
+  
+  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems  
+  .fdf-photos-container img[width="90"],
+  .elevation-points-container img[width="90"],
+  .elevation-point-card img[width="90"] {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
   }
 }
 
