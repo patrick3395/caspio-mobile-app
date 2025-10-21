@@ -10534,18 +10534,19 @@ Stack: ${error?.stack}`;
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
 
-    // If "Other" is selected, show popup to enter custom value
-    if (value === 'Other') {
+    // CRITICAL FIX: Skip "Other" popup for multi-select fields (they have inline inputs)
+    const multiSelectFields = ['InAttendance', 'SecondFoundationRooms', 'ThirdFoundationRooms'];
+    const isMultiSelect = multiSelectFields.includes(fieldName);
+    
+    // If "Other" is selected AND not a multi-select field, show popup to enter custom value
+    if (value === 'Other' && !isMultiSelect) {
       const fieldLabels: { [key: string]: string } = {
-        'InAttendance': 'In Attendance',
         'WeatherConditions': 'Weather Conditions',
         'OutdoorTemperature': 'Outdoor Temperature',
         'OccupancyFurnishings': 'Occupancy Status',
         'FirstFoundationType': 'First Foundation Type',
         'SecondFoundationType': 'Second Foundation Type',
         'ThirdFoundationType': 'Third Foundation Type',
-        'SecondFoundationRooms': 'Second Foundation Rooms',
-        'ThirdFoundationRooms': 'Third Foundation Rooms',
         'OwnerOccupantInterview': 'Owner/Occupant Interview'
       };
       const previousValue = this.customOtherValues[fieldName] || '';

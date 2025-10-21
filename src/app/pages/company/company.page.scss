@@ -2298,3 +2298,72 @@ ion-alert.custom-alert {
     grid-template-columns: 1fr;
   }
 }
+
+// Headshot upload styling
+.headshot-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.headshot-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f15a27, #ff7b4d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(241, 90, 39, 0.2);
+  flex-shrink: 0;
+
+  .headshot-preview-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .headshot-preview-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 40px;
+      color: #ffffff;
+    }
+  }
+}
+
+.upload-headshot-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f15a27;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: #e54e1c;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+    background: #d4451a;
+  }
+}

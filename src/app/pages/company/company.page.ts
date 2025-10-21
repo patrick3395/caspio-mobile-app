@@ -362,6 +362,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     Phone: '',
     Role: ''
   };
+  newUserHeadshotFile: File | null = null;
+  newUserHeadshotPreview: string | null = null;
 
   // Invoice edit modal
   isEditInvoiceModalOpen = false;
@@ -1224,20 +1226,38 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async openAddUserModal() {
-    // Reset the user with default values, pre-fill company with current user's company or filter
+    // Reset the user with default values, pre-fill company with current user's company
     this.newUser = {
-      CompanyID: this.globalCompanyFilterId || this.currentUserCompanyId,
+      CompanyID: this.currentUserCompanyId,
       Name: '',
       Email: '',
       Phone: '',
       Role: ''
     };
+    this.newUserHeadshotFile = null;
+    this.newUserHeadshotPreview = null;
 
     this.isAddUserModalOpen = true;
   }
 
   closeAddUserModal() {
     this.isAddUserModalOpen = false;
+    this.newUserHeadshotFile = null;
+    this.newUserHeadshotPreview = null;
+  }
+
+  onNewUserHeadshotChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.newUserHeadshotFile = input.files[0];
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.newUserHeadshotPreview = e.target.result;
+      };
+      reader.readAsDataURL(this.newUserHeadshotFile);
+    }
   }
 
   async saveNewUser() {
@@ -1279,6 +1299,19 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       if (this.newUser.Role && this.newUser.Role.trim() !== '') {
         payload.Role = this.newUser.Role.trim();
+      }
+
+      // Add headshot if provided
+      if (this.newUserHeadshotFile) {
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Headshot = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.newUserHeadshotFile!);
+        });
       }
 
       console.log('Creating user with payload:', payload);
@@ -3349,6 +3382,39 @@ export class CompanyPage implements OnInit, OnDestroy {
       return 'Unassigned';
     }
     return this.companyNameLookup.get(companyId) ?? 'Unassigned';
+  }
+
+  getUserHeadshot(user: any): string | null {
+    if (!user.Headshot) {
+      return null;
+    }
+    
+    // Log the headshot value for debugging
+    if (typeof user.Headshot === 'object') {
+      console.log('Headshot is an object:', user.Headshot);
+      // Caspio might return an object with a URL property
+      if (user.Headshot.url) {
+        return user.Headshot.url;
+      }
+      if (user.Headshot.Url) {
+        return user.Headshot.Url;
+      }
+      if (user.Headshot.URL) {
+        return user.Headshot.URL;
+      }
+    }
+    
+    const headshotStr = String(user.Headshot);
+    
+    // If it's already a data URL or full URL, return it
+    if (headshotStr.startsWith('data:') || headshotStr.startsWith('http')) {
+      return headshotStr;
+    }
+    
+    // If it's a relative path or filename, construct the full URL
+    // This might need to be adjusted based on how Caspio returns the URLs
+    console.log('Headshot value:', headshotStr);
+    return headshotStr;
   }
 
   getFirstName(fullName: string | null | undefined): string {

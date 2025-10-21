@@ -600,8 +600,8 @@
           <div class="user-card-content">
             <div class="user-header">
               <div class="user-avatar">
-                <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-image">
-                <div *ngIf="!user.Headshot" class="headshot-placeholder">
+                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
+                <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
                   <ion-icon name="person"></ion-icon>
                 </div>
               </div>
@@ -1894,12 +1894,28 @@
         <div class="form-section">
           <div class="form-row">
             <div class="form-field full-width">
+              <label>Headshot</label>
+              <div class="headshot-upload-container">
+                <div class="headshot-preview">
+                  <img *ngIf="newUserHeadshotPreview" [src]="newUserHeadshotPreview" alt="Headshot preview" class="headshot-preview-image">
+                  <div *ngIf="!newUserHeadshotPreview" class="headshot-preview-placeholder">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
+                </div>
+                <input type="file" #userHeadshotInput accept="image/*" (change)="onNewUserHeadshotChange($event)" style="display: none;">
+                <button type="button" class="upload-headshot-btn" (click)="userHeadshotInput.click()">
+                  <ion-icon name="camera-outline"></ion-icon>
+                  {{ newUserHeadshotPreview ? 'Change Photo' : 'Upload Photo' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
               <label>Company</label>
-              <select [(ngModel)]="newUser.CompanyID" class="form-input">
+              <select [(ngModel)]="newUser.CompanyID" class="form-input" [disabled]="true">
                 <option [ngValue]="null">-- Select --</option>
-                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
-                  {{ company.CompanyName }}
-                </option>
+                <option [ngValue]="currentUserCompanyId" selected>{{ getCompanyName(currentUserCompanyId) }}</option>
               </select>
             </div>
           </div>
