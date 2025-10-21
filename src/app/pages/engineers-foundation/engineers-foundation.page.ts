@@ -9836,18 +9836,19 @@ Stack: ${error?.stack}`;
     }
 
     const filePath = typeof attachment.Photo === 'string' ? attachment.Photo : '';
+    const attachId = attachment.AttachID || attachment.PK_ID || attachment.id;
 
     return {
       ...attachment,
-      name: filePath || 'Photo',
+      name: `Photo_${attachId}`,  // CRITICAL FIX: Use AttachID for unique naming, not filename
       Photo: filePath,
       caption: attachment.Annotation || '',
       annotations: annotationData,
       annotationsData: annotationData,
       hasAnnotations: !!annotationData,
       rawDrawingsString,
-      AttachID: attachment.AttachID || attachment.PK_ID || attachment.id,
-      id: attachment.AttachID || attachment.PK_ID || attachment.id,
+      AttachID: attachId,
+      id: attachId,
       PK_ID: attachment.PK_ID || attachment.AttachID || attachment.id,
       url: undefined,
       thumbnailUrl: this.photoPlaceholder,
@@ -9884,8 +9885,10 @@ Stack: ${error?.stack}`;
           continue;
         }
 
-        // Fetch photo as base64 for reliable display
-        const imageData = await this.fetchPhotoBase64(record.filePath);
+        // CRITICAL FIX: Fetch photo using AttachID as unique identifier
+        // Multiple photos can have the same filename, so we must use AttachID
+        const attachId = record.AttachID || record.id || record.PK_ID;
+        const imageData = await this.fetchPhotoBase64(record.filePath, attachId);
 
         if (imageData) {
           record.url = imageData;
@@ -9903,35 +9906,39 @@ Stack: ${error?.stack}`;
     this.changeDetectorRef.detectChanges();
   }
 
-  private fetchPhotoBase64(photoPath: string): Promise<string | null> {
+  private fetchPhotoBase64(photoPath: string, attachId?: string | number): Promise<string | null> {
     if (!photoPath || typeof photoPath !== 'string') {
       return Promise.resolve(null);
     }
 
-    if (!this.thumbnailCache.has(photoPath)) {
+    // CRITICAL FIX: Use AttachID as cache key instead of photoPath
+    // Multiple photos can have the same filename but different AttachIDs
+    const cacheKey = attachId ? `attachId_${attachId}` : photoPath;
+
+    if (!this.thumbnailCache.has(cacheKey)) {
       const loader = this.caspioService.getImageFromFilesAPI(photoPath).toPromise()
         .then(imageData => {
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
             return imageData;
           }
-          console.error(`[v1.4.386] Invalid image data for ${photoPath}`);
+          console.error(`[PHOTO FIX] Invalid image data for ${photoPath} (AttachID: ${attachId})`);
           return null;
         })
         .catch(error => {
-          console.error(`[v1.4.386] Failed to load image for ${photoPath}:`, error);
+          console.error(`[PHOTO FIX] Failed to load image for ${photoPath} (AttachID: ${attachId}):`, error);
           return null;
         })
         .then(result => {
           if (result === null) {
-            this.thumbnailCache.delete(photoPath);
+            this.thumbnailCache.delete(cacheKey);
           }
           return result;
         });
 
-      this.thumbnailCache.set(photoPath, loader);
+      this.thumbnailCache.set(cacheKey, loader);
     }
 
-    return this.thumbnailCache.get(photoPath)!;
+    return this.thumbnailCache.get(cacheKey)!;
   }
 
   private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
