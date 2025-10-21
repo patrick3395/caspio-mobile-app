@@ -2446,3 +2446,121 @@ ion-alert.custom-alert {
   color: #6c757d;
   text-align: center;
 }
+
+// Section header styling
+.section-header {
+  margin-bottom: 20px;
+
+  h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #212529;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6c757d;
+  }
+}
+
+// Current Company Display Styling
+.company-details-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.company-header-display {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #f15a27;
+
+  h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
+  }
+}
+
+.detail-section {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e9ecef;
+
+  &:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  h4 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+  }
+
+  p {
+    margin: 0;
+    color: #212529;
+  }
+
+  a {
+    color: #f15a27;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.detail-col {
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}
+
+.wrap-text {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.website-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

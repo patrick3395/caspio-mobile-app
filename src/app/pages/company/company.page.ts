@@ -213,13 +213,14 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyId: number | null = null;
   organizationUsers: any[] = [];
 
-  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'companies';
+  selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
 
   isLoading = false;
   isInitialLoad = true;
   isProcessingTab = false;
 
   companies: CompanyRecord[] = [];
+  currentCompany: CompanyRecord | null = null;
   stages: StageDefinition[] = [];
   stageGroups: StageGroup[] = [];
   stageSummary: StageSummary[] = [];
@@ -375,6 +376,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   isEditUserModalOpen = false;
   editingUser: any = null;
   editingUserOriginal: any = null;
+  editUserModalHeadshotFile: File | null = null;
+  editUserModalHeadshotPreview: string | null = null;
 
   // Invoice edit modal
   isEditInvoiceModalOpen = false;
@@ -623,6 +626,20 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Process users data - don't exclude any company for users
       this.allUsers = userRecords;
+
+      // Load current user's company if it's the excluded one
+      if (this.currentUserCompanyId === this.excludedCompanyId) {
+        const currentCompanyRecord = companyRecords.find(record => {
+          const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
+          return id === this.currentUserCompanyId;
+        });
+        if (currentCompanyRecord) {
+          this.currentCompany = this.normalizeCompanyRecord(currentCompanyRecord);
+        }
+      } else {
+        // Current company should be in the companies array
+        this.currentCompany = this.companies.find(c => c.CompanyID === this.currentUserCompanyId) || null;
+      }
 
       this.recalculateCompanyAggregates();
 
@@ -2521,6 +2538,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   private tabDataLoaded: {[key: string]: boolean} = {
+    company: false,
     companies: true, // Already loaded on init
     contacts: false,
     tasks: false,
@@ -2535,6 +2553,9 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Load data asynchronously without blocking UI
     requestAnimationFrame(() => {
       switch (tab) {
+        case 'company':
+          this.loadCurrentCompany();
+          break;
         case 'contacts':
           this.applyContactFilters();
           break;
@@ -2558,6 +2579,36 @@ export class CompanyPage implements OnInit, OnDestroy {
           break;
       }
     });
+  }
+
+  loadCurrentCompany() {
+    // Find the current user's company from the loaded data
+    if (this.currentUserCompanyId !== null) {
+      // Try to find in companies array first
+      let company = this.companies.find(c => c.CompanyID === this.currentUserCompanyId);
+      
+      // If not found in filtered companies (it's the excluded company), load it separately
+      if (!company && this.currentUserCompanyId === this.excludedCompanyId) {
+        this.fetchCurrentCompanyData();
+      } else {
+        this.currentCompany = company || null;
+      }
+    }
+  }
+
+  async fetchCurrentCompanyData() {
+    try {
+      const companyRecords = await this.fetchTableRecords('Companies', { 
+        'q.where': `CompanyID=${this.currentUserCompanyId}`,
+        'q.limit': '1'
+      });
+      
+      if (companyRecords && companyRecords.length > 0) {
+        this.currentCompany = this.normalizeCompanyRecord(companyRecords[0]);
+      }
+    } catch (error) {
+      console.error('Error loading current company:', error);
+    }
   }
 
   async onTabChange(event: any) {
@@ -3621,6 +3672,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   openEditUserModal(user: any) {
     this.editingUser = { ...user };
     this.editingUserOriginal = user;
+    this.editUserModalHeadshotFile = null;
+    this.editUserModalHeadshotPreview = null;
     this.isEditUserModalOpen = true;
   }
 
@@ -3628,6 +3681,22 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.isEditUserModalOpen = false;
     this.editingUser = null;
     this.editingUserOriginal = null;
+    this.editUserModalHeadshotFile = null;
+    this.editUserModalHeadshotPreview = null;
+  }
+
+  onEditUserModalHeadshotChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.editUserModalHeadshotFile = input.files[0];
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.editUserModalHeadshotPreview = e.target.result;
+      };
+      reader.readAsDataURL(this.editUserModalHeadshotFile);
+    }
   }
 
   async saveEditedUser() {
@@ -3664,6 +3733,19 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Title = this.editingUser.Title.trim();
       }
 
+      // Add headshot if a new one was selected
+      if (this.editUserModalHeadshotFile) {
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Headshot = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.editUserModalHeadshotFile!);
+        });
+      }
+
       // Find the user's ID
       const userId = this.editingUser.UserID || this.editingUser.PK_ID;
       
@@ -3683,6 +3765,10 @@ export class CompanyPage implements OnInit, OnDestroy {
       
       if (userIndex !== -1) {
         this.allUsers[userIndex] = { ...this.allUsers[userIndex], ...payload };
+        // If headshot was updated, make sure it's set in the local array
+        if (this.editUserModalHeadshotFile && payload.Headshot) {
+          this.allUsers[userIndex].Headshot = payload.Headshot;
+        }
       }
 
       // Reapply filters to update the view

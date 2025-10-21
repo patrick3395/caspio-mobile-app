@@ -3137,21 +3137,22 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 }
 
-// Finalize Alert Styling - Match standard popup design
+// Finalize Alert Styling - Compact design for mobile
 ::ng-deep .finalize-alert {
   .alert-wrapper {
-    border-radius: 20px;
+    border-radius: 16px;
     background: white;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    max-width: 600px;
+    max-width: 400px; // Reduced from 600px for mobile
+    width: 90vw; // Responsive width
   }
 
   .alert-head {
-    padding: 30px 30px 20px;
+    padding: 20px 20px 12px; // Reduced padding
     text-align: center;
 
     h2 {
-      font-size: 22px;
+      font-size: 18px; // Reduced from 22px
       font-weight: 700;
       color: #333;
       margin: 0;
@@ -3159,33 +3160,33 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 
   .alert-message {
-    padding: 10px 30px 30px;
-    font-size: 14px;
-    line-height: 1.6;
+    padding: 8px 20px 20px; // Reduced padding
+    font-size: 13px; // Reduced from 14px
+    line-height: 1.5; // Tighter line height
     color: #666;
     white-space: pre-line;
-    max-height: 400px;
+    max-height: 300px; // Reduced from 400px
     overflow-y: auto;
     text-align: left;
   }
 
   .alert-button-group {
-    padding: 0 30px 30px;
+    padding: 0 20px 20px; // Reduced padding
     display: flex;
-    gap: 16px;
+    gap: 12px; // Reduced gap
     justify-content: center;
     border-top: none;
 
     button {
       flex: 1;
-      max-width: 200px;
-      min-width: 140px;
+      max-width: 140px; // Reduced from 200px
+      min-width: 100px; // Reduced from 140px
       background: #f5f5f5;
       border: 2px solid var(--noble-orange);
       border-radius: 50px;
       font-weight: 700;
-      font-size: 15px;
-      padding: 14px 24px;
+      font-size: 14px; // Reduced from 15px
+      padding: 12px 20px; // Reduced padding
       margin: 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;

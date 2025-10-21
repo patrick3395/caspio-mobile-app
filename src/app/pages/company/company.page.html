@@ -61,8 +61,8 @@
             <ion-icon name="people"></ion-icon>
             <span>Users</span>
           </button>
-          <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
-            <ion-icon name="business-outline"></ion-icon>
+          <button class="tab-button" [class.active]="selectedTab === 'company'" (click)="selectTab('company')">
+            <ion-icon name="business"></ion-icon>
             <span>Company</span>
           </button>
         </div>
@@ -72,6 +72,10 @@
       <div class="tab-section">
         <h3 class="tab-section-header">Partners</h3>
         <div class="tab-button-grid">
+          <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
+            <ion-icon name="business-outline"></ion-icon>
+            <span>Companies</span>
+          </button>
           <button class="tab-button" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
             <ion-icon name="people-outline"></ion-icon>
             <span>Contacts</span>
@@ -96,6 +100,128 @@
             <ion-icon name="analytics-outline"></ion-icon>
             <span>Metrics</span>
           </button>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="selectedTab === 'company'" class="tab-content company-tab">
+      <div class="section-header">
+        <div>
+          <h3>Company Information</h3>
+          <p>Your company details</p>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="!currentCompany" class="empty-state-modern">
+        <ion-spinner name="crescent"></ion-spinner>
+        <h3>Loading company information...</h3>
+      </div>
+
+      <!-- Company Details -->
+      <div *ngIf="currentCompany" class="company-details-card">
+        <div class="company-header-display">
+          <h2>{{ currentCompany.CompanyName }}</h2>
+        </div>
+        
+        <div class="detail-section">
+          <h4>Basic Information</h4>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>Onboarding Date</label>
+              <p>{{ formatDate(currentCompany.DateOnboarded) || 'Not provided' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>Onboarding Stage</label>
+              <p>{{ currentCompany['Onboarding Stage'] || 'Not provided' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>Software</label>
+              <p>{{ currentCompany.SoftwareID || 'Not provided' }}</p>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>Size</label>
+              <p>{{ currentCompany.Size || 'Not provided' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>Franchise</label>
+              <p>{{ currentCompany.Franchise ? 'Yes' : 'No' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>Lead Source</label>
+              <p>{{ currentCompany.LeadSource || 'Not provided' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Contact Information</h4>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>Company Phone</label>
+              <p>
+                <a *ngIf="currentCompany.Phone" [href]="'tel:' + currentCompany.Phone" class="phone-link">
+                  {{ formatPhone(currentCompany.Phone) }}
+                </a>
+                <span *ngIf="!currentCompany.Phone">Not provided</span>
+              </p>
+            </div>
+            <div class="detail-col">
+              <label>Company Email</label>
+              <p>
+                <a *ngIf="currentCompany.Email" [href]="'mailto:' + currentCompany.Email">{{ currentCompany.Email }}</a>
+                <span *ngIf="!currentCompany.Email">Not provided</span>
+              </p>
+            </div>
+            <div class="detail-col">
+              <label>CC Email</label>
+              <p class="wrap-text">{{ currentCompany.CC_Email || 'Not provided' }}</p>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>Website</label>
+              <p class="wrap-text" *ngIf="!currentCompany.Website">Not provided</p>
+              <a *ngIf="currentCompany.Website" [href]="currentCompany.Website" target="_blank" rel="noopener noreferrer" class="website-link wrap-text">
+                {{ currentCompany.Website }}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Address</h4>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>Address</label>
+              <p>{{ currentCompany.Address || 'Not provided' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>City</label>
+              <p>{{ currentCompany.City || 'Not provided' }}</p>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-col">
+              <label>State</label>
+              <p>{{ currentCompany.State || 'Not provided' }}</p>
+            </div>
+            <div class="detail-col">
+              <label>Zip</label>
+              <p>{{ currentCompany.Zip || 'Not provided' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section" *ngIf="currentCompany.ServiceArea">
+          <h4>Service Area(s)</h4>
+          <p class="wrap-text">{{ currentCompany.ServiceArea }}</p>
+        </div>
+
+        <div class="detail-section" *ngIf="currentCompany.Notes">
+          <h4>Notes</h4>
+          <p class="wrap-text">{{ currentCompany.Notes }}</p>
         </div>
       </div>
     </div>
@@ -2031,6 +2157,26 @@
     <ion-content class="edit-modal-content" *ngIf="editingUser">
       <div class="edit-form">
         <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Headshot</label>
+              <div class="headshot-upload-container">
+                <div class="headshot-preview-wrapper">
+                  <div class="headshot-preview" (click)="editUserModalHeadshotInput.click()">
+                    <img *ngIf="editUserModalHeadshotPreview || getUserHeadshot(editingUser)" [src]="editUserModalHeadshotPreview || getUserHeadshot(editingUser)" alt="Headshot preview" class="headshot-preview-image">
+                    <div *ngIf="!editUserModalHeadshotPreview && !getUserHeadshot(editingUser)" class="headshot-preview-placeholder">
+                      <ion-icon name="person"></ion-icon>
+                    </div>
+                  </div>
+                  <button type="button" class="headshot-add-btn" (click)="editUserModalHeadshotInput.click()">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
+                </div>
+                <input type="file" #editUserModalHeadshotInput accept="image/*" (change)="onEditUserModalHeadshotChange($event)" style="display: none;">
+              </div>
+              <p class="form-hint">Click the photo or plus button to update headshot</p>
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-field full-width">
               <label>Name</label>
