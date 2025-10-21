@@ -9838,6 +9838,8 @@ Stack: ${error?.stack}`;
     const filePath = typeof attachment.Photo === 'string' ? attachment.Photo : '';
     const attachId = attachment.AttachID || attachment.PK_ID || attachment.id;
 
+    console.log(`[PHOTO DEBUG] buildPhotoRecord - AttachID: ${attachId}, FilePath: "${filePath}", VisualID: ${attachment.VisualID}`);
+
     return {
       ...attachment,
       name: `Photo_${attachId}`,  // CRITICAL FIX: Use AttachID for unique naming, not filename
@@ -9850,6 +9852,7 @@ Stack: ${error?.stack}`;
       AttachID: attachId,
       id: attachId,
       PK_ID: attachment.PK_ID || attachment.AttachID || attachment.id,
+      VisualID: attachment.VisualID,  // Keep VisualID for debugging
       url: undefined,
       thumbnailUrl: this.photoPlaceholder,
       displayUrl: undefined,
@@ -9888,14 +9891,19 @@ Stack: ${error?.stack}`;
         // CRITICAL FIX: Fetch photo using AttachID as unique identifier
         // Multiple photos can have the same filename, so we must use AttachID
         const attachId = record.AttachID || record.id || record.PK_ID;
+        
+        console.log(`[PHOTO DEBUG] Fetching photo - AttachID: ${attachId}, FilePath: "${record.filePath}"`);
+        
         const imageData = await this.fetchPhotoBase64(record.filePath, attachId);
 
         if (imageData) {
+          console.log(`[PHOTO DEBUG] ✅ Successfully loaded photo ${attachId} - ${imageData.substring(0, 50)}...`);
           record.url = imageData;
           record.originalUrl = imageData;
           record.thumbnailUrl = imageData;
           record.displayUrl = imageData;  // Always set displayUrl, regardless of annotations
         } else {
+          console.error(`[PHOTO DEBUG] ❌ Failed to load photo ${attachId} - using placeholder`);
           record.thumbnailUrl = this.photoPlaceholder;
           record.displayUrl = this.photoPlaceholder;
         }
@@ -9908,6 +9916,7 @@ Stack: ${error?.stack}`;
 
   private fetchPhotoBase64(photoPath: string, attachId?: string | number): Promise<string | null> {
     if (!photoPath || typeof photoPath !== 'string') {
+      console.warn(`[PHOTO DEBUG] Invalid photoPath for AttachID ${attachId}:`, photoPath);
       return Promise.resolve(null);
     }
 
@@ -9915,17 +9924,21 @@ Stack: ${error?.stack}`;
     // Multiple photos can have the same filename but different AttachIDs
     const cacheKey = attachId ? `attachId_${attachId}` : photoPath;
 
+    console.log(`[PHOTO DEBUG] fetchPhotoBase64 - CacheKey: ${cacheKey}, PhotoPath: "${photoPath}"`);
+
     if (!this.thumbnailCache.has(cacheKey)) {
+      console.log(`[PHOTO DEBUG] Cache MISS for ${cacheKey} - fetching from API`);
       const loader = this.caspioService.getImageFromFilesAPI(photoPath).toPromise()
         .then(imageData => {
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+            console.log(`[PHOTO DEBUG] ✅ API returned valid base64 for ${cacheKey} - length: ${imageData.length}`);
             return imageData;
           }
-          console.error(`[PHOTO FIX] Invalid image data for ${photoPath} (AttachID: ${attachId})`);
+          console.error(`[PHOTO FIX] ❌ Invalid image data for ${photoPath} (AttachID: ${attachId}) - Type: ${typeof imageData}, Starts with data: ${imageData?.substring(0, 10)}`);
           return null;
         })
         .catch(error => {
-          console.error(`[PHOTO FIX] Failed to load image for ${photoPath} (AttachID: ${attachId}):`, error);
+          console.error(`[PHOTO FIX] ❌ Failed to load image for ${photoPath} (AttachID: ${attachId}):`, error);
           return null;
         })
         .then(result => {
@@ -9936,6 +9949,8 @@ Stack: ${error?.stack}`;
         });
 
       this.thumbnailCache.set(cacheKey, loader);
+    } else {
+      console.log(`[PHOTO DEBUG] Cache HIT for ${cacheKey}`);
     }
 
     return this.thumbnailCache.get(cacheKey)!;
