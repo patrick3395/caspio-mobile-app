@@ -2715,6 +2715,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         point.photoCount = point.photos.length;
         
+        // PERFORMANCE: Clear point photo cache when photos added
+        this.pointPhotoCache.clear();
+        
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
@@ -2741,6 +2744,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 // Keep the blob URL as fallback
               }
             }
+            
+            // PERFORMANCE: Clear point photo cache when photos updated
+            this.pointPhotoCache.clear();
             
             // PERFORMANCE: Trigger change detection with OnPush strategy
             this.changeDetectorRef.detectChanges();
@@ -4911,6 +4917,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Update photo count
         point.photoCount = point.photos.length;
         
+        // PERFORMANCE: Clear point photo cache when photos added
+        this.pointPhotoCache.clear();
+        
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
@@ -4983,6 +4992,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (index > -1) {
                     point.photos.splice(index, 1);
                     point.photoCount = point.photos.length;
+                    
+                    // PERFORMANCE: Clear point photo cache when photos deleted
+                    this.pointPhotoCache.clear();
                   }
                 }
               } catch (error) {
@@ -5020,6 +5032,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (index > -1) {
                     point.photos.splice(index, 1);
                     point.photoCount = point.photos.length;
+                    
+                    // PERFORMANCE: Clear point photo cache when photos deleted
+                    this.pointPhotoCache.clear();
                   }
                 }
               } catch (error) {
@@ -7535,6 +7550,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       this.visualPhotos[key].push(photoData);
       
+      // PERFORMANCE: Clear photo cache when new photos added
+      this.photoArrayCache.clear();
+      
       // PERFORMANCE: Trigger change detection with OnPush strategy
       this.changeDetectorRef.detectChanges();
 
@@ -7799,6 +7817,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           originalUrl: imageUrl,
           uploading: false // Remove uploading flag
         };
+        
+        // PERFORMANCE: Clear photo cache when photos updated
+        this.photoArrayCache.clear();
         
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
@@ -9432,6 +9453,9 @@ Stack: ${error?.stack}`;
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => (p.AttachID || p.id) !== attachId
                     );
+                    
+                    // PERFORMANCE: Clear photo cache when photos deleted
+                    this.photoArrayCache.clear();
                   }
                   
                   // Force UI update
