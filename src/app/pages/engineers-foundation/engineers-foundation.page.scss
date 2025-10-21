@@ -2591,6 +2591,11 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 }
 
+// FDF Photos Row - Desktop gap
+.fdf-photos-row {
+  gap: 12px; // Desktop gap
+}
+
 // MOBILE-SPECIFIC FDF PHOTO SIZING - Fit 3 photos on one line
 // Target mobile devices (phones) specifically
 @media (max-width: 768px) {
@@ -2599,7 +2604,8 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    min-width: 85px !important; // Smaller min-width for mobile to fit 3 photos
+    flex: 0 0 auto !important; // Don't grow, don't shrink, size to content
+    min-width: unset !important; // Remove min-width constraint
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -2734,7 +2740,8 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    min-width: 75px !important; // Even smaller for very small phones
+    flex: 0 0 auto !important; // Don't grow, don't shrink, size to content
+    min-width: unset !important; // Remove min-width constraint
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
