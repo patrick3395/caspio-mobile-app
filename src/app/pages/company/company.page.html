@@ -1869,3 +1869,62 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<ion-modal [isOpen]="isAddUserModalOpen" (didDismiss)="closeAddUserModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeAddUserModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Add New User</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveNewUser()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <select [(ngModel)]="newUser.CompanyID" class="form-input">
+                <option [ngValue]="null">-- Select --</option>
+                <option *ngFor="let company of companies" [ngValue]="company.CompanyID">
+                  {{ company.CompanyName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="newUser.Name" class="form-input" placeholder="User name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Email</label>
+              <input type="email" [(ngModel)]="newUser.Email" class="form-input" placeholder="email@example.com">
+            </div>
+            <div class="form-field">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="newUser.Phone" class="form-input" placeholder="(555) 555-5555">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Role</label>
+              <input type="text" [(ngModel)]="newUser.Role" class="form-input" placeholder="Role/Title">
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

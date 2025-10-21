@@ -353,6 +353,16 @@ export class CompanyPage implements OnInit, OnDestroy {
     Notes: ''
   };
 
+  // Add user modal
+  isAddUserModalOpen = false;
+  newUser: any = {
+    CompanyID: null,
+    Name: '',
+    Email: '',
+    Phone: '',
+    Role: ''
+  };
+
   // Invoice edit modal
   isEditInvoiceModalOpen = false;
   editingInvoice: InvoicePairWithService | null = null;
@@ -1175,6 +1185,105 @@ export class CompanyPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error creating contact:', error);
       let errorMessage = 'Failed to create contact';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Create failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Create failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Create failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Create failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async openAddUserModal() {
+    // Reset the user with default values, pre-fill company with current user's company or filter
+    this.newUser = {
+      CompanyID: this.globalCompanyFilterId || this.currentUserCompanyId,
+      Name: '',
+      Email: '',
+      Phone: '',
+      Role: ''
+    };
+
+    this.isAddUserModalOpen = true;
+  }
+
+  closeAddUserModal() {
+    this.isAddUserModalOpen = false;
+  }
+
+  async saveNewUser() {
+    if (!this.newUser) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.newUser.CompanyID) {
+      await this.showToast('Please select a company', 'warning');
+      return;
+    }
+
+    if (!this.newUser.Name || this.newUser.Name.trim() === '') {
+      await this.showToast('Please enter a user name', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating user...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload with required and optional fields
+      const payload: any = {
+        CompanyID: this.newUser.CompanyID,
+        Name: this.newUser.Name.trim()
+      };
+
+      // Add optional fields if provided
+      if (this.newUser.Email && this.newUser.Email.trim() !== '') {
+        payload.Email = this.newUser.Email.trim();
+      }
+
+      if (this.newUser.Phone && this.newUser.Phone.trim() !== '') {
+        payload.Phone = this.newUser.Phone.trim();
+      }
+
+      if (this.newUser.Role && this.newUser.Role.trim() !== '') {
+        payload.Role = this.newUser.Role.trim();
+      }
+
+      console.log('Creating user with payload:', payload);
+
+      // Create the user via Caspio API
+      const response = await firstValueFrom(
+        this.caspioService.post('/tables/Users/records', payload)
+      );
+
+      console.log('User created successfully:', response);
+
+      // Reload users data to include the new user
+      const userRecords = await this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' });
+      this.allUsers = userRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId);
+
+      // Reapply filters
+      this.applyUserFilters();
+
+      await this.showToast('User created successfully', 'success');
+      this.closeAddUserModal();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      let errorMessage = 'Failed to create user';
 
       if (error?.error) {
         if (typeof error.error === 'string') {
