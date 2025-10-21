@@ -1,6 +1,16 @@
 <ion-header>
   <ion-toolbar>
+    <ion-buttons slot="start">
+      <button class="header-icon-button cancel-button" (click)="dismiss()">
+        <ion-icon name="close" class="orange-icon"></ion-icon>
+      </button>
+    </ion-buttons>
     <ion-title>Add {{ kind }}</ion-title>
+    <ion-buttons slot="end">
+      <button class="header-icon-button save-button" (click)="save()">
+        <ion-icon name="checkmark" class="orange-icon"></ion-icon>
+      </button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -67,18 +77,3 @@
   </div>
 </ion-content>
 
-<ion-footer>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="dismiss()" color="medium">
-        Cancel
-      </ion-button>
-    </ion-buttons>
-    <ion-buttons slot="end">
-      <ion-button (click)="save()" color="primary" [strong]="true">
-        <ion-icon name="checkmark" slot="start"></ion-icon>
-        Save
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-footer>

@@ -4227,36 +4227,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   templateItem.id = visualId;
                   templateItem.templateId = matchingTemplate.PK_ID;
                   const item = templateItem;  // Use template item
-                  
-                  const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
 
-                  if (item.answerType === 1) {
-                    if (hasAnswersField) {
-                      item.answer = visual.Answers;
-                      item.text = visual.Text || item.originalText || "";
-                    } else if (visual.Text === "Yes" || visual.Text === "No") {
-                      item.answer = visual.Text;
-                      item.text = item.originalText || "";
-                    }
-                  } else if (item.answerType === 2) {
-                    if (hasAnswersField) {
-                      item.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
-                      item.text = visual.Text || item.originalText || "";
-                    } else if (visual.Text) {
-                      item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
-                    }
+                const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
 
-                    // Extract custom "Other" value if present
-                    if (item.selectedOptions) {
-                      const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
-                      if (customOther) {
+                if (item.answerType === 1) {
+                  if (hasAnswersField) {
+                    item.answer = visual.Answers;
+                    item.text = visual.Text || item.originalText || "";
+                  } else if (visual.Text === "Yes" || visual.Text === "No") {
+                    item.answer = visual.Text;
+                    item.text = item.originalText || "";
+                  }
+                } else if (item.answerType === 2) {
+                  if (hasAnswersField) {
+                    item.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
+                    item.text = visual.Text || item.originalText || "";
+                  } else if (visual.Text) {
+                    item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
+                  }
+
+                  // Extract custom "Other" value if present
+                  if (item.selectedOptions) {
+                    const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                    if (customOther) {
                         item.otherValue = customOther.substring(7);
-                        const index = item.selectedOptions.indexOf(customOther);
-                        item.selectedOptions[index] = 'Other';
-                      }
+                      const index = item.selectedOptions.indexOf(customOther);
+                      item.selectedOptions[index] = 'Other';
                     }
-                  } else {
-                    item.text = visual.Text || "";
+                  }
+                } else {
+                  item.text = visual.Text || "";
                   }
                 } else {
                   // Subsequent instance: create NEW item (duplicate of same template)
@@ -4989,71 +4989,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // View room photo with annotation support (redirects to viewElevationPhoto)
-  async viewRoomPhoto(photo: any, roomName: string, point: any, event?: Event) {
-    // MOBILE DEBUG: Long press on mobile shows sizing debug info
-    if (!this.platform.isWeb() && event) {
-      const target = event.target as HTMLImageElement;
-      if (target && target.tagName === 'IMG') {
-        await this.showPhotoSizingDebug(target, photo, 'Elevation Plot');
-        return;
-      }
-    }
-    
+  async viewRoomPhoto(photo: any, roomName: string, point: any) {
     // Use the new annotation-enabled viewElevationPhoto method
     await this.viewElevationPhoto(photo, roomName, point);
-  }
-  
-  // DEBUG: Show photo sizing information for mobile troubleshooting
-  async showPhotoSizingDebug(imgElement: HTMLImageElement, photo: any, photoType: string) {
-    const container = imgElement.parentElement;
-    const computedImg = window.getComputedStyle(imgElement);
-    const computedContainer = container ? window.getComputedStyle(container) : null;
-    
-    const debugInfo = `
-<strong>📐 ${photoType} Photo Sizing Debug</strong>
-
-<strong>Photo Info:</strong>
-• AttachID: ${photo.AttachID || photo.id}
-• PhotoType: ${photo.photoType || 'N/A'}
-
-<strong>Image Element:</strong>
-• Natural: ${imgElement.naturalWidth} x ${imgElement.naturalHeight}px
-• Rendered: ${imgElement.width} x ${imgElement.height}px
-• Offset: ${imgElement.offsetWidth} x ${imgElement.offsetHeight}px
-• Client: ${imgElement.clientWidth} x ${imgElement.clientHeight}px
-
-<strong>CSS Styles (Image):</strong>
-• width: ${computedImg.width}
-• height: ${computedImg.height}
-• max-width: ${computedImg.maxWidth}
-• border-radius: ${computedImg.borderRadius}
-• object-fit: ${computedImg.objectFit}
-• display: ${computedImg.display}
-
-<strong>Container:</strong>
-• Width: ${container?.offsetWidth || 'N/A'}px
-• Height: ${container?.offsetHeight || 'N/A'}px
-• Display: ${computedContainer?.display || 'N/A'}
-• Flex: ${computedContainer?.flex || 'N/A'}
-
-<strong>Platform:</strong>
-• Is Web: ${this.platform.isWeb()}
-• Is Mobile: ${!this.platform.isWeb()}
-• Screen Width: ${window.innerWidth}px
-• Screen Height: ${window.innerHeight}px
-
-<strong>Viewport:</strong>
-• Device Pixel Ratio: ${window.devicePixelRatio}
-    `.trim();
-
-    const alert = await this.alertController.create({
-      header: '🔍 Photo Sizing Debug',
-      message: debugInfo,
-      buttons: ['OK'],
-      cssClass: 'debug-alert'
-    });
-
-    await alert.present();
   }
   
   // Save room photo caption/annotation
@@ -9867,7 +9805,7 @@ Stack: ${error?.stack}`;
         return true;
       });
       console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photo records for KEY: ${key}`);
-      
+
       // CRITICAL FIX: Hydrate photos BEFORE assigning to visualPhotos
       // This ensures OnPush change detection sees photos with actual URLs, not placeholders
       await this.hydratePhotoRecords(uniquePhotoRecords);
@@ -9904,8 +9842,6 @@ Stack: ${error?.stack}`;
 
     const filePath = typeof attachment.Photo === 'string' ? attachment.Photo : '';
     const attachId = attachment.AttachID || attachment.PK_ID || attachment.id;
-
-    console.log(`[PHOTO DEBUG] buildPhotoRecord - AttachID: ${attachId}, FilePath: "${filePath}", VisualID: ${attachment.VisualID}`);
 
     return {
       ...attachment,
@@ -9958,19 +9894,14 @@ Stack: ${error?.stack}`;
         // CRITICAL FIX: Fetch photo using AttachID as unique identifier
         // Multiple photos can have the same filename, so we must use AttachID
         const attachId = record.AttachID || record.id || record.PK_ID;
-        
-        console.log(`[PHOTO DEBUG] Fetching photo - AttachID: ${attachId}, FilePath: "${record.filePath}"`);
-        
         const imageData = await this.fetchPhotoBase64(record.filePath, attachId);
 
         if (imageData) {
-          console.log(`[PHOTO DEBUG] ✅ Successfully loaded photo ${attachId} - ${imageData.substring(0, 50)}...`);
           record.url = imageData;
           record.originalUrl = imageData;
           record.thumbnailUrl = imageData;
           record.displayUrl = imageData;  // Always set displayUrl, regardless of annotations
         } else {
-          console.error(`[PHOTO DEBUG] ❌ Failed to load photo ${attachId} - using placeholder`);
           record.thumbnailUrl = this.photoPlaceholder;
           record.displayUrl = this.photoPlaceholder;
         }
@@ -9983,7 +9914,6 @@ Stack: ${error?.stack}`;
 
   private fetchPhotoBase64(photoPath: string, attachId?: string | number): Promise<string | null> {
     if (!photoPath || typeof photoPath !== 'string') {
-      console.warn(`[PHOTO DEBUG] Invalid photoPath for AttachID ${attachId}:`, photoPath);
       return Promise.resolve(null);
     }
 
@@ -9991,21 +9921,16 @@ Stack: ${error?.stack}`;
     // Multiple photos can have the same filename but different AttachIDs
     const cacheKey = attachId ? `attachId_${attachId}` : photoPath;
 
-    console.log(`[PHOTO DEBUG] fetchPhotoBase64 - CacheKey: ${cacheKey}, PhotoPath: "${photoPath}"`);
-
     if (!this.thumbnailCache.has(cacheKey)) {
-      console.log(`[PHOTO DEBUG] Cache MISS for ${cacheKey} - fetching from API`);
       const loader = this.caspioService.getImageFromFilesAPI(photoPath).toPromise()
         .then(imageData => {
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
-            console.log(`[PHOTO DEBUG] ✅ API returned valid base64 for ${cacheKey} - length: ${imageData.length}`);
             return imageData;
           }
-          console.error(`[PHOTO FIX] ❌ Invalid image data for ${photoPath} (AttachID: ${attachId}) - Type: ${typeof imageData}, Starts with data: ${imageData?.substring(0, 10)}`);
           return null;
         })
         .catch(error => {
-          console.error(`[PHOTO FIX] ❌ Failed to load image for ${photoPath} (AttachID: ${attachId}):`, error);
+          console.error(`Failed to load image for AttachID ${attachId}:`, error);
           return null;
         })
         .then(result => {
@@ -10016,8 +9941,6 @@ Stack: ${error?.stack}`;
         });
 
       this.thumbnailCache.set(cacheKey, loader);
-    } else {
-      console.log(`[PHOTO DEBUG] Cache HIT for ${cacheKey}`);
     }
 
     return this.thumbnailCache.get(cacheKey)!;

@@ -10,11 +10,28 @@ ion-header {
       color: #333;
     }
 
-    ion-button {
-      --color: #333;
+    // Header icon buttons
+    .header-icon-button {
+      background: transparent;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
 
-      ion-icon {
-        font-size: 24px;
+      .orange-icon {
+        font-size: 32px;
+        color: var(--noble-orange, #F15A27);
+      }
+
+      &:hover {
+        transform: scale(1.1);
+      }
+
+      &:active {
+        transform: scale(0.95);
       }
     }
   }
@@ -152,31 +169,4 @@ ion-item {
   border-radius: 6px;
 }
 
-// Sleek footer with gradient buttons
-ion-footer {
-  ion-toolbar {
-    --background: white;
-    --border-color: #e0e0e0;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    padding: 12px 0;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-
-    ion-button {
-      font-weight: 600;
-      text-transform: none;
-      height: 44px;
-      min-width: 100px;
-
-      &[color="primary"] {
-        --background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-        --border-radius: 10px;
-        --box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
-      }
-
-      &[color="medium"] {
-        --color: #666;
-      }
-    }
-  }
-}
+// Footer removed - using header icons instead
