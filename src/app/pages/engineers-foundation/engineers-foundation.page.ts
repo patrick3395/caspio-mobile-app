@@ -4195,57 +4195,119 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             );
 
             if (matchingTemplate) {
-              const key = visual.Category + "_" + matchingTemplate.PK_ID;
-              console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visual.VisualID);
-              this.selectedItems[key] = true;
-
+              // CRITICAL FIX: Use VisualID (unique record ID) for key to ensure each visual gets unique photos
               const visualId = visual.VisualID || visual.PK_ID || visual.id;
+              const key = visual.Category + "_" + visualId;
+              console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visualId);
+              this.selectedItems[key] = true;
               this.visualRecordIds[key] = String(visualId);
               console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
 
-              const updateItemData = (items: any[]) => {
-                const item = items.find(i => i.id === matchingTemplate.PK_ID);
-                if (!item) {
+              // CRITICAL FIX: Create NEW item instances for each visual record from database
+              // This ensures each visual (even duplicates of same template) has its own photos
+              const updateOrCreateItemData = (items: any[]) => {
+                // Check if this visual was already loaded (by visualId)
+                const existingItem = items.find(i => i.id === visualId);
+                if (existingItem) {
+                  // Already loaded, skip
                   return;
                 }
+                
+                // Find the template item to use as base
+                const templateItem = items.find(i => i.id === matchingTemplate.PK_ID);
+                if (!templateItem) {
+                  return;
+                }
+                
+                // Check if this is the first visual using this template
+                const isFirstInstance = !items.some(i => i.templateId === matchingTemplate.PK_ID);
+                
+                if (isFirstInstance) {
+                  // First instance: update the template item in-place (backward compatibility)
+                  templateItem.id = visualId;
+                  templateItem.templateId = matchingTemplate.PK_ID;
+                  const item = templateItem;  // Use template item
+                  
+                  const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
 
-                const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
-
-                if (item.answerType === 1) {
-                  if (hasAnswersField) {
-                    item.answer = visual.Answers;
-                    item.text = visual.Text || item.originalText || "";
-                  } else if (visual.Text === "Yes" || visual.Text === "No") {
-                    item.answer = visual.Text;
-                    item.text = item.originalText || "";
-                  }
-                } else if (item.answerType === 2) {
-                  if (hasAnswersField) {
-                    item.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
-                    item.text = visual.Text || item.originalText || "";
-                  } else if (visual.Text) {
-                    item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
-                  }
-
-                  // Extract custom "Other" value if present
-                  if (item.selectedOptions) {
-                    const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
-                    if (customOther) {
-                      item.otherValue = customOther.substring(7); // Extract text after "Other: "
-                      // Replace with plain "Other" for checkbox matching
-                      const index = item.selectedOptions.indexOf(customOther);
-                      item.selectedOptions[index] = 'Other';
+                  if (item.answerType === 1) {
+                    if (hasAnswersField) {
+                      item.answer = visual.Answers;
+                      item.text = visual.Text || item.originalText || "";
+                    } else if (visual.Text === "Yes" || visual.Text === "No") {
+                      item.answer = visual.Text;
+                      item.text = item.originalText || "";
                     }
+                  } else if (item.answerType === 2) {
+                    if (hasAnswersField) {
+                      item.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
+                      item.text = visual.Text || item.originalText || "";
+                    } else if (visual.Text) {
+                      item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
+                    }
+
+                    // Extract custom "Other" value if present
+                    if (item.selectedOptions) {
+                      const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                      if (customOther) {
+                        item.otherValue = customOther.substring(7);
+                        const index = item.selectedOptions.indexOf(customOther);
+                        item.selectedOptions[index] = 'Other';
+                      }
+                    }
+                  } else {
+                    item.text = visual.Text || "";
                   }
                 } else {
-                  item.text = visual.Text || "";
+                  // Subsequent instance: create NEW item (duplicate of same template)
+                  const newItem = {
+                    ...templateItem,
+                    id: visualId,
+                    templateId: matchingTemplate.PK_ID,
+                    visualRecordId: visualId
+                  };
+                  
+                  const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
+
+                  if (newItem.answerType === 1) {
+                    if (hasAnswersField) {
+                      newItem.answer = visual.Answers;
+                      newItem.text = visual.Text || newItem.originalText || "";
+                    } else if (visual.Text === "Yes" || visual.Text === "No") {
+                      newItem.answer = visual.Text;
+                      newItem.text = newItem.originalText || "";
+                    }
+                  } else if (newItem.answerType === 2) {
+                    if (hasAnswersField) {
+                      newItem.selectedOptions = visual.Answers.split(",").map((s: string) => s.trim());
+                      newItem.text = visual.Text || newItem.originalText || "";
+                    } else if (visual.Text) {
+                      newItem.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
+                    }
+
+                    // Extract custom "Other" value if present
+                    if (newItem.selectedOptions) {
+                      const customOther = newItem.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                      if (customOther) {
+                        newItem.otherValue = customOther.substring(7);
+                        const index = newItem.selectedOptions.indexOf(customOther);
+                        newItem.selectedOptions[index] = 'Other';
+                      }
+                    }
+                  } else {
+                    newItem.text = visual.Text || "";
+                  }
+                  
+                  // Add the new instance to the array
+                  items.push(newItem);
+                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with VisualID ${visualId}`);
                 }
               };
 
               if (this.organizedData[visual.Category]) {
-                updateItemData(this.organizedData[visual.Category].comments);
-                updateItemData(this.organizedData[visual.Category].limitations);
-                updateItemData(this.organizedData[visual.Category].deficiencies);
+                updateOrCreateItemData(this.organizedData[visual.Category].comments);
+                updateOrCreateItemData(this.organizedData[visual.Category].limitations);
+                updateOrCreateItemData(this.organizedData[visual.Category].deficiencies);
               }
             }
           }
@@ -9699,25 +9761,8 @@ Stack: ${error?.stack}`;
   async loadExistingPhotos() {
     const startTime = performance.now();
 
-    // [v1.4.386] Check for duplicate visualIds
-    const visualIdToKeys: { [visualId: string]: string[] } = {};
-    for (const key in this.visualRecordIds) {
-      const visualId = String(this.visualRecordIds[key]);
-      if (!visualIdToKeys[visualId]) {
-        visualIdToKeys[visualId] = [];
-      }
-      visualIdToKeys[visualId].push(key);
-    }
-
-    // Log any duplicate visualIds
-    for (const visualId in visualIdToKeys) {
-      if (visualIdToKeys[visualId].length > 1) {
-        console.warn(`[v1.4.488] WARNING: VisualID ${visualId} is used by multiple keys:`, visualIdToKeys[visualId]);
-      }
-    }
-
-    // [v1.4.488] PERFORMANCE FIX: Load all photos in parallel instead of sequential
-    // Removed 50ms delay between each visual - saves 1-2 seconds
+    // [PHOTO FIX] Load photos using unique VisualID-based keys
+    // Each visual record now has its own unique key, preventing photo cross-contamination
     const loadPromises = Object.keys(this.visualRecordIds).map(key => {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
@@ -9732,6 +9777,7 @@ Stack: ${error?.stack}`;
     await Promise.all(loadPromises);
 
     const elapsed = performance.now() - startTime;
+    console.log(`[PHOTO FIX] Loaded photos for ${Object.keys(this.visualRecordIds).length} items in ${elapsed.toFixed(0)}ms`);
     this.changeDetectorRef.detectChanges(); // Single change detection after all photos loaded
   }
   
