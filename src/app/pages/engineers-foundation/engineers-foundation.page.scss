@@ -2707,6 +2707,17 @@ ion-content{--overflow:scroll !important;height:100%}
     text-align: center !important; // Center text in caption
     margin: 4px auto 0 auto !important; // Center caption under image
   }
+  
+  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems on mobile
+  // Override inline width="90" height="90" attributes
+  .fdf-photos-container img[width="90"],
+  .elevation-points-container img[width="90"],
+  .elevation-point-card img[width="90"] {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+  }
 }
 
 // EXTRA SMALL MOBILE DEVICES - Even more compact for very small screens
@@ -2825,6 +2836,17 @@ ion-content{--overflow:scroll !important;height:100%}
     box-sizing: border-box !important; // Include padding in width
     text-align: center !important; // Center text in caption
     margin: 3px auto 0 auto !important; // Center caption under image
+  }
+  
+  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems  
+  // Override inline width="90" height="90" attributes on small mobile
+  .fdf-photos-container img[width="90"],
+  .elevation-points-container img[width="90"],
+  .elevation-point-card img[width="90"] {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
   }
 }
 
