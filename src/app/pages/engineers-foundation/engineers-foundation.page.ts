@@ -4258,12 +4258,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     item.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
                   }
 
-                  // Extract custom "Other" value if present
+                  // CRITICAL FIX: Extract custom "Other" value (supports both old "Other: value" and new "value" formats)
                   if (item.selectedOptions) {
-                    const customOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
-                    if (customOther) {
-                        item.otherValue = customOther.substring(7);
-                      const index = item.selectedOptions.indexOf(customOther);
+                    // Find any custom values (not in the predefined dropdown list)
+                    const dropdownOptions = this.visualDropdownOptions[item.templateId] || [];
+                    const customValues = item.selectedOptions.filter((opt: string) => 
+                      !dropdownOptions.includes(opt) && opt !== 'Other'
+                    );
+                    
+                    if (customValues.length > 0) {
+                      // Store the custom value and add "Other" to selectedOptions
+                      item.otherValue = customValues[0];
+                      // Replace custom value with "Other" in array for checkbox consistency
+                      const customIndex = item.selectedOptions.indexOf(customValues[0]);
+                      if (customIndex > -1) {
+                        item.selectedOptions[customIndex] = 'Other';
+                      }
+                    }
+                    
+                    // Also handle legacy format "Other: value"
+                    const legacyOther = item.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                    if (legacyOther) {
+                      item.otherValue = legacyOther.substring(7);
+                      const index = item.selectedOptions.indexOf(legacyOther);
                       item.selectedOptions[index] = 'Other';
                     }
                   }
@@ -4297,12 +4314,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                       newItem.selectedOptions = visual.Text.split(",").map((s: string) => s.trim());
                     }
 
-                    // Extract custom "Other" value if present
+                    // CRITICAL FIX: Extract custom "Other" value (supports both old "Other: value" and new "value" formats)
                     if (newItem.selectedOptions) {
-                      const customOther = newItem.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
-                      if (customOther) {
-                        newItem.otherValue = customOther.substring(7);
-                        const index = newItem.selectedOptions.indexOf(customOther);
+                      // Find any custom values (not in the predefined dropdown list)
+                      const dropdownOptions = this.visualDropdownOptions[newItem.templateId] || [];
+                      const customValues = newItem.selectedOptions.filter((opt: string) => 
+                        !dropdownOptions.includes(opt) && opt !== 'Other'
+                      );
+                      
+                      if (customValues.length > 0) {
+                        // Store the custom value and add "Other" to selectedOptions
+                        newItem.otherValue = customValues[0];
+                        // Replace custom value with "Other" in array for checkbox consistency
+                        const customIndex = newItem.selectedOptions.indexOf(customValues[0]);
+                        if (customIndex > -1) {
+                          newItem.selectedOptions[customIndex] = 'Other';
+                        }
+                      }
+                      
+                      // Also handle legacy format "Other: value"
+                      const legacyOther = newItem.selectedOptions.find((opt: string) => opt.startsWith('Other: '));
+                      if (legacyOther) {
+                        newItem.otherValue = legacyOther.substring(7);
+                        const index = newItem.selectedOptions.indexOf(legacyOther);
                         newItem.selectedOptions[index] = 'Other';
                       }
                     }
@@ -6632,11 +6666,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return false;
     }
     
-    // CRITICAL FIX: Check for both "Other" and "Other: custom text"
+    // CRITICAL FIX: Check for "Other" - either explicit or via otherValue
     if (option === 'Other') {
-      return item.selectedOptions.some((opt: string) => 
-        opt === 'Other' || opt.startsWith('Other: ')
-      );
+      // Check if "Other" is in the array OR if there's a custom otherValue
+      return item.selectedOptions.includes('Other') || (item.otherValue && item.otherValue.trim().length > 0);
     }
     
     return item.selectedOptions.includes(option);
@@ -6674,17 +6707,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Handle custom "Other" input for multi-select
   async onMultiSelectOtherChange(category: string, item: any) {
-    // Update the selected options to include the custom value
-    // Replace "Other" with "Other: {custom value}" in selectedOptions
+    // CRITICAL FIX: Save just the custom value, not "Other: value"
     if (item.otherValue && item.otherValue.trim()) {
       const otherIndex = item.selectedOptions.indexOf('Other');
       if (otherIndex > -1) {
-        // Remove plain "Other" and add custom value
-        item.selectedOptions[otherIndex] = `Other: ${item.otherValue.trim()}`;
+        // Replace "Other" with the actual custom value
+        item.selectedOptions[otherIndex] = item.otherValue.trim();
+      } else {
+        // Check if there's already a custom value and replace it
+        const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
+          opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
+        );
+        if (customOtherIndex > -1) {
+          item.selectedOptions[customOtherIndex] = item.otherValue.trim();
+        } else {
+          // Add the custom value if not present
+          item.selectedOptions.push(item.otherValue.trim());
+        }
       }
     } else {
       // If custom value is cleared, revert to just "Other"
-      const customOtherIndex = item.selectedOptions.findIndex((opt: string) => opt.startsWith('Other: '));
+      const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
+        opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
+      );
       if (customOtherIndex > -1) {
         item.selectedOptions[customOtherIndex] = 'Other';
       }

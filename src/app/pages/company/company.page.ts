@@ -598,9 +598,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         .map(record => this.normalizeInvoiceRecord(record))
         .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
 
-      // Process users data
-      this.allUsers = userRecords
-        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId);
+      // Process users data - don't exclude any company for users
+      this.allUsers = userRecords;
 
       this.recalculateCompanyAggregates();
 
@@ -1271,10 +1270,9 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       console.log('User created successfully:', response);
 
-      // Reload users data to include the new user
+      // Reload users data to include the new user - don't exclude any company for users
       const userRecords = await this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' });
-      this.allUsers = userRecords
-        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId);
+      this.allUsers = userRecords;
 
       // Reapply filters
       this.applyUserFilters();
