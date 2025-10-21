@@ -2700,6 +2700,8 @@ ion-content{--overflow:scroll !important;height:100%}
     padding: 3px 4px !important;
     max-width: 70px !important; // Prevent expansion
     box-sizing: border-box !important; // Include padding in width
+    text-align: center !important; // Center text in caption
+    margin: 4px auto 0 auto !important; // Center caption under image
   }
 }
 
@@ -2813,6 +2815,8 @@ ion-content{--overflow:scroll !important;height:100%}
     padding: 2px 3px !important;
     max-width: 60px !important; // Prevent expansion
     box-sizing: border-box !important; // Include padding in width
+    text-align: center !important; // Center text in caption
+    margin: 3px auto 0 auto !important; // Center caption under image
   }
 }
 
@@ -2917,6 +2921,8 @@ ion-content{--overflow:scroll !important;height:100%}
     font-size: 10px !important;
     padding: 3px 4px !important;
     box-sizing: border-box !important;
+    text-align: center !important; // Center text in caption
+    margin: 4px auto 0 auto !important; // Center caption under image
   }
 }
 
@@ -2933,6 +2939,8 @@ ion-content{--overflow:scroll !important;height:100%}
     font-size: 9px !important;
     padding: 2px 3px !important;
     box-sizing: border-box !important;
+    text-align: center !important; // Center text in caption
+    margin: 3px auto 0 auto !important; // Center caption under image
   }
 }
 
