@@ -2625,7 +2625,7 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // DYNAMIC sizing for Structural Systems on mobile - ALWAYS fits 3 per row
+  // FIXED sizing for mobile - match Structural Systems exactly
   .image-preview-section {
     padding: 4px !important;
     overflow: visible !important; // Allow delete buttons to show
@@ -2637,20 +2637,43 @@ ion-content{--overflow:scroll !important;height:100%}
     overflow: visible !important; // Allow delete buttons to show
   }
   
-  // DYNAMIC width calculation: (100% - gaps) / 3 images
-  // calc((100% - 8px) / 3) ensures exactly 3 images fit regardless of screen width
+  // CRITICAL FIX: Use FIXED width for Structural Systems (80px on mobile)
+  .image-preview-section .image-preview.structural-photo-preview {
+    position: relative !important;
+    width: 80px !important; // Fixed width to match debug output
+    max-width: 80px !important;
+    min-width: 80px !important;
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
+    padding-top: 8px !important;
+    padding-bottom: 0 !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    
+    img {
+      width: 80px !important;
+      height: 90px !important; // Maintain aspect ratio
+    }
+  }
+  
+  // CRITICAL FIX: Use FIXED width for Elevation Plot photos (80px on mobile to match Structural)
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .fdf-photo-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .fdf-photo-preview,
   .elevation-points-container .image-preview,
   .elevation-point-card .fdf-photo-preview,
-  .elevation-point-card .image-preview,
-  .image-preview.structural-photo-preview {
+  .elevation-point-card .image-preview {
     position: relative !important;
-    width: calc((100% - 8px) / 3) !important; // Dynamic: always 3 per row
-    max-width: 100px !important;
-    min-width: 28px !important;
+    width: 80px !important; // FIXED to match Structural Systems (was calc)
+    max-width: 80px !important;
+    min-width: 80px !important;
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
@@ -2665,13 +2688,13 @@ ion-content{--overflow:scroll !important;height:100%}
     align-items: center !important;
     
     img {
-      width: 100% !important;
-      height: auto !important;
-      aspect-ratio: 1 / 1;
+      width: 80px !important; // FIXED to match Structural Systems
+      height: 90px !important; // Fixed height
       display: block !important;
       margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
       border-radius: 16px !important;
+      object-fit: cover !important;
     }
     
     .delete-btn {
@@ -2698,17 +2721,17 @@ ion-content{--overflow:scroll !important;height:100%}
     text-align: center !important;
   }
   
-  // Adjust caption width for smaller images - HIGH SPECIFICITY
+  // FIXED caption width to match new photo sizing
   .fdf-photos-container .room-photo-caption,
   .elevation-points-container .room-photo-caption,
   .room-photo-caption {
-    width: 70px !important; // Match smaller image width on mobile
-    font-size: 10px !important; // Smaller caption text
+    width: 80px !important; // Match photo width (was 70px)
+    font-size: 10px !important;
     padding: 3px 4px !important;
-    max-width: 70px !important; // Prevent expansion
-    box-sizing: border-box !important; // Include padding in width
-    text-align: center !important; // Center text in caption
-    margin: 4px auto 0 auto !important; // Center caption under image
+    max-width: 80px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    margin: 4px auto 0 auto !important;
   }
   
   // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems on mobile
@@ -2716,10 +2739,10 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container img[width="90"],
   .elevation-points-container img[width="90"],
   .elevation-point-card img[width="90"] {
-    width: 100% !important;
-    height: auto !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
+    width: 80px !important; // FIXED to match Structural Systems
+    height: 90px !important; // FIXED height
+    max-width: 80px !important;
+    min-width: 80px !important;
   }
 }
 
@@ -2759,7 +2782,7 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // DYNAMIC sizing for extra small mobile - ALWAYS fits 3 per row
+  // FIXED sizing for extra small mobile - match Structural Systems
   .image-preview-section {
     padding: 3px !important;
     overflow: visible !important; // Allow delete buttons to show
@@ -2771,19 +2794,43 @@ ion-content{--overflow:scroll !important;height:100%}
     overflow: visible !important; // Allow delete buttons to show
   }
   
-  // DYNAMIC width for tiny phones: calc((100% - 6px) / 3)
+  // CRITICAL FIX: Use FIXED width for Structural Systems on small phones
+  .image-preview-section .image-preview.structural-photo-preview {
+    position: relative !important;
+    width: 75px !important; // Fixed width for small screens
+    max-width: 75px !important;
+    min-width: 75px !important;
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
+    padding-top: 7px !important;
+    padding-bottom: 0 !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    
+    img {
+      width: 75px !important;
+      height: 85px !important;
+    }
+  }
+  
+  // CRITICAL FIX: Use FIXED width for Elevation Plot photos on small phones
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .fdf-photo-preview,
   .fdf-photos-container .image-preview,
   .elevation-points-container .fdf-photo-preview,
   .elevation-points-container .image-preview,
   .elevation-point-card .fdf-photo-preview,
-  .elevation-point-card .image-preview,
-  .image-preview.structural-photo-preview {
+  .elevation-point-card .image-preview {
     position: relative !important;
-    width: calc((100% - 6px) / 3) !important; // Dynamic: always 3 per row
-    max-width: 80px !important;
-    min-width: 26px !important;
+    width: 75px !important; // FIXED to match Structural Systems (was calc)
+    max-width: 75px !important;
+    min-width: 75px !important;
     flex-shrink: 0;
     flex-grow: 0;
     margin: 0 !important;
@@ -2798,13 +2845,13 @@ ion-content{--overflow:scroll !important;height:100%}
     align-items: center !important;
     
     img {
-      width: 100% !important;
-      height: auto !important;
-      aspect-ratio: 1 / 1;
+      width: 75px !important; // FIXED to match container
+      height: 85px !important; // Fixed height
       display: block !important;
       margin: 0 0 3px 0 !important; // 3px gap between image and caption
       border-width: 1px !important;
       border-radius: 12px !important;
+      object-fit: cover !important;
     }
     
     .delete-btn {
@@ -2831,17 +2878,17 @@ ion-content{--overflow:scroll !important;height:100%}
     text-align: center !important;
   }
   
-  // Caption sizing for extra small screens - HIGH SPECIFICITY
+  // FIXED caption sizing for extra small screens
   .fdf-photos-container .room-photo-caption,
   .elevation-points-container .room-photo-caption,
   .room-photo-caption {
-    width: 60px !important; // Match 60px image width on small mobile
+    width: 75px !important; // Match photo width (was 60px)
     font-size: 9px !important;
     padding: 2px 3px !important;
-    max-width: 60px !important; // Prevent expansion
-    box-sizing: border-box !important; // Include padding in width
-    text-align: center !important; // Center text in caption
-    margin: 3px auto 0 auto !important; // Center caption under image
+    max-width: 75px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    margin: 3px auto 0 auto !important;
   }
   
   // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems  
@@ -2849,10 +2896,10 @@ ion-content{--overflow:scroll !important;height:100%}
   .fdf-photos-container img[width="90"],
   .elevation-points-container img[width="90"],
   .elevation-point-card img[width="90"] {
-    width: 100% !important;
-    height: auto !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
+    width: 75px !important; // FIXED to match container
+    height: 85px !important; // FIXED height
+    max-width: 75px !important;
+    min-width: 75px !important;
   }
 }
 
