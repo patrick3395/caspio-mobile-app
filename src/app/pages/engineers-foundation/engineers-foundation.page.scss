@@ -1391,123 +1391,121 @@ ion-content{--overflow:scroll !important;height:100%}
                   }
                 }
                 
-                // DESKTOP ONLY: Structural Systems photo styling
-                @media (min-width: 769px) {
-                  .image-preview.structural-photo-preview {
-                    // STANDARDIZED container positioning - EXACT match to Elevation Plot
-                    position: relative !important;
+                // EXACT Elevation Plot styling applied to Structural Systems
+                .image-preview.structural-photo-preview {
+                  // STANDARDIZED container positioning - EXACT match to Elevation Plot
+                  position: relative !important;
+                  width: 90px !important;
+                  min-height: 90px !important; // Minimum height for photo, allows expansion for caption
+                  display: inline-block !important;
+                  vertical-align: top !important;
+                  overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
+                  margin: 4px !important;
+                  padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
+                  background: transparent !important; // No visible background
+                  flex-shrink: 0;
+                  
+                  &.uploading img {
+                    opacity: 0.6;
+                  }
+                  
+                  .upload-indicator {
+                    position: absolute;
+                    top: 45px; // Center on image (90px / 2)
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 10;
+                    
+                    ion-spinner {
+                      --color: var(--noble-orange);
+                    }
+                  }
+                  
+                  img {
                     width: 90px !important;
-                    min-height: 90px !important; // Minimum height for photo, allows expansion for caption
-                    display: inline-block !important;
-                    vertical-align: top !important;
-                    overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
-                    margin: 4px !important;
-                    padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
-                    background: transparent !important; // No visible background
-                    flex-shrink: 0;
+                    height: 90px !important;
+                    border-radius: 20px !important;
+                    object-fit: cover !important;
+                    display: block !important;
+                    border: 2px solid #ddd !important;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    background: #f5f5f5;
+                    // NO margin-bottom - caption goes in padding-bottom space
                     
-                    &.uploading img {
-                      opacity: 0.6;
+                    &:hover {
+                      border-color: var(--noble-orange) !important;
+                      transform: scale(1.05);
                     }
                     
-                    .upload-indicator {
-                      position: absolute;
-                      top: 45px; // Center on image (90px / 2)
-                      left: 50%;
-                      transform: translateX(-50%);
-                      z-index: 10;
-                      
-                      ion-spinner {
-                        --color: var(--noble-orange);
-                      }
+                    // Removed orange border for annotated photos - keep consistent styling
+                    // &.has-annotations {
+                    //   border-color: var(--noble-orange) !important;
+                    // }
+                  }
+                  
+                  // Clean delete button styling - EXACT match to Elevation Plot
+                  .delete-btn {
+                    position: absolute !important;
+                    top: 4px !important;  // Positioned inside container to prevent cutoff
+                    right: 4px !important;
+                    width: 22px !important;  // Smaller size
+                    height: 22px !important; // Smaller size
+                    border-radius: 50% !important;
+                    background: white !important; // White background
+                    border: 2px solid #333333 !important; // Black border
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    z-index: 1000 !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
+                    transition: all 0.2s ease !important;
+                    padding: 0 !important;
+                    
+                    ion-icon {
+                      font-size: 12px !important; // Smaller icon - EXACT match
+                      color: #333333 !important; // Black color
+                      font-weight: 600 !important;
                     }
                     
-                    img {
-                      width: 90px !important;
-                      height: 90px !important;
-                      border-radius: 20px !important;
-                      object-fit: cover !important;
-                      display: block !important;
-                      border: 2px solid #ddd !important;
-                      cursor: pointer;
-                      transition: all 0.3s ease;
-                      background: #f5f5f5;
-                      // NO margin-bottom - caption goes in padding-bottom space
-                      
-                      &:hover {
-                        border-color: var(--noble-orange) !important;
-                        transform: scale(1.05);
-                      }
-                      
-                      // Removed orange border for annotated photos - keep consistent styling
-                      // &.has-annotations {
-                      //   border-color: var(--noble-orange) !important;
-                      // }
+                    &:hover {
+                      background: #f5f5f5 !important; // Light gray hover - EXACT match
+                      border-color: #000000 !important; // Darker black on hover
+                      transform: scale(1.1) !important;
+                      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
                     }
                     
-                    // Clean delete button styling - EXACT match to Elevation Plot
-                    .delete-btn {
-                      position: absolute !important;
-                      top: 4px !important;  // Positioned inside container to prevent cutoff
-                      right: 4px !important;
-                      width: 22px !important;  // Smaller size
-                      height: 22px !important; // Smaller size
-                      border-radius: 50% !important;
-                      background: white !important; // White background
-                      border: 2px solid #333333 !important; // Black border
-                      display: flex !important;
-                      align-items: center !important;
-                      justify-content: center !important;
-                      cursor: pointer !important;
-                      z-index: 1000 !important;
-                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
-                      transition: all 0.2s ease !important;
-                      padding: 0 !important;
-                      
-                      ion-icon {
-                        font-size: 12px !important; // Smaller icon - EXACT match
-                        color: #333333 !important; // Black color
-                        font-weight: 600 !important;
-                      }
-                      
-                      &:hover {
-                        background: #f5f5f5 !important; // Light gray hover - EXACT match
-                        border-color: #000000 !important; // Darker black on hover
-                        transform: scale(1.1) !important;
-                        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
-                      }
-                      
-                      &:active {
-                        transform: scale(1.0) !important;
-                      }
+                    &:active {
+                      transform: scale(1.0) !important;
+                    }
+                  }
+                  
+                  // Caption styling - UNIFIED with Elevation Plot
+                  .room-photo-caption {
+                    width: 90px !important;
+                    padding: 6px 8px !important;
+                    font-size: 11px !important;
+                    text-align: center !important;
+                    border: 1px solid #e0e0e0 !important;
+                    border-radius: 6px !important;
+                    background: white !important;
+                    color: #666 !important;
+                    transition: all 0.2s ease !important;
+                    margin-top: 8px !important;
+                    display: block !important;
+                    position: relative !important;
+                    box-sizing: border-box !important;
+                    
+                    &::placeholder {
+                      color: #ccc !important;
+                      font-size: 10px !important;
                     }
                     
-                    // Caption styling - UNIFIED with Elevation Plot
-                    .room-photo-caption {
-                      width: 90px !important;
-                      padding: 6px 8px !important;
-                      font-size: 11px !important;
-                      text-align: center !important;
-                      border: 1px solid #e0e0e0 !important;
-                      border-radius: 6px !important;
-                      background: white !important;
-                      color: #666 !important;
-                      transition: all 0.2s ease !important;
-                      margin-top: 8px !important;
-                      display: block !important;
-                      position: relative !important;
-                      box-sizing: border-box !important;
-                      
-                      &::placeholder {
-                        color: #ccc !important;
-                        font-size: 10px !important;
-                      }
-                      
-                      &:focus {
-                        outline: none !important;
-                        border-color: var(--noble-orange) !important;
-                        background: #fffbf8 !important;
-                      }
+                    &:focus {
+                      outline: none !important;
+                      border-color: var(--noble-orange) !important;
+                      background: #fffbf8 !important;
                     }
                   }
                 }
@@ -2382,75 +2380,72 @@ ion-content{--overflow:scroll !important;height:100%}
             }
           }
           
-          // DESKTOP ONLY: STANDARDIZED photo containers for BOTH FDF and Measurement photos
+          // STANDARDIZED photo containers for BOTH FDF and Measurement photos
           // Target ALL possible photo containers with maximum specificity
-          // Wrapped in @media to prevent overriding mobile styles
-          @media (min-width: 769px) {
-            .fdf-photos-container .fdf-photo-preview.image-preview,
-            .fdf-photos-container .image-preview,
-            .elevation-points-container .fdf-photo-preview.image-preview,
-            .elevation-points-container .image-preview,
-            .elevation-point-card .fdf-photo-preview.image-preview,
-            .elevation-point-card .image-preview {
-              
-              // STANDARDIZED container positioning - same for all photo types
-              position: relative !important;
+          .fdf-photos-container .fdf-photo-preview.image-preview,
+          .fdf-photos-container .image-preview,
+          .elevation-points-container .fdf-photo-preview.image-preview,
+          .elevation-points-container .image-preview,
+          .elevation-point-card .fdf-photo-preview.image-preview,
+          .elevation-point-card .image-preview {
+            
+            // STANDARDIZED container positioning - same for all photo types
+            position: relative !important;
+            width: 90px !important;
+            min-height: 90px !important; // Minimum height for photo, allows expansion for caption
+            display: inline-block !important;
+            vertical-align: top !important;
+            overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
+            margin: 4px !important;
+            padding-bottom: 35px !important; // CONSISTENT space for caption input field
+            background: transparent !important; // No visible background - only image has styling
+            
+            img {
               width: 90px !important;
-              min-height: 90px !important; // Minimum height for photo, allows expansion for caption
-              display: inline-block !important;
-              vertical-align: top !important;
-              overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
-              margin: 4px !important;
-              padding-bottom: 35px !important; // CONSISTENT space for caption input field
-              background: transparent !important; // No visible background - only image has styling
-              
-              img {
-                width: 90px !important;
-                height: 90px !important;
-                border-radius: 20px !important;
-                object-fit: cover !important;
-                display: block !important;
-                border: 2px solid #ddd !important;
+              height: 90px !important;
+              border-radius: 20px !important;
+              object-fit: cover !important;
+              display: block !important;
+              border: 2px solid #ddd !important;
 
-          &:hover {
-                  border-color: var(--noble-orange) !important;
-                }
+        &:hover {
+                border-color: var(--noble-orange) !important;
+              }
+            }
+            
+            // Clean delete button styling - white background with black border
+            .delete-btn {
+              position: absolute !important;
+              top: 4px !important;  // Positioned inside container to prevent cutoff
+              right: 4px !important;
+              width: 22px !important;  // Smaller size
+              height: 22px !important; // Smaller size
+              border-radius: 50% !important;
+              background: white !important; // White background
+              border: 2px solid #333333 !important; // Black border
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              cursor: pointer !important;
+              z-index: 1000 !important;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
+              transition: all 0.2s ease !important;
+
+    ion-icon {
+                font-size: 12px !important; // Smaller icon
+                color: #333333 !important; // Black color
+                font-weight: 600 !important;
+    }
+
+    &:hover {
+                background: #f5f5f5 !important; // Light gray hover
+                border-color: #000000 !important; // Darker black on hover
+                transform: scale(1.1) !important;
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
               }
               
-              // Clean delete button styling - white background with black border
-              .delete-btn {
-                position: absolute !important;
-                top: 4px !important;  // Positioned inside container to prevent cutoff
-                right: 4px !important;
-                width: 22px !important;  // Smaller size
-                height: 22px !important; // Smaller size
-                border-radius: 50% !important;
-                background: white !important; // White background
-                border: 2px solid #333333 !important; // Black border
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: pointer !important;
-                z-index: 1000 !important;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
-                transition: all 0.2s ease !important;
-
-      ion-icon {
-                  font-size: 12px !important; // Smaller icon
-                  color: #333333 !important; // Black color
-                  font-weight: 600 !important;
-      }
-
-      &:hover {
-                  background: #f5f5f5 !important; // Light gray hover
-                  border-color: #000000 !important; // Darker black on hover
-                  transform: scale(1.1) !important;
-                  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
-                }
-                
-                &:active {
-                  transform: scale(1.0) !important;
-                }
+              &:active {
+                transform: scale(1.0) !important;
               }
             }
           }
@@ -2591,11 +2586,6 @@ ion-content{--overflow:scroll !important;height:100%}
   }
 }
 
-// FDF Photos Row - Desktop gap
-.fdf-photos-row {
-  gap: 12px; // Desktop gap
-}
-
 // MOBILE-SPECIFIC FDF PHOTO SIZING - Fit 3 photos on one line
 // Target mobile devices (phones) specifically
 @media (max-width: 768px) {
@@ -2604,8 +2594,7 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    flex: 0 0 auto !important; // Don't grow, don't shrink, size to content
-    min-width: unset !important; // Remove min-width constraint
+    min-width: 85px !important; // Smaller min-width for mobile to fit 3 photos
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -2646,7 +2635,6 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   // DYNAMIC width calculation: (100% - gaps) / 3 images
-  // MOBILE UNIFIED SIZING: All sections use EXACT same size on mobile
   // calc((100% - 8px) / 3) ensures exactly 3 images fit regardless of screen width
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .fdf-photo-preview,
@@ -2681,8 +2669,6 @@ ion-content{--overflow:scroll !important;height:100%}
       margin: 0 0 4px 0 !important; // 4px gap between image and caption
       border-width: 1px !important;
       border-radius: 16px !important;
-      max-width: 100% !important;
-      min-width: 100% !important;
     }
     
     .delete-btn {
@@ -2721,16 +2707,6 @@ ion-content{--overflow:scroll !important;height:100%}
     text-align: center !important; // Center text in caption
     margin: 4px auto 0 auto !important; // Center caption under image
   }
-  
-  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems
-  .fdf-photos-container img[width="90"],
-  .elevation-points-container img[width="90"],
-  .elevation-point-card img[width="90"] {
-    width: 100% !important;
-    height: auto !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
-  }
 }
 
 // EXTRA SMALL MOBILE DEVICES - Even more compact for very small screens
@@ -2740,8 +2716,7 @@ ion-content{--overflow:scroll !important;height:100%}
   }
   
   .fdf-photo-column {
-    flex: 0 0 auto !important; // Don't grow, don't shrink, size to content
-    min-width: unset !important; // Remove min-width constraint
+    min-width: 75px !important; // Even smaller for very small phones
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -2779,7 +2754,6 @@ ion-content{--overflow:scroll !important;height:100%}
     overflow: visible !important; // Allow delete buttons to show
   }
   
-  // MOBILE UNIFIED SIZING: All sections use EXACT same size on small mobile
   // DYNAMIC width for tiny phones: calc((100% - 6px) / 3)
   .fdf-photo-preview.image-preview,
   .fdf-photos-container .fdf-photo-preview,
@@ -2814,8 +2788,6 @@ ion-content{--overflow:scroll !important;height:100%}
       margin: 0 0 3px 0 !important; // 3px gap between image and caption
       border-width: 1px !important;
       border-radius: 12px !important;
-      max-width: 100% !important;
-      min-width: 100% !important;
     }
     
     .delete-btn {
@@ -2853,16 +2825,6 @@ ion-content{--overflow:scroll !important;height:100%}
     box-sizing: border-box !important; // Include padding in width
     text-align: center !important; // Center text in caption
     margin: 3px auto 0 auto !important; // Center caption under image
-  }
-  
-  // ULTRA SPECIFIC: Force Elevation Plot images to match Structural Systems  
-  .fdf-photos-container img[width="90"],
-  .elevation-points-container img[width="90"],
-  .elevation-point-card img[width="90"] {
-    width: 100% !important;
-    height: auto !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
   }
 }
 
