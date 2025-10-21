@@ -213,7 +213,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyId: number | null = null;
   organizationUsers: any[] = [];
 
-  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' = 'companies';
+  selectedTab: 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'companies';
 
   isLoading = false;
   isInitialLoad = true;
@@ -248,6 +248,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentContactPage = 1;
   totalContactPages = 1;
   paginatedContactGroups: ContactGroup[] = [];
+
+  // Users data
+  allUsers: any[] = [];
+  filteredUsers: any[] = [];
+  usersSearchTerm = '';
 
   tasks: TaskViewModel[] = [];
   filteredTasks: TaskViewModel[] = [];
@@ -517,7 +522,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         communicationRecords,
         servicesRecords,
         offersRecords,
-        typeRecords
+        typeRecords,
+        userRecords
       ] = await Promise.all([
         this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
         this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '2000' }),
@@ -531,7 +537,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
         this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' })
+        this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
+        this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
 
       this.populateStageDefinitions(stageRecords);
@@ -580,6 +587,10 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.invoices = invoiceRecords
         .map(record => this.normalizeInvoiceRecord(record))
         .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
+
+      // Process users data
+      this.allUsers = userRecords
+        .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId);
 
       this.recalculateCompanyAggregates();
 
@@ -2345,7 +2356,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     meetings: false,
     communications: false,
     invoices: false,
-    metrics: false
+    metrics: false,
+    users: false
   };
 
   private loadTabData(tab: string) {
@@ -2369,6 +2381,9 @@ export class CompanyPage implements OnInit, OnDestroy {
           break;
         case 'metrics':
           // Metrics tab - placeholder for future implementation
+          break;
+        case 'users':
+          this.applyUserFilters();
           break;
       }
     });
@@ -2537,6 +2552,40 @@ export class CompanyPage implements OnInit, OnDestroy {
       companyName: companyNames.get(companyId) || 'Unknown Company',
       contacts
     }));
+  }
+
+  applyUserFilters() {
+    const searchTerm = this.usersSearchTerm.trim().toLowerCase();
+
+    this.filteredUsers = this.allUsers.filter(user => {
+      // Global company filter
+      if (this.globalCompanyFilterId !== null && user.CompanyID !== this.globalCompanyFilterId) {
+        return false;
+      }
+
+      if (searchTerm) {
+        const haystack = [
+          user.Name,
+          user.Email,
+          user.Phone,
+          user.Role,
+          this.getCompanyName(user.CompanyID)
+        ].join(' ').toLowerCase();
+
+        if (!haystack.includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort by name
+    this.filteredUsers.sort((a, b) => {
+      const nameA = a.Name || '';
+      const nameB = b.Name || '';
+      return nameA.localeCompare(nameB);
+    });
   }
 
   nextContactPage() {
@@ -3254,6 +3303,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.contactSearchDebounce = setTimeout(() => {
       this.applyContactFilters();
     }, 150);
+  }
+
+  onUserSearchChange(value: string | null | undefined) {
+    this.usersSearchTerm = value ?? '';
+    this.applyUserFilters();
   }
 
   // Additional helper methods for the new Companies UI

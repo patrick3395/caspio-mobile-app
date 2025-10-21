@@ -4118,9 +4118,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             category: template.Category,
             answerType: template.AnswerType || 0, // 0 = text, 1 = Yes/No, 2 = dropdown
             required: template.Required || false,
-            templateId: String(template.TemplateID || template.PK_ID), // Use TemplateID field to match Services_Visuals_Drop, fallback to PK_ID
+            templateId: String(template.PK_ID), // CRITICAL FIX: Always use PK_ID to match dropdown options
             selectedOptions: [] // For multi-select (AnswerType 2)
           };
+          
+          // Debug logging for AnswerType 2 items (multi-select dropdowns)
+          if (template.AnswerType === 2) {
+            console.log(`[Template Load] Multi-select item: "${template.Name}" - TemplateID for dropdown lookup: ${templateData.templateId}`);
+          }
           
           // Initialize selection state
           this.selectedItems[`${category}_${template.PK_ID}`] = false;
@@ -4232,7 +4237,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 if (isFirstInstance) {
                   // First instance: update the template item in-place (backward compatibility)
                   templateItem.id = visualId;
-                  templateItem.templateId = matchingTemplate.PK_ID;
+                  templateItem.templateId = String(matchingTemplate.PK_ID); // CRITICAL: Ensure string for dropdown lookup
                   const item = templateItem;  // Use template item
 
                 const hasAnswersField = visual.Answers !== undefined && visual.Answers !== null && visual.Answers !== "";
@@ -4270,7 +4275,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   const newItem = {
                     ...templateItem,
                     id: visualId,
-                    templateId: matchingTemplate.PK_ID,
+                    templateId: String(matchingTemplate.PK_ID), // CRITICAL: Ensure templateId is string for dropdown lookup
                     visualRecordId: visualId
                   };
                   
@@ -6635,6 +6640,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     return item.selectedOptions.includes(option);
+  }
+  
+  // DEBUG: Helper to check why options aren't showing
+  getDropdownDebugInfo(item: any): string {
+    const options = this.visualDropdownOptions[item.templateId];
+    return `TemplateID: ${item.templateId}, HasOptions: ${!!options}, Count: ${options?.length || 0}, Options: ${options?.join(', ') || 'NONE'}`;
   }
   
   // Handle toggling an option in multi-select
