@@ -657,6 +657,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.applyMeetingFilters();
       this.applyCommunicationFilters();
       this.categorizeInvoices();
+      this.applyUserFilters();
       this.updateSelectedCompanySnapshot();
     } catch (error: any) {
       console.error('Error loading company data:', error);
@@ -688,6 +689,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.applyMeetingFilters();
     this.applyCommunicationFilters();
     this.categorizeInvoices();
+    this.applyUserFilters();
   }
 
   openContactModal(contact: ContactRecord) {
@@ -2554,7 +2556,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     communications: false,
     invoices: false,
     metrics: false,
-    users: false
+    users: true // Loaded on init
   };
 
   private loadTabData(tab: string) {
@@ -4364,6 +4366,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.applyMeetingFilters();
     this.applyCommunicationFilters();
     this.categorizeInvoices();
+    this.applyUserFilters();
   }
   private populateStageDefinitions(records: any[]) {
     const definitions = records.map(record => {

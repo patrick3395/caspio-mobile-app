@@ -9722,8 +9722,8 @@ Stack: ${error?.stack}`;
         }
       }
       
-      // Save scroll position before opening modal
-      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+      // Save scroll position before opening modal (only for mobile)
+      const scrollPosition = this.platform.isWeb() ? 0 : (window.scrollY || document.documentElement.scrollTop);
 
       // Get existing caption from photo object
       const existingCaption = photo.caption || photo.Annotation || '';
@@ -9855,21 +9855,25 @@ Stack: ${error?.stack}`;
               this.changeDetectorRef.detectChanges();
             }, 100);
             
-            // [v1.4.576] Restore scroll position AFTER ALL change detection completes
-            // This prevents the DOM update from scrolling the page
-            setTimeout(() => {
-              this.restoreScrollPosition(scrollPosition);
-            }, 200); // Increased delay to ensure all DOM updates and animations are complete
+            // [v1.4.576] Restore scroll position AFTER ALL change detection completes (mobile only)
+            // Skip scroll restoration on webapp to prevent unwanted autoscrolling
+            if (!this.platform.isWeb()) {
+              setTimeout(() => {
+                this.restoreScrollPosition(scrollPosition);
+              }, 200); // Increased delay to ensure all DOM updates and animations are complete
+            }
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
         }
       } else {
-        // Restore scroll if user cancels (no data returned)
-        // Use a small delay to ensure modal is fully dismissed
-        setTimeout(() => {
-          this.restoreScrollPosition(scrollPosition);
-        }, 200);
+        // Restore scroll if user cancels (no data returned) - mobile only
+        // Skip scroll restoration on webapp to prevent unwanted autoscrolling
+        if (!this.platform.isWeb()) {
+          setTimeout(() => {
+            this.restoreScrollPosition(scrollPosition);
+          }, 200);
+        }
       }
 
     } catch (error) {
