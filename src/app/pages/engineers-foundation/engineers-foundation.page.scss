@@ -1402,8 +1402,7 @@ ion-content{--overflow:scroll !important;height:100%}
                   overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
                   margin: 4px !important;
                   padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
-                  border-radius: 20px !important;
-                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+                  background: transparent !important; // No visible background
                   flex-shrink: 0;
                   
                   &.uploading img {
@@ -2399,8 +2398,7 @@ ion-content{--overflow:scroll !important;height:100%}
             overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
             margin: 4px !important;
             padding-bottom: 35px !important; // CONSISTENT space for caption input field
-            border-radius: 20px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+            background: transparent !important; // No visible background - only image has styling
             
             img {
               width: 90px !important;
