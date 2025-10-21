@@ -1459,6 +1459,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
       
+      console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
+      
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
         dropdownData.forEach((row: any) => {
@@ -1476,6 +1478,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         });
         
+        console.log('[Dropdown Options] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
+        
         // Log details about what dropdown options are available for each TemplateID
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
           // Add "Other" option to all multi-select dropdowns if not already present
@@ -1483,10 +1487,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!optionsArray.includes('Other')) {
             optionsArray.push('Other');
           }
+          console.log(`[Dropdown Options] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
         });
       } else {
+        console.warn('[Dropdown Options] No dropdown data received from API');
       }
     } catch (error) {
+      console.error('[Dropdown Options] Error loading dropdown options:', error);
       // Continue without dropdown options - they're optional
     }
   }
@@ -6619,6 +6626,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
       return false;
     }
+    
+    // CRITICAL FIX: Check for both "Other" and "Other: custom text"
+    if (option === 'Other') {
+      return item.selectedOptions.some((opt: string) => 
+        opt === 'Other' || opt.startsWith('Other: ')
+      );
+    }
+    
     return item.selectedOptions.includes(option);
   }
   
