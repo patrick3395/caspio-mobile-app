@@ -2680,8 +2680,7 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important;
     
-    img,
-    .fdf-photo-image {
+    img {
       width: 100% !important;
       height: auto !important;
       aspect-ratio: 1 / 1;
@@ -2720,14 +2719,6 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  // Direct image class targeting for mobile
-  .fdf-photo-image {
-    width: 70px !important;
-    height: 70px !important;
-    display: block !important;
-    margin: 0 auto !important; // Center alignment
-    border-radius: 12px !important;
-  }
   
   // Fix column alignment on mobile
   .fdf-photo-column {
@@ -2816,8 +2807,7 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important;
     
-    img,
-    .fdf-photo-image {
+    img {
       width: 100% !important;
       height: auto !important;
       aspect-ratio: 1 / 1;
@@ -2856,13 +2846,6 @@ ion-content{--overflow:scroll !important;height:100%}
     }
   }
   
-  .fdf-photo-image {
-    width: 60px !important;
-    height: 60px !important;
-    display: block !important;
-    margin: 0 auto !important;
-    border-radius: 9px !important;
-  }
   
   // Enhanced column alignment for extra small screens
   .fdf-photo-column {
