@@ -2571,38 +2571,59 @@ ion-alert.custom-alert {
   margin: 0;
 }
 
-// Offers list styling
-.offers-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
+// Offers edit table styling
+.offers-edit-table {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
-.offer-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #f15a27, #ff7b4d);
-  color: #ffffff;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  box-shadow: 0 2px 4px rgba(241, 90, 39, 0.2);
-  transition: all 0.2s ease;
+    thead {
+      background: #f8f9fa;
+      
+      th {
+        padding: 12px;
+        text-align: left;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #dee2e6;
+      }
+    }
 
-  ion-icon {
-    font-size: 16px;
-    color: #ffffff;
+    tbody {
+      tr {
+        border-bottom: 1px solid #e9ecef;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:hover {
+          background: #f8f9fa;
+        }
+      }
+
+      td {
+        padding: 12px;
+        font-size: 0.9rem;
+        color: #212529;
+
+        &:first-child {
+          font-weight: 500;
+        }
+      }
+    }
   }
 
-  span {
-    white-space: nowrap;
-  }
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(241, 90, 39, 0.3);
+  .fee-input {
+    max-width: 150px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
   }
 }

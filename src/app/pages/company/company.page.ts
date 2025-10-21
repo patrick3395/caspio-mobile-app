@@ -4180,6 +4180,9 @@ export class CompanyPage implements OnInit, OnDestroy {
         };
       }
 
+      // Update offers for this company
+      await this.saveCompanyOffers(this.editingCompany.CompanyID);
+
       // Refresh filters and views
       this.applyCompanyFilters();
       this.updateSelectedCompanySnapshot();
@@ -4219,6 +4222,57 @@ export class CompanyPage implements OnInit, OnDestroy {
       await this.showToast(errorMessage, 'danger');
     } finally {
       await loading.dismiss();
+    }
+  }
+
+  async saveCompanyOffers(companyId: number): Promise<void> {
+    try {
+      const offers = this.getCompanyOffers(companyId);
+      
+      if (offers.length === 0) {
+        return;
+      }
+
+      // Update each offer with the new ServiceFee
+      const updatePromises = offers.map(offer => {
+        const offerId = offer.OffersID || offer.PK_ID;
+        
+        if (!offerId) {
+          console.warn('Offer missing ID, skipping:', offer);
+          return Promise.resolve();
+        }
+
+        const payload = {
+          ServiceFee: offer.ServiceFee
+        };
+
+        return firstValueFrom(
+          this.caspioService.put(`/tables/Offers/records?q.where=OffersID=${offerId}`, payload)
+        ).catch(error => {
+          console.error(`Error updating offer ${offerId}:`, error);
+          // Don't throw - continue with other offers
+        });
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update the local allOffers array
+      offers.forEach(offer => {
+        const offerId = offer.OffersID || offer.PK_ID;
+        const offerIndex = this.allOffers.findIndex(o => 
+          (o.OffersID || o.PK_ID) === offerId
+        );
+        
+        if (offerIndex !== -1) {
+          this.allOffers[offerIndex].ServiceFee = offer.ServiceFee;
+        }
+      });
+
+      // Regroup offers to update the view
+      this.groupOffersByCompany();
+    } catch (error) {
+      console.error('Error saving company offers:', error);
+      // Don't throw - already showing company update success
     }
   }
 

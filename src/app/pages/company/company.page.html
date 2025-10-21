@@ -227,11 +227,21 @@
         <div class="detail-section">
           <h4>Services Offered</h4>
           <div *ngIf="getCompanyOffers(currentCompany.CompanyID).length > 0; else noOffers">
-            <div class="offers-list">
-              <div class="offer-chip" *ngFor="let offer of getCompanyOffers(currentCompany.CompanyID)">
-                <ion-icon name="checkmark-circle"></ion-icon>
-                <span>{{ offer.typeName }}</span>
-              </div>
+            <div class="responsive-table dark-outline">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Fee</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let offer of getCompanyOffers(currentCompany.CompanyID)">
+                    <td>{{ offer.typeName }}</td>
+                    <td>{{ formatCurrency(offer.ServiceFee) }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
           <ng-template #noOffers>
@@ -391,11 +401,21 @@
                   <div class="detail-col" style="grid-column: 1 / -1;">
                     <label>Services Offered</label>
                     <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noCompanyOffers">
-                      <div class="offers-list">
-                        <div class="offer-chip" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
-                          <ion-icon name="checkmark-circle"></ion-icon>
-                          <span>{{ offer.typeName }}</span>
-                        </div>
+                      <div class="responsive-table dark-outline" style="margin-top: 8px;">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Service</th>
+                              <th>Fee</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let offer of getCompanyOffers(company.CompanyID)">
+                              <td>{{ offer.typeName }}</td>
+                              <td>{{ formatCurrency(offer.ServiceFee) }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                     <ng-template #noCompanyOffers>
@@ -1158,6 +1178,41 @@
               <textarea [(ngModel)]="editingCompany.Notes" class="form-textarea" rows="4"></textarea>
             </div>
           </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Services Offered</h4>
+          <div *ngIf="getCompanyOffers(editingCompany.CompanyID).length > 0; else noEditOffers">
+            <div class="offers-edit-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Fee</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
+                    <td>{{ offer.typeName }}</td>
+                    <td>
+                      <input type="number" 
+                             [(ngModel)]="offer.ServiceFee" 
+                             class="form-input fee-input" 
+                             placeholder="0.00"
+                             step="0.01"
+                             min="0">
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <ng-template #noEditOffers>
+            <p class="no-data-text">No services configured for this company</p>
+          </ng-template>
+        </div>
+
+        <div class="form-section">
           <div class="form-row">
             <div class="form-field full-width">
               <button class="delete-task-btn" (click)="deleteCompany(editingCompany, $event)">

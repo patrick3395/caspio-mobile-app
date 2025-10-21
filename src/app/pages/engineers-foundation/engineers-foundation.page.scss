@@ -2413,6 +2413,24 @@ ion-content{--overflow:scroll !important;height:100%}
               }
             }
             
+            // Uploading state - dim image when uploading
+            &.uploading img {
+              opacity: 0.6;
+            }
+            
+            // Upload indicator overlay (loading spinner)
+            .upload-indicator {
+              position: absolute;
+              top: 45px; // Center on image (90px / 2)
+              left: 50%;
+              transform: translateX(-50%);
+              z-index: 10;
+              
+              ion-spinner {
+                --color: var(--noble-orange);
+              }
+            }
+            
             // Clean delete button styling - white background with black border
             .delete-btn {
               position: absolute !important;
@@ -2697,6 +2715,24 @@ ion-content{--overflow:scroll !important;height:100%}
       object-fit: cover !important;
     }
     
+    // Uploading state - dim image when uploading (mobile)
+    &.uploading img {
+      opacity: 0.6;
+    }
+    
+    // Upload indicator overlay (loading spinner) - mobile
+    .upload-indicator {
+      position: absolute;
+      top: 45px; // Center on image (90px / 2)
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      
+      ion-spinner {
+        --color: var(--noble-orange);
+      }
+    }
+    
     .delete-btn {
       position: absolute !important;
       width: 16px !important;
@@ -2852,6 +2888,24 @@ ion-content{--overflow:scroll !important;height:100%}
       border-width: 1px !important;
       border-radius: 12px !important;
       object-fit: cover !important;
+    }
+    
+    // Uploading state - dim image when uploading (small phone)
+    &.uploading img {
+      opacity: 0.6;
+    }
+    
+    // Upload indicator overlay (loading spinner) - small phone
+    .upload-indicator {
+      position: absolute;
+      top: 42px; // Center on image (85px / 2)
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      
+      ion-spinner {
+        --color: var(--noble-orange);
+      }
     }
     
     .delete-btn {
