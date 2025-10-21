@@ -595,35 +595,37 @@
         </div>
       </div>
 
-      <div *ngIf="filteredUsers.length; else emptyUsers" class="responsive-table dark-outline">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Role</th>
-              <th>Company</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let user of filteredUsers">
-              <td>{{ user.Name || '—' }}</td>
-              <td>
-                <a *ngIf="user.Email" [href]="'mailto:' + user.Email">{{ user.Email }}</a>
-                <span *ngIf="!user.Email">—</span>
-              </td>
-              <td>
-                <a *ngIf="user.Phone" [href]="'tel:' + user.Phone" class="phone-link">
-                  {{ formatPhone(user.Phone) }}
-                </a>
-                <span *ngIf="!user.Phone">—</span>
-              </td>
-              <td>{{ user.Role || '—' }}</td>
-              <td>{{ getCompanyName(user.CompanyID) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div *ngIf="filteredUsers.length; else emptyUsers" class="users-grid">
+        <div class="user-card" *ngFor="let user of filteredUsers">
+          <div class="user-card-content">
+            <div class="user-header">
+              <div class="user-avatar">
+                <img *ngIf="user.Headshot" [src]="user.Headshot" [alt]="user.Name" class="headshot-image">
+                <div *ngIf="!user.Headshot" class="headshot-placeholder">
+                  <ion-icon name="person"></ion-icon>
+                </div>
+              </div>
+              <div class="user-info">
+                <h4>{{ user.Name || 'Unnamed User' }}</h4>
+                <p class="user-role">{{ user.Role || 'No role assigned' }}</p>
+              </div>
+            </div>
+            <div class="user-details">
+              <div class="user-detail-item" *ngIf="user.Email">
+                <ion-icon name="mail-outline"></ion-icon>
+                <a [href]="'mailto:' + user.Email">{{ user.Email }}</a>
+              </div>
+              <div class="user-detail-item" *ngIf="user.Phone">
+                <ion-icon name="call-outline"></ion-icon>
+                <a [href]="'tel:' + user.Phone" class="phone-link">{{ formatPhone(user.Phone) }}</a>
+              </div>
+              <div class="user-detail-item">
+                <ion-icon name="business-outline"></ion-icon>
+                <span>{{ getCompanyName(user.CompanyID) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <ng-template #emptyUsers>

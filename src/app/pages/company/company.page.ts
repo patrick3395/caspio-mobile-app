@@ -572,6 +572,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.companies = filteredCompanyRecords.map(record => this.normalizeCompanyRecord(record));
       this.companyNameLookup.clear();
       this.companies.forEach(company => this.companyNameLookup.set(company.CompanyID, company.CompanyName));
+      
+      // Add excluded company to lookup for user display purposes
+      const excludedCompany = companyRecords.find(record => {
+        const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
+        return id === this.excludedCompanyId;
+      });
+      if (excludedCompany) {
+        const normalizedExcluded = this.normalizeCompanyRecord(excludedCompany);
+        this.companyNameLookup.set(normalizedExcluded.CompanyID, normalizedExcluded.CompanyName);
+      }
 
       this.uniqueCompanySizes = this.extractUniqueValues(this.companies.map(company => company.SizeLabel));
       this.uniqueLeadSources = this.extractUniqueValues(this.companies.map(company => company.LeadSource));
@@ -1075,6 +1085,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.companies = filteredCompanyRecords.map(record => this.normalizeCompanyRecord(record));
       this.companyNameLookup.clear();
       this.companies.forEach(company => this.companyNameLookup.set(company.CompanyID, company.CompanyName));
+      
+      // Add excluded company to lookup for user display purposes
+      const excludedCompany = companyRecords.find(record => {
+        const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
+        return id === this.excludedCompanyId;
+      });
+      if (excludedCompany) {
+        const normalizedExcluded = this.normalizeCompanyRecord(excludedCompany);
+        this.companyNameLookup.set(normalizedExcluded.CompanyID, normalizedExcluded.CompanyName);
+      }
 
       // Recalculate aggregates and reapply filters
       this.recalculateCompanyAggregates();

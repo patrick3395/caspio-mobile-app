@@ -2162,3 +2162,139 @@ ion-alert.custom-alert {
     opacity: 0.6;
   }
 }
+
+// Users Grid Styling
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 0;
+}
+
+.user-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    border-color: #f15a27;
+  }
+}
+
+.user-card-content {
+  padding: 20px;
+}
+
+.user-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.user-avatar {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f15a27, #ff7b4d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(241, 90, 39, 0.2);
+
+  .headshot-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .headshot-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 32px;
+      color: #ffffff;
+    }
+  }
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+
+  h4 {
+    margin: 0 0 4px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #212529;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-role {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #495057;
+
+  ion-icon {
+    font-size: 18px;
+    color: #f15a27;
+    flex-shrink: 0;
+  }
+
+  a {
+    color: #f15a27;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// Responsive adjustments for user cards
+@media (max-width: 768px) {
+  .users-grid {
+    grid-template-columns: 1fr;
+  }
+}

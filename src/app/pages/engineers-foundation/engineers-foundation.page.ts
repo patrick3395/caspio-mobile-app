@@ -301,7 +301,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   secondFoundationTypeOptions: string[] = [];
   thirdFoundationTypeOptions: string[] = [];
   secondFoundationRoomsOptions: string[] = [];
+  secondFoundationRoomsSelections: string[] = []; // Multi-select array
+  secondFoundationRoomsOtherValue: string = ''; // Custom value for "Other"
   thirdFoundationRoomsOptions: string[] = [];
+  thirdFoundationRoomsSelections: string[] = []; // Multi-select array
+  thirdFoundationRoomsOtherValue: string = ''; // Custom value for "Other"
   ownerOccupantInterviewOptions: string[] = [];
   
   // Project dropdown options from Projects_Drop table
@@ -763,8 +767,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Check for custom values and add them to dropdown options
       this.loadCustomValuesIntoDropdowns();
       
-      // Parse In Attendance multi-select field
+      // Parse multi-select fields
       this.parseInAttendanceField();
+      this.parseSecondFoundationRoomsField();
+      this.parseThirdFoundationRoomsField();
 
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
@@ -857,6 +863,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         this.loadCustomValuesIntoDropdowns();
         this.parseInAttendanceField();
+        this.parseSecondFoundationRoomsField();
+        this.parseThirdFoundationRoomsField();
       } else {
         console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No service response received');
       }
@@ -6820,6 +6828,200 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // ========== End In Attendance Multi-Select Methods ==========
+  
+  // ========== Second Foundation Rooms Multi-Select Methods ==========
+  
+  isSecondFoundationRoomsSelected(option: string): boolean {
+    if (!this.secondFoundationRoomsSelections || !Array.isArray(this.secondFoundationRoomsSelections)) {
+      return false;
+    }
+    if (option === 'Other') {
+      return this.secondFoundationRoomsSelections.includes('Other') || 
+             !!(this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim().length > 0);
+    }
+    return this.secondFoundationRoomsSelections.includes(option);
+  }
+  
+  async onSecondFoundationRoomsToggle(option: string, event: any) {
+    if (!this.secondFoundationRoomsSelections) {
+      this.secondFoundationRoomsSelections = [];
+    }
+    
+    if (event.detail.checked) {
+      if (!this.secondFoundationRoomsSelections.includes(option)) {
+        this.secondFoundationRoomsSelections.push(option);
+      }
+    } else {
+      const index = this.secondFoundationRoomsSelections.indexOf(option);
+      if (index > -1) {
+        this.secondFoundationRoomsSelections.splice(index, 1);
+      }
+      if (option === 'Other') {
+        this.secondFoundationRoomsOtherValue = '';
+      }
+    }
+    
+    await this.saveSecondFoundationRoomsSelections();
+  }
+  
+  async onSecondFoundationRoomsOtherChange() {
+    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      if (!this.secondFoundationRoomsSelections) {
+        this.secondFoundationRoomsSelections = [];
+      }
+      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
+      if (otherIndex > -1) {
+        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
+      } else {
+        const customIndex = this.secondFoundationRoomsSelections.findIndex((opt: string) => 
+          opt !== 'Other' && !this.secondFoundationRoomsOptions.includes(opt)
+        );
+        if (customIndex > -1) {
+          this.secondFoundationRoomsSelections[customIndex] = this.secondFoundationRoomsOtherValue.trim();
+        } else {
+          this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
+        }
+      }
+    } else {
+      const customIndex = this.secondFoundationRoomsSelections.findIndex((opt: string) => 
+        opt !== 'Other' && !this.secondFoundationRoomsOptions.includes(opt)
+      );
+      if (customIndex > -1) {
+        this.secondFoundationRoomsSelections[customIndex] = 'Other';
+      }
+    }
+    
+    await this.saveSecondFoundationRoomsSelections();
+  }
+  
+  async saveSecondFoundationRoomsSelections() {
+    const roomsText = this.secondFoundationRoomsSelections.join(', ');
+    this.serviceData.SecondFoundationRooms = roomsText;
+    await this.onServiceFieldChange('SecondFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
+  }
+  
+  parseSecondFoundationRoomsField() {
+    if (!this.serviceData.SecondFoundationRooms || !this.serviceData.SecondFoundationRooms.trim()) {
+      this.secondFoundationRoomsSelections = [];
+      this.secondFoundationRoomsOtherValue = '';
+      return;
+    }
+    
+    const selections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    const customValues = selections.filter((opt: string) => 
+      !this.secondFoundationRoomsOptions.includes(opt) && opt !== 'Other'
+    );
+    
+    if (customValues.length > 0) {
+      this.secondFoundationRoomsOtherValue = customValues[0];
+      this.secondFoundationRoomsSelections = selections.map((opt: string) => 
+        customValues.includes(opt) ? 'Other' : opt
+      );
+    } else {
+      this.secondFoundationRoomsSelections = selections;
+      this.secondFoundationRoomsOtherValue = '';
+    }
+  }
+  
+  // ========== End Second Foundation Rooms Multi-Select Methods ==========
+  
+  // ========== Third Foundation Rooms Multi-Select Methods ==========
+  
+  isThirdFoundationRoomsSelected(option: string): boolean {
+    if (!this.thirdFoundationRoomsSelections || !Array.isArray(this.thirdFoundationRoomsSelections)) {
+      return false;
+    }
+    if (option === 'Other') {
+      return this.thirdFoundationRoomsSelections.includes('Other') || 
+             !!(this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim().length > 0);
+    }
+    return this.thirdFoundationRoomsSelections.includes(option);
+  }
+  
+  async onThirdFoundationRoomsToggle(option: string, event: any) {
+    if (!this.thirdFoundationRoomsSelections) {
+      this.thirdFoundationRoomsSelections = [];
+    }
+    
+    if (event.detail.checked) {
+      if (!this.thirdFoundationRoomsSelections.includes(option)) {
+        this.thirdFoundationRoomsSelections.push(option);
+      }
+    } else {
+      const index = this.thirdFoundationRoomsSelections.indexOf(option);
+      if (index > -1) {
+        this.thirdFoundationRoomsSelections.splice(index, 1);
+      }
+      if (option === 'Other') {
+        this.thirdFoundationRoomsOtherValue = '';
+      }
+    }
+    
+    await this.saveThirdFoundationRoomsSelections();
+  }
+  
+  async onThirdFoundationRoomsOtherChange() {
+    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      if (!this.thirdFoundationRoomsSelections) {
+        this.thirdFoundationRoomsSelections = [];
+      }
+      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
+      if (otherIndex > -1) {
+        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
+      } else {
+        const customIndex = this.thirdFoundationRoomsSelections.findIndex((opt: string) => 
+          opt !== 'Other' && !this.thirdFoundationRoomsOptions.includes(opt)
+        );
+        if (customIndex > -1) {
+          this.thirdFoundationRoomsSelections[customIndex] = this.thirdFoundationRoomsOtherValue.trim();
+        } else {
+          this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
+        }
+      }
+    } else {
+      const customIndex = this.thirdFoundationRoomsSelections.findIndex((opt: string) => 
+        opt !== 'Other' && !this.thirdFoundationRoomsOptions.includes(opt)
+      );
+      if (customIndex > -1) {
+        this.thirdFoundationRoomsSelections[customIndex] = 'Other';
+      }
+    }
+    
+    await this.saveThirdFoundationRoomsSelections();
+  }
+  
+  async saveThirdFoundationRoomsSelections() {
+    const roomsText = this.thirdFoundationRoomsSelections.join(', ');
+    this.serviceData.ThirdFoundationRooms = roomsText;
+    await this.onServiceFieldChange('ThirdFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
+  }
+  
+  parseThirdFoundationRoomsField() {
+    if (!this.serviceData.ThirdFoundationRooms || !this.serviceData.ThirdFoundationRooms.trim()) {
+      this.thirdFoundationRoomsSelections = [];
+      this.thirdFoundationRoomsOtherValue = '';
+      return;
+    }
+    
+    const selections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    const customValues = selections.filter((opt: string) => 
+      !this.thirdFoundationRoomsOptions.includes(opt) && opt !== 'Other'
+    );
+    
+    if (customValues.length > 0) {
+      this.thirdFoundationRoomsOtherValue = customValues[0];
+      this.thirdFoundationRoomsSelections = selections.map((opt: string) => 
+        customValues.includes(opt) ? 'Other' : opt
+      );
+    } else {
+      this.thirdFoundationRoomsSelections = selections;
+      this.thirdFoundationRoomsOtherValue = '';
+    }
+  }
+  
+  // ========== End Third Foundation Rooms Multi-Select Methods ==========
   
   // Handle toggling an option in multi-select
   async onOptionToggle(category: string, item: any, option: string, event: any) {
