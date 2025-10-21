@@ -4989,9 +4989,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // View room photo with annotation support (redirects to viewElevationPhoto)
-  async viewRoomPhoto(photo: any, roomName: string, point: any) {
+  async viewRoomPhoto(photo: any, roomName: string, point: any, event?: Event) {
+    // MOBILE DEBUG: Long press on mobile shows sizing debug info
+    if (!this.platform.isWeb() && event) {
+      const target = event.target as HTMLImageElement;
+      if (target && target.tagName === 'IMG') {
+        await this.showPhotoSizingDebug(target, photo, 'Elevation Plot');
+        return;
+      }
+    }
+    
     // Use the new annotation-enabled viewElevationPhoto method
     await this.viewElevationPhoto(photo, roomName, point);
+  }
+  
+  // DEBUG: Show photo sizing information for mobile troubleshooting
+  async showPhotoSizingDebug(imgElement: HTMLImageElement, photo: any, photoType: string) {
+    const container = imgElement.parentElement;
+    const computedImg = window.getComputedStyle(imgElement);
+    const computedContainer = container ? window.getComputedStyle(container) : null;
+    
+    const debugInfo = `
+<strong>📐 ${photoType} Photo Sizing Debug</strong>
+
+<strong>Photo Info:</strong>
+• AttachID: ${photo.AttachID || photo.id}
+• PhotoType: ${photo.photoType || 'N/A'}
+
+<strong>Image Element:</strong>
+• Natural: ${imgElement.naturalWidth} x ${imgElement.naturalHeight}px
+• Rendered: ${imgElement.width} x ${imgElement.height}px
+• Offset: ${imgElement.offsetWidth} x ${imgElement.offsetHeight}px
+• Client: ${imgElement.clientWidth} x ${imgElement.clientHeight}px
+
+<strong>CSS Styles (Image):</strong>
+• width: ${computedImg.width}
+• height: ${computedImg.height}
+• max-width: ${computedImg.maxWidth}
+• border-radius: ${computedImg.borderRadius}
+• object-fit: ${computedImg.objectFit}
+• display: ${computedImg.display}
+
+<strong>Container:</strong>
+• Width: ${container?.offsetWidth || 'N/A'}px
+• Height: ${container?.offsetHeight || 'N/A'}px
+• Display: ${computedContainer?.display || 'N/A'}
+• Flex: ${computedContainer?.flex || 'N/A'}
+
+<strong>Platform:</strong>
+• Is Web: ${this.platform.isWeb()}
+• Is Mobile: ${!this.platform.isWeb()}
+• Screen Width: ${window.innerWidth}px
+• Screen Height: ${window.innerHeight}px
+
+<strong>Viewport:</strong>
+• Device Pixel Ratio: ${window.devicePixelRatio}
+    `.trim();
+
+    const alert = await this.alertController.create({
+      header: '🔍 Photo Sizing Debug',
+      message: debugInfo,
+      buttons: ['OK'],
+      cssClass: 'debug-alert'
+    });
+
+    await alert.present();
   }
   
   // Save room photo caption/annotation
