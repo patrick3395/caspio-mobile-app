@@ -235,16 +235,35 @@ ion-content {
   }
 }
 
+// Tab sections container styling
+.tab-sections-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tab-section {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 16px;
+}
+
+.tab-section-header {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #212529;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f15a27;
+}
+
 // Tab button grid styling
 .tab-button-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-bottom: 20px;
-  padding: 12px;
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .tab-button {
@@ -305,11 +324,29 @@ ion-content {
   }
 }
 
-// Keep 3 columns even on small mobile screens
+// Responsive adjustments
+@media (max-width: 768px) {
+  .tab-button-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 400px) {
+  .tab-sections-container {
+    gap: 12px;
+  }
+
+  .tab-section {
+    padding: 12px;
+  }
+
+  .tab-section-header {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+  }
+
   .tab-button-grid {
     gap: 6px;
-    padding: 10px;
   }
 
   .tab-button {
@@ -2198,14 +2235,8 @@ ion-alert.custom-alert {
   border-bottom: 1px solid #e9ecef;
 }
 
-.user-avatar-wrapper {
-  position: relative;
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-}
-
 .user-avatar {
+  flex-shrink: 0;
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -2215,13 +2246,6 @@ ion-alert.custom-alert {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(241, 90, 39, 0.2);
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
-    transform: scale(1.02);
-  }
 
   .headshot-image {
     width: 100%;
@@ -2240,40 +2264,6 @@ ion-alert.custom-alert {
       font-size: 32px;
       color: #ffffff;
     }
-  }
-}
-
-.user-avatar-add-btn {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #f15a27;
-  color: #ffffff;
-  border: 2px solid #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  padding: 0;
-
-  ion-icon {
-    font-size: 14px;
-  }
-
-  &:hover {
-    background: #e54e1c;
-    transform: scale(1.15);
-    box-shadow: 0 3px 8px rgba(241, 90, 39, 0.4);
-  }
-
-  &:active {
-    transform: scale(1);
-    background: #d4451a;
   }
 }
 

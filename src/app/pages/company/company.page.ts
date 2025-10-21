@@ -367,9 +367,14 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   // Edit user headshot modal
   isEditUserHeadshotModalOpen = false;
-  editingUser: any = null;
+  editingUserHeadshot: any = null;
   editUserHeadshotFile: File | null = null;
   editUserHeadshotPreview: string | null = null;
+
+  // Edit user modal
+  isEditUserModalOpen = false;
+  editingUser: any = null;
+  editingUserOriginal: any = null;
 
   // Invoice edit modal
   isEditInvoiceModalOpen = false;
@@ -3512,7 +3517,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   openEditUserHeadshot(user: any) {
-    this.editingUser = { ...user };
+    this.editingUserHeadshot = { ...user };
     this.editUserHeadshotFile = null;
     this.editUserHeadshotPreview = this.getUserHeadshot(user);
     this.isEditUserHeadshotModalOpen = true;
@@ -3520,7 +3525,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   closeEditUserHeadshotModal() {
     this.isEditUserHeadshotModalOpen = false;
-    this.editingUser = null;
+    this.editingUserHeadshot = null;
     this.editUserHeadshotFile = null;
     this.editUserHeadshotPreview = null;
   }
@@ -3540,7 +3545,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async saveUserHeadshot() {
-    if (!this.editingUser || !this.editUserHeadshotFile) {
+    if (!this.editingUserHeadshot || !this.editUserHeadshotFile) {
       await this.showToast('Please select a photo to upload', 'warning');
       return;
     }
@@ -3562,7 +3567,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       });
 
       // Find the user's PK_ID or UserID
-      const userId = this.editingUser.UserID || this.editingUser.PK_ID;
+      const userId = this.editingUserHeadshot.UserID || this.editingUserHeadshot.PK_ID;
       
       if (!userId) {
         throw new Error('User ID not found');
@@ -3605,6 +3610,186 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       } else if (error?.message) {
         errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  openEditUserModal(user: any) {
+    this.editingUser = { ...user };
+    this.editingUserOriginal = user;
+    this.isEditUserModalOpen = true;
+  }
+
+  closeEditUserModal() {
+    this.isEditUserModalOpen = false;
+    this.editingUser = null;
+    this.editingUserOriginal = null;
+  }
+
+  async saveEditedUser() {
+    if (!this.editingUser) {
+      return;
+    }
+
+    // Validate required fields
+    if (!this.editingUser.Name || this.editingUser.Name.trim() === '') {
+      await this.showToast('Please enter a user name', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating user...'
+    });
+    await loading.present();
+
+    try {
+      // Build payload
+      const payload: any = {
+        Name: this.editingUser.Name.trim()
+      };
+
+      if (this.editingUser.Email && this.editingUser.Email.trim() !== '') {
+        payload.Email = this.editingUser.Email.trim();
+      }
+
+      if (this.editingUser.Phone && this.editingUser.Phone.trim() !== '') {
+        payload.Phone = this.editingUser.Phone.trim();
+      }
+
+      if (this.editingUser.Title && this.editingUser.Title.trim() !== '') {
+        payload.Title = this.editingUser.Title.trim();
+      }
+
+      // Find the user's ID
+      const userId = this.editingUser.UserID || this.editingUser.PK_ID;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      // Update via Caspio API
+      await firstValueFrom(
+        this.caspioService.put(`/tables/Users/records?q.where=UserID=${userId}`, payload)
+      );
+
+      // Update the user in the local array
+      const userIndex = this.allUsers.findIndex(u => 
+        (u.UserID || u.PK_ID) === userId
+      );
+      
+      if (userIndex !== -1) {
+        this.allUsers[userIndex] = { ...this.allUsers[userIndex], ...payload };
+      }
+
+      // Reapply filters to update the view
+      this.applyUserFilters();
+
+      await this.showToast('User updated successfully', 'success');
+      this.closeEditUserModal();
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      let errorMessage = 'Failed to update user';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Update failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Update failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Update failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Update failed: ${error.message}`;
+      }
+
+      await this.showToast(errorMessage, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteUser(user: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Delete User',
+      message: `Are you sure you want to delete user "${user.Name}"? This action cannot be undone.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteUser(user);
+          }
+        }
+      ],
+      cssClass: 'custom-document-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteUser(user: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting user...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      const userId = user.UserID || user.PK_ID;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      // Delete via Caspio API
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Users/records?q.where=UserID=${userId}`)
+      );
+
+      // Remove from local array
+      const userIndex = this.allUsers.findIndex(u => 
+        (u.UserID || u.PK_ID) === userId
+      );
+      
+      if (userIndex !== -1) {
+        this.allUsers.splice(userIndex, 1);
+      }
+
+      // Close the edit modal
+      this.closeEditUserModal();
+
+      // Reapply filters
+      this.applyUserFilters();
+
+      await this.showToast('User deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      let errorMessage = 'Failed to delete user';
+
+      if (error?.error) {
+        if (typeof error.error === 'string') {
+          errorMessage = `Delete failed: ${error.error}`;
+        } else if (error.error.Message) {
+          errorMessage = `Delete failed: ${error.error.Message}`;
+        } else if (error.error.message) {
+          errorMessage = `Delete failed: ${error.error.message}`;
+        }
+      } else if (error?.message) {
+        errorMessage = `Delete failed: ${error.message}`;
       }
 
       await this.showToast(errorMessage, 'danger');

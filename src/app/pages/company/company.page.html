@@ -52,39 +52,52 @@
       </div>
     </div>
 
-    <div class="tab-button-grid">
-      <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
-        <ion-icon name="business-outline"></ion-icon>
-        <span>Companies</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
-        <ion-icon name="people-outline"></ion-icon>
-        <span>Contacts</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'tasks'" (click)="selectTab('tasks')">
-        <ion-icon name="checkbox-outline"></ion-icon>
-        <span>Tasks</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'meetings'" (click)="selectTab('meetings')">
-        <ion-icon name="calendar-outline"></ion-icon>
-        <span>Meetings</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
-        <ion-icon name="chatbubbles-outline"></ion-icon>
-        <span>Communication</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
-        <ion-icon name="receipt-outline"></ion-icon>
-        <span>Invoices</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
-        <ion-icon name="analytics-outline"></ion-icon>
-        <span>Metrics</span>
-      </button>
-      <button class="tab-button" [class.active]="selectedTab === 'users'" (click)="selectTab('users')">
-        <ion-icon name="people"></ion-icon>
-        <span>Users</span>
-      </button>
+    <div class="tab-sections-container">
+      <!-- Company Section -->
+      <div class="tab-section">
+        <h3 class="tab-section-header">Company</h3>
+        <div class="tab-button-grid">
+          <button class="tab-button" [class.active]="selectedTab === 'users'" (click)="selectTab('users')">
+            <ion-icon name="people"></ion-icon>
+            <span>Users</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
+            <ion-icon name="business-outline"></ion-icon>
+            <span>Company</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Partners Section -->
+      <div class="tab-section">
+        <h3 class="tab-section-header">Partners</h3>
+        <div class="tab-button-grid">
+          <button class="tab-button" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
+            <ion-icon name="people-outline"></ion-icon>
+            <span>Contacts</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'tasks'" (click)="selectTab('tasks')">
+            <ion-icon name="checkbox-outline"></ion-icon>
+            <span>Tasks</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'meetings'" (click)="selectTab('meetings')">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>Meetings</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
+            <ion-icon name="chatbubbles-outline"></ion-icon>
+            <span>Communication</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
+            <ion-icon name="receipt-outline"></ion-icon>
+            <span>Invoices</span>
+          </button>
+          <button class="tab-button" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
+            <ion-icon name="analytics-outline"></ion-icon>
+            <span>Metrics</span>
+          </button>
+        </div>
+      </div>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
       <div class="tab-header">
@@ -596,19 +609,14 @@
       </div>
 
       <div *ngIf="filteredUsers.length; else emptyUsers" class="users-grid">
-        <div class="user-card" *ngFor="let user of filteredUsers">
+        <div class="user-card clickable-card" *ngFor="let user of filteredUsers" (click)="openEditUserModal(user)">
           <div class="user-card-content">
             <div class="user-header">
-              <div class="user-avatar-wrapper">
-                <div class="user-avatar" (click)="openEditUserHeadshot(user)">
-                  <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
-                  <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
-                    <ion-icon name="person"></ion-icon>
-                  </div>
+              <div class="user-avatar">
+                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
+                <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
+                  <ion-icon name="person"></ion-icon>
                 </div>
-                <button type="button" class="user-avatar-add-btn" (click)="openEditUserHeadshot(user)">
-                  <ion-icon name="add"></ion-icon>
-                </button>
               </div>
               <div class="user-info">
                 <h4>{{ user.Name || 'Unnamed User' }}</h4>
@@ -618,11 +626,11 @@
             <div class="user-details">
               <div class="user-detail-item" *ngIf="user.Email">
                 <ion-icon name="mail-outline"></ion-icon>
-                <a [href]="'mailto:' + user.Email">{{ user.Email }}</a>
+                <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
               </div>
               <div class="user-detail-item" *ngIf="user.Phone">
                 <ion-icon name="call-outline"></ion-icon>
-                <a [href]="'tel:' + user.Phone" class="phone-link">{{ formatPhone(user.Phone) }}</a>
+                <a [href]="'tel:' + user.Phone" class="phone-link" (click)="$event.stopPropagation()">{{ formatPhone(user.Phone) }}</a>
               </div>
               <div class="user-detail-item">
                 <ion-icon name="business-outline"></ion-icon>
@@ -1970,12 +1978,12 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content class="edit-modal-content" *ngIf="editingUser">
+    <ion-content class="edit-modal-content" *ngIf="editingUserHeadshot">
       <div class="edit-form">
         <div class="form-section">
           <div class="headshot-edit-info">
-            <h4>{{ editingUser.Name }}</h4>
-            <p>{{ editingUser.Title || 'No title' }}</p>
+            <h4>{{ editingUserHeadshot.Name }}</h4>
+            <p>{{ editingUserHeadshot.Title || 'No title' }}</p>
           </div>
           <div class="form-row">
             <div class="form-field full-width">
@@ -1995,6 +2003,68 @@
                 <input type="file" #editUserHeadshotInput accept="image/*" (change)="onEditUserHeadshotChange($event)" style="display: none;">
               </div>
               <p class="form-hint">Click the photo or plus button to select a new image</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditUserModalOpen" (didDismiss)="closeEditUserModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeEditUserModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Edit User</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="saveEditedUser()" [strong]="true">
+            <ion-icon slot="icon-only" name="checkmark"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="edit-modal-content" *ngIf="editingUser">
+      <div class="edit-form">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="editingUser.Name" class="form-input" placeholder="User name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Email</label>
+              <input type="email" [(ngModel)]="editingUser.Email" class="form-input" placeholder="email@example.com">
+            </div>
+            <div class="form-field">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="editingUser.Phone" class="form-input" placeholder="(555) 555-5555">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Title</label>
+              <input type="text" [(ngModel)]="editingUser.Title" class="form-input" placeholder="Job Title">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <label>Company</label>
+              <p class="read-only-field">{{ getCompanyName(editingUser.CompanyID) }}</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
+              <button class="delete-task-btn" (click)="editingUserOriginal && deleteUser(editingUserOriginal, $event)">
+                <ion-icon name="trash-outline"></ion-icon>
+                Delete User
+              </button>
             </div>
           </div>
         </div>
