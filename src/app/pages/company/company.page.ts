@@ -255,6 +255,10 @@ export class CompanyPage implements OnInit, OnDestroy {
   filteredUsers: any[] = [];
   usersSearchTerm = '';
 
+  // Offers data
+  allOffers: any[] = [];
+  private offersByCompany = new Map<number, any[]>();
+
   tasks: TaskViewModel[] = [];
   filteredTasks: TaskViewModel[] = [];
   paginatedTasks: TaskViewModel[] = [];
@@ -562,7 +566,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Offers', { 'q.orderBy': 'CompanyID', 'q.limit': '2000' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
@@ -626,6 +630,10 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Process users data - don't exclude any company for users
       this.allUsers = userRecords;
+
+      // Process offers data and group by company (after Type lookup is populated)
+      this.allOffers = offersRecords;
+      this.groupOffersByCompany();
 
       // Load current user's company if it's the excluded one
       if (this.currentUserCompanyId === this.excludedCompanyId) {
@@ -3477,6 +3485,36 @@ export class CompanyPage implements OnInit, OnDestroy {
     // This might need to be adjusted based on how Caspio returns the URLs
     console.log('Headshot value:', headshotStr);
     return headshotStr;
+  }
+
+  private groupOffersByCompany() {
+    this.offersByCompany.clear();
+    
+    this.allOffers.forEach(offer => {
+      const companyId = offer.CompanyID !== undefined && offer.CompanyID !== null ? Number(offer.CompanyID) : null;
+      
+      if (companyId !== null) {
+        if (!this.offersByCompany.has(companyId)) {
+          this.offersByCompany.set(companyId, []);
+        }
+        
+        // Add type name to the offer
+        const typeId = offer.TypeID !== undefined && offer.TypeID !== null ? Number(offer.TypeID) : null;
+        const typeName = typeId !== null ? this.typeIdToNameLookup.get(typeId) : null;
+        
+        this.offersByCompany.get(companyId)!.push({
+          ...offer,
+          typeName: typeName || 'Unknown Service'
+        });
+      }
+    });
+  }
+
+  getCompanyOffers(companyId: number | null): any[] {
+    if (companyId === null) {
+      return [];
+    }
+    return this.offersByCompany.get(companyId) || [];
   }
 
   getFirstName(fullName: string | null | undefined): string {

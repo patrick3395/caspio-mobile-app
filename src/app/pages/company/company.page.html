@@ -223,6 +223,21 @@
           <h4>Notes</h4>
           <p class="wrap-text">{{ currentCompany.Notes }}</p>
         </div>
+
+        <div class="detail-section">
+          <h4>Services Offered</h4>
+          <div *ngIf="getCompanyOffers(currentCompany.CompanyID).length > 0; else noOffers">
+            <div class="offers-list">
+              <div class="offer-chip" *ngFor="let offer of getCompanyOffers(currentCompany.CompanyID)">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>{{ offer.typeName }}</span>
+              </div>
+            </div>
+          </div>
+          <ng-template #noOffers>
+            <p class="no-data-text">No services configured for this company</p>
+          </ng-template>
+        </div>
       </div>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
@@ -370,6 +385,22 @@
                   <div class="detail-col" style="grid-column: 1 / -1;">
                     <label>Notes</label>
                     <p class="wrap-text">{{ company.Notes || 'No notes' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col" style="grid-column: 1 / -1;">
+                    <label>Services Offered</label>
+                    <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noCompanyOffers">
+                      <div class="offers-list">
+                        <div class="offer-chip" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
+                          <ion-icon name="checkmark-circle"></ion-icon>
+                          <span>{{ offer.typeName }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <ng-template #noCompanyOffers>
+                      <p class="no-data-text">No services configured</p>
+                    </ng-template>
                   </div>
                 </div>
                 <div class="rollup-actions">

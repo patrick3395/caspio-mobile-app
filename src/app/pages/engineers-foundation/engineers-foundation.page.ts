@@ -1706,10 +1706,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
     
     const { roomName, photoType, roomId } = this.currentFDFPhotoContext;
+    const photoKey = photoType.toLowerCase();
     
     try {
+      // Initialize fdfPhotos structure if needed
+      if (!this.roomElevationData[roomName].fdfPhotos) {
+        this.roomElevationData[roomName].fdfPhotos = {};
+      }
+      
+      // Set uploading flag to show loading spinner
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = true;
+      
       // Compress the image if needed
       const compressedFile = await this.imageCompression.compressImage(file);
+      
+      // Create a blob URL from the compressed file for immediate display preview
+      const blobUrl = URL.createObjectURL(compressedFile);
+      this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
+      
+      // Trigger change detection to show preview with loading spinner
+      this.changeDetectorRef.detectChanges();
       
       // Upload to Caspio Files API
       const uploadFormData = new FormData();
@@ -1742,22 +1759,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const query = `EFEID=${roomId}`;
       await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
-      // Store the photo URL in local state for display
-      if (!this.roomElevationData[roomName].fdfPhotos) {
-        this.roomElevationData[roomName].fdfPhotos = {};
-      }
-      
-      const photoKey = photoType.toLowerCase();
-      this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+      // Store the photo data in local state
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`] = filePath;
       
       // Initialize caption and drawings fields for new photos (following measurement photo pattern)
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
-
-      // First, create a blob URL from the compressed file for immediate display
-      const blobUrl = URL.createObjectURL(compressedFile);
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
 
       // Then try to load from Caspio for permanent storage
       try {
@@ -1775,11 +1782,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.error(`[v1.4.421] FDF ${photoType} - Error loading base64, keeping blob URL:`, err);
         // Keep the blob URL since base64 failed
       }
+      
+      // Clear uploading flag - upload complete
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+      
+      // Trigger change detection to hide loading spinner
+      this.changeDetectorRef.detectChanges();
 
     } catch (error: any) {
       console.error(`[v1.4.402] Error processing FDF ${photoType} photo:`, error);
       const errorMsg = error?.message || error?.toString() || 'Unknown error';
       await this.showToast(`Failed to save FDF ${photoType} photo: ${errorMsg}`, 'danger');
+      
+      // Clear uploading flag on error
+      if (this.roomElevationData[roomName]?.fdfPhotos) {
+        this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+        // Also clear the photo if upload failed
+        delete this.roomElevationData[roomName].fdfPhotos[photoKey];
+        delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+      }
+      
+      // Trigger change detection to update UI
+      this.changeDetectorRef.detectChanges();
     } finally {
       // Clear context
       this.currentFDFPhotoContext = null;

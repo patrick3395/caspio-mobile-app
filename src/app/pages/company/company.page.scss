@@ -2564,3 +2564,45 @@ ion-alert.custom-alert {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.no-data-text {
+  color: #6c757d;
+  font-style: italic;
+  margin: 0;
+}
+
+// Offers list styling
+.offers-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.offer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #f15a27, #ff7b4d);
+  color: #ffffff;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(241, 90, 39, 0.2);
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 16px;
+    color: #ffffff;
+  }
+
+  span {
+    white-space: nowrap;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(241, 90, 39, 0.3);
+  }
+}
