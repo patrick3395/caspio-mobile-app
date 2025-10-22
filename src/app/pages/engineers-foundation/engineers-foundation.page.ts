@@ -5370,12 +5370,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
+        // [WEBAPP FIX] Prevent scroll jumping during change detection
+        const currentScroll = window.scrollY;
+        
         // Trigger change detection and force UI refresh for annotations
         this.changeDetectorRef.detectChanges();
         
+        // [WEBAPP FIX] Immediately restore scroll after first change detection
+        if (this.platform.isWeb()) {
+          window.scrollTo(0, currentScroll);
+        }
+        
         // Additional UI update - force template refresh for annotation visibility
         setTimeout(() => {
+          const scrollBeforeUpdate = window.scrollY;
           this.changeDetectorRef.detectChanges();
+          
+          // [WEBAPP FIX] Restore scroll after second change detection
+          if (this.platform.isWeb()) {
+            window.scrollTo(0, scrollBeforeUpdate);
+          }
         }, 100);
       }
       
@@ -9663,7 +9677,14 @@ Stack: ${error?.stack}`;
         updateTargetPhoto(this.visualPhotos[key]);
       }
 
+      // [WEBAPP FIX] Prevent scroll jumping during change detection
+      const currentScroll = window.scrollY;
       this.changeDetectorRef.detectChanges();
+      
+      // [WEBAPP FIX] Immediately restore scroll after change detection on webapp
+      if (this.platform.isWeb()) {
+        window.scrollTo(0, currentScroll);
+      }
       
       // Restore scroll position after update (mobile only)
       if (!this.platform.isWeb()) {
@@ -9858,16 +9879,29 @@ Stack: ${error?.stack}`;
             
             // Success toast removed per user request
 
+            // [WEBAPP FIX] On webapp, prevent scroll jumping during change detection
+            const currentScroll = window.scrollY;
+            
             // Trigger change detection with delay for annotation visibility
             this.changeDetectorRef.detectChanges();
             
+            // [WEBAPP FIX] Immediately restore scroll position after first change detection
+            if (this.platform.isWeb()) {
+              window.scrollTo(0, currentScroll);
+            }
+            
             // Additional UI update - force template refresh for annotation visibility
             setTimeout(() => {
+              const scrollBeforeUpdate = window.scrollY;
               this.changeDetectorRef.detectChanges();
+              
+              // [WEBAPP FIX] Restore scroll after second change detection
+              if (this.platform.isWeb()) {
+                window.scrollTo(0, scrollBeforeUpdate);
+              }
             }, 100);
             
             // [v1.4.576] Restore scroll position AFTER ALL change detection completes (mobile only)
-            // Skip scroll restoration on webapp to prevent unwanted autoscrolling
             if (!this.platform.isWeb()) {
               setTimeout(() => {
                 this.restoreScrollPosition(scrollPosition);
