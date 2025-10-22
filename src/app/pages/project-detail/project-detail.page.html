@@ -101,19 +101,19 @@
             </span>
           </div>
           
-          <!-- Status and Arrow in Top Right Corner -->
-          <div class="template-right-corner">
-            <div *ngIf="service.Status" class="report-status-container">
-              <span class="report-status">
-                {{ service.Status }}
-              </span>
-              <span *ngIf="service.StatusDateTime" class="status-datetime">
-                {{ service.StatusDateTime | date:'short' }}
-              </span>
-            </div>
-            <div class="template-icons">
-              <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>
-            </div>
+          <!-- Status in Top Right Corner -->
+          <div *ngIf="service.Status" class="report-status-container">
+            <span class="report-status">
+              {{ service.Status }}
+            </span>
+            <span *ngIf="service.StatusDateTime" class="status-datetime">
+              {{ service.StatusDateTime | date:'short' }}
+            </span>
+          </div>
+          
+          <!-- Arrow Centered -->
+          <div class="template-icons">
+            <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>
           </div>
         </div>
       </div>

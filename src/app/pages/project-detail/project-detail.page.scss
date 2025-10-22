@@ -973,18 +973,18 @@ ion-modal {
   .finalized-check{margin-top:0;}
 }}
 
-// Top right corner container for Status and Arrow
-.template-right-corner{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;flex-shrink:0;align-self:center;
-.report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-height:38px;justify-content:center;}
-.report-status{font-weight:600;color:$orange;font-size:14px;white-space:nowrap;}
-.status-datetime{font-weight:500;color:$gray;font-size:12px;white-space:nowrap;text-align:right;}
+// Status container positioned at top right corner
+.report-status-container{position:absolute;top:12px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:3px;
+.report-status{font-weight:600;color:$orange;font-size:10px;white-space:nowrap;}
+.status-datetime{font-weight:500;color:$gray;font-size:8px;white-space:nowrap;text-align:right;}
 @media (max-width: 768px) {
-  .report-status{font-size:13px;}
-  .status-datetime{font-size:11px;}
-  .report-status-container{min-height:35px;}
+  top:10px;
+  right:16px;
+  .report-status{font-size:9px;}
+  .status-datetime{font-size:7px;}
 }}
 
-.template-icons{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.template-icons{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;}
 
 .finalized-check-report{color:$orange;font-size:22px;flex-shrink:0;
 @media (max-width: 768px) {
