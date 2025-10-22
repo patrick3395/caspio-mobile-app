@@ -387,6 +387,21 @@ export class CompanyPage implements OnInit, OnDestroy {
   isEditInvoiceModalOpen = false;
   editingInvoice: InvoicePairWithService | null = null;
 
+  // Add invoice modal
+  isAddInvoiceModalOpen = false;
+  newInvoice: any = {
+    ProjectID: null,
+    ServiceID: null,
+    Address: '',
+    City: '',
+    Zip: '',
+    Date: '',
+    Fee: 0,
+    Mode: 'positive',
+    InvoiceNotes: ''
+  };
+  newInvoiceContext: string = '';
+
   editingCompany: any = null;
   isEditModalOpen = false;
 
@@ -902,6 +917,191 @@ export class CompanyPage implements OnInit, OnDestroy {
   closeEditInvoiceModal() {
     this.isEditInvoiceModalOpen = false;
     this.editingInvoice = null;
+  }
+
+  async saveEditedInvoice() {
+    if (!this.editingInvoice) {
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating invoice...'
+    });
+    await loading.present();
+
+    try {
+      const invoiceId = this.editingInvoice.positive.InvoiceID;
+
+      if (!invoiceId) {
+        throw new Error('Invoice ID not found');
+      }
+
+      const payload: any = {
+        Address: this.editingInvoice.positive.Address,
+        City: this.editingInvoice.positive.City,
+        Zip: this.editingInvoice.positive.Zip,
+        Date: this.editingInvoice.positive.Date,
+        Fee: this.editingInvoice.positive.Fee,
+        InvoiceNotes: this.editingInvoice.positive.InvoiceNotes
+      };
+
+      await firstValueFrom(
+        this.caspioService.put(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`, payload)
+      );
+
+      // Reload invoices data
+      const invoiceRecords = await this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.invoices = invoiceRecords
+        .map(record => this.normalizeInvoiceRecord(record))
+        .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
+
+      this.categorizeInvoices();
+
+      await this.showToast('Invoice updated successfully', 'success');
+      this.closeEditInvoiceModal();
+    } catch (error: any) {
+      console.error('Error updating invoice:', error);
+      await this.showToast('Failed to update invoice', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async deleteInvoice(invoice: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Delete Invoice',
+      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'confirm',
+          cssClass: 'alert-button-confirm',
+          handler: async () => {
+            await this.performDeleteInvoice(invoice);
+          }
+        }
+      ],
+      cssClass: 'custom-document-alert'
+    });
+
+    await alert.present();
+  }
+
+  private async performDeleteInvoice(invoice: any) {
+    const loading = await this.loadingController.create({
+      message: 'Deleting invoice...'
+    });
+    await loading.present();
+
+    try {
+      const invoiceId = invoice.positive.InvoiceID;
+
+      if (!invoiceId) {
+        throw new Error('Invoice ID not found');
+      }
+
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`)
+      );
+
+      // Reload invoices data
+      const invoiceRecords = await this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.invoices = invoiceRecords
+        .map(record => this.normalizeInvoiceRecord(record))
+        .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
+
+      this.categorizeInvoices();
+      this.closeEditInvoiceModal();
+
+      await this.showToast('Invoice deleted successfully', 'success');
+    } catch (error: any) {
+      console.error('Error deleting invoice:', error);
+      await this.showToast('Failed to delete invoice', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  openAddInvoiceModal(invoice: InvoicePairWithService) {
+    // Pre-fill with context from the selected invoice
+    this.newInvoice = {
+      ProjectID: invoice.positive.ProjectID,
+      ServiceID: invoice.positive.ServiceID,
+      Address: invoice.positive.Address,
+      City: invoice.positive.City,
+      Zip: invoice.positive.Zip,
+      Date: new Date().toISOString().split('T')[0],
+      Fee: 0,
+      Mode: 'positive',
+      InvoiceNotes: ''
+    };
+
+    this.newInvoiceContext = `${invoice.positive.Address || 'Unknown Address'} - ${invoice.serviceName || 'Unknown Service'}`;
+    this.isAddInvoiceModalOpen = true;
+  }
+
+  closeAddInvoiceModal() {
+    this.isAddInvoiceModalOpen = false;
+  }
+
+  async saveNewInvoice() {
+    if (!this.newInvoice.Fee || this.newInvoice.Fee <= 0) {
+      await this.showToast('Please enter a valid amount', 'warning');
+      return;
+    }
+
+    if (!this.newInvoice.Mode) {
+      await this.showToast('Please select a mode (Invoice or Payment)', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creating invoice...'
+    });
+    await loading.present();
+
+    try {
+      const payload: any = {
+        ProjectID: this.newInvoice.ProjectID,
+        ServiceID: this.newInvoice.ServiceID,
+        Address: this.newInvoice.Address,
+        City: this.newInvoice.City,
+        Zip: this.newInvoice.Zip,
+        Date: this.newInvoice.Date,
+        Fee: this.newInvoice.Fee,
+        Mode: this.newInvoice.Mode,
+        InvoiceNotes: this.newInvoice.InvoiceNotes
+      };
+
+      await firstValueFrom(
+        this.caspioService.post('/tables/Invoices/records', payload)
+      );
+
+      // Reload invoices data
+      const invoiceRecords = await this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.invoices = invoiceRecords
+        .map(record => this.normalizeInvoiceRecord(record))
+        .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
+
+      this.categorizeInvoices();
+
+      await this.showToast('Invoice created successfully', 'success');
+      this.closeAddInvoiceModal();
+    } catch (error: any) {
+      console.error('Error creating invoice:', error);
+      await this.showToast('Failed to create invoice', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   async openInvoicePaymentModal(invoice: InvoicePairWithService) {

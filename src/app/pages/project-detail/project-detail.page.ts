@@ -523,7 +523,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
-          ReportFinalized: service.ReportFinalized || false
+          ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
+          Status: service.Status || '',
+          SubmittedDate: service.SubmittedDate || ''
         };
       });
 
@@ -720,13 +722,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           offersId: offer?.OffersID || '', // Get OffersID from the matched offer
           typeId: service.TypeID.toString(),
           typeName: offer?.TypeName || offer?.Service_Name || 'Service',
-          typeShort: offer?.TypeShort || '',
-          typeIcon: offer?.TypeIcon || '',
-          dateOfInspection: service.DateOfInspection || new Date().toISOString(),
-          ReportFinalized: service.ReportFinalized || false,
-          Status: service.Status || '',
-          SubmittedDate: service.SubmittedDate || ''
-        };
+        typeShort: offer?.TypeShort || '',
+        typeIcon: offer?.TypeIcon || '',
+        dateOfInspection: service.DateOfInspection || new Date().toISOString(),
+        ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
+        Status: service.Status || '',
+        SubmittedDate: service.SubmittedDate || ''
+      };
       });
 
       // Apply pending finalized service flag if present

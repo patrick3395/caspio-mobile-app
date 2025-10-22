@@ -2766,6 +2766,12 @@ ion-alert.custom-alert {
   }
 }
 
+.invoice-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .pay-invoice-btn {
   background: #f15a27;
   color: white;
@@ -2800,10 +2806,52 @@ ion-alert.custom-alert {
 
   @media (max-width: 768px) {
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: 11px;
 
     ion-icon {
-      font-size: 16px;
+      font-size: 14px;
+    }
+  }
+}
+
+.add-invoice-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+    background: #1e7e34;
+  }
+
+  @media (max-width: 768px) {
+    padding: 6px 12px;
+    font-size: 11px;
+
+    ion-icon {
+      font-size: 14px;
     }
   }
 }

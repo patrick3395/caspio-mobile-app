@@ -99,8 +99,16 @@
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
+              <span *ngIf="service.Status" class="report-status">
+                {{ service.Status }}
+              </span>
             </div>
-            <ion-icon *ngIf="service.ReportFinalized" name="checkmark-circle" class="finalized-check-report"></ion-icon>
+            <div class="template-icons">
+              <ion-icon *ngIf="service.ReportFinalized" name="checkmark-circle" class="finalized-check-report"></ion-icon>
+              <ion-icon *ngIf="service.Status === 'Report Finalized' || service.Status === 'Submitted'" 
+                        name="chevron-forward" 
+                        class="status-arrow"></ion-icon>
+            </div>
           </div>
         </div>
       </div>
