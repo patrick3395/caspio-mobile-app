@@ -360,6 +360,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   @Input() existingAnnotations?: any[] = [];
   @Input() isReEdit?: boolean = false;
   @Input() photoData?: any;
+  @Input() existingCaption?: string;
 
   private canvas!: any;
   currentTool = 'arrow';
@@ -381,15 +382,15 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-
-    // Load existing caption from photoData if available
-    if (this.photoData?.Annotation) {
+    // Load existing caption - prioritize existingCaption input, then photoData fields
+    if (this.existingCaption) {
+      this.photoCaption = this.existingCaption;
+    } else if (this.photoData?.Annotation) {
       this.photoCaption = this.photoData.Annotation;
     } else if (this.photoData?.annotation) {
       this.photoCaption = this.photoData.annotation;
     } else if (this.photoData?.caption) {
       this.photoCaption = this.photoData.caption;
-    } else {
     }
   }
   
