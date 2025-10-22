@@ -9534,7 +9534,8 @@ Stack: ${error?.stack}`;
 
       const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = latestPhoto.name || 'Photo';
-      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+      // Save scroll position before opening modal (only for mobile)
+      const scrollPosition = this.platform.isWeb() ? 0 : (window.scrollY || document.documentElement.scrollTop);
 
       let existingAnnotations: any = null;
       const annotationSources = [
@@ -9587,7 +9588,10 @@ Stack: ${error?.stack}`;
       const { data } = await modal.onDidDismiss();
 
       if (!data) {
-        this.restoreScrollPosition(scrollPosition);
+        // Restore scroll if user cancels (mobile only)
+        if (!this.platform.isWeb()) {
+          this.restoreScrollPosition(scrollPosition);
+        }
         return;
       }
 
@@ -9657,7 +9661,11 @@ Stack: ${error?.stack}`;
       }
 
       this.changeDetectorRef.detectChanges();
-      this.restoreScrollPosition(scrollPosition);
+      
+      // Restore scroll position after update (mobile only)
+      if (!this.platform.isWeb()) {
+        this.restoreScrollPosition(scrollPosition);
+      }
 
     } catch (error) {
       console.error('Error in quickAnnotate:', error);
