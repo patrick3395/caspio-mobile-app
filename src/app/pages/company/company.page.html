@@ -880,16 +880,16 @@
                   <div class="invoice-value invoice-value-with-action">
                     <span class="amount-value">{{ formatCurrency(invoice.netAmount) }}</span>
                     <div class="invoice-actions">
+                      <button class="add-invoice-btn" 
+                              (click)="openAddInvoiceModal(invoice); $event.stopPropagation()">
+                        <ion-icon name="add-circle-outline"></ion-icon>
+                        Add Invoice
+                      </button>
                       <button class="pay-invoice-btn" 
                               (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()" 
                               *ngIf="invoice.netAmount > 0">
                         <ion-icon name="card-outline"></ion-icon>
                         Pay
-                      </button>
-                      <button class="add-invoice-btn" 
-                              (click)="openAddInvoiceModal(invoice); $event.stopPropagation()">
-                        <ion-icon name="add-circle-outline"></ion-icon>
-                        Add Invoice
                       </button>
                     </div>
                   </div>

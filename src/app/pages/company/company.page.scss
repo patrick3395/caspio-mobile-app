@@ -2769,7 +2769,11 @@ ion-alert.custom-alert {
 .invoice-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  
+  @media (max-width: 768px) {
+    gap: 4px;
+  }
 }
 
 .pay-invoice-btn {

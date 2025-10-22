@@ -99,19 +99,17 @@
               <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
-              <div *ngIf="service.Status" class="report-status-container">
-                <span class="report-status">
-                  {{ service.Status }}
-                </span>
-                <span *ngIf="service.StatusDateTime" class="status-datetime">
-                  {{ service.StatusDateTime | date:'short' }}
-                </span>
-              </div>
+            </div>
+            <div *ngIf="service.Status" class="report-status-container">
+              <span class="report-status">
+                {{ service.Status }}
+              </span>
+              <span *ngIf="(service.Status === 'Finalized' || service.Status === 'Updated') && service.StatusDateTime" class="status-datetime">
+                {{ service.StatusDateTime | date:'short' }}
+              </span>
             </div>
             <div class="template-icons">
-              <ion-icon *ngIf="service.Status === 'Report Finalized' || service.Status === 'Submitted'" 
-                        name="chevron-forward" 
-                        class="status-arrow"></ion-icon>
+              <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>
             </div>
           </div>
         </div>

@@ -810,7 +810,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.serviceData = serviceResponse;
 
         // Set ReportFinalized flag based on Status field
-        if (serviceResponse.Status === 'Report Finalized') {
+        if (serviceResponse.Status === 'Finalized' || serviceResponse.Status === 'Updated') {
           this.serviceData.ReportFinalized = true;
         } else {
           this.serviceData.ReportFinalized = false;
@@ -5576,7 +5576,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async markReportAsFinalized() {
-    const isFirstFinalization = this.serviceData.Status !== 'Report Finalized';
+    const isFirstFinalization = this.serviceData.Status !== 'Finalized' && this.serviceData.Status !== 'Updated';
     
     const loading = await this.loadingController.create({
       message: isFirstFinalization ? 'Finalizing report...' : 'Updating report...'
@@ -5585,8 +5585,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     try {
       // Update the Services table - update Status and StatusDateTime
+      // First finalization: "Finalized", subsequent updates: "Updated"
       const updateData: any = {
-        Status: 'Report Finalized',
+        Status: isFirstFinalization ? 'Finalized' : 'Updated',
         StatusDateTime: new Date().toISOString()
       };
 

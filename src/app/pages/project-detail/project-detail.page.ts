@@ -524,7 +524,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
-          ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
+          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusDateTime: service.StatusDateTime || '',
           SubmittedDate: service.SubmittedDate || ''
@@ -727,7 +727,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         typeShort: offer?.TypeShort || '',
         typeIcon: offer?.TypeIcon || '',
         dateOfInspection: service.DateOfInspection || new Date().toISOString(),
-        ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
+        ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
         Status: service.Status || '',
         StatusDateTime: service.StatusDateTime || '',
         SubmittedDate: service.SubmittedDate || ''
