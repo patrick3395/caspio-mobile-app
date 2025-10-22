@@ -5584,12 +5584,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the Services table - update Status and StatusDateTime
-      // First finalization: "Finalized", subsequent updates: "Updated"
+      // Update the Services table - update Status (first finalization only) and StatusDateTime
       const updateData: any = {
-        Status: isFirstFinalization ? 'Finalized' : 'Updated',
         StatusDateTime: new Date().toISOString()
       };
+
+      // Only set Status to "Finalized" on first finalization
+      if (isFirstFinalization) {
+        updateData.Status = 'Finalized';
+      }
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
       console.log('[EngFoundation] ProjectId:', this.projectId);
@@ -5601,7 +5604,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation] API Response:', response);
 
       // Update local state (ReportFinalized and FinalizedDate are UI-only properties)
-      this.serviceData.Status = updateData.Status;
+      if (isFirstFinalization) {
+        this.serviceData.Status = 'Finalized';
+      }
       this.serviceData.ReportFinalized = true;
       this.serviceData.FinalizedDate = new Date().toISOString();
 
@@ -10009,7 +10014,13 @@ Stack: ${error?.stack}`;
       };
 
       await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
-      
+
+      // CRITICAL: Update Annotation field locally to match what was saved
+      photo.Annotation = photo.caption || '';
+
+      // Trigger change detection to update the view
+      this.changeDetectorRef.detectChanges();
+
       // Success toast removed per user request
     } catch (error) {
       console.error('Error saving caption:', error);
@@ -10048,9 +10059,15 @@ Stack: ${error?.stack}`;
       };
 
       await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
-      
+
+      // CRITICAL: Update Annotation field locally to match what was saved
+      photo.Annotation = photo.caption || '';
+
       console.log(`Caption saved for ${roomName} - ${point.name}: "${photo.caption}"`);
-      
+
+      // Trigger change detection to update the view
+      this.changeDetectorRef.detectChanges();
+
     } catch (error) {
       console.error('Error saving room point caption:', error);
       await this.showToast('Failed to save caption', 'danger');
@@ -10072,9 +10089,12 @@ Stack: ${error?.stack}`;
       updateData[annotationColumnName] = caption || '';  // Save caption or empty string
 
       await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-      
+
       console.log(`FDF ${photoType} caption saved for ${roomName}: "${caption}"`);
-      
+
+      // Trigger change detection to update the view
+      this.changeDetectorRef.detectChanges();
+
     } catch (error) {
       console.error('Error saving FDF caption:', error);
       await this.showToast('Failed to save caption', 'danger');

@@ -44,7 +44,11 @@ import { FabricService } from '../../services/fabric.service';
             <ion-icon name="brush-outline"></ion-icon>
           </button>
         </div>
-        
+
+        <button class="nav-btn caption-undo-btn" (click)="undoCaptionWord()" title="Undo Caption Word">
+          <ion-icon name="backspace-outline"></ion-icon>
+        </button>
+
         <button class="nav-btn save-btn" (click)="save()" title="Save">
           <ion-icon name="checkmark"></ion-icon>
         </button>
@@ -125,11 +129,38 @@ import { FabricService } from '../../services/fabric.service';
       }
     }
     
+    .caption-undo-btn {
+      position: absolute;
+      right: 62px;
+      background: rgba(0, 0, 0, 0.05);
+
+      // Mobile-specific sizing
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+        right: 64px;
+      }
+    }
+
+    .caption-undo-btn:hover {
+      background: rgba(0, 0, 0, 0.1);
+      transform: scale(1.05);
+    }
+
+    .caption-undo-btn ion-icon {
+      font-size: 24px;
+      color: #333;
+
+      @media (max-width: 768px) {
+        font-size: 26px;
+      }
+    }
+
     .save-btn {
       position: absolute;
       right: 10px;
       background: #F15A27;
-      
+
       // Mobile-specific sizing
       @media (max-width: 768px) {
         width: 48px;
@@ -137,16 +168,16 @@ import { FabricService } from '../../services/fabric.service';
         right: 8px;
       }
     }
-    
+
     .save-btn:hover {
       background: #d94e1f;
       transform: scale(1.05);
     }
-    
+
     .save-btn ion-icon {
       font-size: 26px;
       color: white;
-      
+
       @media (max-width: 768px) {
         font-size: 28px; // Larger on mobile
       }
@@ -993,6 +1024,28 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         });
       }
     }, 100);
+  }
+
+  undoCaptionWord() {
+    if (!this.photoCaption || this.photoCaption.trim() === '') {
+      return;
+    }
+
+    // Trim trailing spaces and split by spaces
+    const words = this.photoCaption.trim().split(' ');
+
+    // Remove the last word
+    if (words.length > 0) {
+      words.pop();
+    }
+
+    // Join back and update caption
+    this.photoCaption = words.join(' ');
+
+    // Add trailing space if there are still words
+    if (this.photoCaption.length > 0) {
+      this.photoCaption += ' ';
+    }
   }
 
   async save() {
