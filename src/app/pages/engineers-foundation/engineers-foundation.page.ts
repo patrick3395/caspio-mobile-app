@@ -4826,14 +4826,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.markSpacerHeightDirty(); // Mark cache as dirty
     }
 
-    // OPTIMIZATION: Only restore scroll if there was actually a change
-    if (needsScrollRestore) {
+    // OPTIMIZATION: Only restore scroll if there was actually a change (mobile only - skip on webapp)
+    if (needsScrollRestore && !this.platform.isWeb()) {
+      console.log('[SCROLL DEBUG] Restoring scroll position (mobile only):', currentScrollY);
       // Use RAF for smoother scroll restoration
       requestAnimationFrame(() => {
         if (Math.abs(window.scrollY - currentScrollY) > 5) { // Only restore if scroll changed significantly
           window.scrollTo(0, currentScrollY);
         }
       });
+    } else if (needsScrollRestore && this.platform.isWeb()) {
+      console.log('[SCROLL DEBUG] Skipping scroll restoration for webapp');
     }
   }
   
