@@ -27,7 +27,8 @@ interface ServiceSelection {
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
   FinalizedDate?: string; // ISO date string when the report was finalized
-  Status?: string; // Status field (e.g., "Under Review")
+  Status?: string; // Status field (e.g., "Under Review", "Report Finalized")
+  StatusDateTime?: string; // ISO date string when the status was last updated
   SubmittedDate?: string; // ISO date string when the report was submitted
   saving?: boolean;
   saved?: boolean;
@@ -525,6 +526,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
           ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
           Status: service.Status || '',
+          StatusDateTime: service.StatusDateTime || '',
           SubmittedDate: service.SubmittedDate || ''
         };
       });
@@ -727,6 +729,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         dateOfInspection: service.DateOfInspection || new Date().toISOString(),
         ReportFinalized: service.Status === 'Report Finalized' || service.ReportFinalized || false,
         Status: service.Status || '',
+        StatusDateTime: service.StatusDateTime || '',
         SubmittedDate: service.SubmittedDate || ''
       };
       });

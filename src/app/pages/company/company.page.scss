@@ -2815,7 +2815,7 @@ ion-alert.custom-alert {
 }
 
 .add-invoice-btn {
-  background: #28a745;
+  background: #9ca3af;
   color: white;
   border: none;
   padding: 8px 20px;
@@ -2836,14 +2836,14 @@ ion-alert.custom-alert {
   }
 
   &:hover {
-    background: #218838;
+    background: #6b7280;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    box-shadow: 0 2px 8px rgba(156, 163, 175, 0.3);
   }
 
   &:active {
     transform: translateY(0);
-    background: #1e7e34;
+    background: #4b5563;
   }
 
   @media (max-width: 768px) {

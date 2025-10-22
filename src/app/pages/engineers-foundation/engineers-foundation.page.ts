@@ -5584,9 +5584,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the Services table - only update Status column (the only one that exists in the table)
+      // Update the Services table - update Status and StatusDateTime
       const updateData: any = {
-        Status: 'Report Finalized'
+        Status: 'Report Finalized',
+        StatusDateTime: new Date().toISOString()
       };
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);

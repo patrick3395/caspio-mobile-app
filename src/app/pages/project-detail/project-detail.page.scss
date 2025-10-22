@@ -967,7 +967,9 @@ ion-modal {
 .service-title{flex:1;min-width:0;word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;}
 .finalized-check{color:$orange;font-size:20px;flex-shrink:0;margin-left:6px;margin-top:1px;}
 .template-instance{font-weight:400;color:$gray;font-size:14px;white-space:nowrap;flex-shrink:0;margin-left:4px}
-.report-status{font-weight:500;color:$orange;font-size:13px;white-space:nowrap;flex-shrink:0;margin-left:8px;padding:2px 8px;background:rgba(241, 90, 39, 0.1);border-radius:4px;}
+.report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;margin-left:8px;}
+.report-status{font-weight:500;color:$orange;font-size:13px;white-space:nowrap;padding:2px 8px;background:rgba(241, 90, 39, 0.1);border-radius:4px;}
+.status-datetime{font-weight:400;color:$gray;font-size:11px;white-space:nowrap;}
 // Mobile-only: Center icon vertically
 @media (max-width: 768px) {
   align-items:center;

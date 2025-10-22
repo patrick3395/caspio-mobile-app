@@ -955,6 +955,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         .map(record => this.normalizeInvoiceRecord(record))
         .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
 
+      this.recalculateCompanyAggregates();
       this.categorizeInvoices();
 
       await this.showToast('Invoice updated successfully', 'success');
@@ -1019,6 +1020,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         .map(record => this.normalizeInvoiceRecord(record))
         .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
 
+      this.recalculateCompanyAggregates();
       this.categorizeInvoices();
       this.closeEditInvoiceModal();
 
@@ -1070,6 +1072,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
+      // If mode is negative (payment), make the Fee negative
+      const fee = this.newInvoice.Mode === 'negative' 
+        ? -Math.abs(this.newInvoice.Fee) 
+        : Math.abs(this.newInvoice.Fee);
+
       const payload: any = {
         ProjectID: this.newInvoice.ProjectID,
         ServiceID: this.newInvoice.ServiceID,
@@ -1077,10 +1084,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         City: this.newInvoice.City,
         Zip: this.newInvoice.Zip,
         Date: this.newInvoice.Date,
-        Fee: this.newInvoice.Fee,
+        Fee: fee,
         Mode: this.newInvoice.Mode,
         InvoiceNotes: this.newInvoice.InvoiceNotes
       };
+
+      console.log('Creating invoice with payload:', payload);
 
       await firstValueFrom(
         this.caspioService.post('/tables/Invoices/records', payload)
@@ -1092,6 +1101,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         .map(record => this.normalizeInvoiceRecord(record))
         .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
 
+      this.recalculateCompanyAggregates();
       this.categorizeInvoices();
 
       await this.showToast('Invoice created successfully', 'success');
