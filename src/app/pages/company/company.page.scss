@@ -2675,6 +2675,52 @@ ion-alert.custom-alert {
   }
 }
 
+.invoice-headers {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 16px;
+  background: #e9ecef;
+  padding: 8px 16px;
+  border-bottom: 1px solid #dee2e6;
+
+  @media (max-width: 768px) {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+}
+
+.invoice-header-cell {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #212529;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  .desktop-label {
+    display: inline;
+  }
+
+  .mobile-label {
+    display: none;
+  }
+
+  &.invoice-header-right {
+    text-align: right;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.65rem;
+
+    .desktop-label {
+      display: none;
+    }
+
+    .mobile-label {
+      display: inline;
+    }
+  }
+}
+
 .invoice-content {
   padding: 16px;
   cursor: pointer;
@@ -2691,42 +2737,18 @@ ion-alert.custom-alert {
 
   @media (max-width: 768px) {
     gap: 8px;
-    grid-template-columns: 2fr 2fr 1fr;
   }
 }
 
-.invoice-field {
+.invoice-value {
+  font-size: 0.95rem;
+  color: #212529;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-
-  label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #212529;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: #e9ecef;
-    padding: 8px 12px;
-    margin: -16px -16px 8px -16px;
-    border-bottom: 1px solid #dee2e6;
-  }
-
-  .desktop-label {
-    display: block;
-  }
-
-  .mobile-label {
-    display: none;
-  }
-
-  span {
-    font-size: 0.95rem;
-    color: #212529;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
 
   .amount-value {
     font-weight: 600;
@@ -2735,29 +2757,12 @@ ion-alert.custom-alert {
     margin-bottom: 8px;
   }
 
-  &.invoice-field-with-action {
+  &.invoice-value-with-action {
     align-items: flex-end;
   }
 
   @media (max-width: 768px) {
-    .desktop-label {
-      display: none;
-    }
-
-    .mobile-label {
-      display: block;
-      font-size: 0.65rem;
-    }
-
-    label {
-      font-size: 0.65rem;
-      margin: -10px -10px 6px -10px;
-      padding: 6px 8px;
-    }
-
-    span {
-      font-size: 0.85rem;
-    }
+    font-size: 0.85rem;
   }
 }
 

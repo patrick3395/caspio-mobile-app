@@ -5589,13 +5589,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         Status: 'Report Finalized'
       };
 
-      console.log('[EngFoundation] Finalizing report with serviceId:', this.serviceId);
+      console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
       console.log('[EngFoundation] ProjectId:', this.projectId);
       console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
       console.log('[EngFoundation] Update data:', updateData);
 
-      // Update the Services table using ServiceID
-      const response = await this.caspioService.updateServiceByServiceId(this.serviceId, updateData).toPromise();
+      // Update the Services table using PK_ID (this.serviceId is actually PK_ID)
+      const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
       console.log('[EngFoundation] API Response:', response);
 
       // Update local state (ReportFinalized and FinalizedDate are UI-only properties)

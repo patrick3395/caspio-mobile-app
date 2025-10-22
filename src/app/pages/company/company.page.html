@@ -864,20 +864,20 @@
             </div>
           </div>
           <div class="invoices-list">
-            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice" (click)="openEditInvoiceModal(invoice)">
-              <div class="invoice-content">
+            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
+              <div class="invoice-headers">
+                <div class="invoice-header-cell">Address</div>
+                <div class="invoice-header-cell">Service</div>
+                <div class="invoice-header-cell invoice-header-right">
+                  <span class="desktop-label">Amount Due</span>
+                  <span class="mobile-label">Due</span>
+                </div>
+              </div>
+              <div class="invoice-content" (click)="openEditInvoiceModal(invoice)">
                 <div class="invoice-row">
-                  <div class="invoice-field">
-                    <label>Address</label>
-                    <span>{{ invoice.positive.Address || '—' }}</span>
-                  </div>
-                  <div class="invoice-field">
-                    <label>Service</label>
-                    <span>{{ invoice.serviceName || '—' }}</span>
-                  </div>
-                  <div class="invoice-field invoice-field-with-action">
-                    <label class="desktop-label">Amount Due</label>
-                    <label class="mobile-label">Due</label>
+                  <div class="invoice-value">{{ invoice.positive.Address || '—' }}</div>
+                  <div class="invoice-value">{{ invoice.serviceName || '—' }}</div>
+                  <div class="invoice-value invoice-value-with-action">
                     <span class="amount-value">{{ formatCurrency(invoice.netAmount) }}</span>
                     <button class="pay-invoice-btn" 
                             (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()" 
