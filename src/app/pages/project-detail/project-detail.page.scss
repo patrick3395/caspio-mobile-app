@@ -945,21 +945,20 @@ ion-modal {
 // Templates Progress Bars
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
-.template-bar{position:relative;height:60px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+.template-bar{position:relative;min-height:100px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
 &:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}
 // Mobile-only: Increase height for better text wrapping
 @media (max-width: 768px) {
-  min-height:75px;
-  height:auto;
+  min-height:110px;
 }}
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
 
-.template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+.template-content{position:relative;z-index:1;height:100%;display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px;
 // Mobile-only: Better vertical padding for wrapped text
 @media (max-width: 768px) {
-  padding:12px 20px;
-  min-height:75px;
+  padding:16px 20px;
+  min-height:110px;
 }}
 
 .template-name{font-size:16px;font-weight:600;color:$dark;display:flex;align-items:flex-start;gap:8px;flex:1;
@@ -967,14 +966,21 @@ ion-modal {
 .service-title{flex:1;min-width:0;word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;}
 .finalized-check{color:$orange;font-size:20px;flex-shrink:0;margin-left:6px;margin-top:1px;}
 .template-instance{font-weight:400;color:$gray;font-size:14px;white-space:nowrap;flex-shrink:0;margin-left:4px}
-.report-status-container{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;margin-left:auto;margin-right:8px;}
-.report-status{font-weight:500;color:$orange;font-size:13px;white-space:nowrap;padding:2px 8px;background:rgba(241, 90, 39, 0.1);border-radius:4px;}
-.status-datetime{font-weight:400;color:$gray;font-size:11px;white-space:nowrap;text-align:center;}
 // Mobile-only: Center icon vertically
 @media (max-width: 768px) {
   align-items:center;
   .report-icon{margin-top:0;}
   .finalized-check{margin-top:0;}
+}}
+
+// Top right corner container for Status and Arrow
+.template-right-corner{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;
+.report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.report-status{font-weight:600;color:$orange;font-size:14px;white-space:nowrap;padding:4px 12px;background:rgba(241, 90, 39, 0.1);border-radius:6px;}
+.status-datetime{font-weight:500;color:$gray;font-size:12px;white-space:nowrap;text-align:right;}
+@media (max-width: 768px) {
+  .report-status{font-size:13px;padding:3px 10px;}
+  .status-datetime{font-size:11px;}
 }}
 
 .template-icons{display:flex;align-items:center;gap:8px;flex-shrink:0;}

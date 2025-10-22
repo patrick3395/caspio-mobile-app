@@ -80,31 +80,34 @@
       <h2 class="section-title">Reports</h2>
 
       <div class="templates-container">
-        <div *ngFor="let service of getServicesForTemplates(); trackBy: trackTemplateService"
-             class="template-bar"
-             (click)="handleTemplateClick(service, $event)">
+      <div *ngFor="let service of getServicesForTemplates(); trackBy: trackTemplateService"
+           class="template-bar"
+           (click)="handleTemplateClick(service, $event)">
 
-          <!-- Progress fill background -->
-          <div class="template-progress"
-               [style.width.%]="getTemplateProgress(service)">
+        <!-- Progress fill background -->
+        <div class="template-progress"
+             [style.width.%]="getTemplateProgress(service)">
+        </div>
+
+        <!-- Service name and info overlay -->
+        <div class="template-content">
+          <div class="template-name">
+            <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
+            <span class="service-title">
+              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+            </span>
+            <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
+              #{{ getServiceInstanceNumber(service) }}
+            </span>
           </div>
-
-          <!-- Service name and info overlay -->
-          <div class="template-content">
-            <div class="template-name">
-              <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
-              <span class="service-title">
-                <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-              </span>
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
-                #{{ getServiceInstanceNumber(service) }}
-              </span>
-            </div>
+          
+          <!-- Status and Arrow in Top Right Corner -->
+          <div class="template-right-corner">
             <div *ngIf="service.Status" class="report-status-container">
               <span class="report-status">
                 {{ service.Status }}
               </span>
-              <span *ngIf="(service.Status === 'Finalized' || service.Status === 'Updated') && service.StatusDateTime" class="status-datetime">
+              <span *ngIf="service.StatusDateTime" class="status-datetime">
                 {{ service.StatusDateTime | date:'short' }}
               </span>
             </div>
@@ -113,6 +116,7 @@
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
 

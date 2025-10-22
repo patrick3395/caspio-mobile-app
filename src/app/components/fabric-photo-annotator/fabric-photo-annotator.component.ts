@@ -938,7 +938,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const alert = await this.alertController.create({
       header: 'Photo Caption',
       cssClass: 'caption-popup-alert',
-      message: '<div class="caption-popup-content" id="captionPopupContent"></div>',
+      message: ' ', // Empty space to prevent Ionic from hiding the message area
       buttons: [
         {
           text: 'Cancel',
@@ -959,17 +959,20 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
     // Manually inject HTML content after alert is presented to avoid HTML escaping
     setTimeout(() => {
-      const contentDiv = document.getElementById('captionPopupContent');
-      if (contentDiv) {
+      // Find the alert message container in the DOM
+      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+      if (alertElement) {
         // Build the full HTML content
         const htmlContent = `
-          <input type="text" id="captionInput" class="caption-text-input"
-                 placeholder="Enter caption..."
-                 value="${tempCaption}"
-                 maxlength="255" />
-          ${buttonsHtml}
+          <div class="caption-popup-content">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption}"
+                   maxlength="255" />
+            ${buttonsHtml}
+          </div>
         `;
-        contentDiv.innerHTML = htmlContent;
+        alertElement.innerHTML = htmlContent;
 
         // Add click handlers to preset buttons
         const presetBtns = document.querySelectorAll('.preset-btn');
