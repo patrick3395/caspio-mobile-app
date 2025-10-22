@@ -5595,7 +5595,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation] Update data:', updateData);
 
       // Update the Services table using ServiceID
-      await this.caspioService.updateServiceByServiceId(this.serviceId, updateData).toPromise();
+      const response = await this.caspioService.updateServiceByServiceId(this.serviceId, updateData).toPromise();
+      console.log('[EngFoundation] API Response:', response);
 
       // Update local state (ReportFinalized and FinalizedDate are UI-only properties)
       this.serviceData.Status = updateData.Status;
@@ -5612,14 +5613,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
-      // Navigate back to project detail page
-      console.log('[EngFoundation] Navigating to project detail...');
+      // Navigate back using Location.back() to avoid route activation conflicts
+      console.log('[EngFoundation] Navigating back to project detail...');
       
-      await this.router.navigate(['/project', this.projectId], {
-        replaceUrl: true
-      });
-
-      console.log('[EngFoundation] Navigation completed');
+      // Use setTimeout to ensure toast is shown before navigation
+      setTimeout(() => {
+        this.location.back();
+      }, 500);
 
     } catch (error) {
       console.error('Error finalizing report:', error);

@@ -1535,9 +1535,16 @@ export class CaspioService {
   }
 
   updateServiceByServiceId(serviceId: string, updateData: any): Observable<any> {
+    console.log('[CaspioService.updateServiceByServiceId] Request details:', {
+      serviceId,
+      updateData,
+      url: `/tables/Services/records?q.where=ServiceID=${serviceId}`
+    });
+    
     return this.put<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`, updateData).pipe(
       tap(response => {
         console.log('✓ [CaspioService.updateServiceByServiceId] Service updated successfully');
+        console.log('[CaspioService.updateServiceByServiceId] Response:', response);
       }),
       catchError(error => {
         console.error('? [CaspioService.updateServiceByServiceId] Failed to update service:', error);

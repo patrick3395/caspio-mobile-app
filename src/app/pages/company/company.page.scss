@@ -1638,11 +1638,32 @@ ion-segment.filter-segment {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
+  font-weight: 600;
+  padding: 0 6px;
+  margin-bottom: 12px;
 
-.invoice-group-header span {
-  font-size: 0.85rem;
-  color: var(--ion-color-medium);
+  h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #212529;
+  }
+
+  .metric-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    ion-icon {
+      font-size: 1.1rem;
+      color: #666;
+    }
+
+    span {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #333;
+    }
+  }
 }
 
 .invoice-group-card .responsive-table {
@@ -2683,9 +2704,21 @@ ion-alert.custom-alert {
   label {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #6c757d;
+    color: #212529;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    background: #e9ecef;
+    padding: 8px 12px;
+    margin: -16px -16px 8px -16px;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .desktop-label {
+    display: block;
+  }
+
+  .mobile-label {
+    display: none;
   }
 
   span {
@@ -2707,8 +2740,19 @@ ion-alert.custom-alert {
   }
 
   @media (max-width: 768px) {
+    .desktop-label {
+      display: none;
+    }
+
+    .mobile-label {
+      display: block;
+      font-size: 0.65rem;
+    }
+
     label {
       font-size: 0.65rem;
+      margin: -10px -10px 6px -10px;
+      padding: 6px 8px;
     }
 
     span {
