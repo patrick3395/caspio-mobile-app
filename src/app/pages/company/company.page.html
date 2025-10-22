@@ -863,38 +863,31 @@
               <span>{{ group.invoices.length }}</span>
             </div>
           </div>
-          <div class="responsive-table dark-outline">
-            <table>
-              <thead>
-                <tr>
-                  <th>Address</th>
-                  <th>Service</th>
-                  <th>Amount Due</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
-                  <td>
-                    <button type="button" class="contact-name-button" (click)="openEditInvoiceModal(invoice)">
-                      {{ invoice.positive.Address || '—' }}
-                    </button>
-                  </td>
-                  <td>
-                    {{ invoice.serviceName || '—' }}
-                  </td>
-                  <td>
-                    {{ formatCurrency(invoice.netAmount) }}
-                  </td>
-                  <td>
-                    <button class="pay-invoice-btn" (click)="openInvoicePaymentModal(invoice)" *ngIf="invoice.netAmount > 0">
-                      <ion-icon name="card-outline"></ion-icon>
-                      Pay
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="invoices-list">
+            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
+              <div class="invoice-content" (click)="openEditInvoiceModal(invoice)">
+                <div class="invoice-row">
+                  <div class="invoice-field">
+                    <label>Address</label>
+                    <span>{{ invoice.positive.Address || '—' }}</span>
+                  </div>
+                  <div class="invoice-field">
+                    <label>Service</label>
+                    <span>{{ invoice.serviceName || '—' }}</span>
+                  </div>
+                  <div class="invoice-field">
+                    <label>Amount Due</label>
+                    <span class="amount-value">{{ formatCurrency(invoice.netAmount) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="invoice-pay-container" *ngIf="invoice.netAmount > 0">
+                <button class="pay-invoice-btn" (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()">
+                  <ion-icon name="card-outline"></ion-icon>
+                  Pay
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="pagination-controls" *ngIf="totalInvoicePages > 1">

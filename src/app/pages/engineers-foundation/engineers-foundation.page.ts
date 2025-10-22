@@ -5620,18 +5620,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       await loading.dismiss();
 
-      // CRITICAL: Use NavController for proper navigation with state preservation
-      // Router.navigate doesn't always preserve state properly in Ionic
+      // Use Router.navigate for proper navigation
       console.log('[EngFoundation] Navigating to project detail with finalized state...');
       
-      await this.navController.navigateBack(['/project', this.projectId], {
+      await this.router.navigate(['/project', this.projectId], {
+        replaceUrl: true,
         state: {
           finalizedServiceId: this.serviceId,
           finalizedDate: this.serviceData.FinalizedDate
         }
       });
 
-      console.log('[EngFoundation] Navigation initiated with state:', {
+      console.log('[EngFoundation] Navigation completed with state:', {
         finalizedServiceId: this.serviceId,
         finalizedDate: this.serviceData.FinalizedDate
       });
