@@ -54,14 +54,12 @@ import { FabricService } from '../../services/fabric.service';
         <canvas #fabricCanvas></canvas>
       </div>
 
-      <!-- Caption input at bottom -->
+      <!-- Caption button at bottom -->
       <div class="caption-container" #captionContainer>
-        <input 
-          type="text" 
-          [(ngModel)]="photoCaption" 
-          placeholder="Add Caption..." 
-          class="caption-input"
-          maxlength="255">
+        <button class="caption-button" (click)="openCaptionPopup()">
+          <ion-icon name="text-outline"></ion-icon>
+          <span>{{ photoCaption || 'Add Caption' }}</span>
+        </button>
       </div>
 
     </ion-content>
@@ -198,11 +196,6 @@ import { FabricService } from '../../services/fabric.service';
       bottom: 15px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.95);
-      padding: 8px 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
       z-index: 100;
       width: auto;
       min-width: 250px;
@@ -210,35 +203,55 @@ import { FabricService } from '../../services/fabric.service';
       
       // Mobile-specific positioning
       @media (max-width: 768px) {
-        bottom: 20px; // Higher up from bottom
+        bottom: 20px;
         min-width: 200px;
-        max-width: 90%; // More width on mobile
-        padding: 10px 14px; // More padding for touch
+        max-width: 90%;
       }
     }
     
-    .caption-input {
+    .caption-button {
       width: 100%;
-      max-width: 100%;
-      padding: 10px 14px;
-      border: none;
-      border-radius: 6px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
       font-size: 14px;
-      outline: none;
-      transition: all 0.2s ease;
-      background: rgba(255, 255, 255, 0.9);
-      box-sizing: border-box;
       color: #333;
-    }
-    
-    .caption-input::placeholder {
-      color: #888;
-      font-style: italic;
-    }
-    
-    .caption-input:focus {
-      background: white;
-      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      
+      ion-icon {
+        font-size: 20px;
+        color: #F15A27;
+      }
+      
+      span {
+        flex: 1;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      &:hover {
+        background: white;
+        border-color: #F15A27;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      @media (max-width: 768px) {
+        padding: 14px 18px;
+        font-size: 15px;
+      }
     }
 
     .tool-btn:hover {
@@ -892,20 +905,48 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     }
   }
   async openCaptionPopup() {
+    // Create a temporary caption value to work with
+    let tempCaption = this.photoCaption;
+    
+    // Define preset location buttons based on the image
+    const presetButtons = [
+      // Row 1: Directions and positions
+      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+      // Row 2: Floor levels
+      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+      // Row 3: System types
+      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+      // Row 4: Exterior features
+      ['Porch', 'Deck', 'Roof', 'Ceiling'],
+      // Row 5: Rooms
+      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+      // Row 6: Other areas
+      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+    ];
+
+    // Build custom HTML for the alert with preset buttons
+    let buttonsHtml = '<div class="preset-buttons-container">';
+    presetButtons.forEach(row => {
+      buttonsHtml += '<div class="preset-row">';
+      row.forEach(label => {
+        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+      });
+      buttonsHtml += '</div>';
+    });
+    buttonsHtml += '</div>';
+
     const alert = await this.alertController.create({
       header: 'Photo Caption',
-      inputs: [
-        {
-          name: 'caption',
-          type: 'textarea',
-          placeholder: 'Enter caption for this photo...',
-          value: this.photoCaption,
-          attributes: {
-            maxlength: 255,
-            rows: 3
-          }
-        }
-      ],
+      cssClass: 'caption-popup-alert',
+      message: `
+        <div class="caption-popup-content">
+          <input type="text" id="captionInput" class="caption-text-input" 
+                 placeholder="Enter caption..." 
+                 value="${tempCaption}" 
+                 maxlength="255" />
+          ${buttonsHtml}
+        </div>
+      `,
       buttons: [
         {
           text: 'Cancel',
@@ -913,14 +954,35 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         },
         {
           text: 'Save',
-          handler: (data) => {
-            this.photoCaption = data.caption || '';
+          handler: () => {
+            const input = document.getElementById('captionInput') as HTMLInputElement;
+            this.photoCaption = input?.value || '';
+            return true;
           }
         }
       ]
     });
 
     await alert.present();
+
+    // Add click handlers to preset buttons after alert is presented
+    setTimeout(() => {
+      const presetBtns = document.querySelectorAll('.preset-btn');
+      const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+      
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const text = (btn as HTMLElement).getAttribute('data-text');
+          if (text && captionInput) {
+            // Add text + space to current caption
+            captionInput.value = captionInput.value + text + ' ';
+            captionInput.focus();
+          }
+        });
+      });
+    }, 100);
   }
 
   async save() {

@@ -2755,6 +2755,10 @@ ion-alert.custom-alert {
     color: #f15a27;
     font-family: 'Courier New', monospace;
     margin-bottom: 8px;
+    
+    @media (max-width: 768px) {
+      margin-bottom: 12px;
+    }
   }
 
   &.invoice-value-with-action {
@@ -2770,9 +2774,11 @@ ion-alert.custom-alert {
   display: flex;
   gap: 8px;
   flex-wrap: nowrap;
+  margin-top: 4px;
   
   @media (max-width: 768px) {
     gap: 4px;
+    margin-top: 8px;
   }
 }
 

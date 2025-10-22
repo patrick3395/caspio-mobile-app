@@ -1080,3 +1080,156 @@ textarea.styled-input {
   }
 }
 
+// Caption Popup Alert - Photo Annotator
+.caption-popup-alert {
+  --backdrop-opacity: 0.6;
+
+  .alert-wrapper {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.3);
+    padding: 20px 0 12px;
+    min-width: min(480px, 92vw);
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: visible;
+  }
+
+  .alert-head {
+    padding: 8px 20px 12px;
+    text-align: center;
+
+    .alert-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #333333;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .alert-message {
+    padding: 0;
+    max-height: calc(90vh - 180px);
+    overflow-y: auto;
+    
+    .caption-popup-content {
+      padding: 0 20px;
+
+      .caption-text-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 15px;
+        color: #333;
+        background: white;
+        transition: all 0.2s ease;
+        margin-bottom: 16px;
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+          border-color: #F15A27;
+          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        }
+
+        &::placeholder {
+          color: #999;
+          font-style: italic;
+        }
+      }
+
+      .preset-buttons-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 8px;
+
+        .preset-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          justify-content: flex-start;
+
+          .preset-btn {
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            font-weight: 500;
+
+            &:hover {
+              background: #F15A27;
+              color: white;
+              border-color: #F15A27;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 6px rgba(241, 90, 39, 0.3);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding: 12px 20px 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: stretch;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 8px;
+
+    .alert-button {
+      flex: 1 1 0;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: 999px;
+      border: none;
+      padding: 12px 0;
+      text-transform: uppercase;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+
+      .alert-button-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &[role="cancel"] {
+        color: #333;
+        background: #f5f5f5;
+        border: 2px solid #ddd;
+
+        &:hover {
+          background: #e8e8e8;
+          border-color: #ccc;
+        }
+      }
+
+      &:not([role="cancel"]) {
+        color: white;
+        background: #F15A27;
+        border: 2px solid #F15A27;
+
+        &:hover {
+          background: #d94e1f;
+          border-color: #d94e1f;
+        }
+      }
+    }
+  }
+}
+

@@ -514,6 +514,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Process existing services
       this.selectedServices = (servicesData || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
+        
+        // Debug logging for status and datetime
+        if (service.Status) {
+          console.log('[ProjectDetail] Service Status Data:', {
+            typeName: offer?.TypeName,
+            Status: service.Status,
+            StatusDateTime: service.StatusDateTime,
+            rawService: service
+          });
+        }
+        
         return {
           instanceId: `${service.PK_ID || service.ServiceID}_${Date.now()}_${Math.random()}`,
           serviceId: service.PK_ID || service.ServiceID,
@@ -716,6 +727,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }))
           });
         } else {
+        }
+        
+        // Debug logging for status and datetime
+        if (service.Status) {
+          console.log('[ProjectDetail FAST PATH] Service Status Data:', {
+            typeName: offer?.TypeName,
+            Status: service.Status,
+            StatusDateTime: service.StatusDateTime,
+            rawService: service
+          });
         }
         
         return {
