@@ -10080,6 +10080,319 @@ Stack: ${error?.stack}`;
       await this.showToast('Failed to save caption', 'danger');
     }
   }
+
+  // Open caption popup for general photos
+  async openCaptionPopup(photo: any, category: string, itemId: string) {
+    let tempCaption = photo.caption || '';
+    
+    const presetButtons = [
+      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+      ['Porch', 'Deck', 'Roof', 'Ceiling'],
+      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+    ];
+
+    let buttonsHtml = '<div class="preset-buttons-container">';
+    presetButtons.forEach(row => {
+      buttonsHtml += '<div class="preset-row">';
+      row.forEach(label => {
+        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+      });
+      buttonsHtml += '</div>';
+    });
+    buttonsHtml += '</div>';
+
+    const alert = await this.alertController.create({
+      header: 'Photo Caption',
+      cssClass: 'caption-popup-alert',
+      message: ' ',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: () => {
+            const input = document.getElementById('captionInput') as HTMLInputElement;
+            photo.caption = input?.value || '';
+            this.saveCaption(photo, category, itemId);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+
+    setTimeout(() => {
+      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+      if (alertElement) {
+        const htmlContent = `
+          <div class="caption-popup-content">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption}"
+                   maxlength="255" />
+            ${buttonsHtml}
+          </div>
+        `;
+        alertElement.innerHTML = htmlContent;
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (btn as HTMLElement).getAttribute('data-text');
+            if (text && captionInput) {
+              captionInput.value = captionInput.value + text + ' ';
+              captionInput.focus();
+            }
+          });
+        });
+      }
+    }, 100);
+  }
+
+  // Open caption popup for FDF photos
+  async openFDFCaptionPopup(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    let tempCaption = this.getFdfPhotoCaption(roomName, photoType);
+    
+    const presetButtons = [
+      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+      ['Porch', 'Deck', 'Roof', 'Ceiling'],
+      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+    ];
+
+    let buttonsHtml = '<div class="preset-buttons-container">';
+    presetButtons.forEach(row => {
+      buttonsHtml += '<div class="preset-row">';
+      row.forEach(label => {
+        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+      });
+      buttonsHtml += '</div>';
+    });
+    buttonsHtml += '</div>';
+
+    const alert = await this.alertController.create({
+      header: 'Photo Caption',
+      cssClass: 'caption-popup-alert',
+      message: ' ',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: () => {
+            const input = document.getElementById('captionInput') as HTMLInputElement;
+            const newCaption = input?.value || '';
+            this.setFdfPhotoCaption(roomName, photoType, newCaption);
+            this.saveFDFCaption(roomName, photoType, newCaption);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+
+    setTimeout(() => {
+      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+      if (alertElement) {
+        const htmlContent = `
+          <div class="caption-popup-content">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption}"
+                   maxlength="255" />
+            ${buttonsHtml}
+          </div>
+        `;
+        alertElement.innerHTML = htmlContent;
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (btn as HTMLElement).getAttribute('data-text');
+            if (text && captionInput) {
+              captionInput.value = captionInput.value + text + ' ';
+              captionInput.focus();
+            }
+          });
+        });
+      }
+    }, 100);
+  }
+
+  // Open caption popup for room point photos
+  async openRoomPointCaptionPopup(photo: any, roomName: string, point: any) {
+    let tempCaption = photo.caption || '';
+    
+    const presetButtons = [
+      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+      ['Porch', 'Deck', 'Roof', 'Ceiling'],
+      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+    ];
+
+    let buttonsHtml = '<div class="preset-buttons-container">';
+    presetButtons.forEach(row => {
+      buttonsHtml += '<div class="preset-row">';
+      row.forEach(label => {
+        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+      });
+      buttonsHtml += '</div>';
+    });
+    buttonsHtml += '</div>';
+
+    const alert = await this.alertController.create({
+      header: 'Photo Caption',
+      cssClass: 'caption-popup-alert',
+      message: ' ',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: () => {
+            const input = document.getElementById('captionInput') as HTMLInputElement;
+            photo.caption = input?.value || '';
+            this.saveRoomPointCaption(photo, roomName, point);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+
+    setTimeout(() => {
+      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+      if (alertElement) {
+        const htmlContent = `
+          <div class="caption-popup-content">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption}"
+                   maxlength="255" />
+            ${buttonsHtml}
+          </div>
+        `;
+        alertElement.innerHTML = htmlContent;
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (btn as HTMLElement).getAttribute('data-text');
+            if (text && captionInput) {
+              captionInput.value = captionInput.value + text + ' ';
+              captionInput.focus();
+            }
+          });
+        });
+      }
+    }, 100);
+  }
+
+  // Open caption popup for room photos (in Elevation Plot - old style)
+  async openRoomPhotoCaptionPopup(photo: any, roomName: string, point: any) {
+    let tempCaption = photo.caption || '';
+    
+    const presetButtons = [
+      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+      ['Porch', 'Deck', 'Roof', 'Ceiling'],
+      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+    ];
+
+    let buttonsHtml = '<div class="preset-buttons-container">';
+    presetButtons.forEach(row => {
+      buttonsHtml += '<div class="preset-row">';
+      row.forEach(label => {
+        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+      });
+      buttonsHtml += '</div>';
+    });
+    buttonsHtml += '</div>';
+
+    const alert = await this.alertController.create({
+      header: 'Photo Caption',
+      cssClass: 'caption-popup-alert',
+      message: ' ',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: () => {
+            const input = document.getElementById('captionInput') as HTMLInputElement;
+            photo.caption = input?.value || '';
+            this.saveRoomPhotoCaption(photo, roomName, point);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+
+    setTimeout(() => {
+      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+      if (alertElement) {
+        const htmlContent = `
+          <div class="caption-popup-content">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption}"
+                   maxlength="255" />
+            ${buttonsHtml}
+          </div>
+        `;
+        alertElement.innerHTML = htmlContent;
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (btn as HTMLElement).getAttribute('data-text');
+            if (text && captionInput) {
+              captionInput.value = captionInput.value + text + ' ';
+              captionInput.focus();
+            }
+          });
+        });
+      }
+    }, 100);
+  }
   
   // Verify if visual was actually saved - v1.4.225 - FORCE REBUILD
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {

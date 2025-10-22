@@ -1183,12 +1183,10 @@ textarea.styled-input {
   }
 
   .alert-button-group {
-    padding: 12px 20px 16px;
+    padding: 12px 24px 20px;
     display: flex;
     gap: 12px;
     justify-content: stretch;
-    border-top: 1px solid #f0f0f0;
-    margin-top: 8px;
 
     .alert-button {
       flex: 1 1 0;
@@ -1196,7 +1194,7 @@ textarea.styled-input {
       letter-spacing: 0.05em;
       border-radius: 999px;
       border: none;
-      padding: 12px 0;
+      padding: 13px 0;
       text-transform: uppercase;
       font-size: 14px;
       display: flex;
@@ -1222,13 +1220,13 @@ textarea.styled-input {
       }
 
       &:not([role="cancel"]) {
-        color: white;
-        background: #F15A27;
-        border: 2px solid #F15A27;
+        color: #333;
+        background: #f5f5f5;
+        border: 2px solid var(--noble-orange, #F15A27);
 
         &:hover {
-          background: #d94e1f;
-          border-color: #d94e1f;
+          background: #e8e8e8;
+          border-color: var(--noble-orange, #F15A27);
         }
       }
     }

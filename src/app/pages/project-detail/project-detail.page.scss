@@ -974,13 +974,14 @@ ion-modal {
 }}
 
 // Top right corner container for Status and Arrow
-.template-right-corner{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;
-.report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.template-right-corner{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;flex-shrink:0;align-self:center;
+.report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-height:38px;justify-content:center;}
 .report-status{font-weight:600;color:$orange;font-size:14px;white-space:nowrap;}
 .status-datetime{font-weight:500;color:$gray;font-size:12px;white-space:nowrap;text-align:right;}
 @media (max-width: 768px) {
   .report-status{font-size:13px;}
   .status-datetime{font-size:11px;}
+  .report-status-container{min-height:35px;}
 }}
 
 .template-icons{display:flex;align-items:center;gap:8px;flex-shrink:0;}

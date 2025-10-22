@@ -575,15 +575,11 @@
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption"
-                              name="caption_{{photo.AttachID}}"
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openCaptionPopup(photo, category, item.id); $event.stopPropagation()">
+                              {{ photo.caption || 'Caption' }}
+                            </button>
                           </div>
                           <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
@@ -721,15 +717,11 @@
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption"
-                              name="caption_{{photo.AttachID}}"
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openCaptionPopup(photo, category, item.id); $event.stopPropagation()">
+                              {{ photo.caption || 'Caption' }}
+                            </button>
                           </div>
                           <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
@@ -867,15 +859,11 @@
                             <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                               <ion-icon name="close"></ion-icon>
                             </button>
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption"
-                              name="caption_{{photo.AttachID}}"
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openCaptionPopup(photo, category, item.id); $event.stopPropagation()">
+                              {{ photo.caption || 'Caption' }}
+                            </button>
                           </div>
                           <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
@@ -1082,15 +1070,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Top photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Top')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Top', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Top', getFdfPhotoCaption(room.RoomName, 'Top'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Top'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Top') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                     
@@ -1122,15 +1106,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Bottom photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Bottom')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Bottom', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', getFdfPhotoCaption(room.RoomName, 'Bottom'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Bottom'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Bottom') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                     
@@ -1162,15 +1142,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Location photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Threshold')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Threshold', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', getFdfPhotoCaption(room.RoomName, 'Threshold'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Threshold'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Threshold') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1228,14 +1204,11 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath photo -->
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption" 
-                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()">
+                              {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
+                            </button>
                           </div>
                         </div>
                         
@@ -1266,14 +1239,11 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath photo -->
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption" 
-                              (blur)="saveRoomPointCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()">
+                              {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1485,15 +1455,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Top photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Top')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Top', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Top', getFdfPhotoCaption(room.RoomName, 'Top'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Top'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Top') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                     
@@ -1525,15 +1491,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Bottom photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Bottom')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Bottom', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Bottom', getFdfPhotoCaption(room.RoomName, 'Bottom'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Bottom'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Bottom') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                     
@@ -1565,15 +1527,11 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Location photo -->
-                        <input 
-                          type="text" 
+                        <button 
                           class="room-photo-caption" 
-                          [ngModel]="getFdfPhotoCaption(room.RoomName, 'Threshold')"
-                          (ngModelChange)="setFdfPhotoCaption(room.RoomName, 'Threshold', $event)"
-                          (blur)="saveFDFCaption(room.RoomName, 'Threshold', getFdfPhotoCaption(room.RoomName, 'Threshold'))"
-                          (click)="$event.stopPropagation()"
-                          placeholder="Caption"
-                          maxlength="255">
+                          (click)="openFDFCaptionPopup(room.RoomName, 'Threshold'); $event.stopPropagation()">
+                          {{ getFdfPhotoCaption(room.RoomName, 'Threshold') || 'Caption' }}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1624,14 +1582,11 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath Measurement photo -->
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Measurement').caption"
-                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openRoomPhotoCaptionPopup(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()">
+                              {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
+                            </button>
                           </div>
                         </div>
                         
@@ -1656,14 +1611,11 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath Location photo -->
-                            <input 
-                              type="text" 
+                            <button 
                               class="room-photo-caption" 
-                              [(ngModel)]="getPointPhotoByType(point, 'Location').caption"
-                              (blur)="saveRoomPhotoCaption(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Caption"
-                              maxlength="255">
+                              (click)="openRoomPhotoCaptionPopup(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()">
+                              {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
+                            </button>
                           </div>
                         </div>
                       </div>
