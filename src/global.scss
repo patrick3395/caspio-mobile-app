@@ -1140,16 +1140,17 @@ textarea.styled-input {
       }
 
       .preset-buttons-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
         margin-bottom: 8px;
 
+        @media (max-width: 480px) {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
         .preset-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          justify-content: flex-start;
+          display: contents;
 
           .preset-btn {
             padding: 8px 12px;
@@ -1162,6 +1163,7 @@ textarea.styled-input {
             transition: all 0.15s ease;
             white-space: nowrap;
             font-weight: 500;
+            text-align: center;
 
             &:hover {
               background: #F15A27;

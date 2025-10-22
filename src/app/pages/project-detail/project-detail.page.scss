@@ -954,7 +954,7 @@ ion-modal {
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
 
-.template-content{position:relative;z-index:1;height:100%;display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px;
+.template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
 // Mobile-only: Better vertical padding for wrapped text
 @media (max-width: 768px) {
   padding:16px 20px;
@@ -976,10 +976,10 @@ ion-modal {
 // Top right corner container for Status and Arrow
 .template-right-corner{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;
 .report-status-container{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
-.report-status{font-weight:600;color:$orange;font-size:14px;white-space:nowrap;padding:4px 12px;background:rgba(241, 90, 39, 0.1);border-radius:6px;}
+.report-status{font-weight:600;color:$orange;font-size:14px;white-space:nowrap;}
 .status-datetime{font-weight:500;color:$gray;font-size:12px;white-space:nowrap;text-align:right;}
 @media (max-width: 768px) {
-  .report-status{font-size:13px;padding:3px 10px;}
+  .report-status{font-size:13px;}
   .status-datetime{font-size:11px;}
 }}
 
