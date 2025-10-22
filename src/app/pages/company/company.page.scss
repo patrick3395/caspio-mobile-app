@@ -2686,15 +2686,12 @@ ion-alert.custom-alert {
     font-weight: 600;
     color: #f15a27;
     font-family: 'Courier New', monospace;
+    margin-bottom: 8px;
   }
-}
 
-.invoice-pay-container {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 16px;
-  border-top: 1px solid #e9ecef;
-  background: #f8f9fa;
+  &.invoice-field-with-action {
+    align-items: flex-end;
+  }
 }
 
 .pay-invoice-btn {

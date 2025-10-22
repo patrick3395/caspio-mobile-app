@@ -386,20 +386,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[ngOnInit] ServiceId from route:', this.serviceId);
     console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
-    // Check for ReportFinalized flag from navigation state
-    const navigation = this.router.getCurrentNavigation();
-    if (navigation?.extras?.state) {
-      if (navigation.extras.state['ReportFinalized']) {
-        // Initialize serviceData if not exists
-        if (!this.serviceData) {
-          this.serviceData = {} as any;
-        }
-        this.serviceData.ReportFinalized = navigation.extras.state['ReportFinalized'];
-        this.serviceData.FinalizedDate = navigation.extras.state['FinalizedDate'];
-        console.log('[EngFoundation ngOnInit] Received ReportFinalized state:', this.serviceData.ReportFinalized);
-      }
-    }
-
     this.isOnline = this.offlineService.isOnline();
     this.manualOffline = this.offlineService.isManualOffline();
     this.updateOfflineBanner();
@@ -547,18 +533,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[Lifecycle] Current selectedRooms:', Object.keys(this.selectedRooms));
     console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
     console.log('==========================================');
-
-    // Check for ReportFinalized flag from history state
-    const historyState = window.history.state;
-    if (historyState?.ReportFinalized) {
-      // Initialize serviceData if not exists
-      if (!this.serviceData) {
-        this.serviceData = {} as any;
-      }
-      this.serviceData.ReportFinalized = historyState.ReportFinalized;
-      this.serviceData.FinalizedDate = historyState.FinalizedDate;
-      console.log('[EngFoundation ionViewWillEnter] Received ReportFinalized from history:', this.serviceData.ReportFinalized);
-    }
 
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
@@ -830,19 +804,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
-      // Preserve ReportFinalized flag if it was already set locally
-      const wasFinalized = this.serviceData?.ReportFinalized;
-      const finalizedDate = this.serviceData?.FinalizedDate;
-
       // Load service data from Services table
       const serviceResponse = await this.foundationData.getService(this.serviceId);
       if (serviceResponse) {
         this.serviceData = serviceResponse;
 
-        // Restore locally set finalized flag (not stored in database)
-        if (wasFinalized) {
-          this.serviceData.ReportFinalized = wasFinalized;
-          this.serviceData.FinalizedDate = finalizedDate;
+        // Set ReportFinalized flag based on Status field
+        if (serviceResponse.Status === 'Report Finalized') {
+          this.serviceData.ReportFinalized = true;
+        } else {
+          this.serviceData.ReportFinalized = false;
         }
 
         // Map database column StructStat to UI property StructuralSystemsStatus
@@ -888,7 +859,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ThirdFoundationRooms: this.serviceData.ThirdFoundationRooms || '',
         OwnerOccupantInterview: this.serviceData.OwnerOccupantInterview || '',
         StructuralSystemsStatus: this.serviceData.StructuralSystemsStatus || '',
-        Notes: this.serviceData.Notes || ''
+        Notes: this.serviceData.Notes || '',
+        Status: '',
+        ReportFinalized: false
       };
     }
   }
@@ -5603,38 +5576,52 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async markReportAsFinalized() {
+    const isFirstFinalization = this.serviceData.Status !== 'Report Finalized';
+    
     const loading = await this.loadingController.create({
-      message: 'Finalizing report...'
+      message: isFirstFinalization ? 'Finalizing report...' : 'Updating report...'
     });
     await loading.present();
 
     try {
-      // Mark as finalized locally only - no Caspio update
-      this.serviceData.ReportFinalized = true;
-      this.serviceData.FinalizedDate = new Date().toISOString();
+      // Update the Services table with Status and finalization info
+      const updateData: any = {
+        Status: 'Report Finalized',
+        ReportFinalized: true,
+        FinalizedDate: new Date().toISOString()
+      };
 
       console.log('[EngFoundation] Finalizing report with serviceId:', this.serviceId);
       console.log('[EngFoundation] ProjectId:', this.projectId);
-      console.log('[EngFoundation] ReportFinalized:', this.serviceData.ReportFinalized);
-      console.log('[EngFoundation] FinalizedDate:', this.serviceData.FinalizedDate);
+      console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
+      console.log('[EngFoundation] Update data:', updateData);
+
+      // Update the Services table
+      await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+
+      // Update local state
+      this.serviceData.Status = updateData.Status;
+      this.serviceData.ReportFinalized = updateData.ReportFinalized;
+      this.serviceData.FinalizedDate = updateData.FinalizedDate;
+
+      console.log('[EngFoundation] Report finalized successfully');
 
       await loading.dismiss();
 
-      // Use Router.navigate for proper navigation
-      console.log('[EngFoundation] Navigating to project detail with finalized state...');
+      // Show success message
+      const successMessage = isFirstFinalization 
+        ? 'Report finalized successfully' 
+        : 'Report updated successfully';
+      await this.showToast(successMessage, 'success');
+
+      // Navigate back to project detail page
+      console.log('[EngFoundation] Navigating to project detail...');
       
       await this.router.navigate(['/project', this.projectId], {
-        replaceUrl: true,
-        state: {
-          finalizedServiceId: this.serviceId,
-          finalizedDate: this.serviceData.FinalizedDate
-        }
+        replaceUrl: true
       });
 
-      console.log('[EngFoundation] Navigation completed with state:', {
-        finalizedServiceId: this.serviceId,
-        finalizedDate: this.serviceData.FinalizedDate
-      });
+      console.log('[EngFoundation] Navigation completed');
 
     } catch (error) {
       console.error('Error finalizing report:', error);

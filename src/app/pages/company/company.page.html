@@ -864,8 +864,8 @@
             </div>
           </div>
           <div class="invoices-list">
-            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
-              <div class="invoice-content" (click)="openEditInvoiceModal(invoice)">
+            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice" (click)="openEditInvoiceModal(invoice)">
+              <div class="invoice-content">
                 <div class="invoice-row">
                   <div class="invoice-field">
                     <label>Address</label>
@@ -875,17 +875,17 @@
                     <label>Service</label>
                     <span>{{ invoice.serviceName || '—' }}</span>
                   </div>
-                  <div class="invoice-field">
+                  <div class="invoice-field invoice-field-with-action">
                     <label>Amount Due</label>
                     <span class="amount-value">{{ formatCurrency(invoice.netAmount) }}</span>
+                    <button class="pay-invoice-btn" 
+                            (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()" 
+                            *ngIf="invoice.netAmount > 0">
+                      <ion-icon name="card-outline"></ion-icon>
+                      Pay
+                    </button>
                   </div>
                 </div>
-              </div>
-              <div class="invoice-pay-container" *ngIf="invoice.netAmount > 0">
-                <button class="pay-invoice-btn" (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()">
-                  <ion-icon name="card-outline"></ion-icon>
-                  Pay
-                </button>
               </div>
             </div>
           </div>
