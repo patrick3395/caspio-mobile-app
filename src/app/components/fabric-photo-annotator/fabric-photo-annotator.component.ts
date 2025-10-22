@@ -938,15 +938,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const alert = await this.alertController.create({
       header: 'Photo Caption',
       cssClass: 'caption-popup-alert',
-      message: `
-        <div class="caption-popup-content">
-          <input type="text" id="captionInput" class="caption-text-input" 
-                 placeholder="Enter caption..." 
-                 value="${tempCaption}" 
-                 maxlength="255" />
-          ${buttonsHtml}
-        </div>
-      `,
+      message: '<div class="caption-popup-content" id="captionPopupContent"></div>',
       buttons: [
         {
           text: 'Cancel',
@@ -965,23 +957,37 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
     await alert.present();
 
-    // Add click handlers to preset buttons after alert is presented
+    // Manually inject HTML content after alert is presented to avoid HTML escaping
     setTimeout(() => {
-      const presetBtns = document.querySelectorAll('.preset-btn');
-      const captionInput = document.getElementById('captionInput') as HTMLInputElement;
-      
-      presetBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const text = (btn as HTMLElement).getAttribute('data-text');
-          if (text && captionInput) {
-            // Add text + space to current caption
-            captionInput.value = captionInput.value + text + ' ';
-            captionInput.focus();
-          }
+      const contentDiv = document.getElementById('captionPopupContent');
+      if (contentDiv) {
+        // Build the full HTML content
+        const htmlContent = `
+          <input type="text" id="captionInput" class="caption-text-input"
+                 placeholder="Enter caption..."
+                 value="${tempCaption}"
+                 maxlength="255" />
+          ${buttonsHtml}
+        `;
+        contentDiv.innerHTML = htmlContent;
+
+        // Add click handlers to preset buttons
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = (btn as HTMLElement).getAttribute('data-text');
+            if (text && captionInput) {
+              // Add text + space to current caption
+              captionInput.value = captionInput.value + text + ' ';
+              captionInput.focus();
+            }
+          });
         });
-      });
+      }
     }, 100);
   }
 
