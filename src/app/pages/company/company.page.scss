@@ -2641,16 +2641,26 @@ ion-alert.custom-alert {
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
   &:hover {
     border-color: #f15a27;
     box-shadow: 0 2px 8px rgba(241, 90, 39, 0.15);
+  }
+
+  @media (max-width: 768px) {
+    border-width: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 }
 
 .invoice-content {
   padding: 16px;
   cursor: pointer;
+
+  @media (max-width: 768px) {
+    padding: 10px;
+  }
 }
 
 .invoice-row {
@@ -2659,8 +2669,8 @@ ion-alert.custom-alert {
   gap: 16px;
 
   @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 8px;
+    grid-template-columns: 2fr 2fr 1fr;
   }
 }
 
@@ -2668,6 +2678,7 @@ ion-alert.custom-alert {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 
   label {
     font-size: 0.75rem;
@@ -2680,6 +2691,8 @@ ion-alert.custom-alert {
   span {
     font-size: 0.95rem;
     color: #212529;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .amount-value {
@@ -2691,6 +2704,16 @@ ion-alert.custom-alert {
 
   &.invoice-field-with-action {
     align-items: flex-end;
+  }
+
+  @media (max-width: 768px) {
+    label {
+      font-size: 0.65rem;
+    }
+
+    span {
+      font-size: 0.85rem;
+    }
   }
 }
 
@@ -2709,6 +2732,7 @@ ion-alert.custom-alert {
   transition: all 0.2s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 
   ion-icon {
     font-size: 18px;
@@ -2723,5 +2747,14 @@ ion-alert.custom-alert {
   &:active {
     transform: translateY(0);
     background: #d4451a;
+  }
+
+  @media (max-width: 768px) {
+    padding: 6px 12px;
+    font-size: 12px;
+
+    ion-icon {
+      font-size: 16px;
+    }
   }
 }

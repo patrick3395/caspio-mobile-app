@@ -1534,6 +1534,18 @@ export class CaspioService {
     );
   }
 
+  updateServiceByServiceId(serviceId: string, updateData: any): Observable<any> {
+    return this.put<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`, updateData).pipe(
+      tap(response => {
+        console.log('✓ [CaspioService.updateServiceByServiceId] Service updated successfully');
+      }),
+      catchError(error => {
+        console.error('? [CaspioService.updateServiceByServiceId] Failed to update service:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
   // Attach (Attachments) table methods
   getAttachmentsByProject(projectId: string, useCache: boolean = true): Observable<any[]> {
     return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`, useCache).pipe(

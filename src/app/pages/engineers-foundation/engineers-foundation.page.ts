@@ -5584,11 +5584,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the Services table with Status and finalization info
+      // Update the Services table - only update Status column (the only one that exists in the table)
       const updateData: any = {
-        Status: 'Report Finalized',
-        ReportFinalized: true,
-        FinalizedDate: new Date().toISOString()
+        Status: 'Report Finalized'
       };
 
       console.log('[EngFoundation] Finalizing report with serviceId:', this.serviceId);
@@ -5596,13 +5594,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
       console.log('[EngFoundation] Update data:', updateData);
 
-      // Update the Services table
-      await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+      // Update the Services table using ServiceID
+      await this.caspioService.updateServiceByServiceId(this.serviceId, updateData).toPromise();
 
-      // Update local state
+      // Update local state (ReportFinalized and FinalizedDate are UI-only properties)
       this.serviceData.Status = updateData.Status;
-      this.serviceData.ReportFinalized = updateData.ReportFinalized;
-      this.serviceData.FinalizedDate = updateData.FinalizedDate;
+      this.serviceData.ReportFinalized = true;
+      this.serviceData.FinalizedDate = new Date().toISOString();
 
       console.log('[EngFoundation] Report finalized successfully');
 
