@@ -10382,6 +10382,9 @@ Stack: ${error?.stack}`;
             const newCaption = input?.value || '';
             // Optimistic update - update UI immediately
             this.setFdfPhotoCaption(roomName, photoType, newCaption);
+            // CRITICAL: Trigger change detection immediately to update the view
+            // This is necessary because the template calls getFdfPhotoCaption() which returns a fresh value
+            this.changeDetectorRef.detectChanges();
             // Save in background
             this.saveFDFCaption(roomName, photoType, newCaption);
             return true;
@@ -10466,6 +10469,9 @@ Stack: ${error?.stack}`;
             const newCaption = input?.value || '';
             // Optimistic update
             photo.caption = newCaption;
+            // CRITICAL: Trigger change detection immediately to update the view
+            // This is necessary because the template calls getPointPhotoByType() which returns a fresh reference
+            this.changeDetectorRef.detectChanges();
             // Save in background
             this.saveRoomPointCaption(photo, roomName, point);
             return true;
@@ -10550,6 +10556,8 @@ Stack: ${error?.stack}`;
             const newCaption = input?.value || '';
             // Optimistic update
             photo.caption = newCaption;
+            // CRITICAL: Trigger change detection immediately to update the view
+            this.changeDetectorRef.detectChanges();
             // Save in background
             this.saveRoomPhotoCaption(photo, roomName, point);
             return true;
