@@ -43,6 +43,7 @@ interface PendingPhotoUpload {
   tempId: string;
   visualId?: string;
   timestamp?: number;
+  caption?: string; // Caption from photo editor
 }
 
 
@@ -2699,8 +2700,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           url: photoUrl,
           thumbnailUrl: photoUrl,
           photoType: this.currentRoomPointContext.photoType, // Store photoType for identification
-          annotation: '', // Initialize annotation as blank (user can add their own caption)
-          caption: '', // Initialize caption as blank (not with photoType prefix)
+          annotation: annotatedResult.caption || '', // Use caption from photo editor
+          caption: annotatedResult.caption || '', // Use caption from photo editor
           uploading: true,
           file: annotatedResult.file,
           originalFile: annotatedResult.originalFile,
@@ -6234,7 +6235,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           upload.isBatchUpload,
           upload.annotationData,
           upload.originalPhoto || null,
-          upload.tempId
+          upload.tempId,
+          upload.caption || '' // Pass caption from pending upload
         );
         successCount++;
       } catch (error) {
@@ -7804,7 +7806,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Start uploads in background (don't await)
         const uploadPromises = processedFiles.map((processedFile, index) => 
-          this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile)
+          this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption)
             .then(() => {
               return { success: true, error: null };
             })
@@ -7948,8 +7950,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Annotate photo before upload - returns object with file and annotation data
-  async annotatePhoto(photo: File): Promise<{ file: File, annotationData?: any, originalFile?: File }> {
+  // Annotate photo before upload - returns object with file, annotation data, and caption
+  async annotatePhoto(photo: File): Promise<{ file: File, annotationData?: any, originalFile?: File, caption?: string }> {
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
@@ -7957,26 +7959,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       },
       cssClass: 'fullscreen-modal'
     });
-    
+
     await modal.present();
     const { data } = await modal.onDidDismiss();
-    
+
     if (data && data.blob) {
-      // Handle new Fabric.js annotator response with annotation data
+      // Handle new Fabric.js annotator response with annotation data and caption
       const annotatedFile = new File([data.blob], photo.name, { type: 'image/jpeg' });
       return {
         file: annotatedFile,
         annotationData: data.annotationData || data.annotationsData, // Get the Fabric.js JSON
-        originalFile: photo // Keep reference to original for future re-editing
+        originalFile: photo, // Keep reference to original for future re-editing
+        caption: data.caption || '' // CRITICAL: Include caption from photo editor
       };
     }
-    
+
     // Return original photo if annotation was cancelled
-    return { file: photo, annotationData: null, originalFile: undefined };
+    return { file: photo, annotationData: null, originalFile: undefined, caption: '' };
   }
   
   // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
-  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = '') {
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
     
@@ -8023,7 +8026,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         uploading: !isPendingVisual,
         queued: isPendingVisual,
         hasAnnotations: !!annotationData,
-        annotations: annotationData || null
+        annotations: annotationData || null,
+        caption: caption || '', // Store caption in photo data
+        annotation: caption || '' // Also store as annotation field for Caspio
       };
       this.visualPhotos[key].push(photoData);
       
@@ -8040,7 +8045,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           annotationData,
           originalPhoto,
           isBatchUpload,
-          tempId
+          tempId,
+          caption: caption || '' // Store caption for later upload
         });
 
         this.showToast('Auto-save is paused. Photo queued and will upload when syncing resumes.', 'warning');
@@ -8067,7 +8073,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         table: 'Services_Visuals_Attach',
         fields: {
           VisualID: visualIdNum,
-          Annotation: '', // Annotation is blank as requested
+          Annotation: caption || '', // Use caption from photo editor
           Photo: `[File: ${uploadFile.name}]`
         },
         fileInfo: {
@@ -8137,7 +8143,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             text: 'Upload',
             handler: async () => {
               // Proceed with upload
-              await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, false, annotationData, originalPhoto, tempId);
+              await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, false, annotationData, originalPhoto, tempId, caption);
             }
           }
         ]
@@ -8146,7 +8152,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId);
+        await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
       }
 
     } catch (error) {
@@ -8163,7 +8169,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     isBatchUpload: boolean = false,
     annotationData: any = null,
     originalPhoto: File | null = null,
-    tempPhotoId?: string
+    tempPhotoId?: string,
+    caption: string = ''
   ) {
     // [v1.4.571] Generate unique upload ID to track duplicates
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -8180,7 +8187,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       try {
         response = await this.caspioService.createServicesVisualsAttachWithFile(
           visualIdNum,
-          '', // Annotation field stays blank
+          caption || '', // Use caption from photo editor
           photo,  // Upload the photo (annotated or original)
           drawingsData, // Pass the annotation JSON to Drawings field
           originalPhoto || undefined // Pass original photo if we have annotations
