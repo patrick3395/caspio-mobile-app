@@ -2666,16 +2666,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             annotatedResult = {
               file,
               annotationData: null,
-              originalFile: undefined
+              originalFile: undefined,
+              caption: ''
             };
             this.expectingCameraPhoto = false;
           }
         } else {
           // Multiple files, non-camera selection, or elevation plot photos - no automatic annotation
-          annotatedResult = { 
-            file: file, 
-            annotationData: null, 
-            originalFile: undefined 
+          annotatedResult = {
+            file: file,
+            annotationData: null,
+            originalFile: undefined,
+            caption: ''
           };
           this.expectingCameraPhoto = false;
           this.skipElevationAnnotation = false; // Reset flag after skipping
@@ -7793,14 +7795,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             processedFiles.push({
               file: fileArray[0],
               annotationData: null,
-              originalFile: undefined
+              originalFile: undefined,
+              caption: ''
             });
             this.expectingCameraPhoto = false;
           }
         } else {
           // Multiple files or non-camera - no automatic annotation
           for (const file of fileArray) {
-            processedFiles.push({ file, annotationData: null, originalFile: undefined });
+            processedFiles.push({ file, annotationData: null, originalFile: undefined, caption: '' });
           }
         }
         
