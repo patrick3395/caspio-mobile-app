@@ -4454,8 +4454,15 @@ Time: ${debugInfo.timestamp}
     const isEFE = typeShort === 'EFE' || typeName.includes('engineers foundation') || typeName.includes("engineer's foundation");
 
     let message = '';
-    
-    if (isEFE) {
+    let header = 'Submit Not Available';
+
+    // If service is already "Under Review", button is grayed because no changes have been made
+    if (service.Status === 'Under Review') {
+      header = 'Update Not Available';
+      message = 'There have been no changes to the project so there is no need to update the submission.';
+    }
+    // For initial submission (not yet submitted)
+    else if (isEFE) {
       message = 'The report must be finalized before it can be submitted. Complete the Engineers Foundation template and finalize the report.';
     } else if (isDCR || isEIR) {
       message = 'A Property Inspection Report or Home Inspection Report must be uploaded before this report can be submitted.';
@@ -4464,7 +4471,7 @@ Time: ${debugInfo.timestamp}
     }
 
     const alert = await this.alertController.create({
-      header: 'Submit Not Available',
+      header: header,
       message: message,
       cssClass: 'custom-document-alert',
       buttons: [

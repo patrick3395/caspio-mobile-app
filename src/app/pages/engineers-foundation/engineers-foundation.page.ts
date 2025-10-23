@@ -5614,13 +5614,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the Services table - update Status and StatusDateTime on first finalization
-      const updateData: any = {};
+      // Update the Services table
+      const currentDateTime = new Date().toISOString();
+      const updateData: any = {
+        StatusDateTime: currentDateTime  // Always update to track when report was last modified
+      };
 
-      // Only set Status and StatusDateTime on first finalization (status change)
+      // Only set Status to "Finalized" on first finalization (status change)
       if (isFirstFinalization) {
         updateData.Status = 'Finalized';
-        updateData.StatusDateTime = new Date().toISOString();
       }
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
@@ -5633,9 +5635,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation] API Response:', response);
 
       // Update local state
+      this.serviceData.StatusDateTime = currentDateTime;
       if (isFirstFinalization) {
         this.serviceData.Status = 'Finalized';
-        this.serviceData.StatusDateTime = new Date().toISOString();
       }
       this.serviceData.ReportFinalized = true;
 
