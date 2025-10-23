@@ -5603,9 +5603,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Check if report has been finalized (shows "Update" button text)
    */
   isReportFinalized(): boolean {
-    return this.serviceData?.Status === 'Finalized' ||
-           this.serviceData?.Status === 'Updated' ||
-           this.serviceData?.Status === 'Under Review';
+    const result = this.serviceData?.Status === 'Finalized' ||
+                   this.serviceData?.Status === 'Updated' ||
+                   this.serviceData?.Status === 'Under Review';
+    console.log('[isReportFinalized] Current Status:', this.serviceData?.Status, 'Result:', result);
+    return result;
   }
 
   /**
@@ -11045,10 +11047,14 @@ Stack: ${error?.stack}`;
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
     console.log('[onServiceFieldChange] Field:', fieldName, 'Value:', value);
+    console.log('[onServiceFieldChange] Current serviceData.Status:', this.serviceData?.Status);
+    console.log('[onServiceFieldChange] Current ReportFinalized:', this.serviceData?.ReportFinalized);
 
     // Mark that changes have been made (enables Update button) - do this FIRST
     this.hasChangesAfterLastFinalization = true;
     console.log('[onServiceFieldChange] Set hasChangesAfterLastFinalization to TRUE');
+    console.log('[onServiceFieldChange] isReportFinalized():', this.isReportFinalized());
+    console.log('[onServiceFieldChange] canFinalizeReport():', this.canFinalizeReport());
 
     // Trigger change detection immediately
     this.changeDetectorRef.detectChanges();
