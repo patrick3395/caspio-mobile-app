@@ -11044,11 +11044,19 @@ Stack: ${error?.stack}`;
   
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
+    console.log('[onServiceFieldChange] Field:', fieldName, 'Value:', value);
+
+    // Mark that changes have been made (enables Update button) - do this FIRST
+    this.hasChangesAfterLastFinalization = true;
+    console.log('[onServiceFieldChange] Set hasChangesAfterLastFinalization to TRUE');
+
+    // Trigger change detection immediately
+    this.changeDetectorRef.detectChanges();
 
     // CRITICAL FIX: Skip "Other" popup for multi-select fields (they have inline inputs)
     const multiSelectFields = ['InAttendance', 'SecondFoundationRooms', 'ThirdFoundationRooms'];
     const isMultiSelect = multiSelectFields.includes(fieldName);
-    
+
     // If "Other" is selected AND not a multi-select field, show popup to enter custom value
     if (value === 'Other' && !isMultiSelect) {
       const fieldLabels: { [key: string]: string } = {
@@ -11147,15 +11155,6 @@ Stack: ${error?.stack}`;
         : `${fieldName} queued until connection returns`;
       this.showSaveStatus(queuedMessage, 'info');
     }
-
-    // Mark that changes have been made (enables Update button)
-    this.hasChangesAfterLastFinalization = true;
-    console.log('[AutoSave] Change detected - hasChangesAfterLastFinalization set to true');
-    console.log('[AutoSave] canFinalizeReport():', this.canFinalizeReport());
-    console.log('[AutoSave] isReportFinalized():', this.isReportFinalized());
-
-    // Trigger change detection to update button state
-    this.changeDetectorRef.detectChanges();
 
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
