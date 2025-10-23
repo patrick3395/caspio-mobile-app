@@ -30,8 +30,7 @@ interface ServiceSelection {
   ReportFinalized?: boolean; // Whether the report has been finalized
   FinalizedDate?: string; // ISO date string when the report was finalized
   Status?: string; // Status field (e.g., "Under Review", "Report Finalized")
-  StatusDateTime?: string; // ISO date string when the status was last updated
-  SubmittedDate?: string; // ISO date string when the report was submitted
+  StatusDateTime?: string; // ISO date string when the status was last updated (also used for submission date)
   saving?: boolean;
   saved?: boolean;
 }
@@ -541,8 +540,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
           Status: service.Status || '',
-          StatusDateTime: service.StatusDateTime || '',
-          SubmittedDate: service.SubmittedDate || ''
+          StatusDateTime: service.StatusDateTime || ''
         };
       });
 
@@ -754,8 +752,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         dateOfInspection: service.DateOfInspection || new Date().toISOString(),
         ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
         Status: service.Status || '',
-        StatusDateTime: service.StatusDateTime || '',
-        SubmittedDate: service.SubmittedDate || ''
+        StatusDateTime: service.StatusDateTime || ''
       };
       });
 
@@ -4533,7 +4530,7 @@ Time: ${debugInfo.timestamp}
       // Update Status to "Under Review" and save submission date in Caspio Services table
       const updateData = {
         Status: 'Under Review',
-        SubmittedDate: submittedDateTime
+        StatusDateTime: submittedDateTime
       };
 
       await this.caspioService.put(
@@ -4543,7 +4540,7 @@ Time: ${debugInfo.timestamp}
 
       // Update local service object
       service.Status = 'Under Review';
-      service.SubmittedDate = submittedDateTime;
+      service.StatusDateTime = submittedDateTime;
 
       await loading.dismiss();
       await this.showToast(`${service.typeName} report submitted successfully`, 'success');

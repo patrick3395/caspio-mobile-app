@@ -214,8 +214,8 @@
                   (click)="handleSubmitClick(service)">
                   {{ service.Status === 'Under Review' ? 'Update' : 'Submit' }}
                 </button>
-                <div *ngIf="service.Status === 'Under Review' && service.SubmittedDate" class="submitted-note">
-                  Submitted {{ service.SubmittedDate | date:'short' }}
+                <div *ngIf="service.Status === 'Under Review' && service.StatusDateTime" class="submitted-note">
+                  Submitted {{ service.StatusDateTime | date:'short' }}
                 </div>
               </div>
             </div>
