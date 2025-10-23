@@ -912,15 +912,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       message: ' ', // Empty space to prevent Ionic from hiding the message area
       buttons: [
         {
-          text: 'Back',
-          role: 'cancel',
-          handler: () => {
-            // Dismiss the entire annotation modal
-            this.dismiss();
-            return true;
-          }
-        },
-        {
           text: 'Cancel',
           role: 'cancel'
         },
@@ -938,7 +929,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     await alert.present();
 
     // Manually inject HTML content after alert is presented to avoid HTML escaping
-    setTimeout(() => {
+    // Use requestAnimationFrame for instant, smooth rendering
+    requestAnimationFrame(() => {
       // Find the alert message container in the DOM
       const alertElement = document.querySelector('.caption-popup-alert .alert-message');
       if (alertElement) {
@@ -960,22 +952,27 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         alertElement.innerHTML = htmlContent;
 
         // Add click handlers to preset buttons
-        const presetBtns = document.querySelectorAll('.preset-btn');
+        const presetBtns = document.querySelectorAll('.caption-popup-alert .preset-btn');
         const captionInput = document.getElementById('captionInput') as HTMLInputElement;
         const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
 
-        presetBtns.forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const text = (btn as HTMLElement).getAttribute('data-text');
-            if (text && captionInput) {
-              // Add text + space to current caption
-              captionInput.value = captionInput.value + text + ' ';
-              // Don't focus input to prevent keyboard popup on mobile
+        // Use event delegation for better performance
+        const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+        if (container && captionInput) {
+          container.addEventListener('click', (e) => {
+            const target = e.target as HTMLElement;
+            const btn = target.closest('.preset-btn') as HTMLElement;
+            if (btn) {
+              e.preventDefault();
+              e.stopPropagation();
+              const text = btn.getAttribute('data-text');
+              if (text) {
+                // Add text + space to current caption
+                captionInput.value = captionInput.value + text + ' ';
+              }
             }
           });
-        });
+        }
 
         // Add click handler for undo button
         if (undoBtn && captionInput) {
@@ -1001,7 +998,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           });
         }
       }
-    }, 100);
+    });
   }
 
   undoCaptionWord() {
