@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 
@@ -36,6 +36,10 @@ export class HelpGuidePage implements OnInit {
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
   selectedTab = 'help'; // Default to help tab
   private documentViewerComponent?: DocumentViewerCtor;
+  private filesCache: any[] | null = null;
+  private typesCache: any[] | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 
   private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
@@ -49,6 +53,7 @@ export class HelpGuidePage implements OnInit {
   constructor(
     private caspioService: CaspioService,
     private modalController: ModalController,
+    private loadingController: LoadingController,
     public platform: PlatformDetectionService
   ) {}
 
@@ -57,19 +62,41 @@ export class HelpGuidePage implements OnInit {
   }
 
   async loadFiles() {
+    // Show loading overlay immediately
+    const loading = await this.loadingController.create({
+      message: 'Loading support files...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
     this.loading = true;
     this.error = '';
-    this.fileUrls.clear(); // Clear cache
 
     try {
-      // Get all files from the Files table
-      const files = await this.caspioService.getFiles().toPromise();
-      
+      let files: any[];
+      let types: any[];
+
+      // Check if cache is valid
+      const now = Date.now();
+      const cacheValid = this.filesCache && this.typesCache && (now - this.cacheTimestamp < this.CACHE_DURATION);
+
+      if (cacheValid) {
+        // Use cached data
+        files = this.filesCache!;
+        types = this.typesCache!;
+      } else {
+        // Fetch fresh data and cache it
+        files = await this.caspioService.getFiles().toPromise() || [];
+        types = await this.caspioService.getTypes().toPromise() || [];
+
+        this.filesCache = files;
+        this.typesCache = types;
+        this.cacheTimestamp = now;
+      }
+
       if (files && Array.isArray(files)) {
-        // Get types to map TypeID to TypeName
-        const types = await this.caspioService.getTypes().toPromise();
         const typeMap = new Map();
-        
+
         if (types && Array.isArray(types)) {
           types.forEach(type => {
             typeMap.set(type.TypeID, type.TypeName);
@@ -78,18 +105,18 @@ export class HelpGuidePage implements OnInit {
 
         // Group files by TypeID
         const groupedFiles = new Map<number, FileItem[]>();
-        
+
         files.forEach(file => {
           const typeId = file.TypeID;
           if (!groupedFiles.has(typeId)) {
             groupedFiles.set(typeId, []);
           }
-          
+
           const fileWithTypeName = {
             ...file,
             TypeName: typeMap.get(typeId) || `Type ${typeId}`
           };
-          
+
           groupedFiles.get(typeId)!.push(fileWithTypeName);
         });
 
@@ -108,6 +135,7 @@ export class HelpGuidePage implements OnInit {
       this.error = 'Failed to load help guide files';
     } finally {
       this.loading = false;
+      await loading.dismiss();
     }
   }
 
@@ -202,6 +230,11 @@ export class HelpGuidePage implements OnInit {
   }
 
   async doRefresh(event: any) {
+    // Clear cache on manual refresh
+    this.filesCache = null;
+    this.typesCache = null;
+    this.cacheTimestamp = 0;
+
     await this.loadFiles();
     event.target.complete();
   }
