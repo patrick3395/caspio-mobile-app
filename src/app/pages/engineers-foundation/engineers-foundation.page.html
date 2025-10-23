@@ -437,7 +437,7 @@
           
           <!-- Category Accordion -->
           <ion-accordion-group #visualAccordionGroup multiple="true" (ionChange)="onAccordionChange($event)">
-            <ion-accordion *ngFor="let category of visualCategories; trackBy: trackByCategory; let defCount = getDeficienciesCountForCategory(category)" [value]="category">
+            <ion-accordion *ngFor="let category of visualCategories; trackBy: trackByCategory" [value]="category">
               <ion-item slot="header" color="light">
                 <ion-label>
                   <h2 style="font-size: 15px; font-weight: 600;">{{ category }}</h2>
