@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
@@ -340,6 +340,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   private colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#000000', '#FFFFFF'];
   private colorIndex = 0;
   photoCaption = '';
+  private isCaptionPopupOpen = false;
 
   private async getFabric(): Promise<any> {
     return await this.fabricService.getFabric();
@@ -348,7 +349,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   constructor(
     private modalController: ModalController,
     private alertController: AlertController,
-    private fabricService: FabricService
+    private fabricService: FabricService,
+    private cdr: ChangeDetectorRef
   ) {}
   
   ngOnInit() {
@@ -876,129 +878,180 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     }
   }
   async openCaptionPopup() {
-    // Create a temporary caption value to work with
-    let tempCaption = this.photoCaption;
-    
-    // Define preset location buttons based on the image
-    const presetButtons = [
-      // Row 1: Directions and positions
-      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
-      // Row 2: Floor levels
-      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
-      // Row 3: System types
-      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
-      // Row 4: Exterior features
-      ['Porch', 'Deck', 'Roof', 'Ceiling'],
-      // Row 5: Rooms
-      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
-      // Row 6: Other areas
-      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
-    ];
+    // Prevent multiple simultaneous popups
+    if (this.isCaptionPopupOpen) {
+      return;
+    }
 
-    // Build custom HTML for the alert with preset buttons
-    let buttonsHtml = '<div class="preset-buttons-container">';
-    presetButtons.forEach(row => {
-      buttonsHtml += '<div class="preset-row">';
-      row.forEach(label => {
-        buttonsHtml += `<button type="button" class="preset-btn" data-text="${label}">${label}</button>`;
+    this.isCaptionPopupOpen = true;
+
+    try {
+      // Escape HTML to prevent injection and errors
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      // Create a temporary caption value to work with
+      const tempCaption = escapeHtml(this.photoCaption || '');
+
+      // Define preset location buttons based on the image
+      const presetButtons = [
+        // Row 1: Directions and positions
+        ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
+        // Row 2: Floor levels
+        ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
+        // Row 3: System types
+        ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
+        // Row 4: Exterior features
+        ['Porch', 'Deck', 'Roof', 'Ceiling'],
+        // Row 5: Rooms
+        ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
+        // Row 6: Other areas
+        ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+      ];
+
+      // Build custom HTML for the alert with preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
       });
       buttonsHtml += '</div>';
-    });
-    buttonsHtml += '</div>';
 
-    const alert = await this.alertController.create({
-      header: 'Photo Caption',
-      cssClass: 'caption-popup-alert',
-      message: ' ', // Empty space to prevent Ionic from hiding the message area
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Save',
-          handler: () => {
-            const input = document.getElementById('captionInput') as HTMLInputElement;
-            this.photoCaption = input?.value || '';
-            return true;
-          }
-        }
-      ]
-    });
-
-    await alert.present();
-
-    // Manually inject HTML content after alert is presented to avoid HTML escaping
-    // Use requestAnimationFrame for instant, smooth rendering
-    requestAnimationFrame(() => {
-      // Find the alert message container in the DOM
-      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
-      if (alertElement) {
-        // Build the full HTML content
-        const htmlContent = `
-          <div class="caption-popup-content">
-            <div class="caption-input-container">
-              <input type="text" id="captionInput" class="caption-text-input"
-                     placeholder="Enter caption..."
-                     value="${tempCaption}"
-                     maxlength="255" />
-              <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-                <ion-icon name="backspace-outline"></ion-icon>
-              </button>
-            </div>
-            ${buttonsHtml}
-          </div>
-        `;
-        alertElement.innerHTML = htmlContent;
-
-        // Add click handlers to preset buttons
-        const presetBtns = document.querySelectorAll('.caption-popup-alert .preset-btn');
-        const captionInput = document.getElementById('captionInput') as HTMLInputElement;
-        const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
-
-        // Use event delegation for better performance
-        const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
-        if (container && captionInput) {
-          container.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement;
-            const btn = target.closest('.preset-btn') as HTMLElement;
-            if (btn) {
-              e.preventDefault();
-              e.stopPropagation();
-              const text = btn.getAttribute('data-text');
-              if (text) {
-                // Add text + space to current caption
-                captionInput.value = captionInput.value + text + ' ';
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ', // Empty space to prevent Ionic from hiding the message area
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              this.isCaptionPopupOpen = false;
+              return true;
+            }
+          },
+          {
+            text: 'Save',
+            handler: () => {
+              try {
+                const input = document.getElementById('captionInput') as HTMLInputElement;
+                this.photoCaption = input?.value || '';
+                this.isCaptionPopupOpen = false;
+                // Trigger change detection to update the UI immediately
+                this.cdr.detectChanges();
+                return true;
+              } catch (error) {
+                console.error('Error saving caption:', error);
+                this.photoCaption = this.photoCaption || ''; // Keep existing value on error
+                this.isCaptionPopupOpen = false;
+                return true; // Don't show error to user, just close
               }
             }
-          });
-        }
+          }
+        ]
+      });
 
-        // Add click handler for undo button
-        if (undoBtn && captionInput) {
-          undoBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const currentValue = captionInput.value || '';
-            if (currentValue.trim() === '') {
-              return;
-            }
-            // Trim trailing spaces and split by spaces
-            const words = currentValue.trim().split(' ');
-            // Remove the last word
-            if (words.length > 0) {
-              words.pop();
-            }
-            // Join back and update input
-            captionInput.value = words.join(' ');
-            // Add trailing space if there are still words
-            if (captionInput.value.length > 0) {
-              captionInput.value += ' ';
-            }
-          });
+      await alert.present();
+
+      // Inject HTML content immediately after presentation
+      setTimeout(() => {
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            this.isCaptionPopupOpen = false;
+            return;
+          }
+
+          // Build the full HTML content
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                  <ion-icon name="backspace-outline"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add click handler for undo button
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                // Trim trailing spaces and split by spaces
+                const words = currentValue.trim().split(' ');
+                // Remove the last word
+                if (words.length > 0) {
+                  words.pop();
+                }
+                // Join back and update input
+                captionInput.value = words.join(' ');
+                // Add trailing space if there are still words
+                if (captionInput.value.length > 0) {
+                  captionInput.value += ' ';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error injecting caption popup content:', error);
+          this.isCaptionPopupOpen = false;
         }
-      }
-    });
+      }, 0);
+
+      // Reset flag when alert is dismissed
+      alert.onDidDismiss().then(() => {
+        this.isCaptionPopupOpen = false;
+      });
+
+    } catch (error) {
+      console.error('Error opening caption popup:', error);
+      this.isCaptionPopupOpen = false;
+    }
   }
 
   undoCaptionWord() {
