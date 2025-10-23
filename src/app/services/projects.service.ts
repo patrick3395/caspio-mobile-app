@@ -6,6 +6,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { CacheService } from './cache.service';
 import { OfflineService } from './offline.service';
+import { MutationTrackingService, MutationType } from './mutation-tracking.service';
 
 export interface Project {
   PK_ID?: string;
@@ -66,7 +67,8 @@ export class ProjectsService {
     private caspioService: CaspioService,
     private http: HttpClient,
     private cache: CacheService,
-    private offline: OfflineService
+    private offline: OfflineService,
+    private mutationTracker: MutationTrackingService
   ) {}
 
   getProjectTableDefinition(): Observable<any> {
@@ -294,7 +296,14 @@ export class ProjectsService {
               if (createdProjectId && createdProject) {
                 // Clear cache so the new project appears immediately
                 this.clearProjectCache();
-                
+
+                // OPTIMIZATION: Track mutation for instant cache invalidation
+                this.mutationTracker.trackProjectMutation(
+                  MutationType.CREATE,
+                  createdProjectId,
+                  createdProject
+                );
+
                 return of({
                   success: true,
                   message: 'Project created',
@@ -305,6 +314,13 @@ export class ProjectsService {
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject && newProject.PK_ID) {
+                    // OPTIMIZATION: Track mutation for instant cache invalidation
+                    this.mutationTracker.trackProjectMutation(
+                      MutationType.CREATE,
+                      newProject.PK_ID,
+                      newProject
+                    );
+
                     return {
                       success: true,
                       message: 'Project created',
@@ -314,8 +330,8 @@ export class ProjectsService {
                   }
                   // This shouldn't happen with instantaneous API
                   console.error('❌ Could not find project after creation - this is unexpected');
-                  return { 
-                    success: true, 
+                  return {
+                    success: true,
                     message: 'Project created but ID not found',
                     projectId: null
                   };
@@ -401,6 +417,13 @@ export class ProjectsService {
               return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
                 map(newProject => {
                   if (newProject && newProject.PK_ID) {
+                    // OPTIMIZATION: Track mutation for instant cache invalidation
+                    this.mutationTracker.trackProjectMutation(
+                      MutationType.CREATE,
+                      newProject.PK_ID,
+                      newProject
+                    );
+
                     return {
                       success: true,
                       message: 'Project created',
@@ -409,8 +432,8 @@ export class ProjectsService {
                     };
                   }
                   console.error('❌ Could not find project after 201 response');
-                  return { 
-                    success: true, 
+                  return {
+                    success: true,
                     message: 'Project created but ID not found',
                     projectId: null
                   };
@@ -449,6 +472,13 @@ export class ProjectsService {
         return this.http.put(url, updateData, { headers }).pipe(
           tap(() => {
             this.cache.clear(this.getProjectDetailCacheKey(projectId));
+
+            // OPTIMIZATION: Track mutation for instant cache invalidation
+            this.mutationTracker.trackProjectMutation(
+              MutationType.UPDATE,
+              projectId,
+              { StatusID: statusId }
+            );
           }),
           catchError(error => {
             console.error('Error updating project status:', error);
@@ -483,6 +513,13 @@ export class ProjectsService {
           tap(() => {
             console.log(`✅ Updated PrimaryPhoto for project ${projectId}`);
             this.cache.clear(this.getProjectDetailCacheKey(projectId));
+
+            // OPTIMIZATION: Track mutation for instant cache invalidation
+            this.mutationTracker.trackProjectMutation(
+              MutationType.UPDATE,
+              projectId,
+              { PrimaryPhoto: photoUrl }
+            );
           }),
           catchError(error => {
             console.error('Error updating project primary photo:', error);

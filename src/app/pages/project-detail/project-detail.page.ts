@@ -11,6 +11,8 @@ import { PlatformDetectionService } from '../../services/platform-detection.serv
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
+import { MutationTrackingService, MutationType } from '../../services/mutation-tracking.service';
+import { OptimisticUpdateService } from '../../services/optimistic-update.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -262,7 +264,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private changeDetectorRef: ChangeDetectorRef,
     private imageCompression: ImageCompressionService,
     private foundationData: EngineersFoundationDataService,
-    public platform: PlatformDetectionService
+    public platform: PlatformDetectionService,
+    private mutationTracker: MutationTrackingService,
+    private optimisticUpdate: OptimisticUpdateService
   ) {}
 
   ngOnInit() {
@@ -1072,6 +1076,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.selectedServices.push(selection);
       this.updateDocumentsList();
 
+      // OPTIMIZATION: Track mutation for automatic cache invalidation
+      const actualProjectId = this.project?.ProjectID || this.projectId;
+      this.mutationTracker.trackServiceMutation(
+        MutationType.CREATE,
+        selection.serviceId,
+        actualProjectId,
+        selection
+      );
+
       // CRITICAL: Clear all caches to ensure fresh data on page reload
       // Clear the static component cache (in-memory)
       ProjectDetailPage.detailStateCache.delete(this.projectId);
@@ -1081,7 +1094,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.projectsService.clearProjectDetailCache(this.projectId);
 
       // Clear the CaspioService cache for Services table
-      const actualProjectId = this.project?.ProjectID || this.projectId;
       this.caspioService.clearServicesCache(actualProjectId);
 
       // Success toast removed per user request
@@ -1134,52 +1146,46 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
     this.updatingServices = true;
-    
-    try {
-      // Delete from Caspio - service always has real ID
-      if (service.serviceId) {
-        await this.caspioService.deleteService(service.serviceId).toPromise();
-      }
-      
-      // Remove from selected services
-      const index = this.selectedServices.findIndex(s => s.instanceId === service.instanceId);
-      if (index > -1) {
-        this.selectedServices.splice(index, 1);
-      }
 
-      this.updateDocumentsList();
+    const actualProjectId = this.project?.ProjectID || this.projectId;
 
-      // Clear all caches to ensure fresh data on page reload
-      ProjectDetailPage.detailStateCache.delete(this.projectId);
-      this.projectsService.clearProjectDetailCache(this.projectId);
-      
-      // Clear the CaspioService cache for Services table
-      const actualProjectId = this.project?.ProjectID || this.projectId;
-      this.caspioService.clearServicesCache(actualProjectId);
-      
-      console.log('🗑️ Cleared caches after removing service');
+    // OPTIMIZATION: Use optimistic update for instant removal
+    this.optimisticUpdate.removeFromArray(
+      this.selectedServices,
+      service,
+      () => this.caspioService.deleteService(service.serviceId),
+      () => {
+        // On success
+        console.log('✅ Service deleted successfully');
 
-      // Success toast removed per user request
-    } catch (error) {
-      console.error('❌ Error removing service:', error);
-      // Still remove from UI even if Caspio delete fails
-      const index = this.selectedServices.findIndex(s => s.instanceId === service.instanceId);
-      if (index > -1) {
-        this.selectedServices.splice(index, 1);
+        // Track mutation for automatic cache invalidation
+        this.mutationTracker.trackServiceMutation(
+          MutationType.DELETE,
+          service.serviceId,
+          actualProjectId
+        );
+
+        // Update documents list
         this.updateDocumentsList();
 
-        // Clear caches even on error since UI was updated
+        // Clear all caches to ensure fresh data on page reload
         ProjectDetailPage.detailStateCache.delete(this.projectId);
         this.projectsService.clearProjectDetailCache(this.projectId);
-        
-        // Clear the CaspioService cache for Services table
-        const actualProjectId = this.project?.ProjectID || this.projectId;
         this.caspioService.clearServicesCache(actualProjectId);
+
+        this.updatingServices = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      (error) => {
+        // On error (item already rolled back by OptimisticUpdateService)
+        console.error('❌ Error deleting service:', error);
+        this.showToast('Failed to remove service', 'danger');
+        this.updatingServices = false;
+        this.changeDetectorRef.detectChanges();
       }
-      await this.showToast('Service removed locally', 'warning');
-    } finally {
-      this.updatingServices = false;
-    }
+    ).subscribe();
+
+    // Service removed from UI instantly - no need to wait for API
   }
 
   async removeAllServiceInstances(offersId: string) {

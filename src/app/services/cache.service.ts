@@ -327,10 +327,10 @@ export class CacheService {
    */
   clearServiceRelatedCaches(serviceId: string): void {
     console.log(`[CacheService] Clearing all service-related caches for serviceId: ${serviceId}`);
-    
+
     // Clear service-specific caches
     this.clearByPattern(`ServiceID=${serviceId}`);
-    
+
     // Clear related tables
     this.clearTableCache('Services');
     this.clearTableCache('Services_Visuals');
@@ -339,5 +339,76 @@ export class CacheService {
     this.clearTableCache('Services_EFE_Points');
     this.clearTableCache('Services_EFE_Points_Attach');
     this.clearTableCache('Service_EFE');
+  }
+
+  /**
+   * OPTIMIZATION: Entity version tracking
+   * Tracks version numbers for entities to automatically invalidate stale cache
+   */
+  private entityVersions = new Map<string, number>();
+
+  /**
+   * Get version for an entity
+   */
+  getEntityVersion(entityType: string, entityId: string): number {
+    const key = `${entityType}::${entityId}`;
+    return this.entityVersions.get(key) || 0;
+  }
+
+  /**
+   * Increment version for an entity (call after mutations)
+   */
+  incrementEntityVersion(entityType: string, entityId: string): number {
+    const key = `${entityType}::${entityId}`;
+    const newVersion = (this.entityVersions.get(key) || 0) + 1;
+    this.entityVersions.set(key, newVersion);
+    console.log(`[CacheService] 📈 Version incremented: ${key} → ${newVersion}`);
+    return newVersion;
+  }
+
+  /**
+   * Get cache key with version for automatic invalidation
+   */
+  getVersionedCacheKey(endpoint: string, params: any, entityType?: string, entityId?: string): string {
+    const baseKey = this.getApiCacheKey(endpoint, params);
+
+    if (entityType && entityId) {
+      const version = this.getEntityVersion(entityType, entityId);
+      return `${baseKey}::v${version}`;
+    }
+
+    return baseKey;
+  }
+
+  /**
+   * Set data with entity version tracking
+   */
+  setVersioned(
+    endpoint: string,
+    params: any,
+    data: any,
+    entityType: string,
+    entityId: string,
+    expiresIn: number = this.CACHE_TIMES.MEDIUM,
+    persist: boolean = false
+  ): void {
+    const key = this.getVersionedCacheKey(endpoint, params, entityType, entityId);
+    this.set(key, data, expiresIn, persist);
+  }
+
+  /**
+   * Get data with entity version check
+   */
+  getVersioned(endpoint: string, params: any, entityType: string, entityId: string): any | null {
+    const key = this.getVersionedCacheKey(endpoint, params, entityType, entityId);
+    return this.get(key);
+  }
+
+  /**
+   * Clear old versions of cached data for an entity
+   */
+  clearEntityVersions(entityType: string, entityId: string): void {
+    const pattern = `${entityType}::${entityId}::v`;
+    this.clearByPattern(pattern);
   }
 }

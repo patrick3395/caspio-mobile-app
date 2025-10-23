@@ -60,7 +60,7 @@
 
     <!-- Projects list -->
     <div *ngIf="!loading && !error" class="projects-list">
-      <ion-item-sliding *ngFor="let project of displayedProjects">
+      <ion-item-sliding *ngFor="let project of displayedProjects; trackBy: trackByProjectId">
         <ion-item-options side="end">
           <ion-item-option color="warning" (click)="archiveProject(project)">
             <ion-icon slot="icon-only" name="archive"></ion-icon>
@@ -76,7 +76,7 @@
               <div class="project-address">{{ project.Address }}</div>
               <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
               <div class="project-services-vertical">
-                <div *ngFor="let service of getProjectServicesArray(project)" class="service-item">
+                <div *ngFor="let service of getProjectServicesArray(project); trackBy: trackByServiceCode" class="service-item">
                   {{ service.shortCode }}: {{ service.status }}
                 </div>
                 <div *ngIf="getProjectServicesArray(project).length === 0" class="no-services">
