@@ -3729,6 +3729,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // If room is not selected, do nothing (don't select it)
   }
 
+  // Handle room header click - add room if not selected, expand/collapse if selected
+  async handleRoomHeaderClick(roomName: string, event: Event) {
+    // Prevent clicks on action buttons or checkbox from bubbling
+    const target = event.target as HTMLElement;
+
+    // Check if click is on an action button or checkbox
+    if (target.closest('.room-action-btn') ||
+        target.closest('ion-checkbox') ||
+        target.closest('.room-actions-external') ||
+        target.closest('ion-icon[name*="chevron"]')) {
+      return; // Don't handle header click for these elements
+    }
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    // CRITICAL: Prevent checkbox toggles during rename operations
+    if (this.renamingRooms[roomName]) {
+      console.log('[Header Click] BLOCKED - Room is being renamed');
+      return;
+    }
+
+    if (this.isRoomSelected(roomName)) {
+      // Room is already selected, toggle expansion
+      this.toggleRoomExpanded(roomName);
+    } else {
+      // Room is not selected, select it (add it)
+      const fakeEvent = {
+        detail: { checked: true },
+        target: null
+      };
+      await this.toggleRoomSelection(roomName, fakeEvent);
+    }
+  }
+
+  // Handle checkbox change - only for deletion (unchecking)
+  async handleRoomCheckboxChange(roomName: string, event: any) {
+    // CRITICAL: Prevent checkbox toggles during rename operations
+    if (this.renamingRooms[roomName]) {
+      console.log('[Checkbox] BLOCKED - Room is being renamed');
+      if (event && event.target) {
+        event.target.checked = this.selectedRooms[roomName]; // Revert to current state
+      }
+      return;
+    }
+
+    const isChecked = event.detail.checked;
+    const wasSelected = this.selectedRooms[roomName];
+
+    console.log('[Checkbox Change] Room:', roomName, 'Was selected:', wasSelected, 'Is checked:', isChecked);
+
+    // Only handle unchecking (deletion)
+    if (wasSelected && !isChecked) {
+      // User is unchecking - show delete confirmation
+      await this.toggleRoomSelection(roomName, event);
+    } else if (!wasSelected && isChecked) {
+      // User is checking - this should not happen since header click handles addition
+      // But if it does, revert the checkbox
+      console.log('[Checkbox] BLOCKED - Use header click to add room');
+      if (event && event.target) {
+        event.target.checked = false;
+      }
+    }
+  }
+
   private setFileInputMode(source: 'camera' | 'library' | 'system', options: { allowMultiple?: boolean; capture?: string } = {}): boolean {
     if (!this.fileInput || !this.fileInput.nativeElement) {
       console.error('File input not available');

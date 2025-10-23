@@ -913,18 +913,16 @@
                    *ngIf="isBaseStation(room.RoomName)">
               
               <!-- Room card header with checkbox and collapse in header -->
-              <div class="room-card-header" style="position: relative;">
+              <div class="room-card-header" style="position: relative; cursor: pointer;" (click)="handleRoomHeaderClick(room.RoomName, $event)">
                 <ion-item lines="none" class="checkbox-item" [button]="false" [detail]="false">
-                  <ion-checkbox 
-                    slot="start" 
+                  <ion-checkbox
+                    slot="start"
                     [checked]="isRoomSelected(room.RoomName)"
                     [disabled]="isRoomSaving(room.RoomName) || renamingRooms[room.RoomName]"
-                    (ionChange)="toggleRoomSelection(room.RoomName, $event)"
+                    (ionChange)="handleRoomCheckboxChange(room.RoomName, $event)"
                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>
-                  <ion-label class="item-label"
-                             (click)="handleRoomLabelClick(room.RoomName, $event)"
-                             [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
+                  <ion-label class="item-label">
                     <h3>
                       {{ room.RoomName }}
                       <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)" style="color: #F15A27 !important;">*</span>
@@ -1305,18 +1303,16 @@
                    *ngIf="!isBaseStation(room.RoomName)">
               
               <!-- Room card header with checkbox and collapse in header -->
-              <div class="room-card-header" style="position: relative;">
+              <div class="room-card-header" style="position: relative; cursor: pointer;" (click)="handleRoomHeaderClick(room.RoomName, $event)">
                 <ion-item lines="none" class="checkbox-item" [button]="false" [detail]="false">
-                  <ion-checkbox 
-                    slot="start" 
+                  <ion-checkbox
+                    slot="start"
                     [checked]="isRoomSelected(room.RoomName)"
                     [disabled]="isRoomSaving(room.RoomName) || renamingRooms[room.RoomName]"
-                    (ionChange)="toggleRoomSelection(room.RoomName, $event)"
+                    (ionChange)="handleRoomCheckboxChange(room.RoomName, $event)"
                     (click)="$event.stopPropagation(); $event.stopImmediatePropagation()">
                   </ion-checkbox>
-                  <ion-label class="item-label"
-                             (click)="handleRoomLabelClick(room.RoomName, $event)"
-                             [style.cursor]="isRoomSelected(room.RoomName) ? 'pointer' : 'default'">
+                  <ion-label class="item-label">
                     <h3>
                       {{ room.RoomName }}
                       <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)" style="color: #F15A27 !important;">*</span>
