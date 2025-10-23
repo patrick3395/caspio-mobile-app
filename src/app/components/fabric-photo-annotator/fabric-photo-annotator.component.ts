@@ -932,20 +932,20 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // Create a temporary caption value to work with
       const tempCaption = escapeHtml(this.photoCaption || '');
 
-      // Define preset location buttons based on the image
+      // Define preset location buttons - 3 columns layout
       const presetButtons = [
-        // Row 1: Directions and positions
-        ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
-        // Row 2: Floor levels
-        ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
-        // Row 3: System types
-        ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
-        // Row 4: Exterior features
-        ['Porch', 'Deck', 'Roof', 'Ceiling'],
-        // Row 5: Rooms
-        ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
-        // Row 6: Other areas
-        ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
       ];
 
       // Build custom HTML for the alert with preset buttons

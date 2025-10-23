@@ -3982,7 +3982,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const existingRoom = existingWithBaseName[0];
           const oldName = existingRoom.RoomName;
           existingRoom.RoomName = `${baseName} #1`;
-          
+
           // Update all related data structures
           if (this.roomElevationData[oldName]) {
             this.roomElevationData[`${baseName} #1`] = this.roomElevationData[oldName];
@@ -3996,11 +3996,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.efeRecordIds[`${baseName} #1`] = this.efeRecordIds[oldName];
             delete this.efeRecordIds[oldName];
           }
-          if (this.expandedRooms[oldName] !== undefined) {
+          if (this.expandedRooms[oldName]) {
             this.expandedRooms[`${baseName} #1`] = this.expandedRooms[oldName];
             delete this.expandedRooms[oldName];
           }
-          
+
+          // CRITICAL: Trigger change detection to show renamed room immediately
+          this.changeDetectorRef.detectChanges();
+
           nextNumber = 2; // The new room will be #2
         }
         
@@ -4009,10 +4012,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Create a NEW template object (don't modify the original from allRoomTemplates)
       const roomToAdd = { ...template, RoomName: roomName };
-      
+
       // Add to room templates list
       this.roomTemplates.push(roomToAdd);
-      
+
+      // CRITICAL: Trigger change detection so room appears immediately in UI
+      this.changeDetectorRef.detectChanges();
+
       // Initialize room elevation data using the numbered room name
       if (roomName && !this.roomElevationData[roomName]) {
         // Extract elevation points from Point1Name, Point2Name, etc.
@@ -4086,6 +4092,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.expandedRooms[roomName] = true;
         this.efeRecordIds[roomName] = '__pending__'; // Mark as pending
         this.savingRooms[roomName] = false;
+        // CRITICAL: Trigger change detection to show offline room immediately
+        this.changeDetectorRef.detectChanges();
         return; // Exit early - room is ready for use
       }
 
@@ -4107,6 +4115,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
           // Pre-create all elevation points to eliminate lag when taking photos
           await this.createElevationPointsForRoom(roomName, roomId);
+
+          // CRITICAL: Trigger change detection to update UI after room creation
+          this.changeDetectorRef.detectChanges();
         }
       } catch (error: any) {
         console.error('Room creation error:', error);
@@ -4116,8 +4127,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (index > -1) {
           this.roomTemplates.splice(index, 1);
         }
+        // CRITICAL: Trigger change detection to update UI after removing failed room
+        this.changeDetectorRef.detectChanges();
       } finally {
         this.savingRooms[roomName] = false;
+        // CRITICAL: Trigger final change detection to clear saving state
+        this.changeDetectorRef.detectChanges();
       }
 
       // Success toast removed per user request
@@ -6780,7 +6795,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   getTemplatesCountForCategory(category: string): number {
     return this.visualTemplates.filter(t => t.Category === category).length;
   }
-  
+
+  // Get count of deficiencies for a category
+  getDeficienciesCountForCategory(category: string): number {
+    if (!this.organizedData[category] || !this.organizedData[category].deficiencies) {
+      return 0;
+    }
+    return this.organizedData[category].deficiencies.length;
+  }
+
   getProjectCompletion(): number {
     // Calculate project details completion percentage for required fields only
     
@@ -10341,12 +10364,18 @@ Stack: ${error?.stack}`;
   // Cached preset buttons HTML - built once for performance
   private presetButtonsHtml: string = (() => {
     const presetButtons = [
-      ['Front', 'Left', 'Right', 'Back', 'Top', 'Bottom', 'Middle'],
-      ['1st', '2nd', '3rd', '4th', '5th', 'Floor', 'Unit', 'Attic'],
-      ['Primary', 'Supply', 'Return', 'Staircase', 'Hall'],
-      ['Porch', 'Deck', 'Roof', 'Ceiling'],
-      ['Laundry', 'Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom'],
-      ['Closet', 'Entry', 'Office', 'Garage', 'Indoor', 'Outdoor']
+      ['Front', '1st', 'Laundry'],
+      ['Left', '2nd', 'Kitchen'],
+      ['Right', '3rd', 'Living'],
+      ['Back', '4th', 'Dining'],
+      ['Top', '5th', 'Bedroom'],
+      ['Bottom', 'Floor', 'Bathroom'],
+      ['Middle', 'Unit', 'Closet'],
+      ['Primary', 'Attic', 'Entry'],
+      ['Supply', 'Porch', 'Office'],
+      ['Return', 'Deck', 'Garage'],
+      ['Staircase', 'Roof', 'Indoor'],
+      ['Hall', 'Ceiling', 'Outdoor']
     ];
 
     let html = '<div class="preset-buttons-container">';
