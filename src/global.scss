@@ -1181,13 +1181,9 @@ textarea.styled-input {
 
       .preset-buttons-container {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 6px;
         margin-bottom: 8px;
-
-        @media (max-width: 480px) {
-          grid-template-columns: repeat(3, 1fr);
-        }
 
         .preset-row {
           display: contents;

@@ -4548,9 +4548,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               };
 
               if (this.organizedData[visual.Category]) {
-                updateOrCreateItemData(this.organizedData[visual.Category].comments);
-                updateOrCreateItemData(this.organizedData[visual.Category].limitations);
-                updateOrCreateItemData(this.organizedData[visual.Category].deficiencies);
+                // Only update the appropriate array based on the visual's Kind
+                const kindStr = String(visual.Kind || matchingTemplate.Kind || '').toLowerCase();
+                if (kindStr.includes('comment')) {
+                  updateOrCreateItemData(this.organizedData[visual.Category].comments);
+                } else if (kindStr.includes('limitation')) {
+                  updateOrCreateItemData(this.organizedData[visual.Category].limitations);
+                } else if (kindStr.includes('deficienc')) {
+                  updateOrCreateItemData(this.organizedData[visual.Category].deficiencies);
+                } else {
+                  // Default to comments if kind is unclear
+                  updateOrCreateItemData(this.organizedData[visual.Category].comments);
+                }
               }
             }
           }
