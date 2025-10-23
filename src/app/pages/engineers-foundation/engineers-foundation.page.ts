@@ -2628,7 +2628,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const file = files[i];
         
         // If this is a single camera photo, open annotator first
-        let annotatedResult: { file: File; annotationData?: any; originalFile?: File };
+        let annotatedResult: { file: File; annotationData?: any; originalFile?: File; caption?: string };
         
         if (files.length === 1 && !this.skipElevationAnnotation) {
           const isCameraFlow = this.expectingCameraPhoto || this.isLikelyCameraCapture(file);
@@ -7754,7 +7754,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
         
         // Process files with annotation for camera photos
-        const processedFiles: Array<{ file: File; annotationData?: any; originalFile?: File }> = [];
+        const processedFiles: Array<{ file: File; annotationData?: any; originalFile?: File; caption?: string }> = [];
         
         // If single camera photo, open annotator first
         if (files.length === 1) {
