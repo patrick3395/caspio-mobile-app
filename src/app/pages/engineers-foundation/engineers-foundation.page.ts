@@ -820,6 +820,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Initialize change tracking - no changes yet since we just loaded from database
         this.hasChangesAfterLastFinalization = false;
+        console.log('[LoadService] Initialized hasChangesAfterLastFinalization to false');
+        console.log('[LoadService] Service Status:', this.serviceData.Status);
+        console.log('[LoadService] ReportFinalized:', this.serviceData.ReportFinalized);
 
         // Map database column StructStat to UI property StructuralSystemsStatus
         if (serviceResponse.StructStat) {
@@ -5611,15 +5614,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   canFinalizeReport(): boolean {
     // First check: all required fields must be filled
     if (!this.areAllRequiredFieldsFilled()) {
+      console.log('[canFinalizeReport] Required fields not filled');
       return false;
     }
 
     // If report has been finalized/updated before, only enable if changes have been made
     if (this.isReportFinalized()) {
+      console.log('[canFinalizeReport] Report is finalized, hasChanges:', this.hasChangesAfterLastFinalization);
       return this.hasChangesAfterLastFinalization;
     }
 
     // For initial finalization, enable if required fields are filled
+    console.log('[canFinalizeReport] First finalization - enabled');
     return true;
   }
 
@@ -5663,6 +5669,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Reset change tracking - button should be grayed out until next change
       this.hasChangesAfterLastFinalization = false;
+      console.log('[EngFoundation] Reset hasChangesAfterLastFinalization to false after update');
+
+      // Trigger change detection to update button state
+      this.changeDetectorRef.detectChanges();
 
       console.log('[EngFoundation] Report finalized successfully');
 
@@ -11140,6 +11150,12 @@ Stack: ${error?.stack}`;
 
     // Mark that changes have been made (enables Update button)
     this.hasChangesAfterLastFinalization = true;
+    console.log('[AutoSave] Change detected - hasChangesAfterLastFinalization set to true');
+    console.log('[AutoSave] canFinalizeReport():', this.canFinalizeReport());
+    console.log('[AutoSave] isReportFinalized():', this.isReportFinalized());
+
+    // Trigger change detection to update button state
+    this.changeDetectorRef.detectChanges();
 
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
