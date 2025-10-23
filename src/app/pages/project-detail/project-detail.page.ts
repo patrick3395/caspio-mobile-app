@@ -1078,12 +1078,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // OPTIMIZATION: Track mutation for automatic cache invalidation
       const actualProjectId = this.project?.ProjectID || this.projectId;
-      this.mutationTracker.trackServiceMutation(
-        MutationType.CREATE,
-        selection.serviceId,
-        actualProjectId,
-        selection
-      );
+      if (selection.serviceId) {
+        this.mutationTracker.trackServiceMutation(
+          MutationType.CREATE,
+          selection.serviceId,
+          actualProjectId,
+          selection
+        );
+      }
 
       // CRITICAL: Clear all caches to ensure fresh data on page reload
       // Clear the static component cache (in-memory)
@@ -1145,15 +1147,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.isReadOnly) {
       return;
     }
+
+    // TypeScript guard: Ensure serviceId exists before deletion
+    if (!service.serviceId) {
+      console.error('Cannot delete service: missing serviceId');
+      this.showToast('Failed to remove service: Invalid service ID', 'danger');
+      return;
+    }
+
     this.updatingServices = true;
 
     const actualProjectId = this.project?.ProjectID || this.projectId;
+    const serviceId = service.serviceId; // Capture for closure
 
     // OPTIMIZATION: Use optimistic update for instant removal
     this.optimisticUpdate.removeFromArray(
       this.selectedServices,
       service,
-      () => this.caspioService.deleteService(service.serviceId),
+      () => this.caspioService.deleteService(serviceId),
       () => {
         // On success
         console.log('✅ Service deleted successfully');
@@ -1161,7 +1172,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Track mutation for automatic cache invalidation
         this.mutationTracker.trackServiceMutation(
           MutationType.DELETE,
-          service.serviceId,
+          serviceId,
           actualProjectId
         );
 
