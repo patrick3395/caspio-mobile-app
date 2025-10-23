@@ -60,7 +60,7 @@
               <div class="preview-container" (click)="openFile(file)">
                 <!-- Image Preview -->
                 <div *ngIf="isImageFile(file.FileFile)" class="image-preview">
-                  <img [src]="getCachedFileUrl(file.FileFile) || 'assets/img/photo-placeholder.svg'" 
+                  <img [src]="getImageUrl(file.FileFile)"
                        [alt]="file.Description"
                        loading="lazy"
                        (error)="$event.target.src='assets/img/photo-placeholder.svg'">

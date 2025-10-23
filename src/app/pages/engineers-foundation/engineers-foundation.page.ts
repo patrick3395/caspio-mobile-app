@@ -2055,7 +2055,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
 
               // Mark that changes have been made (enables Update button)
-              this.hasChangesAfterLastFinalization = true;
+              this.markReportChanged();
 
               await this.showToast('Annotation saved', 'success');
             } catch (updateError) {
@@ -3484,7 +3484,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               console.log('[Rename Room] Database update successful for EFEID:', roomId);
 
               // Mark that changes have been made (enables Update button)
-              this.hasChangesAfterLastFinalization = true;
+              this.markReportChanged();
             } catch (error) {
               console.error('[Rename Room] Database update FAILED:', error);
               await this.showToast('Failed to update room name in database', 'danger');
@@ -5600,6 +5600,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   /**
+   * Mark that changes have been made to the report (enables Update button)
+   */
+  markReportChanged() {
+    this.hasChangesAfterLastFinalization = true;
+    console.log('[markReportChanged] Set hasChangesAfterLastFinalization to TRUE');
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
    * Check if report has been finalized (shows "Update" button text)
    */
   isReportFinalized(): boolean {
@@ -6382,6 +6391,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     if (visualId && visualId !== 'undefined' && visualId !== 'null' && visualId !== '') {
       this.visualRecordIds[key] = visualId;
+
+      // Mark that changes have been made (enables Update button)
+      this.markReportChanged();
       localStorage.setItem(`visual_${category}_${templateId}`, visualId);
       delete this.pendingVisualCreates[key];
       await this.processPendingPhotoUploadsForKey(key);
@@ -7908,7 +7920,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (this.uploadingPhotos[key] === 0) {
           delete this.uploadingPhotos[key];
         }
-        
+
+        // Mark that changes have been made (enables Update button)
+        this.markReportChanged();
+
         // Removed change detection to improve performance
       }
     } catch (error) {
@@ -11047,17 +11062,9 @@ Stack: ${error?.stack}`;
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
     console.log('[onServiceFieldChange] Field:', fieldName, 'Value:', value);
-    console.log('[onServiceFieldChange] Current serviceData.Status:', this.serviceData?.Status);
-    console.log('[onServiceFieldChange] Current ReportFinalized:', this.serviceData?.ReportFinalized);
 
     // Mark that changes have been made (enables Update button) - do this FIRST
-    this.hasChangesAfterLastFinalization = true;
-    console.log('[onServiceFieldChange] Set hasChangesAfterLastFinalization to TRUE');
-    console.log('[onServiceFieldChange] isReportFinalized():', this.isReportFinalized());
-    console.log('[onServiceFieldChange] canFinalizeReport():', this.canFinalizeReport());
-
-    // Trigger change detection immediately
-    this.changeDetectorRef.detectChanges();
+    this.markReportChanged();
 
     // CRITICAL FIX: Skip "Other" popup for multi-select fields (they have inline inputs)
     const multiSelectFields = ['InAttendance', 'SecondFoundationRooms', 'ThirdFoundationRooms'];
