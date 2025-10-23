@@ -5578,8 +5578,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  /**
+   * Check if report has been finalized (shows "Update" button text)
+   */
+  isReportFinalized(): boolean {
+    return this.serviceData?.Status === 'Finalized' ||
+           this.serviceData?.Status === 'Updated' ||
+           this.serviceData?.Status === 'Under Review';
+  }
+
+  /**
+   * Check if Finalize/Update button should be enabled
+   */
+  canFinalizeReport(): boolean {
+    // First check: all required fields must be filled
+    if (!this.areAllRequiredFieldsFilled()) {
+      return false;
+    }
+
+    // If Status is "Under Review", only enable if changes have been made since submission
+    if (this.serviceData?.Status === 'Under Review') {
+      // Check if FinalizedDate is newer than StatusDateTime (changes made after submission)
+      if (this.serviceData?.FinalizedDate && this.serviceData?.StatusDateTime) {
+        const finalizedTime = new Date(this.serviceData.FinalizedDate).getTime();
+        const submittedTime = new Date(this.serviceData.StatusDateTime).getTime();
+        return finalizedTime > submittedTime;
+      }
+      // If no FinalizedDate, button should be disabled
+      return false;
+    }
+
+    // For all other statuses (including first finalization), enable if required fields are filled
+    return true;
+  }
+
   async markReportAsFinalized() {
-    const isFirstFinalization = this.serviceData.Status !== 'Finalized' && this.serviceData.Status !== 'Updated';
+    const isFirstFinalization = this.serviceData.Status !== 'Finalized' &&
+                                 this.serviceData.Status !== 'Updated' &&
+                                 this.serviceData.Status !== 'Under Review';
     
     const loading = await this.loadingController.create({
       message: isFirstFinalization ? 'Finalizing report...' : 'Updating report...'
@@ -5587,14 +5623,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     await loading.present();
 
     try {
-      // Update the Services table - update Status (first finalization only) and StatusDateTime
+      // Update the Services table - update Status (first finalization only) and FinalizedDate
       const updateData: any = {
-        StatusDateTime: new Date().toISOString()
+        FinalizedDate: new Date().toISOString()
       };
 
-      // Only set Status to "Finalized" on first finalization
+      // Only set Status and StatusDateTime on first finalization (status change)
       if (isFirstFinalization) {
         updateData.Status = 'Finalized';
+        updateData.StatusDateTime = new Date().toISOString();
       }
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
@@ -5606,11 +5643,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
       console.log('[EngFoundation] API Response:', response);
 
-      // Update local state (ReportFinalized and FinalizedDate are UI-only properties)
+      // Update local state
       if (isFirstFinalization) {
         this.serviceData.Status = 'Finalized';
+        this.serviceData.StatusDateTime = new Date().toISOString();
       }
-      this.serviceData.StatusDateTime = new Date().toISOString();
       this.serviceData.ReportFinalized = true;
       this.serviceData.FinalizedDate = new Date().toISOString();
 
@@ -11088,8 +11125,18 @@ Stack: ${error?.stack}`;
       this.showSaveStatus(queuedMessage, 'info');
     }
 
+    // Prepare update data
+    const updateData: any = { [fieldName]: value };
+
+    // If service is "Under Review", also update FinalizedDate to enable Update button
+    if (this.serviceData?.Status === 'Under Review') {
+      updateData.FinalizedDate = new Date().toISOString();
+      // Update local serviceData so button state updates immediately
+      this.serviceData.FinalizedDate = updateData.FinalizedDate;
+    }
+
     // Update the Services table directly
-    this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
+    this.caspioService.updateService(this.serviceId, updateData).subscribe({
       next: (response) => {
         if (this.offlineService.isOnline()) {
           this.showSaveStatus(`${fieldName} saved`, 'success');

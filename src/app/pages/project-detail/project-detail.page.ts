@@ -28,7 +28,7 @@ interface ServiceSelection {
   typeIconUrl?: string; // Base64 data URL for the icon
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
-  FinalizedDate?: string; // ISO date string when the report was finalized
+  FinalizedDate?: string; // ISO date string when the report was finalized (also updated when documents are added/deleted)
   Status?: string; // Status field (e.g., "Under Review", "Report Finalized")
   StatusDateTime?: string; // ISO date string when the status was last updated (also used for submission date)
   saving?: boolean;
@@ -539,6 +539,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
+          FinalizedDate: service.FinalizedDate || '',
           Status: service.Status || '',
           StatusDateTime: service.StatusDateTime || ''
         };
@@ -751,6 +752,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         typeIcon: offer?.TypeIcon || '',
         dateOfInspection: service.DateOfInspection || new Date().toISOString(),
         ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
+        FinalizedDate: service.FinalizedDate || '',
         Status: service.Status || '',
         StatusDateTime: service.StatusDateTime || ''
       };
@@ -1282,6 +1284,31 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Check if submit button should be enabled (orange) for a service
   isSubmitButtonEnabled(service: ServiceSelection): boolean {
+    const typeName = service.typeName?.toLowerCase() || '';
+    const typeShort = service.typeShort?.toUpperCase() || '';
+    const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
+    const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
+
+    // If already submitted (Status = "Under Review"), check if report/documents were updated since submission
+    if (service.Status === 'Under Review') {
+      // Check if report has been updated after submission
+      // If FinalizedDate exists and is newer than StatusDateTime, enable the Update button
+      // FinalizedDate is updated when:
+      // - EFE reports are finalized/updated
+      // - Any documents are added/deleted for any service type
+      if (service.FinalizedDate && service.StatusDateTime) {
+        const finalizedTime = new Date(service.FinalizedDate).getTime();
+        const submittedTime = new Date(service.StatusDateTime).getTime();
+        const hasUpdates = finalizedTime > submittedTime;
+        console.log(`[SubmitButton] ${service.typeName} - Under Review: FinalizedDate=${service.FinalizedDate}, StatusDateTime=${service.StatusDateTime}, hasUpdates=${hasUpdates}`);
+        return hasUpdates;
+      }
+      // No FinalizedDate or StatusDateTime, keep button disabled
+      console.log(`[SubmitButton] ${service.typeName} - Under Review: No update detected, button disabled`);
+      return false;
+    }
+
+    // For initial submission (not yet submitted)
     // For finalized reports (like EFE), enable if ReportFinalized is true
     if (service.ReportFinalized) {
       console.log(`[SubmitButton] ${service.typeName} enabled: ReportFinalized = true`);
@@ -1289,11 +1316,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // For DCR and EIR, enable if required document (Property Inspection Report) is uploaded
-    const typeName = service.typeName?.toLowerCase() || '';
-    const typeShort = service.typeShort?.toUpperCase() || '';
-    const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
-    const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
-
     if (isDCR || isEIR) {
       // Find the service documents for this service
       const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === service.serviceId);
@@ -1313,6 +1335,45 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     return false;
+  }
+
+  /**
+   * Update FinalizedDate for a service when documents are added/deleted
+   * This enables the Update button for services that are "Under Review"
+   */
+  async updateServiceAfterDocumentChange(serviceId: string) {
+    if (!serviceId) return;
+
+    // Find the service in selectedServices
+    const service = this.selectedServices.find(s => s.serviceId === serviceId);
+    if (!service) {
+      console.log(`[DocChange] Service ${serviceId} not found in selectedServices`);
+      return;
+    }
+
+    // Only update if service is "Under Review"
+    if (service.Status !== 'Under Review') {
+      console.log(`[DocChange] Service ${service.typeName} is not Under Review (Status: ${service.Status}), no update needed`);
+      return;
+    }
+
+    try {
+      const newFinalizedDate = new Date().toISOString();
+      console.log(`[DocChange] Updating FinalizedDate for ${service.typeName} (${serviceId}) to ${newFinalizedDate}`);
+
+      // Update in database
+      await this.caspioService.put(
+        `/tables/Services/records?q.where=PK_ID='${serviceId}'`,
+        { FinalizedDate: newFinalizedDate }
+      ).toPromise();
+
+      // Update local service object
+      service.FinalizedDate = newFinalizedDate;
+
+      console.log(`[DocChange] FinalizedDate updated successfully. Update button should now be enabled.`);
+    } catch (error) {
+      console.error('[DocChange] Error updating FinalizedDate:', error);
+    }
   }
 
   // Toggle service expanded (add first instance if not selected, or navigate to it if already selected)
@@ -1871,6 +1932,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Reload attachments from database to ensure UI matches server state
           // Cache was automatically cleared by CaspioService, so this gets fresh data
           await this.loadExistingAttachments();
+
+          // Update FinalizedDate if service is Under Review (enables Update button)
+          await this.updateServiceAfterDocumentChange(serviceId);
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -1885,6 +1949,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
+
+        // Update FinalizedDate if service is Under Review (enables Update button)
+        await this.updateServiceAfterDocumentChange(serviceId);
       }
       
       // UI updated by reloading from database after successful mutation
@@ -1999,6 +2066,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               // Reload attachments from database to ensure UI matches server state
               // Cache was automatically cleared by CaspioService, so this gets fresh data
               await this.loadExistingAttachments();
+
+              // Update FinalizedDate if service is Under Review (enables Update button)
+              await this.updateServiceAfterDocumentChange(serviceId);
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -2061,10 +2131,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               }
               
               await loading.dismiss();
-              
+
               // Reload attachments from database to ensure UI matches server state
               // Cache was automatically cleared by CaspioService, so this gets fresh data
               await this.loadExistingAttachments();
+
+              // Update FinalizedDate if service is Under Review (enables Update button)
+              await this.updateServiceAfterDocumentChange(serviceId);
             } catch (error) {
               console.error('Error deleting document:', error);
               await loading.dismiss();
@@ -2450,7 +2523,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
-        
+
+        // Update FinalizedDate if service is Under Review (enables Update button)
+        await this.updateServiceAfterDocumentChange(this.selectedServiceDoc.serviceId);
+
         await this.showToast('Link added successfully', 'success')
       } else {
         throw new Error('No ID returned from server');
@@ -2608,6 +2684,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
+
+        // Update FinalizedDate if service is Under Review (enables Update button)
+        await this.updateServiceAfterDocumentChange(serviceId);
 
         this.showToast('Link added successfully', 'success');
       }

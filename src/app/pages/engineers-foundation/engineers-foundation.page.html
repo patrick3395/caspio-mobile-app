@@ -1666,9 +1666,12 @@
 
     <!-- Finalize Report Button -->
     <div class="finalize-button-container">
-      <button class="finalize-button" [class.incomplete]="!areAllRequiredFieldsFilled()" (click)="finalizeReport()">
+      <button class="finalize-button"
+              [class.incomplete]="!canFinalizeReport()"
+              [disabled]="!canFinalizeReport()"
+              (click)="finalizeReport()">
         <ion-icon name="checkmark-circle-outline"></ion-icon>
-        <span>{{ serviceData?.ReportFinalized ? 'Update' : 'Finalize Report' }}</span>
+        <span>{{ isReportFinalized() ? 'Update' : 'Finalize Report' }}</span>
       </button>
     </div>
   </div>
