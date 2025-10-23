@@ -954,7 +954,7 @@ ion-modal {
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
 
-.template-content{position:relative;z-index:1;height:100%;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+.template-content{position:relative;z-index:1;min-height:100px;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
 // Mobile-only: Better vertical padding for wrapped text
 @media (max-width: 768px) {
   padding:16px 20px;
