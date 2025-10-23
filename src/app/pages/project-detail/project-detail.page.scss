@@ -513,12 +513,12 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
         .submitted-note {
           margin-top: 8px;
           padding: 6px 12px;
-          background: #f0fff4;
+          background: rgba(241, 90, 39, 0.1);
           border-radius: 4px;
-          color: #28a745;
-          font-size: 13px;
-          font-weight: 500;
-          border: 1px solid #28a745;
+          color: $orange;
+          font-size: 10px;
+          font-weight: 600;
+          border: 1px solid $orange;
         }
       }
     }
