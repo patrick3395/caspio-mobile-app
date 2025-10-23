@@ -2392,7 +2392,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // Check if point record exists, create if not
+      // Get point ID - should already exist from pre-creation
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
@@ -2403,28 +2403,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
 
-        // Need to create point - do it quickly and silently
-        const existingPoint = await this.caspioService.checkEFEPointExists(roomId, point.name).toPromise();
+        // Point doesn't exist yet (e.g., custom point added manually)
+        // Create it now - this should be rare since template points are pre-created
+        console.log(`[Photo Capture] Point ${point.name} not pre-created, creating now...`);
 
-        if (existingPoint) {
-          // Point already exists, use its PointID (NOT PK_ID!)
-          pointId = existingPoint.PointID || existingPoint.PK_ID;
+        const pointData = {
+          EFEID: parseInt(roomId),
+          PointName: point.name
+        };
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+        // Use PointID from response, NOT PK_ID!
+        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+          pointId = createResponse.PointID || createResponse.PK_ID;
           this.efePointIds[pointKey] = pointId;
+          console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
         } else {
-          // Create new Services_EFE_Points record
-          const pointData = {
-            EFEID: parseInt(roomId),
-            PointName: point.name
-          };
-          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-
-          // Use PointID from response, NOT PK_ID!
-          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-            pointId = createResponse.PointID || createResponse.PK_ID;
-            this.efePointIds[pointKey] = pointId;
-          } else {
-            throw new Error('Failed to create point record');
-          }
+          throw new Error('Failed to create point record');
         }
       }
 
@@ -3266,6 +3261,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.efeRecordIds[roomName] = roomId;
             this.selectedRooms[roomName] = true;
             this.expandedRooms[roomName] = true;
+
+            // Pre-create all elevation points to eliminate lag when taking photos
+            await this.createElevationPointsForRoom(roomName, roomId);
           }
         } catch (err: any) {
           console.error('Room creation error:', err);
@@ -3290,7 +3288,76 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
   }
-  
+
+  // Pre-create all elevation points for a room to eliminate lag when taking photos
+  async createElevationPointsForRoom(roomName: string, roomId: string): Promise<void> {
+    try {
+      // Skip if offline mode
+      if (this.manualOffline || roomId === '__pending__') {
+        console.log(`[Pre-create Points] Skipping for ${roomName} - offline mode`);
+        return;
+      }
+
+      // Get elevation points from room data
+      const roomData = this.roomElevationData[roomName];
+      if (!roomData || !roomData.elevationPoints || roomData.elevationPoints.length === 0) {
+        console.log(`[Pre-create Points] No points found for ${roomName}`);
+        return;
+      }
+
+      console.log(`[Pre-create Points] Creating ${roomData.elevationPoints.length} points for ${roomName}`);
+
+      // Create all points in parallel for speed
+      const pointCreationPromises = roomData.elevationPoints.map(async (point: any) => {
+        const pointKey = `${roomName}_${point.name}`;
+
+        // Skip if point already exists
+        if (this.efePointIds[pointKey]) {
+          console.log(`[Pre-create Points] Point ${point.name} already exists, skipping`);
+          return;
+        }
+
+        try {
+          // Check if point already exists in database
+          const existingPoint = await this.caspioService.checkEFEPointExists(roomId, point.name).toPromise();
+
+          if (existingPoint) {
+            // Point already exists, use its PointID
+            const pointId = existingPoint.PointID || existingPoint.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            console.log(`[Pre-create Points] Found existing point ${point.name} with ID ${pointId}`);
+          } else {
+            // Create new Services_EFE_Points record
+            const pointData = {
+              EFEID: parseInt(roomId),
+              PointName: point.name
+            };
+            const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+            if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+              const pointId = createResponse.PointID || createResponse.PK_ID;
+              this.efePointIds[pointKey] = pointId;
+              console.log(`[Pre-create Points] Created point ${point.name} with ID ${pointId}`);
+            } else {
+              console.error(`[Pre-create Points] Failed to get PointID for ${point.name}`, createResponse);
+            }
+          }
+        } catch (error) {
+          console.error(`[Pre-create Points] Error creating point ${point.name}:`, error);
+          // Continue with other points even if one fails
+        }
+      });
+
+      // Wait for all points to be created
+      await Promise.all(pointCreationPromises);
+      console.log(`[Pre-create Points] Completed for ${roomName}`);
+
+    } catch (error) {
+      console.error(`[Pre-create Points] Error creating points for ${roomName}:`, error);
+      // Don't throw - allow room creation to succeed even if point creation has issues
+    }
+  }
+
   // Remove room from Services_EFE
   async removeRoom(roomName: string) {
     this.savingRooms[roomName] = true;
@@ -3952,6 +4019,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.efeRecordIds[roomName] = roomId;
           this.selectedRooms[roomName] = true;
           this.expandedRooms[roomName] = true;
+
+          // Pre-create all elevation points to eliminate lag when taking photos
+          await this.createElevationPointsForRoom(roomName, roomId);
         }
       } catch (error: any) {
         console.error('Room creation error:', error);
