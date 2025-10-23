@@ -10341,6 +10341,8 @@ Stack: ${error?.stack}`;
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
               // Don't focus input to prevent keyboard popup on mobile
+              // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+              (target as HTMLButtonElement).blur();
             }
           }
         });
@@ -10428,6 +10430,8 @@ Stack: ${error?.stack}`;
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
               // Don't focus input to prevent keyboard popup on mobile
+              // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+              (target as HTMLButtonElement).blur();
             }
           }
         });
@@ -10515,6 +10519,8 @@ Stack: ${error?.stack}`;
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
               // Don't focus input to prevent keyboard popup on mobile
+              // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+              (target as HTMLButtonElement).blur();
             }
           }
         });
@@ -10601,6 +10607,8 @@ Stack: ${error?.stack}`;
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
               // Don't focus input to prevent keyboard popup on mobile
+              // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+              (target as HTMLButtonElement).blur();
             }
           }
         });

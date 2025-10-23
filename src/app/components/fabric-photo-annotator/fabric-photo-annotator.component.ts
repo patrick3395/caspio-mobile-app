@@ -1038,6 +1038,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
                   if (text && captionInput) {
                     // Add text + space to current caption
                     captionInput.value = (captionInput.value || '') + text + ' ';
+                    // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+                    (btn as HTMLButtonElement).blur();
                   }
                 }
               } catch (error) {
