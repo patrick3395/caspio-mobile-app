@@ -5607,6 +5607,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (isFirstFinalization) {
         this.serviceData.Status = 'Finalized';
       }
+      this.serviceData.StatusDateTime = new Date().toISOString();
       this.serviceData.ReportFinalized = true;
       this.serviceData.FinalizedDate = new Date().toISOString();
 
@@ -10161,15 +10162,21 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <input type="text" id="captionInput" class="caption-text-input"
-                 placeholder="Enter caption..."
-                 value="${tempCaption.replace(/"/g, '&quot;')}"
-                 maxlength="255" />
+          <div class="caption-input-container">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   maxlength="255" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+              <ion-icon name="backspace-outline"></ion-icon>
+            </button>
+          </div>
           ${this.presetButtonsHtml}
         </div>
       `;
 
       const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+      const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
       const container = alertElement.querySelector('.preset-buttons-container');
 
       // Use event delegation for better performance
@@ -10182,9 +10189,23 @@ Stack: ${error?.stack}`;
             const text = target.getAttribute('data-text');
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
-              captionInput.focus();
+              // Don't focus input to prevent keyboard popup on mobile
             }
           }
+        });
+      }
+
+      // Add undo button handler
+      if (undoBtn && captionInput) {
+        undoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const currentValue = captionInput.value || '';
+          if (currentValue.trim() === '') return;
+          const words = currentValue.trim().split(' ');
+          if (words.length > 0) words.pop();
+          captionInput.value = words.join(' ');
+          if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
     });
@@ -10226,15 +10247,21 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <input type="text" id="captionInput" class="caption-text-input"
-                 placeholder="Enter caption..."
-                 value="${tempCaption.replace(/"/g, '&quot;')}"
-                 maxlength="255" />
+          <div class="caption-input-container">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   maxlength="255" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+              <ion-icon name="backspace-outline"></ion-icon>
+            </button>
+          </div>
           ${this.presetButtonsHtml}
         </div>
       `;
 
       const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+      const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
       const container = alertElement.querySelector('.preset-buttons-container');
 
       if (container && captionInput) {
@@ -10246,9 +10273,23 @@ Stack: ${error?.stack}`;
             const text = target.getAttribute('data-text');
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
-              captionInput.focus();
+              // Don't focus input to prevent keyboard popup on mobile
             }
           }
+        });
+      }
+
+      // Add undo button handler
+      if (undoBtn && captionInput) {
+        undoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const currentValue = captionInput.value || '';
+          if (currentValue.trim() === '') return;
+          const words = currentValue.trim().split(' ');
+          if (words.length > 0) words.pop();
+          captionInput.value = words.join(' ');
+          if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
     });
@@ -10290,15 +10331,21 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <input type="text" id="captionInput" class="caption-text-input"
-                 placeholder="Enter caption..."
-                 value="${tempCaption.replace(/"/g, '&quot;')}"
-                 maxlength="255" />
+          <div class="caption-input-container">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   maxlength="255" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+              <ion-icon name="backspace-outline"></ion-icon>
+            </button>
+          </div>
           ${this.presetButtonsHtml}
         </div>
       `;
 
       const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+      const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
       const container = alertElement.querySelector('.preset-buttons-container');
 
       if (container && captionInput) {
@@ -10310,9 +10357,23 @@ Stack: ${error?.stack}`;
             const text = target.getAttribute('data-text');
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
-              captionInput.focus();
+              // Don't focus input to prevent keyboard popup on mobile
             }
           }
+        });
+      }
+
+      // Add undo button handler
+      if (undoBtn && captionInput) {
+        undoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const currentValue = captionInput.value || '';
+          if (currentValue.trim() === '') return;
+          const words = currentValue.trim().split(' ');
+          if (words.length > 0) words.pop();
+          captionInput.value = words.join(' ');
+          if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
     });
@@ -10354,15 +10415,21 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <input type="text" id="captionInput" class="caption-text-input"
-                 placeholder="Enter caption..."
-                 value="${tempCaption.replace(/"/g, '&quot;')}"
-                 maxlength="255" />
+          <div class="caption-input-container">
+            <input type="text" id="captionInput" class="caption-text-input"
+                   placeholder="Enter caption..."
+                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   maxlength="255" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+              <ion-icon name="backspace-outline"></ion-icon>
+            </button>
+          </div>
           ${this.presetButtonsHtml}
         </div>
       `;
 
       const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+      const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
       const container = alertElement.querySelector('.preset-buttons-container');
 
       if (container && captionInput) {
@@ -10374,9 +10441,23 @@ Stack: ${error?.stack}`;
             const text = target.getAttribute('data-text');
             if (text) {
               captionInput.value = captionInput.value + text + ' ';
-              captionInput.focus();
+              // Don't focus input to prevent keyboard popup on mobile
             }
           }
+        });
+      }
+
+      // Add undo button handler
+      if (undoBtn && captionInput) {
+        undoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const currentValue = captionInput.value || '';
+          if (currentValue.trim() === '') return;
+          const words = currentValue.trim().split(' ');
+          if (words.length > 0) words.pop();
+          captionInput.value = words.join(' ');
+          if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
     });

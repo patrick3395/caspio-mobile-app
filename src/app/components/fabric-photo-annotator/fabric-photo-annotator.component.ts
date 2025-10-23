@@ -13,10 +13,6 @@ import { FabricService } from '../../services/fabric.service';
     <ion-content>
       <!-- Top toolbar with annotation tools and navigation -->
       <div class="top-toolbar">
-        <button class="nav-btn back-btn" (click)="dismiss()" title="Back">
-          <ion-icon name="arrow-back"></ion-icon>
-        </button>
-        
         <div class="tool-buttons-center">
           <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
             <ion-icon name="hand-left-outline"></ion-icon>
@@ -44,10 +40,6 @@ import { FabricService } from '../../services/fabric.service';
             <ion-icon name="brush-outline"></ion-icon>
           </button>
         </div>
-
-        <button class="nav-btn caption-undo-btn" (click)="undoCaptionWord()" title="Undo Caption Word">
-          <ion-icon name="backspace-outline"></ion-icon>
-        </button>
 
         <button class="nav-btn save-btn" (click)="save()" title="Save">
           <ion-icon name="checkmark"></ion-icon>
@@ -102,59 +94,6 @@ import { FabricService } from '../../services/fabric.service';
       transition: all 0.2s ease;
       padding: 0;
     }
-    
-    .back-btn {
-      position: absolute;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.05);
-      
-      // Mobile-specific sizing
-      @media (max-width: 768px) {
-        width: 48px;
-        height: 48px;
-        left: 8px;
-      }
-    }
-    
-    .back-btn:hover {
-      background: rgba(0, 0, 0, 0.1);
-    }
-    
-    .back-btn ion-icon {
-      font-size: 24px;
-      color: #333;
-      
-      @media (max-width: 768px) {
-        font-size: 26px; // Larger on mobile
-      }
-    }
-    
-    .caption-undo-btn {
-      position: absolute;
-      right: 62px;
-      background: rgba(0, 0, 0, 0.05);
-
-      // Mobile-specific sizing
-      @media (max-width: 768px) {
-        width: 48px;
-        height: 48px;
-        right: 64px;
-      }
-    }
-
-    .caption-undo-btn:hover {
-      background: rgba(0, 0, 0, 0.1);
-      transform: scale(1.05);
-    }
-
-    .caption-undo-btn ion-icon {
-      font-size: 24px;
-      color: #333;
-
-      @media (max-width: 768px) {
-        font-size: 26px;
-      }
-    }
 
     .save-btn {
       position: absolute;
@@ -189,12 +128,12 @@ import { FabricService } from '../../services/fabric.service';
       gap: 6px;
       justify-content: center;
       flex: 1;
-      margin: 0 60px; /* Leave space for absolutely positioned back/save buttons */
-      
+      margin: 0 60px 0 10px; /* Leave space on right for save button, normal padding on left */
+
       // Mobile-specific adjustments
       @media (max-width: 768px) {
         gap: 4px; // Tighter spacing on mobile
-        margin: 0 65px; // More space for bigger nav buttons
+        margin: 0 65px 0 8px; // More space on right for bigger save button
         flex-wrap: wrap; // Allow wrapping if needed
       }
     }
@@ -973,6 +912,15 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       message: ' ', // Empty space to prevent Ionic from hiding the message area
       buttons: [
         {
+          text: 'Back',
+          role: 'cancel',
+          handler: () => {
+            // Dismiss the entire annotation modal
+            this.dismiss();
+            return true;
+          }
+        },
+        {
           text: 'Cancel',
           role: 'cancel'
         },
@@ -997,10 +945,15 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         // Build the full HTML content
         const htmlContent = `
           <div class="caption-popup-content">
-            <input type="text" id="captionInput" class="caption-text-input"
-                   placeholder="Enter caption..."
-                   value="${tempCaption}"
-                   maxlength="255" />
+            <div class="caption-input-container">
+              <input type="text" id="captionInput" class="caption-text-input"
+                     placeholder="Enter caption..."
+                     value="${tempCaption}"
+                     maxlength="255" />
+              <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                <ion-icon name="backspace-outline"></ion-icon>
+              </button>
+            </div>
             ${buttonsHtml}
           </div>
         `;
@@ -1009,6 +962,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         // Add click handlers to preset buttons
         const presetBtns = document.querySelectorAll('.preset-btn');
         const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+        const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
 
         presetBtns.forEach(btn => {
           btn.addEventListener('click', (e) => {
@@ -1018,10 +972,34 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
             if (text && captionInput) {
               // Add text + space to current caption
               captionInput.value = captionInput.value + text + ' ';
-              captionInput.focus();
+              // Don't focus input to prevent keyboard popup on mobile
             }
           });
         });
+
+        // Add click handler for undo button
+        if (undoBtn && captionInput) {
+          undoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const currentValue = captionInput.value || '';
+            if (currentValue.trim() === '') {
+              return;
+            }
+            // Trim trailing spaces and split by spaces
+            const words = currentValue.trim().split(' ');
+            // Remove the last word
+            if (words.length > 0) {
+              words.pop();
+            }
+            // Join back and update input
+            captionInput.value = words.join(' ');
+            // Add trailing space if there are still words
+            if (captionInput.value.length > 0) {
+              captionInput.value += ' ';
+            }
+          });
+        }
       }
     }, 100);
   }
