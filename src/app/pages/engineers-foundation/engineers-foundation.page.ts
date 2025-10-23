@@ -94,6 +94,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   serviceId: string = '';
   projectData: any = null;
   serviceData: any = {}; // Store Services table data
+  hasChangesAfterLastFinalization: boolean = false; // Track if changes made since last Update/Finalize
   currentUploadContext: any = null;
   currentRoomPointContext: any = null;  // For room photo uploads
   currentFDFPhotoContext: any = null;  // For FDF photo uploads
@@ -816,6 +817,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         } else {
           this.serviceData.ReportFinalized = false;
         }
+
+        // Initialize change tracking - no changes yet since we just loaded from database
+        this.hasChangesAfterLastFinalization = false;
 
         // Map database column StructStat to UI property StructuralSystemsStatus
         if (serviceResponse.StructStat) {
@@ -2043,10 +2047,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             try {
               const result = await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
               console.log(`[FDF DEBUG] Update result:`, result);
-              
+
               // CRITICAL: Update local display to show annotated image and caption
               this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
-              
+
+              // Mark that changes have been made (enables Update button)
+              this.hasChangesAfterLastFinalization = true;
+
               await this.showToast('Annotation saved', 'success');
             } catch (updateError) {
               console.error(`[FDF DEBUG] Services_EFE update failed:`, updateError);
@@ -3472,6 +3479,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Use updateServicesEFEByEFEID which uses EFEID in the where clause (not PK_ID)
               await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
               console.log('[Rename Room] Database update successful for EFEID:', roomId);
+
+              // Mark that changes have been made (enables Update button)
+              this.hasChangesAfterLastFinalization = true;
             } catch (error) {
               console.error('[Rename Room] Database update FAILED:', error);
               await this.showToast('Failed to update room name in database', 'danger');
@@ -5599,8 +5609,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Check if Finalize/Update button should be enabled
    */
   canFinalizeReport(): boolean {
-    // Enable button if all required fields are filled
-    return this.areAllRequiredFieldsFilled();
+    // First check: all required fields must be filled
+    if (!this.areAllRequiredFieldsFilled()) {
+      return false;
+    }
+
+    // If report has been finalized/updated before, only enable if changes have been made
+    if (this.isReportFinalized()) {
+      return this.hasChangesAfterLastFinalization;
+    }
+
+    // For initial finalization, enable if required fields are filled
+    return true;
   }
 
   async markReportAsFinalized() {
@@ -5640,6 +5660,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.serviceData.Status = 'Finalized';
       }
       this.serviceData.ReportFinalized = true;
+
+      // Reset change tracking - button should be grayed out until next change
+      this.hasChangesAfterLastFinalization = false;
 
       console.log('[EngFoundation] Report finalized successfully');
 
@@ -11114,6 +11137,9 @@ Stack: ${error?.stack}`;
         : `${fieldName} queued until connection returns`;
       this.showSaveStatus(queuedMessage, 'info');
     }
+
+    // Mark that changes have been made (enables Update button)
+    this.hasChangesAfterLastFinalization = true;
 
     // Update the Services table directly
     this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
