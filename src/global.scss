@@ -1209,12 +1209,16 @@ textarea.styled-input {
             -webkit-user-select: none; // Prevent text selection
             user-select: none;
 
-            &:hover {
-              background: #F15A27;
-              color: white;
-              border-color: #F15A27;
-              transform: translateY(-1px);
-              box-shadow: 0 2px 6px rgba(241, 90, 39, 0.3);
+            // CRITICAL: Only apply hover effects on devices that support hover (desktop)
+            // This prevents the hover state from sticking on mobile touch devices
+            @media (hover: hover) and (pointer: fine) {
+              &:hover {
+                background: #F15A27;
+                color: white;
+                border-color: #F15A27;
+                transform: translateY(-1px);
+                box-shadow: 0 2px 6px rgba(241, 90, 39, 0.3);
+              }
             }
 
             &:active,

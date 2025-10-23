@@ -1954,13 +1954,40 @@ ion-content{--overflow:scroll !important;height:100%}
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 15px; // 50% bigger margin (10px * 1.5 = 15px)
-                
+
                 .point-label {
                   font-size: 12px; // Match MEASUREMENTS header size
                   font-weight: 600;
                   color: #333;
+                  flex: 1; // Take up remaining space
                 }
-                
+
+                .delete-point-btn {
+                  background: transparent;
+                  border: none;
+                  color: #dc3545;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  border-radius: 4px;
+                  transition: all 0.2s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+
+                  ion-icon {
+                    font-size: 18px;
+                  }
+
+                  &:hover {
+                    background: rgba(220, 53, 69, 0.1);
+                    color: #c82333;
+                  }
+
+                  &:active {
+                    transform: scale(0.95);
+                  }
+                }
+
                 .camera-button-primary {
                   background: var(--noble-orange);
                   color: white;

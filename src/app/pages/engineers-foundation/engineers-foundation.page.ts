@@ -2210,15 +2210,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           role: 'destructive',
           handler: async () => {
             try {
-              // Delete from database if it exists
               const pointKey = `${roomName}_${point.name}`;
               const pointId = this.efePointIds[pointKey];
-              
-              if (pointId) {
+
+              // Delete all associated photos first
+              if (point.photos && point.photos.length > 0) {
+                console.log(`[Delete Point] Deleting ${point.photos.length} photos for point ${point.name}`);
+                for (const photo of point.photos) {
+                  if (photo.attachId) {
+                    try {
+                      await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
+                      console.log(`[Delete Point] Deleted photo with attachId ${photo.attachId}`);
+                    } catch (photoError) {
+                      console.error(`[Delete Point] Failed to delete photo ${photo.attachId}:`, photoError);
+                      // Continue deleting other photos even if one fails
+                    }
+                  }
+                }
+              }
+
+              // Delete point from Services_EFE_Points table
+              if (pointId && pointId !== '__pending__') {
                 await this.caspioService.deleteServicesEFEPoint(pointId).toPromise();
                 delete this.efePointIds[pointKey];
+                console.log(`[Delete Point] Deleted point ${point.name} with ID ${pointId}`);
               }
-              
+
               // Remove from local data
               if (this.roomElevationData[roomName]?.elevationPoints) {
                 const index = this.roomElevationData[roomName].elevationPoints.findIndex(
@@ -2228,7 +2245,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   this.roomElevationData[roomName].elevationPoints.splice(index, 1);
                 }
               }
-              
+
+              // Trigger change detection to update the view
+              this.changeDetectorRef.detectChanges();
+
               await this.showToast('Point deleted', 'success');
             } catch (error) {
               console.error('Error deleting point:', error);
@@ -2238,7 +2258,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       ]
     });
-    
+
     await alert.present();
   }
   

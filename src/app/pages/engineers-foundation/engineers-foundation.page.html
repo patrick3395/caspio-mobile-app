@@ -1173,6 +1173,11 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                        <button class="delete-point-btn"
+                                (click)="deleteElevationPoint(room.RoomName, point)"
+                                title="Delete Point">
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
                       </div>
                       
                       <!-- Measurement and Location Photos -->
@@ -1557,6 +1562,11 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                        <button class="delete-point-btn"
+                                (click)="deleteElevationPoint(room.RoomName, point)"
+                                title="Delete Point">
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
                       </div>
                       
                       <!-- Measurement and Location Photos -->
