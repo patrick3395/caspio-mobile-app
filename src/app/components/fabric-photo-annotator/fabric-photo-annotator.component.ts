@@ -13,6 +13,10 @@ import { FabricService } from '../../services/fabric.service';
     <ion-content>
       <!-- Top toolbar with annotation tools and navigation -->
       <div class="top-toolbar">
+        <button class="nav-btn back-btn" (click)="dismiss()" title="Back">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+
         <div class="tool-buttons-center">
           <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
             <ion-icon name="hand-left-outline"></ion-icon>
@@ -95,6 +99,33 @@ import { FabricService } from '../../services/fabric.service';
       padding: 0;
     }
 
+    .back-btn {
+      position: absolute;
+      left: 10px;
+      background: #666;
+
+      // Mobile-specific sizing
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+        left: 8px;
+      }
+    }
+
+    .back-btn:hover {
+      background: #555;
+      transform: scale(1.05);
+    }
+
+    .back-btn ion-icon {
+      font-size: 26px;
+      color: white;
+
+      @media (max-width: 768px) {
+        font-size: 28px; // Larger on mobile
+      }
+    }
+
     .save-btn {
       position: absolute;
       right: 10px;
@@ -121,19 +152,19 @@ import { FabricService } from '../../services/fabric.service';
         font-size: 28px; // Larger on mobile
       }
     }
-    
+
     .tool-buttons-center {
       display: flex;
       align-items: center;
       gap: 6px;
       justify-content: center;
       flex: 1;
-      margin: 0 60px 0 10px; /* Leave space on right for save button, normal padding on left */
+      margin: 0 60px; /* Leave space on both left and right for back and save buttons */
 
       // Mobile-specific adjustments
       @media (max-width: 768px) {
         gap: 4px; // Tighter spacing on mobile
-        margin: 0 65px 0 8px; // More space on right for bigger save button
+        margin: 0 65px; // More space on both sides for bigger buttons
         flex-wrap: wrap; // Allow wrapping if needed
       }
     }
@@ -193,18 +224,23 @@ import { FabricService } from '../../services/fabric.service';
       align-items: center;
       gap: 8px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+
       ion-icon {
         font-size: 20px;
         color: #F15A27;
+        pointer-events: none; // Allow clicks to pass through to button
       }
-      
+
       span {
         flex: 1;
         text-align: left;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        pointer-events: none; // Allow clicks to pass through to button
       }
       
       &:hover {

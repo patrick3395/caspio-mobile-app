@@ -414,9 +414,13 @@ ion-content{--overflow:scroll !important;height:100%}
     color: var(--noble-orange);
     cursor: pointer;
     transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 
     ion-icon {
       font-size: 32px;
+      pointer-events: none;
     }
 
     &:hover {
@@ -2516,16 +2520,20 @@ ion-content{--overflow:scroll !important;height:100%}
 .floating-back-to-top {
   cursor: pointer;
   transition: all 0.2s ease;
-  
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
   ion-icon {
     font-size: 32px;
     color: var(--noble-orange, #f15a27);
+    pointer-events: none;
   }
-  
+
   &:hover {
     transform: scale(1.1);
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
