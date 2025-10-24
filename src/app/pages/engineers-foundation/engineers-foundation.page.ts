@@ -4548,18 +4548,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               };
 
               if (this.organizedData[visual.Category]) {
-                // Only update the appropriate array based on the visual's Kind
-                const kindStr = String(visual.Kind || matchingTemplate.Kind || '').toLowerCase();
-                if (kindStr.includes('comment')) {
-                  updateOrCreateItemData(this.organizedData[visual.Category].comments);
-                } else if (kindStr.includes('limitation')) {
-                  updateOrCreateItemData(this.organizedData[visual.Category].limitations);
-                } else if (kindStr.includes('deficienc')) {
-                  updateOrCreateItemData(this.organizedData[visual.Category].deficiencies);
-                } else {
-                  // Default to comments if kind is unclear
-                  updateOrCreateItemData(this.organizedData[visual.Category].comments);
-                }
+                updateOrCreateItemData(this.organizedData[visual.Category].comments);
+                updateOrCreateItemData(this.organizedData[visual.Category].limitations);
+                updateOrCreateItemData(this.organizedData[visual.Category].deficiencies);
               }
             }
           }
@@ -6810,7 +6801,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!this.organizedData[category] || !this.organizedData[category].deficiencies) {
       return 0;
     }
-    return this.organizedData[category].deficiencies.length;
+    // Only count selected deficiencies
+    return this.organizedData[category].deficiencies.filter(item => {
+      const key = `${category}_${item.id}`;
+      return this.selectedItems[key] === true;
+    }).length;
   }
 
   getProjectCompletion(): number {
