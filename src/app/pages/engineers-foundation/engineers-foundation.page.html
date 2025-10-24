@@ -1108,9 +1108,9 @@
                         </button>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
@@ -1126,8 +1126,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Top photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Top'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Top') || 'Caption' }}
                         </button>
@@ -1151,9 +1151,9 @@
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
@@ -1169,8 +1169,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Bottom photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Bottom'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Bottom') || 'Caption' }}
                         </button>
@@ -1194,9 +1194,9 @@
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
@@ -1212,8 +1212,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Location photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Threshold'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Threshold') || 'Caption' }}
                         </button>
@@ -1533,9 +1533,9 @@
                         </button>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
@@ -1551,8 +1551,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Top photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Top'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Top') || 'Caption' }}
                         </button>
@@ -1576,9 +1576,9 @@
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
@@ -1594,8 +1594,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Bottom photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Bottom'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Bottom') || 'Caption' }}
                         </button>
@@ -1619,9 +1619,9 @@
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview" 
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading" 
-                           style="margin-top: 12px;">
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
+                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
+                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
@@ -1637,8 +1637,8 @@
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <!-- Caption text underneath FDF Location photo -->
-                        <button 
-                          class="room-photo-caption" 
+                        <button
+                          class="room-photo-caption"
                           (click)="openFDFCaptionPopup(room.RoomName, 'Threshold'); $event.stopPropagation()">
                           {{ getFdfPhotoCaption(room.RoomName, 'Threshold') || 'Caption' }}
                         </button>

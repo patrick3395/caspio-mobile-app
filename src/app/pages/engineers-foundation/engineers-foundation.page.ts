@@ -10523,19 +10523,21 @@ Stack: ${error?.stack}`;
           const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
           const filePath = `/${uploadedFileName}`;
 
-          // Create attachment record
+          // Create attachment record with correct field name
           const attachData = {
             PointID: parseInt(pointId),
-            FilePath: filePath,
-            Annotation: photoEntry.caption || '',
-            PhotoType: photoType
+            Photo: filePath,  // Use "Photo" field, not "FilePath"
+            Annotation: '' // Initialize as blank (user can add caption later)
           };
 
-          const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records', attachData).toPromise();
+          const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();
 
-          if (attachResponse && attachResponse.AttachID) {
-            photoEntry.attachId = attachResponse.AttachID;
-            photoEntry.AttachID = attachResponse.AttachID;
+          // Handle the Result array structure
+          const createdRecord = attachResponse?.Result?.[0] || attachResponse;
+
+          if (createdRecord && createdRecord.AttachID) {
+            photoEntry.attachId = createdRecord.AttachID;
+            photoEntry.AttachID = createdRecord.AttachID;
             photoEntry.filePath = filePath;
 
             const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
