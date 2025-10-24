@@ -1655,13 +1655,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
-  async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+  async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', source: 'camera' | 'library' | 'system' = 'system') {
     const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
     }
-    
+
     try {
       // Set context for FDF photo
       this.currentFDFPhotoContext = {
@@ -1669,8 +1669,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         photoType,
         roomId
       };
-      
-      this.triggerFileInput('system', { allowMultiple: false });
+
+      this.triggerFileInput(source, { allowMultiple: false });
 
     } catch (error) {
       console.error(`Error initiating FDF ${photoType} photo:`, error);
@@ -2393,12 +2393,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Capture photo for room elevation point with specific type (Location or Measurement)
-  async capturePointPhoto(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event) {
+  async capturePointPhoto(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event, source: 'camera' | 'library' | 'system' = 'system') {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
-    
+
     try {
       const roomId = this.efeRecordIds[roomName];
       if (!roomId) {
@@ -2469,7 +2469,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 };
                 // Set flag to skip annotation for elevation plot photos
                 this.skipElevationAnnotation = true;
-                this.triggerFileInput('system', { allowMultiple: false });
+                this.triggerFileInput(source, { allowMultiple: false });
               }
             }
           ]
@@ -2489,7 +2489,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Set flag to skip annotation for elevation plot photos
       this.skipElevationAnnotation = true;
 
-      this.triggerFileInput('system', { allowMultiple: false });
+      this.triggerFileInput(source, { allowMultiple: false });
 
     } catch (error) {
       console.error('Error in capturePointPhoto:', error);
@@ -10249,8 +10249,8 @@ Stack: ${error?.stack}`;
   
   // Add another photo - triggers multi-photo capture
   async addAnotherPhoto(category: string, itemId: string, forceCamera: boolean = false) {
-    this.currentUploadContext = { 
-      category, 
+    this.currentUploadContext = {
+      category,
       itemId,
       action: 'add'
     };
@@ -10261,6 +10261,46 @@ Stack: ${error?.stack}`;
     }
 
     this.triggerFileInput('system', { allowMultiple: true });
+  }
+
+  // Add photo directly from camera (structural systems)
+  async addPhotoFromCamera(category: string, itemId: string) {
+    this.currentUploadContext = {
+      category,
+      itemId,
+      action: 'add'
+    };
+    this.triggerFileInput('camera', { allowMultiple: false });
+  }
+
+  // Add photo from gallery (structural systems)
+  async addPhotoFromGallery(category: string, itemId: string) {
+    this.currentUploadContext = {
+      category,
+      itemId,
+      action: 'add'
+    };
+    this.triggerFileInput('library', { allowMultiple: true });
+  }
+
+  // Take FDF photo directly from camera
+  async takeFDFPhotoCamera(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    await this.takeFDFPhoto(roomName, photoType, 'camera');
+  }
+
+  // Take FDF photo from gallery
+  async takeFDFPhotoGallery(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    await this.takeFDFPhoto(roomName, photoType, 'library');
+  }
+
+  // Capture point photo directly from camera
+  async capturePointPhotoCamera(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event) {
+    await this.capturePointPhoto(roomName, point, photoType, event, 'camera');
+  }
+
+  // Capture point photo from gallery
+  async capturePointPhotoGallery(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event) {
+    await this.capturePointPhoto(roomName, point, photoType, event, 'library');
   }
   
   // Save caption to the Annotation field in Services_Visuals_Attach table
