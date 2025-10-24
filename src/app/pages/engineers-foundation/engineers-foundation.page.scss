@@ -2655,20 +2655,34 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    
+    border: 2px solid #ddd !important; // Keep border
+    border-radius: 8px !important; // Keep rounded corners
+    padding: 8px !important; // Keep padding
+    background: #f9f9f9 !important; // Keep background color
+
     .fdf-photo-button {
-      padding: 6px 4px !important; // Smaller button padding
+      padding: 16px 8px !important; // Match desktop button padding for easier clicking
       font-size: 10px !important; // Smaller text
       margin-bottom: 12px !important; // Always add space below button
-      
+
       span {
         margin-bottom: 2px !important;
         font-size: 9px !important;
       }
-      
+
       ion-icon {
-        font-size: 14px !important; // Smaller icons
+        font-size: 28px !important; // Match desktop icon size for easier clicking
       }
+    }
+
+    // Center images in FDF section
+    .image-preview.fdf-photo-preview {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
   }
   
@@ -2791,6 +2805,10 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important; // Center all content in column
     text-align: center !important;
+    border: 2px solid #ddd !important; // Keep border
+    border-radius: 8px !important; // Keep rounded corners
+    padding: 8px !important; // Keep padding
+    background: #f9f9f9 !important; // Keep background color
   }
   
   // FIXED caption width to match new photo sizing
@@ -2832,18 +2850,32 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    
+    border: 2px solid #ddd !important; // Keep border
+    border-radius: 8px !important; // Keep rounded corners
+    padding: 8px !important; // Keep padding
+    background: #f9f9f9 !important; // Keep background color
+
     .fdf-photo-button {
-      padding: 4px 2px !important;
+      padding: 16px 8px !important; // Larger padding for easier clicking
       margin-bottom: 12px !important; // Always add space below button
-      
+
       span {
         font-size: 8px !important; // Tiny text for small screens
       }
-      
+
       ion-icon {
-        font-size: 12px !important;
+        font-size: 28px !important; // Larger icons for easier clicking
       }
+    }
+
+    // Center images in FDF section
+    .image-preview.fdf-photo-preview {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
   }
   
@@ -2966,6 +2998,10 @@ ion-content{--overflow:scroll !important;height:100%}
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
+    border: 2px solid #ddd !important; // Keep border
+    border-radius: 8px !important; // Keep rounded corners
+    padding: 8px !important; // Keep padding
+    background: #f9f9f9 !important; // Keep background color
   }
   
   // FIXED caption sizing for extra small screens
