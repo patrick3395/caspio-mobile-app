@@ -537,7 +537,7 @@
                           (ionChange)="toggleItemSelection(category, item.id)"
                           style="margin-top: 8px;">
                         </ion-checkbox>
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 50px;">
                           <ion-label class="item-label" (click)="showFullText(item)">
                             <h3>
                               {{ item.name }}
@@ -550,20 +550,20 @@
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                           </div>
                         </div>
                         <!-- Photo count badge in top right -->
                         <div *ngIf="isItemSelected(category, item.id) && getPhotosForVisual(category, item.id).length > 0"
-                             style="position: absolute; top: 8px; right: 12px; background: #F15A27; color: white; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 600; min-width: 24px; text-align: center;">
+                             style="position: absolute; top: 4px; right: 4px; background: #F15A27; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; z-index: 10;">
                           {{ getPhotosForVisual(category, item.id).length }}
                         </div>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
@@ -696,7 +696,7 @@
                           (ionChange)="toggleItemSelection(category, item.id)"
                           style="margin-top: 8px;">
                         </ion-checkbox>
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 50px;">
                           <ion-label class="item-label" (click)="showFullText(item)">
                             <h3>
                               {{ item.name }}
@@ -709,20 +709,20 @@
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                           </div>
                         </div>
                         <!-- Photo count badge in top right -->
                         <div *ngIf="isItemSelected(category, item.id) && getPhotosForVisual(category, item.id).length > 0"
-                             style="position: absolute; top: 8px; right: 12px; background: #F15A27; color: white; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 600; min-width: 24px; text-align: center;">
+                             style="position: absolute; top: 4px; right: 4px; background: #F15A27; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; z-index: 10;">
                           {{ getPhotosForVisual(category, item.id).length }}
                         </div>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
@@ -855,7 +855,7 @@
                           (ionChange)="toggleItemSelection(category, item.id)"
                           style="margin-top: 8px;">
                         </ion-checkbox>
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 50px;">
                           <ion-label class="item-label" (click)="showFullText(item)">
                             <h3>
                               {{ item.name }}
@@ -868,20 +868,20 @@
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important;">
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                               <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                             </button>
                           </div>
                         </div>
                         <!-- Photo count badge in top right -->
                         <div *ngIf="isItemSelected(category, item.id) && getPhotosForVisual(category, item.id).length > 0"
-                             style="position: absolute; top: 8px; right: 12px; background: #F15A27; color: white; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 600; min-width: 24px; text-align: center;">
+                             style="position: absolute; top: 4px; right: 4px; background: #F15A27; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; z-index: 10;">
                           {{ getPhotosForVisual(category, item.id).length }}
                         </div>
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
@@ -1088,23 +1088,23 @@
                 </div>
 
                 <!-- FDF Photos Section (hidden for Base Station) -->
-                <div class="fdf-photos-container" *ngIf="!isBaseStation(room.RoomName)" style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px;">
+                <div class="fdf-photos-container" *ngIf="!isBaseStation(room.RoomName)" style="margin-top: 10px;">
                   <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
-                  <div class="fdf-photos-row" style="display: flex; gap: 12px;">
+                  <div class="fdf-photos-row" style="display: flex; gap: 10px;">
                     <!-- Top Photo Column -->
-                    <div class="fdf-photo-column">
-                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <div class="fdf-photo-column" style="flex: 1; border: 2px solid #ddd; border-radius: 12px; padding: 12px; background: #f9f9f9;">
+                      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; text-align: center;">Top</div>
+                      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 22px;"></ion-icon>
                           <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 22px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
@@ -1135,19 +1135,19 @@
                     </div>
                     
                     <!-- Bottom Photo Column -->
-                    <div class="fdf-photo-column">
-                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <div class="fdf-photo-column" style="flex: 1; border: 2px solid #ddd; border-radius: 12px; padding: 12px; background: #f9f9f9;">
+                      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; text-align: center;">Bottom</div>
+                      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 22px;"></ion-icon>
                           <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 22px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
@@ -1178,19 +1178,19 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column">
-                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <div class="fdf-photo-column" style="flex: 1; border: 2px solid #ddd; border-radius: 12px; padding: 12px; background: #f9f9f9;">
+                      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; text-align: center;">Location</div>
+                      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 22px;"></ion-icon>
                           <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 22px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
@@ -1269,22 +1269,23 @@
                             </button>
                           </div>
                           <!-- Measurement Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview"
-                               [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading"
-                               style="margin-top: 8px;">
-                            <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
-                                 alt="Measurement">
-                            <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 8px;">
+                            <div class="image-preview fdf-photo-preview"
+                                 [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
+                              <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
+                                   width="90" height="90"
+                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                                   alt="Measurement">
+                              <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn"
+                                      *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
+                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
+                                      title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
                             </div>
-                            <button class="delete-btn"
-                                    *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
                             <!-- Caption text underneath photo -->
                             <button
                               class="room-photo-caption"
@@ -1311,22 +1312,23 @@
                             </button>
                           </div>
                           <!-- Location Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview"
-                               [class.uploading]="getPointPhotoByType(point, 'Location').uploading"
-                               style="margin-top: 8px;">
-                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                                 alt="Location">
-                            <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 8px;">
+                            <div class="image-preview fdf-photo-preview"
+                                 [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
+                              <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                   width="90" height="90"
+                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                   alt="Location">
+                              <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn"
+                                      *ngIf="!getPointPhotoByType(point, 'Location').uploading"
+                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                      title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
                             </div>
-                            <button class="delete-btn"
-                                    *ngIf="!getPointPhotoByType(point, 'Location').uploading"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
                             <!-- Caption text underneath photo -->
                             <button
                               class="room-photo-caption"
@@ -1558,19 +1560,19 @@
                     </div>
                     
                     <!-- Bottom Photo Column -->
-                    <div class="fdf-photo-column">
-                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <div class="fdf-photo-column" style="flex: 1; border: 2px solid #ddd; border-radius: 12px; padding: 12px; background: #f9f9f9;">
+                      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; text-align: center;">Bottom</div>
+                      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 22px;"></ion-icon>
                           <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 22px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
@@ -1601,19 +1603,19 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column">
-                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <div class="fdf-photo-column" style="flex: 1; border: 2px solid #ddd; border-radius: 12px; padding: 12px; background: #f9f9f9;">
+                      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; text-align: center;">Location</div>
+                      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 22px;"></ion-icon>
                           <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                                style="flex: 1; padding: 12px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 22px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
@@ -1691,22 +1693,23 @@
                             </button>
                           </div>
                           <!-- Measurement Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview"
-                               [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading"
-                               style="margin-top: 8px;">
-                            <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
-                                 alt="Measurement">
-                            <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 8px;">
+                            <div class="image-preview fdf-photo-preview"
+                                 [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
+                              <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
+                                   width="90" height="90"
+                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
+                                   alt="Measurement">
+                              <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn"
+                                      *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
+                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
+                                      title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
                             </div>
-                            <button class="delete-btn"
-                                    *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
                             <!-- Caption text underneath photo -->
                             <button
                               class="room-photo-caption"
@@ -1733,22 +1736,23 @@
                             </button>
                           </div>
                           <!-- Location Photo Thumbnail -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview"
-                               [class.uploading]="getPointPhotoByType(point, 'Location').uploading"
-                               style="margin-top: 8px;">
-                            <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
-                                 width="90" height="90"
-                                 (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
-                                 alt="Location">
-                            <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 8px;">
+                            <div class="image-preview fdf-photo-preview"
+                                 [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
+                              <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                                   width="90" height="90"
+                                   (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
+                                   alt="Location">
+                              <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn"
+                                      *ngIf="!getPointPhotoByType(point, 'Location').uploading"
+                                      (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
+                                      title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
                             </div>
-                            <button class="delete-btn"
-                                    *ngIf="!getPointPhotoByType(point, 'Location').uploading"
-                                    (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()"
-                                    title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
                             <!-- Caption text underneath photo -->
                             <button
                               class="room-photo-caption"
