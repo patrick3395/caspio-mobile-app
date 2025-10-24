@@ -528,35 +528,39 @@
                       <ion-item lines="none"
                                 class="checkbox-item with-camera"
                                 [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
-                                *ngIf="!item.answerType || item.answerType === 0">
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                title="Take photo from camera">
-                          <ion-icon name="camera"></ion-icon>
-                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                        </button>
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                title="Select from gallery"
-                                style="margin-left: 4px;">
-                          <ion-icon name="images"></ion-icon>
-                        </button>
-                        <ion-checkbox 
-                          slot="start" 
+                                *ngIf="!item.answerType || item.answerType === 0"
+                                style="min-height: 80px; align-items: flex-start;">
+                        <ion-checkbox
+                          slot="start"
                           [checked]="isItemSelected(category, item.id)"
                           [disabled]="isItemSaving(category, item.id)"
-                          (ionChange)="toggleItemSelection(category, item.id)">
+                          (ionChange)="toggleItemSelection(category, item.id)"
+                          style="margin-top: 8px;">
                         </ion-checkbox>
-                        <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                          <p class="item-text">{{ item.text }}</p>
-                        </ion-label>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                          <ion-label class="item-label" (click)="showFullText(item)">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text">{{ item.text }}</p>
+                          </ion-label>
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
+                                    title="Take photo from camera"
+                                    style="position: relative;">
+                              <ion-icon name="camera"></ion-icon>
+                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                            </button>
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
+                                    title="Select from gallery">
+                              <ion-icon name="images"></ion-icon>
+                            </button>
+                          </div>
+                        </div>
+                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
@@ -677,35 +681,39 @@
                       <ion-item lines="none"
                                 class="checkbox-item with-camera"
                                 [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
-                                *ngIf="!item.answerType || item.answerType === 0">
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                title="Take photo from camera">
-                          <ion-icon name="camera"></ion-icon>
-                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                        </button>
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                title="Select from gallery"
-                                style="margin-left: 4px;">
-                          <ion-icon name="images"></ion-icon>
-                        </button>
-                        <ion-checkbox 
-                          slot="start" 
+                                *ngIf="!item.answerType || item.answerType === 0"
+                                style="min-height: 80px; align-items: flex-start;">
+                        <ion-checkbox
+                          slot="start"
                           [checked]="isItemSelected(category, item.id)"
                           [disabled]="isItemSaving(category, item.id)"
-                          (ionChange)="toggleItemSelection(category, item.id)">
+                          (ionChange)="toggleItemSelection(category, item.id)"
+                          style="margin-top: 8px;">
                         </ion-checkbox>
-                        <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                          <p class="item-text">{{ item.text }}</p>
-                        </ion-label>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                          <ion-label class="item-label" (click)="showFullText(item)">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text">{{ item.text }}</p>
+                          </ion-label>
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
+                                    title="Take photo from camera"
+                                    style="position: relative;">
+                              <ion-icon name="camera"></ion-icon>
+                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                            </button>
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
+                                    title="Select from gallery">
+                              <ion-icon name="images"></ion-icon>
+                            </button>
+                          </div>
+                        </div>
+                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
@@ -826,35 +834,39 @@
                       <ion-item lines="none"
                                 class="checkbox-item with-camera"
                                 [class.has-photos]="getPhotosForVisual(category, item.id).length > 0"
-                                *ngIf="!item.answerType || item.answerType === 0">
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                title="Take photo from camera">
-                          <ion-icon name="camera"></ion-icon>
-                          <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
-                        </button>
-                        <button class="camera-button-structural"
-                                *ngIf="isItemSelected(category, item.id)"
-                                (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                title="Select from gallery"
-                                style="margin-left: 4px;">
-                          <ion-icon name="images"></ion-icon>
-                        </button>
-                        <ion-checkbox 
-                          slot="start" 
+                                *ngIf="!item.answerType || item.answerType === 0"
+                                style="min-height: 80px; align-items: flex-start;">
+                        <ion-checkbox
+                          slot="start"
                           [checked]="isItemSelected(category, item.id)"
                           [disabled]="isItemSaving(category, item.id)"
-                          (ionChange)="toggleItemSelection(category, item.id)">
+                          (ionChange)="toggleItemSelection(category, item.id)"
+                          style="margin-top: 8px;">
                         </ion-checkbox>
-                        <ion-label class="item-label" (click)="showFullText(item)">
-                          <h3>
-                            {{ item.name }}
-                            <span class="required-indicator" *ngIf="item.required">*</span>
-                          </h3>
-                          <p class="item-text">{{ item.text }}</p>
-                        </ion-label>
-                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                          <ion-label class="item-label" (click)="showFullText(item)">
+                            <h3>
+                              {{ item.name }}
+                              <span class="required-indicator" *ngIf="item.required">*</span>
+                            </h3>
+                            <p class="item-text">{{ item.text }}</p>
+                          </ion-label>
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
+                                    title="Take photo from camera"
+                                    style="position: relative;">
+                              <ion-icon name="camera"></ion-icon>
+                              <span *ngIf="getPhotosForVisual(category, item.id).length > 0" class="photo-badge">{{ getPhotosForVisual(category, item.id).length }}</span>
+                            </button>
+                            <button class="camera-button-structural"
+                                    (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
+                                    title="Select from gallery">
+                              <ion-icon name="images"></ion-icon>
+                            </button>
+                          </div>
+                        </div>
+                        <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) -->
@@ -1224,28 +1236,29 @@
                       </div>
                       
                       <!-- Measurement and Location Photos -->
-                      <div style="margin-top: 12px; display: flex; gap: 12px;">
-                        <!-- Measurement Photo -->
-                        <div style="flex: 1; min-width: 120px; text-align: center;">
-                          <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Measurement Photo Section -->
+                        <div>
+                          <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Measurement</div>
+                          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                              <span style="margin-bottom: 4px;">Measurement</span>
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                              <span>Camera</span>
                               <ion-icon *ngIf="getPointPhotoByType(point, 'Measurement')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                              <span style="margin-bottom: 4px;">Measurement</span>
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                              <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                              <span>Gallery</span>
                             </button>
                           </div>
-                          <!-- Measurement Photo Thumbnail - Match Structural Systems structure -->
-                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview" 
-                               [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading" 
-                               style="margin-top: 12px;">
+                          <!-- Measurement Photo Thumbnail -->
+                          <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="image-preview fdf-photo-preview"
+                               [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading"
+                               style="margin-top: 8px;">
                             <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
                                  width="90" height="90"
                                  (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), room.RoomName, point)"
@@ -1260,35 +1273,36 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath photo -->
-                            <button 
-                              class="room-photo-caption" 
+                            <button
+                              class="room-photo-caption"
                               (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), room.RoomName, point); $event.stopPropagation()">
                               {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
                             </button>
                           </div>
                         </div>
-                        
-                        <!-- Location Photo -->
-                        <div style="flex: 1; min-width: 120px; text-align: center;">
-                          <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+
+                        <!-- Location Photo Section -->
+                        <div>
+                          <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Location</div>
+                          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                              <span style="margin-bottom: 4px;">Location</span>
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                              <span>Camera</span>
                               <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                              <span style="margin-bottom: 4px;">Location</span>
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                              <ion-icon name="images" style="font-size: 20px;"></ion-icon>
+                              <span>Gallery</span>
                             </button>
                           </div>
-                          <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview" 
-                               [class.uploading]="getPointPhotoByType(point, 'Location').uploading" 
-                               style="margin-top: 12px;">
+                          <!-- Location Photo Thumbnail -->
+                          <div *ngIf="getPointPhotoByType(point, 'Location')" class="image-preview fdf-photo-preview"
+                               [class.uploading]="getPointPhotoByType(point, 'Location').uploading"
+                               style="margin-top: 8px;">
                             <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
                                  width="90" height="90"
                                  (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), room.RoomName, point)"
@@ -1303,8 +1317,8 @@
                               <ion-icon name="close"></ion-icon>
                             </button>
                             <!-- Caption text underneath photo -->
-                            <button 
-                              class="room-photo-caption" 
+                            <button
+                              class="room-photo-caption"
                               (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), room.RoomName, point); $event.stopPropagation()">
                               {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
                             </button>

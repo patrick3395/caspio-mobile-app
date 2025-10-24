@@ -10275,12 +10275,36 @@ Stack: ${error?.stack}`;
 
   // Add photo from gallery (structural systems)
   async addPhotoFromGallery(category: string, itemId: string) {
-    this.currentUploadContext = {
-      category,
-      itemId,
-      action: 'add'
-    };
-    this.triggerFileInput('library', { allowMultiple: true });
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Photos
+      });
+
+      if (image.webPath) {
+        // Convert the image to a File object
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Set context and process the file
+        this.currentUploadContext = {
+          category,
+          itemId,
+          action: 'add'
+        };
+
+        // Manually trigger file handling
+        await this.handleFiles([file]);
+      }
+    } catch (error) {
+      if (error !== 'User cancelled photos app') {
+        console.error('Error selecting photo from gallery:', error);
+        await this.showToast('Failed to select photo', 'danger');
+      }
+    }
   }
 
   // Take FDF photo directly from camera
@@ -10290,7 +10314,43 @@ Stack: ${error?.stack}`;
 
   // Take FDF photo from gallery
   async takeFDFPhotoGallery(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
-    await this.takeFDFPhoto(roomName, photoType, 'library');
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId) {
+      await this.showToast('Please save the room first', 'warning');
+      return;
+    }
+
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Photos
+      });
+
+      if (image.webPath) {
+        // Convert the image to a File object
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Set FDF context
+        this.currentFDFPhotoContext = {
+          roomName,
+          photoType,
+          roomId
+        };
+
+        // Process the FDF photo
+        await this.processFDFPhoto(file);
+        this.currentFDFPhotoContext = null;
+      }
+    } catch (error) {
+      if (error !== 'User cancelled photos app') {
+        console.error('Error selecting FDF photo from gallery:', error);
+        await this.showToast('Failed to select photo', 'danger');
+      }
+    }
   }
 
   // Capture point photo directly from camera
@@ -10300,7 +10360,112 @@ Stack: ${error?.stack}`;
 
   // Capture point photo from gallery
   async capturePointPhotoGallery(roomName: string, point: any, photoType: 'Location' | 'Measurement', event?: Event) {
-    await this.capturePointPhoto(roomName, point, photoType, event, 'library');
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    try {
+      const roomId = this.efeRecordIds[roomName];
+      if (!roomId) {
+        await this.showToast('Please save the room first', 'warning');
+        return;
+      }
+
+      if (roomId === '__pending__') {
+        await this.showToast('Room is queued for creation. Please enable Auto-Save first.', 'warning');
+        return;
+      }
+
+      const pointKey = `${roomName}_${point.name}`;
+      let pointId = this.efePointIds[pointKey];
+
+      if (!pointId || pointId === '__pending__') {
+        if (this.manualOffline) {
+          await this.showToast('Please enable Auto-Save to take photos', 'warning');
+          return;
+        }
+
+        const pointData = {
+          EFEID: parseInt(roomId),
+          PointName: point.name
+        };
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+          pointId = createResponse.PointID || createResponse.PK_ID;
+          this.efePointIds[pointKey] = pointId;
+        } else {
+          throw new Error('Failed to create point record');
+        }
+      }
+
+      // Check if this photo type already exists
+      const existingPhoto = this.getPointPhotoByType(point, photoType);
+      if (existingPhoto) {
+        const alert = await this.alertController.create({
+          header: 'Replace Photo',
+          message: `A ${photoType} photo already exists for this point. Replace it?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Replace',
+              handler: async () => {
+                await this.deleteRoomPhoto(existingPhoto, roomName, point, true);
+                await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
+      await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
+
+    } catch (error) {
+      console.error('Error in capturePointPhotoGallery:', error);
+      await this.showToast('Failed to select photo', 'danger');
+    }
+  }
+
+  // Helper method to select and process gallery photo for elevation point
+  private async selectAndProcessGalleryPhotoForPoint(roomName: string, point: any, pointId: string, roomId: string, photoType: 'Location' | 'Measurement') {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Photos
+      });
+
+      if (image.webPath) {
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Set context
+        this.currentRoomPointContext = {
+          roomName,
+          point,
+          pointId,
+          roomId,
+          photoType
+        };
+        this.skipElevationAnnotation = true;
+
+        // Process the file
+        await this.handleRoomPointFiles([file]);
+        this.currentRoomPointContext = null;
+      }
+    } catch (error) {
+      if (error !== 'User cancelled photos app') {
+        throw error;
+      }
+    }
   }
   
   // Save caption to the Annotation field in Services_Visuals_Attach table
