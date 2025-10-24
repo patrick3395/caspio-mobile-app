@@ -10296,8 +10296,30 @@ Stack: ${error?.stack}`;
           action: 'add'
         };
 
-        // Manually trigger file handling
-        await this.handleFiles([file]);
+        // Get or create visual ID
+        const key = `${category}_${itemId}`;
+        let visualId = this.visualRecordIds[key];
+
+        if (!visualId) {
+          await this.saveVisualSelection(category, itemId);
+          visualId = this.visualRecordIds[key];
+        }
+
+        if (visualId) {
+          // Process the file (no annotation for gallery selections)
+          const processedFile = {
+            file: file,
+            annotationData: null,
+            originalFile: undefined,
+            caption: ''
+          };
+
+          // Upload the photo
+          await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
+          this.markReportChanged();
+        }
+
+        this.currentUploadContext = null;
       }
     } catch (error) {
       if (error !== 'User cancelled photos app') {
@@ -10447,19 +10469,97 @@ Stack: ${error?.stack}`;
         const blob = await response.blob();
         const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-        // Set context
-        this.currentRoomPointContext = {
-          roomName,
-          point,
-          pointId,
-          roomId,
-          photoType
-        };
-        this.skipElevationAnnotation = true;
+        // Process the file without annotation (gallery selection)
+        const photoUrl = URL.createObjectURL(file);
 
-        // Process the file
-        await this.handleRoomPointFiles([file]);
-        this.currentRoomPointContext = null;
+        if (!point.photos) {
+          point.photos = [];
+        }
+
+        // Check if we should replace an existing photo of this type
+        const existingPhotoIndex = point.photos.findIndex((p: any) =>
+          (p.photoType === photoType) ||
+          (p.annotation && p.annotation.startsWith(`${photoType}:`))
+        );
+
+        const photoEntry: any = {
+          url: photoUrl,
+          thumbnailUrl: photoUrl,
+          photoType: photoType,
+          annotation: '',
+          caption: '',
+          uploading: true,
+          file: file,
+          originalFile: undefined,
+          annotationData: null,
+          attachId: null
+        };
+
+        if (existingPhotoIndex >= 0) {
+          point.photos[existingPhotoIndex] = photoEntry;
+        } else {
+          point.photos.push(photoEntry);
+        }
+
+        this.changeDetectorRef.detectChanges();
+
+        // Upload the photo
+        try {
+          const compressedFile = await this.imageCompression.compressImage(file);
+          const uploadFormData = new FormData();
+          const fileName = `EFE_${roomName}_${point.name}_${photoType}_${Date.now()}.jpg`;
+          uploadFormData.append('file', compressedFile, fileName);
+
+          const token = await firstValueFrom(this.caspioService.getValidToken());
+          const account = this.caspioService.getAccountID();
+
+          const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: uploadFormData
+          });
+
+          const uploadResult = await uploadResponse.json();
+          const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
+          const filePath = `/${uploadedFileName}`;
+
+          // Create attachment record
+          const attachData = {
+            PointID: parseInt(pointId),
+            FilePath: filePath,
+            Annotation: photoEntry.caption || '',
+            PhotoType: photoType
+          };
+
+          const attachResponse = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records', attachData).toPromise();
+
+          if (attachResponse && attachResponse.AttachID) {
+            photoEntry.attachId = attachResponse.AttachID;
+            photoEntry.AttachID = attachResponse.AttachID;
+            photoEntry.filePath = filePath;
+
+            const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+            if (imageData && imageData.startsWith('data:')) {
+              photoEntry.url = imageData;
+              photoEntry.thumbnailUrl = imageData;
+              URL.revokeObjectURL(photoUrl);
+            }
+          }
+
+          photoEntry.uploading = false;
+          this.changeDetectorRef.detectChanges();
+          this.markReportChanged();
+
+        } catch (uploadError) {
+          console.error('Error uploading gallery photo:', uploadError);
+          photoEntry.uploading = false;
+          await this.showToast('Failed to upload photo', 'danger');
+          const photoIndex = point.photos.indexOf(photoEntry);
+          if (photoIndex >= 0) {
+            point.photos.splice(photoIndex, 1);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
       }
     } catch (error) {
       if (error !== 'User cancelled photos app') {
