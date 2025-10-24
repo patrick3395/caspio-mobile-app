@@ -546,18 +546,18 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 12px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="camera"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="images"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                         </div>
@@ -705,18 +705,18 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 12px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="camera"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="images"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                         </div>
@@ -864,18 +864,18 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 12px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="camera"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
                                     title="Select from gallery"
-                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important;">
-                              <ion-icon name="images"></ion-icon>
+                                    style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 4px !important; border-radius: 0 !important;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                         </div>
@@ -1093,19 +1093,18 @@
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Top</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Top</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
@@ -1137,19 +1136,18 @@
                     
                     <!-- Bottom Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Bottom</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Bottom</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
@@ -1181,19 +1179,18 @@
                     
                     <!-- Location Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Location</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Location</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
@@ -1519,19 +1516,18 @@
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Top</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Top</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
@@ -1563,19 +1559,18 @@
                     
                     <!-- Bottom Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Bottom</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Bottom</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
@@ -1607,19 +1602,18 @@
                     
                     <!-- Location Photo Column -->
                     <div class="fdf-photo-column">
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <span style="margin-bottom: 4px;">Location</span>
-                          <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 16px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                          <ion-icon name="camera" style="font-size: 20px;"></ion-icon>
+                          <ion-icon *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" name="checkmark-circle" style="color: #4CAF50; position: absolute; top: 4px; right: 4px; font-size: 14px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 8px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <span style="margin-bottom: 4px;">Location</span>
-                          <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                style="flex: 1; padding: 10px 6px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                          <ion-icon name="images" style="font-size: 20px;"></ion-icon>
                         </button>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
