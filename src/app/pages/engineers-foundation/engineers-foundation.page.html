@@ -546,15 +546,17 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; margin-top: 4px;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                    title="Take photo from camera">
+                                    title="Take photo from camera"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="camera"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                    title="Select from gallery">
+                                    title="Select from gallery"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="images"></ion-icon>
                             </button>
                           </div>
@@ -703,15 +705,17 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; margin-top: 4px;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                    title="Take photo from camera">
+                                    title="Take photo from camera"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="camera"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                    title="Select from gallery">
+                                    title="Select from gallery"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="images"></ion-icon>
                             </button>
                           </div>
@@ -860,15 +864,17 @@
                             <p class="item-text">{{ item.text }}</p>
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
-                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 8px; margin-top: 4px;">
+                          <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 10px; margin-top: 6px; align-items: center; flex-wrap: nowrap;">
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
-                                    title="Take photo from camera">
+                                    title="Take photo from camera"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="camera"></ion-icon>
                             </button>
                             <button class="camera-button-structural"
                                     (click)="addPhotoFromGallery(category, item.id); $event.stopPropagation()"
-                                    title="Select from gallery">
+                                    title="Select from gallery"
+                                    style="display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0;">
                               <ion-icon name="images"></ion-icon>
                             </button>
                           </div>
