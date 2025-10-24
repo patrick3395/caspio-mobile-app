@@ -10531,7 +10531,7 @@ Stack: ${error?.stack}`;
             PhotoType: photoType
           };
 
-          const attachResponse = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records', attachData).toPromise();
+          const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records', attachData).toPromise();
 
           if (attachResponse && attachResponse.AttachID) {
             photoEntry.attachId = attachResponse.AttachID;
