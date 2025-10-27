@@ -286,26 +286,36 @@ export async function renderAnnotationsOnPhoto(
   annotationData: string | FabricAnnotationPayload | null | undefined,
   options: { quality?: number; format?: 'jpeg' | 'png' } = {}
 ): Promise<string | null> {
+  console.log('[renderAnnotationsOnPhoto] Starting...', { imageUrl: imageUrl.substring(0, 50), hasAnnotations: !!annotationData });
+
   // Return original if no annotations
   if (!annotationData) {
+    console.log('[renderAnnotationsOnPhoto] No annotation data, returning original');
     return imageUrl;
   }
 
   // Decompress annotation data
   const annotations = decompressAnnotationData(annotationData);
+  console.log('[renderAnnotationsOnPhoto] Decompressed annotations:', { objectCount: annotations?.objects?.length });
+
   if (!annotations || !annotations.objects || annotations.objects.length === 0) {
+    console.log('[renderAnnotationsOnPhoto] No annotation objects, returning original');
     return imageUrl;
   }
 
   try {
+    console.log('[renderAnnotationsOnPhoto] Loading Fabric.js...');
     // Dynamically import fabric - the module itself IS the fabric object
     const fabric = await import('fabric');
+    console.log('[renderAnnotationsOnPhoto] Fabric.js loaded');
 
     // Load the image using Fabric.js
+    console.log('[renderAnnotationsOnPhoto] Loading image...');
     const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' });
     if (!img) {
       throw new Error('Failed to load image');
     }
+    console.log('[renderAnnotationsOnPhoto] Image loaded:', { width: img.width, height: img.height });
 
     // Create canvas with image dimensions
     const canvas = document.createElement('canvas');
@@ -317,19 +327,24 @@ export async function renderAnnotationsOnPhoto(
       width: img.width || 800,
       height: img.height || 600
     });
+    console.log('[renderAnnotationsOnPhoto] Fabric canvas created');
 
     // Set image as background
     img.selectable = false;
     img.evented = false;
     fabricCanvas.backgroundImage = img;
     fabricCanvas.renderAll();
+    console.log('[renderAnnotationsOnPhoto] Background image set');
 
     // Load annotations onto canvas
+    console.log('[renderAnnotationsOnPhoto] Loading annotations onto canvas...');
     await new Promise<void>((resolve, reject) => {
       try {
         fabricCanvas.loadFromJSON(annotations, () => {
           // Filter out any image objects (we only want annotations)
           const objects = fabricCanvas.getObjects();
+          console.log('[renderAnnotationsOnPhoto] Objects loaded:', objects.length);
+
           objects.forEach((obj: any) => {
             if (obj.type === 'image') {
               fabricCanvas.remove(obj);
@@ -337,9 +352,11 @@ export async function renderAnnotationsOnPhoto(
           });
 
           fabricCanvas.renderAll();
+          console.log('[renderAnnotationsOnPhoto] Annotations rendered on canvas');
           resolve();
         });
       } catch (error) {
+        console.error('[renderAnnotationsOnPhoto] Error in loadFromJSON:', error);
         reject(error);
       }
     });
@@ -347,11 +364,13 @@ export async function renderAnnotationsOnPhoto(
     // Export as data URL
     const quality = options.quality || 0.9;
     const format = options.format || 'jpeg';
+    console.log('[renderAnnotationsOnPhoto] Exporting as data URL...');
     const dataUrl = fabricCanvas.toDataURL({
       format: format,
       quality: quality,
       multiplier: 1
     });
+    console.log('[renderAnnotationsOnPhoto] Export complete, data URL length:', dataUrl.length);
 
     // Cleanup
     fabricCanvas.dispose();

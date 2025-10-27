@@ -542,12 +542,24 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async loadCompanyData(showSpinner: boolean = true) {
-    let loading: HTMLIonLoadingElement | null = null;
+    let loading: HTMLIonAlertElement | null = null;
+    let cancelled = false;
     try {
       if (showSpinner) {
-        loading = await this.loadingController.create({
-          message: this.isInitialLoad ? 'Loading CRM data...' : 'Refreshing data...',
-          spinner: 'lines'
+        loading = await this.alertController.create({
+          header: this.isInitialLoad ? 'Loading CRM' : 'Refreshing CRM',
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel',
+              handler: () => {
+                cancelled = true;
+                return true;
+              }
+            }
+          ],
+          backdropDismiss: false,
+          cssClass: 'template-loading-alert'
         });
         await loading.present();
       }
@@ -585,6 +597,11 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
+
+      // Check if user cancelled during data fetch
+      if (cancelled) {
+        return;
+      }
 
       this.populateStageDefinitions(stageRecords);
       this.populateCommunicationTypes(communicationRecords);
