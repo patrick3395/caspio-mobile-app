@@ -284,6 +284,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   savingRooms: { [roomName: string]: boolean } = {};
   renamingRooms: { [roomName: string]: boolean } = {}; // Track rooms being renamed to prevent checkbox toggles
   efePointIds: { [key: string]: string } = {}; // Track Services_EFE_Points IDs
+  pointCreationStatus: { [key: string]: 'pending' | 'created' | 'failed' | 'retrying' } = {}; // Track point creation status
+  pointCreationErrors: { [key: string]: string } = {}; // Track error messages for failed points
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
@@ -2412,8 +2414,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // Get point ID - should already exist from pre-creation
+      // Check point status before allowing photo capture
       const pointKey = `${roomName}_${point.name}`;
+      const pointStatus = this.pointCreationStatus[pointKey];
+
+      if (pointStatus === 'failed') {
+        const errorMsg = this.pointCreationErrors[pointKey] || 'Point creation failed';
+        const alert = await this.alertController.create({
+          header: 'Point Creation Failed',
+          message: `Cannot upload photo. ${errorMsg}. Would you like to retry creating this point?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Retry',
+              handler: async () => {
+                await this.retryPointCreation(roomName, point);
+                return true;
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
+      if (pointStatus === 'pending' || pointStatus === 'retrying') {
+        await this.showToast('Point is being created. Please wait...', 'warning');
+        return;
+      }
+
+      // Get point ID - should already exist from pre-creation
       let pointId = this.efePointIds[pointKey];
 
       if (!pointId || pointId === '__pending__') {
@@ -2427,19 +2460,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Create it now - this should be rare since template points are pre-created
         console.log(`[Photo Capture] Point ${point.name} not pre-created, creating now...`);
 
-        const pointData = {
-          EFEID: parseInt(roomId),
-          PointName: point.name
-        };
-        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+        // Mark as pending during creation
+        this.pointCreationStatus[pointKey] = 'pending';
+        this.changeDetectorRef.detectChanges();
 
-        // Use PointID from response, NOT PK_ID!
-        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-          pointId = createResponse.PointID || createResponse.PK_ID;
-          this.efePointIds[pointKey] = pointId;
-          console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
-        } else {
-          throw new Error('Failed to create point record');
+        try {
+          const pointData = {
+            EFEID: parseInt(roomId),
+            PointName: point.name
+          };
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+          // Use PointID from response, NOT PK_ID!
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            this.pointCreationStatus[pointKey] = 'created';
+            console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
+          } else {
+            this.pointCreationStatus[pointKey] = 'failed';
+            this.pointCreationErrors[pointKey] = 'No PointID returned';
+            throw new Error('Failed to create point record');
+          }
+        } catch (error: any) {
+          this.pointCreationStatus[pointKey] = 'failed';
+          if (error.status === 0 || error.name === 'TimeoutError') {
+            this.pointCreationErrors[pointKey] = 'Network error - poor connection';
+          } else {
+            this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+          }
+          this.changeDetectorRef.detectChanges();
+          throw error;
         }
       }
 
@@ -3315,6 +3366,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Skip if offline mode
       if (this.manualOffline || roomId === '__pending__') {
         console.log(`[Pre-create Points] Skipping for ${roomName} - offline mode`);
+        // Mark all points as pending for offline mode
+        const roomData = this.roomElevationData[roomName];
+        if (roomData && roomData.elevationPoints) {
+          roomData.elevationPoints.forEach((point: any) => {
+            const pointKey = `${roomName}_${point.name}`;
+            this.pointCreationStatus[pointKey] = 'pending';
+          });
+        }
         return;
       }
 
@@ -3327,6 +3386,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       console.log(`[Pre-create Points] Creating ${roomData.elevationPoints.length} points for ${roomName}`);
 
+      // Mark all points as pending initially
+      roomData.elevationPoints.forEach((point: any) => {
+        const pointKey = `${roomName}_${point.name}`;
+        if (!this.efePointIds[pointKey]) {
+          this.pointCreationStatus[pointKey] = 'pending';
+        }
+      });
+
+      // Trigger change detection to show pending status
+      this.changeDetectorRef.detectChanges();
+
+      let failedCount = 0;
+
       // Create all points in parallel for speed
       const pointCreationPromises = roomData.elevationPoints.map(async (point: any) => {
         const pointKey = `${roomName}_${point.name}`;
@@ -3334,6 +3406,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Skip if point already exists
         if (this.efePointIds[pointKey]) {
           console.log(`[Pre-create Points] Point ${point.name} already exists, skipping`);
+          this.pointCreationStatus[pointKey] = 'created';
           return;
         }
 
@@ -3345,6 +3418,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Point already exists, use its PointID
             const pointId = existingPoint.PointID || existingPoint.PK_ID;
             this.efePointIds[pointKey] = pointId;
+            this.pointCreationStatus[pointKey] = 'created';
+            delete this.pointCreationErrors[pointKey];
             console.log(`[Pre-create Points] Found existing point ${point.name} with ID ${pointId}`);
           } else {
             // Create new Services_EFE_Points record
@@ -3357,25 +3432,157 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
               const pointId = createResponse.PointID || createResponse.PK_ID;
               this.efePointIds[pointKey] = pointId;
+              this.pointCreationStatus[pointKey] = 'created';
+              delete this.pointCreationErrors[pointKey];
               console.log(`[Pre-create Points] Created point ${point.name} with ID ${pointId}`);
             } else {
               console.error(`[Pre-create Points] Failed to get PointID for ${point.name}`, createResponse);
+              this.pointCreationStatus[pointKey] = 'failed';
+              this.pointCreationErrors[pointKey] = 'Failed to create point - no PointID returned';
+              failedCount++;
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[Pre-create Points] Error creating point ${point.name}:`, error);
-          // Continue with other points even if one fails
+          this.pointCreationStatus[pointKey] = 'failed';
+          // Store a user-friendly error message
+          if (error.status === 0 || error.name === 'TimeoutError') {
+            this.pointCreationErrors[pointKey] = 'Network error - poor connection';
+          } else if (error.status >= 500) {
+            this.pointCreationErrors[pointKey] = 'Server error - please retry';
+          } else {
+            this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+          }
+          failedCount++;
         }
       });
 
       // Wait for all points to be created
       await Promise.all(pointCreationPromises);
-      console.log(`[Pre-create Points] Completed for ${roomName}`);
+
+      // Trigger change detection to update UI with final status
+      this.changeDetectorRef.detectChanges();
+
+      console.log(`[Pre-create Points] Completed for ${roomName} - ${failedCount} failed`);
+
+      // Show toast if any points failed
+      if (failedCount > 0) {
+        await this.showToast(
+          `Room created, but ${failedCount} point${failedCount > 1 ? 's' : ''} failed. Tap Retry to fix.`,
+          'warning',
+          5000
+        );
+      }
 
     } catch (error) {
       console.error(`[Pre-create Points] Error creating points for ${roomName}:`, error);
       // Don't throw - allow room creation to succeed even if point creation has issues
     }
+  }
+
+  // Retry creating a failed point
+  async retryPointCreation(roomName: string, point: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId || roomId === '__pending__') {
+      await this.showToast('Room not created yet', 'warning');
+      return;
+    }
+
+    const pointKey = `${roomName}_${point.name}`;
+
+    // Mark as retrying
+    this.pointCreationStatus[pointKey] = 'retrying';
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      console.log(`[Retry Point] Retrying creation for ${point.name}`);
+
+      // First check if point already exists in database
+      const existingPoint = await this.caspioService.checkEFEPointExists(roomId, point.name).toPromise();
+
+      if (existingPoint) {
+        // Point already exists, use its PointID
+        const pointId = existingPoint.PointID || existingPoint.PK_ID;
+        this.efePointIds[pointKey] = pointId;
+        this.pointCreationStatus[pointKey] = 'created';
+        delete this.pointCreationErrors[pointKey];
+        console.log(`[Retry Point] Found existing point ${point.name} with ID ${pointId}`);
+        await this.showToast(`Point "${point.name}" recovered successfully`, 'success');
+      } else {
+        // Create new Services_EFE_Points record
+        const pointData = {
+          EFEID: parseInt(roomId),
+          PointName: point.name
+        };
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+          const pointId = createResponse.PointID || createResponse.PK_ID;
+          this.efePointIds[pointKey] = pointId;
+          this.pointCreationStatus[pointKey] = 'created';
+          delete this.pointCreationErrors[pointKey];
+          console.log(`[Retry Point] Created point ${point.name} with ID ${pointId}`);
+          await this.showToast(`Point "${point.name}" created successfully`, 'success');
+        } else {
+          console.error(`[Retry Point] Failed to get PointID for ${point.name}`, createResponse);
+          this.pointCreationStatus[pointKey] = 'failed';
+          this.pointCreationErrors[pointKey] = 'Failed to create point - no PointID returned';
+          await this.showToast(`Failed to create point "${point.name}"`, 'danger');
+        }
+      }
+    } catch (error: any) {
+      console.error(`[Retry Point] Error creating point ${point.name}:`, error);
+      this.pointCreationStatus[pointKey] = 'failed';
+
+      // Store a user-friendly error message
+      if (error.status === 0 || error.name === 'TimeoutError') {
+        this.pointCreationErrors[pointKey] = 'Network error - poor connection';
+        await this.showToast('Network error - check your connection', 'danger');
+      } else if (error.status >= 500) {
+        this.pointCreationErrors[pointKey] = 'Server error - please retry';
+        await this.showToast('Server error - please try again', 'danger');
+      } else {
+        this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+        await this.showToast(`Error: ${error.message || 'Failed to create point'}`, 'danger');
+      }
+    } finally {
+      // Trigger change detection to update UI
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  // Helper methods for point status
+  getPointStatus(roomName: string, point: any): 'pending' | 'created' | 'failed' | 'retrying' | undefined {
+    const pointKey = `${roomName}_${point.name}`;
+    return this.pointCreationStatus[pointKey];
+  }
+
+  isPointReady(roomName: string, point: any): boolean {
+    const pointKey = `${roomName}_${point.name}`;
+    const status = this.pointCreationStatus[pointKey];
+    // Point is ready if it's created, or if no status tracking yet (for backward compatibility)
+    return status === 'created' || status === undefined;
+  }
+
+  isPointPending(roomName: string, point: any): boolean {
+    const pointKey = `${roomName}_${point.name}`;
+    const status = this.pointCreationStatus[pointKey];
+    return status === 'pending' || status === 'retrying';
+  }
+
+  isPointFailed(roomName: string, point: any): boolean {
+    const pointKey = `${roomName}_${point.name}`;
+    return this.pointCreationStatus[pointKey] === 'failed';
+  }
+
+  getPointError(roomName: string, point: any): string | undefined {
+    const pointKey = `${roomName}_${point.name}`;
+    return this.pointCreationErrors[pointKey];
   }
 
   // Remove room from Services_EFE
@@ -10394,7 +10601,38 @@ Stack: ${error?.stack}`;
         return;
       }
 
+      // Check point status before allowing photo capture
       const pointKey = `${roomName}_${point.name}`;
+      const pointStatus = this.pointCreationStatus[pointKey];
+
+      if (pointStatus === 'failed') {
+        const errorMsg = this.pointCreationErrors[pointKey] || 'Point creation failed';
+        const alert = await this.alertController.create({
+          header: 'Point Creation Failed',
+          message: `Cannot upload photo. ${errorMsg}. Would you like to retry creating this point?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Retry',
+              handler: async () => {
+                await this.retryPointCreation(roomName, point);
+                return true;
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
+      if (pointStatus === 'pending' || pointStatus === 'retrying') {
+        await this.showToast('Point is being created. Please wait...', 'warning');
+        return;
+      }
+
       let pointId = this.efePointIds[pointKey];
 
       if (!pointId || pointId === '__pending__') {
@@ -10403,17 +10641,35 @@ Stack: ${error?.stack}`;
           return;
         }
 
-        const pointData = {
-          EFEID: parseInt(roomId),
-          PointName: point.name
-        };
-        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+        // Mark as pending during creation
+        this.pointCreationStatus[pointKey] = 'pending';
+        this.changeDetectorRef.detectChanges();
 
-        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-          pointId = createResponse.PointID || createResponse.PK_ID;
-          this.efePointIds[pointKey] = pointId;
-        } else {
-          throw new Error('Failed to create point record');
+        try {
+          const pointData = {
+            EFEID: parseInt(roomId),
+            PointName: point.name
+          };
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            this.pointCreationStatus[pointKey] = 'created';
+          } else {
+            this.pointCreationStatus[pointKey] = 'failed';
+            this.pointCreationErrors[pointKey] = 'No PointID returned';
+            throw new Error('Failed to create point record');
+          }
+        } catch (error: any) {
+          this.pointCreationStatus[pointKey] = 'failed';
+          if (error.status === 0 || error.name === 'TimeoutError') {
+            this.pointCreationErrors[pointKey] = 'Network error - poor connection';
+          } else {
+            this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+          }
+          this.changeDetectorRef.detectChanges();
+          throw error;
         }
       }
 

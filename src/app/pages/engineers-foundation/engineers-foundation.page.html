@@ -1239,14 +1239,39 @@
                   <div class="elevation-points-grid">
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
-                        <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                          <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                          <!-- Point Status Badge -->
+                          <span *ngIf="isPointPending(room.RoomName, point)"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #ffc107; color: white; white-space: nowrap;"
+                                title="Point is being created...">
+                            <ion-icon name="hourglass-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon> Creating
+                          </span>
+                          <span *ngIf="isPointFailed(room.RoomName, point)"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #dc3545; color: white; white-space: nowrap;"
+                                [title]="getPointError(room.RoomName, point)">
+                            <ion-icon name="alert-circle-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon> Failed
+                          </span>
+                          <span *ngIf="getPointStatus(room.RoomName, point) === 'created'"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #28a745; color: white; white-space: nowrap;"
+                                title="Point ready for photos">
+                            <ion-icon name="checkmark-circle-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon>
+                          </span>
+                        </div>
+                        <button *ngIf="isPointFailed(room.RoomName, point)"
+                                class="delete-point-btn"
+                                (click)="retryPointCreation(room.RoomName, point, $event)"
+                                title="Retry Point Creation"
+                                style="background: #007bff; color: white; margin-right: 4px;">
+                          <ion-icon name="refresh-outline"></ion-icon>
+                        </button>
                         <button class="delete-point-btn"
                                 (click)="deleteElevationPoint(room.RoomName, point)"
                                 title="Delete Point">
                           <ion-icon name="trash-outline"></ion-icon>
                         </button>
                       </div>
-                      
+
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
@@ -1254,13 +1279,19 @@
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1296,13 +1327,19 @@
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1658,14 +1695,39 @@
                   <div class="elevation-points-grid">
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
-                        <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                          <span class="point-label" [title]="point.name">{{ point.name }}</span>
+                          <!-- Point Status Badge -->
+                          <span *ngIf="isPointPending(room.RoomName, point)"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #ffc107; color: white; white-space: nowrap;"
+                                title="Point is being created...">
+                            <ion-icon name="hourglass-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon> Creating
+                          </span>
+                          <span *ngIf="isPointFailed(room.RoomName, point)"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #dc3545; color: white; white-space: nowrap;"
+                                [title]="getPointError(room.RoomName, point)">
+                            <ion-icon name="alert-circle-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon> Failed
+                          </span>
+                          <span *ngIf="getPointStatus(room.RoomName, point) === 'created'"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #28a745; color: white; white-space: nowrap;"
+                                title="Point ready for photos">
+                            <ion-icon name="checkmark-circle-outline" style="font-size: 10px; vertical-align: middle;"></ion-icon>
+                          </span>
+                        </div>
+                        <button *ngIf="isPointFailed(room.RoomName, point)"
+                                class="delete-point-btn"
+                                (click)="retryPointCreation(room.RoomName, point, $event)"
+                                title="Retry Point Creation"
+                                style="background: #007bff; color: white; margin-right: 4px;">
+                          <ion-icon name="refresh-outline"></ion-icon>
+                        </button>
                         <button class="delete-point-btn"
                                 (click)="deleteElevationPoint(room.RoomName, point)"
                                 title="Delete Point">
                           <ion-icon name="trash-outline"></ion-icon>
                         </button>
                       </div>
-                      
+
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
@@ -1673,13 +1735,19 @@
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1715,13 +1783,19 @@
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.5'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
