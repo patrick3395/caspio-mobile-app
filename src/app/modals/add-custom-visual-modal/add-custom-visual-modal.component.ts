@@ -60,7 +60,7 @@ export class AddCustomVisualModalComponent {
   async processPhoto(file: File) {
     try {
       // Dynamically import the photo annotator
-      const { FabricPhotoAnnotatorComponent } = await import('../../modals/fabric-photo-annotator/fabric-photo-annotator.component');
+      const { FabricPhotoAnnotatorComponent } = await import('../../components/fabric-photo-annotator/fabric-photo-annotator.component');
 
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
@@ -119,7 +119,7 @@ export class AddCustomVisualModalComponent {
     const fileToEdit = photo.originalFile || photo.file;
 
     try {
-      const { FabricPhotoAnnotatorComponent } = await import('../../modals/fabric-photo-annotator/fabric-photo-annotator.component');
+      const { FabricPhotoAnnotatorComponent } = await import('../../components/fabric-photo-annotator/fabric-photo-annotator.component');
 
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
