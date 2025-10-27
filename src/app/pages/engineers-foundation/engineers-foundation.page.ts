@@ -382,7 +382,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private cache: CacheService,
     private offlineService: OfflineService,
     private foundationData: EngineersFoundationDataService,
-    private operationsQueue: OperationsQueueService
+    public operationsQueue: OperationsQueueService
   ) {}
 
   async ngOnInit() {
@@ -3140,47 +3140,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Upload photo from File object to Services_EFE_Points_Attach with annotation support
   async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string, pointOpId?: string) {
-    console.log(`[Photo Upload] Queuing upload for point ${pointId}, photoType: ${photoType}`);
+    try {
+      const pointIdNum = parseInt(pointId, 10);
 
-    // Find the point operation ID if not provided (for dependency tracking)
-    if (!pointOpId && pointId.startsWith('temp_')) {
-      console.warn(`[Photo Upload] Point ${pointId} is temporary - waiting for point creation`);
-      // We'll need to find the corresponding point operation
-      // For now, we'll queue without dependency and let it retry if point doesn't exist
-    }
+      console.log(`[Photo Upload] Uploading photo for point ${pointId}, photoType: ${photoType}`);
 
-    // Queue the photo upload operation
-    const uploadOpId = await this.operationsQueue.enqueue({
-      type: 'UPLOAD_PHOTO',
-      data: {
-        pointId: pointId.startsWith('temp_') ? pointId : pointId, // Keep temp ID for now
-        file: file,
-        pointName: pointName,
-        annotationData: annotationData,
-        photoType: photoType
-      },
-      dependencies: pointOpId ? [pointOpId] : [], // Wait for point creation if ID provided
-      dedupeKey: `photo_${pointId}_${photoType}_${Date.now()}`, // Allow multiple photos per point
-      maxRetries: 3,
-      onSuccess: (result: any) => {
-        console.log(`[Photo Upload] Success for ${pointName}:`, result.attachId);
-        // Photo is now uploaded - UI will be updated by the caller
-        return result;
-      },
-      onError: (error: any) => {
-        console.error(`[Photo Upload] Failed for ${pointName}:`, error);
-        throw error;
-      },
-      onProgress: (percent: number) => {
-        console.log(`[Photo Upload] Progress for ${pointName}: ${Math.round(percent * 100)}%`);
+      // If point ID is temporary, we need to wait for point creation
+      if (pointId.startsWith('temp_')) {
+        console.warn(`[Photo Upload] Point ${pointId} is temporary - cannot upload yet`);
+        throw new Error('Point not yet created. Please wait for point creation to complete.');
       }
-    });
 
-    console.log(`[Photo Upload] Queued upload operation ${uploadOpId}`);
+      // COMPRESS the file before upload
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
 
-    // Return a promise that resolves when upload completes
-    // For now, return upload operation ID as mock response
-    return { AttachID: uploadOpId, PK_ID: uploadOpId };
+      // Try to upload immediately
+      try {
+        const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData, photoType);
+        console.log(`[Photo Upload] Success for ${pointName}`);
+        return response;
+      } catch (error: any) {
+        // If upload fails with retryable error, queue it for retry
+        if (this.isRetryableError(error)) {
+          console.warn(`[Photo Upload] Failed but retryable, queueing for retry:`, error);
+
+          // Queue for automatic retry
+          await this.operationsQueue.enqueue({
+            type: 'UPLOAD_PHOTO',
+            data: {
+              pointId: pointId,
+              file: compressedFile,
+              pointName: pointName,
+              annotationData: annotationData,
+              photoType: photoType
+            },
+            dedupeKey: `photo_${pointId}_${photoType}_${Date.now()}`,
+            maxRetries: 3
+          });
+
+          // For now, throw error so caller knows upload failed
+          // The queue will retry in background
+          throw new Error(`Upload failed but queued for retry: ${error.message}`);
+        }
+
+        // Non-retryable error, just throw
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in uploadPhotoToRoomPointFromFile:', error);
+      throw error;
+    }
+  }
+
+  // Helper to check if error is retryable
+  private isRetryableError(error: any): boolean {
+    return error.status === 0 ||           // Network error
+           error.status === 408 ||          // Timeout
+           error.status === 429 ||          // Too many requests
+           error.status >= 500 ||           // Server error
+           error.name === 'TimeoutError';
   }
   
   // Perform the actual room point photo upload with annotation support
