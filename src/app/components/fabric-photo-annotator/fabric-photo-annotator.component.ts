@@ -1115,6 +1115,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
 
   async save() {
+    // DEBUG: Check what objects are on the canvas before export
+    const canvasObjects = this.canvas.getObjects();
+    console.log('[Fabric Save] Canvas objects before toJSON():', canvasObjects.length, canvasObjects);
+
     const dataUrl = this.canvas.toDataURL({
       format: 'jpeg',
       quality: 0.9,
@@ -1124,11 +1128,17 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const blob = await this.dataUrlToBlob(dataUrl);
 
     const annotationData = this.canvas.toJSON();
+    console.log('[Fabric Save] annotationData from toJSON():', annotationData);
+    console.log('[Fabric Save] annotationData.objects:', annotationData.objects);
+
     const annotationJson = JSON.stringify(annotationData);
     const hasAnnotationObjects = Array.isArray(annotationData.objects) && annotationData.objects.length > 0;
+    console.log('[Fabric Save] hasAnnotationObjects:', hasAnnotationObjects);
+
     const compressedAnnotationData = hasAnnotationObjects
       ? compressAnnotationData(annotationJson) || annotationJson
       : '';
+    console.log('[Fabric Save] compressedAnnotationData:', compressedAnnotationData);
 
     let originalBlob = null;
     if (!this.isReEdit && this.imageFile) {

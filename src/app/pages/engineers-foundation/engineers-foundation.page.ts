@@ -2559,7 +2559,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       // If room is pending or has temporary ID, cannot take photos yet
-      if (roomId === '__pending__' || roomId.startsWith('temp_')) {
+      if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
         await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
         return;
       }
@@ -2568,7 +2568,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
-      if (!pointId || pointId === '__pending__' || pointId.startsWith('temp_')) {
+      if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // If offline, cannot proceed
         if (this.manualOffline) {
           await this.showToast('Please enable Auto-Save to take photos', 'warning');
@@ -10730,7 +10730,7 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      if (roomId === '__pending__' || roomId.startsWith('temp_')) {
+      if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
         await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
         return;
       }
@@ -10739,7 +10739,7 @@ Stack: ${error?.stack}`;
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
-      if (!pointId || pointId === '__pending__' || pointId.startsWith('temp_')) {
+      if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         if (this.manualOffline) {
           await this.showToast('Please enable Auto-Save to take photos', 'warning');
           return;
