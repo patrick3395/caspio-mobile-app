@@ -1517,7 +1517,7 @@
                 <div class="fdf-photos-container" *ngIf="shouldShowFDFPhotos(room.RoomName)">
                   <div class="fdf-photos-row" style="display: flex; gap: 12px;">
                     <!-- Top Photo Column -->
-                    <div class="fdf-photo-column">
+                    <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
