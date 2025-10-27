@@ -2666,12 +2666,12 @@ ion-content{--overflow:scroll !important;height:100%}
     }
 
     .fdf-photo-button {
-      padding: 1px 0px !important; // Ultra minimal padding for mobile to fit in containers
+      padding: 2px 1px !important; // Minimal padding for mobile to fit in containers
       font-size: 10px !important; // Smaller text
-      margin-bottom: 6px !important; // Reduced margin below button
+      margin-bottom: 4px !important; // Reduced margin below button
       border-radius: 2px !important; // Smaller border radius for mobile
-      max-height: 14px !important; // Constrain button height to keep it compact
       min-height: unset !important; // Remove any minimum height
+      height: auto !important; // Auto height to fit content
 
       span {
         margin-bottom: 2px !important;
@@ -2679,7 +2679,7 @@ ion-content{--overflow:scroll !important;height:100%}
       }
 
       ion-icon {
-        font-size: 8px !important; // Smaller icon size for mobile to fit in containers
+        font-size: 6px !important; // Smaller icon size (6px) for mobile to fit in containers
       }
     }
 
