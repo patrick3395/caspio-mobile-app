@@ -2558,9 +2558,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // If room is pending, cannot take photos yet
-      if (roomId === '__pending__') {
-        await this.showToast('Room is queued for creation. Please enable Auto-Save first.', 'warning');
+      // If room is pending or has temporary ID, cannot take photos yet
+      if (roomId === '__pending__' || roomId.startsWith('temp_')) {
+        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
         return;
       }
 
@@ -2568,15 +2568,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
-      if (!pointId || pointId === '__pending__') {
+      if (!pointId || pointId === '__pending__' || pointId.startsWith('temp_')) {
         // If offline, cannot proceed
         if (this.manualOffline) {
           await this.showToast('Please enable Auto-Save to take photos', 'warning');
           return;
         }
 
-        // Point doesn't exist yet - create it on-demand
-        console.log(`[Photo Capture] Creating point on-demand: ${point.name}`);
+        // Point doesn't exist yet or has temporary ID - create it on-demand
+        console.log(`[Photo Capture] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
 
         const pointData = {
           EFEID: parseInt(roomId),
@@ -5626,7 +5626,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 }
-                
+
                 // Remove from point's photos array
                 if (point.photos) {
                   const index = point.photos.indexOf(photo);
@@ -5635,6 +5635,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     point.photoCount = point.photos.length;
                   }
                 }
+
+                // Trigger change detection to update UI
+                this.changeDetectorRef.detectChanges();
               } catch (error) {
                 console.error('Error deleting room photo:', error);
                 if (!silent) {
@@ -5663,7 +5666,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 if (photo.attachId) {
                   await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 }
-                
+
                 // Remove from UI
                 if (point.photos) {
                   const index = point.photos.indexOf(photo);
@@ -5672,6 +5675,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     point.photoCount = point.photos.length;
                   }
                 }
+
+                // Trigger change detection to update UI
+                this.changeDetectorRef.detectChanges();
               } catch (error) {
                 console.error('Error deleting room photo:', error);
                 await this.showToast('Failed to delete photo', 'danger');
@@ -8371,33 +8377,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const annotatedResult = await this.annotatePhoto(fileArray[0]);
             processedFiles.push(annotatedResult);
 
-            const continueAlert = await this.alertController.create({
-              header: 'What would you like to do next?',
-              cssClass: 'custom-document-alert',
-              buttons: [
-                {
-                  text: 'TAKE ANOTHER PHOTO',
-                cssClass: 'alert-button-cancel',
-                handler: () => {
-                  this.currentUploadContext = { category, itemId, item, action: 'add' };
-                  this.triggerFileInput('camera', { allowMultiple: false });
-                  return true;
-                }
-              },
-              {
-                text: 'DONE',
-                cssClass: 'alert-button-save',
-                handler: () => {
-                  this.expectingCameraPhoto = false;
-                  this.setFileInputMode('library', { allowMultiple: true });
-                  return true;
-                }
-              }
-            ],
-            backdropDismiss: false
-          });
-
-            await continueAlert.present();
+            // Reset camera flow state after annotation
+            this.expectingCameraPhoto = false;
+            this.setFileInputMode('library', { allowMultiple: true });
           } else {
             processedFiles.push({
               file: fileArray[0],
@@ -10748,8 +10730,8 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      if (roomId === '__pending__') {
-        await this.showToast('Room is queued for creation. Please enable Auto-Save first.', 'warning');
+      if (roomId === '__pending__' || roomId.startsWith('temp_')) {
+        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
         return;
       }
 
@@ -10757,14 +10739,14 @@ Stack: ${error?.stack}`;
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
-      if (!pointId || pointId === '__pending__') {
+      if (!pointId || pointId === '__pending__' || pointId.startsWith('temp_')) {
         if (this.manualOffline) {
           await this.showToast('Please enable Auto-Save to take photos', 'warning');
           return;
         }
 
-        // Point doesn't exist yet - create it on-demand
-        console.log(`[Gallery Photo] Creating point on-demand: ${point.name}`);
+        // Point doesn't exist yet or has temporary ID - create it on-demand
+        console.log(`[Gallery Photo] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
 
         const pointData = {
           EFEID: parseInt(roomId),
