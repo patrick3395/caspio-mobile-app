@@ -301,53 +301,47 @@ export async function renderAnnotationsOnPhoto(
     // Dynamically import fabric - the module itself IS the fabric object
     const fabric = await import('fabric');
 
-    // Load the image
-    const img = await loadImageElement(imageUrl);
+    // Load the image using Fabric.js
+    const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+    if (!img) {
+      throw new Error('Failed to load image');
+    }
 
     // Create canvas with image dimensions
     const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
+    canvas.width = img.width || 800;
+    canvas.height = img.height || 600;
 
     // Initialize Fabric canvas
     const fabricCanvas = new fabric.Canvas(canvas, {
-      width: img.width,
-      height: img.height
+      width: img.width || 800,
+      height: img.height || 600
     });
 
     // Set image as background
-    await new Promise<void>((resolve, reject) => {
-      fabric.Image.fromURL(imageUrl, (img: any) => {
-        if (!img) {
-          reject(new Error('Failed to load image'));
-          return;
-        }
-        fabricCanvas.setBackgroundImage(img, () => {
-          fabricCanvas.renderAll();
-          resolve();
-        }, {
-          originX: 'left',
-          originY: 'top'
-        });
-      }, { crossOrigin: 'anonymous' });
-    });
+    img.selectable = false;
+    img.evented = false;
+    fabricCanvas.backgroundImage = img;
+    fabricCanvas.renderAll();
 
     // Load annotations onto canvas
     await new Promise<void>((resolve, reject) => {
-      fabricCanvas.loadFromJSON(annotations, () => {
-        // Filter out any image objects (we only want annotations)
-        const objects = fabricCanvas.getObjects();
-        objects.forEach((obj: any) => {
-          if (obj.type === 'image') {
-            fabricCanvas.remove(obj);
-          }
-        });
+      try {
+        fabricCanvas.loadFromJSON(annotations, () => {
+          // Filter out any image objects (we only want annotations)
+          const objects = fabricCanvas.getObjects();
+          objects.forEach((obj: any) => {
+            if (obj.type === 'image') {
+              fabricCanvas.remove(obj);
+            }
+          });
 
-        fabricCanvas.renderAll();
-        resolve();
-      }, (o: any, object: any) => {
-        // Callback for each object loaded
-      });
+          fabricCanvas.renderAll();
+          resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
 
     // Export as data URL
@@ -368,21 +362,3 @@ export async function renderAnnotationsOnPhoto(
     return imageUrl; // Return original on error
   }
 }
-
-/**
- * Helper function to load an image element
- */
-function loadImageElement(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-
-    img.src = url;
-
-    // Timeout after 10 seconds
-    setTimeout(() => reject(new Error('Image load timeout')), 10000);
-  });
-};
