@@ -306,6 +306,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   inAttendanceOptions: string[] = [];
   inAttendanceSelections: string[] = []; // Multi-select array for In Attendance
   inAttendanceOtherValue: string = ''; // Custom value for "Other" option
+  typeOfBuildingOtherValue: string = ''; // Custom value for "Other" option
+  styleOtherValue: string = ''; // Custom value for "Other" option
+  occupancyFurnishingsOtherValue: string = ''; // Custom value for "Other" option
+  weatherConditionsOtherValue: string = ''; // Custom value for "Other" option
+  outdoorTemperatureOtherValue: string = ''; // Custom value for "Other" option
+  firstFoundationTypeOtherValue: string = ''; // Custom value for "Other" option
+  secondFoundationTypeOtherValue: string = ''; // Custom value for "Other" option
+  thirdFoundationTypeOtherValue: string = ''; // Custom value for "Other" option
+  ownerOccupantInterviewOtherValue: string = ''; // Custom value for "Other" option
   firstFoundationTypeOptions: string[] = [];
   secondFoundationTypeOptions: string[] = [];
   thirdFoundationTypeOptions: string[] = [];
@@ -643,11 +652,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (onProgress) onProgress(0.5); // 50% before upload
 
       // Upload the photo
+      // Function signature: (visualId, annotation, file, drawings?, originalFile?)
       const response = await this.caspioService.createServicesVisualsAttachWithFile(
         parseInt(data.visualId, 10),
         data.caption || '',
-        drawingsData,
-        compressedFile
+        compressedFile,
+        drawingsData
       ).toPromise();
 
       if (onProgress) onProgress(1.0); // 100% complete
@@ -7348,8 +7358,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
 
+    const existingVisualId = this.visualRecordIds[key];
+
     try {
-      const existingVisualId = this.visualRecordIds[key];
 
       if (item.answer === 'Yes' || item.answer === 'No') {
         if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
@@ -7425,8 +7436,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.savingItems[key] = true;
     const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
 
+    const existingVisualId = this.visualRecordIds[key];
+
     try {
-      const existingVisualId = this.visualRecordIds[key];
 
       if (item.selectedOptions && item.selectedOptions.length > 0) {
         if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
@@ -7598,7 +7610,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Save the updated selections
     await this.saveInAttendanceSelections();
   }
-  
+
+  // Handler methods for "Other" option custom inputs
+  async onTypeOfBuildingOtherChange() {
+    if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
+      this.projectData.TypeOfBuilding = this.typeOfBuildingOtherValue.trim();
+      await this.onProjectFieldChange('TypeOfBuilding', this.projectData.TypeOfBuilding);
+    }
+  }
+
+  async onStyleOtherChange() {
+    if (this.styleOtherValue && this.styleOtherValue.trim()) {
+      this.projectData.Style = this.styleOtherValue.trim();
+      await this.onProjectFieldChange('Style', this.projectData.Style);
+    }
+  }
+
+  async onOccupancyFurnishingsOtherChange() {
+    if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
+      this.serviceData.OccupancyFurnishings = this.occupancyFurnishingsOtherValue.trim();
+      await this.onServiceFieldChange('OccupancyFurnishings', this.serviceData.OccupancyFurnishings);
+    }
+  }
+
+  async onWeatherConditionsOtherChange() {
+    if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
+      this.serviceData.WeatherConditions = this.weatherConditionsOtherValue.trim();
+      await this.onServiceFieldChange('WeatherConditions', this.serviceData.WeatherConditions);
+    }
+  }
+
+  async onOutdoorTemperatureOtherChange() {
+    if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
+      this.serviceData.OutdoorTemperature = this.outdoorTemperatureOtherValue.trim();
+      await this.onServiceFieldChange('OutdoorTemperature', this.serviceData.OutdoorTemperature);
+    }
+  }
+
+  async onFirstFoundationTypeOtherChange() {
+    if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
+      this.serviceData.FirstFoundationType = this.firstFoundationTypeOtherValue.trim();
+      await this.onServiceFieldChange('FirstFoundationType', this.serviceData.FirstFoundationType);
+    }
+  }
+
+  async onSecondFoundationTypeOtherChange() {
+    if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
+      this.serviceData.SecondFoundationType = this.secondFoundationTypeOtherValue.trim();
+      await this.onServiceFieldChange('SecondFoundationType', this.serviceData.SecondFoundationType);
+    }
+  }
+
+  async onThirdFoundationTypeOtherChange() {
+    if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
+      this.serviceData.ThirdFoundationType = this.thirdFoundationTypeOtherValue.trim();
+      await this.onServiceFieldChange('ThirdFoundationType', this.serviceData.ThirdFoundationType);
+    }
+  }
+
+  async onOwnerOccupantInterviewOtherChange() {
+    if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
+      this.serviceData.OwnerOccupantInterview = this.ownerOccupantInterviewOtherValue.trim();
+      await this.onServiceFieldChange('OwnerOccupantInterview', this.serviceData.OwnerOccupantInterview);
+    }
+  }
+
   // Save In Attendance selections
   async saveInAttendanceSelections() {
     // Convert array to comma-delimited string
