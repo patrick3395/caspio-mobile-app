@@ -287,9 +287,6 @@ export class TemplateFormPage implements OnInit, OnDestroy {
             }
           }
         }
-        
-        // Show debug info on mobile
-        await this.showToast(`Loaded ${attachments.length} document(s)`, 'info');
       } else {
         await this.showToast('No documents found for this project', 'info');
       }

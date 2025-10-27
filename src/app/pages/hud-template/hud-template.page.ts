@@ -4133,7 +4133,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             const textToCopy = message.replace(/<br>/g, '\n');
             if (navigator.clipboard) {
               navigator.clipboard.writeText(textToCopy);
-              this.showToast('Debug info copied to clipboard', 'success');
             }
             return false; // Keep alert open
           }
@@ -5356,7 +5355,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 const errorText = JSON.stringify(errorDetails, null, 2);
                 if (navigator.clipboard) {
                   navigator.clipboard.writeText(errorText);
-                  this.showToast('Error details copied to clipboard', 'success');
                 }
               }
             },
@@ -5674,10 +5672,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           // Show result
           if (failCount === 0) {
             // Success toast removed per user request - visual created with files
-          } else if (successCount > 0) {
-            await this.showToast(`Visual created. ${successCount} file(s) uploaded, ${failCount} failed`, 'warning');
-          } else {
-            await this.showToast('Visual created but file uploads failed', 'warning');
           }
         }
         

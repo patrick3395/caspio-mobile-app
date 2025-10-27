@@ -6773,7 +6773,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const textToCopy = message.replace(/<br>/g, '\n');
             if (navigator.clipboard) {
               navigator.clipboard.writeText(textToCopy);
-              this.showToast('Debug info copied to clipboard', 'success');
             }
             return false; // Keep alert open
           }
@@ -8705,16 +8704,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const { data } = await modal.onDidDismiss();
 
     if (data && data.name) {
-      // Convert FileList to array if needed
+      // Get processed photos with annotation data and captions
+      const processedPhotos = data.processedPhotos || [];
       const files = data.files && data.files.length > 0 ? data.files : null;
 
       // Create the visual with photos
-      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files);
+      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
     }
   }
   
   // Create custom visual with photos
-  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null) {
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
     try {
       const serviceId = this.serviceId;
       if (!serviceId) {
@@ -8851,16 +8851,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       // Online mode - proceed with API call
-      const loading = await this.loadingController.create({
-        message: 'Creating visual...'
-      });
-      await loading.present();
-
       try {
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
         const response = await this.caspioService.createServicesVisual(visualData).toPromise();
-
-        await loading.dismiss();
 
         // Extract VisualID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
@@ -8923,21 +8916,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           ...customItem
         };
 
-        // Loading already dismissed above before debug alerts
-
         // Upload photos if provided - in background without blocking UI
         if (files && files.length > 0) {
           // Start uploads in background (don't await)
-          const uploadPromises = Array.from(files).map((file, index) =>
-            this.uploadPhotoForVisual(String(visualId), file, key, true)
+          const uploadPromises = Array.from(files).map((file, index) => {
+            // Get annotation data and caption for this photo from processedPhotos
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+
+            return this.uploadPhotoForVisual(String(visualId), file, key, true, annotationData, originalFile, caption)
               .then(() => {
                 return { success: true, error: null };
               })
               .catch((error) => {
                 console.error(`Failed to upload file ${index + 1}:`, error);
                 return { success: false, error };
-              })
-          );
+              });
+          });
 
           // Monitor uploads in background without blocking
           Promise.all(uploadPromises).then(results => {
@@ -8976,7 +8973,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           error: error?.error,
           full: error
         });
-        await loading.dismiss();
 
         // Show more detailed error message
         const errorMsg = error?.error?.Message || error?.message || 'Failed to add visual';

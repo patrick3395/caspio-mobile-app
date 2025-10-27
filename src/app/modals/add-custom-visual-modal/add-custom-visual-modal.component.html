@@ -55,23 +55,33 @@
         (change)="onFileSelected($event)"
         style="display: none;">
 
-      <!-- Photo Previews -->
-      <div class="photo-previews" *ngIf="photoPreviewUrls.length > 0">
-        <div class="photo-preview-item" *ngFor="let url of photoPreviewUrls; let i = index">
-          <img [src]="url" alt="Photo preview">
-          <ion-button
-            size="small"
-            fill="clear"
-            color="danger"
-            class="remove-button"
-            (click)="removePhoto(i)">
-            <ion-icon name="close-circle"></ion-icon>
-          </ion-button>
+      <!-- Photo Previews - Matching Structural Systems Style -->
+      <div class="image-preview-container" *ngIf="processedPhotos.length > 0">
+        <div class="image-preview structural-photo-preview"
+             *ngFor="let photo of processedPhotos; let i = index"
+             [class.annotated]="photo.hasAnnotations">
+          <img [src]="photo.previewUrl"
+               width="90"
+               height="90"
+               [alt]="'Photo ' + (i + 1)"
+               (click)="editPhoto(i)"
+               [class.has-annotations]="photo.hasAnnotations">
+
+          <button class="delete-btn"
+                  (click)="removePhoto(i); $event.stopPropagation()"
+                  title="Delete">
+            <ion-icon name="close"></ion-icon>
+          </button>
+
+          <button class="room-photo-caption"
+                  (click)="editCaption(i); $event.stopPropagation()">
+            {{ photo.caption || 'Caption' }}
+          </button>
         </div>
       </div>
 
-      <p class="photo-count" *ngIf="selectedFiles.length > 0">
-        {{ selectedFiles.length }} photo(s) selected
+      <p class="photo-count" *ngIf="processedPhotos.length > 0">
+        {{ processedPhotos.length }} photo(s) selected
       </p>
     </div>
   </div>

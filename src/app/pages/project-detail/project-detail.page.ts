@@ -786,8 +786,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.selectedServices.forEach(service => {
         if (service.typeName === 'Engineers Foundation Evaluation' && service.serviceId) {
           foundEngineersFoundation = true;
-          // Show toast that we're calculating
-          this.showToast(`Calculating progress for Engineers Foundation...`, 'info');
 
           // Pre-calculate progress to populate cache
           this.calculateEngineersFoundationProgress(service).then(progress => {
@@ -798,11 +796,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             };
             // Trigger change detection to update the view
             this.changeDetectorRef.detectChanges();
-
-            // Show result in toast
-            this.showToast(`Engineers Foundation progress: ${progress}%`, 'success');
           }).catch(error => {
-            this.showToast(`Error calculating progress: ${error.message}`, 'danger');
+            // Error handling - could log to console if needed
           });
         }
       });
@@ -2883,8 +2878,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Return placeholder while loading
         return 'assets/img/photo-loading.svg';
-      } else {
-        this.showToast(`Debug: Unknown photo format: ${primaryPhoto}`, 'warning');
       }
     } else {
     }
@@ -3080,7 +3073,6 @@ Troubleshooting:
               // Copy to clipboard
               if (navigator.clipboard) {
                 navigator.clipboard.writeText(debugText).then(() => {
-                  this.showToast('Debug info copied to clipboard', 'success');
                 }).catch(() => {
                   // Fallback for older browsers/WebView
                   const textArea = document.createElement('textarea');
@@ -3089,7 +3081,6 @@ Troubleshooting:
                   textArea.select();
                   document.execCommand('copy');
                   document.body.removeChild(textArea);
-                  this.showToast('Debug info copied to clipboard', 'success');
                 });
               } else {
                 // Fallback for older browsers/WebView
@@ -3099,7 +3090,6 @@ Troubleshooting:
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                this.showToast('Debug info copied to clipboard', 'success');
               }
               return false; // Keep alert open
             }
@@ -3922,7 +3912,6 @@ Time: ${debugInfo.timestamp}
               // Try to copy to clipboard (may not work on all devices)
               if (navigator.clipboard) {
                 navigator.clipboard.writeText(textVersion);
-                this.showToast('Debug info copied to clipboard', 'success');
               }
               return false; // Keep alert open
             }
