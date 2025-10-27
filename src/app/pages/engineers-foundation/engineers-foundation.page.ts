@@ -12176,15 +12176,10 @@ Stack: ${error?.stack}`;
   // Handle project field changes
   async onProjectFieldChange(fieldName: string, value: any) {
 
-    // If "Other" is selected, show popup to enter custom value
+    // If "Other" is selected, wait for user to fill in the inline input field
+    // The blur handler will call this method again with the custom value
     if (value === 'Other') {
-      const fieldLabels: { [key: string]: string } = {
-        'TypeOfBuilding': 'Building Type',
-        'Style': 'Style'
-      };
-      const previousValue = this.customOtherValues[fieldName] || '';
-      await this.showOtherInputPopup(fieldName, fieldLabels[fieldName] || fieldName, previousValue);
-      return; // The popup handler will call this method again with the custom value
+      return; // Don't save yet - wait for inline input
     }
 
     // Update the project data
@@ -12210,24 +12205,14 @@ Stack: ${error?.stack}`;
     // Mark that changes have been made (enables Update button) - do this FIRST
     this.markReportChanged();
 
-    // CRITICAL FIX: Skip "Other" popup for multi-select fields (they have inline inputs)
+    // Skip for multi-select fields (they have inline inputs handled separately)
     const multiSelectFields = ['InAttendance', 'SecondFoundationRooms', 'ThirdFoundationRooms'];
     const isMultiSelect = multiSelectFields.includes(fieldName);
 
-    // If "Other" is selected AND not a multi-select field, show popup to enter custom value
+    // If "Other" is selected for single-select dropdowns, wait for inline input
+    // The blur handler will call this method again with the custom value
     if (value === 'Other' && !isMultiSelect) {
-      const fieldLabels: { [key: string]: string } = {
-        'WeatherConditions': 'Weather Conditions',
-        'OutdoorTemperature': 'Outdoor Temperature',
-        'OccupancyFurnishings': 'Occupancy Status',
-        'FirstFoundationType': 'First Foundation Type',
-        'SecondFoundationType': 'Second Foundation Type',
-        'ThirdFoundationType': 'Third Foundation Type',
-        'OwnerOccupantInterview': 'Owner/Occupant Interview'
-      };
-      const previousValue = this.customOtherValues[fieldName] || '';
-      await this.showOtherInputPopup(fieldName, fieldLabels[fieldName] || fieldName, previousValue);
-      return; // The popup handler will call this method again with the custom value
+      return; // Don't save yet - wait for inline input
     }
 
     // Update the service data

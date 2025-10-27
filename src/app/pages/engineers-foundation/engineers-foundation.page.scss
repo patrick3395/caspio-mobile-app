@@ -5,10 +5,32 @@ ion-toolbar {
 
 ion-header {
   z-index: 1001 !important;
+  // Fix header height to prevent expansion when content changes
+  --min-height: 56px;
+  --max-height: 56px;
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  flex-shrink: 0; // Prevent flexbox from shrinking
 }
 
 ion-toolbar {
   pointer-events: auto !important;
+  // Lock toolbar height
+  --min-height: 56px;
+  --max-height: 56px;
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+
+  // Prevent ion-title from causing expansion
+  ion-title {
+    max-height: 56px;
+    overflow: hidden;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 // Back Button with Orange Circle and White Arrow
@@ -37,10 +59,7 @@ ion-toolbar {
     pointer-events: none !important; // Prevent icon from blocking clicks
   }
 
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4) !important;
-  }
+  // Hover effect removed for mobile optimization
 
   &:active {
     transform: scale(0.95);
@@ -94,6 +113,8 @@ ion-toolbar.template-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  // Prevent toolbar from growing
+  overflow: hidden;
 
   .toolbar-title {
     margin: 0 auto;
@@ -104,6 +125,12 @@ ion-toolbar.template-toolbar {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    // Prevent title from causing header expansion
+    max-height: 56px;
+    line-height: 1.2;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 
     .finalized-check-icon {
       color: var(--noble-orange);
@@ -204,9 +231,7 @@ ion-toolbar.template-toolbar {
       font-size: 16px;
     }
 
-    &:hover {
-      background: #f5f5f5;
-    }
+    // Hover effect removed for mobile optimization
 
     &:active {
       transform: scale(0.98);
@@ -242,9 +267,7 @@ ion-toolbar.template-toolbar {
     pointer-events: none !important; // Ensure text doesn't block clicks
   }
 
-  &:hover {
-    background: rgba(255,255,255,0.2);
-  }
+  // Hover effect removed for mobile optimization
 
   &:active {
     opacity: 0.8;
@@ -257,10 +280,7 @@ ion-toolbar.template-toolbar {
   color: #333 !important; // Black text
   margin-bottom: 0 !important; // No margin by default, only when photo exists
 
-  &:hover {
-    background: #f0f0f0 !important;
-    border-color: #999 !important;
-  }
+  // Hover effect removed for mobile optimization
 
   &:active {
     background: #e0e0e0 !important;
@@ -307,7 +327,7 @@ ion-toolbar.template-toolbar {
 }
 
 .answer-type-1-container{padding:12px;background:#fff;border-radius:8px;margin-bottom:12px;border:1px solid #e0e0e0;cursor:pointer;transition:all 0.2s ease;
-  &:hover{background:#f9f9f9;box-shadow:0 2px 8px rgba(0,0,0,0.08);transform:translateY(-1px)}
+  // Hover effect removed for mobile optimization
   .item-header{margin-bottom:8px;
     .item-name{font-size:15px;font-weight:600;color:#333;margin:0;
       .required-indicator{color:var(--noble-orange);font-weight:bold;margin-left:4px}
@@ -381,10 +401,7 @@ ion-content{--overflow:scroll !important;height:100%}
       font-size: 18px;
     }
 
-    &:hover {
-      background: #d94e23;
-      transform: translateY(-1px);
-    }
+    // Hover effect removed for mobile optimization
   }
 }
 
@@ -424,16 +441,12 @@ ion-content{--overflow:scroll !important;height:100%}
       pointer-events: none;
     }
 
-    &:hover {
-      transform: scale(1.1);
-    }
+    // Hover effect removed for mobile optimization
 
     &[aria-pressed='true'] {
       color: var(--ion-color-medium);
 
-      &:hover {
-        background: #d94e23;
-      }
+      // Hover effect removed for mobile optimization
     }
   }
 }
@@ -538,10 +551,7 @@ ion-content{--overflow:scroll !important;height:100%}
         color: var(--ion-color-primary);
       }
 
-      &:hover {
-        background: transparent !important;
-        border: none !important;
-      }
+      // Hover effect removed for mobile optimization
 
       &:active {
         background: transparent !important;
@@ -566,10 +576,7 @@ ion-content{--overflow:scroll !important;height:100%}
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box; // Include padding and border in width calculation
     
-    &:hover {
-      border-color: #d0d0d0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
+    // Hover effect removed for mobile optimization
     
     &:focus {
       outline: none;
@@ -677,10 +684,7 @@ ion-content{--overflow:scroll !important;height:100%}
   backface-visibility: hidden; // Prevent flickering
   will-change: transform;
   
-  &:hover {
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-  }
+  // Hover effect removed for mobile optimization
   
   // Structural Systems specific styles
   &.structural-section {
@@ -764,15 +768,7 @@ ion-content{--overflow:scroll !important;height:100%}
           text-align: center;
         }
         
-        &:hover {
-          background: darken(#ff6b35, 10%);
-          transform: scale(1.05);
-          // Enhanced halo on hover
-          box-shadow: 
-            0 0 0 5px rgba(255, 255, 255, 0.95),  // Larger white halo ring
-            0 0 16px 8px rgba(255, 255, 255, 0.9), // Bigger blurred white glow
-            0 3px 10px rgba(0,0,0,0.2); // Stronger depth shadow
-        }
+        // Hover effect removed for mobile optimization
         
         &:active {
           transform: scale(0.95);
@@ -880,9 +876,7 @@ ion-content{--overflow:scroll !important;height:100%}
     cursor: pointer;
     transition: all 0.3s ease;
     
-    &:hover {
-      background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-    }
+    // Hover effect removed for mobile optimization
     
     .section-info {
       flex: 1;
@@ -1074,9 +1068,7 @@ ion-content{--overflow:scroll !important;height:100%}
         --padding-start: 16px;
         --padding-end: 16px;
         
-        &:hover {
-          --background: linear-gradient(135deg, #fff5f0 0%, #ffe8df 100%);
-        }
+        // Hover effect removed for mobile optimization
       }
       
       .category-content {
@@ -1122,10 +1114,7 @@ ion-content{--overflow:scroll !important;height:100%}
                 font-size: 20px;
               }
               
-              &:hover {
-                transform: scale(1.1);
-                box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
-              }
+              // Hover effect removed for mobile optimization
               
               &:active {
                 transform: scale(0.95);
@@ -1171,18 +1160,14 @@ ion-content{--overflow:scroll !important;height:100%}
             
             .checkbox-item {
               --background: white;
-              --background-hover: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+              // --background-hover removed for mobile optimization
               padding: 12px;
               border-radius: 8px;
               transition: all 0.3s ease;
               border: 1px solid #f0f0f0;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
               
-              &:hover {
-                background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-                border-color: var(--noble-orange);
-                transform: translateX(4px);
-              }
+              // Hover effect removed for mobile optimization
               
               ion-checkbox {
                 --size: 22px;
@@ -1254,9 +1239,7 @@ ion-content{--overflow:scroll !important;height:100%}
               background: white;
               transition: all 0.3s ease;
 
-              &:hover {
-                border-color: var(--noble-orange);
-              }
+              // Hover effect removed for mobile optimization
 
               // Remove border from checkbox-item when inside multi-select
               .checkbox-item {
@@ -1264,10 +1247,7 @@ ion-content{--overflow:scroll !important;height:100%}
                 border-radius: 8px 8px 0 0;
                 padding: 10px 12px 6px 12px !important; // Reduced padding: less top/bottom
 
-                &:hover {
-                  border: none !important;
-                  transform: none !important; // Prevent translate on hover inside multi-select
-                }
+                // Hover effect removed for mobile optimization
 
                 .item-label {
                   h3 {
@@ -1438,10 +1418,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     background: #f5f5f5;
                     // NO margin-bottom - caption goes in padding-bottom space
                     
-                    &:hover {
-                      border-color: var(--noble-orange) !important;
-                      transform: scale(1.05);
-                    }
+                    // Hover effect removed for mobile optimization
                     
                     // Removed orange border for annotated photos - keep consistent styling
                     // &.has-annotations {
@@ -1474,12 +1451,7 @@ ion-content{--overflow:scroll !important;height:100%}
                       font-weight: 600 !important;
                     }
                     
-                    &:hover {
-                      background: #f5f5f5 !important; // Light gray hover - EXACT match
-                      border-color: #000000 !important; // Darker black on hover
-                      transform: scale(1.1) !important;
-                      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
-                    }
+                    // Hover effect removed for mobile optimization
                     
                     &:active {
                       transform: scale(1.0) !important;
@@ -1553,10 +1525,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     display: block; // Ensure proper display
                     background: #f5f5f5; // Background color in case image doesn't load
                     
-                    &:hover {
-                      border-color: var(--noble-orange);
-                      transform: scale(1.05);
-                    }
+                    // Hover effect removed for mobile optimization
                     
                     &[src=""],
                     &:not([src]) {
@@ -1611,12 +1580,7 @@ ion-content{--overflow:scroll !important;height:100%}
                       font-weight: 600;
                     }
                     
-                    &:hover {
-                      background: #f5f5f5;
-                      border-color: #000000;
-                      transform: scale(1.1);
-                      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-                    }
+                    // Hover effect removed for mobile optimization
                     
                     &:active {
                       transform: scale(1.0);
@@ -1649,10 +1613,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     color: #666;
                   }
                   
-                  &:hover {
-                    border-color: var(--noble-orange);
-                    background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-                  }
+                  // Hover effect removed for mobile optimization
                 }
               }
             }
@@ -1723,11 +1684,7 @@ ion-content{--overflow:scroll !important;height:100%}
       color: #000;
     }
 
-    &:hover {
-      background: #f0f0f0;
-      border-color: #999;
-      transform: scale(1.02);
-    }
+    // Hover effect removed for mobile optimization
 
     &:active {
       transform: scale(0.98);
@@ -1754,11 +1711,7 @@ ion-content{--overflow:scroll !important;height:100%}
             cursor: not-allowed !important;
           }
           
-          &:not(:disabled):hover {
-            ion-icon {
-              color: var(--ion-color-primary) !important;
-            }
-          }
+          // Hover effect removed for mobile optimization
           
           &:not(:disabled):active {
             transform: scale(0.95);
@@ -1773,9 +1726,7 @@ ion-content{--overflow:scroll !important;height:100%}
           --padding-start: 16px;
           --padding-end: 16px;
           
-          &:hover {
-            --background: linear-gradient(135deg, #fff5f0 0%, #ffe8df 100%);
-          }
+          // Hover effect removed for mobile optimization
           
           ion-checkbox {
             --size: 22px;
@@ -1842,14 +1793,7 @@ ion-content{--overflow:scroll !important;height:100%}
             color: var(--noble-orange);
           }
           
-          &:hover {
-            background: var(--noble-orange);
-            color: white;
-            
-            ion-icon {
-              color: white;
-            }
-          }
+          // Hover effect removed for mobile optimization
           
           &:active {
             transform: scale(0.98);
@@ -1872,14 +1816,7 @@ ion-content{--overflow:scroll !important;height:100%}
               background: #f5f5f5 !important;
             }
             
-            &:not(:disabled):hover {
-              background: #f0f0f0 !important;
-              border-color: var(--ion-color-primary) !important;
-              
-              ion-icon {
-                color: var(--ion-color-primary) !important;
-              }
-            }
+            // Hover effect removed for mobile optimization
             
             &:not(:disabled):active {
               transform: scale(0.98);
@@ -1930,10 +1867,7 @@ ion-content{--overflow:scroll !important;height:100%}
               transition: all 0.3s ease;
               min-height: 200px; // Increased for better proportions with 50% bigger content
               
-              &:hover {
-                box-shadow: 0 3px 12px rgba(0,0,0,0.15); // 50% bigger shadow
-                transform: translateY(-3px); // 50% bigger hover lift
-              }
+              // Hover effect removed for mobile optimization
               
               // Responsive adjustments for mobile
               @media (max-width: 767px) {
@@ -1978,10 +1912,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     font-size: 18px;
                   }
 
-                  &:hover {
-                    background: rgba(241, 90, 39, 0.1);
-                    color: #d94925;
-                  }
+                  // Hover effect removed for mobile optimization
 
                   &:active {
                     transform: scale(0.95);
@@ -2014,10 +1945,7 @@ ion-content{--overflow:scroll !important;height:100%}
                     margin-left: 6px; // 50% bigger margin (4px * 1.5 = 6px)
                   }
                   
-                  &:hover {
-                    background: #d94925;
-                    transform: scale(1.05);
-                  }
+                  // Hover effect removed for mobile optimization
                   
                   &:active {
                     transform: scale(0.95);
@@ -2050,10 +1978,7 @@ ion-content{--overflow:scroll !important;height:100%}
                       cursor: pointer;
                       transition: all 0.3s ease;
                       
-                      &:hover {
-                        transform: scale(1.05);
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-                      }
+                      // Hover effect removed for mobile optimization
                     }
                     
                     .delete-btn {
@@ -2080,12 +2005,7 @@ ion-content{--overflow:scroll !important;height:100%}
                         font-weight: 600;
                       }
                       
-                      &:hover {
-                        background: #f5f5f5;
-                        border-color: #000000;
-                        transform: scale(1.1);
-                        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-                      }
+                      // Hover effect removed for mobile optimization
                       
                       &:active {
                         transform: scale(1.0);
@@ -2176,9 +2096,7 @@ ion-content{--overflow:scroll !important;height:100%}
             background: white;
             font-size: 14px;
             
-            &:hover {
-              border-color: var(--noble-orange);
-            }
+            // Hover effect removed for mobile optimization
           }
         }
         
@@ -2196,11 +2114,7 @@ ion-content{--overflow:scroll !important;height:100%}
           font-weight: 600;
           transition: all 0.3s ease;
           
-          &:hover {
-            background: #ff6b3d;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
-          }
+          // Hover effect removed for mobile optimization
           
           ion-icon {
             font-size: 18px;
@@ -2263,14 +2177,12 @@ ion-content{--overflow:scroll !important;height:100%}
         .room-card-header {
           .checkbox-item {
             --background: white;
-            --background-hover: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+            // --background-hover removed for mobile optimization
             padding: 12px;
             border-radius: 8px 8px 0 0;
             transition: all 0.3s ease;
             
-            &:hover {
-              background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
-            }
+            // Hover effect removed for mobile optimization
             
             ion-checkbox {
               --size: 22px;
@@ -2368,10 +2280,7 @@ ion-content{--overflow:scroll !important;height:100%}
                   display: block;
                   background: #f5f5f5;
                         
-                        &:hover {
-                    border-color: var(--noble-orange);
-                          transform: scale(1.05);
-                        }
+                        // Hover effect removed for mobile optimization
                       }
                       
                       .delete-btn {
@@ -2397,12 +2306,7 @@ ion-content{--overflow:scroll !important;height:100%}
                           font-weight: 600;
                         }
                         
-                        &:hover {
-                          background: #f5f5f5;
-                          border-color: #000000;
-                          transform: scale(1.1);
-                          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-                        }
+                        // Hover effect removed for mobile optimization
                         
                         &:active {
                           transform: scale(1.0);
@@ -2440,9 +2344,7 @@ ion-content{--overflow:scroll !important;height:100%}
               display: block !important;
               border: 2px solid #ddd !important;
 
-        &:hover {
-                border-color: var(--noble-orange) !important;
-              }
+        // Hover effect removed for mobile optimization
             }
             
             // Uploading state - dim image when uploading
@@ -2487,12 +2389,7 @@ ion-content{--overflow:scroll !important;height:100%}
                 font-weight: 600 !important;
     }
 
-    &:hover {
-                background: #f5f5f5 !important; // Light gray hover
-                border-color: #000000 !important; // Darker black on hover
-                transform: scale(1.1) !important;
-                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
-              }
+    // Hover effect removed for mobile optimization
               
               &:active {
                 transform: scale(1.0) !important;
@@ -2558,9 +2455,7 @@ ion-content{--overflow:scroll !important;height:100%}
     pointer-events: none;
   }
 
-  &:hover {
-    transform: scale(1.1);
-  }
+  // Hover effect removed for mobile optimization
 
   &:active {
     transform: scale(0.95);
@@ -2585,10 +2480,7 @@ ion-content{--overflow:scroll !important;height:100%}
     color: var(--ion-color-primary);
   }
 
-  &:hover {
-    background: transparent !important;
-    border: none !important;
-  }
+  // Hover effect removed for mobile optimization
 
   &:active {
     background: transparent !important;
@@ -3083,12 +2975,7 @@ ion-content{--overflow:scroll !important;height:100%}
         pointer-events: none !important;
       }
       
-      &:hover {
-        background: #f5f5f5 !important;
-        border-color: #000000 !important;
-        transform: scale(1.1) !important;
-        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
-      }
+      // Hover effect removed for mobile optimization
       
       &:active {
         transform: scale(1.0) !important;
@@ -3176,10 +3063,7 @@ button.room-photo-caption {
   font-family: inherit !important;
   border-radius: 4px !important;
   
-  &:hover {
-    background: #f9f9f9 !important;
-    border-color: #ccc !important;
-  }
+  // Hover effect removed for mobile optimization
   
   &:active {
     background: #f5f5f5 !important;
@@ -3254,11 +3138,7 @@ button.room-photo-caption {
       font-size: 28px;
     }
 
-    &:hover {
-      background: linear-gradient(135deg, #d94e23 0%, #ff6b35 100%);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 30px rgba(241, 90, 39, 0.4);
-    }
+    // Hover effect removed for mobile optimization
 
     &:active {
       transform: translateY(0);
@@ -3271,11 +3151,7 @@ button.room-photo-caption {
       box-shadow: 0 4px 20px rgba(108, 117, 125, 0.3);
       cursor: pointer;
 
-      &:hover {
-        background: linear-gradient(135deg, #5a6268 0%, #545b62 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 30px rgba(108, 117, 125, 0.4);
-      }
+      // Hover effect removed for mobile optimization
 
       &:active {
         transform: translateY(0);
@@ -3366,10 +3242,7 @@ button.room-photo-caption {
         width: 100%;
       }
 
-      &:hover {
-        background: #e8e8e8;
-        transform: translateY(-1px);
-      }
+      // Hover effect removed for mobile optimization
 
       &:active {
         transform: translateY(0);

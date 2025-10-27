@@ -364,18 +364,25 @@ export async function renderAnnotationsOnPhoto(
 
     // Load annotations onto canvas
     console.log('[renderAnnotationsOnPhoto] Loading annotations onto canvas...');
+    console.log('[renderAnnotationsOnPhoto] Annotations payload to load:', JSON.stringify(annotations).substring(0, 500));
+
     await new Promise<void>((resolve, reject) => {
       try {
         fabricCanvas.loadFromJSON(annotations, () => {
           // Filter out any image objects (we only want annotations)
           const objects = fabricCanvas.getObjects();
           console.log('[renderAnnotationsOnPhoto] Objects loaded:', objects.length);
+          console.log('[renderAnnotationsOnPhoto] Loaded object types:', objects.map((o: any) => o.type));
 
+          const beforeFilter = objects.length;
           objects.forEach((obj: any) => {
             if (obj.type === 'image') {
+              console.log('[renderAnnotationsOnPhoto] Removing image object');
               fabricCanvas.remove(obj);
             }
           });
+          const afterFilter = fabricCanvas.getObjects().length;
+          console.log('[renderAnnotationsOnPhoto] Objects after filtering images:', afterFilter, '(removed', beforeFilter - afterFilter, 'images)');
 
           fabricCanvas.renderAll();
           console.log('[renderAnnotationsOnPhoto] Annotations rendered on canvas');
