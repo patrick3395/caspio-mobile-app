@@ -5579,7 +5579,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Save to localStorage as draft
     this.saveDraft();
     this.showSaveStatus('Draft saved locally', 'success');
-    await this.showToast('Template saved as draft', 'success');
   }
   
   async submitTemplate() {
