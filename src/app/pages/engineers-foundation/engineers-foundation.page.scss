@@ -2672,6 +2672,8 @@ ion-content{--overflow:scroll !important;height:100%}
       border-radius: 2px !important; // Smaller border radius for mobile
       min-height: unset !important; // Remove any minimum height
       height: auto !important; // Auto height to fit content
+      background: transparent !important; // Remove white background on mobile
+      border: none !important; // Remove border on mobile
 
       span {
         margin-bottom: 2px !important;

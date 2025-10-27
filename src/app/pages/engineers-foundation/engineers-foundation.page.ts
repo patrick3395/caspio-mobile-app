@@ -8925,37 +8925,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Loading already dismissed above before debug alerts
 
-        // Upload photos if provided
+        // Upload photos if provided - in background without blocking UI
         if (files && files.length > 0) {
-          const uploadLoading = await this.loadingController.create({
-            message: `Uploading ${files.length} file(s)...`
-          });
-          await uploadLoading.present();
-          
-          let successCount = 0;
-          let failCount = 0;
-          
-          // Upload each file
-          for (let i = 0; i < files.length; i++) {
-            try {
-              await this.uploadPhotoForVisual(String(visualId), files[i], key, true);
-              successCount++;
-            } catch (error) {
-              console.error(`Failed to upload file ${i + 1}:`, error);
-              failCount++;
+          // Start uploads in background (don't await)
+          const uploadPromises = Array.from(files).map((file, index) =>
+            this.uploadPhotoForVisual(String(visualId), file, key, true)
+              .then(() => {
+                return { success: true, error: null };
+              })
+              .catch((error) => {
+                console.error(`Failed to upload file ${index + 1}:`, error);
+                return { success: false, error };
+              })
+          );
+
+          // Monitor uploads in background without blocking
+          Promise.all(uploadPromises).then(results => {
+            // Count successes and failures
+            const uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
+            const failCount = results.filter((r: { success: boolean }) => !r.success).length;
+
+            // Show result message only if there were failures
+            if (failCount > 0 && uploadSuccessCount > 0) {
+              this.showToast(
+                `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
+                'warning'
+              );
+            } else if (failCount > 0 && uploadSuccessCount === 0) {
+              this.showToast('Failed to upload photos', 'danger');
             }
-          }
-          
-          await uploadLoading.dismiss();
-          
-          // Show result
-          if (failCount === 0) {
-            // Success toast removed per user request - visual created with files
-          } else if (successCount > 0) {
-            await this.showToast(`Visual created. ${successCount} file(s) uploaded, ${failCount} failed`, 'warning');
-          } else {
-            await this.showToast('Visual created but file uploads failed', 'warning');
-          }
+            // Success case: no toast shown per user request
+          });
         }
         
         // Trigger change detection
