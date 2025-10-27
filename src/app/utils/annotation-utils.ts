@@ -298,9 +298,8 @@ export async function renderAnnotationsOnPhoto(
   }
 
   try {
-    // Dynamically import fabric
-    const fabricModule = await import('fabric');
-    const fabric = fabricModule.fabric || (fabricModule as any).default?.fabric || fabricModule;
+    // Dynamically import fabric - the module itself IS the fabric object
+    const fabric = await import('fabric');
 
     // Load the image
     const img = await loadImageElement(imageUrl);
