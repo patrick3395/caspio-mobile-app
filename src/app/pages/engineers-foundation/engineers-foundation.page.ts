@@ -3469,8 +3469,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (failedCount > 0) {
         await this.showToast(
           `Room created, but ${failedCount} point${failedCount > 1 ? 's' : ''} failed. Tap Retry to fix.`,
-          'warning',
-          5000
+          'warning'
         );
       }
 
