@@ -321,15 +321,25 @@ export async function renderAnnotationsOnPhoto(
     }
     console.log('[renderAnnotationsOnPhoto] Image loaded:', { width: img.width, height: img.height });
 
-    // Create canvas with image dimensions
+    // Create canvas with image dimensions and ensure it has a 2D context
     const canvas = document.createElement('canvas');
-    canvas.width = img.width || 800;
-    canvas.height = img.height || 600;
+    const width = img.width || 800;
+    const height = img.height || 600;
+    canvas.width = width;
+    canvas.height = height;
 
-    // Initialize Fabric canvas
+    // CRITICAL: Get the 2D context before passing to Fabric.js
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get 2D context from canvas');
+    }
+    console.log('[renderAnnotationsOnPhoto] Canvas 2D context created');
+
+    // Initialize Fabric canvas with the canvas element
     const fabricCanvas = new fabric.Canvas(canvas, {
-      width: img.width || 800,
-      height: img.height || 600
+      width: width,
+      height: height,
+      enableRetinaScaling: false
     });
     console.log('[renderAnnotationsOnPhoto] Fabric canvas created');
 
@@ -376,12 +386,18 @@ export async function renderAnnotationsOnPhoto(
     });
     console.log('[renderAnnotationsOnPhoto] Export complete, data URL length:', dataUrl.length);
 
-    // Cleanup
-    fabricCanvas.dispose();
+    // Cleanup - wrap in try-catch to prevent disposal errors
+    try {
+      fabricCanvas.dispose();
+      console.log('[renderAnnotationsOnPhoto] Canvas disposed');
+    } catch (disposeError) {
+      console.warn('[renderAnnotationsOnPhoto] Error during canvas disposal (safe to ignore):', disposeError);
+    }
 
     return dataUrl;
   } catch (error) {
     console.error('[annotation-utils] Error rendering annotations:', error);
+    console.error('[annotation-utils] Error stack:', error instanceof Error ? error.stack : 'No stack');
     return imageUrl; // Return original on error
   }
 }

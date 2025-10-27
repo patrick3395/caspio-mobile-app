@@ -2642,9 +2642,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       this.triggerFileInput(source, { allowMultiple: false });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in capturePointPhoto:', error);
-      await this.showToast('Failed to capture photo', 'danger');
+      const errorMsg = error?.message || 'Unknown error';
+      await this.showToast(`Failed to capture photo: ${errorMsg}`, 'danger');
     }
   }
   
@@ -3141,15 +3142,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Upload photo from File object to Services_EFE_Points_Attach with annotation support
   async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string, pointOpId?: string) {
     try {
-      const pointIdNum = parseInt(pointId, 10);
-
-      console.log(`[Photo Upload] Uploading photo for point ${pointId}, photoType: ${photoType}`);
+      console.log(`[Photo Upload] Starting upload for point ${pointId}, photoType: ${photoType}`);
 
       // If point ID is temporary, we need to wait for point creation
-      if (pointId.startsWith('temp_')) {
+      if (String(pointId).startsWith('temp_')) {
         console.warn(`[Photo Upload] Point ${pointId} is temporary - cannot upload yet`);
         throw new Error('Point not yet created. Please wait for point creation to complete.');
       }
+
+      const pointIdNum = parseInt(pointId, 10);
+      if (isNaN(pointIdNum)) {
+        console.error(`[Photo Upload] Invalid point ID: ${pointId}`);
+        throw new Error('Invalid point ID - must be a number');
+      }
+
+      console.log(`[Photo Upload] Point ID validated: ${pointIdNum}`);
 
       // COMPRESS the file before upload
       const compressedFile = await this.imageCompression.compressImage(file, {
@@ -10789,9 +10796,10 @@ Stack: ${error?.stack}`;
 
       await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in capturePointPhotoGallery:', error);
-      await this.showToast('Failed to select photo', 'danger');
+      const errorMsg = error?.message || 'Unknown error';
+      await this.showToast(`Failed to select photo: ${errorMsg}`, 'danger');
     }
   }
 
