@@ -16,6 +16,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
+import { FabricService } from '../../services/fabric.service';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -379,6 +380,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private platformIonic: Platform,
     public platform: PlatformDetectionService,
     private pdfGenerator: PdfGeneratorService,
+    private fabricService: FabricService,
     private cache: CacheService,
     private offlineService: OfflineService,
     private foundationData: EngineersFoundationDataService,
@@ -570,6 +572,87 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (onProgress) onProgress(1.0); // 100% complete
 
       console.log('[OperationsQueue] Photo uploaded successfully:', response?.AttachID);
+      return { attachId: response?.AttachID || response?.PK_ID, response };
+    });
+
+    // Register CREATE_VISUAL executor (Structural Systems)
+    this.operationsQueue.setExecutor('CREATE_VISUAL', async (data: any) => {
+      console.log('[OperationsQueue] Executing CREATE_VISUAL:', data.Name);
+      const response = await this.caspioService.createServicesVisual(data).toPromise();
+
+      if (!response) {
+        throw new Error('No response from createServicesVisual');
+      }
+
+      const visualId = response.VisualID || response.PK_ID || response.id;
+      if (!visualId) {
+        console.error('[OperationsQueue] No VisualID in response:', response);
+        throw new Error('VisualID not found in response');
+      }
+
+      console.log('[OperationsQueue] Visual created successfully:', visualId);
+      return { visualId, response };
+    });
+
+    // Register UPDATE_VISUAL executor (Structural Systems)
+    this.operationsQueue.setExecutor('UPDATE_VISUAL', async (data: any) => {
+      console.log('[OperationsQueue] Executing UPDATE_VISUAL:', data.visualId);
+      const { visualId, updateData } = data;
+      const response = await this.caspioService.updateServicesVisual(visualId, updateData).toPromise();
+      console.log('[OperationsQueue] Visual updated successfully');
+      return { response };
+    });
+
+    // Register DELETE_VISUAL executor (Structural Systems)
+    this.operationsQueue.setExecutor('DELETE_VISUAL', async (data: any) => {
+      console.log('[OperationsQueue] Executing DELETE_VISUAL:', data.visualId);
+      await this.caspioService.deleteServicesVisual(data.visualId).toPromise();
+      console.log('[OperationsQueue] Visual deleted successfully');
+      return { success: true };
+    });
+
+    // Register UPLOAD_VISUAL_PHOTO executor (Structural Systems)
+    this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
+      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO for visual:', data.visualId);
+
+      // Compress the file first
+      const compressedFile = await this.imageCompression.compressImage(data.file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+
+      if (onProgress) onProgress(0.3); // 30% after compression
+
+      // Process annotation data
+      let drawingsData = '';
+      if (data.annotationData && data.annotationData !== null) {
+        if (typeof data.annotationData === 'string') {
+          drawingsData = data.annotationData;
+        } else if (typeof data.annotationData === 'object') {
+          drawingsData = JSON.stringify(data.annotationData);
+        }
+        if (drawingsData && drawingsData.length > 0) {
+          drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        }
+      }
+      if (!drawingsData) {
+        drawingsData = EMPTY_COMPRESSED_ANNOTATIONS;
+      }
+
+      if (onProgress) onProgress(0.5); // 50% before upload
+
+      // Upload the photo
+      const response = await this.caspioService.createServicesVisualsAttachWithFile(
+        parseInt(data.visualId, 10),
+        data.caption || '',
+        drawingsData,
+        compressedFile
+      ).toPromise();
+
+      if (onProgress) onProgress(1.0); // 100% complete
+
+      console.log('[OperationsQueue] Visual photo uploaded successfully:', response?.AttachID);
       return { attachId: response?.AttachID || response?.PK_ID, response };
     });
 
@@ -5150,23 +5233,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // CRITICAL FIX: Exclude multi-select fields (InAttendance, SecondFoundationRooms, ThirdFoundationRooms)
     // They handle their own custom values via parseXXXField() methods
     const fieldMappings = [
-      { fieldName: 'WeatherConditions', dataSource: this.serviceData, options: this.weatherConditionsOptions },
-      { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, options: this.outdoorTemperatureOptions },
-      { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, options: this.occupancyFurnishingsOptions },
-      { fieldName: 'FirstFoundationType', dataSource: this.serviceData, options: this.firstFoundationTypeOptions },
-      { fieldName: 'SecondFoundationType', dataSource: this.serviceData, options: this.secondFoundationTypeOptions },
-      { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, options: this.thirdFoundationTypeOptions },
-      { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, options: this.ownerOccupantInterviewOptions },
-      { fieldName: 'TypeOfBuilding', dataSource: this.projectData, options: this.typeOfBuildingOptions },
-      { fieldName: 'Style', dataSource: this.projectData, options: this.styleOptions }
+      { fieldName: 'WeatherConditions', dataSource: this.serviceData, options: this.weatherConditionsOptions, otherValueProp: 'weatherConditionsOtherValue' },
+      { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, options: this.outdoorTemperatureOptions, otherValueProp: 'outdoorTemperatureOtherValue' },
+      { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, options: this.occupancyFurnishingsOptions, otherValueProp: 'occupancyFurnishingsOtherValue' },
+      { fieldName: 'FirstFoundationType', dataSource: this.serviceData, options: this.firstFoundationTypeOptions, otherValueProp: 'firstFoundationTypeOtherValue' },
+      { fieldName: 'SecondFoundationType', dataSource: this.serviceData, options: this.secondFoundationTypeOptions, otherValueProp: 'secondFoundationTypeOtherValue' },
+      { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, options: this.thirdFoundationTypeOptions, otherValueProp: 'thirdFoundationTypeOtherValue' },
+      { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, options: this.ownerOccupantInterviewOptions, otherValueProp: 'ownerOccupantInterviewOtherValue' },
+      { fieldName: 'TypeOfBuilding', dataSource: this.projectData, options: this.typeOfBuildingOptions, otherValueProp: 'typeOfBuildingOtherValue' },
+      { fieldName: 'Style', dataSource: this.projectData, options: this.styleOptions, otherValueProp: 'styleOtherValue' }
     ];
 
     fieldMappings.forEach(mapping => {
       const value = mapping.dataSource?.[mapping.fieldName];
       if (value && value.trim() !== '') {
-        this.customOtherValues[mapping.fieldName] = value;
-        this.addCustomOptionToDropdown(mapping.fieldName, value);
-        mapping.dataSource[mapping.fieldName] = value;
+        // Check if value is a custom value (not in predefined options)
+        const isCustomValue = !mapping.options.includes(value) && value !== 'Other';
+
+        if (isCustomValue) {
+          // Set dropdown to "Other" and populate the inline input field
+          this.customOtherValues[mapping.fieldName] = value;
+          (this as any)[mapping.otherValueProp] = value;
+          mapping.dataSource[mapping.fieldName] = 'Other';
+        }
       }
     });
   }
@@ -7258,15 +7347,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async onAnswerChange(category: string, item: any) {
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
-    
+
     try {
       const existingVisualId = this.visualRecordIds[key];
-      
+
       if (item.answer === 'Yes' || item.answer === 'No') {
-        if (existingVisualId) {
-          // Update existing record - only update the Answers field
-          const updateData = { Answers: item.answer };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
+          // Update existing record with queue
+          await this.operationsQueue.enqueue({
+            type: 'UPDATE_VISUAL',
+            data: {
+              visualId: existingVisualId,
+              updateData: { Answers: item.answer }
+            },
+            dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
+            maxRetries: 3,
+            onSuccess: () => {
+              console.log(`[Visual Queue] Updated answer for visual ${existingVisualId}`);
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            },
+            onError: (error: any) => {
+              console.error(`[Visual Queue] Failed to update answer:`, error);
+              this.showToast('Failed to save answer. It will retry automatically.', 'warning');
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            }
+          });
         } else {
           // Create new record with answer in Answers field
           item.answerToSave = item.answer;
@@ -7276,9 +7383,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       } else if (item.answer === '') {
         // If cleared and record exists, update to remove answer
-        if (existingVisualId) {
-          const updateData = { Answers: '' };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
+          await this.operationsQueue.enqueue({
+            type: 'UPDATE_VISUAL',
+            data: {
+              visualId: existingVisualId,
+              updateData: { Answers: '' }
+            },
+            dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
+            maxRetries: 3,
+            onSuccess: () => {
+              console.log(`[Visual Queue] Cleared answer for visual ${existingVisualId}`);
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            },
+            onError: (error: any) => {
+              console.error(`[Visual Queue] Failed to clear answer:`, error);
+              this.showToast('Failed to clear answer. It will retry automatically.', 'warning');
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            }
+          });
         }
         item.text = item.originalText;
       }
@@ -7286,7 +7411,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error handling answer change:', error);
       await this.showToast('Failed to save answer', 'danger');
     } finally {
-      this.savingItems[key] = false;
+      if (!existingVisualId || String(existingVisualId).startsWith('temp_')) {
+        this.savingItems[key] = false;
+      }
       // Trigger change detection to update completion percentage
       this.changeDetectorRef.detectChanges();
     }
@@ -7297,15 +7424,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const key = `${category}_${item.id}`;
     this.savingItems[key] = true;
     const answersText = item.selectedOptions ? item.selectedOptions.join(', ') : '';
-    
+
     try {
       const existingVisualId = this.visualRecordIds[key];
-      
+
       if (item.selectedOptions && item.selectedOptions.length > 0) {
-        if (existingVisualId) {
-          // Update existing record - only update the Answers field
-          const updateData = { Answers: answersText };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
+          // Update existing record with queue
+          await this.operationsQueue.enqueue({
+            type: 'UPDATE_VISUAL',
+            data: {
+              visualId: existingVisualId,
+              updateData: { Answers: answersText }
+            },
+            dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
+            maxRetries: 3,
+            onSuccess: () => {
+              console.log(`[Visual Queue] Updated multi-select for visual ${existingVisualId}`);
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            },
+            onError: (error: any) => {
+              console.error(`[Visual Queue] Failed to update multi-select:`, error);
+              this.showToast('Failed to save selections. It will retry automatically.', 'warning');
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            }
+          });
         } else {
           // Create new record with selections in Answers field
           item.answerToSave = answersText;
@@ -7315,9 +7460,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       } else {
         // If no options selected and record exists, clear the answers
-        if (existingVisualId) {
-          const updateData = { Answers: '' };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+        if (existingVisualId && !String(existingVisualId).startsWith('temp_')) {
+          await this.operationsQueue.enqueue({
+            type: 'UPDATE_VISUAL',
+            data: {
+              visualId: existingVisualId,
+              updateData: { Answers: '' }
+            },
+            dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
+            maxRetries: 3,
+            onSuccess: () => {
+              console.log(`[Visual Queue] Cleared multi-select for visual ${existingVisualId}`);
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            },
+            onError: (error: any) => {
+              console.error(`[Visual Queue] Failed to clear multi-select:`, error);
+              this.showToast('Failed to clear selections. It will retry automatically.', 'warning');
+              this.savingItems[key] = false;
+              this.changeDetectorRef.detectChanges();
+            }
+          });
         }
         item.text = item.originalText || '';
       }
@@ -7325,7 +7488,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error handling multi-select change:', error);
       await this.showToast('Failed to save selections', 'danger');
     } finally {
-      this.savingItems[key] = false;
+      if (!existingVisualId || String(existingVisualId).startsWith('temp_')) {
+        this.savingItems[key] = false;
+      }
       // Trigger change detection to update completion percentage
       this.changeDetectorRef.detectChanges();
     }
@@ -7830,23 +7995,42 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         visualData.Answers = answers;
       }
 
-      const currentlyOnline = this.offlineService.isOnline();
-      const manualOffline = this.offlineService.isManualOffline();
+      // OPTIMISTIC UI: Immediately assign temp ID
+      this.visualRecordIds[key] = `temp_${Date.now()}`;
+      this.savingItems[key] = true;
+      this.changeDetectorRef.detectChanges();
 
-      this.visualRecordIds[key] = '__pending__';
-      localStorage.setItem(recordKey, '__pending__');
+      // Queue visual creation with retry logic
+      const visualOpId = await this.operationsQueue.enqueue({
+        type: 'CREATE_VISUAL',
+        data: visualData,
+        dedupeKey: `visual_${serviceIdNum}_${category}_${template.Name}`,
+        maxRetries: 3,
+        onSuccess: async (result: any) => {
+          console.log(`[Visual Queue] Success for ${template.Name}:`, result.visualId);
+          this.visualRecordIds[key] = result.visualId;
+          localStorage.setItem(recordKey, result.visualId);
+          this.savingItems[key] = false;
+          delete this.pendingVisualCreates[key];
 
-      if (!currentlyOnline || manualOffline) {
-        this.pendingVisualCreates[key] = {
-          category,
-          templateId,
-          data: visualData
-        };
-        this.showToast('Visual queued and will save when auto-sync resumes.', 'warning');
-        return;
-      }
+          // Process pending photo uploads
+          await this.processPendingPhotoUploadsForKey(key);
 
-      await this.createVisualRecord(key, category, templateId, visualData);
+          this.changeDetectorRef.detectChanges();
+        },
+        onError: (error: any) => {
+          console.error(`[Visual Queue] Failed for ${template.Name}:`, error);
+          delete this.visualRecordIds[key];
+          delete this.selectedItems[key];
+          this.savingItems[key] = false;
+          localStorage.removeItem(recordKey);
+
+          this.showToast(`Failed to create visual. It will retry automatically.`, 'warning');
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+
+      console.log(`[Visual Queue] Queued visual creation for ${template.Name}, operation ID: ${visualOpId}`);
     } catch (error) {
       console.error('Error saving visual:', error);
       await this.showToast('Failed to save visual', 'danger');
@@ -7865,19 +8049,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     delete this.pendingPhotoUploads[key];
     delete this.pendingVisualCreates[key];
 
-    if (recordId === '__pending__') {
-      // Pending create was never synced; just clear the placeholder
+    if (recordId === '__pending__' || String(recordId).startsWith('temp_')) {
+      // Pending create was never synced or has temp ID; just clear the placeholder
       localStorage.removeItem(recordKey);
       this.pendingVisualKeys.delete(key);
       return;
     }
 
     if (recordId) {
+      // Queue deletion with retry logic
       try {
-        await this.caspioService.deleteServicesVisual(recordId).toPromise();
-        localStorage.removeItem(recordKey);
+        await this.operationsQueue.enqueue({
+          type: 'DELETE_VISUAL',
+          data: { visualId: recordId },
+          dedupeKey: 'delete_visual_' + recordId + '_' + Date.now(),
+          maxRetries: 3,
+          onSuccess: () => {
+            console.log('[Visual Queue] Deleted visual:', recordId);
+            localStorage.removeItem(recordKey);
+            this.changeDetectorRef.detectChanges();
+          },
+          onError: (error: any) => {
+            console.error('[Visual Queue] Failed to delete visual:', error);
+            this.showToast('Failed to delete visual. It will retry automatically.', 'warning');
+          }
+        });
       } catch (error) {
-        console.error('Failed to remove visual:', error);
+        console.error('Failed to queue visual removal:', error);
       }
     }
   }
@@ -8796,6 +8994,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         ).toPromise();
       } catch (uploadError: any) {
         console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Upload failed:', uploadError);
+
+        // If network error, queue for automatic retry
+        if (this.isRetryableError(uploadError)) {
+          console.warn('[Visual Photo Upload] Retryable error detected, queueing for retry');
+          await this.operationsQueue.enqueue({
+            type: 'UPLOAD_VISUAL_PHOTO',
+            data: {
+              visualId: visualIdNum,
+              file: photo,
+              caption: caption || '',
+              annotationData: annotationData
+            },
+            dedupeKey: 'visual_photo_' + visualIdNum + '_' + Date.now(),
+            maxRetries: 3
+          });
+        }
         
         // Show detailed error popup
         const errorDetails = {
@@ -12579,14 +12793,19 @@ Stack: ${error?.stack}`;
     if (photos.length === 0) {
       photos = this.visualPhotos[visualId] || [];
     }
-    
+
     // Use the cache service for better performance across sessions
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
     const cachedPhotos = this.cache.get(cacheKey);
     if (cachedPhotos) {
       return cachedPhotos;
     }
-    
+
+    // Load Fabric.js once for all photos to avoid multiple parallel imports
+    console.log('[PDF Photos] Loading Fabric.js for annotation rendering...');
+    const fabric = await this.fabricService.getFabric();
+    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos');
+
     // Convert all photos to base64 for PDF compatibility - in parallel
     const photoPromises = photos.map(async (photo) => {
       // Prioritize displayUrl (annotated) over regular url
@@ -12647,8 +12866,8 @@ Stack: ${error?.stack}`;
             finalUrl = cachedAnnotated;
           } else {
             console.log('[PDF Photos] Rendering annotations with renderAnnotationsOnPhoto...');
-            // Render annotations onto the photo
-            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+            // Render annotations onto the photo, passing the pre-loaded fabric instance
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
             if (annotatedUrl && annotatedUrl !== finalUrl) {
               console.log('[PDF Photos] Annotations rendered successfully');
               finalUrl = annotatedUrl;

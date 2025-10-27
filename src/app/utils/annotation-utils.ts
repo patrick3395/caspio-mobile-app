@@ -279,12 +279,13 @@ export const compressAnnotationData = (
  * @param imageUrl - URL of the original photo
  * @param annotationData - Compressed or decompressed annotation data
  * @param options - Optional rendering options
+ * @param fabricInstance - Optional pre-loaded Fabric.js instance to avoid multiple imports
  * @returns Promise resolving to data URL of the annotated image
  */
 export async function renderAnnotationsOnPhoto(
   imageUrl: string,
   annotationData: string | FabricAnnotationPayload | null | undefined,
-  options: { quality?: number; format?: 'jpeg' | 'png' } = {}
+  options: { quality?: number; format?: 'jpeg' | 'png'; fabric?: any } = {}
 ): Promise<string | null> {
   console.log('[renderAnnotationsOnPhoto] Starting...', { imageUrl: imageUrl.substring(0, 50), hasAnnotations: !!annotationData });
 
@@ -308,10 +309,21 @@ export async function renderAnnotationsOnPhoto(
   }
 
   try {
-    console.log('[renderAnnotationsOnPhoto] Loading Fabric.js...');
-    // Dynamically import fabric - the module itself IS the fabric object
-    const fabric = await import('fabric');
-    console.log('[renderAnnotationsOnPhoto] Fabric.js loaded');
+    // Use provided Fabric instance or dynamically import it
+    let fabric = options.fabric;
+
+    if (!fabric) {
+      console.log('[renderAnnotationsOnPhoto] Loading Fabric.js...');
+      try {
+        fabric = await import('fabric');
+        console.log('[renderAnnotationsOnPhoto] Fabric.js loaded successfully');
+      } catch (fabricError) {
+        console.error('[renderAnnotationsOnPhoto] Failed to load Fabric.js:', fabricError);
+        throw fabricError;
+      }
+    } else {
+      console.log('[renderAnnotationsOnPhoto] Using provided Fabric instance');
+    }
 
     // Load the image using Fabric.js
     console.log('[renderAnnotationsOnPhoto] Loading image...');
