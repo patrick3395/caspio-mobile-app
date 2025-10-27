@@ -272,4 +272,118 @@ export const compressAnnotationData = (
 
   const reducedString = JSON.stringify(payload);
   return COMPRESSED_PREFIX_V3 + reducedString;
+}
+
+/**
+ * Renders annotations onto a photo and returns the result as a data URL
+ * @param imageUrl - URL of the original photo
+ * @param annotationData - Compressed or decompressed annotation data
+ * @param options - Optional rendering options
+ * @returns Promise resolving to data URL of the annotated image
+ */
+export async function renderAnnotationsOnPhoto(
+  imageUrl: string,
+  annotationData: string | FabricAnnotationPayload | null | undefined,
+  options: { quality?: number; format?: 'jpeg' | 'png' } = {}
+): Promise<string | null> {
+  // Return original if no annotations
+  if (!annotationData) {
+    return imageUrl;
+  }
+
+  // Decompress annotation data
+  const annotations = decompressAnnotationData(annotationData);
+  if (!annotations || !annotations.objects || annotations.objects.length === 0) {
+    return imageUrl;
+  }
+
+  try {
+    // Dynamically import fabric
+    const fabricModule = await import('fabric');
+    const fabric = fabricModule.fabric || (fabricModule as any).default?.fabric || fabricModule;
+
+    // Load the image
+    const img = await loadImageElement(imageUrl);
+
+    // Create canvas with image dimensions
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    // Initialize Fabric canvas
+    const fabricCanvas = new fabric.Canvas(canvas, {
+      width: img.width,
+      height: img.height
+    });
+
+    // Set image as background
+    await new Promise<void>((resolve, reject) => {
+      fabric.Image.fromURL(imageUrl, (img: any) => {
+        if (!img) {
+          reject(new Error('Failed to load image'));
+          return;
+        }
+        fabricCanvas.setBackgroundImage(img, () => {
+          fabricCanvas.renderAll();
+          resolve();
+        }, {
+          originX: 'left',
+          originY: 'top'
+        });
+      }, { crossOrigin: 'anonymous' });
+    });
+
+    // Load annotations onto canvas
+    await new Promise<void>((resolve, reject) => {
+      fabricCanvas.loadFromJSON(annotations, () => {
+        // Filter out any image objects (we only want annotations)
+        const objects = fabricCanvas.getObjects();
+        objects.forEach((obj: any) => {
+          if (obj.type === 'image') {
+            fabricCanvas.remove(obj);
+          }
+        });
+
+        fabricCanvas.renderAll();
+        resolve();
+      }, (o: any, object: any) => {
+        // Callback for each object loaded
+      });
+    });
+
+    // Export as data URL
+    const quality = options.quality || 0.9;
+    const format = options.format || 'jpeg';
+    const dataUrl = fabricCanvas.toDataURL({
+      format: format,
+      quality: quality,
+      multiplier: 1
+    });
+
+    // Cleanup
+    fabricCanvas.dispose();
+
+    return dataUrl;
+  } catch (error) {
+    console.error('[annotation-utils] Error rendering annotations:', error);
+    return imageUrl; // Return original on error
+  }
+}
+
+/**
+ * Helper function to load an image element
+ */
+function loadImageElement(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+
+    img.src = url;
+
+    // Timeout after 10 seconds
+    setTimeout(() => reject(new Error('Image load timeout')), 10000);
+  });
 };

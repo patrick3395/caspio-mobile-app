@@ -1250,19 +1250,18 @@
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
-                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                        <div style="flex: 1;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                              <ion-icon *ngIf="getPointPhotoByType(point, 'Measurement')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 3px; right: 3px; font-size: 12px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                           <!-- Measurement Photo Thumbnail -->
@@ -1293,19 +1292,18 @@
                         </div>
 
                         <!-- Location Photo Container -->
-                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                        <div style="flex: 1;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                              <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 3px; right: 3px; font-size: 12px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                           <!-- Location Photo Thumbnail -->
@@ -1671,19 +1669,18 @@
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
-                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                        <div style="flex: 1;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                              <ion-icon *ngIf="getPointPhotoByType(point, 'Measurement')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 3px; right: 3px; font-size: 12px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                           <!-- Measurement Photo Thumbnail -->
@@ -1714,19 +1711,18 @@
                         </div>
 
                         <!-- Location Photo Container -->
-                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                        <div style="flex: 1;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                              <ion-icon name="camera" style="font-size: 18px;"></ion-icon>
-                              <ion-icon *ngIf="getPointPhotoByType(point, 'Location')" name="checkmark-circle" class="checkmark-icon" style="color: #4CAF50; position: absolute; top: 3px; right: 3px; font-size: 12px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                              <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                              <ion-icon name="images" style="font-size: 18px;"></ion-icon>
+                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                              <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
                           <!-- Location Photo Thumbnail -->

@@ -15,7 +15,7 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
-import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
@@ -11989,20 +11989,38 @@ Stack: ${error?.stack}`;
                 // Convert Caspio file path to base64
                 if (photoPath.startsWith('/')) {
                   try {
-                    
+
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
-                      fdfPhotosData[photoType.key] = true;
-                      fdfPhotosData[`${photoType.key}Url`] = base64Data;
+                      let finalUrl = base64Data;
+
                       // Load caption and drawings from new fields (following measurement photo pattern)
-                      fdfPhotosData[`${photoType.key}Caption`] = roomRecord[photoType.annotationField] || '';
-                      fdfPhotosData[`${photoType.key}Drawings`] = roomRecord[photoType.drawingsField] || null;
+                      const caption = roomRecord[photoType.annotationField] || '';
+                      const drawingsData = roomRecord[photoType.drawingsField] || null;
+
+                      // CRITICAL FIX: Render annotations if Drawings data exists
+                      if (drawingsData) {
+                        try {
+                          const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+                          if (annotatedUrl && annotatedUrl !== finalUrl) {
+                            finalUrl = annotatedUrl;
+                          }
+                        } catch (renderError) {
+                          console.error(`[FDF Photos] Error rendering annotations for ${photoType.key}:`, renderError);
+                          // Continue with original photo if rendering fails
+                        }
+                      }
+
+                      fdfPhotosData[photoType.key] = true;
+                      fdfPhotosData[`${photoType.key}Url`] = finalUrl;
+                      fdfPhotosData[`${photoType.key}Caption`] = caption;
+                      fdfPhotosData[`${photoType.key}Drawings`] = drawingsData;
                     } else {
                       console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
                     }
                   } catch (error) {
                     console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
-                    
+
                     // Try to use token-based URL as fallback
                     const token = await firstValueFrom(this.caspioService.getValidToken());
                     const account = this.caspioService.getAccountID();
@@ -12079,7 +12097,7 @@ Stack: ${error?.stack}`;
             
             for (const attachment of (attachments || [])) {
               let photoUrl = attachment.Photo || '';
-              
+
               // Convert Caspio file paths to base64
               if (photoUrl && photoUrl.startsWith('/')) {
                 const mappingIndex = imagePromises.length;
@@ -12088,12 +12106,28 @@ Stack: ${error?.stack}`;
                   attachment,
                   mappingIndex
                 });
-                
+
                 imagePromises.push(
                   this.caspioService.getImageFromFilesAPI(photoUrl).toPromise()
-                    .then(base64Data => {
+                    .then(async (base64Data) => {
                       if (base64Data && base64Data.startsWith('data:')) {
-                        return base64Data;
+                        let finalUrl = base64Data;
+
+                        // CRITICAL FIX: Render annotations if Drawings data exists
+                        const drawingsData = attachment.Drawings;
+                        if (drawingsData) {
+                          try {
+                            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+                            if (annotatedUrl && annotatedUrl !== finalUrl) {
+                              finalUrl = annotatedUrl;
+                            }
+                          } catch (renderError) {
+                            console.error(`[Point Photos] Error rendering annotations:`, renderError);
+                            // Continue with original photo if rendering fails
+                          }
+                        }
+
+                        return finalUrl;
                       }
                       return photoUrl; // Fallback to original
                     })
@@ -12204,19 +12238,19 @@ Stack: ${error?.stack}`;
       // Prioritize displayUrl (annotated) over regular url
       let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
       let finalUrl = photoUrl;
-      
+
       // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
         // Check individual photo cache first
         const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: photoUrl });
         const cachedBase64 = this.cache.get(photoCacheKey);
-        
+
         if (cachedBase64) {
           finalUrl = cachedBase64;
         } else {
           try {
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-            
+
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
               // Cache individual photo for reuse
@@ -12233,15 +12267,43 @@ Stack: ${error?.stack}`;
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
         finalUrl = photoUrl;
       }
-      
+
+      // CRITICAL FIX: Render annotations if Drawings data exists
+      const drawingsData = photo.Drawings;
+      if (drawingsData && finalUrl && !finalUrl.includes('placeholder')) {
+        try {
+          // Check cache for annotated version
+          const annotatedCacheKey = this.cache.getApiCacheKey('photo_annotated', {
+            path: photoUrl,
+            drawings: drawingsData.substring(0, 50) // Use first 50 chars as cache key part
+          });
+          const cachedAnnotated = this.cache.get(annotatedCacheKey);
+
+          if (cachedAnnotated) {
+            finalUrl = cachedAnnotated;
+          } else {
+            // Render annotations onto the photo
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+            if (annotatedUrl && annotatedUrl !== finalUrl) {
+              finalUrl = annotatedUrl;
+              // Cache the annotated version
+              this.cache.set(annotatedCacheKey, annotatedUrl, this.cache.CACHE_TIMES.LONG);
+            }
+          }
+        } catch (renderError) {
+          console.error(`Error rendering annotations for photo:`, renderError);
+          // Continue with original photo if rendering fails
+        }
+      }
+
       // Return the photo object with the appropriate URLs
       // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
       return {
         url: photo.url || finalUrl, // Original URL
-        displayUrl: finalUrl, // This will be the annotated version if it exists, otherwise the original
+        displayUrl: finalUrl, // This will be the annotated version with drawings rendered
         caption: photo.Annotation || '',
         attachId: photo.AttachID || photo.id || '',
-        hasAnnotations: photo.hasAnnotations || false
+        hasAnnotations: !!drawingsData
       };
     });
     
