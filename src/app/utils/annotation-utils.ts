@@ -294,12 +294,16 @@ export async function renderAnnotationsOnPhoto(
     return imageUrl;
   }
 
+  // Log raw annotation data
+  console.log('[renderAnnotationsOnPhoto] Raw annotation data:', typeof annotationData, annotationData.substring ? annotationData.substring(0, 200) : annotationData);
+
   // Decompress annotation data
   const annotations = decompressAnnotationData(annotationData);
-  console.log('[renderAnnotationsOnPhoto] Decompressed annotations:', { objectCount: annotations?.objects?.length });
+  console.log('[renderAnnotationsOnPhoto] Decompressed annotations:', annotations);
+  console.log('[renderAnnotationsOnPhoto] Objects array:', annotations?.objects);
 
   if (!annotations || !annotations.objects || annotations.objects.length === 0) {
-    console.log('[renderAnnotationsOnPhoto] No annotation objects, returning original');
+    console.log('[renderAnnotationsOnPhoto] No annotation objects (empty array), returning original');
     return imageUrl;
   }
 

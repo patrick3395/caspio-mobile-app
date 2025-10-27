@@ -34,6 +34,56 @@
     </button>
   </div>
 
+  <!-- Operations Queue Status Bar -->
+  <div class="operations-status-bar" *ngIf="(operationsQueue.queue$ | async) as queue">
+    <ng-container *ngIf="queue.length > 0">
+      <div class="operations-summary" [class.has-failures]="getFailedOpsCount(queue) > 0">
+        <ion-icon name="cloud-upload-outline" *ngIf="getFailedOpsCount(queue) === 0"></ion-icon>
+        <ion-icon name="alert-circle-outline" *ngIf="getFailedOpsCount(queue) > 0" style="color: #ff6b6b;"></ion-icon>
+
+        <div class="operations-info">
+          <ng-container *ngIf="getPendingOpsCount(queue) > 0">
+            <strong>{{ getPendingOpsCount(queue) }} operation{{ getPendingOpsCount(queue) > 1 ? 's' : '' }} syncing...</strong>
+          </ng-container>
+          <ng-container *ngIf="getFailedOpsCount(queue) > 0 && getPendingOpsCount(queue) === 0">
+            <strong style="color: #ff6b6b;">{{ getFailedOpsCount(queue) }} operation{{ getFailedOpsCount(queue) > 1 ? 's' : '' }} failed</strong>
+          </ng-container>
+        </div>
+
+        <button class="view-operations-btn" (click)="toggleOperationsDetail()">
+          <ion-icon [name]="showOperationsDetail ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Progress bar for active operations -->
+      <ion-progress-bar [value]="getQueueProgress(queue)" *ngIf="getPendingOpsCount(queue) > 0"></ion-progress-bar>
+
+      <!-- Detailed operations list (expandable) -->
+      <div class="operations-detail" *ngIf="showOperationsDetail">
+        <div class="operation-item" *ngFor="let op of queue">
+          <div class="operation-icon">
+            <ion-icon name="hourglass-outline" *ngIf="op.status === 'pending' || op.status === 'in-progress'" style="color: #ffa500;"></ion-icon>
+            <ion-icon name="checkmark-circle" *ngIf="op.status === 'completed'" style="color: #28a745;"></ion-icon>
+            <ion-icon name="close-circle" *ngIf="op.status === 'failed'" style="color: #ff6b6b;"></ion-icon>
+          </div>
+
+          <div class="operation-info">
+            <div class="operation-type">
+              {{ getOperationLabel(op.type) }}
+              <span class="operation-retry" *ngIf="op.retryCount > 0">(Retry {{ op.retryCount }}/{{ op.maxRetries }})</span>
+            </div>
+            <div class="operation-error" *ngIf="op.error">{{ op.error }}</div>
+          </div>
+
+          <button class="retry-operation-btn" *ngIf="op.status === 'failed'" (click)="retryFailedOperation(op.id)">
+            <ion-icon name="refresh-outline"></ion-icon>
+            Retry
+          </button>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
   <div class="template-container" [class.has-banner]="manualOffline">
 
     <!-- Project Information Section (Shared across all services) -->

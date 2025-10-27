@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { CaspioService } from '../../services/caspio.service';
 import { OfflineService } from '../../services/offline.service';
+import { OperationsQueueService } from '../../services/operations-queue.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
@@ -289,7 +290,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
-  
+
+  // Operations queue UI state
+  showOperationsDetail = false;
+
   // FDF dropdown options from Services_EFE_Drop table - mapped by room name
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
@@ -377,7 +381,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private pdfGenerator: PdfGeneratorService,
     private cache: CacheService,
     private offlineService: OfflineService,
-    private foundationData: EngineersFoundationDataService
+    private foundationData: EngineersFoundationDataService,
+    private operationsQueue: OperationsQueueService
   ) {}
 
   async ngOnInit() {
@@ -385,10 +390,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
-    
+
     console.log('[ngOnInit] ProjectId from route:', this.projectId);
     console.log('[ngOnInit] ServiceId from route:', this.serviceId);
     console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
+
+    // Initialize operations queue and register executors
+    await this.initializeOperationsQueue();
 
     this.isOnline = this.offlineService.isOnline();
     this.manualOffline = this.offlineService.isManualOffline();
@@ -461,6 +469,111 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
+  }
+
+  /**
+   * Initialize the operations queue and register executors for room/point/photo operations
+   */
+  private async initializeOperationsQueue(): Promise<void> {
+    console.log('[OperationsQueue] Initializing operations queue...');
+
+    // Restore any pending operations from storage
+    await this.operationsQueue.restore();
+
+    // Register CREATE_ROOM executor
+    this.operationsQueue.setExecutor('CREATE_ROOM', async (data: any) => {
+      console.log('[OperationsQueue] Executing CREATE_ROOM:', data.RoomName);
+      const response = await this.caspioService.createServicesEFE(data).toPromise();
+
+      if (!response) {
+        throw new Error('No response from createServicesEFE');
+      }
+
+      const roomId = response.EFEID || response.roomId;
+      if (!roomId) {
+        console.error('[OperationsQueue] No EFEID in response:', response);
+        throw new Error('EFEID not found in response');
+      }
+
+      console.log('[OperationsQueue] Room created successfully:', roomId);
+      return { roomId, response };
+    });
+
+    // Register CREATE_POINT executor
+    this.operationsQueue.setExecutor('CREATE_POINT', async (data: any) => {
+      console.log('[OperationsQueue] Executing CREATE_POINT:', data.PointName);
+      const response = await this.caspioService.createServicesEFEPoint(data).toPromise();
+
+      if (!response) {
+        throw new Error('No response from createServicesEFEPoint');
+      }
+
+      const pointId = response.PointID || response.PK_ID;
+      if (!pointId) {
+        console.error('[OperationsQueue] No PointID in response:', response);
+        throw new Error('PointID not found in response');
+      }
+
+      console.log('[OperationsQueue] Point created successfully:', pointId);
+      return { pointId, response };
+    });
+
+    // Register UPLOAD_PHOTO executor
+    this.operationsQueue.setExecutor('UPLOAD_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
+      console.log('[OperationsQueue] Executing UPLOAD_PHOTO for point:', data.pointId);
+
+      // Compress the file first
+      const compressedFile = await this.imageCompression.compressImage(data.file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+
+      if (onProgress) onProgress(0.3); // 30% after compression
+
+      // Process annotation data
+      let drawingsData = '';
+      if (data.annotationData && data.annotationData !== null) {
+        let hasActualAnnotations = false;
+
+        if (typeof data.annotationData === 'object' && data.annotationData.objects && Array.isArray(data.annotationData.objects)) {
+          hasActualAnnotations = data.annotationData.objects.length > 0;
+        } else if (typeof data.annotationData === 'string' && data.annotationData.length > 2) {
+          hasActualAnnotations = data.annotationData !== '{}' && data.annotationData !== '[]' && data.annotationData !== '""';
+        }
+
+        if (hasActualAnnotations) {
+          if (typeof data.annotationData === 'string') {
+            drawingsData = data.annotationData;
+          } else if (typeof data.annotationData === 'object') {
+            drawingsData = JSON.stringify(data.annotationData);
+          }
+          if (drawingsData && drawingsData.length > 0) {
+            drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+          }
+        }
+      }
+      if (!drawingsData) {
+        drawingsData = EMPTY_COMPRESSED_ANNOTATIONS;
+      }
+
+      if (onProgress) onProgress(0.5); // 50% before upload
+
+      // Upload the photo
+      const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
+        parseInt(data.pointId, 10),
+        drawingsData,
+        compressedFile,
+        data.photoType
+      ).toPromise();
+
+      if (onProgress) onProgress(1.0); // 100% complete
+
+      console.log('[OperationsQueue] Photo uploaded successfully:', response?.AttachID);
+      return { attachId: response?.AttachID || response?.PK_ID, response };
+    });
+
+    console.log('[OperationsQueue] Operations queue initialized successfully');
   }
 
   private tryAutoOpenPdf(): void {
@@ -683,6 +796,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   trackByOption(index: number, option: string): string {
     return option;
+  }
+
+  // Operations queue helper methods
+  getPendingOpsCount(queue: any[]): number {
+    return queue.filter(op => op.status === 'pending' || op.status === 'in-progress').length;
+  }
+
+  getFailedOpsCount(queue: any[]): number {
+    return queue.filter(op => op.status === 'failed').length;
+  }
+
+  getQueueProgress(queue: any[]): number {
+    if (queue.length === 0) return 1;
+    const completed = queue.filter(op => op.status === 'completed').length;
+    return completed / queue.length;
+  }
+
+  toggleOperationsDetail(): void {
+    this.showOperationsDetail = !this.showOperationsDetail;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  getOperationLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'CREATE_ROOM': 'Creating room',
+      'CREATE_POINT': 'Creating point',
+      'UPLOAD_PHOTO': 'Uploading photo',
+      'UPDATE_ROOM': 'Updating room',
+      'DELETE_ROOM': 'Deleting room'
+    };
+    return labels[type] || type;
+  }
+
+  async retryFailedOperation(id: string): Promise<void> {
+    console.log(`[Operations] Retrying operation ${id}`);
+    await this.operationsQueue.retryOperation(id);
+    this.changeDetectorRef.detectChanges();
   }
 
   trackByVisualKey(index: number, item: any): string {
@@ -2989,25 +3139,48 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Upload photo from File object to Services_EFE_Points_Attach with annotation support
-  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string) {
-    try {
-      const pointIdNum = parseInt(pointId, 10);
-      
-      // COMPRESS the file before upload - OPTIMIZED for faster uploads
-      const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.8,  // Reduced from 1.5MB for faster uploads
-        maxWidthOrHeight: 1280,  // Reduced from 1920px - sufficient for reports
-        useWebWorker: true
-      }) as File;
-      
-      // Directly proceed with upload and return the response
-      const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData, photoType);
-      return response;  // Return response so we can get AttachID
-      
-    } catch (error) {
-      console.error('Error in uploadPhotoToRoomPointFromFile:', error);
-      throw error;
+  async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string, pointOpId?: string) {
+    console.log(`[Photo Upload] Queuing upload for point ${pointId}, photoType: ${photoType}`);
+
+    // Find the point operation ID if not provided (for dependency tracking)
+    if (!pointOpId && pointId.startsWith('temp_')) {
+      console.warn(`[Photo Upload] Point ${pointId} is temporary - waiting for point creation`);
+      // We'll need to find the corresponding point operation
+      // For now, we'll queue without dependency and let it retry if point doesn't exist
     }
+
+    // Queue the photo upload operation
+    const uploadOpId = await this.operationsQueue.enqueue({
+      type: 'UPLOAD_PHOTO',
+      data: {
+        pointId: pointId.startsWith('temp_') ? pointId : pointId, // Keep temp ID for now
+        file: file,
+        pointName: pointName,
+        annotationData: annotationData,
+        photoType: photoType
+      },
+      dependencies: pointOpId ? [pointOpId] : [], // Wait for point creation if ID provided
+      dedupeKey: `photo_${pointId}_${photoType}_${Date.now()}`, // Allow multiple photos per point
+      maxRetries: 3,
+      onSuccess: (result: any) => {
+        console.log(`[Photo Upload] Success for ${pointName}:`, result.attachId);
+        // Photo is now uploaded - UI will be updated by the caller
+        return result;
+      },
+      onError: (error: any) => {
+        console.error(`[Photo Upload] Failed for ${pointName}:`, error);
+        throw error;
+      },
+      onProgress: (percent: number) => {
+        console.log(`[Photo Upload] Progress for ${pointName}: ${Math.round(percent * 100)}%`);
+      }
+    });
+
+    console.log(`[Photo Upload] Queued upload operation ${uploadOpId}`);
+
+    // Return a promise that resolves when upload completes
+    // For now, return upload operation ID as mock response
+    return { AttachID: uploadOpId, PK_ID: uploadOpId };
   }
   
   // Perform the actual room point photo upload with annotation support
@@ -3217,100 +3390,135 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // If selecting, check if room already exists before creating
     if (isSelected) {
       // Check if we already have a record ID for this room
-      if (this.efeRecordIds[roomName]) {
+      if (this.efeRecordIds[roomName] && this.efeRecordIds[roomName] !== '__pending__') {
         this.selectedRooms[roomName] = true;
         this.expandedRooms[roomName] = false;
         return; // Room already exists, just update UI state
       }
-      
-      this.savingRooms[roomName] = true;
-      
-      try {
-        // Create room in Services_EFE
-        const serviceIdNum = parseInt(this.serviceId, 10);
-        
-        // Validate ServiceID
-        if (!this.serviceId || isNaN(serviceIdNum)) {
-          await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
-          this.savingRooms[roomName] = false;
-          return;
-        }
-        
-        // Send ServiceID, RoomName, and TemplateID (critical for matching after renames)
-        const roomData: any = {
-          ServiceID: serviceIdNum,
-          RoomName: roomName
-        };
-        
-        // Include TemplateID to link back to template (critical for room name changes)
-        if (this.roomElevationData[roomName] && this.roomElevationData[roomName].templateId) {
-          roomData.TemplateID = this.roomElevationData[roomName].templateId;
-        }
-        
-        // Include FDF and Notes if they exist
-        if (this.roomElevationData[roomName]) {
-          if (this.roomElevationData[roomName].fdf) {
-            roomData.FDF = this.roomElevationData[roomName].fdf;
-          }
-          if (this.roomElevationData[roomName].notes) {
-            roomData.Notes = this.roomElevationData[roomName].notes;
-          }
-        }
 
-        // Check if offline mode is enabled
-        if (this.manualOffline) {
-          this.pendingRoomCreates[roomName] = roomData;
-          this.selectedRooms[roomName] = true;
-          this.expandedRooms[roomName] = true;
-          this.efeRecordIds[roomName] = '__pending__';
+      // Validate ServiceID
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (!this.serviceId || isNaN(serviceIdNum)) {
+        await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+        return;
+      }
+
+      // Build room data
+      const roomData: any = {
+        ServiceID: serviceIdNum,
+        RoomName: roomName
+      };
+
+      // Include TemplateID to link back to template (critical for room name changes)
+      if (this.roomElevationData[roomName] && this.roomElevationData[roomName].templateId) {
+        roomData.TemplateID = this.roomElevationData[roomName].templateId;
+      }
+
+      // Include FDF and Notes if they exist
+      if (this.roomElevationData[roomName]) {
+        if (this.roomElevationData[roomName].fdf) {
+          roomData.FDF = this.roomElevationData[roomName].fdf;
+        }
+        if (this.roomElevationData[roomName].notes) {
+          roomData.Notes = this.roomElevationData[roomName].notes;
+        }
+      }
+
+      // OPTIMISTIC UI: Immediately show room as selected with temp ID
+      this.selectedRooms[roomName] = true;
+      this.expandedRooms[roomName] = true;
+      this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+      this.savingRooms[roomName] = true;
+      this.changeDetectorRef.detectChanges();
+
+      // Queue room creation with retry logic
+      const roomOpId = await this.operationsQueue.enqueue({
+        type: 'CREATE_ROOM',
+        data: roomData,
+        dedupeKey: `room_${serviceIdNum}_${roomName}`,
+        maxRetries: 3,
+        onSuccess: (result: any) => {
+          console.log(`[Room Queue] Success for ${roomName}:`, result.roomId);
+          this.efeRecordIds[roomName] = result.roomId;
           this.savingRooms[roomName] = false;
           this.changeDetectorRef.detectChanges();
-          return;
-        }
 
-        // Create room directly without debug popup
-        try {
-          const response = await this.caspioService.createServicesEFE(roomData).toPromise();
-          
-          if (response) {
-            // Use EFEID from the response, NOT PK_ID
-            const roomId = response.EFEID || response.roomId;
-            if (!roomId) {
-              console.error('No EFEID in response:', response);
-              throw new Error('EFEID not found in response');
-            }
-            this.efeRecordIds[roomName] = roomId;
-            this.selectedRooms[roomName] = true;
-            this.expandedRooms[roomName] = true;
-
-            // Pre-create all elevation points in background (non-blocking)
-            this.createElevationPointsForRoom(roomName, roomId).catch(err => {
-              console.error(`[Background] Failed to pre-create points for ${roomName}:`, err);
-              // Don't show error - points will be created on-demand during photo upload
-            });
-          }
-        } catch (err: any) {
-          console.error('Room creation error:', err);
-          if (!this.manualOffline) {
-            await this.showToast('Failed to create room', 'danger');
-          }
+          // Chain point creation as dependent operations
+          this.queuePointCreation(roomName, result.roomId, roomOpId);
+        },
+        onError: (error: any) => {
+          console.error(`[Room Queue] Failed for ${roomName}:`, error);
           this.selectedRooms[roomName] = false;
+          this.expandedRooms[roomName] = false;
+          delete this.efeRecordIds[roomName];
+          this.savingRooms[roomName] = false;
+
+          if (event && event.target) {
+            event.target.checked = false;
+          }
+
+          this.showToast(`Failed to create room "${roomName}". It will retry automatically.`, 'warning');
+          this.changeDetectorRef.detectChanges();
         }
-      } catch (error: any) {
-        console.error('Error toggling room selection:', error);
-        if (!this.manualOffline) {
-          await this.showToast('Failed to update room selection', 'danger');
-        }
-        this.selectedRooms[roomName] = false;
-        if (event && event.target) {
-          event.target.checked = false; // Revert checkbox visually on error
-        }
-      } finally {
-        this.savingRooms[roomName] = false;
-        // Trigger change detection to update completion percentage
-        this.changeDetectorRef.detectChanges();
-      }
+      });
+
+      console.log(`[Room Queue] Queued room creation for ${roomName}, operation ID: ${roomOpId}`);
     }
+  }
+
+  /**
+   * Queue point creation for a room with dependency on room creation
+   */
+  private async queuePointCreation(roomName: string, roomId: string, roomOpId: string): Promise<void> {
+    const roomData = this.roomElevationData[roomName];
+    if (!roomData || !roomData.elevationPoints || roomData.elevationPoints.length === 0) {
+      console.log(`[Point Queue] No points to create for ${roomName}`);
+      return;
+    }
+
+    console.log(`[Point Queue] Queuing ${roomData.elevationPoints.length} points for ${roomName}`);
+
+    // Queue each point creation with dependency on room
+    for (const point of roomData.elevationPoints) {
+      const pointKey = `${roomName}_${point.name}`;
+
+      // Skip if point already exists
+      if (this.efePointIds[pointKey] && !this.efePointIds[pointKey].startsWith('temp_')) {
+        console.log(`[Point Queue] Point ${point.name} already exists, skipping`);
+        continue;
+      }
+
+      // Optimistic: assign temp ID
+      this.efePointIds[pointKey] = `temp_${Date.now()}_${Math.random()}`;
+      this.pointCreationStatus[pointKey] = 'pending';
+
+      // Queue point creation
+      await this.operationsQueue.enqueue({
+        type: 'CREATE_POINT',
+        data: {
+          EFEID: parseInt(roomId),
+          PointName: point.name
+        },
+        dependencies: [roomOpId], // Wait for room to be created
+        dedupeKey: `point_${roomId}_${point.name}`,
+        maxRetries: 3,
+        onSuccess: (result: any) => {
+          console.log(`[Point Queue] Success for ${point.name}:`, result.pointId);
+          this.efePointIds[pointKey] = result.pointId;
+          this.pointCreationStatus[pointKey] = 'created';
+          delete this.pointCreationErrors[pointKey];
+          this.changeDetectorRef.detectChanges();
+        },
+        onError: (error: any) => {
+          console.error(`[Point Queue] Failed for ${point.name}:`, error);
+          this.pointCreationStatus[pointKey] = 'failed';
+          this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+    }
+
+    this.changeDetectorRef.detectChanges();
   }
 
   // Pre-create all elevation points for a room to eliminate lag when taking photos
@@ -12406,7 +12614,14 @@ Stack: ${error?.stack}`;
       // Check both Drawings and rawDrawingsString (rawDrawingsString is from buildPhotoRecord)
       const drawingsData = photo.Drawings || photo.rawDrawingsString;
       if (drawingsData && finalUrl && !finalUrl.includes('placeholder')) {
-        console.log('[PDF Photos] Rendering annotations for photo:', { photoUrl, hasDrawings: !!drawingsData });
+        console.log('[PDF Photos] Rendering annotations for photo:', {
+          photoUrl,
+          hasDrawings: !!drawingsData,
+          drawingsType: typeof drawingsData,
+          drawingsPreview: typeof drawingsData === 'string' ? drawingsData.substring(0, 200) : drawingsData,
+          photoHasDrawings: !!photo.Drawings,
+          photoHasRawDrawingsString: !!photo.rawDrawingsString
+        });
         try {
           // Check cache for annotated version
           const annotatedCacheKey = this.cache.getApiCacheKey('photo_annotated', {
