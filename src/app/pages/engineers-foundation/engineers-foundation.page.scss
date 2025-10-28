@@ -1,52 +1,22 @@
-﻿// Brand Colors
-ion-toolbar {
-  --background: var(--noble-orange);
-}
-
+﻿// Brand Colors and Header Styling
 ion-header {
   z-index: 1001 !important;
-  // Prevent header from expanding
-  contain: layout style;
 
-  // Lock header to exact height - prevent any expansion
-  &::part(header) {
-    min-height: 56px !important;
-    max-height: 56px !important;
-    height: 56px !important;
-  }
-}
+  ion-toolbar {
+    --background: var(--noble-orange);
+    --border-width: 0;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+    pointer-events: auto !important;
 
-ion-toolbar {
-  pointer-events: auto !important;
-  // Lock padding to prevent expansion when content changes
-  --padding-top: 14px !important;
-  --padding-bottom: 14px !important;
-  --min-height: 56px !important;
-  --height: 56px !important;
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
-  min-height: 56px !important;
-  max-height: 56px !important;
-  height: 56px !important;
-
-  // Lock the toolbar container
-  &::part(container) {
-    min-height: 56px !important;
-    max-height: 56px !important;
-    height: 56px !important;
-    padding-top: 14px !important;
-    padding-bottom: 14px !important;
-  }
-
-  // Prevent ion-title from causing expansion
-  ion-title {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    line-height: 1.2;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
   }
 }
 
@@ -127,15 +97,9 @@ ion-accordion {
 ion-toolbar.template-toolbar {
   --padding-start: max(12px, calc((100vw - 1400px) / 2 + 12px));
   --padding-end: max(12px, calc((100vw - 1400px) / 2 + 12px));
-  --padding-top: 14px !important;
-  --padding-bottom: 14px !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  // Prevent toolbar from growing
-  overflow: hidden;
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
 
   .toolbar-title {
     margin: 0 auto;
@@ -146,15 +110,6 @@ ion-toolbar.template-toolbar {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    // Prevent title from causing header expansion
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    line-height: 1.2;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
 
     .finalized-check-icon {
       color: var(--noble-orange);
@@ -676,6 +631,37 @@ ion-content{--overflow:scroll !important;height:100%}
   .styled-input:required.ng-invalid.ng-touched {
     border-color: #ff4444;
     background: #fff5f5;
+  }
+
+  // "Other" input container styling (matches InAttendance multi-select styling)
+  .other-input-container {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e8e8e8;
+
+    .other-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      font-size: 15px;
+      background: white;
+      color: #333;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: var(--noble-orange);
+        box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.15);
+        transform: translateY(-1px);
+      }
+
+      &::placeholder {
+        color: #b0b0b0;
+        font-size: 14px;
+      }
+    }
   }
 }
 

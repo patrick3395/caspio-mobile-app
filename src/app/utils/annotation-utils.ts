@@ -367,32 +367,61 @@ export async function renderAnnotationsOnPhoto(
     console.log('[renderAnnotationsOnPhoto] Number of annotation objects:', annotations.objects?.length || 0);
 
     if (annotations.objects && annotations.objects.length > 0) {
-      // Use fabric's enlivenObjects to create Fabric objects from JSON
-      await new Promise<void>((resolve, reject) => {
-        try {
-          (fabric as any).util.enlivenObjects(annotations.objects, (enlivenedObjects: any[]) => {
-            console.log('[renderAnnotationsOnPhoto] Enlivened', enlivenedObjects.length, 'objects');
+      // Add objects directly to the canvas
+      console.log('[renderAnnotationsOnPhoto] Processing', annotations.objects.length, 'annotation objects...');
 
-            enlivenedObjects.forEach((obj: any) => {
-              // Skip image objects - we only want annotations
-              if (obj.type !== 'image' && obj.type !== 'Image') {
-                fabricCanvas.add(obj);
-              }
+      try {
+        // Process each annotation object
+        for (const objData of annotations.objects) {
+          console.log('[renderAnnotationsOnPhoto] Processing object type:', objData.type);
+
+          // Skip image objects
+          if (objData.type === 'image' || objData.type === 'Image') {
+            console.log('[renderAnnotationsOnPhoto] Skipping image object');
+            continue;
+          }
+
+          // Create Fabric object based on type
+          let fabricObj: any = null;
+
+          if (objData.type === 'Group' || objData.type === 'group') {
+            // For groups, we need to handle nested objects
+            fabricObj = new fabric.Group([], {
+              left: objData.left,
+              top: objData.top,
+              angle: objData.angle || 0,
+              scaleX: objData.scaleX || 1,
+              scaleY: objData.scaleY || 1
             });
 
-            const finalCount = fabricCanvas.getObjects().length;
-            console.log('[renderAnnotationsOnPhoto] Added objects, total on canvas:', finalCount);
-            console.log('[renderAnnotationsOnPhoto] Object types:', fabricCanvas.getObjects().map((o: any) => o.type));
+            // Add nested objects if they exist
+            if (objData.objects && Array.isArray(objData.objects)) {
+              for (const nestedObj of objData.objects) {
+                const nested = createFabricObject(fabric, nestedObj);
+                if (nested) {
+                  fabricObj.addWithUpdate(nested);
+                }
+              }
+            }
+          } else {
+            fabricObj = createFabricObject(fabric, objData);
+          }
 
-            fabricCanvas.renderAll();
-            console.log('[renderAnnotationsOnPhoto] Canvas rendered with annotations');
-            resolve();
-          }, 'fabric');
-        } catch (error) {
-          console.error('[renderAnnotationsOnPhoto] Error enlivening objects:', error);
-          reject(error);
+          if (fabricObj) {
+            fabricCanvas.add(fabricObj);
+            console.log('[renderAnnotationsOnPhoto] Added', objData.type, 'object');
+          }
         }
-      });
+
+        const finalCount = fabricCanvas.getObjects().length;
+        console.log('[renderAnnotationsOnPhoto] Total objects on canvas:', finalCount);
+
+        fabricCanvas.renderAll();
+        console.log('[renderAnnotationsOnPhoto] Canvas rendered with annotations');
+      } catch (error) {
+        console.error('[renderAnnotationsOnPhoto] Error adding objects:', error);
+        // Continue anyway - we'll just have the photo without annotations
+      }
     } else {
       console.log('[renderAnnotationsOnPhoto] No annotation objects to add');
     }
@@ -421,5 +450,100 @@ export async function renderAnnotationsOnPhoto(
     console.error('[annotation-utils] Error rendering annotations:', error);
     console.error('[annotation-utils] Error stack:', error instanceof Error ? error.stack : 'No stack');
     return imageUrl; // Return original on error
+  }
+}
+
+/**
+ * Helper function to create a Fabric.js object from JSON data
+ */
+function createFabricObject(fabric: any, objData: any): any {
+  if (!objData || !objData.type) {
+    return null;
+  }
+
+  try {
+    const type = objData.type;
+
+    switch (type) {
+      case 'Line':
+      case 'line':
+        return new fabric.Line([objData.x1, objData.y1, objData.x2, objData.y2], {
+          left: objData.left,
+          top: objData.top,
+          stroke: objData.stroke,
+          strokeWidth: objData.strokeWidth,
+          angle: objData.angle || 0,
+          scaleX: objData.scaleX || 1,
+          scaleY: objData.scaleY || 1
+        });
+
+      case 'Rect':
+      case 'rect':
+        return new fabric.Rect({
+          left: objData.left,
+          top: objData.top,
+          width: objData.width,
+          height: objData.height,
+          fill: objData.fill || 'transparent',
+          stroke: objData.stroke,
+          strokeWidth: objData.strokeWidth,
+          angle: objData.angle || 0,
+          scaleX: objData.scaleX || 1,
+          scaleY: objData.scaleY || 1
+        });
+
+      case 'Circle':
+      case 'circle':
+        return new fabric.Circle({
+          left: objData.left,
+          top: objData.top,
+          radius: objData.radius,
+          fill: objData.fill || 'transparent',
+          stroke: objData.stroke,
+          strokeWidth: objData.strokeWidth,
+          angle: objData.angle || 0,
+          scaleX: objData.scaleX || 1,
+          scaleY: objData.scaleY || 1
+        });
+
+      case 'Text':
+      case 'text':
+      case 'IText':
+      case 'i-text':
+        return new fabric.IText(objData.text || '', {
+          left: objData.left,
+          top: objData.top,
+          fontSize: objData.fontSize || 20,
+          fill: objData.fill || '#000000',
+          angle: objData.angle || 0,
+          scaleX: objData.scaleX || 1,
+          scaleY: objData.scaleY || 1
+        });
+
+      case 'Path':
+      case 'path':
+        if (objData.path) {
+          return new fabric.Path(objData.path, {
+            left: objData.left,
+            top: objData.top,
+            fill: objData.fill || 'transparent',
+            stroke: objData.stroke,
+            strokeWidth: objData.strokeWidth,
+            strokeLineCap: objData.strokeLineCap || 'round',
+            strokeLineJoin: objData.strokeLineJoin || 'round',
+            angle: objData.angle || 0,
+            scaleX: objData.scaleX || 1,
+            scaleY: objData.scaleY || 1
+          });
+        }
+        return null;
+
+      default:
+        console.warn('[createFabricObject] Unknown object type:', type);
+        return null;
+    }
+  } catch (error) {
+    console.error('[createFabricObject] Error creating object:', error);
+    return null;
   }
 }
