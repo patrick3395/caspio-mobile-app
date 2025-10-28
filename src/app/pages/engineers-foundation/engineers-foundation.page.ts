@@ -4482,7 +4482,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const currentLocation = this.roomElevationData[roomName].location || '';
 
     // Split by spaces and remove the last word
-    const words = currentLocation.trim().split(' ').filter(word => word.length > 0);
+    const words = currentLocation.trim().split(' ').filter((word: string) => word.length > 0);
 
     if (words.length > 0) {
       words.pop(); // Remove last word
