@@ -9,108 +9,111 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule],
   template: `
-    <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
-        <ion-title style="color: white;">Photo Viewer</ion-title>
-        <ion-buttons slot="start">
-          <ion-button (click)="openAnnotator()" style="color: white;" *ngIf="canAnnotate">
-            <ion-icon name="brush-outline" slot="icon-only"></ion-icon>
-            <span style="margin-left: 5px;">Annotate</span>
-          </ion-button>
-        </ion-buttons>
-        <ion-buttons slot="end">
-          <ion-button (click)="dismiss()" style="color: white;">
-            <ion-icon name="close" slot="icon-only"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content class="photo-viewer-content">
+    <div class="compact-photo-viewer">
+      <!-- Close button -->
+      <button class="close-btn" (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </button>
+
+      <!-- Photo container -->
       <div class="photo-container">
-        <img [src]="displayPhotoUrl || photoUrl" alt="Photo" />
+        <img [src]="displayPhotoUrl || photoUrl" alt="Photo" (click)="dismiss()" />
       </div>
-      <!-- Caption button at bottom center -->
-      <div class="caption-button-container" *ngIf="enableCaption">
-        <ion-button (click)="addCaption()" fill="solid" color="primary">
-          {{ photoCaption ? 'Edit Caption' : 'Add Caption' }}
-        </ion-button>
-      </div>
+
       <!-- Caption display -->
-      <div class="caption-display" *ngIf="enableCaption && photoCaption">
-        <ion-icon name="chatbox-ellipses-outline"></ion-icon>
-        <span>{{ photoCaption }}</span>
+      <div class="caption-display" *ngIf="photoCaption">
+        <p>{{ photoCaption }}</p>
       </div>
-    </ion-content>
+    </div>
   `,
   styles: [`
-    .photo-viewer-content {
-      --background: #000;
+    .compact-photo-viewer {
       position: relative;
-    }
-    .photo-container {
       width: 100%;
-      height: calc(100% - 120px); /* Leave space for caption button and display */
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      border-radius: 12px;
     }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: background 0.2s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .close-btn ion-icon {
+      font-size: 24px;
+      color: white;
+    }
+
+    .photo-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-height: calc(100% - 60px);
+    }
+
     img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
     }
-    ion-toolbar ion-button {
-      --padding-start: 8px;
-      --padding-end: 8px;
-    }
-    ion-toolbar ion-button span {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .caption-button-container {
-      position: fixed;
-      bottom: 70px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 100;
-    }
-    .caption-button-container ion-button {
-      --background: #F15A27;
-      --background-hover: #d44e20;
-      --border-radius: 25px;
-      --padding-start: 20px;
-      --padding-end: 20px;
-      --padding-top: 10px;
-      --padding-bottom: 10px;
-      font-weight: 600;
-      font-size: 14px;
-      box-shadow: 0 4px 15px rgba(241, 90, 39, 0.5);
-    }
+
     .caption-display {
-      position: fixed;
-      bottom: 10px;
+      position: absolute;
+      bottom: 15px;
       left: 20px;
       right: 20px;
       background: rgba(0, 0, 0, 0.8);
       color: white;
-      padding: 12px 16px;
+      padding: 10px 15px;
       border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      z-index: 100;
-      max-width: calc(100% - 40px);
+      font-size: 13px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .caption-display ion-icon {
-      font-size: 18px;
-      color: #F15A27;
-      flex-shrink: 0;
+
+    .caption-display p {
+      margin: 0;
+      line-height: 1.4;
     }
-    .caption-display span {
-      overflow: hidden;
-      text-overflow: ellipsis;
+
+    @media (max-width: 768px) {
+      .compact-photo-viewer {
+        padding: 15px;
+      }
+
+      .caption-display {
+        font-size: 12px;
+        padding: 8px 12px;
+      }
     }
   `]
 })

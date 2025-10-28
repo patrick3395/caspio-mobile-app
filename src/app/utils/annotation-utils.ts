@@ -6,7 +6,7 @@ export const EMPTY_COMPRESSED_ANNOTATIONS =
   COMPRESSED_PREFIX_V3 + '{"version":"' + FABRIC_JSON_VERSION + '","objects":[]}';
 
 const COMPRESSION_PREFIXES = [COMPRESSED_PREFIX_V3, COMPRESSED_PREFIX_V2, COMPRESSED_PREFIX_V1];
-const PASSTHROUGH_KEYS = new Set(['originalFilePath']);
+const PASSTHROUGH_KEYS = new Set(['originalFilePath', 'width', 'height']);
 
 export interface FabricAnnotationObject {
   [key: string]: any;
@@ -386,8 +386,51 @@ export async function renderAnnotationsOnPhoto(
 
       console.log('[renderAnnotationsOnPhoto] Calculated scale factor:', scaleFactor, '(scaleX:', scaleX, ', scaleY:', scaleY, ')');
     } else {
-      console.log('[renderAnnotationsOnPhoto] No canvas dimensions in annotation data, using scale factor 1');
+      // Fallback for existing annotations without canvas dimensions metadata
+      // Analyze annotation coordinates to estimate the scale factor
+      console.log('[renderAnnotationsOnPhoto] No canvas dimensions in annotation data, attempting to estimate scale factor');
+
+      let maxX = 0;
+      let maxY = 0;
+
+      // Find the maximum coordinates in the annotation objects
+      const findMaxCoords = (obj: any) => {
+        if (obj['left']) maxX = Math.max(maxX, obj['left']);
+        if (obj['top']) maxY = Math.max(maxY, obj['top']);
+        if (obj['x1']) maxX = Math.max(maxX, obj['x1']);
+        if (obj['y1']) maxY = Math.max(maxY, obj['y1']);
+        if (obj['x2']) maxX = Math.max(maxX, obj['x2']);
+        if (obj['y2']) maxY = Math.max(maxY, obj['y2']);
+        if (obj['width']) maxX = Math.max(maxX, (obj['left'] || 0) + obj['width']);
+        if (obj['height']) maxY = Math.max(maxY, (obj['top'] || 0) + obj['height']);
+
+        // Check nested objects in groups
+        if (obj['objects'] && Array.isArray(obj['objects'])) {
+          obj['objects'].forEach(findMaxCoords);
+        }
+      };
+
+      annotations.objects.forEach(findMaxCoords);
+
+      console.log('[renderAnnotationsOnPhoto] Max annotation coordinates:', maxX, 'x', maxY);
       console.log('[renderAnnotationsOnPhoto] Image dimensions:', width, 'x', height);
+
+      // If the max coordinates are significantly smaller than the image dimensions,
+      // calculate a scale factor. Add some padding (1.2x) to account for annotations
+      // that might not extend to the full canvas edges
+      if (maxX > 0 && maxY > 0 && (maxX < width * 0.8 || maxY < height * 0.8)) {
+        const estimatedCanvasWidth = maxX * 1.2;
+        const estimatedCanvasHeight = maxY * 1.2;
+
+        const scaleX = width / estimatedCanvasWidth;
+        const scaleY = height / estimatedCanvasHeight;
+
+        scaleFactor = Math.min(scaleX, scaleY);
+
+        console.log('[renderAnnotationsOnPhoto] Estimated scale factor:', scaleFactor);
+      } else {
+        console.log('[renderAnnotationsOnPhoto] Using scale factor 1 (coordinates appear to match image size)');
+      }
     }
 
     // Add annotation objects to canvas manually (don't use loadFromJSON as it clears the background)

@@ -1,7 +1,7 @@
 ﻿<ion-header>
   <ion-toolbar class="template-toolbar">
     <div slot="start" style="pointer-events: auto; z-index: 10001;">
-      <button id="eng-back-btn" 
+      <button id="eng-back-btn"
               (click)="goBack($event)"
               type="button"
               style="cursor: pointer;">
@@ -18,10 +18,8 @@
       </button>
     </div>
   </ion-toolbar>
-</ion-header>
 
-<ion-content>
-  <!-- Auto-Sync OFF Warning Banner - Fixed at top (Mobile only) -->
+  <!-- Auto-Sync OFF Warning Banner - Inside header (Mobile only) -->
   <div class="offline-warning-banner-fixed" *ngIf="manualOffline && !platform.isWeb()">
     <ion-icon name="warning"></ion-icon>
     <div class="warning-content">
@@ -33,7 +31,9 @@
       Enable
     </button>
   </div>
+</ion-header>
 
+<ion-content>
   <div class="template-container" [class.has-banner]="manualOffline">
 
     <!-- Project Information Section (Shared across all services) -->

@@ -1407,7 +1407,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Opens a photo in full-screen viewer
+   * Opens a photo in compact popup viewer
    * @param photoUrl - The URL or data URL of the photo to view
    * @param caption - Optional caption for the photo
    */
@@ -1418,9 +1418,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         photoUrl: photoUrl,
         photoCaption: caption,
         canAnnotate: false,
-        enableCaption: false
+        enableCaption: !!caption
       },
-      cssClass: 'photo-viewer-modal'
+      cssClass: 'compact-photo-modal',
+      backdropDismiss: true,
+      showBackdrop: true
     });
 
     await modal.present();

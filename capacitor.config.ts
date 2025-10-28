@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
   },
   ios: {
     preferredContentMode: 'mobile',
-    contentInset: 'automatic',
+    contentInset: 'never',
     scrollEnabled: true,
     // Performance optimizations
     allowsLinkPreview: false,
@@ -35,7 +35,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Keyboard: {
-      resize: 'none',
+      resize: 'native',
       style: 'dark',
       resizeOnFullScreen: false
     },

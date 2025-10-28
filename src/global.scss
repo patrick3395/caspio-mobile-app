@@ -286,12 +286,34 @@ ion-textarea {
   --height: 100%;
   --max-width: 100%;
   --max-height: 100%;
-  
+
   .modal-wrapper {
     width: var(--width);
     height: var(--height);
     max-width: var(--max-width);
     max-height: var(--max-height);
+  }
+}
+
+// Compact Photo Viewer Modal
+.compact-photo-modal {
+  --width: 90%;
+  --height: 80%;
+  --max-width: 1200px;
+  --max-height: 900px;
+  --border-radius: 12px;
+
+  .modal-wrapper {
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+
+  // Mobile responsive
+  @media (max-width: 768px) {
+    --width: 95%;
+    --height: 70%;
+    --max-width: 100%;
   }
 }
 
