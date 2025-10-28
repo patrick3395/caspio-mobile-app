@@ -4832,21 +4832,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               await this.showToast('Please enter a measurement name', 'warning');
               return false;
             }
-            
+
             const pointName = data.pointName.trim();
-            
-            // Check if point already exists
-            if (this.roomElevationData[roomName]?.elevationPoints) {
-              const exists = this.roomElevationData[roomName].elevationPoints.some(
-                (p: any) => p.name.toLowerCase() === pointName.toLowerCase()
-              );
-              
-              if (exists) {
-                await this.showToast('This measurement already exists', 'warning');
-                return false;
-              }
-            }
-            
+
             // Add the point to the room's elevation points
             if (!this.roomElevationData[roomName]) {
               this.roomElevationData[roomName] = {
