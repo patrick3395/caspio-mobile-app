@@ -12688,14 +12688,62 @@ Stack: ${error?.stack}`;
     }
     
     // Show debug info about what's being included in PDF
-    const totalItems = result.reduce((sum, cat) => 
+    const totalItems = result.reduce((sum, cat) =>
       sum + cat.comments.length + cat.limitations.length + cat.deficiencies.length, 0);
-    
+
     // Don't show toast messages - just log for debugging
     if (totalItems === 0) {
     } else {
     }
-    
+
+    // MOBILE DEBUG: Show overall photo loading summary
+    const isMobile = this.platform.isIOS() || this.platform.isAndroid();
+    if (isMobile) {
+      // Calculate total photos and failures across all categories
+      let totalPhotos = 0;
+      let totalSuccessful = 0;
+      let totalFailed = 0;
+
+      result.forEach(category => {
+        const allItems = [...category.comments, ...category.limitations, ...category.deficiencies];
+        allItems.forEach(item => {
+          if (item.photos && Array.isArray(item.photos)) {
+            totalPhotos += item.photos.length;
+            item.photos.forEach((photo: any) => {
+              if (photo.conversionSuccess) {
+                totalSuccessful++;
+              } else {
+                totalFailed++;
+              }
+            });
+          }
+        });
+      });
+
+      if (totalFailed > 0) {
+        setTimeout(async () => {
+          const alert = await this.alertController.create({
+            header: '📱 Structural Systems Photos',
+            message: `
+              <div style="font-family: monospace; font-size: 12px; text-align: left;">
+                <strong style="color: ${totalFailed > 0 ? 'orange' : 'green'};">Photo Loading Summary</strong><br><br>
+
+                Total Photos: ${totalPhotos}<br>
+                ✓ Loaded: ${totalSuccessful}<br>
+                ✗ Failed: ${totalFailed}<br><br>
+
+                Success Rate: ${totalPhotos > 0 ? Math.round((totalSuccessful / totalPhotos) * 100) : 0}%<br><br>
+
+                ${totalFailed > 0 ? `<strong style="color: red;">⚠️ Some images failed to load</strong><br>Failed images will show as placeholders in PDF.` : '<strong style="color: green;">✓ All images loaded successfully!</strong>'}
+              </div>
+            `,
+            buttons: ['OK']
+          });
+          await alert.present();
+        }, 1000); // Delay to allow other alerts to show first
+      }
+    }
+
     return result;
   }
 
@@ -13022,49 +13070,95 @@ Stack: ${error?.stack}`;
     // Load Fabric.js once for all photos to avoid multiple parallel imports
     console.log('[PDF Photos] Loading Fabric.js for annotation rendering...');
     const fabric = await this.fabricService.getFabric();
-    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos');
+    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos for visual:', visualId);
 
     // MOBILE FIX: Process photos in batches to avoid memory issues
     // On mobile devices, processing all photos in parallel causes crashes
-    const BATCH_SIZE = 5; // Process 5 photos at a time
+    const BATCH_SIZE = isMobile ? 3 : 5; // Smaller batch on mobile for better memory management
+    const BATCH_DELAY = isMobile ? 200 : 100; // Longer delay on mobile
     const processedPhotos: any[] = [];
+    let successCount = 0;
+    let failureCount = 0;
 
     for (let i = 0; i < photos.length; i += BATCH_SIZE) {
       const batch = photos.slice(i, i + BATCH_SIZE);
       console.log(`[PDF Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(photos.length / BATCH_SIZE)} (${batch.length} photos)`);
 
-      const batchPromises = batch.map(async (photo) => {
+      const batchPromises = batch.map(async (photo, batchIndex) => {
+      const photoIndex = i + batchIndex;
+      const photoName = photo.Annotation || photo.caption || `Photo ${photoIndex + 1}`;
+
       // Prioritize displayUrl (annotated) over regular url
       let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
       let finalUrl = photoUrl;
+      let conversionSuccess = false;
+      let errorDetails = ''; // Store error info for debug popup
+
+      console.log(`[PDF Photos] [${photoIndex + 1}/${photos.length}] Processing "${photoName}"`);
+      console.log(`[PDF Photos]   - AttachID: ${photo.AttachID || 'none'}`);
+      console.log(`[PDF Photos]   - Photo URL: ${photoUrl?.substring(0, 100) || 'empty'}`);
 
       // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
-        // Check individual photo cache first
+        // Check individual photo cache first (skip on mobile)
         const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: photoUrl });
-        const cachedBase64 = this.cache.get(photoCacheKey);
+        const cachedBase64 = !isMobile ? this.cache.get(photoCacheKey) : null;
 
         if (cachedBase64) {
+          console.log(`[PDF Photos]   - Using cached base64`);
           finalUrl = cachedBase64;
+          conversionSuccess = true;
         } else {
           try {
+            console.log(`[PDF Photos]   - Converting to base64...`);
+            const startTime = Date.now();
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+            const duration = Date.now() - startTime;
 
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
-              // Cache individual photo for reuse
-              this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
+              conversionSuccess = true;
+              console.log(`[PDF Photos]   ✓ Converted successfully in ${duration}ms (${Math.round(base64Data.length / 1024)}KB)`);
+              // Cache individual photo for reuse (web only)
+              if (!isMobile) {
+                this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
+              }
             } else {
-              console.error(`Failed to convert photo to base64: ${photoUrl}`);
+              console.error(`[PDF Photos]   ✗ Conversion failed: Invalid data returned`);
+              console.error(`[PDF Photos]     - Type: ${typeof base64Data}`);
+              console.error(`[PDF Photos]     - Length: ${base64Data?.length || 0}`);
+              console.error(`[PDF Photos]     - Preview: ${base64Data?.substring(0, 50) || 'empty'}`);
               finalUrl = 'assets/img/photo-placeholder.svg';
+              conversionSuccess = false;
+              errorDetails = `Invalid data: ${typeof base64Data}, length: ${base64Data?.length || 0}`;
             }
           } catch (error) {
-            console.error(`Error converting photo for visual ${visualId}:`, error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[PDF Photos]   ✗ Error during base64 conversion:`, {
+              error: error,
+              message: errorMsg,
+              photoUrl: photoUrl,
+              attachId: photo.AttachID,
+              platform: isMobile ? 'mobile' : 'web'
+            });
             finalUrl = 'assets/img/photo-placeholder.svg';
+            conversionSuccess = false;
+            errorDetails = errorMsg;
           }
         }
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
+        console.log(`[PDF Photos]   - Already data/blob URL`);
         finalUrl = photoUrl;
+        conversionSuccess = true;
+      } else if (photoUrl && photoUrl.startsWith('http')) {
+        console.log(`[PDF Photos]   - HTTP URL (may fail on mobile)`);
+        finalUrl = photoUrl;
+        conversionSuccess = true;
+      } else {
+        console.warn(`[PDF Photos]   - Unknown URL format or empty`);
+        finalUrl = 'assets/img/photo-placeholder.svg';
+        conversionSuccess = false;
+        errorDetails = 'Empty or unknown URL format';
       }
 
       // CRITICAL FIX: Render annotations if Drawings data exists
@@ -13113,6 +13207,13 @@ Stack: ${error?.stack}`;
         }
       }
 
+        // Track success/failure
+        if (conversionSuccess) {
+          successCount++;
+        } else {
+          failureCount++;
+        }
+
         // Return the photo object with the appropriate URLs
         // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
         return {
@@ -13120,7 +13221,9 @@ Stack: ${error?.stack}`;
           displayUrl: finalUrl, // This will be the annotated version with drawings rendered
           caption: photo.Annotation || '',
           attachId: photo.AttachID || photo.id || '',
-          hasAnnotations: !!drawingsData
+          hasAnnotations: !!drawingsData,
+          conversionSuccess: conversionSuccess, // Track if conversion succeeded
+          errorDetails: errorDetails // Error message if failed
         };
       });
 
@@ -13128,13 +13231,55 @@ Stack: ${error?.stack}`;
       const batchResults = await Promise.all(batchPromises);
       processedPhotos.push(...batchResults);
 
+      console.log(`[PDF Photos] Batch complete: ${successCount} succeeded, ${failureCount} failed so far`);
+
       // Small delay between batches to allow garbage collection
       if (i + BATCH_SIZE < photos.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
     }
 
-    console.log('[PDF Photos] All photos processed:', processedPhotos.length);
+    // Final summary
+    console.log(`[PDF Photos] ========== SUMMARY ==========`);
+    console.log(`[PDF Photos] Visual ID: ${visualId}`);
+    console.log(`[PDF Photos] Total photos: ${photos.length}`);
+    console.log(`[PDF Photos] Successful: ${successCount}`);
+    console.log(`[PDF Photos] Failed: ${failureCount}`);
+    console.log(`[PDF Photos] Success rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%`);
+    console.log(`[PDF Photos] Platform: ${isMobile ? 'Mobile' : 'Web'}`);
+    console.log(`[PDF Photos] ============================`);
+
+    // Show debug popup on mobile if there were failures
+    if (isMobile && failureCount > 0) {
+      const failedPhotos = processedPhotos.filter(p => !p.conversionSuccess);
+      const failureDetails = failedPhotos.slice(0, 5).map((p, idx) => {
+        const caption = (p.caption || 'No caption').substring(0, 30);
+        const url = (p.url || 'No URL').substring(0, 40);
+        const error = (p.errorDetails || 'Unknown error').substring(0, 50);
+        return `${idx + 1}. ${caption}<br>   ${url}...<br>   <span style="color: red;">Error: ${error}</span>`;
+      }).join('<br>');
+
+      setTimeout(async () => {
+        const alert = await this.alertController.create({
+          header: '⚠️ Photo Failures',
+          message: `
+            <div style="font-family: monospace; font-size: 10px; text-align: left;">
+              <strong>Visual: ${category || 'Unknown'}</strong><br><br>
+
+              <strong style="color: ${failureCount > 0 ? 'red' : 'green'};">Status:</strong><br>
+              ✓ Success: ${successCount}<br>
+              ✗ Failed: ${failureCount}<br>
+              Total: ${photos.length}<br>
+              Rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%<br><br>
+
+              ${failureCount > 0 ? `<strong style="color: red;">Failed Photos (first 5):</strong><br>${failureDetails}<br><br>${failureCount > 5 ? `...and ${failureCount - 5} more` : ''}` : ''}
+            </div>
+          `,
+          buttons: ['OK']
+        });
+        await alert.present();
+      }, 500);
+    }
 
     // Cache the processed photos using the cache service (web only - mobile gets fresh data)
     if (!isMobile) {
