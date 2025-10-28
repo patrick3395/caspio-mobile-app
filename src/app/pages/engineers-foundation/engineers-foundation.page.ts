@@ -12550,7 +12550,14 @@ Stack: ${error?.stack}`;
             }
             // For AnswerType 2 (multi-select), include selected options
             else if (comment.answerType === 2 && comment.selectedOptions && comment.selectedOptions.length > 0) {
-              answers = comment.selectedOptions.join(', ');
+              // Replace "Other" with the actual custom text if it exists
+              const optionsToDisplay = comment.selectedOptions.map((opt: string) => {
+                if (opt === 'Other' && comment.otherValue) {
+                  return comment.otherValue;
+                }
+                return opt;
+              });
+              answers = optionsToDisplay.join(', ');
               // Keep original text and add answers separately
               displayText = comment.originalText || comment.text || '';
             }
@@ -12597,7 +12604,14 @@ Stack: ${error?.stack}`;
             }
             // For AnswerType 2 (multi-select), include selected options
             else if (limitation.answerType === 2 && limitation.selectedOptions && limitation.selectedOptions.length > 0) {
-              answers = limitation.selectedOptions.join(', ');
+              // Replace "Other" with the actual custom text if it exists
+              const optionsToDisplay = limitation.selectedOptions.map((opt: string) => {
+                if (opt === 'Other' && limitation.otherValue) {
+                  return limitation.otherValue;
+                }
+                return opt;
+              });
+              answers = optionsToDisplay.join(', ');
               // Keep original text and add answers separately
               displayText = limitation.originalText || limitation.text || '';
             }
@@ -12644,7 +12658,14 @@ Stack: ${error?.stack}`;
             }
             // For AnswerType 2 (multi-select), include selected options
             else if (deficiency.answerType === 2 && deficiency.selectedOptions && deficiency.selectedOptions.length > 0) {
-              answers = deficiency.selectedOptions.join(', ');
+              // Replace "Other" with the actual custom text if it exists
+              const optionsToDisplay = deficiency.selectedOptions.map((opt: string) => {
+                if (opt === 'Other' && deficiency.otherValue) {
+                  return deficiency.otherValue;
+                }
+                return opt;
+              });
+              answers = optionsToDisplay.join(', ');
               // Keep original text and add answers separately
               displayText = deficiency.originalText || deficiency.text || '';
             }

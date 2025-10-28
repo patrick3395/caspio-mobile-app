@@ -240,8 +240,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
   async generatePDF() {
     const loading = await this.alertController.create({
-      header: 'Loading Report',
-      message: 'Generating PDF report...',
+      header: 'Downloading Report',
+      message: 'Generating and downloading PDF report...',
       buttons: [
         {
           text: 'Cancel',
@@ -259,10 +259,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // Lazy load jsPDF library
       const jsPDFModule = await import('jspdf');
       const jsPDF = jsPDFModule.default || jsPDFModule;
-      
+
       // Also load jspdf-autotable for table support
       await import('jspdf-autotable');
-      
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -277,7 +277,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
       // Add custom fonts for better appearance
       pdf.setFont('helvetica');
-      
+
       // Page 1: Professional Cover Page
       await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
 
@@ -314,29 +314,55 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       const clientName = (this.projectData?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
       const date = new Date().toISOString().split('T')[0];
       const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
-      
-      // Save the PDF as a blob
-      const pdfBlob = pdf.output('blob');
-      
+
       await loading.dismiss();
-      
-      // Open the PDF viewer modal
-      const modal = await this.modalController.create({
-        component: PDFViewerModal,
-        componentProps: {
-          pdfBlob: pdfBlob,
-          fileName: fileName,
-          projectId: projectId
-        },
-        cssClass: 'pdf-viewer-modal'
-      });
-      
-      await modal.present();
-      this.dismiss();
-      
+
+      // Download the PDF
+      await this.downloadPDF(pdf, fileName);
+
+      // Show success message
+      await this.showToast('PDF downloaded successfully!', 'success');
+
     } catch (error) {
       console.error('Error generating PDF:', error);
       await loading.dismiss();
+      await this.showToast('Failed to download PDF. Please try again.', 'danger');
+    }
+  }
+
+  /**
+   * Downloads the PDF file to the user's device
+   * Works for both web browsers and mobile devices
+   */
+  private async downloadPDF(pdf: any, fileName: string): Promise<void> {
+    const isMobile = this.platform.is('ios') || this.platform.is('android');
+
+    if (isMobile) {
+      // For mobile: Create blob and trigger download via anchor element
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      link.style.display = 'none';
+
+      // Add to DOM, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up the blob URL after a delay
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+
+      console.log('[PDF Download] Mobile download triggered:', fileName);
+    } else {
+      // For web browsers: Use jsPDF's built-in save method
+      pdf.save(fileName);
+      console.log('[PDF Download] Web download triggered:', fileName);
     }
   }
 
