@@ -1358,6 +1358,7 @@ textarea.styled-input {
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
+    background: white !important;
   }
 
   // Force all ion-modal and modal wrappers to be visible and take full space
@@ -1378,6 +1379,38 @@ textarea.styled-input {
     opacity: 1 !important;
     visibility: visible !important;
     overflow: visible !important;
+    background: white !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+  }
+
+  // Force ion-content to be visible and static
+  ion-content,
+  ion-content.pdf-preview-content,
+  .pdf-preview-content {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    background: white !important;
+    --background: white !important;
+    contain: none !important;
+
+    // Force inner scroll to be visible
+    .inner-scroll,
+    .scroll-content {
+      display: block !important;
+      position: static !important;
+      overflow: visible !important;
+      height: auto !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
   }
 
   // Ensure fullscreen modal takes full page
@@ -1394,12 +1427,31 @@ textarea.styled-input {
       box-shadow: none !important;
       border-radius: 0 !important;
       transform: none !important;
+      left: 0 !important;
+      top: 0 !important;
     }
 
     ion-content {
       --background: white !important;
       position: static !important;
     }
+  }
+
+  // Force pdf-container and pages to be visible
+  .pdf-container,
+  div[class*="pdf-container"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    width: 100% !important;
+  }
+
+  .pdf-page,
+  div[class*="pdf-page"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    page-break-after: always;
   }
 
   // Remove any transforms or positioning that might hide content

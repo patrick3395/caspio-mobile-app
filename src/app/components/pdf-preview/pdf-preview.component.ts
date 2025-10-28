@@ -43,16 +43,16 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   async ngOnInit() {
     // Start with content not ready
     this.contentReady = false;
-    
+
     this.hasElevationData = this.elevationData && this.elevationData.length > 0;
-    
+
     // Process FDF photos in elevation data if needed
     if (this.elevationData && this.elevationData.length > 0) {
       this.elevationData.forEach(room => {
         // FDF photos will be processed during PDF generation
       });
     }
-    
+
     // Check if primary photo was preloaded
     if (this.projectData?.primaryPhotoBase64) {
       this.primaryPhotoData = this.projectData.primaryPhotoBase64;
@@ -60,11 +60,51 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // Load primary photo if it's a Caspio file
       await this.loadPrimaryPhotoIfNeeded();
     }
-    
+
     // Wait a moment for Angular to render the template
     setTimeout(() => {
       this.contentReady = true;
     }, 500);
+
+    // Add print event listeners to force visibility
+    this.setupPrintListeners();
+  }
+
+  private setupPrintListeners() {
+    // Listen for beforeprint event to force visibility
+    window.addEventListener('beforeprint', () => {
+      console.log('[PDF Print] beforeprint event fired');
+      this.preparePrintView();
+    });
+
+    // Listen for afterprint to clean up
+    window.addEventListener('afterprint', () => {
+      console.log('[PDF Print] afterprint event fired');
+    });
+  }
+
+  private preparePrintView() {
+    // Force everything to be visible
+    this.contentReady = true;
+
+    // Get all key elements and force them visible
+    const elementsToShow = [
+      '.pdf-container',
+      '.pdf-page',
+      'ion-content',
+      '.pdf-preview-content'
+    ];
+
+    elementsToShow.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach((el: any) => {
+        el.style.opacity = '1';
+        el.style.visibility = 'visible';
+        el.style.display = 'block';
+      });
+    });
+
+    console.log('[PDF Print] Forced visibility on elements');
   }
   
   async ngAfterViewInit() {
