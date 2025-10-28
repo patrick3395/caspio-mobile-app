@@ -4441,8 +4441,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const updateData = {
         Location: location
       };
+      const query = `EFEID=${roomId}`;
 
-      await this.caspioService.updateRecord('Services_EFE', roomId, updateData);
+      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       console.log(`Location saved for ${roomName}:`, location);
     } catch (error) {
       console.error('Error saving location:', error);

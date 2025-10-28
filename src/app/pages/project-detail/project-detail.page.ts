@@ -511,7 +511,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Extract status options if loaded
       if (statuses) {
-        const statusesData = statuses.status === 'fulfilled' ? statuses.value : null;
+        const statusesData: any = statuses.status === 'fulfilled' ? statuses.value : null;
         if (statusesData && statusesData.Result) {
           this.statusOptions = statusesData.Result;
         }
