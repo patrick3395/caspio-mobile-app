@@ -7614,64 +7614,82 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Handler methods for "Other" option custom inputs
   async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
-      this.projectData.TypeOfBuilding = this.typeOfBuildingOtherValue.trim();
-      await this.onProjectFieldChange('TypeOfBuilding', this.projectData.TypeOfBuilding);
+      const customValue = this.typeOfBuildingOtherValue.trim();
+      this.customOtherValues['TypeOfBuilding'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveProjectField('TypeOfBuilding', customValue);
     }
   }
 
   async onStyleOtherChange() {
     if (this.styleOtherValue && this.styleOtherValue.trim()) {
-      this.projectData.Style = this.styleOtherValue.trim();
-      await this.onProjectFieldChange('Style', this.projectData.Style);
+      const customValue = this.styleOtherValue.trim();
+      this.customOtherValues['Style'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveProjectField('Style', customValue);
     }
   }
 
   async onOccupancyFurnishingsOtherChange() {
     if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
-      this.serviceData.OccupancyFurnishings = this.occupancyFurnishingsOtherValue.trim();
-      await this.onServiceFieldChange('OccupancyFurnishings', this.serviceData.OccupancyFurnishings);
+      const customValue = this.occupancyFurnishingsOtherValue.trim();
+      this.customOtherValues['OccupancyFurnishings'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('OccupancyFurnishings', customValue);
     }
   }
 
   async onWeatherConditionsOtherChange() {
     if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
-      this.serviceData.WeatherConditions = this.weatherConditionsOtherValue.trim();
-      await this.onServiceFieldChange('WeatherConditions', this.serviceData.WeatherConditions);
+      const customValue = this.weatherConditionsOtherValue.trim();
+      this.customOtherValues['WeatherConditions'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('WeatherConditions', customValue);
     }
   }
 
   async onOutdoorTemperatureOtherChange() {
     if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
-      this.serviceData.OutdoorTemperature = this.outdoorTemperatureOtherValue.trim();
-      await this.onServiceFieldChange('OutdoorTemperature', this.serviceData.OutdoorTemperature);
+      const customValue = this.outdoorTemperatureOtherValue.trim();
+      this.customOtherValues['OutdoorTemperature'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('OutdoorTemperature', customValue);
     }
   }
 
   async onFirstFoundationTypeOtherChange() {
     if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
-      this.serviceData.FirstFoundationType = this.firstFoundationTypeOtherValue.trim();
-      await this.onServiceFieldChange('FirstFoundationType', this.serviceData.FirstFoundationType);
+      const customValue = this.firstFoundationTypeOtherValue.trim();
+      this.customOtherValues['FirstFoundationType'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('FirstFoundationType', customValue);
     }
   }
 
   async onSecondFoundationTypeOtherChange() {
     if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
-      this.serviceData.SecondFoundationType = this.secondFoundationTypeOtherValue.trim();
-      await this.onServiceFieldChange('SecondFoundationType', this.serviceData.SecondFoundationType);
+      const customValue = this.secondFoundationTypeOtherValue.trim();
+      this.customOtherValues['SecondFoundationType'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('SecondFoundationType', customValue);
     }
   }
 
   async onThirdFoundationTypeOtherChange() {
     if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
-      this.serviceData.ThirdFoundationType = this.thirdFoundationTypeOtherValue.trim();
-      await this.onServiceFieldChange('ThirdFoundationType', this.serviceData.ThirdFoundationType);
+      const customValue = this.thirdFoundationTypeOtherValue.trim();
+      this.customOtherValues['ThirdFoundationType'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('ThirdFoundationType', customValue);
     }
   }
 
   async onOwnerOccupantInterviewOtherChange() {
     if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
-      this.serviceData.OwnerOccupantInterview = this.ownerOccupantInterviewOtherValue.trim();
-      await this.onServiceFieldChange('OwnerOccupantInterview', this.serviceData.OwnerOccupantInterview);
+      const customValue = this.ownerOccupantInterviewOtherValue.trim();
+      this.customOtherValues['OwnerOccupantInterview'] = customValue;
+      // Save custom value to database directly, but keep dropdown showing "Other"
+      this.autoSaveServiceField('OwnerOccupantInterview', customValue);
     }
   }
 

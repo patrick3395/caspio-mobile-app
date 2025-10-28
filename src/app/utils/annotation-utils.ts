@@ -362,37 +362,40 @@ export async function renderAnnotationsOnPhoto(
     fabricCanvas.renderAll();
     console.log('[renderAnnotationsOnPhoto] Background image set');
 
-    // Load annotations onto canvas
-    console.log('[renderAnnotationsOnPhoto] Loading annotations onto canvas...');
-    console.log('[renderAnnotationsOnPhoto] Annotations payload to load:', JSON.stringify(annotations).substring(0, 500));
+    // Add annotation objects to canvas manually (don't use loadFromJSON as it clears the background)
+    console.log('[renderAnnotationsOnPhoto] Adding annotation objects to canvas...');
+    console.log('[renderAnnotationsOnPhoto] Number of annotation objects:', annotations.objects?.length || 0);
 
-    await new Promise<void>((resolve, reject) => {
-      try {
-        fabricCanvas.loadFromJSON(annotations, () => {
-          // Filter out any image objects (we only want annotations)
-          const objects = fabricCanvas.getObjects();
-          console.log('[renderAnnotationsOnPhoto] Objects loaded:', objects.length);
-          console.log('[renderAnnotationsOnPhoto] Loaded object types:', objects.map((o: any) => o.type));
+    if (annotations.objects && annotations.objects.length > 0) {
+      // Use fabric's enlivenObjects to create Fabric objects from JSON
+      await new Promise<void>((resolve, reject) => {
+        try {
+          (fabric as any).util.enlivenObjects(annotations.objects, (enlivenedObjects: any[]) => {
+            console.log('[renderAnnotationsOnPhoto] Enlivened', enlivenedObjects.length, 'objects');
 
-          const beforeFilter = objects.length;
-          objects.forEach((obj: any) => {
-            if (obj.type === 'image') {
-              console.log('[renderAnnotationsOnPhoto] Removing image object');
-              fabricCanvas.remove(obj);
-            }
-          });
-          const afterFilter = fabricCanvas.getObjects().length;
-          console.log('[renderAnnotationsOnPhoto] Objects after filtering images:', afterFilter, '(removed', beforeFilter - afterFilter, 'images)');
+            enlivenedObjects.forEach((obj: any) => {
+              // Skip image objects - we only want annotations
+              if (obj.type !== 'image' && obj.type !== 'Image') {
+                fabricCanvas.add(obj);
+              }
+            });
 
-          fabricCanvas.renderAll();
-          console.log('[renderAnnotationsOnPhoto] Annotations rendered on canvas');
-          resolve();
-        });
-      } catch (error) {
-        console.error('[renderAnnotationsOnPhoto] Error in loadFromJSON:', error);
-        reject(error);
-      }
-    });
+            const finalCount = fabricCanvas.getObjects().length;
+            console.log('[renderAnnotationsOnPhoto] Added objects, total on canvas:', finalCount);
+            console.log('[renderAnnotationsOnPhoto] Object types:', fabricCanvas.getObjects().map((o: any) => o.type));
+
+            fabricCanvas.renderAll();
+            console.log('[renderAnnotationsOnPhoto] Canvas rendered with annotations');
+            resolve();
+          }, 'fabric');
+        } catch (error) {
+          console.error('[renderAnnotationsOnPhoto] Error enlivening objects:', error);
+          reject(error);
+        }
+      });
+    } else {
+      console.log('[renderAnnotationsOnPhoto] No annotation objects to add');
+    }
 
     // Export as data URL
     const quality = options.quality || 0.9;

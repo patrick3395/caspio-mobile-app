@@ -5,28 +5,45 @@ ion-toolbar {
 
 ion-header {
   z-index: 1001 !important;
-  // Fix header height to prevent expansion when content changes
-  --min-height: 56px;
-  --max-height: 56px;
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
-  flex-shrink: 0; // Prevent flexbox from shrinking
+  // Prevent header from expanding
+  contain: layout style;
+
+  // Lock header to exact height - prevent any expansion
+  &::part(header) {
+    min-height: 56px !important;
+    max-height: 56px !important;
+    height: 56px !important;
+  }
 }
 
 ion-toolbar {
   pointer-events: auto !important;
-  // Lock toolbar height
-  --min-height: 56px;
-  --max-height: 56px;
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
+  // Lock padding to prevent expansion when content changes
+  --padding-top: 14px !important;
+  --padding-bottom: 14px !important;
+  --min-height: 56px !important;
+  --height: 56px !important;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  height: 56px !important;
+
+  // Lock the toolbar container
+  &::part(container) {
+    min-height: 56px !important;
+    max-height: 56px !important;
+    height: 56px !important;
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+  }
 
   // Prevent ion-title from causing expansion
   ion-title {
-    max-height: 56px;
-    overflow: hidden;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     line-height: 1.2;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -110,11 +127,15 @@ ion-accordion {
 ion-toolbar.template-toolbar {
   --padding-start: max(12px, calc((100vw - 1400px) / 2 + 12px));
   --padding-end: max(12px, calc((100vw - 1400px) / 2 + 12px));
+  --padding-top: 14px !important;
+  --padding-bottom: 14px !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
   // Prevent toolbar from growing
   overflow: hidden;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
 
   .toolbar-title {
     margin: 0 auto;
@@ -126,7 +147,10 @@ ion-toolbar.template-toolbar {
     justify-content: center;
     gap: 8px;
     // Prevent title from causing header expansion
-    max-height: 56px;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     line-height: 1.2;
     overflow: hidden;
     white-space: nowrap;
