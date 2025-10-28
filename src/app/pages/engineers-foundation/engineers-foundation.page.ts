@@ -1626,12 +1626,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           
           // Reorder to put "30°F -" first (if it exists)
-          const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt => 
+          const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt =>
             opt.includes('30') && opt.includes('-') && !opt.includes('to')
           );
           if (thirtyBelowIndex > 0) {
             const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
             this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
+          }
+
+          // Ensure "90°F to 100°F" (or similar) comes before "100°F+"
+          const ninetyToHundredIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('90') && opt.includes('100')
+          );
+          const hundredPlusIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('100') && opt.includes('+')
+          );
+
+          // If both exist and 100°F+ comes before 90°F to 100°F, swap them
+          if (ninetyToHundredIndex > -1 && hundredPlusIndex > -1 && hundredPlusIndex < ninetyToHundredIndex) {
+            const ninetyToHundredOption = this.outdoorTemperatureOptions[ninetyToHundredIndex];
+            const hundredPlusOption = this.outdoorTemperatureOptions[hundredPlusIndex];
+            this.outdoorTemperatureOptions[hundredPlusIndex] = ninetyToHundredOption;
+            this.outdoorTemperatureOptions[ninetyToHundredIndex] = hundredPlusOption;
           }
         }
 
@@ -4553,8 +4569,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async showAddRoomDialog() {
     try {
-      // Show ALL room templates except Base Station, allowing duplicates
-      const availableRooms = this.allRoomTemplates.filter(room => room.RoomName !== 'Base Station');
+      // Show ALL room templates except Base Station variants, allowing duplicates
+      const availableRooms = this.allRoomTemplates.filter(room =>
+        room.RoomName !== 'Base Station' &&
+        room.RoomName !== '2nd Base Station' &&
+        room.RoomName !== '3rd Base Station'
+      );
       
       if (availableRooms.length === 0) {
         await this.showToast('No room templates available', 'info');
