@@ -61,21 +61,13 @@ ion-header {
 @media (max-width: 767px) {
   ion-toolbar {
     --min-height: 56px !important;
-    --padding-top: 0 !important;
-    --padding-bottom: 0 !important;
     min-height: 56px !important;
-    padding-top: max(20px, env(safe-area-inset-top)) !important;
-    padding-bottom: 8px !important;
   }
 
   ion-toolbar ion-title {
     font-size: 20px !important;
     font-weight: 600 !important;
     line-height: 1.2 !important;
-  }
-
-  ion-toolbar ion-buttons {
-    // Buttons will align naturally with title
   }
 }
 
@@ -131,13 +123,6 @@ ion-tab-bar {
 @media (max-width: 767px) {
   ion-tab-bar {
     --min-height: 60px !important;
-    --padding-top: 0 !important;
-    --padding-bottom: 0 !important;
-    min-height: 60px !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-  }
-
-  ion-tab-bar::part(native) {
     min-height: 60px !important;
   }
 }
