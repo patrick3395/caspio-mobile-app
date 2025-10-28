@@ -15,44 +15,7 @@ ion-header {
   }
 }
 
-// Mobile-only header padding for engineers-foundation page (max-width: 767px)
-@media (max-width: 767px) {
-  ion-header {
-    padding-top: env(safe-area-inset-top) !important;
-
-    ion-toolbar {
-      --min-height: 60px !important;
-      padding-top: 16px !important;
-      padding-bottom: 8px !important;
-      display: flex !important;
-      align-items: center !important;
-    }
-  }
-
-  // Force toolbar padding through Shadow DOM for this page (mobile only)
-  ion-toolbar::part(native) {
-    padding-top: 16px !important;
-    padding-bottom: 8px !important;
-    min-height: 60px !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  // Vertically center title and buttons
-  ion-toolbar ion-title {
-    display: flex !important;
-    align-items: center !important;
-    height: 100% !important;
-    font-size: 20px !important;
-    font-weight: 600 !important;
-  }
-
-  ion-toolbar ion-buttons {
-    display: flex !important;
-    align-items: center !important;
-    height: 100% !important;
-  }
-}
+// Mobile header styles now handled by global.scss - no page-specific overrides needed
 
 // Back Button with Orange Circle and White Arrow
 #eng-back-btn {
@@ -1249,7 +1212,7 @@ ion-content{--overflow:scroll !important;height:100%}
               padding: 12px;
               border-radius: 11px; // Slightly smaller than parent (12px) to prevent corner overlap
               transition: all 0.3s ease;
-              border: 1px solid #f0f0f0;
+              border: none; // Remove border to prevent light hue over parent container border in corners
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
               background: white; // Explicitly set to ensure no transparency
               

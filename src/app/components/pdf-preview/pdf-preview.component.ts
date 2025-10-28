@@ -281,7 +281,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   async generatePDF() {
     const loading = await this.alertController.create({
       header: 'Downloading Report',
-      message: 'Generating PDF report...',
+      message: 'Generating PDF from preview...',
       buttons: [
         {
           text: 'Cancel',
@@ -296,77 +296,70 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     await loading.present();
 
     try {
-      // Lazy load jsPDF library
-      const jsPDFModule = await import('jspdf');
-      const jsPDF = jsPDFModule.default || jsPDFModule;
+      // Ensure content is ready
+      this.contentReady = true;
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Also load jspdf-autotable for table support
-      await import('jspdf-autotable');
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'letter'
-      }) as any;
-
-      let pageNum = 1;
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - (margin * 2);
-
-      // Add custom fonts for better appearance
-      pdf.setFont('helvetica');
-
-      // Page 1: Professional Cover Page
-      await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
-
-      // Page 2: Deficiency Summary
-      pdf.addPage();
-      pageNum++;
-      await this.addDeficiencySummary(pdf, margin, contentWidth, pageNum);
-
-      // Pages 3+: Structural Systems with Photos
-      if (this.structuralData && this.structuralData.length > 0) {
-        for (const category of this.structuralData) {
-          pdf.addPage();
-          pageNum++;
-          await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
-        }
+      // Get the PDF container
+      const pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
+      if (!pdfContainer) {
+        throw new Error('PDF container not found');
       }
 
-      // Elevation Plot Data
-      if (this.elevationData && this.elevationData.length > 0) {
-        pdf.addPage();
-        pageNum++;
-        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
-      }
+      // Force visibility
+      pdfContainer.style.opacity = '1';
+      pdfContainer.style.visibility = 'visible';
 
-      // Appendix: Photo Gallery
-      if (this.hasPhotos()) {
-        pdf.addPage();
-        pageNum++;
-        await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
-      }
+      console.log('[PDF] Starting HTML to PDF conversion...');
+      console.log('[PDF] Container found, pages:', pdfContainer.querySelectorAll('.pdf-page').length);
 
-      // Generate filename with project details
+      // Load html2pdf library
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      // Generate filename
       const projectId = this.projectData?.projectId || 'draft';
       const clientName = (this.projectData?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
       const date = new Date().toISOString().split('T')[0];
       const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
 
+      // Configure options for high quality output
+      const options = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          allowTaint: true
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'letter',
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: {
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.pdf-page'
+        }
+      };
+
+      console.log('[PDF] Generating PDF with html2pdf.js...');
+
+      // Generate and download the PDF
+      await html2pdf().set(options).from(pdfContainer).save();
+
+      console.log('[PDF] PDF generated successfully');
+
       await loading.dismiss();
-
-      // Download the PDF
-      await this.downloadPDF(pdf, fileName);
-
-      // Show success message
       await this.showToast('PDF downloaded successfully!', 'success');
 
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('[PDF] Error generating PDF:', error);
       await loading.dismiss();
-      await this.showToast('Failed to download PDF. Please try again.', 'danger');
+      await this.showToast('Failed to download PDF: ' + (error as Error).message, 'danger');
     }
   }
 

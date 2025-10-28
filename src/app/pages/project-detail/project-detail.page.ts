@@ -573,7 +573,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
           Status: service.Status || '',
-          StatusDateTime: service.StatusDateTime || ''
+          StatusDateTime: service.StatusDateTime || '',
+          // Deliverables fields - preload StatusEng with Status if not set
+          StatusEng: service.StatusEng || service.Status || '',
+          Deliverable: service.Deliverable || '',
+          EngNotes: service.EngNotes || '',
+          InspectorNotes: service.InspectorNotes || ''
         };
       });
 
@@ -810,13 +815,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           offersId: offer?.OffersID || '', // Get OffersID from the matched offer
           typeId: service.TypeID.toString(),
           typeName: offer?.TypeName || offer?.Service_Name || 'Service',
-        typeShort: offer?.TypeShort || '',
-        typeIcon: offer?.TypeIcon || '',
-        dateOfInspection: service.DateOfInspection || new Date().toISOString(),
-        ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
-        Status: service.Status || '',
-        StatusDateTime: service.StatusDateTime || ''
-      };
+          typeShort: offer?.TypeShort || '',
+          typeIcon: offer?.TypeIcon || '',
+          dateOfInspection: service.DateOfInspection || new Date().toISOString(),
+          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
+          Status: service.Status || '',
+          StatusDateTime: service.StatusDateTime || '',
+          // Deliverables fields - preload StatusEng with Status if not set
+          StatusEng: service.StatusEng || service.Status || '',
+          Deliverable: service.Deliverable || '',
+          EngNotes: service.EngNotes || '',
+          InspectorNotes: service.InspectorNotes || ''
+        };
       });
 
       // Apply pending finalized service flag if present

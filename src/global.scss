@@ -57,42 +57,29 @@ ion-header {
   }
 }
 
-// Mobile-only header padding (max-width: 767px)
+// Mobile-only header styles (max-width: 767px)
 @media (max-width: 767px) {
   ion-header {
     padding-top: env(safe-area-inset-top) !important;
-
-    ion-toolbar {
-      --min-height: 60px !important;
-      padding-top: 16px !important;
-      padding-bottom: 8px !important;
-      display: flex !important;
-      align-items: center !important;
-    }
   }
 
-  // Force toolbar padding through Shadow DOM (mobile only)
-  ion-toolbar::part(native) {
-    padding-top: 16px !important;
-    padding-bottom: 8px !important;
+  ion-toolbar {
+    --min-height: 60px !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
     min-height: 60px !important;
     display: flex !important;
     align-items: center !important;
   }
 
-  // Vertically center title and buttons
-  ion-toolbar ion-title {
-    display: flex !important;
-    align-items: center !important;
-    height: 100% !important;
-    font-size: 20px !important;
-    font-weight: 600 !important;
+  ion-toolbar::part(native) {
+    min-height: 60px !important;
   }
 
-  ion-toolbar ion-buttons {
-    display: flex !important;
-    align-items: center !important;
-    height: 100% !important;
+  ion-toolbar ion-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
   }
 }
 
@@ -144,18 +131,17 @@ ion-tab-bar {
   }
 }
 
-// Mobile-only footer padding (max-width: 767px)
+// Mobile-only footer styles (max-width: 767px)
 @media (max-width: 767px) {
   ion-tab-bar {
-    padding-top: 8px !important;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    --min-height: 60px !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
     min-height: 60px !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
 
-  // Force tab-bar padding through Shadow DOM (mobile only)
   ion-tab-bar::part(native) {
-    padding-top: 8px !important;
-    padding-bottom: 16px !important;
     min-height: 60px !important;
   }
 }
