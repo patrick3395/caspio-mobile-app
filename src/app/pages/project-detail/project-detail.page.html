@@ -75,6 +75,92 @@
       </div>
     </div>
 
+    <!-- Deliverables Section (only for CompanyID = 1) -->
+    <div class="info-section" *ngIf="showDeliverablesTable && selectedServices.length > 0">
+      <h2 class="section-title">Deliverables</h2>
+
+      <table class="deliverables-table">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Status Eng</th>
+            <th>Deliverable</th>
+            <th>Eng Notes</th>
+            <th>Inspector Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let service of selectedServices; trackBy: trackTemplateService" class="deliverable-row">
+            <!-- Service Name -->
+            <td class="service-name-cell">
+              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+                #{{ getServiceInstanceNumber(service) }}
+              </span>
+            </td>
+
+            <!-- StatusEng -->
+            <td class="field-cell">
+              <input
+                type="text"
+                class="deliverable-input"
+                [value]="service['StatusEng'] || ''"
+                (blur)="updateDeliverableField(service, 'StatusEng', $event.target.value)"
+                [disabled]="isReadOnly"
+                [readonly]="isReadOnly"
+                placeholder="Enter status">
+            </td>
+
+            <!-- Deliverable (File Upload) -->
+            <td class="field-cell deliverable-file-cell">
+              <div class="file-upload-container">
+                <a *ngIf="hasDeliverable(service)"
+                   [href]="getDeliverableUrl(service)"
+                   target="_blank"
+                   class="deliverable-link">
+                  View File
+                </a>
+                <label *ngIf="!isReadOnly" class="file-upload-label">
+                  <input
+                    type="file"
+                    class="file-input-hidden"
+                    (change)="uploadDeliverableFile(service, $event)"
+                    accept="*/*">
+                  <ion-button size="small" fill="clear" class="orange-icon">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                  </ion-button>
+                </label>
+              </div>
+            </td>
+
+            <!-- EngNotes -->
+            <td class="field-cell">
+              <textarea
+                class="deliverable-textarea"
+                [value]="service['EngNotes'] || ''"
+                (blur)="updateDeliverableField(service, 'EngNotes', $event.target.value)"
+                [disabled]="isReadOnly"
+                [readonly]="isReadOnly"
+                placeholder="Enter notes"
+                rows="2"></textarea>
+            </td>
+
+            <!-- InspectorNotes -->
+            <td class="field-cell">
+              <textarea
+                class="deliverable-textarea"
+                [value]="service['InspectorNotes'] || ''"
+                (blur)="updateDeliverableField(service, 'InspectorNotes', $event.target.value)"
+                [disabled]="isReadOnly"
+                [readonly]="isReadOnly"
+                placeholder="Enter notes"
+                rows="2"></textarea>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Reports Section -->
     <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
       <h2 class="section-title">Reports</h2>

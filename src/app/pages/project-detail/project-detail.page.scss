@@ -1154,3 +1154,223 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 }
 
+// Deliverables table styling (for CompanyID = 1)
+.deliverables-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: $white;
+  border: 1px solid $border;
+  border-radius: 8px;
+  overflow: hidden;
+
+  thead {
+    background: $light-gray;
+
+    th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      color: $dark;
+      border-bottom: 2px solid $border;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  tbody {
+    .deliverable-row {
+      border-bottom: 1px solid $border;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: rgba(241, 90, 39, 0.02);
+      }
+
+      td {
+        padding: 12px;
+        vertical-align: top;
+        border-right: 1px solid $border;
+
+        &:last-child {
+          border-right: none;
+        }
+      }
+    }
+  }
+
+  .service-name-cell {
+    font-weight: 600;
+    color: $dark;
+    font-size: 14px;
+    min-width: 150px;
+
+    .instance-badge {
+      margin-left: 6px;
+      font-weight: 400;
+      color: $gray;
+      font-size: 12px;
+    }
+  }
+
+  .field-cell {
+    min-width: 120px;
+
+    .deliverable-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid $border;
+      border-radius: 4px;
+      font-size: 13px;
+      background: $white;
+      color: $dark;
+      font-family: inherit;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: $orange;
+        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
+      }
+
+      &:disabled, &:read-only {
+        background: $light-gray;
+        color: $gray;
+        cursor: not-allowed;
+      }
+
+      &::placeholder {
+        color: #999;
+      }
+    }
+
+    .deliverable-textarea {
+      width: 100%;
+      min-height: 60px;
+      padding: 8px 10px;
+      border: 1px solid $border;
+      border-radius: 4px;
+      font-size: 13px;
+      background: $white;
+      color: $dark;
+      font-family: inherit;
+      line-height: 1.4;
+      resize: vertical;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: $orange;
+        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
+      }
+
+      &:disabled, &:read-only {
+        background: $light-gray;
+        color: $gray;
+        cursor: not-allowed;
+      }
+
+      &::placeholder {
+        color: #999;
+      }
+    }
+  }
+
+  .deliverable-file-cell {
+    .file-upload-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .deliverable-link {
+        color: $orange;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s ease;
+
+        &:hover {
+          background: rgba(241, 90, 39, 0.1);
+        }
+      }
+
+      .file-upload-label {
+        margin: 0;
+        cursor: pointer;
+        display: inline-flex;
+
+        .file-input-hidden {
+          display: none;
+        }
+
+        ion-button {
+          --padding-start: 4px;
+          --padding-end: 4px;
+          height: 32px;
+          width: 32px;
+
+          ion-icon {
+            font-size: 20px;
+          }
+        }
+      }
+    }
+  }
+
+  // Mobile responsive adjustments
+  @media (max-width: 1024px) {
+    display: block;
+    overflow-x: auto;
+
+    thead, tbody, th, td, tr {
+      display: block;
+    }
+
+    thead {
+      display: none; // Hide header on mobile
+    }
+
+    tbody .deliverable-row {
+      margin-bottom: 16px;
+      border: 1px solid $border;
+      border-radius: 8px;
+      padding: 12px;
+
+      td {
+        border: none;
+        padding: 8px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        &::before {
+          content: attr(data-label);
+          font-weight: 600;
+          font-size: 11px;
+          color: $gray;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        &.service-name-cell::before {
+          content: 'Service';
+        }
+
+        &:first-child::before {
+          display: none; // Service name doesn't need label
+        }
+      }
+    }
+  }
+}
+

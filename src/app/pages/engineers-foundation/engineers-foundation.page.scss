@@ -2619,9 +2619,21 @@ ion-content{--overflow:scroll !important;height:100%}
   .elevation-point-card {
     .fdf-photo-button.measurement-photo-btn {
       margin-bottom: 12px !important; // Space below button for photo
+
+      // Make measurement icons larger for mobile
+      ion-icon {
+        font-size: 36px !important; // Larger icons for easier clicking
+      }
     }
   }
-  
+
+  // Override general FDF button styling for measurement buttons
+  .elevation-points-container .fdf-photo-button.measurement-photo-btn {
+    ion-icon {
+      font-size: 36px !important; // Ensure measurement icons are larger
+    }
+  }
+
   // FIXED sizing for mobile - match Structural Systems exactly
   .image-preview-section {
     padding: 4px !important;
@@ -2812,6 +2824,11 @@ ion-content{--overflow:scroll !important;height:100%}
   .elevation-point-card {
     .fdf-photo-button.measurement-photo-btn {
       margin-bottom: 12px !important; // Space below button for photo
+
+      // Make measurement icons larger for mobile
+      ion-icon {
+        font-size: 36px !important; // Larger icons for easier clicking
+      }
     }
   }
   

@@ -117,6 +117,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   savingNotes = false;
   notesSaved = false;
 
+  // Deliverables (for CompanyID = 1)
+  showDeliverablesTable = false;
+  currentDeliverableUpload: any = null;
+
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
   isAddingLink = false; // Flag to track if adding link vs document
@@ -464,6 +468,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const isCompletedProject = this.isCompletedStatus(statusId);
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
+
+      // Check if we should show Deliverables table (CompanyID = 1)
+      const companyId = Number(projectData?.CompanyID || projectData?.Company_ID);
+      this.showDeliverablesTable = companyId === 1;
+
       const parallelStartTime = performance.now();
 
       const [offers, types, services, attachTemplates, existingAttachments] = await Promise.allSettled([
@@ -623,10 +632,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         } else {
           this.isReadOnly = isCompletedProject;
         }
-        
+
+        // Check if we should show Deliverables table (CompanyID = 1)
+        const companyId = Number(project.CompanyID || project.Company_ID);
+        this.showDeliverablesTable = companyId === 1;
+
         if (this.isReadOnly) {
         }
-        
+
         // Load offers first, then services (services need offers to match properly)
         await this.loadAvailableOffers();
         
@@ -1505,6 +1518,76 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     } finally {
       this.savingNotes = false;
     }
+  }
+
+  // Deliverables methods (for CompanyID = 1)
+  async updateDeliverableField(service: ServiceSelection, fieldName: string, value: string) {
+    if (!service.serviceId || this.isReadOnly) {
+      return;
+    }
+
+    try {
+      const updateData: any = {};
+      updateData[fieldName] = value;
+
+      await this.caspioService.updateService(service.serviceId, updateData).toPromise();
+      await this.showToast('Updated successfully', 'success');
+    } catch (error) {
+      console.error(`Error updating ${fieldName}:`, error);
+      await this.showToast(`Failed to update ${fieldName}`, 'danger');
+    }
+  }
+
+  async uploadDeliverableFile(service: ServiceSelection, event: any) {
+    const file = event.target.files[0];
+    if (!file || !service.serviceId || this.isReadOnly) {
+      return;
+    }
+
+    let loading: any = null;
+
+    try {
+      loading = await this.loadingController.create({
+        message: 'Uploading deliverable...'
+      });
+      await loading.present();
+
+      // Upload file to the Deliverable field in the Services table
+      await this.caspioService.uploadFileToField(
+        'Services',
+        service.serviceId,
+        'Deliverable',
+        file
+      ).toPromise();
+
+      // Reload the service to get the updated Deliverable URL
+      const services = await this.caspioService.getServicesByProject(this.projectId).toPromise();
+      const updatedService = services?.find((s: any) => s.PK_ID === service.serviceId);
+      if (updatedService) {
+        // Update the service in selectedServices array
+        Object.assign(service, updatedService);
+      }
+
+      await this.showToast('Deliverable uploaded successfully', 'success');
+    } catch (error) {
+      console.error('Error uploading deliverable:', error);
+      await this.showToast('Failed to upload deliverable', 'danger');
+    } finally {
+      if (loading) {
+        await loading.dismiss();
+      }
+      // Clear file input
+      event.target.value = '';
+    }
+  }
+
+  getDeliverableUrl(service: ServiceSelection): string | null {
+    // The Deliverable field will contain the file URL from Caspio
+    return (service as any).Deliverable || null;
+  }
+
+  hasDeliverable(service: ServiceSelection): boolean {
+    return !!(service as any).Deliverable;
   }
 
   // Document management methods

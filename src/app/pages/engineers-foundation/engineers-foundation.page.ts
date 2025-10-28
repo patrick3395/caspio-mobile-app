@@ -12473,16 +12473,26 @@ Stack: ${error?.stack}`;
       inspectorName: this.projectData?.InspectorName || '',
       inAttendance: this.serviceData?.InAttendance || '',
       
-      // Property Details (from actual form inputs)
+      // Property Details (from actual form inputs) - Replace "Other" with custom values
       yearBuilt: this.projectData?.YearBuilt || '',
       squareFeet: this.projectData?.SquareFeet || '',
-      typeOfBuilding: this.projectData?.TypeOfBuilding || '',
-      style: this.projectData?.Style || '',
-      occupancyFurnishings: this.serviceData?.OccupancyFurnishings || '',
-      
-      // Environmental Conditions (from actual form inputs)
-      weatherConditions: this.serviceData?.WeatherConditions || '',
-      outdoorTemperature: this.serviceData?.OutdoorTemperature || '',
+      typeOfBuilding: this.projectData?.TypeOfBuilding === 'Other' && this.projectData?.TypeOfBuildingOther
+        ? this.projectData.TypeOfBuildingOther
+        : (this.projectData?.TypeOfBuilding || ''),
+      style: this.projectData?.Style === 'Other' && this.projectData?.StyleOther
+        ? this.projectData.StyleOther
+        : (this.projectData?.Style || ''),
+      occupancyFurnishings: this.serviceData?.OccupancyFurnishings === 'Other' && this.serviceData?.OccupancyFurnishingsOther
+        ? this.serviceData.OccupancyFurnishingsOther
+        : (this.serviceData?.OccupancyFurnishings || ''),
+
+      // Environmental Conditions (from actual form inputs) - Replace "Other" with custom values
+      weatherConditions: this.serviceData?.WeatherConditions === 'Other' && this.serviceData?.WeatherConditionsOther
+        ? this.serviceData.WeatherConditionsOther
+        : (this.serviceData?.WeatherConditions || ''),
+      outdoorTemperature: this.serviceData?.OutdoorTemperature === 'Other' && this.serviceData?.OutdoorTemperatureOther
+        ? this.serviceData.OutdoorTemperatureOther
+        : (this.serviceData?.OutdoorTemperature || ''),
       
       // Foundation Details (from actual form inputs)
       firstFoundationType: this.serviceData?.FirstFoundationType || '',

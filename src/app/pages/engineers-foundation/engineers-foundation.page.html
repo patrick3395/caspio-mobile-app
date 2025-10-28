@@ -1196,12 +1196,12 @@
                       <div style="display: flex; gap: 4px; margin-bottom: 6px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1238,12 +1238,12 @@
                       <div style="display: flex; gap: 4px; margin-bottom: 6px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1280,12 +1280,12 @@
                       <div style="display: flex; gap: 4px; margin-bottom: 6px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1349,17 +1349,17 @@
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
-                        <div style="flex: 1;">
+                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1391,17 +1391,17 @@
                         </div>
 
                         <!-- Location Photo Container -->
-                        <div style="flex: 1;">
+                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1658,12 +1658,12 @@
                       <div style="display: flex; gap: 4px; margin-bottom: 6px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1700,12 +1700,12 @@
                       <div style="display: flex; gap: 4px; margin-bottom: 6px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1768,17 +1768,17 @@
                       <!-- Measurement and Location Photos -->
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
-                        <div style="flex: 1;">
+                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1810,17 +1810,17 @@
                         </div>
 
                         <!-- Location Photo Container -->
-                        <div style="flex: 1;">
+                        <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
                           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
