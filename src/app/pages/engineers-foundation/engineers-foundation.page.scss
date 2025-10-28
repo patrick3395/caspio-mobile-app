@@ -1210,7 +1210,7 @@ ion-content{--overflow:scroll !important;height:100%}
               --highlight-height: 0;
               // --background-hover removed for mobile optimization
               padding: 12px;
-              border-radius: 11px; // Slightly smaller than parent (12px) to prevent corner overlap
+              border-radius: 9px; // Reduced from 11px to create more clearance from parent (12px) to eliminate corner overlap
               transition: all 0.3s ease;
               border: none; // Remove border to prevent light hue over parent container border in corners
               overflow: visible; // CRITICAL: Allow delete buttons to show outside

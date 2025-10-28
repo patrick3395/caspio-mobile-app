@@ -64,22 +64,30 @@ ion-header {
   }
 
   ion-toolbar {
-    --min-height: 60px !important;
+    --min-height: 70px !important;
     --padding-top: 0 !important;
     --padding-bottom: 0 !important;
-    min-height: 60px !important;
+    min-height: 70px !important;
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-end !important;
+    padding-bottom: 10px !important;
   }
 
   ion-toolbar::part(native) {
-    min-height: 60px !important;
+    min-height: 70px !important;
+    display: flex !important;
+    align-items: flex-end !important;
   }
 
   ion-toolbar ion-title {
     font-size: 20px !important;
     font-weight: 600 !important;
     line-height: 1.2 !important;
+    padding-bottom: 10px !important;
+  }
+
+  ion-toolbar ion-buttons {
+    padding-bottom: 10px !important;
   }
 }
 

@@ -104,8 +104,8 @@
             <td class="field-cell">
               <select
                 class="deliverable-select"
-                [value]="service.StatusEng || ''"
-                (change)="updateDeliverableField(service, 'StatusEng', $any($event.target).value)"
+                [(ngModel)]="service.StatusEng"
+                (ngModelChange)="updateDeliverableField(service, 'StatusEng', service.StatusEng)"
                 [disabled]="isReadOnly">
                 <option value="">Select status...</option>
                 <option *ngFor="let status of statusOptions" [value]="status.Status">
@@ -243,8 +243,8 @@
             <td class="status-cell-mobile">
               <select
                 class="deliverable-select-mobile"
-                [value]="service.StatusEng || ''"
-                (change)="updateDeliverableField(service, 'StatusEng', $any($event.target).value)"
+                [(ngModel)]="service.StatusEng"
+                (ngModelChange)="updateDeliverableField(service, 'StatusEng', service.StatusEng)"
                 [disabled]="isReadOnly"
                 (click)="$event.stopPropagation()">
                 <option value="">--</option>
@@ -628,8 +628,8 @@
           <label>Status Eng</label>
           <select
             class="modal-select"
-            [value]="selectedDeliverableService.StatusEng || ''"
-            (change)="updateDeliverableField(selectedDeliverableService, 'StatusEng', $any($event.target).value)"
+            [(ngModel)]="selectedDeliverableService.StatusEng"
+            (ngModelChange)="updateDeliverableField(selectedDeliverableService, 'StatusEng', selectedDeliverableService.StatusEng)"
             [disabled]="isReadOnly">
             <option value="">Select status...</option>
             <option *ngFor="let status of statusOptions" [value]="status.Status">
