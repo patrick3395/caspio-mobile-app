@@ -345,8 +345,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            width: pageElement.offsetWidth,
-            height: pageElement.offsetHeight
+            foreignObjectRendering: false,
+            windowWidth: pageElement.scrollWidth,
+            windowHeight: pageElement.scrollHeight,
+            x: 0,
+            y: 0
           });
 
           if (canvas.width === 0 || canvas.height === 0) {

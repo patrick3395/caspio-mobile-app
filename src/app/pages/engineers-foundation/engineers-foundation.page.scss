@@ -1119,8 +1119,8 @@ ion-content{--overflow:scroll !important;height:100%}
       .category-content {
         background: white;
         padding: 20px;
-        overflow: visible; // CRITICAL: Allow delete buttons to show outside
-        border-radius: 0 0 6px 6px; // Reduced further from 7px to create more clearance and prevent white corner overlap
+        overflow: hidden; // Clip corners properly to prevent white hue at bottom corners
+        border-radius: 0 0 7px 7px; // Match header approach - round bottom corners to align with parent (8px)
         
         .type-section {
           margin-bottom: 20px;
