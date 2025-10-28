@@ -41,14 +41,10 @@
 // Headers and Toolbars
 ion-header {
   --background: transparent;
-  padding-top: env(safe-area-inset-top) !important;
 
   ion-toolbar {
     --background: var(--noble-orange);
     --color: var(--noble-white);
-    --min-height: 72px !important;
-    padding-top: 28px !important;
-    padding-bottom: 12px !important;
 
     ion-title {
       color: var(--noble-white);
@@ -61,11 +57,36 @@ ion-header {
   }
 }
 
-// Force toolbar padding through Shadow DOM
-ion-toolbar::part(native) {
-  padding-top: 28px !important;
-  padding-bottom: 12px !important;
-  min-height: 72px !important;
+// Mobile-only header padding (max-width: 767px)
+@media (max-width: 767px) {
+  ion-header {
+    padding-top: env(safe-area-inset-top) !important;
+
+    ion-toolbar {
+      --min-height: 72px !important;
+      padding-top: 28px !important;
+      padding-bottom: 12px !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+  }
+
+  // Force toolbar padding through Shadow DOM (mobile only)
+  ion-toolbar::part(native) {
+    padding-top: 28px !important;
+    padding-bottom: 12px !important;
+    min-height: 72px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  // Vertically center title and buttons
+  ion-toolbar ion-title,
+  ion-toolbar ion-buttons {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+  }
 }
 
 // Back Button with Orange Circle
@@ -103,9 +124,6 @@ ion-back-button {
 ion-tab-bar {
   --background: var(--noble-white);
   border-top: 1px solid #E0E0E0;
-  padding-top: 12px !important;
-  padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
-  min-height: 72px !important;
 
   ion-tab-button {
     --color: var(--noble-gray);
@@ -119,11 +137,20 @@ ion-tab-bar {
   }
 }
 
-// Force tab-bar padding through Shadow DOM
-ion-tab-bar::part(native) {
-  padding-top: 12px !important;
-  padding-bottom: 28px !important;
-  min-height: 72px !important;
+// Mobile-only footer padding (max-width: 767px)
+@media (max-width: 767px) {
+  ion-tab-bar {
+    padding-top: 12px !important;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
+    min-height: 72px !important;
+  }
+
+  // Force tab-bar padding through Shadow DOM (mobile only)
+  ion-tab-bar::part(native) {
+    padding-top: 12px !important;
+    padding-bottom: 28px !important;
+    min-height: 72px !important;
+  }
 }
 
 // Buttons

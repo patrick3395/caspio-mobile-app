@@ -1170,16 +1170,6 @@
                   </button>
                 </div>
 
-                <!-- DEBUG: Location Field Visibility Check -->
-                <div style="background: #fffacd; padding: 8px; margin: 8px 0; font-size: 11px; border: 1px solid #daa520;">
-                  <strong>DEBUG - Location Field Check for "{{ room.RoomName }}":</strong><br>
-                  isBaseStation: {{ isBaseStation(room.RoomName) }}<br>
-                  isBedroomOrBathroom: {{ isBedroomOrBathroom(room.RoomName) }}<br>
-                  roomElevationData exists: {{ !!roomElevationData[room.RoomName] }}<br>
-                  location property exists: {{ roomElevationData[room.RoomName]?.location !== undefined }}<br>
-                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName] }}
-                </div>
-
                 <!-- Flooring Difference Factor dropdown - compact inline (hidden for Base Station) -->
                 <div class="fdf-dropdown-container" *ngIf="!isBaseStation(room.RoomName)">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">

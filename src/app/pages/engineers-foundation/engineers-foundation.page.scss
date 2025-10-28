@@ -1,15 +1,10 @@
 ﻿// Brand Colors and Header Styling - Match Active Projects exactly
 ion-header {
-  padding-top: env(safe-area-inset-top) !important;
-
   ion-toolbar {
     --background: var(--noble-orange);
     --border-width: 0;
     --padding-start: 16px;
     --padding-end: 16px;
-    --min-height: 72px !important;
-    padding-top: 28px !important;
-    padding-bottom: 12px !important;
 
     ion-title {
       font-size: 18px;
@@ -20,11 +15,36 @@ ion-header {
   }
 }
 
-// Force toolbar padding through Shadow DOM for this page
-ion-toolbar::part(native) {
-  padding-top: 28px !important;
-  padding-bottom: 12px !important;
-  min-height: 72px !important;
+// Mobile-only header padding for engineers-foundation page (max-width: 767px)
+@media (max-width: 767px) {
+  ion-header {
+    padding-top: env(safe-area-inset-top) !important;
+
+    ion-toolbar {
+      --min-height: 72px !important;
+      padding-top: 28px !important;
+      padding-bottom: 12px !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+  }
+
+  // Force toolbar padding through Shadow DOM for this page (mobile only)
+  ion-toolbar::part(native) {
+    padding-top: 28px !important;
+    padding-bottom: 12px !important;
+    min-height: 72px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  // Vertically center title and buttons
+  ion-toolbar ion-title,
+  ion-toolbar ion-buttons {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+  }
 }
 
 // Back Button with Orange Circle and White Arrow
@@ -1220,7 +1240,7 @@ ion-content{--overflow:scroll !important;height:100%}
               --highlight-height: 0;
               // --background-hover removed for mobile optimization
               padding: 12px;
-              border-radius: 8px;
+              border-radius: 12px; // Match parent container border-radius to prevent white corners
               transition: all 0.3s ease;
               border: 1px solid #f0f0f0;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
