@@ -34,6 +34,11 @@ const config: CapacitorConfig = {
     cleartextTrafficPermitted: false
   },
   plugins: {
+    Keyboard: {
+      resize: 'none',
+      style: 'dark',
+      resizeOnFullScreen: false
+    },
     LiveUpdates: {
       appId: '1e8beef6',
       channel: 'Caspio Mobile App',

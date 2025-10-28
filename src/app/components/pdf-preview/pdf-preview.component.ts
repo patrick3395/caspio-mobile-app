@@ -2,6 +2,7 @@ import { Component, Input, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, Platform, AlertController, ToastController } from '@ionic/angular';
 import { PDFViewerModal } from '../pdf-viewer-modal/pdf-viewer-modal.component';
+import { PhotoViewerComponent } from '../photo-viewer/photo-viewer.component';
 import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
 // jsPDF is now lazy-loaded when needed
@@ -1404,7 +1405,27 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   dismiss() {
     this.modalController.dismiss();
   }
-  
+
+  /**
+   * Opens a photo in full-screen viewer
+   * @param photoUrl - The URL or data URL of the photo to view
+   * @param caption - Optional caption for the photo
+   */
+  async openPhotoViewer(photoUrl: string, caption?: string) {
+    const modal = await this.modalController.create({
+      component: PhotoViewerComponent,
+      componentProps: {
+        photoUrl: photoUrl,
+        photoCaption: caption,
+        canAnnotate: false,
+        enableCaption: false
+      },
+      cssClass: 'photo-viewer-modal'
+    });
+
+    await modal.present();
+  }
+
   handleImageError(event: any) {
     console.error('Image failed to load:', event.target.src);
     // Don't replace if it's already the placeholder

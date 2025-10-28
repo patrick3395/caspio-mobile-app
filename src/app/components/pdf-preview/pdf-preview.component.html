@@ -32,8 +32,10 @@
           alt="Property"
           (error)="handleImageError($event)"
           (load)="handleImageLoad($event)"
+          (click)="openPhotoViewer(getPrimaryPhotoUrl())"
           [class.loading]="primaryPhotoLoading"
-          class="property-photo" />
+          class="property-photo clickable-photo"
+          style="cursor: pointer;" />
       </div>
 
       <div class="property-info-box">
@@ -196,12 +198,14 @@
               <p class="visual-answer" *ngIf="item.answers" style="color: black; font-weight: normal; margin-left: 10px;">{{ item.answers }}</p>
               <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
                 <div class="photo-item" *ngFor="let photo of item.photos">
-                  <img 
-                    [src]="getPhotoUrl(photo)" 
+                  <img
+                    [src]="getPhotoUrl(photo)"
                     [alt]="photo.caption || 'Photo'"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(getPhotoUrl(photo), photo.caption)"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                 </div>
               </div>
@@ -223,12 +227,14 @@
               <p class="visual-answer" *ngIf="item.answers" style="color: black; font-weight: normal; margin-left: 10px;">{{ item.answers }}</p>
               <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
                 <div class="photo-item" *ngFor="let photo of item.photos">
-                  <img 
-                    [src]="getPhotoUrl(photo)" 
+                  <img
+                    [src]="getPhotoUrl(photo)"
                     [alt]="photo.caption || 'Photo'"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(getPhotoUrl(photo), photo.caption)"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                 </div>
               </div>
@@ -250,12 +256,14 @@
               <p class="visual-answer" *ngIf="item.answers" style="color: black; font-weight: normal; margin-left: 10px;">{{ item.answers }}</p>
               <div class="photo-grid" *ngIf="item.photos && item.photos.length > 0">
                 <div class="photo-item" *ngFor="let photo of item.photos">
-                  <img 
-                    [src]="getPhotoUrl(photo)" 
+                  <img
+                    [src]="getPhotoUrl(photo)"
                     [alt]="photo.caption || 'Photo'"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(getPhotoUrl(photo), photo.caption)"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption" *ngIf="photo.caption">{{ photo.caption }}</p>
                 </div>
               </div>
@@ -299,34 +307,40 @@
               <div class="photo-grid" *ngIf="room.fdfPhotos && (room.fdfPhotos.top || room.fdfPhotos.bottom || room.fdfPhotos.threshold)">
                 <!-- Top Photo -->
                 <div class="photo-item" *ngIf="room.fdfPhotos.top && room.fdfPhotos.topUrl">
-                  <img 
-                    [src]="room.fdfPhotos.topUrl" 
+                  <img
+                    [src]="room.fdfPhotos.topUrl"
                     alt="FDF Top"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(room.fdfPhotos.topUrl, 'FDF Top')"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption">Top</p>
                 </div>
                 
                 <!-- Bottom Photo -->
                 <div class="photo-item" *ngIf="room.fdfPhotos.bottom && room.fdfPhotos.bottomUrl">
-                  <img 
-                    [src]="room.fdfPhotos.bottomUrl" 
+                  <img
+                    [src]="room.fdfPhotos.bottomUrl"
                     alt="FDF Bottom"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(room.fdfPhotos.bottomUrl, 'FDF Bottom')"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption">Bottom</p>
                 </div>
                 
                 <!-- Threshold Photo -->
                 <div class="photo-item" *ngIf="room.fdfPhotos.threshold && room.fdfPhotos.thresholdUrl">
-                  <img 
-                    [src]="room.fdfPhotos.thresholdUrl" 
+                  <img
+                    [src]="room.fdfPhotos.thresholdUrl"
                     alt="FDF Threshold"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(room.fdfPhotos.thresholdUrl, 'FDF Threshold')"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption">Threshold</p>
                 </div>
               </div>

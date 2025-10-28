@@ -362,6 +362,34 @@ export async function renderAnnotationsOnPhoto(
     fabricCanvas.renderAll();
     console.log('[renderAnnotationsOnPhoto] Background image set');
 
+    // Calculate scale factor if annotations were created on a different sized canvas
+    // Annotations might have been created on a scaled canvas, but we're rendering on full-size image
+    let scaleFactor = 1;
+
+    // Check if the annotation data includes the original canvas dimensions
+    // This would indicate what size canvas the annotations were created on
+    if (annotations['width'] && annotations['height']) {
+      const annotationCanvasWidth = annotations['width'];
+      const annotationCanvasHeight = annotations['height'];
+
+      console.log('[renderAnnotationsOnPhoto] Annotation canvas size:', annotationCanvasWidth, 'x', annotationCanvasHeight);
+      console.log('[renderAnnotationsOnPhoto] Current image size:', width, 'x', height);
+
+      // Calculate scale factor - how much to scale up the annotations
+      // If annotations were created on a 800x600 canvas but image is 2000x1500,
+      // we need to scale annotations by 2000/800 = 2.5x
+      const scaleX = width / annotationCanvasWidth;
+      const scaleY = height / annotationCanvasHeight;
+
+      // Use the average scale factor, or the minimum to ensure annotations fit
+      scaleFactor = Math.min(scaleX, scaleY);
+
+      console.log('[renderAnnotationsOnPhoto] Calculated scale factor:', scaleFactor, '(scaleX:', scaleX, ', scaleY:', scaleY, ')');
+    } else {
+      console.log('[renderAnnotationsOnPhoto] No canvas dimensions in annotation data, using scale factor 1');
+      console.log('[renderAnnotationsOnPhoto] Image dimensions:', width, 'x', height);
+    }
+
     // Add annotation objects to canvas manually (don't use loadFromJSON as it clears the background)
     console.log('[renderAnnotationsOnPhoto] Adding annotation objects to canvas...');
     console.log('[renderAnnotationsOnPhoto] Number of annotation objects:', annotations.objects?.length || 0);
@@ -390,25 +418,25 @@ export async function renderAnnotationsOnPhoto(
 
             if (objData['objects'] && Array.isArray(objData['objects'])) {
               for (const nestedObj of objData['objects']) {
-                const nested = createFabricObject(fabric, nestedObj);
+                const nested = createFabricObject(fabric, nestedObj, scaleFactor);
                 if (nested) {
                   groupObjects.push(nested);
                 }
               }
             }
 
-            // Create group with all nested objects
+            // Create group with all nested objects, applying scale factor to position
             if (groupObjects.length > 0) {
               fabricObj = new fabric.Group(groupObjects, {
-                left: objData['left'],
-                top: objData['top'],
+                left: (objData['left'] || 0) * scaleFactor,
+                top: (objData['top'] || 0) * scaleFactor,
                 angle: objData['angle'] || 0,
-                scaleX: objData['scaleX'] || 1,
-                scaleY: objData['scaleY'] || 1
+                scaleX: (objData['scaleX'] || 1) * scaleFactor,
+                scaleY: (objData['scaleY'] || 1) * scaleFactor
               });
             }
           } else {
-            fabricObj = createFabricObject(fabric, objData);
+            fabricObj = createFabricObject(fabric, objData, scaleFactor);
           }
 
           if (fabricObj) {
@@ -459,8 +487,11 @@ export async function renderAnnotationsOnPhoto(
 
 /**
  * Helper function to create a Fabric.js object from JSON data
+ * @param fabric - Fabric.js library instance
+ * @param objData - Object data from JSON
+ * @param scaleFactor - Scale factor to apply to positions and dimensions (default 1)
  */
-function createFabricObject(fabric: any, objData: any): any {
+function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1): any {
   if (!objData || !objData['type']) {
     return null;
   }
@@ -471,43 +502,51 @@ function createFabricObject(fabric: any, objData: any): any {
     switch (type) {
       case 'Line':
       case 'line':
-        return new fabric.Line([objData['x1'], objData['y1'], objData['x2'], objData['y2']], {
-          left: objData['left'],
-          top: objData['top'],
-          stroke: objData['stroke'],
-          strokeWidth: objData['strokeWidth'],
-          angle: objData['angle'] || 0,
-          scaleX: objData['scaleX'] || 1,
-          scaleY: objData['scaleY'] || 1
-        });
+        return new fabric.Line(
+          [
+            (objData['x1'] || 0) * scaleFactor,
+            (objData['y1'] || 0) * scaleFactor,
+            (objData['x2'] || 0) * scaleFactor,
+            (objData['y2'] || 0) * scaleFactor
+          ],
+          {
+            left: (objData['left'] || 0) * scaleFactor,
+            top: (objData['top'] || 0) * scaleFactor,
+            stroke: objData['stroke'],
+            strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
+            angle: objData['angle'] || 0,
+            scaleX: (objData['scaleX'] || 1) * scaleFactor,
+            scaleY: (objData['scaleY'] || 1) * scaleFactor
+          }
+        );
 
       case 'Rect':
       case 'rect':
         return new fabric.Rect({
-          left: objData['left'],
-          top: objData['top'],
-          width: objData['width'],
-          height: objData['height'],
+          left: (objData['left'] || 0) * scaleFactor,
+          top: (objData['top'] || 0) * scaleFactor,
+          width: (objData['width'] || 0) * scaleFactor,
+          height: (objData['height'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: objData['strokeWidth'],
+          strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
           angle: objData['angle'] || 0,
-          scaleX: objData['scaleX'] || 1,
-          scaleY: objData['scaleY'] || 1
+          scaleX: (objData['scaleX'] || 1) * scaleFactor,
+          scaleY: (objData['scaleY'] || 1) * scaleFactor
         });
 
       case 'Circle':
       case 'circle':
         return new fabric.Circle({
-          left: objData['left'],
-          top: objData['top'],
-          radius: objData['radius'],
+          left: (objData['left'] || 0) * scaleFactor,
+          top: (objData['top'] || 0) * scaleFactor,
+          radius: (objData['radius'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: objData['strokeWidth'],
+          strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
           angle: objData['angle'] || 0,
-          scaleX: objData['scaleX'] || 1,
-          scaleY: objData['scaleY'] || 1
+          scaleX: (objData['scaleX'] || 1) * scaleFactor,
+          scaleY: (objData['scaleY'] || 1) * scaleFactor
         });
 
       case 'Text':
@@ -515,29 +554,29 @@ function createFabricObject(fabric: any, objData: any): any {
       case 'IText':
       case 'i-text':
         return new fabric.IText(objData['text'] || '', {
-          left: objData['left'],
-          top: objData['top'],
-          fontSize: objData['fontSize'] || 20,
+          left: (objData['left'] || 0) * scaleFactor,
+          top: (objData['top'] || 0) * scaleFactor,
+          fontSize: (objData['fontSize'] || 20) * scaleFactor,
           fill: objData['fill'] || '#000000',
           angle: objData['angle'] || 0,
-          scaleX: objData['scaleX'] || 1,
-          scaleY: objData['scaleY'] || 1
+          scaleX: (objData['scaleX'] || 1) * scaleFactor,
+          scaleY: (objData['scaleY'] || 1) * scaleFactor
         });
 
       case 'Path':
       case 'path':
         if (objData['path']) {
           return new fabric.Path(objData['path'], {
-            left: objData['left'],
-            top: objData['top'],
+            left: (objData['left'] || 0) * scaleFactor,
+            top: (objData['top'] || 0) * scaleFactor,
             fill: objData['fill'] || 'transparent',
             stroke: objData['stroke'],
-            strokeWidth: objData['strokeWidth'],
+            strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
             strokeLineCap: objData['strokeLineCap'] || 'round',
             strokeLineJoin: objData['strokeLineJoin'] || 'round',
             angle: objData['angle'] || 0,
-            scaleX: objData['scaleX'] || 1,
-            scaleY: objData['scaleY'] || 1
+            scaleX: (objData['scaleX'] || 1) * scaleFactor,
+            scaleY: (objData['scaleY'] || 1) * scaleFactor
           });
         }
         return null;

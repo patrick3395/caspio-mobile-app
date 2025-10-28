@@ -1128,7 +1128,14 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const blob = await this.dataUrlToBlob(dataUrl);
 
     const annotationData = this.canvas.toJSON();
+
+    // CRITICAL: Include canvas dimensions in annotation data for proper scaling during PDF rendering
+    // This allows the PDF renderer to calculate the correct scale factor
+    annotationData.width = this.canvas.width;
+    annotationData.height = this.canvas.height;
+
     console.log('[Fabric Save] annotationData from toJSON():', annotationData);
+    console.log('[Fabric Save] Canvas dimensions:', annotationData.width, 'x', annotationData.height);
     console.log('[Fabric Save] annotationData.objects:', annotationData.objects);
 
     const annotationJson = JSON.stringify(annotationData);
