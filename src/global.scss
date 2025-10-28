@@ -38,11 +38,37 @@
 
 /* Noble Property Inspections Global Styles */
 
+// CRITICAL: Prevent iOS from injecting padding when keyboard opens
+html, body {
+  padding: 0 !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 // Headers and Toolbars
 ion-header {
+  // CRITICAL: Lock header height to prevent iOS viewport resize bug
+  padding: 0 !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  height: auto !important;
+  min-height: unset !important;
+  max-height: none !important;
+
   ion-toolbar {
     --background: var(--noble-orange);
     --color: var(--noble-white);
+    // Lock toolbar height
+    --min-height: 56px !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
 
     ion-title {
       color: var(--noble-white);
@@ -297,22 +323,23 @@ ion-textarea {
 
 // Compact Photo Viewer Modal
 .compact-photo-modal {
-  --width: 90%;
-  --height: 80%;
-  --max-width: 1200px;
-  --max-height: 900px;
-  --border-radius: 12px;
+  --width: 70%;
+  --height: 70%;
+  --max-width: 900px;
+  --max-height: 700px;
+  --border-radius: 8px;
 
   .modal-wrapper {
     border-radius: var(--border-radius);
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    border: 3px solid #d0d0d0;
   }
 
   // Mobile responsive
   @media (max-width: 768px) {
-    --width: 95%;
-    --height: 70%;
+    --width: 85%;
+    --height: 60%;
     --max-width: 100%;
   }
 }

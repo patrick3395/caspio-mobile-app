@@ -31,39 +31,43 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       position: relative;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, rgba(240, 240, 245, 0.98), rgba(250, 250, 252, 0.98));
+      background: #ffffff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      border-radius: 12px;
+      padding: 15px;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
     }
 
     .close-btn {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 36px;
-      height: 36px;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: rgba(0, 0, 0, 0.1);
-      border: none;
+      background: #f0f0f0;
+      border: 1px solid #d0d0d0;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       z-index: 10;
-      transition: background 0.2s ease;
+      transition: all 0.2s ease;
     }
 
     .close-btn:hover {
-      background: rgba(0, 0, 0, 0.2);
+      background: #e0e0e0;
+      border-color: #b0b0b0;
+      transform: scale(1.05);
     }
 
     .close-btn ion-icon {
-      font-size: 24px;
-      color: #333;
+      font-size: 20px;
+      color: #555;
     }
 
     .photo-container {
@@ -72,48 +76,56 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       align-items: center;
       justify-content: center;
       width: 100%;
-      max-height: calc(100% - 60px);
+      max-height: calc(100% - 50px);
+      padding: 5px;
     }
 
     img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      border-radius: 8px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(0, 0, 0, 0.1);
       cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    img:hover {
+      transform: scale(1.01);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
     }
 
     .caption-display {
       position: absolute;
-      bottom: 15px;
-      left: 20px;
-      right: 20px;
-      background: rgba(255, 255, 255, 0.95);
+      bottom: 12px;
+      left: 15px;
+      right: 15px;
+      background: #f8f8f8;
       color: #333;
-      padding: 10px 15px;
-      border-radius: 8px;
-      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
       text-align: center;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
     .caption-display p {
       margin: 0;
-      line-height: 1.4;
+      line-height: 1.3;
       font-weight: 500;
     }
 
     @media (max-width: 768px) {
       .compact-photo-viewer {
-        padding: 15px;
+        padding: 12px;
       }
 
       .caption-display {
-        font-size: 12px;
-        padding: 8px 12px;
+        font-size: 11px;
+        padding: 6px 10px;
+        bottom: 10px;
       }
     }
   `]

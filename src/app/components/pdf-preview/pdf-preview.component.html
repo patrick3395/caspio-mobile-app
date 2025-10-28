@@ -358,12 +358,14 @@
               </div>
               <div class="photo-grid" *ngIf="point.photos && point.photos.length > 0">
                 <div class="photo-item" *ngFor="let photo of point.photos">
-                  <img 
-                    [src]="getPhotoUrl(photo)" 
+                  <img
+                    [src]="getPhotoUrl(photo)"
                     [alt]="photo.caption || 'Photo'"
                     (error)="handleImageError($event)"
                     (load)="handleImageLoad($event)"
-                    class="loading" />
+                    (click)="openPhotoViewer(getPhotoUrl(photo), photo.caption || photo.annotation)"
+                    class="loading clickable-photo"
+                    style="cursor: pointer;" />
                   <p class="photo-caption" *ngIf="photo.caption || photo.annotation">{{ photo.caption || photo.annotation }}</p>
                 </div>
               </div>

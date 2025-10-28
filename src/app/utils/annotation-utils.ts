@@ -576,7 +576,7 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
             left: (objData['left'] || 0) * scaleFactor,
             top: (objData['top'] || 0) * scaleFactor,
             stroke: objData['stroke'],
-            strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
+            strokeWidth: (objData['strokeWidth'] || 1) * 1.5, // Slightly thicker for visibility
             angle: objData['angle'] || 0,
             scaleX: objData['scaleX'] || 1, // DON'T scale - already in coordinates
             scaleY: objData['scaleY'] || 1  // DON'T scale - already in coordinates
@@ -592,7 +592,7 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
           height: (objData['height'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
+          strokeWidth: (objData['strokeWidth'] || 1) * 1.5, // Slightly thicker for visibility
           angle: objData['angle'] || 0,
           scaleX: objData['scaleX'] || 1, // DON'T scale
           scaleY: objData['scaleY'] || 1  // DON'T scale
@@ -606,7 +606,7 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
           radius: (objData['radius'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
+          strokeWidth: (objData['strokeWidth'] || 1) * 1.5, // Slightly thicker for visibility
           angle: objData['angle'] || 0,
           scaleX: objData['scaleX'] || 1, // DON'T scale
           scaleY: objData['scaleY'] || 1  // DON'T scale
@@ -634,7 +634,7 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
             top: (objData['top'] || 0) * scaleFactor,
             fill: objData['fill'] || 'transparent',
             stroke: objData['stroke'],
-            strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
+            strokeWidth: (objData['strokeWidth'] || 1) * 1.5, // Slightly thicker for visibility
             strokeLineCap: objData['strokeLineCap'] || 'round',
             strokeLineJoin: objData['strokeLineJoin'] || 'round',
             angle: objData['angle'] || 0,

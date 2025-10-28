@@ -439,7 +439,7 @@
 
             <!-- Third Foundation Rooms - Multi-Select -->
             <div class="form-group" [class.filled]="thirdFoundationRoomsSelections && thirdFoundationRoomsSelections.length > 0"
-                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None' && serviceData.ThirdFoundationType !== 'Other'">
+                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None' && serviceData.ThirdFoundationType !== ''">
               <label>
                 <ion-icon name="home-outline"></ion-icon>
                 Third Foundation Rooms

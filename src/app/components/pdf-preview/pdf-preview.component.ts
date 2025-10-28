@@ -164,30 +164,51 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   
   getPhotoUrl(photo: any): string {
     if (!photo) {
+      console.warn('[PDF Preview] getPhotoUrl called with null/undefined photo');
       return 'assets/img/photo-placeholder.svg';
     }
 
     // Prioritize displayUrl (annotated version) over regular url, matching the thumbnail behavior
     const photoPath = photo.displayUrl || photo.url || photo.Photo || photo.Attachment || photo.filePath || photo;
 
-    // Data URL (base64)
-    if (typeof photoPath === 'string' && photoPath.startsWith('data:')) {
+    // Log the photo path for debugging mobile issues
+    if (typeof photoPath !== 'string') {
+      console.warn('[PDF Preview] Photo path is not a string:', photoPath);
+      return 'assets/img/photo-placeholder.svg';
+    }
+
+    // Data URL (base64) - this is the preferred format
+    if (photoPath.startsWith('data:')) {
+      // Validate base64 length to ensure it's not corrupted
+      if (photoPath.length < 100) {
+        console.warn('[PDF Preview] Base64 URL seems too short:', photoPath.substring(0, 50));
+        return 'assets/img/photo-placeholder.svg';
+      }
       return photoPath;
     }
 
     // Already a full URL or blob URL
-    if (typeof photoPath === 'string' && (photoPath.startsWith('http') || photoPath.startsWith('blob:'))) {
+    if (photoPath.startsWith('http') || photoPath.startsWith('blob:')) {
+      console.log('[PDF Preview] Using HTTP/blob URL:', photoPath.substring(0, 100));
       return photoPath;
     }
 
-    // Caspio file path (shouldn't happen anymore since we convert to base64, but keep as fallback)
-    if (typeof photoPath === 'string' && photoPath.startsWith('/')) {
+    // Caspio file path - WARNING: This shouldn't happen if conversion worked
+    if (photoPath.startsWith('/')) {
+      console.warn('[PDF Preview] Using Caspio file path (base64 conversion may have failed):', photoPath);
       const account = this.caspioService.getAccountID();
       const token = this.caspioService.getCurrentToken() || '';
+
+      if (!token) {
+        console.error('[PDF Preview] No token available for Caspio file path');
+        return 'assets/img/photo-placeholder.svg';
+      }
+
       const photoUrl = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
       return photoUrl;
     }
 
+    console.warn('[PDF Preview] Unknown photo path format:', photoPath.substring(0, 50));
     return photoPath || 'assets/img/photo-placeholder.svg';
   }
 
@@ -1429,14 +1450,26 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   handleImageError(event: any) {
-    console.error('Image failed to load:', event.target.src);
+    const failedSrc = event.target.src;
+    const srcType = failedSrc.startsWith('data:') ? 'base64' :
+                    failedSrc.startsWith('http') ? 'http' :
+                    failedSrc.startsWith('blob:') ? 'blob' :
+                    failedSrc.startsWith('/') ? 'path' : 'unknown';
+
+    console.error('[PDF Preview] Image failed to load:', {
+      type: srcType,
+      length: failedSrc.length,
+      preview: failedSrc.substring(0, 100),
+      platform: this.platform.is('ios') ? 'iOS' : this.platform.is('android') ? 'Android' : 'Web'
+    });
+
     // Don't replace if it's already the placeholder
-    if (!event.target.src.includes('project-placeholder.svg')) {
-      event.target.src = 'assets/img/project-placeholder.svg';
+    if (!failedSrc.includes('project-placeholder.svg') && !failedSrc.includes('photo-placeholder.svg')) {
+      event.target.src = 'assets/img/photo-placeholder.svg';
     }
     event.target.classList.remove('loading');
     this.primaryPhotoLoading = false;
-    
+
     // Decrement loading counter and check if we should dismiss
     if (this.imagesLoading > 0) {
       this.imagesLoading--;

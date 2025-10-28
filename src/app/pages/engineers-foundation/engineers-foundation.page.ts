@@ -372,6 +372,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return this.pdfPreviewComponent;
   }
 
+  /**
+   * Clear PDF cache to ensure fresh data on next PDF view
+   * Call this whenever photos, annotations, or captions are added/modified/deleted
+   */
+  private clearPDFCache(): void {
+    // Clear all PDF-related caches
+    const patterns = ['pdf_data', 'visual_photos', 'photo_base64', 'photo_annotated'];
+
+    patterns.forEach(pattern => {
+      // Clear all cache entries matching this pattern
+      // The cache service should handle wildcard deletion
+      try {
+        // Get all cache keys and delete matching ones
+        const allKeys = Object.keys(localStorage).filter(key => key.includes(pattern));
+        allKeys.forEach(key => {
+          localStorage.removeItem(key);
+        });
+      } catch (error) {
+        console.warn('[Cache] Error clearing cache pattern:', pattern, error);
+      }
+    });
+
+    console.log('[Cache] PDF cache cleared - next PDF view will show fresh data');
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -480,6 +505,61 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
+
+    // DEBUG: Monitor header for size/style changes
+    this.setupHeaderDebugMonitor();
+  }
+
+  private setupHeaderDebugMonitor() {
+    if (!this.platform.is('mobile')) {
+      return; // Only monitor on mobile
+    }
+
+    setTimeout(() => {
+      const header = document.querySelector('ion-header');
+      if (!header) {
+        console.error('[DEBUG] No ion-header found');
+        return;
+      }
+
+      let lastHeight = header.getBoundingClientRect().height;
+      let lastPaddingTop = window.getComputedStyle(header).paddingTop;
+
+      console.log(`[DEBUG] Initial header height: ${lastHeight}px, paddingTop: ${lastPaddingTop}`);
+
+      const observer = new MutationObserver(() => {
+        const currentHeight = header.getBoundingClientRect().height;
+        const currentPaddingTop = window.getComputedStyle(header).paddingTop;
+
+        if (currentHeight !== lastHeight || currentPaddingTop !== lastPaddingTop) {
+          const message = `HEADER CHANGED!\nHeight: ${lastHeight}px → ${currentHeight}px\nPadding-Top: ${lastPaddingTop} → ${currentPaddingTop}`;
+          console.error('[DEBUG]', message);
+
+          // Show alert to user
+          this.alertController.create({
+            header: 'Debug: Header Changed',
+            message: message,
+            buttons: ['OK']
+          }).then(alert => alert.present());
+
+          lastHeight = currentHeight;
+          lastPaddingTop = currentPaddingTop;
+        }
+      });
+
+      observer.observe(header, {
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+        childList: true,
+        subtree: true
+      });
+
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+
+    }, 1000);
   }
 
   /**
@@ -5845,8 +5925,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Update the Services_EFE_Points_Attach record
       if (Object.keys(updateData).length > 0) {
         await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
+
+        // Clear PDF cache so changes show immediately
+        this.clearPDFCache();
       }
-      
+
     } catch (error) {
       console.error('Error updating room point photo attachment:', error);
       await this.showToast('Failed to update photo annotations', 'danger');
@@ -6626,15 +6709,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     try {
       // Check if we have cached PDF data (valid for 5 minutes)
-      const cacheKey = this.cache.getApiCacheKey('pdf_data', { 
+      const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: this.serviceId,
         timestamp: Math.floor(Date.now() / 300000) // 5-minute blocks
       });
-      
+
+      // MOBILE FIX: Clear cache on mobile to force fresh base64 data loading
+      const isMobile = this.platform.is('ios') || this.platform.is('android');
+      if (isMobile) {
+        console.log('[PDF Data] Mobile platform detected - clearing PDF cache for fresh data');
+        this.cache.delete(cacheKey);
+      }
+
       let structuralSystemsData, elevationPlotData, projectInfo;
-      const cachedData = this.cache.get(cacheKey);
-      
+      const cachedData = !isMobile ? this.cache.get(cacheKey) : null; // Skip cache on mobile
+
       if (cachedData) {
+        console.log('[PDF Data] Using cached PDF data (web only)');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         const startTime = Date.now();
@@ -6668,13 +6759,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           projectInfo = projectData;
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
-          
-          // Cache the prepared data
-          this.cache.set(cacheKey, {
-            structuralSystemsData,
-            elevationPlotData,
-            projectInfo
-          }, this.cache.CACHE_TIMES.MEDIUM);
+
+          // Cache the prepared data (web only - mobile always gets fresh data)
+          if (!isMobile) {
+            this.cache.set(cacheKey, {
+              structuralSystemsData,
+              elevationPlotData,
+              projectInfo
+            }, this.cache.CACHE_TIMES.MEDIUM);
+            console.log('[PDF Data] Cached PDF data for web use');
+          } else {
+            console.log('[PDF Data] Skipping cache on mobile - always use fresh data');
+          }
         } catch (dataError) {
           console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
@@ -10298,7 +10394,10 @@ Original File: ${originalFile?.name || 'None'}`;
       
       // Send update request
       const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
-      
+
+      // Clear PDF cache so changes show immediately
+      this.clearPDFCache();
+
       // CRITICAL FIX: Store the actual saved Drawings data (might be compressed)
       // This ensures rawDrawingsString matches what's in the database
       if (updateData.Drawings) {
@@ -10306,7 +10405,7 @@ Original File: ${originalFile?.name || 'None'}`;
         for (const visualId in this.visualPhotos) {
           const photos = this.visualPhotos[visualId];
           if (photos && Array.isArray(photos)) {
-            const photoIndex = photos.findIndex((p: any) => 
+            const photoIndex = photos.findIndex((p: any) =>
               (p.AttachID || p.id) === attachId
             );
             if (photoIndex !== -1) {
@@ -10864,17 +10963,20 @@ Stack: ${error?.stack}`;
                   
                   // Delete from database
                   await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
-                  
+
                   // [v1.4.387] Remove from KEY-BASED storage
                   if (this.visualPhotos[key]) {
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => (p.AttachID || p.id) !== attachId
                     );
                   }
-                  
+
+                  // Clear PDF cache so deletion shows immediately
+                  this.clearPDFCache();
+
                   // Force UI update
                   this.changeDetectorRef.detectChanges();
-                  
+
                   await loading.dismiss();
                   // Success toast removed per user request
                 } catch (error) {
@@ -11246,6 +11348,9 @@ Stack: ${error?.stack}`;
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';
 
+      // Clear PDF cache so changes show immediately
+      this.clearPDFCache();
+
       // Trigger change detection to update the view
       this.changeDetectorRef.detectChanges();
 
@@ -11291,6 +11396,9 @@ Stack: ${error?.stack}`;
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';
 
+      // Clear PDF cache so changes show immediately
+      this.clearPDFCache();
+
       console.log(`Caption saved for ${roomName} - ${point.name}: "${photo.caption}"`);
 
       // Trigger change detection to update the view
@@ -11317,6 +11425,9 @@ Stack: ${error?.stack}`;
       updateData[annotationColumnName] = caption || '';  // Save caption or empty string
 
       await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
+
+      // Clear PDF cache so changes show immediately
+      this.clearPDFCache();
 
       console.log(`FDF ${photoType} caption saved for ${roomName}: "${caption}"`);
 
@@ -12891,11 +13002,21 @@ Stack: ${error?.stack}`;
       photos = this.visualPhotos[visualId] || [];
     }
 
-    // Use the cache service for better performance across sessions
+    // MOBILE FIX: Clear cache on mobile to ensure fresh base64 data
+    // Cache might contain old data with HTTP URLs instead of base64
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
-    const cachedPhotos = this.cache.get(cacheKey);
-    if (cachedPhotos) {
-      return cachedPhotos;
+    const isMobile = this.platform.is('ios') || this.platform.is('android');
+
+    if (isMobile) {
+      // Force refresh on mobile to avoid cached HTTP URLs
+      console.log('[PDF Photos] Mobile platform detected - bypassing cache for fresh data');
+      this.cache.delete(cacheKey);
+    } else {
+      const cachedPhotos = this.cache.get(cacheKey);
+      if (cachedPhotos) {
+        console.log('[PDF Photos] Using cached photos for visualId:', visualId);
+        return cachedPhotos;
+      }
     }
 
     // Load Fabric.js once for all photos to avoid multiple parallel imports
@@ -13015,8 +13136,13 @@ Stack: ${error?.stack}`;
 
     console.log('[PDF Photos] All photos processed:', processedPhotos.length);
 
-    // Cache the processed photos using the cache service
-    this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
+    // Cache the processed photos using the cache service (web only - mobile gets fresh data)
+    if (!isMobile) {
+      this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
+      console.log('[PDF Photos] Cached processed photos for web use');
+    } else {
+      console.log('[PDF Photos] Skipping cache on mobile');
+    }
 
     return processedPhotos;
   }
