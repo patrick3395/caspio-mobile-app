@@ -171,21 +171,23 @@
                 <ion-icon name="business-outline"></ion-icon>
                 Building Type<span class="required">*</span>
               </label>
-              <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
-                      (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
-                      required
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of typeOfBuildingOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="projectData.TypeOfBuilding === 'Other'">
-                <input type="text"
-                       [(ngModel)]="typeOfBuildingOtherValue"
-                       (blur)="onTypeOfBuildingOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify building type..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="projectData.TypeOfBuilding === 'Other'">
+                <select [(ngModel)]="projectData.TypeOfBuilding" name="TypeOfBuilding"
+                        (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
+                        required
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of typeOfBuildingOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="projectData.TypeOfBuilding === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="typeOfBuildingOtherValue"
+                         (blur)="onTypeOfBuildingOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify building type..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -195,21 +197,23 @@
                 <ion-icon name="home-outline"></ion-icon>
                 Style<span class="required">*</span>
               </label>
-              <select [(ngModel)]="projectData.Style" name="Style"
-                      (ngModelChange)="onProjectFieldChange('Style', $event)"
-                      required
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of styleOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="projectData.Style === 'Other'">
-                <input type="text"
-                       [(ngModel)]="styleOtherValue"
-                       (blur)="onStyleOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify style..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="projectData.Style === 'Other'">
+                <select [(ngModel)]="projectData.Style" name="Style"
+                        (ngModelChange)="onProjectFieldChange('Style', $event)"
+                        required
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of styleOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="projectData.Style === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="styleOtherValue"
+                         (blur)="onStyleOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify style..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -219,21 +223,23 @@
                 <ion-icon name="bed-outline"></ion-icon>
                 Occupancy Status<span class="required">*</span>
               </label>
-              <select [(ngModel)]="serviceData.OccupancyFurnishings" name="OccupancyFurnishings"
-                      (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
-                      required
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of occupancyFurnishingsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.OccupancyFurnishings === 'Other'">
-                <input type="text"
-                       [(ngModel)]="occupancyFurnishingsOtherValue"
-                       (blur)="onOccupancyFurnishingsOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify occupancy status..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.OccupancyFurnishings === 'Other'">
+                <select [(ngModel)]="serviceData.OccupancyFurnishings" name="OccupancyFurnishings"
+                        (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
+                        required
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of occupancyFurnishingsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.OccupancyFurnishings === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="occupancyFurnishingsOtherValue"
+                         (blur)="onOccupancyFurnishingsOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify occupancy status..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
           </div>
@@ -253,21 +259,23 @@
                 <ion-icon name="cloud-outline"></ion-icon>
                 Weather Conditions<span class="required">*</span>
               </label>
-              <select [(ngModel)]="serviceData.WeatherConditions" name="WeatherConditions"
-                      (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
-                      required
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of weatherConditionsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.WeatherConditions === 'Other'">
-                <input type="text"
-                       [(ngModel)]="weatherConditionsOtherValue"
-                       (blur)="onWeatherConditionsOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify weather conditions..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.WeatherConditions === 'Other'">
+                <select [(ngModel)]="serviceData.WeatherConditions" name="WeatherConditions"
+                        (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
+                        required
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of weatherConditionsOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.WeatherConditions === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="weatherConditionsOtherValue"
+                         (blur)="onWeatherConditionsOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify weather conditions..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -277,21 +285,23 @@
                 <ion-icon name="thermometer-outline"></ion-icon>
                 Outdoor Temperature<span class="required">*</span>
               </label>
-              <select [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
-                      (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
-                      required
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of outdoorTemperatureOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.OutdoorTemperature === 'Other'">
-                <input type="text"
-                       [(ngModel)]="outdoorTemperatureOtherValue"
-                       (blur)="onOutdoorTemperatureOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify outdoor temperature..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.OutdoorTemperature === 'Other'">
+                <select [(ngModel)]="serviceData.OutdoorTemperature" name="OutdoorTemperature"
+                        (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
+                        required
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of outdoorTemperatureOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.OutdoorTemperature === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="outdoorTemperatureOtherValue"
+                         (blur)="onOutdoorTemperatureOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify outdoor temperature..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
           </div>
@@ -319,20 +329,22 @@
                   <ion-icon name="information-circle-outline"></ion-icon>
                 </button>
               </label>
-              <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
-                      (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of firstFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.FirstFoundationType === 'Other'">
-                <input type="text"
-                       [(ngModel)]="firstFoundationTypeOtherValue"
-                       (blur)="onFirstFoundationTypeOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify foundation type..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.FirstFoundationType === 'Other'">
+                <select [(ngModel)]="serviceData.FirstFoundationType" name="FirstFoundationType"
+                        (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of firstFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.FirstFoundationType === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="firstFoundationTypeOtherValue"
+                         (blur)="onFirstFoundationTypeOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify foundation type..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -351,20 +363,22 @@
                   <ion-icon name="information-circle-outline"></ion-icon>
                 </button>
               </label>
-              <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
-                      (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of secondFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.SecondFoundationType === 'Other'">
-                <input type="text"
-                       [(ngModel)]="secondFoundationTypeOtherValue"
-                       (blur)="onSecondFoundationTypeOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify foundation type..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.SecondFoundationType === 'Other'">
+                <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
+                        (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of secondFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.SecondFoundationType === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="secondFoundationTypeOtherValue"
+                         (blur)="onSecondFoundationTypeOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify foundation type..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -404,20 +418,22 @@
                 <ion-icon name="construct-outline"></ion-icon>
                 Third Foundation Type
               </label>
-              <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
-                      (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of thirdFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.ThirdFoundationType === 'Other'">
-                <input type="text"
-                       [(ngModel)]="thirdFoundationTypeOtherValue"
-                       (blur)="onThirdFoundationTypeOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify foundation type..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.ThirdFoundationType === 'Other'">
+                <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
+                        (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of thirdFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.ThirdFoundationType === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="thirdFoundationTypeOtherValue"
+                         (blur)="onThirdFoundationTypeOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify foundation type..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
 
@@ -456,20 +472,22 @@
                 <ion-icon name="chatbubbles-outline"></ion-icon>
                 Owner/Occupant Interview
               </label>
-              <select [(ngModel)]="serviceData.OwnerOccupantInterview" name="OwnerOccupantInterview"
-                      (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option *ngFor="let option of ownerOccupantInterviewOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
-              </select>
-              <!-- Custom input for "Other" option -->
-              <div class="other-input-container" *ngIf="serviceData.OwnerOccupantInterview === 'Other'">
-                <input type="text"
-                       [(ngModel)]="ownerOccupantInterviewOtherValue"
-                       (blur)="onOwnerOccupantInterviewOtherChange()"
-                       (click)="$event.stopPropagation()"
-                       placeholder="Please specify..."
-                       class="styled-input other-input">
+              <div class="dropdown-with-other-container" [class.has-other]="serviceData.OwnerOccupantInterview === 'Other'">
+                <select [(ngModel)]="serviceData.OwnerOccupantInterview" name="OwnerOccupantInterview"
+                        (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
+                        class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option *ngFor="let option of ownerOccupantInterviewOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
+                </select>
+                <!-- Custom input for "Other" option -->
+                <div class="other-input-container" *ngIf="serviceData.OwnerOccupantInterview === 'Other'">
+                  <input type="text"
+                         [(ngModel)]="ownerOccupantInterviewOtherValue"
+                         (blur)="onOwnerOccupantInterviewOtherChange()"
+                         (click)="$event.stopPropagation()"
+                         placeholder="Please specify..."
+                         class="styled-input other-input">
+                </div>
               </div>
             </div>
           </div>

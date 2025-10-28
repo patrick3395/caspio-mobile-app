@@ -1,21 +1,93 @@
 ﻿// Brand Colors and Header Styling
+// CRITICAL FIX: Lock header to prevent resize when keyboard/photo album opens
 ion-header {
   z-index: 1001 !important;
+  // Lock header dimensions completely
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  // Prevent any expansion or shrinking
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  position: relative !important;
+
+  // Override Shadow DOM parts
+  &::part(header) {
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
+  }
 
   ion-toolbar {
     --background: var(--noble-orange);
     --border-width: 0;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
+    --padding-start: 16px !important;
+    --padding-end: 16px !important;
+    --padding-top: 14px !important;
+    --padding-bottom: 14px !important;
+    // CRITICAL: Lock toolbar height completely
+    --min-height: 56px !important;
+    --max-height: 56px !important;
+    --height: 56px !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
     pointer-events: auto !important;
+    // Prevent any flex growing/shrinking
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex-basis: 56px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+
+    // Override Shadow DOM container
+    &::part(container) {
+      height: 56px !important;
+      min-height: 56px !important;
+      max-height: 56px !important;
+      padding-top: 14px !important;
+      padding-bottom: 14px !important;
+    }
 
     ion-title {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: #ffffff;
+      font-size: 18px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.5px !important;
+      color: #ffffff !important;
+      // Lock title dimensions
+      line-height: 1.2 !important;
+      max-height: 56px !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+  }
+}
+
+// Additional safety: Lock header on any state
+ion-header.header-collapse-condense-inactive,
+ion-header.header-collapse-main,
+ion-header[collapse="condense"] {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+}
+
+// Prevent header from changing on keyboard show (iOS fix)
+.keyboard-is-open,
+.keyboard-visible,
+body.keyboard-open {
+  ion-header {
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
+
+    ion-toolbar {
+      height: 56px !important;
+      min-height: 56px !important;
+      max-height: 56px !important;
     }
   }
 }
@@ -633,33 +705,54 @@ ion-content{--overflow:scroll !important;height:100%}
     background: #fff5f5;
   }
 
-  // "Other" input container styling (matches InAttendance multi-select styling)
-  .other-input-container {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #e8e8e8;
+  // Container for dropdown with "Other" option - visually groups them together
+  .dropdown-with-other-container {
+    background: #f8f9fa;
+    border: 2px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.3s ease;
 
-    .other-input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e8e8e8;
+    // When "Other" is selected, add highlight styling
+    &.has-other {
+      border-color: rgba(241, 90, 39, 0.3);
+      background: rgba(241, 90, 39, 0.02);
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.1);
+    }
+
+    // Remove border-radius from select inside container so it fits nicely
+    select.styled-input {
       border-radius: 8px;
-      font-size: 15px;
-      background: white;
-      color: #333;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-sizing: border-box;
+    }
 
-      &:focus {
-        outline: none;
-        border-color: var(--noble-orange);
-        box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.15);
-        transform: translateY(-1px);
-      }
+    // "Other" input container styling
+    .other-input-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(241, 90, 39, 0.2);
 
-      &::placeholder {
-        color: #b0b0b0;
-        font-size: 14px;
+      .other-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        font-size: 15px;
+        background: white;
+        color: #333;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+          border-color: var(--noble-orange);
+          box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.15);
+          transform: translateY(-1px);
+        }
+
+        &::placeholder {
+          color: #b0b0b0;
+          font-size: 14px;
+        }
       }
     }
   }

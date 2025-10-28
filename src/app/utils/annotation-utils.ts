@@ -385,23 +385,27 @@ export async function renderAnnotationsOnPhoto(
           let fabricObj: any = null;
 
           if (objData['type'] === 'Group' || objData['type'] === 'group') {
-            // For groups, we need to handle nested objects
-            fabricObj = new fabric.Group([], {
-              left: objData['left'],
-              top: objData['top'],
-              angle: objData['angle'] || 0,
-              scaleX: objData['scaleX'] || 1,
-              scaleY: objData['scaleY'] || 1
-            });
+            // For groups, collect nested objects first
+            const groupObjects: any[] = [];
 
-            // Add nested objects if they exist
             if (objData['objects'] && Array.isArray(objData['objects'])) {
               for (const nestedObj of objData['objects']) {
                 const nested = createFabricObject(fabric, nestedObj);
                 if (nested) {
-                  fabricObj.addWithUpdate(nested);
+                  groupObjects.push(nested);
                 }
               }
+            }
+
+            // Create group with all nested objects
+            if (groupObjects.length > 0) {
+              fabricObj = new fabric.Group(groupObjects, {
+                left: objData['left'],
+                top: objData['top'],
+                angle: objData['angle'] || 0,
+                scaleX: objData['scaleX'] || 1,
+                scaleY: objData['scaleY'] || 1
+              });
             }
           } else {
             fabricObj = createFabricObject(fabric, objData);
