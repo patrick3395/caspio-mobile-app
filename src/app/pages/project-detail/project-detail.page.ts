@@ -1627,11 +1627,33 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Step 1: Upload file to Caspio Files storage
       const uploadResult = await this.caspioService.uploadFile(file).toPromise();
 
-      if (!uploadResult || !uploadResult.Result || !uploadResult.Result.FileName) {
+      console.log('Upload result:', uploadResult);
+
+      // Extract file path from various possible response formats
+      let filePath = null;
+      if (uploadResult) {
+        // Try different response formats
+        filePath = uploadResult.Name ||
+                   uploadResult.name ||
+                   uploadResult.FileName ||
+                   uploadResult.fileName ||
+                   uploadResult.Result?.Name ||
+                   uploadResult.Result?.name ||
+                   uploadResult.Result?.FileName ||
+                   uploadResult.Result?.fileName;
+      }
+
+      if (!filePath) {
+        console.error('Full upload result:', JSON.stringify(uploadResult));
         throw new Error('File upload failed - no file path returned');
       }
 
-      const filePath = uploadResult.Result.FileName;
+      // Ensure file path starts with /
+      if (!filePath.startsWith('/')) {
+        filePath = '/' + filePath;
+      }
+
+      console.log('Using file path:', filePath);
 
       // Step 2: Update the Services record with the file path in the Deliverable field
       await this.caspioService.updateService(service.serviceId, {
@@ -1725,8 +1747,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const attachments = this.existingAttachments.filter(a => {
             // Must match TypeID
             if (a.TypeID !== parseInt(service.typeId)) return false;
-            // Must match Title
-            if (a.Title !== template.Title) return false;
+            // Must match Title (including versioned variants like "Title #2", "Title #3", etc.)
+            const titleMatches = a.Title === template.Title ||
+                                 a.Title.match(new RegExp(`^${template.Title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
+            if (!titleMatches) return false;
             
             // Extract ServiceID from Notes field [SID:123]
             const attachServiceId = this.extractServiceIdFromNotes(a.Notes);
@@ -1747,27 +1771,40 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           });
 
           console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
-          
-          // Create the main document entry
-          const docItem: DocumentItem = {
-            attachId: attachments[0]?.AttachID,  // First attachment ID for main actions
-            title: template.Title || template.AttachmentName || 'Document',
-            required: (template.Required === 'Yes' || template.Required === true || template.Required === 1),
-            uploaded: attachments.length > 0,
-            templateId: template.PK_ID,
-            filename: attachments[0]?.Link,
-            linkName: attachments[0]?.Link,
-            attachmentUrl: attachments[0]?.Attachment,
-            isLink: this.determineIfLink(attachments[0]), // Determine if this is a link
-            // Store all attachments for display
-            additionalFiles: attachments.slice(1).map(a => ({
-              attachId: a.AttachID,
-              linkName: a.Link,
-              attachmentUrl: a.Attachment
-            }))
-          } as any;
-          
-          documents.push(docItem);
+
+          // If there are attachments, create a document item for each one (including versioned ones)
+          if (attachments.length > 0) {
+            for (const attachment of attachments) {
+              const docItem: DocumentItem = {
+                attachId: attachment.AttachID,
+                title: attachment.Title,  // Use actual attachment title (includes version numbers)
+                required: (template.Required === 'Yes' || template.Required === true || template.Required === 1),
+                uploaded: true,
+                templateId: template.PK_ID,
+                filename: attachment.Link,
+                linkName: attachment.Link,
+                attachmentUrl: attachment.Attachment,
+                isLink: this.determineIfLink(attachment)
+              } as any;
+
+              documents.push(docItem);
+            }
+          } else {
+            // No attachments yet - create placeholder document with template title
+            const docItem: DocumentItem = {
+              attachId: undefined,
+              title: template.Title || template.AttachmentName || 'Document',
+              required: (template.Required === 'Yes' || template.Required === true || template.Required === 1),
+              uploaded: false,
+              templateId: template.PK_ID,
+              filename: undefined,
+              linkName: undefined,
+              attachmentUrl: undefined,
+              isLink: false
+            } as any;
+
+            documents.push(docItem);
+          }
         }
       }
       // NO FALLBACK - only use templates from database
@@ -1788,9 +1825,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Add all pending documents back to the list
         for (const pendingDoc of pending) {
           // Check if this pending document has now been uploaded for THIS specific service instance
+          // Also check for versioned variants of the title
           const uploadedAttachment = this.existingAttachments.find(a => {
             if (a.TypeID !== parseInt(service.typeId)) return false;
-            if (a.Title !== pendingDoc.title) return false;
+            // Match exact title or versioned variant
+            const titleMatches = a.Title === pendingDoc.title ||
+                                 a.Title.match(new RegExp(`^${pendingDoc.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
+            if (!titleMatches) return false;
             
             // Extract ServiceID from Notes field [SID:123]
             const attachServiceId = this.extractServiceIdFromNotes(a.Notes);
@@ -1813,6 +1854,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (uploadedAttachment) {
             const updatedDoc = {
               ...pendingDoc,
+              title: uploadedAttachment.Title,  // Use actual title from database (may include version number)
               uploaded: true,
               attachId: uploadedAttachment.AttachID,
               filename: uploadedAttachment.Link,

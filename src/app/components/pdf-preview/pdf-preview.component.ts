@@ -337,30 +337,51 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Clone the page element to avoid modal issues
           const clone = pageElement.cloneNode(true) as HTMLElement;
 
-          // Style the clone to be visible but off-screen
+          // Get the computed dimensions from the original element
+          const originalWidth = pageElement.offsetWidth;
+          const originalHeight = pageElement.offsetHeight;
+
+          // Style the clone to be visible but off-screen with exact dimensions
           clone.style.position = 'fixed';
           clone.style.left = '0';
           clone.style.top = '0';
-          clone.style.width = pageElement.offsetWidth + 'px';
-          clone.style.height = 'auto';
+          clone.style.width = originalWidth + 'px';
+          clone.style.height = originalHeight + 'px';
+          clone.style.minWidth = originalWidth + 'px';
+          clone.style.maxWidth = originalWidth + 'px';
           clone.style.zIndex = '-9999';
           clone.style.opacity = '1';
           clone.style.visibility = 'visible';
           clone.style.overflow = 'visible';
+          clone.style.display = 'block';
 
           // Append to body (outside modal)
           document.body.appendChild(clone);
 
-          // Wait for render
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Ensure all images are loaded in the clone
+          const images = clone.querySelectorAll('img');
+          await Promise.all(
+            Array.from(images).map(img => {
+              if (img.complete) return Promise.resolve();
+              return new Promise((resolve) => {
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(true);
+              });
+            })
+          );
 
-          // Capture the cloned element
+          // Wait for render
+          await new Promise(resolve => setTimeout(resolve, 300));
+
+          // Capture the cloned element with explicit dimensions
           const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
-            logging: false
+            logging: false,
+            width: originalWidth,
+            height: originalHeight
           });
 
           // Remove the clone
