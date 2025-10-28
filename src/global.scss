@@ -1337,12 +1337,47 @@ textarea.styled-input {
 
 // Print styles for PDF generation
 @media print {
-  // Hide all modal backdrops and overlays
+  // Hide all modal backdrops, overlays, and UI elements
   ion-backdrop,
   .modal-shadow,
   ion-loading,
-  ion-toast {
+  ion-toast,
+  ion-header,
+  ion-toolbar,
+  ion-footer,
+  .modal-shadow {
     display: none !important;
+    visibility: hidden !important;
+  }
+
+  // Ensure body and html take full page
+  body,
+  html {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  // Force all ion-modal and modal wrappers to be visible and take full space
+  ion-modal,
+  .modal-wrapper,
+  .ion-page {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: visible !important;
   }
 
   // Ensure fullscreen modal takes full page
@@ -1358,15 +1393,17 @@ textarea.styled-input {
       height: auto !important;
       box-shadow: none !important;
       border-radius: 0 !important;
+      transform: none !important;
+    }
+
+    ion-content {
+      --background: white !important;
+      position: static !important;
     }
   }
 
-  // Ensure body and html take full page
-  body,
-  html {
-    width: 100%;
-    height: auto;
-    margin: 0;
-    padding: 0;
+  // Remove any transforms or positioning that might hide content
+  * {
+    transform: none !important;
   }
 }

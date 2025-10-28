@@ -485,6 +485,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[ngOnInit] Starting loadExistingData...');
       await this.loadExistingData();
       console.log('[ngOnInit] loadExistingData completed');
+
+      // TEST: Verify isBedroomOrBathroom method works
+      console.log('========== LOCATION FIELD DIAGNOSTIC TEST ==========');
+      console.log('[DIAGNOSTIC] Testing isBedroomOrBathroom method:');
+      console.log('[DIAGNOSTIC] "Bathroom":', this.isBedroomOrBathroom('Bathroom'));
+      console.log('[DIAGNOSTIC] "Primary Bedroom":', this.isBedroomOrBathroom('Primary Bedroom'));
+      console.log('[DIAGNOSTIC] "Primary Bathroom":', this.isBedroomOrBathroom('Primary Bathroom'));
+      console.log('[DIAGNOSTIC] "Kitchen":', this.isBedroomOrBathroom('Kitchen'));
+      console.log('[DIAGNOSTIC] Room templates:', this.roomTemplates.map(r => r.RoomName));
+      console.log('[DIAGNOSTIC] roomElevationData keys:', Object.keys(this.roomElevationData));
+      console.log('========== END DIAGNOSTIC TEST ==========');
+
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
     } catch (error) {
@@ -4455,6 +4467,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.roomElevationData[roomName].location = locationText;
     } else {
       this.roomElevationData[roomName].location = currentLocation + ' ' + locationText;
+    }
+
+    // Save the location change
+    this.onLocationChange(roomName);
+  }
+
+  // Delete the last word from the location field
+  deleteLastLocationWord(roomName: string) {
+    if (!this.roomElevationData[roomName]) {
+      return;
+    }
+
+    const currentLocation = this.roomElevationData[roomName].location || '';
+
+    // Split by spaces and remove the last word
+    const words = currentLocation.trim().split(' ').filter(word => word.length > 0);
+
+    if (words.length > 0) {
+      words.pop(); // Remove last word
+      this.roomElevationData[roomName].location = words.join(' ');
+    } else {
+      this.roomElevationData[roomName].location = '';
     }
 
     // Save the location change

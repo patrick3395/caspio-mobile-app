@@ -1177,15 +1177,16 @@ ion-content{--overflow:scroll !important;height:100%}
               width: 100%;
               margin-bottom: 12px;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
-              
+
               &.selected {
                 border: 2px solid #000000;
                 box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
-                background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+                background: transparent; // Changed from gradient to prevent corner fading
                 border-radius: 12px 12px 0 0; // Only round top corners to prevent clipping delete buttons
-                
+
                 .checkbox-item {
                   border-color: transparent;
+                  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%); // Move gradient to inner element
                 }
               }
             }
@@ -1914,6 +1915,22 @@ ion-content{--overflow:scroll !important;height:100%}
                 background: #f0f0f0;
               }
 
+              // Delete button styling - red/warning theme
+              &.location-delete-btn {
+                color: #d32f2f;
+                border-color: #d32f2f;
+
+                &:hover {
+                  background: #ffebee;
+                  border-color: #c62828;
+                  color: #c62828;
+                }
+
+                &:active {
+                  background: #ffcdd2;
+                }
+              }
+
               // Mobile adjustments
               @media (max-width: 767px) {
                 padding: 10px 14px;
@@ -2246,14 +2263,18 @@ ion-content{--overflow:scroll !important;height:100%}
         margin-bottom: 15px;
         border: 1px solid #e0e0e0;
         border-radius: 12px;
-        overflow: hidden;
+        overflow: visible;
         transition: all 0.3s ease;
         background: white;
-        
+
         &.selected {
           border: 2px solid var(--noble-orange);
           box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.1);
-          background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+          background: transparent;
+
+          .checkbox-item {
+            background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+          }
         }
         
         .room-card-header {

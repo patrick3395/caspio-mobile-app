@@ -1261,37 +1261,69 @@
   ion-buttons,
   .pdf-loading-overlay {
     display: none !important;
+    visibility: hidden !important;
   }
 
   :host {
-    display: block;
-    width: 100%;
-    height: auto;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
   }
 
+  ion-content,
   .pdf-preview-content {
+    display: block !important;
+    position: static !important;
     padding: 0 !important;
+    margin: 0 !important;
     background: white !important;
     overflow: visible !important;
     height: auto !important;
+    width: 100% !important;
+    --background: white !important;
+    --padding-start: 0 !important;
+    --padding-end: 0 !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
+
+    .inner-scroll {
+      overflow: visible !important;
+      height: auto !important;
+    }
   }
 
   .pdf-container {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
   }
 
   .pdf-page {
+    display: block !important;
     page-break-after: always;
     page-break-inside: avoid;
     box-shadow: none !important;
     margin: 0 !important;
+    padding: 30px !important;
     border-radius: 0 !important;
-    width: 100%;
+    width: 100% !important;
+    background: white !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 
     &:last-child {
       page-break-after: auto;
+    }
+
+    // Ensure all content is visible
+    * {
+      opacity: 1 !important;
+      visibility: visible !important;
     }
   }
 
@@ -1300,9 +1332,12 @@
     page-break-inside: avoid;
   }
 
-  // Ensure images don't break across pages
+  // Ensure images don't break across pages and are visible
   img {
     page-break-inside: avoid;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
   }
 
   // Ensure visual items don't break across pages
@@ -1314,10 +1349,9 @@
     page-break-inside: avoid;
   }
 
-  // Hide any loading indicators
-  .loading {
-    display: block !important;
-    opacity: 1 !important;
+  // Make all clickable elements non-clickable in print
+  .clickable-photo {
+    cursor: default !important;
   }
 }
 
