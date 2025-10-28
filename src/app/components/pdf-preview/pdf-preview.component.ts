@@ -243,6 +243,25 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     // This will match the preview exactly and allow user to save as PDF
 
     try {
+      // Force content to be ready and visible for printing
+      this.contentReady = true;
+
+      // Get the PDF container and ensure it's visible
+      const pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
+      if (pdfContainer) {
+        // Remove inline opacity style temporarily
+        pdfContainer.style.opacity = '1';
+        pdfContainer.style.visibility = 'visible';
+        pdfContainer.style.display = 'block';
+
+        // Wait a moment for the DOM to update
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      console.log('[PDF Print] Content ready:', this.contentReady);
+      console.log('[PDF Print] Container found:', !!pdfContainer);
+      console.log('[PDF Print] Pages count:', document.querySelectorAll('.pdf-page').length);
+
       // Give user instruction
       const isMobile = this.platform.is('ios') || this.platform.is('android');
 

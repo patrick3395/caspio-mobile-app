@@ -1186,19 +1186,24 @@ ion-content{--overflow:scroll !important;height:100%}
 
                 .checkbox-item {
                   border-color: transparent;
-                  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%); // Move gradient to inner element
+                  --background: #f8f8f8;
+                  background: #f8f8f8 !important; // Solid color instead of gradient to prevent corner fading
                 }
               }
             }
             
             .checkbox-item {
               --background: white;
+              --inner-border-width: 0;
+              --border-width: 0;
+              --highlight-height: 0;
               // --background-hover removed for mobile optimization
               padding: 12px;
               border-radius: 8px;
               transition: all 0.3s ease;
               border: 1px solid #f0f0f0;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
+              background: white; // Explicitly set to ensure no transparency
               
               // Hover effect removed for mobile optimization
               
@@ -1271,14 +1276,20 @@ ion-content{--overflow:scroll !important;height:100%}
               border-radius: 8px;
               background: white;
               transition: all 0.3s ease;
+              overflow: visible; // Prevent corner clipping
 
               // Hover effect removed for mobile optimization
 
               // Remove border from checkbox-item when inside multi-select
               .checkbox-item {
+                --background: white;
+                --inner-border-width: 0;
+                --border-width: 0;
+                --highlight-height: 0;
                 border: none !important;
                 border-radius: 8px 8px 0 0;
                 padding: 10px 12px 6px 12px !important; // Reduced padding: less top/bottom
+                background: white; // Explicitly set to ensure no transparency
 
                 // Hover effect removed for mobile optimization
 
@@ -1915,19 +1926,19 @@ ion-content{--overflow:scroll !important;height:100%}
                 background: #f0f0f0;
               }
 
-              // Delete button styling - red/warning theme
+              // Delete button styling - orange theme
               &.location-delete-btn {
-                color: #d32f2f;
-                border-color: #d32f2f;
+                color: var(--noble-orange);
+                border-color: var(--noble-orange);
 
                 &:hover {
-                  background: #ffebee;
-                  border-color: #c62828;
-                  color: #c62828;
+                  background: #fff3e0;
+                  border-color: #e65100;
+                  color: #e65100;
                 }
 
                 &:active {
-                  background: #ffcdd2;
+                  background: #ffe0b2;
                 }
               }
 
@@ -2273,17 +2284,22 @@ ion-content{--overflow:scroll !important;height:100%}
           background: transparent;
 
           .checkbox-item {
-            background: linear-gradient(135deg, #fffbf8 0%, #fff5f0 100%);
+            --background: #fffbf8;
+            background: #fffbf8 !important; // Solid color instead of gradient to prevent corner fading
           }
         }
         
         .room-card-header {
           .checkbox-item {
             --background: white;
+            --inner-border-width: 0;
+            --border-width: 0;
+            --highlight-height: 0;
             // --background-hover removed for mobile optimization
             padding: 12px;
             border-radius: 8px 8px 0 0;
             transition: all 0.3s ease;
+            background: white; // Explicitly set to ensure no transparency
             
             // Hover effect removed for mobile optimization
             

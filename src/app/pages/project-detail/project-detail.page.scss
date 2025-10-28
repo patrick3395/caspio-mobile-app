@@ -1482,6 +1482,8 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 
   .status-cell-mobile {
+    text-align: center;
+
     .deliverable-select-mobile {
       width: 100%;
       padding: 6px 8px;
@@ -1503,6 +1505,12 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         color: $gray;
         cursor: not-allowed;
       }
+    }
+
+    .deliverable-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 }

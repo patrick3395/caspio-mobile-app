@@ -75,12 +75,12 @@
       </div>
     </div>
 
-    <!-- Deliverables Section (only for CompanyID = 1) -->
-    <div class="info-section" *ngIf="showDeliverablesTable && selectedServices.length > 0">
+    <!-- Deliverables Section -->
+    <div class="info-section" *ngIf="showDeliverablesTable && getDeliverablesServices().length > 0">
       <h2 class="section-title">Deliverables</h2>
 
-      <!-- Desktop/Web View - Full Table -->
-      <table class="deliverables-table" *ngIf="platform.isWeb()">
+      <!-- Desktop/Web View - Full Table (CompanyID = 1) -->
+      <table class="deliverables-table" *ngIf="platform.isWeb() && isCompanyOne">
         <thead>
           <tr>
             <th>Service</th>
@@ -91,7 +91,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let service of selectedServices; trackBy: trackTemplateService" class="deliverable-row">
+          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row">
             <!-- Service Name -->
             <td class="service-name-cell">
               <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
@@ -163,8 +163,64 @@
         </tbody>
       </table>
 
-      <!-- Mobile View - Simplified Table -->
-      <table class="deliverables-table-mobile" *ngIf="!platform.isWeb()">
+      <!-- Desktop/Web View - Reduced Table (Other Companies) -->
+      <table class="deliverables-table" *ngIf="platform.isWeb() && !isCompanyOne">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Deliverable</th>
+            <th>Inspector Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row">
+            <!-- Service Name -->
+            <td class="service-name-cell">
+              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+                #{{ getServiceInstanceNumber(service) }}
+              </span>
+            </td>
+
+            <!-- Deliverable (File Upload) -->
+            <td class="field-cell deliverable-file-cell">
+              <div class="file-upload-container">
+                <a *ngIf="hasDeliverable(service)"
+                   [href]="getDeliverableUrl(service)"
+                   target="_blank"
+                   class="deliverable-link">
+                  View File
+                </a>
+                <label *ngIf="!isReadOnly" class="file-upload-label">
+                  <input
+                    type="file"
+                    class="file-input-hidden"
+                    (change)="uploadDeliverableFile(service, $event)"
+                    accept="*/*">
+                  <ion-button size="small" fill="clear" class="orange-icon">
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                  </ion-button>
+                </label>
+              </div>
+            </td>
+
+            <!-- InspectorNotes -->
+            <td class="field-cell">
+              <textarea
+                class="deliverable-textarea"
+                [value]="service.InspectorNotes || ''"
+                (blur)="updateDeliverableField(service, 'InspectorNotes', $any($event.target).value)"
+                [disabled]="isReadOnly"
+                [readonly]="isReadOnly"
+                placeholder="Enter notes"
+                rows="2"></textarea>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Mobile View - CompanyID = 1 -->
+      <table class="deliverables-table-mobile" *ngIf="!platform.isWeb() && isCompanyOne">
         <thead>
           <tr>
             <th>Service</th>
@@ -172,7 +228,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let service of selectedServices; trackBy: trackTemplateService" class="deliverable-row-mobile">
+          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row-mobile">
             <!-- Service Name (Clickable) -->
             <td class="service-name-cell-mobile" (click)="openDeliverableModal(service)">
               <div class="service-name-content">
@@ -196,6 +252,39 @@
                   {{ status.Status }}
                 </option>
               </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Mobile View - Other Companies (Deliverable & Inspector Notes only) -->
+      <table class="deliverables-table-mobile" *ngIf="!platform.isWeb() && !isCompanyOne">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row-mobile">
+            <!-- Service Name (Clickable) -->
+            <td class="service-name-cell-mobile" (click)="openDeliverableModal(service)">
+              <div class="service-name-content">
+                <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+                  #{{ getServiceInstanceNumber(service) }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Deliverable Status (Read-only indicator) -->
+            <td class="status-cell-mobile">
+              <span class="deliverable-status-indicator" *ngIf="hasDeliverable(service)">
+                <ion-icon name="checkmark-circle" style="color: #28a745; font-size: 20px;"></ion-icon>
+              </span>
+              <span class="deliverable-status-indicator" *ngIf="!hasDeliverable(service)" style="color: #999;">
+                --
+              </span>
             </td>
           </tr>
         </tbody>
@@ -534,8 +623,8 @@
           </h3>
         </div>
 
-        <!-- Status Eng -->
-        <div class="modal-field-group">
+        <!-- Status Eng (CompanyID = 1 only) -->
+        <div class="modal-field-group" *ngIf="isCompanyOne">
           <label>Status Eng</label>
           <select
             class="modal-select"
@@ -577,8 +666,8 @@
           </div>
         </div>
 
-        <!-- Eng Notes -->
-        <div class="modal-field-group">
+        <!-- Eng Notes (CompanyID = 1 only) -->
+        <div class="modal-field-group" *ngIf="isCompanyOne">
           <label>Eng Notes</label>
           <textarea
             class="modal-textarea"

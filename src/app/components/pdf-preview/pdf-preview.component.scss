@@ -1293,7 +1293,8 @@
     }
   }
 
-  .pdf-container {
+  .pdf-container,
+  div.pdf-container[style] {
     display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
@@ -1301,6 +1302,11 @@
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+
+    // Override any inline styles
+    &[style*="opacity"] {
+      opacity: 1 !important;
+    }
   }
 
   .pdf-page {

@@ -122,12 +122,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   savingNotes = false;
   notesSaved = false;
 
-  // Deliverables (for CompanyID = 1)
+  // Deliverables
   showDeliverablesTable = false;
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
   selectedDeliverableService: ServiceSelection | null = null;
   isDeliverableModalOpen = false;
+  isCompanyOne = false; // Track if this is CompanyID = 1
 
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
@@ -477,9 +478,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
 
-      // Check if we should show Deliverables table (CompanyID = 1)
+      // Check company ID
       const companyId = Number(projectData?.CompanyID || projectData?.Company_ID);
-      this.showDeliverablesTable = companyId === 1;
+      this.isCompanyOne = companyId === 1;
 
       const parallelStartTime = performance.now();
 
@@ -491,10 +492,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
       ];
 
-      // Add Status table loading if showing deliverables
-      if (this.showDeliverablesTable) {
-        promises.push(this.caspioService.get<any>('/tables/Status/records').toPromise());
-      }
+      // Always load Status table for deliverables
+      promises.push(this.caspioService.get<any>('/tables/Status/records').toPromise());
 
       const results = await Promise.allSettled(promises);
 
@@ -604,6 +603,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.pendingFinalizedServiceId = null;
       }
 
+      // Determine if we should show the Deliverables table
+      if (this.isCompanyOne) {
+        // CompanyID = 1: Always show the table if there are services
+        this.showDeliverablesTable = this.selectedServices.length > 0;
+      } else {
+        // Other companies: Only show if at least one service has "Report Finalized" status
+        this.showDeliverablesTable = this.selectedServices.some(s =>
+          s.Status === 'Report Finalized' || s.ReportFinalized === true
+        );
+      }
+
       // Process attach templates
       this.attachTemplates = attachTemplatesData || [];
 
@@ -659,9 +669,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.isReadOnly = isCompletedProject;
         }
 
-        // Check if we should show Deliverables table (CompanyID = 1)
+        // Check company ID
         const companyId = Number(project.CompanyID || project.Company_ID);
-        this.showDeliverablesTable = companyId === 1;
+        this.isCompanyOne = companyId === 1;
 
         if (this.isReadOnly) {
         }
@@ -673,16 +683,23 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const parallelPromises = [
           this.loadExistingServices(),  // This needs offers to be loaded first
           this.loadAttachTemplates(),
-          this.loadExistingAttachments()
+          this.loadExistingAttachments(),
+          this.loadStatusOptions() // Always load status options
         ];
-
-        // Load Status table if showing deliverables
-        if (this.showDeliverablesTable) {
-          parallelPromises.push(this.loadStatusOptions());
-        }
 
         // Now load these in parallel
         await Promise.all(parallelPromises);
+
+        // Determine if we should show the Deliverables table after services are loaded
+        if (this.isCompanyOne) {
+          // CompanyID = 1: Always show the table if there are services
+          this.showDeliverablesTable = this.selectedServices.length > 0;
+        } else {
+          // Other companies: Only show if at least one service has "Report Finalized" status
+          this.showDeliverablesTable = this.selectedServices.some(s =>
+            s.Status === 'Report Finalized' || s.ReportFinalized === true
+          );
+        }
       },
       error: (error) => {
         this.error = 'Failed to load project';
@@ -1645,6 +1662,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   closeDeliverableModal() {
     this.isDeliverableModalOpen = false;
     this.selectedDeliverableService = null;
+  }
+
+  getDeliverablesServices(): ServiceSelection[] {
+    if (this.isCompanyOne) {
+      // CompanyID = 1: Show all services
+      return this.selectedServices;
+    } else {
+      // Other companies: Only show services with "Report Finalized" status
+      return this.selectedServices.filter(s =>
+        s.Status === 'Report Finalized' || s.ReportFinalized === true
+      );
+    }
   }
 
   // Document management methods
