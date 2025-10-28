@@ -373,10 +373,10 @@ export async function renderAnnotationsOnPhoto(
       try {
         // Process each annotation object
         for (const objData of annotations.objects) {
-          console.log('[renderAnnotationsOnPhoto] Processing object type:', objData.type);
+          console.log('[renderAnnotationsOnPhoto] Processing object type:', objData['type']);
 
           // Skip image objects
-          if (objData.type === 'image' || objData.type === 'Image') {
+          if (objData['type'] === 'image' || objData['type'] === 'Image') {
             console.log('[renderAnnotationsOnPhoto] Skipping image object');
             continue;
           }
@@ -384,19 +384,19 @@ export async function renderAnnotationsOnPhoto(
           // Create Fabric object based on type
           let fabricObj: any = null;
 
-          if (objData.type === 'Group' || objData.type === 'group') {
+          if (objData['type'] === 'Group' || objData['type'] === 'group') {
             // For groups, we need to handle nested objects
             fabricObj = new fabric.Group([], {
-              left: objData.left,
-              top: objData.top,
-              angle: objData.angle || 0,
-              scaleX: objData.scaleX || 1,
-              scaleY: objData.scaleY || 1
+              left: objData['left'],
+              top: objData['top'],
+              angle: objData['angle'] || 0,
+              scaleX: objData['scaleX'] || 1,
+              scaleY: objData['scaleY'] || 1
             });
 
             // Add nested objects if they exist
-            if (objData.objects && Array.isArray(objData.objects)) {
-              for (const nestedObj of objData.objects) {
+            if (objData['objects'] && Array.isArray(objData['objects'])) {
+              for (const nestedObj of objData['objects']) {
                 const nested = createFabricObject(fabric, nestedObj);
                 if (nested) {
                   fabricObj.addWithUpdate(nested);
@@ -409,7 +409,7 @@ export async function renderAnnotationsOnPhoto(
 
           if (fabricObj) {
             fabricCanvas.add(fabricObj);
-            console.log('[renderAnnotationsOnPhoto] Added', objData.type, 'object');
+            console.log('[renderAnnotationsOnPhoto] Added', objData['type'], 'object');
           }
         }
 
@@ -457,83 +457,83 @@ export async function renderAnnotationsOnPhoto(
  * Helper function to create a Fabric.js object from JSON data
  */
 function createFabricObject(fabric: any, objData: any): any {
-  if (!objData || !objData.type) {
+  if (!objData || !objData['type']) {
     return null;
   }
 
   try {
-    const type = objData.type;
+    const type = objData['type'];
 
     switch (type) {
       case 'Line':
       case 'line':
-        return new fabric.Line([objData.x1, objData.y1, objData.x2, objData.y2], {
-          left: objData.left,
-          top: objData.top,
-          stroke: objData.stroke,
-          strokeWidth: objData.strokeWidth,
-          angle: objData.angle || 0,
-          scaleX: objData.scaleX || 1,
-          scaleY: objData.scaleY || 1
+        return new fabric.Line([objData['x1'], objData['y1'], objData['x2'], objData['y2']], {
+          left: objData['left'],
+          top: objData['top'],
+          stroke: objData['stroke'],
+          strokeWidth: objData['strokeWidth'],
+          angle: objData['angle'] || 0,
+          scaleX: objData['scaleX'] || 1,
+          scaleY: objData['scaleY'] || 1
         });
 
       case 'Rect':
       case 'rect':
         return new fabric.Rect({
-          left: objData.left,
-          top: objData.top,
-          width: objData.width,
-          height: objData.height,
-          fill: objData.fill || 'transparent',
-          stroke: objData.stroke,
-          strokeWidth: objData.strokeWidth,
-          angle: objData.angle || 0,
-          scaleX: objData.scaleX || 1,
-          scaleY: objData.scaleY || 1
+          left: objData['left'],
+          top: objData['top'],
+          width: objData['width'],
+          height: objData['height'],
+          fill: objData['fill'] || 'transparent',
+          stroke: objData['stroke'],
+          strokeWidth: objData['strokeWidth'],
+          angle: objData['angle'] || 0,
+          scaleX: objData['scaleX'] || 1,
+          scaleY: objData['scaleY'] || 1
         });
 
       case 'Circle':
       case 'circle':
         return new fabric.Circle({
-          left: objData.left,
-          top: objData.top,
-          radius: objData.radius,
-          fill: objData.fill || 'transparent',
-          stroke: objData.stroke,
-          strokeWidth: objData.strokeWidth,
-          angle: objData.angle || 0,
-          scaleX: objData.scaleX || 1,
-          scaleY: objData.scaleY || 1
+          left: objData['left'],
+          top: objData['top'],
+          radius: objData['radius'],
+          fill: objData['fill'] || 'transparent',
+          stroke: objData['stroke'],
+          strokeWidth: objData['strokeWidth'],
+          angle: objData['angle'] || 0,
+          scaleX: objData['scaleX'] || 1,
+          scaleY: objData['scaleY'] || 1
         });
 
       case 'Text':
       case 'text':
       case 'IText':
       case 'i-text':
-        return new fabric.IText(objData.text || '', {
-          left: objData.left,
-          top: objData.top,
-          fontSize: objData.fontSize || 20,
-          fill: objData.fill || '#000000',
-          angle: objData.angle || 0,
-          scaleX: objData.scaleX || 1,
-          scaleY: objData.scaleY || 1
+        return new fabric.IText(objData['text'] || '', {
+          left: objData['left'],
+          top: objData['top'],
+          fontSize: objData['fontSize'] || 20,
+          fill: objData['fill'] || '#000000',
+          angle: objData['angle'] || 0,
+          scaleX: objData['scaleX'] || 1,
+          scaleY: objData['scaleY'] || 1
         });
 
       case 'Path':
       case 'path':
-        if (objData.path) {
-          return new fabric.Path(objData.path, {
-            left: objData.left,
-            top: objData.top,
-            fill: objData.fill || 'transparent',
-            stroke: objData.stroke,
-            strokeWidth: objData.strokeWidth,
-            strokeLineCap: objData.strokeLineCap || 'round',
-            strokeLineJoin: objData.strokeLineJoin || 'round',
-            angle: objData.angle || 0,
-            scaleX: objData.scaleX || 1,
-            scaleY: objData.scaleY || 1
+        if (objData['path']) {
+          return new fabric.Path(objData['path'], {
+            left: objData['left'],
+            top: objData['top'],
+            fill: objData['fill'] || 'transparent',
+            stroke: objData['stroke'],
+            strokeWidth: objData['strokeWidth'],
+            strokeLineCap: objData['strokeLineCap'] || 'round',
+            strokeLineJoin: objData['strokeLineJoin'] || 'round',
+            angle: objData['angle'] || 0,
+            scaleX: objData['scaleX'] || 1,
+            scaleY: objData['scaleY'] || 1
           });
         }
         return null;
