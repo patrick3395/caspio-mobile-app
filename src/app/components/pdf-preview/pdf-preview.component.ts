@@ -241,7 +241,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   async generatePDF() {
     const loading = await this.alertController.create({
       header: 'Downloading Report',
-      message: 'Preparing PDF for download...',
+      message: 'Generating PDF report...',
       buttons: [
         {
           text: 'Cancel',
@@ -255,134 +255,58 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     });
     await loading.present();
 
-    let pdfContainer: HTMLElement | null = null;
-    let originalOpacity: string = '';
-
     try {
-      // Ensure content is ready and images are loaded
-      if (!this.contentReady) {
-        console.log('[PDF Download] Waiting for content to be ready...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-
-      // Wait for all images to load
-      loading.message = 'Loading images...';
-      await this.waitForImagesToLoad();
-
-      // Get all page elements from the HTML preview
-      pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
-      if (!pdfContainer) {
-        console.error('[PDF Download] PDF container not found in DOM');
-        throw new Error('PDF container not found. Please ensure the preview is loaded.');
-      }
-
-      // Ensure container is visible (remove opacity transition temporarily)
-      originalOpacity = pdfContainer.style.opacity;
-      pdfContainer.style.opacity = '1';
-
-      const pages = pdfContainer.querySelectorAll('.pdf-page');
-      console.log('[PDF Download] Found', pages.length, 'pages to convert');
-      console.log('[PDF Download] Container dimensions:', pdfContainer.offsetWidth, 'x', pdfContainer.offsetHeight);
-      console.log('[PDF Download] Container opacity:', pdfContainer.style.opacity);
-      console.log('[PDF Download] Container computed opacity:', window.getComputedStyle(pdfContainer).opacity);
-
-      if (pages.length === 0) {
-        console.error('[PDF Download] No pages found to convert');
-        pdfContainer.style.opacity = originalOpacity; // Restore
-        throw new Error('No pages found to convert. Please refresh and try again.');
-      }
-
-      // Lazy load libraries
-      loading.message = 'Loading PDF library...';
+      // Lazy load jsPDF library
       const jsPDFModule = await import('jspdf');
       const jsPDF = jsPDFModule.default || jsPDFModule;
-      const html2canvas = (await import('html2canvas')).default;
+
+      // Also load jspdf-autotable for table support
+      await import('jspdf-autotable');
 
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'letter',
-        compress: true
+        format: 'letter'
       }) as any;
 
+      let pageNum = 1;
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
 
-      let isFirstPage = true;
-      let successfulPages = 0;
+      // Add custom fonts for better appearance
+      pdf.setFont('helvetica');
 
-      for (let i = 0; i < pages.length; i++) {
-        const pageElement = pages[i] as HTMLElement;
+      // Page 1: Professional Cover Page
+      await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
 
-        // Update loading message with progress
-        loading.message = `Generating PDF... Page ${i + 1} of ${pages.length}`;
+      // Page 2: Deficiency Summary
+      pdf.addPage();
+      pageNum++;
+      await this.addDeficiencySummary(pdf, margin, contentWidth, pageNum);
 
-        console.log(`[PDF Download] Processing page ${i + 1}/${pages.length}`);
-        console.log(`[PDF Download] Page element dimensions:`, pageElement.offsetWidth, 'x', pageElement.offsetHeight);
-
-        try {
-          // Scroll the page into view to ensure it's rendered
-          pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-          await new Promise(resolve => setTimeout(resolve, 200));
-
-          // Capture the page as canvas with high quality
-          // Use foreignObjectRendering to avoid iframe cloning issues
-          const canvas = await html2canvas(pageElement, {
-            scale: 2, // High quality
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            logging: false, // Disable verbose logging
-            imageTimeout: 15000,
-            foreignObjectRendering: true, // Use foreignObject instead of iframe
-            removeContainer: true,
-            width: pageElement.offsetWidth,
-            height: pageElement.offsetHeight
-          });
-
-          console.log(`[PDF Download] Canvas created:`, canvas.width, 'x', canvas.height);
-
-          if (canvas.width === 0 || canvas.height === 0) {
-            console.error(`[PDF Download] Canvas has zero dimensions for page ${i + 1}`);
-            continue;
-          }
-
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
-          console.log(`[PDF Download] Image data length:`, imgData.length);
-
-          // Add new page for all pages except the first
-          if (!isFirstPage) {
-            pdf.addPage();
-          }
-          isFirstPage = false;
-
-          // Calculate dimensions to fit the page while maintaining aspect ratio
-          const imgWidth = pageWidth;
-          const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-          // Add the image to the PDF
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-
-          console.log(`[PDF Download] Successfully added page ${i + 1} to PDF (${imgWidth}mm x ${imgHeight}mm)`);
-          successfulPages++;
-
-          // Small delay to prevent browser freezing
-          if (i < pages.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 150));
-          }
-        } catch (pageError) {
-          console.error(`[PDF Download] Error processing page ${i + 1}:`, pageError);
-          // Continue with next page even if one fails
+      // Pages 3+: Structural Systems with Photos
+      if (this.structuralData && this.structuralData.length > 0) {
+        for (const category of this.structuralData) {
+          pdf.addPage();
+          pageNum++;
+          await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
         }
       }
 
-      console.log(`[PDF Download] Successfully processed ${successfulPages} out of ${pages.length} pages`);
+      // Elevation Plot Data
+      if (this.elevationData && this.elevationData.length > 0) {
+        pdf.addPage();
+        pageNum++;
+        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
+      }
 
-      // Restore original opacity
-      pdfContainer.style.opacity = originalOpacity;
-
-      if (successfulPages === 0) {
-        throw new Error('Failed to generate any pages. Please try again.');
+      // Appendix: Photo Gallery
+      if (this.hasPhotos()) {
+        pdf.addPage();
+        pageNum++;
+        await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }
 
       // Generate filename with project details
@@ -397,62 +321,13 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       await this.downloadPDF(pdf, fileName);
 
       // Show success message
-      await this.showToast(`PDF downloaded successfully! (${successfulPages} pages)`, 'success');
+      await this.showToast('PDF downloaded successfully!', 'success');
 
     } catch (error) {
-      console.error('[PDF Download] Error generating PDF:', error);
+      console.error('Error generating PDF:', error);
       await loading.dismiss();
-
-      // Restore opacity if pdfContainer was modified
-      if (pdfContainer) {
-        pdfContainer.style.opacity = originalOpacity || '';
-      }
-
-      const errorMessage = error instanceof Error ? error.message : 'Failed to download PDF. Please try again.';
-      await this.showToast(errorMessage, 'danger');
+      await this.showToast('Failed to download PDF. Please try again.', 'danger');
     }
-  }
-
-  /**
-   * Wait for all images in the PDF container to finish loading
-   */
-  private async waitForImagesToLoad(): Promise<void> {
-    const pdfContainer = document.querySelector('.pdf-container');
-    if (!pdfContainer) {
-      console.warn('[PDF Download] PDF container not found, skipping image wait');
-      return;
-    }
-
-    const images = pdfContainer.querySelectorAll('img');
-    console.log('[PDF Download] Waiting for', images.length, 'images to load');
-
-    const imagePromises = Array.from(images).map((img) => {
-      return new Promise<void>((resolve) => {
-        if (img.complete && img.naturalHeight !== 0) {
-          // Image already loaded
-          resolve();
-        } else {
-          // Wait for image to load
-          img.onload = () => resolve();
-          img.onerror = () => {
-            console.warn('[PDF Download] Image failed to load:', img.src.substring(0, 100));
-            resolve(); // Resolve anyway to not block the process
-          };
-
-          // Timeout after 10 seconds
-          setTimeout(() => {
-            console.warn('[PDF Download] Image load timeout:', img.src.substring(0, 100));
-            resolve();
-          }, 10000);
-        }
-      });
-    });
-
-    await Promise.all(imagePromises);
-    console.log('[PDF Download] All images loaded or timed out');
-
-    // Extra delay to ensure rendering is complete
-    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   /**

@@ -4402,32 +4402,35 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Check if a room is a bedroom or bathroom (for Location field)
   isBedroomOrBathroom(roomName: string): boolean {
-    if (!roomName) return false;
-    const lowerRoomName = roomName.toLowerCase();
+    if (!roomName) {
+      console.log(`[Location Field] Room name is empty or null`);
+      return false;
+    }
 
-    // Check for bedroom variations: bedroom, bed, br, bdrm, master bed
+    const lowerRoomName = roomName.toLowerCase().trim();
+    console.log(`[Location Field] Checking room "${roomName}" (lowercase: "${lowerRoomName}")`);
+
+    // Check for bedroom variations with more explicit patterns
     const isBedroom = lowerRoomName.includes('bedroom') ||
                       lowerRoomName.includes('bed room') ||
-                      lowerRoomName.includes('bed') ||
                       lowerRoomName.includes('bdrm') ||
-                      /\bbr\b/.test(lowerRoomName) || // word boundary for BR
-                      lowerRoomName.includes('br1') ||
-                      lowerRoomName.includes('br2') ||
-                      lowerRoomName.includes('br3') ||
-                      lowerRoomName.includes('br4');
+                      lowerRoomName.includes('primary bed') ||
+                      lowerRoomName.includes('master bed') ||
+                      /\bbr\s*\d/.test(lowerRoomName) || // BR1, BR 1, etc.
+                      /\bbr\b/.test(lowerRoomName); // standalone BR
 
-    // Check for bathroom variations: bathroom, bath, ba, bth
+    // Check for bathroom variations with more explicit patterns
     const isBathroom = lowerRoomName.includes('bathroom') ||
                        lowerRoomName.includes('bath room') ||
-                       lowerRoomName.includes('bath') ||
+                       lowerRoomName.includes('bath') || // Includes "Primary Bath", "Half Bath", etc.
                        lowerRoomName.includes('bth') ||
-                       /\bba\b/.test(lowerRoomName) || // word boundary for BA
-                       lowerRoomName.includes('ba1') ||
-                       lowerRoomName.includes('ba2') ||
-                       lowerRoomName.includes('ba3');
+                       lowerRoomName.includes('primary bath') ||
+                       lowerRoomName.includes('master bath') ||
+                       /\bba\s*\d/.test(lowerRoomName) || // BA1, BA 1, etc.
+                       /\bba\b/.test(lowerRoomName); // standalone BA
 
     const result = isBedroom || isBathroom;
-    console.log(`[Location Field] Checking room "${roomName}": ${result ? 'YES' : 'NO'} (bedroom: ${isBedroom}, bathroom: ${isBathroom})`);
+    console.log(`[Location Field] Result for "${roomName}": ${result ? 'YES ✓' : 'NO ✗'} (bedroom: ${isBedroom}, bathroom: ${isBathroom})`);
     return result;
   }
 
@@ -4439,13 +4442,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     const currentLocation = this.roomElevationData[roomName].location || '';
 
-    // Add the location text with proper spacing
+    // Add the location text with space (no comma)
     if (currentLocation.trim() === '') {
       this.roomElevationData[roomName].location = locationText;
-    } else if (currentLocation.trim().endsWith(',')) {
-      this.roomElevationData[roomName].location = currentLocation + ' ' + locationText;
     } else {
-      this.roomElevationData[roomName].location = currentLocation + ', ' + locationText;
+      this.roomElevationData[roomName].location = currentLocation + ' ' + locationText;
     }
 
     // Save the location change

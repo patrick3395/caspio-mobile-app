@@ -1171,7 +1171,7 @@
                 </div>
 
                 <!-- Location Field (only for bedrooms and bathrooms) -->
-                <div class="location-field-container" *ngIf="!isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName)">
+                <div class="location-field-container" *ngIf="!isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && roomElevationData[room.RoomName]">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
                     Location:
                   </label>
@@ -1339,7 +1339,7 @@
                 </div>
 
                 <!-- Location Field for Base Station (above Measurements) -->
-                <div class="location-field-container" *ngIf="isBaseStation(room.RoomName)" style="margin-top: 15px;">
+                <div class="location-field-container" *ngIf="isBaseStation(room.RoomName) && roomElevationData[room.RoomName]" style="margin-top: 15px;">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
                     Location:
                   </label>
