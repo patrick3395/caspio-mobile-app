@@ -333,24 +333,38 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
         console.log(`[PDF] Processing page ${i + 1}/${pages.length}`);
 
-        // Scroll into view
-        pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-        await new Promise(resolve => setTimeout(resolve, 100));
-
         try {
-          // Capture the page as canvas
-          const canvas = await html2canvas(pageElement, {
+          // Clone the page element to avoid modal issues
+          const clone = pageElement.cloneNode(true) as HTMLElement;
+
+          // Style the clone to be visible but off-screen
+          clone.style.position = 'fixed';
+          clone.style.left = '0';
+          clone.style.top = '0';
+          clone.style.width = pageElement.offsetWidth + 'px';
+          clone.style.height = 'auto';
+          clone.style.zIndex = '-9999';
+          clone.style.opacity = '1';
+          clone.style.visibility = 'visible';
+          clone.style.overflow = 'visible';
+
+          // Append to body (outside modal)
+          document.body.appendChild(clone);
+
+          // Wait for render
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Capture the cloned element
+          const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
-            logging: false,
-            foreignObjectRendering: false,
-            windowWidth: pageElement.scrollWidth,
-            windowHeight: pageElement.scrollHeight,
-            x: 0,
-            y: 0
+            logging: false
           });
+
+          // Remove the clone
+          document.body.removeChild(clone);
 
           if (canvas.width === 0 || canvas.height === 0) {
             console.warn(`[PDF] Page ${i + 1} has zero dimensions, skipping`);

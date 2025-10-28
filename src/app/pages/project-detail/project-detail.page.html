@@ -123,16 +123,17 @@
                    class="deliverable-link">
                   View File
                 </a>
-                <label *ngIf="!isReadOnly" class="file-upload-label">
+                <div *ngIf="!isReadOnly">
                   <input
+                    #deliverableFileInput
                     type="file"
-                    class="file-input-hidden"
+                    style="display: none"
                     (change)="uploadDeliverableFile(service, $event)"
                     accept="*/*">
-                  <ion-button size="small" fill="clear" class="orange-icon">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput.click()">
                     <ion-icon name="cloud-upload-outline"></ion-icon>
                   </ion-button>
-                </label>
+                </div>
               </div>
             </td>
 
@@ -191,16 +192,17 @@
                    class="deliverable-link">
                   View File
                 </a>
-                <label *ngIf="!isReadOnly" class="file-upload-label">
+                <div *ngIf="!isReadOnly">
                   <input
+                    #deliverableFileInput2
                     type="file"
-                    class="file-input-hidden"
+                    style="display: none"
                     (change)="uploadDeliverableFile(service, $event)"
                     accept="*/*">
-                  <ion-button size="small" fill="clear" class="orange-icon">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput2.click()">
                     <ion-icon name="cloud-upload-outline"></ion-icon>
                   </ion-button>
-                </label>
+                </div>
               </div>
             </td>
 
@@ -652,17 +654,18 @@
             <span *ngIf="!hasDeliverable(selectedDeliverableService)" class="no-file-text">
               No file uploaded
             </span>
-            <label *ngIf="!isReadOnly" class="modal-upload-btn">
+            <div *ngIf="!isReadOnly">
               <input
+                #modalDeliverableFileInput
                 type="file"
                 style="display: none"
                 (change)="uploadDeliverableFile(selectedDeliverableService, $event)"
                 accept="*/*">
-              <ion-button size="small" color="primary">
+              <ion-button size="small" color="primary" (click)="modalDeliverableFileInput.click()">
                 <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
                 {{ hasDeliverable(selectedDeliverableService) ? 'Replace' : 'Upload' }}
               </ion-button>
-            </label>
+            </div>
           </div>
         </div>
 

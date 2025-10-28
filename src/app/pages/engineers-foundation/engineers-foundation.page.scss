@@ -1110,10 +1110,17 @@ ion-content{--overflow:scroll !important;height:100%}
         --padding-bottom: 12px;
         --padding-start: 16px;
         --padding-end: 16px;
-        border-radius: 7px 7px 0 0; // Round top corners to match parent accordion (8px) with slight reduction to prevent overlap
+        border-radius: 7px 7px 7px 7px; // All corners rounded by default (collapsed state)
         overflow: hidden; // Clip corners properly
 
         // Hover effect removed for mobile optimization
+      }
+
+      // When accordion is in expanding/expanded state, only round top corners of header
+      &[class*="expand"] ion-item[slot="header"],
+      &.accordion-expanding ion-item[slot="header"],
+      &.accordion-expanded ion-item[slot="header"] {
+        border-radius: 7px 7px 0 0; // Only top corners when expanded
       }
       
       .category-content {

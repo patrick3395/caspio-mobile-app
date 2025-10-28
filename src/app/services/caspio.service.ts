@@ -1604,19 +1604,106 @@ export class CaspioService {
     });
   }
 
-  // Two-step upload method for Attach table - Upload to Files API then create record with path
-  private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File, serviceId?: string) {
-    
+  // Helper method to check for duplicate document titles and add versioning
+  private async getVersionedDocumentTitle(projectId: number, typeId: number, baseTitle: string, serviceId?: string): Promise<string> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+
+    try {
+      // Build query to get existing documents with same ProjectID and TypeID
+      const queryParams = new URLSearchParams({
+        q: JSON.stringify({
+          AND: [
+            { ProjectID: projectId },
+            { TypeID: typeId }
+          ]
+        })
+      });
+
+      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to fetch existing attachments for duplicate check:', response.statusText);
+        return baseTitle; // Return original title if check fails
+      }
+
+      const data = await response.json();
+      const existingAttachments = data.Result || [];
+
+      // Filter attachments for this specific service instance if serviceId provided
+      const relevantAttachments = existingAttachments.filter((a: any) => {
+        if (!serviceId) return true; // If no serviceId, check all attachments
+
+        // Extract ServiceID from Notes field [SID:123]
+        const match = a.Notes?.match(/\[SID:(\d+)\]/);
+        const attachServiceId = match ? match[1] : null;
+
+        // If attachment has ServiceID, must match
+        if (attachServiceId) {
+          return attachServiceId === serviceId;
+        }
+
+        // If no ServiceID in Notes, include it (backward compatibility)
+        return true;
+      });
+
+      // Find all documents with titles matching the base title or versioned variants
+      const baseTitleLower = baseTitle.toLowerCase();
+      const existingTitles = relevantAttachments
+        .map((a: any) => a.Title)
+        .filter((t: string) => {
+          const titleLower = t.toLowerCase();
+          // Match exact title or title with version suffix (e.g., "Document #2")
+          return titleLower === baseTitleLower ||
+                 titleLower.match(new RegExp(`^${baseTitleLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
+        });
+
+      // If no duplicates, return original title
+      if (existingTitles.length === 0) {
+        return baseTitle;
+      }
+
+      // Find the highest version number
+      let maxVersion = 1;
+      for (const existingTitle of existingTitles) {
+        const match = existingTitle.match(/#(\d+)$/);
+        if (match) {
+          const version = parseInt(match[1]);
+          if (version > maxVersion) {
+            maxVersion = version;
+          }
+        }
+      }
+
+      // Return title with next version number
+      const nextVersion = maxVersion + 1;
+      return `${baseTitle} #${nextVersion}`;
+
+    } catch (error) {
+      console.error('Error checking for duplicate document titles:', error);
+      return baseTitle; // Return original title if error occurs
+    }
+  }
+
+  // Two-step upload method for Attach table - Upload to Files API then create record with path
+  private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File, serviceId?: string) {
+
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
     try {
       const formData = new FormData();
       formData.append('file', file, file.name);
-      
+
       // Upload to Files API (can optionally specify folder with externalKey)
       const filesUrl = `${API_BASE_URL}/files`;
-      
+
       const uploadResponse = await fetch(filesUrl, {
         method: 'PUT',
         headers: {
@@ -1625,30 +1712,33 @@ export class CaspioService {
         },
         body: formData
       });
-      
+
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error('Files API upload failed:', errorText);
         throw new Error('Failed to upload file to Files API: ' + errorText);
       }
-      
+
       const uploadResult = await uploadResponse.json();
-      
+
+      // Check for duplicate document titles and add versioning (#2, #3, etc.)
+      const versionedTitle = await this.getVersionedDocumentTitle(projectId, typeId, title || file.name, serviceId);
+
       // The file path for the Attachment field (use root path or folder path)
       const filePath = `/${uploadResult.Name || file.name}`;
       const recordData: any = {
         ProjectID: parseInt(projectId.toString()),
         TypeID: parseInt(typeId.toString()),
-        Title: title || file.name,
+        Title: versionedTitle,
         Notes: notes || 'Uploaded from mobile',
         Link: file.name,
         Attachment: filePath  // Store the file path from Files API
       };
-      
+
       // Store ServiceID in Notes field with special format to tie document to specific service instance
       if (serviceId) {
         const serviceIdPrefix = `[SID:${serviceId}]`;
-        recordData.Notes = recordData.Notes 
+        recordData.Notes = recordData.Notes
           ? `${serviceIdPrefix} ${recordData.Notes}`
           : serviceIdPrefix;
       }
