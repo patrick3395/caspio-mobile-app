@@ -731,7 +731,7 @@ ion-content{--overflow:scroll !important;height:100%}
   
   // Structural Systems specific styles
   &.structural-section {
-    margin-bottom: 8px; // Reduce margin for structural section
+    margin-bottom: 12px; // Match standard section spacing
     
     .visual-item-container {
       position: relative; // Make container relative for absolute positioning
@@ -1110,7 +1110,9 @@ ion-content{--overflow:scroll !important;height:100%}
         --padding-bottom: 12px;
         --padding-start: 16px;
         --padding-end: 16px;
-        
+        border-radius: 7px 7px 0 0; // Round top corners to match parent accordion (8px) with slight reduction to prevent overlap
+        overflow: hidden; // Clip corners properly
+
         // Hover effect removed for mobile optimization
       }
       

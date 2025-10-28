@@ -309,6 +309,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       }
 
       console.log('[PDF] Container found, pages:', pdfContainer.querySelectorAll('.pdf-page').length);
+      console.log('[PDF] Container dimensions:', pdfContainer.offsetWidth, 'x', pdfContainer.offsetHeight);
+      console.log('[PDF] Container HTML length:', pdfContainer.innerHTML.length);
+      console.log('[PDF] Container has content:', pdfContainer.textContent?.length || 0);
 
       // Clone the element and move it outside the modal to avoid rendering issues
       clonedElement = pdfContainer.cloneNode(true) as HTMLElement;
@@ -324,6 +327,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       document.body.appendChild(clonedElement);
 
       console.log('[PDF] Cloned element appended to body');
+      console.log('[PDF] Clone dimensions:', clonedElement.offsetWidth, 'x', clonedElement.offsetHeight);
+      console.log('[PDF] Clone pages:', clonedElement.querySelectorAll('.pdf-page').length);
+      console.log('[PDF] Clone has content:', clonedElement.textContent?.length || 0);
+      console.log('[PDF] Clone images:', clonedElement.querySelectorAll('img').length);
 
       // Wait for any images to load in the clone
       const images = clonedElement.querySelectorAll('img');
