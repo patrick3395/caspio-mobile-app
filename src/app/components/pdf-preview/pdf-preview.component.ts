@@ -256,57 +256,83 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     await loading.present();
 
     try {
-      // Lazy load jsPDF library
+      // Ensure content is ready
+      if (!this.contentReady) {
+        console.log('[PDF Download] Waiting for content to be ready...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Lazy load libraries
       const jsPDFModule = await import('jspdf');
       const jsPDF = jsPDFModule.default || jsPDFModule;
-
-      // Also load jspdf-autotable for table support
-      await import('jspdf-autotable');
+      const html2canvas = (await import('html2canvas')).default;
 
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'letter'
+        format: 'letter',
+        compress: true
       }) as any;
 
-      let pageNum = 1;
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - (margin * 2);
 
-      // Add custom fonts for better appearance
-      pdf.setFont('helvetica');
+      // Get all page elements from the HTML preview
+      const pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
+      if (!pdfContainer) {
+        throw new Error('PDF container not found');
+      }
 
-      // Page 1: Professional Cover Page
-      await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
+      const pages = pdfContainer.querySelectorAll('.pdf-page');
+      console.log('[PDF Download] Found', pages.length, 'pages to convert');
 
-      // Page 2: Deficiency Summary
-      pdf.addPage();
-      pageNum++;
-      await this.addDeficiencySummary(pdf, margin, contentWidth, pageNum);
+      let isFirstPage = true;
 
-      // Pages 3+: Structural Systems with Photos
-      if (this.structuralData && this.structuralData.length > 0) {
-        for (const category of this.structuralData) {
-          pdf.addPage();
-          pageNum++;
-          await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
+      for (let i = 0; i < pages.length; i++) {
+        const pageElement = pages[i] as HTMLElement;
+
+        // Update loading message with progress
+        loading.message = `Generating PDF... Page ${i + 1} of ${pages.length}`;
+
+        console.log(`[PDF Download] Processing page ${i + 1}/${pages.length}`);
+
+        try {
+          // Capture the page as canvas with high quality
+          const canvas = await html2canvas(pageElement, {
+            scale: 2, // High quality
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 15000,
+            removeContainer: false
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+          // Add new page for all pages except the first
+          if (!isFirstPage) {
+            pdf.addPage();
+          }
+          isFirstPage = false;
+
+          // Calculate dimensions to fit the page
+          const imgWidth = pageWidth;
+          const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+          // Add the image to the PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+
+          console.log(`[PDF Download] Added page ${i + 1} to PDF`);
+
+          // Small delay to prevent browser freezing
+          if (i < pages.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (pageError) {
+          console.error(`[PDF Download] Error processing page ${i + 1}:`, pageError);
+          // Continue with next page even if one fails
         }
-      }
-
-      // Elevation Plot Data
-      if (this.elevationData && this.elevationData.length > 0) {
-        pdf.addPage();
-        pageNum++;
-        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
-      }
-
-      // Appendix: Photo Gallery
-      if (this.hasPhotos()) {
-        pdf.addPage();
-        pageNum++;
-        await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
       }
 
       // Generate filename with project details

@@ -252,6 +252,8 @@ ion-toolbar.template-toolbar {
 .fdf-photo-button {
   color: #333 !important; // Black text
   margin-bottom: 0 !important; // No margin by default, only when photo exists
+  background: transparent !important; // No white background - just icons
+  border: none !important; // No border - just icons
 
   // Hover effect removed for mobile optimization
 
@@ -263,23 +265,23 @@ ion-toolbar.template-toolbar {
     vertical-align: middle;
     color: #333 !important; // Black icons
   }
-  
+
   // 50% bigger sizing for measurement area (web-specific)
   @media (min-width: 768px) {
     &.measurement-photo-btn {
       padding: 12px 9px !important; // 50% bigger (8px * 1.5 = 12px, 6px * 1.5 = 9px)
       font-size: 18px !important; // 50% bigger (12px * 1.5 = 18px)
       min-height: 75px !important; // 50% bigger minimum height
-      
+
       span {
         margin-bottom: 6px !important; // 50% bigger (4px * 1.5 = 6px)
         font-size: 16px !important;
       }
-      
+
       ion-icon {
         font-size: 27px !important; // 50% bigger (18px * 1.5 = 27px)
       }
-      
+
       .checkmark-icon {
         font-size: 24px !important; // 50% bigger (16px * 1.5 = 24px)
       }
