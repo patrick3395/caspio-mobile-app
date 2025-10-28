@@ -511,7 +511,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private setupHeaderDebugMonitor() {
-    if (!this.platform.is('mobile')) {
+    if (!this.platformIonic.is('mobile')) {
       return; // Only monitor on mobile
     }
 
@@ -6715,10 +6715,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
 
       // MOBILE FIX: Clear cache on mobile to force fresh base64 data loading
-      const isMobile = this.platform.is('ios') || this.platform.is('android');
+      const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
       if (isMobile) {
         console.log('[PDF Data] Mobile platform detected - clearing PDF cache for fresh data');
-        this.cache.delete(cacheKey);
+        this.cache.clear(cacheKey);
       }
 
       let structuralSystemsData, elevationPlotData, projectInfo;
@@ -13005,12 +13005,12 @@ Stack: ${error?.stack}`;
     // MOBILE FIX: Clear cache on mobile to ensure fresh base64 data
     // Cache might contain old data with HTTP URLs instead of base64
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
-    const isMobile = this.platform.is('ios') || this.platform.is('android');
+    const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
 
     if (isMobile) {
       // Force refresh on mobile to avoid cached HTTP URLs
       console.log('[PDF Photos] Mobile platform detected - bypassing cache for fresh data');
-      this.cache.delete(cacheKey);
+      this.cache.clear(cacheKey);
     } else {
       const cachedPhotos = this.cache.get(cacheKey);
       if (cachedPhotos) {
