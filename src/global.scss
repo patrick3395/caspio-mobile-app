@@ -63,9 +63,9 @@ ion-header {
     padding-top: env(safe-area-inset-top) !important;
 
     ion-toolbar {
-      --min-height: 72px !important;
-      padding-top: 28px !important;
-      padding-bottom: 12px !important;
+      --min-height: 60px !important;
+      padding-top: 16px !important;
+      padding-bottom: 8px !important;
       display: flex !important;
       align-items: center !important;
     }
@@ -73,15 +73,22 @@ ion-header {
 
   // Force toolbar padding through Shadow DOM (mobile only)
   ion-toolbar::part(native) {
-    padding-top: 28px !important;
-    padding-bottom: 12px !important;
-    min-height: 72px !important;
+    padding-top: 16px !important;
+    padding-bottom: 8px !important;
+    min-height: 60px !important;
     display: flex !important;
     align-items: center !important;
   }
 
   // Vertically center title and buttons
-  ion-toolbar ion-title,
+  ion-toolbar ion-title {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+    font-size: 20px !important;
+    font-weight: 600 !important;
+  }
+
   ion-toolbar ion-buttons {
     display: flex !important;
     align-items: center !important;
@@ -140,16 +147,16 @@ ion-tab-bar {
 // Mobile-only footer padding (max-width: 767px)
 @media (max-width: 767px) {
   ion-tab-bar {
-    padding-top: 12px !important;
-    padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
-    min-height: 72px !important;
+    padding-top: 8px !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    min-height: 60px !important;
   }
 
   // Force tab-bar padding through Shadow DOM (mobile only)
   ion-tab-bar::part(native) {
-    padding-top: 12px !important;
-    padding-bottom: 28px !important;
-    min-height: 72px !important;
+    padding-top: 8px !important;
+    padding-bottom: 16px !important;
+    min-height: 60px !important;
   }
 }
 

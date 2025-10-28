@@ -279,70 +279,94 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
 
   async generatePDF() {
-    // Use browser's native print functionality for pixel-perfect PDF
-    // This will match the preview exactly and allow user to save as PDF
+    const loading = await this.alertController.create({
+      header: 'Downloading Report',
+      message: 'Generating PDF report...',
+      buttons: [
+        {
+          text: 'Cancel',
+          handler: () => {
+            return true; // Allow dismissal
+          }
+        }
+      ],
+      backdropDismiss: false,
+      cssClass: 'template-loading-alert'
+    });
+    await loading.present();
 
     try {
-      // Force content to be ready and visible for printing
-      this.contentReady = true;
+      // Lazy load jsPDF library
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default || jsPDFModule;
 
-      // Get the PDF container and ensure it's visible
-      const pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
-      if (pdfContainer) {
-        // Remove inline opacity style temporarily
-        pdfContainer.style.opacity = '1';
-        pdfContainer.style.visibility = 'visible';
-        pdfContainer.style.display = 'block';
+      // Also load jspdf-autotable for table support
+      await import('jspdf-autotable');
 
-        // Wait a moment for the DOM to update
-        await new Promise(resolve => setTimeout(resolve, 200));
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'letter'
+      }) as any;
+
+      let pageNum = 1;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
+
+      // Add custom fonts for better appearance
+      pdf.setFont('helvetica');
+
+      // Page 1: Professional Cover Page
+      await this.addCoverPage(pdf, pageWidth, pageHeight, margin);
+
+      // Page 2: Deficiency Summary
+      pdf.addPage();
+      pageNum++;
+      await this.addDeficiencySummary(pdf, margin, contentWidth, pageNum);
+
+      // Pages 3+: Structural Systems with Photos
+      if (this.structuralData && this.structuralData.length > 0) {
+        for (const category of this.structuralData) {
+          pdf.addPage();
+          pageNum++;
+          await this.addStructuralSystemsSection(pdf, category, margin, contentWidth, pageNum, pageHeight);
+        }
       }
 
-      console.log('[PDF Print] Content ready:', this.contentReady);
-      console.log('[PDF Print] Container found:', !!pdfContainer);
-      console.log('[PDF Print] Pages count:', document.querySelectorAll('.pdf-page').length);
-
-      // Give user instruction
-      const isMobile = this.platform.is('ios') || this.platform.is('android');
-
-      if (isMobile) {
-        // On mobile, show instruction
-        const alert = await this.alertController.create({
-          header: 'Save as PDF',
-          message: 'Your browser will open the print dialog. Choose "Save as PDF" or "Print to PDF" from the printer options.',
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel'
-            },
-            {
-              text: 'Continue',
-              handler: () => {
-                window.print();
-              }
-            }
-          ]
-        });
-        await alert.present();
-      } else {
-        // On desktop, show quick instruction and trigger print
-        const toast = await this.toastController.create({
-          message: 'Print dialog opening... Choose "Save as PDF" to download',
-          duration: 3000,
-          position: 'bottom',
-          color: 'primary'
-        });
-        await toast.present();
-
-        // Small delay to let user see the toast
-        setTimeout(() => {
-          window.print();
-        }, 500);
+      // Elevation Plot Data
+      if (this.elevationData && this.elevationData.length > 0) {
+        pdf.addPage();
+        pageNum++;
+        await this.addElevationPlotSection(pdf, margin, contentWidth, pageNum, pageHeight, pageWidth);
       }
+
+      // Appendix: Photo Gallery
+      if (this.hasPhotos()) {
+        pdf.addPage();
+        pageNum++;
+        await this.addPhotoGallery(pdf, margin, contentWidth, pageNum, pageHeight);
+      }
+
+      // Generate filename with project details
+      const projectId = this.projectData?.projectId || 'draft';
+      const clientName = (this.projectData?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
+      const date = new Date().toISOString().split('T')[0];
+      const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
+
+      await loading.dismiss();
+
+      // Download the PDF
+      await this.downloadPDF(pdf, fileName);
+
+      // Show success message
+      await this.showToast('PDF downloaded successfully!', 'success');
 
     } catch (error) {
-      console.error('Error opening print dialog:', error);
-      await this.showToast('Failed to open print dialog. Please try again.', 'danger');
+      console.error('Error generating PDF:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to download PDF. Please try again.', 'danger');
     }
   }
 
