@@ -1248,7 +1248,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               elevationPoints: elevationPoints,
               pointCount: template.PointCount || elevationPoints.length,
               notes: '',
-              fdf: '' // Initialize FDF with empty for "-- Select --"
+              fdf: '', // Initialize FDF with empty for "-- Select --"
+              location: ''
             };
           }
         });
@@ -1412,7 +1413,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     elevationPoints: elevationPoints,
                     pointCount: template.PointCount || elevationPoints.length,
                     notes: '',
-                    fdf: ''
+                    fdf: '',
+                    location: ''
                   };
                 }
                 
@@ -4402,7 +4404,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isBedroomOrBathroom(roomName: string): boolean {
     if (!roomName) return false;
     const lowerRoomName = roomName.toLowerCase();
-    return lowerRoomName.includes('bedroom') || lowerRoomName.includes('bathroom');
+
+    // Check for bedroom variations: bedroom, bed, br, bdrm, master bed
+    const isBedroom = lowerRoomName.includes('bedroom') ||
+                      lowerRoomName.includes('bed room') ||
+                      lowerRoomName.includes('bed') ||
+                      lowerRoomName.includes('bdrm') ||
+                      /\bbr\b/.test(lowerRoomName) || // word boundary for BR
+                      lowerRoomName.includes('br1') ||
+                      lowerRoomName.includes('br2') ||
+                      lowerRoomName.includes('br3') ||
+                      lowerRoomName.includes('br4');
+
+    // Check for bathroom variations: bathroom, bath, ba, bth
+    const isBathroom = lowerRoomName.includes('bathroom') ||
+                       lowerRoomName.includes('bath room') ||
+                       lowerRoomName.includes('bath') ||
+                       lowerRoomName.includes('bth') ||
+                       /\bba\b/.test(lowerRoomName) || // word boundary for BA
+                       lowerRoomName.includes('ba1') ||
+                       lowerRoomName.includes('ba2') ||
+                       lowerRoomName.includes('ba3');
+
+    const result = isBedroom || isBathroom;
+    console.log(`[Location Field] Checking room "${roomName}": ${result ? 'YES' : 'NO'} (bedroom: ${isBedroom}, bathroom: ${isBathroom})`);
+    return result;
   }
 
   // Add location text to the input field
@@ -4640,7 +4666,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           templateId: template.TemplateID || template.PK_ID,
           elevationPoints: elevationPoints,
           fdf: '',  // Default FDF value (empty for "-- Select --")
-          notes: ''  // Room-specific notes
+          notes: '',  // Room-specific notes
+          location: ''
         };
       }
       
@@ -4798,7 +4825,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.roomElevationData[roomName] = {
                 elevationPoints: [],
                 fdf: 'None',
-                notes: ''
+                notes: '',
+                location: ''
               };
             }
             
@@ -12538,22 +12566,22 @@ Stack: ${error?.stack}`;
       // Property Details (from actual form inputs) - Replace "Other" with custom values
       yearBuilt: this.projectData?.YearBuilt || '',
       squareFeet: this.projectData?.SquareFeet || '',
-      typeOfBuilding: this.projectData?.TypeOfBuilding === 'Other' && this.projectData?.TypeOfBuildingOther
-        ? this.projectData.TypeOfBuildingOther
+      typeOfBuilding: this.projectData?.TypeOfBuilding === 'Other' && this.typeOfBuildingOtherValue
+        ? this.typeOfBuildingOtherValue
         : (this.projectData?.TypeOfBuilding || ''),
-      style: this.projectData?.Style === 'Other' && this.projectData?.StyleOther
-        ? this.projectData.StyleOther
+      style: this.projectData?.Style === 'Other' && this.styleOtherValue
+        ? this.styleOtherValue
         : (this.projectData?.Style || ''),
-      occupancyFurnishings: this.serviceData?.OccupancyFurnishings === 'Other' && this.serviceData?.OccupancyFurnishingsOther
-        ? this.serviceData.OccupancyFurnishingsOther
+      occupancyFurnishings: this.serviceData?.OccupancyFurnishings === 'Other' && this.occupancyFurnishingsOtherValue
+        ? this.occupancyFurnishingsOtherValue
         : (this.serviceData?.OccupancyFurnishings || ''),
 
       // Environmental Conditions (from actual form inputs) - Replace "Other" with custom values
-      weatherConditions: this.serviceData?.WeatherConditions === 'Other' && this.serviceData?.WeatherConditionsOther
-        ? this.serviceData.WeatherConditionsOther
+      weatherConditions: this.serviceData?.WeatherConditions === 'Other' && this.weatherConditionsOtherValue
+        ? this.weatherConditionsOtherValue
         : (this.serviceData?.WeatherConditions || ''),
-      outdoorTemperature: this.serviceData?.OutdoorTemperature === 'Other' && this.serviceData?.OutdoorTemperatureOther
-        ? this.serviceData.OutdoorTemperatureOther
+      outdoorTemperature: this.serviceData?.OutdoorTemperature === 'Other' && this.outdoorTemperatureOtherValue
+        ? this.outdoorTemperatureOtherValue
         : (this.serviceData?.OutdoorTemperature || ''),
       
       // Foundation Details (from actual form inputs)

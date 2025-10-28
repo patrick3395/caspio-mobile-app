@@ -1313,6 +1313,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     .file-upload-container {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       flex-wrap: wrap;
 
@@ -1456,7 +1457,6 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     user-select: none;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     transition: background 0.2s ease;
 
     &:active {
@@ -1466,7 +1466,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     .service-name-content {
       flex: 1;
       font-weight: 500;
-      color: $dark;
+      color: $orange;
       font-size: 14px;
       display: flex;
       align-items: center;
@@ -1478,13 +1478,6 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         color: $gray;
         font-size: 12px;
       }
-    }
-
-    .chevron-icon {
-      color: $orange;
-      font-size: 20px;
-      flex-shrink: 0;
-      margin-left: 8px;
     }
   }
 
