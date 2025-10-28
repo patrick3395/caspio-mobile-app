@@ -41,14 +41,14 @@
 // Headers and Toolbars
 ion-header {
   --background: transparent;
-  padding-top: env(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top) !important;
 
   ion-toolbar {
     --background: var(--noble-orange);
     --color: var(--noble-white);
-    --min-height: 56px;
-    --padding-top: 36px;
-    --padding-bottom: 12px;
+    --min-height: 80px !important;
+    padding-top: 36px !important;
+    padding-bottom: 12px !important;
 
     ion-title {
       color: var(--noble-white);
@@ -59,6 +59,13 @@ ion-header {
       --color: var(--noble-white);
     }
   }
+}
+
+// Force toolbar padding through Shadow DOM
+ion-toolbar::part(native) {
+  padding-top: 36px !important;
+  padding-bottom: 12px !important;
+  min-height: 80px !important;
 }
 
 // Back Button with Orange Circle

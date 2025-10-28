@@ -1,12 +1,15 @@
 ﻿// Brand Colors and Header Styling - Match Active Projects exactly
 ion-header {
+  padding-top: env(safe-area-inset-top) !important;
+
   ion-toolbar {
     --background: var(--noble-orange);
     --border-width: 0;
     --padding-start: 16px;
     --padding-end: 16px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
+    --min-height: 80px !important;
+    padding-top: 36px !important;
+    padding-bottom: 12px !important;
 
     ion-title {
       font-size: 18px;
@@ -15,6 +18,13 @@ ion-header {
       color: #ffffff;
     }
   }
+}
+
+// Force toolbar padding through Shadow DOM for this page
+ion-toolbar::part(native) {
+  padding-top: 36px !important;
+  padding-bottom: 12px !important;
+  min-height: 80px !important;
 }
 
 // Back Button with Orange Circle and White Arrow

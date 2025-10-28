@@ -4855,9 +4855,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               photoCount: 0,
               photos: []
             };
-            
+
             this.roomElevationData[roomName].elevationPoints.push(newPoint);
-            
+
+            // Trigger change detection to show the new measurement immediately
+            this.changeDetectorRef.detectChanges();
+
             // Create the point in the database if room is already saved
             const roomId = this.efeRecordIds[roomName];
             if (roomId) {
@@ -4871,6 +4874,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   dependsOnRoom: roomName // Track dependency
                 };
                 this.efePointIds[pointKey] = '__pending__';
+                // Trigger change detection after setting pending state
+                this.changeDetectorRef.detectChanges();
               } else {
                 try {
                   const pointData = {
@@ -4882,6 +4887,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (response && (response.PointID || response.PK_ID)) {
                     const pointId = response.PointID || response.PK_ID;
                     this.efePointIds[pointKey] = pointId;
+                    // Trigger change detection after database save
+                    this.changeDetectorRef.detectChanges();
                   }
                 } catch (error) {
                   console.error('Error creating custom point:', error);
@@ -4893,6 +4900,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (index > -1) {
                     this.roomElevationData[roomName].elevationPoints.splice(index, 1);
                   }
+                  // Trigger change detection after removing failed point
+                  this.changeDetectorRef.detectChanges();
                   return false;
                 }
               }
