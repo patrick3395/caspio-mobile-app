@@ -31,7 +31,7 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       position: relative;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.95);
+      background: linear-gradient(135deg, rgba(240, 240, 245, 0.98), rgba(250, 250, 252, 0.98));
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -47,7 +47,7 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.1);
       border: none;
       display: flex;
       align-items: center;
@@ -55,16 +55,15 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       cursor: pointer;
       z-index: 10;
       transition: background 0.2s ease;
-      backdrop-filter: blur(10px);
     }
 
     .close-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .close-btn ion-icon {
       font-size: 24px;
-      color: white;
+      color: #333;
     }
 
     .photo-container {
@@ -90,19 +89,21 @@ import { FabricPhotoAnnotatorComponent } from '../fabric-photo-annotator/fabric-
       bottom: 15px;
       left: 20px;
       right: 20px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
+      background: rgba(255, 255, 255, 0.95);
+      color: #333;
       padding: 10px 15px;
       border-radius: 8px;
       font-size: 13px;
       text-align: center;
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
     .caption-display p {
       margin: 0;
       line-height: 1.4;
+      font-weight: 500;
     }
 
     @media (max-width: 768px) {

@@ -384,7 +384,7 @@
 
             <!-- Second Foundation Rooms - Multi-Select -->
             <div class="form-group" [class.filled]="secondFoundationRoomsSelections && secondFoundationRoomsSelections.length > 0"
-                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== 'Other'">
+                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
               <label>
                 <ion-icon name="home-outline"></ion-icon>
                 Second Foundation Rooms
@@ -413,7 +413,7 @@
 
             <!-- Third Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.ThirdFoundationType"
-                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== '' && serviceData.SecondFoundationType !== 'Other'">
+                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
               <label>
                 <ion-icon name="construct-outline"></ion-icon>
                 Third Foundation Type
@@ -422,7 +422,7 @@
                 <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
                         (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                         class="styled-input">
-                  <option value="">-- Select --</option>
+                  <option value="">None</option>
                   <option *ngFor="let option of thirdFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
                 </select>
                 <!-- Custom input for "Other" option -->

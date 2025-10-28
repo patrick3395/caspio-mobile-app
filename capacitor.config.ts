@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
   ios: {
     preferredContentMode: 'mobile',
     contentInset: 'never',
-    scrollEnabled: true,
+    scrollEnabled: false,
     // Performance optimizations
     allowsLinkPreview: false,
     // Memory management

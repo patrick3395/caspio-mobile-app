@@ -468,14 +468,14 @@ export async function renderAnnotationsOnPhoto(
               }
             }
 
-            // Create group with all nested objects, applying scale factor to position
+            // Create group with all nested objects, applying scale factor to position only
             if (groupObjects.length > 0) {
               fabricObj = new fabric.Group(groupObjects, {
                 left: (objData['left'] || 0) * scaleFactor,
                 top: (objData['top'] || 0) * scaleFactor,
                 angle: objData['angle'] || 0,
-                scaleX: (objData['scaleX'] || 1) * scaleFactor,
-                scaleY: (objData['scaleY'] || 1) * scaleFactor
+                scaleX: objData['scaleX'] || 1, // DON'T scale - nested objects already scaled
+                scaleY: objData['scaleY'] || 1  // DON'T scale - nested objects already scaled
               });
             }
           } else {
@@ -576,10 +576,10 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
             left: (objData['left'] || 0) * scaleFactor,
             top: (objData['top'] || 0) * scaleFactor,
             stroke: objData['stroke'],
-            strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
+            strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
             angle: objData['angle'] || 0,
-            scaleX: (objData['scaleX'] || 1) * scaleFactor,
-            scaleY: (objData['scaleY'] || 1) * scaleFactor
+            scaleX: objData['scaleX'] || 1, // DON'T scale - already in coordinates
+            scaleY: objData['scaleY'] || 1  // DON'T scale - already in coordinates
           }
         );
 
@@ -592,10 +592,10 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
           height: (objData['height'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
+          strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
           angle: objData['angle'] || 0,
-          scaleX: (objData['scaleX'] || 1) * scaleFactor,
-          scaleY: (objData['scaleY'] || 1) * scaleFactor
+          scaleX: objData['scaleX'] || 1, // DON'T scale
+          scaleY: objData['scaleY'] || 1  // DON'T scale
         });
 
       case 'Circle':
@@ -606,10 +606,10 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
           radius: (objData['radius'] || 0) * scaleFactor,
           fill: objData['fill'] || 'transparent',
           stroke: objData['stroke'],
-          strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
+          strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
           angle: objData['angle'] || 0,
-          scaleX: (objData['scaleX'] || 1) * scaleFactor,
-          scaleY: (objData['scaleY'] || 1) * scaleFactor
+          scaleX: objData['scaleX'] || 1, // DON'T scale
+          scaleY: objData['scaleY'] || 1  // DON'T scale
         });
 
       case 'Text':
@@ -619,11 +619,11 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
         return new fabric.IText(objData['text'] || '', {
           left: (objData['left'] || 0) * scaleFactor,
           top: (objData['top'] || 0) * scaleFactor,
-          fontSize: (objData['fontSize'] || 20) * scaleFactor,
+          fontSize: (objData['fontSize'] || 20) * scaleFactor, // Scale fontSize to match image
           fill: objData['fill'] || '#000000',
           angle: objData['angle'] || 0,
-          scaleX: (objData['scaleX'] || 1) * scaleFactor,
-          scaleY: (objData['scaleY'] || 1) * scaleFactor
+          scaleX: objData['scaleX'] || 1, // DON'T scale
+          scaleY: objData['scaleY'] || 1  // DON'T scale
         });
 
       case 'Path':
@@ -634,12 +634,12 @@ function createFabricObject(fabric: any, objData: any, scaleFactor: number = 1):
             top: (objData['top'] || 0) * scaleFactor,
             fill: objData['fill'] || 'transparent',
             stroke: objData['stroke'],
-            strokeWidth: (objData['strokeWidth'] || 1) * scaleFactor,
+            strokeWidth: objData['strokeWidth'] || 1, // DON'T scale stroke width
             strokeLineCap: objData['strokeLineCap'] || 'round',
             strokeLineJoin: objData['strokeLineJoin'] || 'round',
             angle: objData['angle'] || 0,
-            scaleX: (objData['scaleX'] || 1) * scaleFactor,
-            scaleY: (objData['scaleY'] || 1) * scaleFactor
+            scaleX: objData['scaleX'] || 1, // DON'T scale
+            scaleY: objData['scaleY'] || 1  // DON'T scale
           });
         }
         return null;
