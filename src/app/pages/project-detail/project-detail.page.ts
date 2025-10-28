@@ -32,6 +32,11 @@ interface ServiceSelection {
   StatusDateTime?: string; // ISO date string when the status was last updated (also used for submission date)
   saving?: boolean;
   saved?: boolean;
+  // Deliverables fields (for CompanyID = 1)
+  StatusEng?: string;
+  Deliverable?: string; // File URL
+  EngNotes?: string;
+  InspectorNotes?: string;
 }
 
 interface DocumentItem {
@@ -1552,21 +1557,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       });
       await loading.present();
 
-      // Upload file to the Deliverable field in the Services table
-      await this.caspioService.uploadFileToField(
-        'Services',
-        service.serviceId,
-        'Deliverable',
-        file
-      ).toPromise();
+      // Step 1: Upload file to Caspio Files storage
+      const uploadResult = await this.caspioService.uploadFile(file).toPromise();
 
-      // Reload the service to get the updated Deliverable URL
-      const services = await this.caspioService.getServicesByProject(this.projectId).toPromise();
-      const updatedService = services?.find((s: any) => s.PK_ID === service.serviceId);
-      if (updatedService) {
-        // Update the service in selectedServices array
-        Object.assign(service, updatedService);
+      if (!uploadResult || !uploadResult.Result || !uploadResult.Result.FileName) {
+        throw new Error('File upload failed - no file path returned');
       }
+
+      const filePath = uploadResult.Result.FileName;
+
+      // Step 2: Update the Services record with the file path in the Deliverable field
+      await this.caspioService.updateService(service.serviceId, {
+        Deliverable: filePath
+      }).toPromise();
+
+      // Update local service object
+      service.Deliverable = filePath;
 
       await this.showToast('Deliverable uploaded successfully', 'success');
     } catch (error) {
@@ -1582,12 +1588,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   getDeliverableUrl(service: ServiceSelection): string | null {
-    // The Deliverable field will contain the file URL from Caspio
-    return (service as any).Deliverable || null;
+    // The Deliverable field will contain the file path from Caspio
+    // When Caspio returns file field values, they should be usable URLs
+    return service.Deliverable || null;
   }
 
   hasDeliverable(service: ServiceSelection): boolean {
-    return !!(service as any).Deliverable;
+    return !!service.Deliverable;
   }
 
   // Document management methods

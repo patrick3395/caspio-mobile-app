@@ -104,8 +104,8 @@
               <input
                 type="text"
                 class="deliverable-input"
-                [value]="service['StatusEng'] || ''"
-                (blur)="updateDeliverableField(service, 'StatusEng', $event.target.value)"
+                [value]="service.StatusEng || ''"
+                (blur)="updateDeliverableField(service, 'StatusEng', $any($event.target).value)"
                 [disabled]="isReadOnly"
                 [readonly]="isReadOnly"
                 placeholder="Enter status">
@@ -137,8 +137,8 @@
             <td class="field-cell">
               <textarea
                 class="deliverable-textarea"
-                [value]="service['EngNotes'] || ''"
-                (blur)="updateDeliverableField(service, 'EngNotes', $event.target.value)"
+                [value]="service.EngNotes || ''"
+                (blur)="updateDeliverableField(service, 'EngNotes', $any($event.target).value)"
                 [disabled]="isReadOnly"
                 [readonly]="isReadOnly"
                 placeholder="Enter notes"
@@ -149,8 +149,8 @@
             <td class="field-cell">
               <textarea
                 class="deliverable-textarea"
-                [value]="service['InspectorNotes'] || ''"
-                (blur)="updateDeliverableField(service, 'InspectorNotes', $event.target.value)"
+                [value]="service.InspectorNotes || ''"
+                (blur)="updateDeliverableField(service, 'InspectorNotes', $any($event.target).value)"
                 [disabled]="isReadOnly"
                 [readonly]="isReadOnly"
                 placeholder="Enter notes"
