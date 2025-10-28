@@ -12590,14 +12590,20 @@ Stack: ${error?.stack}`;
 
   async prepareElevationPlotData() {
     const result = [];
-    
+
+    // Load Fabric.js once for all photo annotations
+    console.log('[Elevation Plot] Loading Fabric.js for annotation rendering...');
+    const fabric = await this.fabricService.getFabric();
+    console.log('[Elevation Plot] Fabric.js loaded');
+
     // Collect all rooms to process
-    const roomsToProcess = Object.keys(this.selectedRooms).filter(roomName => 
+    const roomsToProcess = Object.keys(this.selectedRooms).filter(roomName =>
       this.selectedRooms[roomName] && this.roomElevationData[roomName]
     );
-    
-    // Process all rooms in parallel
-    const roomPromises = roomsToProcess.map(async (roomName) => {
+
+    // MOBILE FIX: Process rooms sequentially to avoid memory issues
+    // Processing all rooms in parallel causes crashes on mobile
+    for (const roomName of roomsToProcess) {
       const roomData = this.roomElevationData[roomName];
       const roomId = roomData.roomId || this.efeRecordIds[roomName];
       
@@ -12648,7 +12654,7 @@ Stack: ${error?.stack}`;
                       // CRITICAL FIX: Render annotations if Drawings data exists
                       if (drawingsData) {
                         try {
-                          const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+                          const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
                           if (annotatedUrl && annotatedUrl !== finalUrl) {
                             finalUrl = annotatedUrl;
                           }
@@ -12764,7 +12770,7 @@ Stack: ${error?.stack}`;
                         const drawingsData = attachment.Drawings;
                         if (drawingsData) {
                           try {
-                            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg' });
+                            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
                             if (annotatedUrl && annotatedUrl !== finalUrl) {
                               finalUrl = annotatedUrl;
                             }
@@ -12794,10 +12800,24 @@ Stack: ${error?.stack}`;
             }
           }
           
-          // Convert all images in parallel
+          // MOBILE FIX: Convert images in batches to avoid memory issues
           if (imagePromises.length > 0) {
-            const convertedImages = await Promise.all(imagePromises);
-            
+            const BATCH_SIZE = 5; // Process 5 images at a time
+            const convertedImages = [];
+
+            for (let i = 0; i < imagePromises.length; i += BATCH_SIZE) {
+              const batch = imagePromises.slice(i, i + BATCH_SIZE);
+              console.log(`[Point Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(imagePromises.length / BATCH_SIZE)}`);
+
+              const batchResults = await Promise.all(batch);
+              convertedImages.push(...batchResults);
+
+              // Small delay between batches for garbage collection
+              if (i + BATCH_SIZE < imagePromises.length) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+              }
+            }
+
             // Map converted images back to their points
             for (const mapping of imageMapping) {
               const convertedUrl = convertedImages[mapping.mappingIndex];
@@ -12836,17 +12856,15 @@ Stack: ${error?.stack}`;
           console.error(`Error fetching elevation data for room ${roomName}:`, error);
         }
       }
-      
-      return roomResult;
-    });
-    
-    // Wait for all rooms to be processed in parallel
-    const allRoomResults = await Promise.all(roomPromises);
-    
-    // Add all non-empty room results
-    for (const roomResult of allRoomResults) {
+
+      // Add room result to array if it has content
       if (roomResult && (roomResult.points.length > 0 || roomResult.fdf || roomResult.notes)) {
         result.push(roomResult);
+      }
+
+      // Small delay between rooms for garbage collection
+      if (roomsToProcess.indexOf(roomName) < roomsToProcess.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     result.forEach(room => {
@@ -12885,8 +12903,16 @@ Stack: ${error?.stack}`;
     const fabric = await this.fabricService.getFabric();
     console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos');
 
-    // Convert all photos to base64 for PDF compatibility - in parallel
-    const photoPromises = photos.map(async (photo) => {
+    // MOBILE FIX: Process photos in batches to avoid memory issues
+    // On mobile devices, processing all photos in parallel causes crashes
+    const BATCH_SIZE = 5; // Process 5 photos at a time
+    const processedPhotos: any[] = [];
+
+    for (let i = 0; i < photos.length; i += BATCH_SIZE) {
+      const batch = photos.slice(i, i + BATCH_SIZE);
+      console.log(`[PDF Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(photos.length / BATCH_SIZE)} (${batch.length} photos)`);
+
+      const batchPromises = batch.map(async (photo) => {
       // Prioritize displayUrl (annotated) over regular url
       let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
       let finalUrl = photoUrl;
@@ -12966,23 +12992,32 @@ Stack: ${error?.stack}`;
         }
       }
 
-      // Return the photo object with the appropriate URLs
-      // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
-      return {
-        url: photo.url || finalUrl, // Original URL
-        displayUrl: finalUrl, // This will be the annotated version with drawings rendered
-        caption: photo.Annotation || '',
-        attachId: photo.AttachID || photo.id || '',
-        hasAnnotations: !!drawingsData
-      };
-    });
-    
-    // Wait for all photo processing to complete in parallel
-    const processedPhotos = await Promise.all(photoPromises);
-    
+        // Return the photo object with the appropriate URLs
+        // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
+        return {
+          url: photo.url || finalUrl, // Original URL
+          displayUrl: finalUrl, // This will be the annotated version with drawings rendered
+          caption: photo.Annotation || '',
+          attachId: photo.AttachID || photo.id || '',
+          hasAnnotations: !!drawingsData
+        };
+      });
+
+      // Wait for current batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      processedPhotos.push(...batchResults);
+
+      // Small delay between batches to allow garbage collection
+      if (i + BATCH_SIZE < photos.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log('[PDF Photos] All photos processed:', processedPhotos.length);
+
     // Cache the processed photos using the cache service
     this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
-    
+
     return processedPhotos;
   }
 

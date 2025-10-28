@@ -514,8 +514,28 @@ export async function renderAnnotationsOnPhoto(
 
     // Cleanup - wrap in try-catch to prevent disposal errors
     try {
+      // Clear all objects from canvas before disposal
+      fabricCanvas.clear();
+
+      // Dispose of Fabric.js canvas
       fabricCanvas.dispose();
-      console.log('[renderAnnotationsOnPhoto] Canvas disposed');
+
+      // Remove canvas element from DOM if it was added
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
+
+      // Clear canvas context for garbage collection
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // Set dimensions to 0 to free memory
+      canvas.width = 0;
+      canvas.height = 0;
+
+      console.log('[renderAnnotationsOnPhoto] Canvas disposed and cleaned up');
     } catch (disposeError) {
       console.warn('[renderAnnotationsOnPhoto] Error during canvas disposal (safe to ignore):', disposeError);
     }
