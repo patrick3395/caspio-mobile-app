@@ -1130,7 +1130,7 @@
                   isBedroomOrBathroom: {{ isBedroomOrBathroom(room.RoomName) }}<br>
                   roomElevationData exists: {{ !!roomElevationData[room.RoomName] }}<br>
                   location property exists: {{ roomElevationData[room.RoomName]?.location !== undefined }}<br>
-                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && roomElevationData[room.RoomName] }}
+                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName] }}
                 </div>
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->
@@ -1187,11 +1187,11 @@
                   isBedroomOrBathroom: {{ isBedroomOrBathroom(room.RoomName) }}<br>
                   roomElevationData exists: {{ !!roomElevationData[room.RoomName] }}<br>
                   location property exists: {{ roomElevationData[room.RoomName]?.location !== undefined }}<br>
-                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && roomElevationData[room.RoomName] }}
+                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName] }}
                 </div>
 
                 <!-- Location Field (only for bedrooms and bathrooms) -->
-                <div class="location-field-container" *ngIf="!isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && roomElevationData[room.RoomName]">
+                <div class="location-field-container" *ngIf="!isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName]">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
                     Location:
                   </label>
@@ -1360,7 +1360,7 @@
                 </div>
 
                 <!-- Location Field for Base Station (above Measurements) -->
-                <div class="location-field-container" *ngIf="isBaseStation(room.RoomName) && roomElevationData[room.RoomName]" style="margin-top: 15px;">
+                <div class="location-field-container" *ngIf="isBaseStation(room.RoomName) && !!roomElevationData[room.RoomName]" style="margin-top: 15px;">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
                     Location:
                   </label>
@@ -1614,7 +1614,7 @@
                   isBedroomOrBathroom: {{ isBedroomOrBathroom(room.RoomName) }}<br>
                   roomElevationData exists: {{ !!roomElevationData[room.RoomName] }}<br>
                   location property exists: {{ roomElevationData[room.RoomName]?.location !== undefined }}<br>
-                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && roomElevationData[room.RoomName] }}
+                  SHOW LOCATION FIELD: {{ !isBaseStation(room.RoomName) && isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName] }}
                 </div>
 
                 <!-- Room action buttons (Mobile only - shows under header when expanded, hidden for Base Station) -->

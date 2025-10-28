@@ -49,9 +49,10 @@ html, body {
 // Headers and Toolbars
 ion-header {
   // CRITICAL: Lock header height to prevent iOS viewport resize bug
+  // but respect safe-area for notch/status bar
   padding: 0 !important;
   margin: 0 !important;
-  padding-top: 0 !important;
+  padding-top: env(safe-area-inset-top) !important;
   padding-bottom: 0 !important;
   height: auto !important;
   min-height: unset !important;
