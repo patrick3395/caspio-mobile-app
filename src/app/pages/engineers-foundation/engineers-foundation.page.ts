@@ -1207,8 +1207,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[loadRoomTemplates] Fetched templates:', allTemplates?.length);
 
       if (allTemplates && allTemplates.length > 0) {
-        // Store all templates for manual addition
-        this.allRoomTemplates = allTemplates;
+        // Store all templates for manual addition (deep copy to prevent modifications)
+        this.allRoomTemplates = allTemplates.map((template: any) => ({ ...template }));
 
         // Filter templates where Auto = 'Yes'
         const autoTemplates = allTemplates.filter((template: any) =>
@@ -1577,7 +1577,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Set default options first
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-      this.outdoorTemperatureOptions = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '100°F+', 'Other'];
+      this.outdoorTemperatureOptions = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
       this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
       this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
       this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
@@ -4409,6 +4409,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     const lowerRoomName = roomName.toLowerCase().trim();
     console.log(`[Location Field] Checking room "${roomName}" (lowercase: "${lowerRoomName}")`);
+    console.log(`[Location Field] roomElevationData exists:`, !!this.roomElevationData[roomName]);
 
     // Check for bedroom variations with more explicit patterns
     const isBedroom = lowerRoomName.includes('bedroom') ||
@@ -4431,6 +4432,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     const result = isBedroom || isBathroom;
     console.log(`[Location Field] Result for "${roomName}": ${result ? 'YES ✓' : 'NO ✗'} (bedroom: ${isBedroom}, bathroom: ${isBathroom})`);
+
+    // Ensure location property is initialized if missing
+    if (result && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
+      console.log(`[Location Field] Initializing missing location property for "${roomName}"`);
+      this.roomElevationData[roomName].location = '';
+    }
+
     return result;
   }
 
@@ -4527,8 +4535,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   async showAddRoomDialog() {
     try {
-      // Show ALL room templates, allowing duplicates
-      const availableRooms = this.allRoomTemplates;
+      // Show ALL room templates except Base Station, allowing duplicates
+      const availableRooms = this.allRoomTemplates.filter(room => room.RoomName !== 'Base Station');
       
       if (availableRooms.length === 0) {
         await this.showToast('No room templates available', 'info');

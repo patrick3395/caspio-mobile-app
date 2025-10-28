@@ -1255,38 +1255,69 @@
 
 // Print styles for better PDF generation
 @media print {
+  // Hide all headers, toolbars, and UI elements
+  ion-header,
+  ion-toolbar,
+  ion-buttons,
+  .pdf-loading-overlay {
+    display: none !important;
+  }
+
+  :host {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
   .pdf-preview-content {
-    padding: 0;
-    background: white;
+    padding: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+    height: auto !important;
   }
-  
+
   .pdf-container {
-    max-width: 100%;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  
+
   .pdf-page {
     page-break-after: always;
-    box-shadow: none;
-    margin-bottom: 0;
-    border-radius: 0;
-    
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    width: 100%;
+
     &:last-child {
       page-break-after: auto;
     }
   }
-  
-  ion-header {
-    display: none;
-  }
-  
+
   // Ensure tables don't break across pages
   table {
     page-break-inside: avoid;
   }
-  
+
   // Ensure images don't break across pages
   img {
     page-break-inside: avoid;
+  }
+
+  // Ensure visual items don't break across pages
+  .visual-item {
+    page-break-inside: avoid;
+  }
+
+  .room-elevation-card {
+    page-break-inside: avoid;
+  }
+
+  // Hide any loading indicators
+  .loading {
+    display: block !important;
+    opacity: 1 !important;
   }
 }
 

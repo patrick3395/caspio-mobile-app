@@ -1334,3 +1334,39 @@ textarea.styled-input {
   }
 }
 
+
+// Print styles for PDF generation
+@media print {
+  // Hide all modal backdrops and overlays
+  ion-backdrop,
+  .modal-shadow,
+  ion-loading,
+  ion-toast {
+    display: none !important;
+  }
+
+  // Ensure fullscreen modal takes full page
+  .fullscreen-modal {
+    --width: 100% !important;
+    --height: 100% !important;
+    --max-width: 100% !important;
+    --max-height: 100% !important;
+
+    .modal-wrapper {
+      position: static !important;
+      width: 100% !important;
+      height: auto !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+  }
+
+  // Ensure body and html take full page
+  body,
+  html {
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
+  }
+}
