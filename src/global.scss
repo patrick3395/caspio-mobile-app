@@ -41,13 +41,14 @@
 // Headers and Toolbars
 ion-header {
   --background: transparent;
+  padding-top: env(safe-area-inset-top);
 
   ion-toolbar {
     --background: var(--noble-orange);
     --color: var(--noble-white);
     --min-height: 56px;
-    --padding-top: 0;
-    --padding-bottom: 0;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
 
     ion-title {
       color: var(--noble-white);

@@ -486,17 +486,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.loadExistingData();
       console.log('[ngOnInit] loadExistingData completed');
 
-      // TEST: Verify isBedroomOrBathroom method works
-      console.log('========== LOCATION FIELD DIAGNOSTIC TEST ==========');
-      console.log('[DIAGNOSTIC] Testing isBedroomOrBathroom method:');
-      console.log('[DIAGNOSTIC] "Bathroom":', this.isBedroomOrBathroom('Bathroom'));
-      console.log('[DIAGNOSTIC] "Primary Bedroom":', this.isBedroomOrBathroom('Primary Bedroom'));
-      console.log('[DIAGNOSTIC] "Primary Bathroom":', this.isBedroomOrBathroom('Primary Bathroom'));
-      console.log('[DIAGNOSTIC] "Kitchen":', this.isBedroomOrBathroom('Kitchen'));
-      console.log('[DIAGNOSTIC] Room templates:', this.roomTemplates.map(r => r.RoomName));
-      console.log('[DIAGNOSTIC] roomElevationData keys:', Object.keys(this.roomElevationData));
-      console.log('========== END DIAGNOSTIC TEST ==========');
-
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
     } catch (error) {
@@ -4415,13 +4404,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Check if a room is a bedroom or bathroom (for Location field)
   isBedroomOrBathroom(roomName: string): boolean {
     if (!roomName) {
-      console.log(`[Location Field] Room name is empty or null`);
       return false;
     }
 
     const lowerRoomName = roomName.toLowerCase().trim();
-    console.log(`[Location Field] Checking room "${roomName}" (lowercase: "${lowerRoomName}")`);
-    console.log(`[Location Field] roomElevationData exists:`, !!this.roomElevationData[roomName]);
 
     // Check for bedroom variations with more explicit patterns
     const isBedroom = lowerRoomName.includes('bedroom') ||
@@ -4443,11 +4429,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                        /\bba\b/.test(lowerRoomName); // standalone BA
 
     const result = isBedroom || isBathroom;
-    console.log(`[Location Field] Result for "${roomName}": ${result ? 'YES ✓' : 'NO ✗'} (bedroom: ${isBedroom}, bathroom: ${isBathroom})`);
 
     // Ensure location property is initialized if missing
     if (result && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
-      console.log(`[Location Field] Initializing missing location property for "${roomName}"`);
       this.roomElevationData[roomName].location = '';
     }
 
