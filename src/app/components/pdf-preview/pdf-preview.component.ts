@@ -323,21 +323,21 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         try {
           // Scroll the page into view to ensure it's rendered
           pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200));
 
           // Capture the page as canvas with high quality
+          // Use foreignObjectRendering to avoid iframe cloning issues
           const canvas = await html2canvas(pageElement, {
             scale: 2, // High quality
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
-            logging: true, // Enable logging for debugging
+            logging: false, // Disable verbose logging
             imageTimeout: 15000,
-            removeContainer: false,
+            foreignObjectRendering: true, // Use foreignObject instead of iframe
+            removeContainer: true,
             width: pageElement.offsetWidth,
-            height: pageElement.offsetHeight,
-            windowWidth: pageElement.scrollWidth,
-            windowHeight: pageElement.scrollHeight
+            height: pageElement.offsetHeight
           });
 
           console.log(`[PDF Download] Canvas created:`, canvas.width, 'x', canvas.height);

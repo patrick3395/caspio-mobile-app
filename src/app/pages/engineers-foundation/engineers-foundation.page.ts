@@ -1424,7 +1424,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (room.Notes) {
                     this.roomElevationData[roomName].notes = room.Notes;
                   }
-                  
+                  if (room.Location) {
+                    this.roomElevationData[roomName].location = room.Location;
+                  }
+
                   // Load FDF photos if they exist - fetch as base64 like other photos
                   const fdfPhotos: any = {};
                   
@@ -3616,13 +3619,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomData.TemplateID = this.roomElevationData[roomName].templateId;
       }
 
-      // Include FDF and Notes if they exist
+      // Include FDF, Notes, and Location if they exist
       if (this.roomElevationData[roomName]) {
         if (this.roomElevationData[roomName].fdf) {
           roomData.FDF = this.roomElevationData[roomName].fdf;
         }
         if (this.roomElevationData[roomName].notes) {
           roomData.Notes = this.roomElevationData[roomName].notes;
+        }
+        if (this.roomElevationData[roomName].location) {
+          roomData.Location = this.roomElevationData[roomName].location;
         }
       }
 
@@ -4392,6 +4398,58 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return roomName === 'Base Station' || roomName.startsWith('Base Station #');
   }
 
+  // Check if a room is a bedroom or bathroom (for Location field)
+  isBedroomOrBathroom(roomName: string): boolean {
+    if (!roomName) return false;
+    const lowerRoomName = roomName.toLowerCase();
+    return lowerRoomName.includes('bedroom') || lowerRoomName.includes('bathroom');
+  }
+
+  // Add location text to the input field
+  addLocationText(roomName: string, locationText: string) {
+    if (!this.roomElevationData[roomName]) {
+      this.roomElevationData[roomName] = { location: '' };
+    }
+
+    const currentLocation = this.roomElevationData[roomName].location || '';
+
+    // Add the location text with proper spacing
+    if (currentLocation.trim() === '') {
+      this.roomElevationData[roomName].location = locationText;
+    } else if (currentLocation.trim().endsWith(',')) {
+      this.roomElevationData[roomName].location = currentLocation + ' ' + locationText;
+    } else {
+      this.roomElevationData[roomName].location = currentLocation + ', ' + locationText;
+    }
+
+    // Save the location change
+    this.onLocationChange(roomName);
+  }
+
+  // Handle location field change
+  async onLocationChange(roomName: string) {
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId) {
+      await this.showToast('Room must be saved first', 'warning');
+      return;
+    }
+
+    const location = this.roomElevationData[roomName]?.location || '';
+
+    // Save location to Services_EFE table
+    try {
+      const updateData = {
+        Location: location
+      };
+
+      await this.caspioService.updateRecord('Services_EFE', roomId, updateData);
+      console.log(`Location saved for ${roomName}:`, location);
+    } catch (error) {
+      console.error('Error saving location:', error);
+      await this.showToast('Failed to save location', 'danger');
+    }
+  }
+
   // Add Base Station specifically
   async addBaseStation() {
     console.log('Adding Base Station, allRoomTemplates:', this.allRoomTemplates.map(r => r.RoomName));
@@ -4611,13 +4669,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         RoomName: roomName
       };
 
-      // Include FDF and Notes if they exist
+      // Include FDF, Notes, and Location if they exist
       if (this.roomElevationData[roomName]) {
         if (this.roomElevationData[roomName].fdf) {
           roomData.FDF = this.roomElevationData[roomName].fdf;
         }
         if (this.roomElevationData[roomName].notes) {
           roomData.Notes = this.roomElevationData[roomName].notes;
+        }
+        if (this.roomElevationData[roomName].location) {
+          roomData.Location = this.roomElevationData[roomName].location;
         }
       }
 

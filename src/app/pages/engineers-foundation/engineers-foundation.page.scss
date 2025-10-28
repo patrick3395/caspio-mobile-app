@@ -252,8 +252,8 @@ ion-toolbar.template-toolbar {
 .fdf-photo-button {
   color: #333 !important; // Black text
   margin-bottom: 0 !important; // No margin by default, only when photo exists
-  background: transparent !important; // No white background - just icons
-  border: none !important; // No border - just icons
+  background: transparent !important; // No white background on mobile - just icons
+  border: none !important; // No border on mobile - just icons
 
   // Hover effect removed for mobile optimization
 
@@ -266,8 +266,13 @@ ion-toolbar.template-toolbar {
     color: #333 !important; // Black icons
   }
 
-  // 50% bigger sizing for measurement area (web-specific)
+  // WEBAPP ONLY: Add back white containers around icons
   @media (min-width: 768px) {
+    background: white !important; // White background for webapp
+    border: 1px solid #ddd !important; // Border for webapp
+    border-radius: 6px !important; // Rounded corners for webapp
+
+    // 50% bigger sizing for measurement area (web-specific)
     &.measurement-photo-btn {
       padding: 12px 9px !important; // 50% bigger (8px * 1.5 = 12px, 6px * 1.5 = 9px)
       font-size: 18px !important; // 50% bigger (12px * 1.5 = 18px)
@@ -1858,13 +1863,63 @@ ion-content{--overflow:scroll !important;height:100%}
           background: white;
           border-radius: 8px;
           border: 1px solid #e0e0e0;
-          
+
           .fdf-label {
             display: block;
             font-size: 14px;
             font-weight: 600;
             color: var(--noble-gray);
             margin-bottom: 8px;
+          }
+        }
+
+        .location-field-container {
+          margin-bottom: 20px;
+          padding: 15px;
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e0e0e0;
+
+          .location-input {
+            width: 100%;
+            font-size: 14px;
+          }
+
+          .location-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-start;
+
+            .location-btn {
+              flex: 0 1 auto;
+              padding: 8px 16px;
+              font-size: 13px;
+              font-weight: 600;
+              color: #333;
+              background: white;
+              border: 2px solid #ddd;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+
+              &:hover {
+                background: #f9f9f9;
+                border-color: var(--noble-orange);
+                color: var(--noble-orange);
+              }
+
+              &:active {
+                transform: scale(0.98);
+                background: #f0f0f0;
+              }
+
+              // Mobile adjustments
+              @media (max-width: 767px) {
+                padding: 10px 14px;
+                font-size: 12px;
+              }
+            }
           }
         }
 

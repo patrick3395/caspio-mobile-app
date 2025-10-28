@@ -125,6 +125,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Deliverables (for CompanyID = 1)
   showDeliverablesTable = false;
   currentDeliverableUpload: any = null;
+  statusOptions: any[] = [];
+  selectedDeliverableService: ServiceSelection | null = null;
+  isDeliverableModalOpen = false;
 
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
@@ -480,13 +483,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const parallelStartTime = performance.now();
 
-      const [offers, types, services, attachTemplates, existingAttachments] = await Promise.allSettled([
+      const promises = [
         this.caspioService.getOffersByCompany('1').toPromise(),
         this.caspioService.getServiceTypes().toPromise(),
         this.caspioService.getServicesByProject(actualProjectId).toPromise(),
         this.caspioService.getAttachTemplates().toPromise(),
         this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
-      ]);
+      ];
+
+      // Add Status table loading if showing deliverables
+      if (this.showDeliverablesTable) {
+        promises.push(this.caspioService.get<any>('/tables/Status/records').toPromise());
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      const [offers, types, services, attachTemplates, existingAttachments, statuses] = results;
 
       const parallelElapsed = performance.now() - parallelStartTime;
 
@@ -497,12 +509,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const attachTemplatesData = attachTemplates.status === 'fulfilled' ? attachTemplates.value : [];
       const existingAttachmentsData = existingAttachments.status === 'fulfilled' ? existingAttachments.value : [];
 
+      // Extract status options if loaded
+      if (statuses) {
+        const statusesData = statuses.status === 'fulfilled' ? statuses.value : null;
+        if (statusesData && statusesData.Result) {
+          this.statusOptions = statusesData.Result;
+        }
+      }
+
       // Log any failures
       if (offers.status === 'rejected') console.error('Failed to load offers:', offers.reason);
       if (types.status === 'rejected') console.error('Failed to load types:', types.reason);
       if (services.status === 'rejected') console.error('Failed to load services:', services.reason);
       if (attachTemplates.status === 'rejected') console.error('Failed to load attach templates:', attachTemplates.reason);
       if (existingAttachments.status === 'rejected') console.error('Failed to load attachments:', existingAttachments.reason);
+      if (statuses && statuses.status === 'rejected') console.error('Failed to load statuses:', statuses.reason);
 
       // Process offers and types
       this.availableOffers = (offersData || []).map((offer: any) => {
@@ -647,13 +668,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Load offers first, then services (services need offers to match properly)
         await this.loadAvailableOffers();
-        
-        // Now load these in parallel
-        await Promise.all([
+
+        // Build parallel promises array
+        const parallelPromises = [
           this.loadExistingServices(),  // This needs offers to be loaded first
           this.loadAttachTemplates(),
           this.loadExistingAttachments()
-        ]);
+        ];
+
+        // Load Status table if showing deliverables
+        if (this.showDeliverablesTable) {
+          parallelPromises.push(this.loadStatusOptions());
+        }
+
+        // Now load these in parallel
+        await Promise.all(parallelPromises);
       },
       error: (error) => {
         this.error = 'Failed to load project';
@@ -1525,6 +1554,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
+  async loadStatusOptions() {
+    try {
+      const response = await this.caspioService.get<any>('/tables/Status/records').toPromise();
+      if (response && response.Result) {
+        this.statusOptions = response.Result;
+      }
+    } catch (error) {
+      console.error('Error loading status options:', error);
+    }
+  }
+
   // Deliverables methods (for CompanyID = 1)
   async updateDeliverableField(service: ServiceSelection, fieldName: string, value: string) {
     if (!service.serviceId || this.isReadOnly) {
@@ -1536,7 +1576,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       updateData[fieldName] = value;
 
       await this.caspioService.updateService(service.serviceId, updateData).toPromise();
-      await this.showToast('Updated successfully', 'success');
+      // Silent update - no toast notification
     } catch (error) {
       console.error(`Error updating ${fieldName}:`, error);
       await this.showToast(`Failed to update ${fieldName}`, 'danger');
@@ -1595,6 +1635,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   hasDeliverable(service: ServiceSelection): boolean {
     return !!service.Deliverable;
+  }
+
+  openDeliverableModal(service: ServiceSelection) {
+    this.selectedDeliverableService = service;
+    this.isDeliverableModalOpen = true;
+  }
+
+  closeDeliverableModal() {
+    this.isDeliverableModalOpen = false;
+    this.selectedDeliverableService = null;
   }
 
   // Document management methods
