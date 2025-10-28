@@ -295,61 +295,87 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     });
     await loading.present();
 
-    let clonedElement: HTMLElement | null = null;
-
     try {
       // Ensure content is ready
       this.contentReady = true;
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Get the PDF container
-      const pdfContainer = document.querySelector('.pdf-container') as HTMLElement;
-      if (!pdfContainer) {
-        throw new Error('PDF container not found');
+      // Get all page elements
+      const pages = document.querySelectorAll('.pdf-page');
+      if (!pages || pages.length === 0) {
+        throw new Error('No PDF pages found');
       }
 
-      console.log('[PDF] Container found, pages:', pdfContainer.querySelectorAll('.pdf-page').length);
-      console.log('[PDF] Container dimensions:', pdfContainer.offsetWidth, 'x', pdfContainer.offsetHeight);
-      console.log('[PDF] Container HTML length:', pdfContainer.innerHTML.length);
-      console.log('[PDF] Container has content:', pdfContainer.textContent?.length || 0);
+      console.log('[PDF] Found', pages.length, 'pages to process');
 
-      // Clone the element and move it outside the modal to avoid rendering issues
-      clonedElement = pdfContainer.cloneNode(true) as HTMLElement;
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0';
-      clonedElement.style.width = '850px';
-      clonedElement.style.opacity = '1';
-      clonedElement.style.visibility = 'visible';
-      clonedElement.style.display = 'block';
+      // Load libraries
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default || jsPDFModule;
+      const html2canvas = (await import('html2canvas')).default;
 
-      // Append to body (outside modal)
-      document.body.appendChild(clonedElement);
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'letter',
+        compress: true
+      }) as any;
 
-      console.log('[PDF] Cloned element appended to body');
-      console.log('[PDF] Clone dimensions:', clonedElement.offsetWidth, 'x', clonedElement.offsetHeight);
-      console.log('[PDF] Clone pages:', clonedElement.querySelectorAll('.pdf-page').length);
-      console.log('[PDF] Clone has content:', clonedElement.textContent?.length || 0);
-      console.log('[PDF] Clone images:', clonedElement.querySelectorAll('img').length);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Wait for any images to load in the clone
-      const images = clonedElement.querySelectorAll('img');
-      await Promise.all(Array.from(images).map(img => {
-        return new Promise((resolve) => {
-          if (img.complete) {
-            resolve(true);
-          } else {
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-            setTimeout(() => resolve(false), 5000); // 5 second timeout per image
+      // Process each page individually
+      for (let i = 0; i < pages.length; i++) {
+        const pageElement = pages[i] as HTMLElement;
+
+        // Update progress
+        loading.message = `Processing page ${i + 1} of ${pages.length}...`;
+
+        console.log(`[PDF] Processing page ${i + 1}/${pages.length}`);
+
+        // Scroll into view
+        pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        try {
+          // Capture the page as canvas
+          const canvas = await html2canvas(pageElement, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            width: pageElement.offsetWidth,
+            height: pageElement.offsetHeight
+          });
+
+          if (canvas.width === 0 || canvas.height === 0) {
+            console.warn(`[PDF] Page ${i + 1} has zero dimensions, skipping`);
+            continue;
           }
-        });
-      }));
 
-      console.log('[PDF] Images loaded in clone');
+          // Convert canvas to image
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-      // Load html2pdf library
-      const html2pdf = (await import('html2pdf.js')).default;
+          // Add new page for all except first
+          if (i > 0) {
+            pdf.addPage();
+          }
+
+          // Calculate dimensions to fit page
+          const imgWidth = pageWidth;
+          const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+          // Add image to PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+
+          console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm)`);
+
+        } catch (pageError) {
+          console.error(`[PDF] Error processing page ${i + 1}:`, pageError);
+          // Continue with next page
+        }
+      }
 
       // Generate filename
       const projectId = this.projectData?.projectId || 'draft';
@@ -357,35 +383,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       const date = new Date().toISOString().split('T')[0];
       const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
 
-      // Configure options for high quality output
-      const options = {
-        margin: 0,
-        filename: fileName,
-        image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: true,
-          letterRendering: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
-        },
-        jsPDF: {
-          unit: 'mm' as 'mm',
-          format: 'letter' as 'letter',
-          orientation: 'portrait' as 'portrait',
-          compress: true
-        },
-        pagebreak: {
-          mode: ['avoid-all', 'css', 'legacy'],
-          before: '.pdf-page'
-        }
-      };
+      console.log('[PDF] Saving PDF...');
 
-      console.log('[PDF] Generating PDF with html2pdf.js from cloned element...');
-
-      // Generate and download the PDF from the cloned element
-      await html2pdf().set(options).from(clonedElement).save();
+      // Save the PDF
+      pdf.save(fileName);
 
       console.log('[PDF] PDF generated successfully');
 
@@ -396,12 +397,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       console.error('[PDF] Error generating PDF:', error);
       await loading.dismiss();
       await this.showToast('Failed to download PDF: ' + (error as Error).message, 'danger');
-    } finally {
-      // Clean up cloned element
-      if (clonedElement && clonedElement.parentNode) {
-        document.body.removeChild(clonedElement);
-        console.log('[PDF] Cleaned up cloned element');
-      }
     }
   }
 
