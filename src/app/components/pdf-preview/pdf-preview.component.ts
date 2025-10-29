@@ -341,19 +341,30 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           const originalWidth = pageElement.offsetWidth;
           const originalHeight = pageElement.offsetHeight;
 
+          // Check if this is the cover page (has special flex layout)
+          const isCoverPage = pageElement.classList.contains('cover-page');
+
           // Style the clone to be visible but off-screen with exact dimensions
           clone.style.position = 'fixed';
           clone.style.left = '0';
           clone.style.top = '0';
           clone.style.width = originalWidth + 'px';
-          clone.style.height = originalHeight + 'px';
           clone.style.minWidth = originalWidth + 'px';
           clone.style.maxWidth = originalWidth + 'px';
           clone.style.zIndex = '-9999';
           clone.style.opacity = '1';
           clone.style.visibility = 'visible';
           clone.style.overflow = 'visible';
-          clone.style.display = 'block';
+
+          // For cover page, preserve flex layout; otherwise use block
+          if (isCoverPage) {
+            clone.style.display = 'flex';
+            clone.style.flexDirection = 'column';
+            clone.style.minHeight = originalHeight + 'px';
+          } else {
+            clone.style.display = 'block';
+            clone.style.height = originalHeight + 'px';
+          }
 
           // Append to body (outside modal)
           document.body.appendChild(clone);
@@ -373,15 +384,14 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Wait for render
           await new Promise(resolve => setTimeout(resolve, 300));
 
-          // Capture the cloned element with explicit dimensions
+          // Capture the cloned element with explicit width (let height auto-size for cover page)
           const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            width: originalWidth,
-            height: originalHeight
+            width: originalWidth
           });
 
           // Remove the clone
