@@ -7006,6 +7006,87 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     let loading: any = null;
     try {
+      // CRITICAL FIX: Wait for photo hydration and pending saves before generating PDF
+      // This ensures all images are loaded and form data is synchronized
+
+      // Step 1: Wait for photo hydration if in progress
+      if (this.photoHydrationPromise) {
+        console.log('[PDF] Waiting for photo hydration to complete...');
+        loading = await this.alertController.create({
+          header: 'Loading Photos',
+          message: 'Waiting for photos to load...',
+          backdropDismiss: false,
+          cssClass: 'template-loading-alert'
+        });
+        await loading.present();
+
+        try {
+          await this.photoHydrationPromise;
+          console.log('[PDF] Photo hydration completed');
+        } catch (error) {
+          console.error('[PDF] Photo hydration error:', error);
+          // Continue anyway - we'll handle missing photos gracefully
+        }
+
+        await loading.dismiss();
+        loading = null;
+      }
+
+      // Step 2: Wait for any pending saves to complete
+      const savingKeys = Object.keys(this.savingItems).filter(key => this.savingItems[key]);
+      if (savingKeys.length > 0) {
+        console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
+        loading = await this.alertController.create({
+          header: 'Saving Changes',
+          message: `Saving ${savingKeys.length} pending change${savingKeys.length > 1 ? 's' : ''}...`,
+          backdropDismiss: false,
+          cssClass: 'template-loading-alert'
+        });
+        await loading.present();
+
+        // Wait up to 5 seconds for saves to complete
+        const maxWait = 5000;
+        const startTime = Date.now();
+        while (Object.keys(this.savingItems).some(key => this.savingItems[key])) {
+          if (Date.now() - startTime > maxWait) {
+            console.warn('[PDF] Timeout waiting for saves, proceeding anyway');
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        console.log('[PDF] Pending saves completed or timed out');
+
+        await loading.dismiss();
+        loading = null;
+      }
+
+      // Step 3: Process any pending visual creations and photo uploads
+      const hasPendingVisuals = Object.keys(this.pendingVisualCreates).length > 0;
+      const hasPendingPhotos = Object.keys(this.pendingPhotoUploads).length > 0;
+
+      if (hasPendingVisuals || hasPendingPhotos) {
+        console.log('[PDF] Processing pending items before PDF generation');
+        loading = await this.alertController.create({
+          header: 'Syncing Data',
+          message: 'Uploading pending items...',
+          backdropDismiss: false,
+          cssClass: 'template-loading-alert'
+        });
+        await loading.present();
+
+        try {
+          await this.processAllPendingVisuals();
+          console.log('[PDF] Pending items processed');
+        } catch (error) {
+          console.error('[PDF] Error processing pending items:', error);
+          // Continue anyway
+        }
+
+        await loading.dismiss();
+        loading = null;
+      }
+
+      // Now show the main loading indicator for PDF preparation
       loading = await this.alertController.create({
         header: 'Loading Report',
         message: 'Preparing your PDF report...',
