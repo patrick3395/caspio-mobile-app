@@ -256,7 +256,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
-  
+
+  // Track photo loading state for skeleton loaders
+  loadingPhotosByKey: { [key: string]: boolean } = {};
+  photoCountsByKey: { [key: string]: number } = {}; // Expected photo count for skeleton loaders
+
   // Photo loading optimization
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
   isLoadingPhotos: boolean = false;
@@ -9551,7 +9555,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     return photos;
   }
-  
+
+  // [SKELETON] Check if photos are still loading for a visual
+  isLoadingPhotosForVisual(category: string, itemId: string): boolean {
+    const key = `${category}_${itemId}`;
+    return this.loadingPhotosByKey[key] === true;
+  }
+
+  // [SKELETON] Get expected photo count for skeleton loaders
+  getExpectedPhotoCount(category: string, itemId: string): number {
+    const key = `${category}_${itemId}`;
+    return this.photoCountsByKey[key] || 0;
+  }
+
+  // [SKELETON] Generate array for skeleton loader iteration
+  getSkeletonArray(category: string, itemId: string): any[] {
+    const count = this.getExpectedPhotoCount(category, itemId);
+    return Array(count).fill({ isSkeleton: true });
+  }
+
   // Handle image loading errors
   handleImageError(event: any, photo: any) {
     
@@ -12109,6 +12131,26 @@ Stack: ${error?.stack}`;
   async loadExistingPhotos() {
     const startTime = performance.now();
 
+    // [SKELETON] First pass: Get photo counts for skeleton loaders
+    const countPromises = Object.keys(this.visualRecordIds).map(async key => {
+      const rawVisualId = this.visualRecordIds[key];
+      const visualId = String(rawVisualId);
+
+      if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
+        this.loadingPhotosByKey[key] = true; // Mark as loading
+        try {
+          const attachments = await this.foundationData.getVisualAttachments(rawVisualId);
+          this.photoCountsByKey[key] = Array.isArray(attachments) ? attachments.length : 0;
+        } catch (error) {
+          this.photoCountsByKey[key] = 0;
+        }
+      }
+    });
+
+    // Wait for counts, then trigger UI update to show skeleton loaders
+    await Promise.all(countPromises);
+    this.changeDetectorRef.detectChanges(); // Show skeleton loaders
+
     // [PHOTO FIX] Load photos using unique VisualID-based keys
     // Each visual record now has its own unique key, preventing photo cross-contamination
     const loadPromises = Object.keys(this.visualRecordIds).map(key => {
@@ -12167,12 +12209,16 @@ Stack: ${error?.stack}`;
       
       // NOW assign to visualPhotos AFTER hydration completes
       this.visualPhotos[key] = uniquePhotoRecords;
-      
+
+      // [SKELETON] Clear loading state when done
+      this.loadingPhotosByKey[key] = false;
+
       // Trigger change detection with OnPush strategy
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error(`[v1.4.387] Failed to load photos for KEY ${key}:`, error);
       this.visualPhotos[key] = [];
+      this.loadingPhotosByKey[key] = false; // Clear loading state on error
     }
   }
 

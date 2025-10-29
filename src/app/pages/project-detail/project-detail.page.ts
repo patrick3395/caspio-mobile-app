@@ -1743,19 +1743,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       });
 
-      // Fetch the service record to get the Deliverable file
-      const serviceData = await this.caspioService.getServicesByProject(this.projectId).toPromise();
-      const serviceRecord = serviceData?.find((s: any) => s.PK_ID === service.serviceId);
-
-      if (!serviceRecord || !serviceRecord.Deliverable) {
-        await loading.dismiss();
-        await this.showToast('Deliverable file not found', 'warning');
-        return;
-      }
+      // Use the Deliverable path we already have in the service object
+      const filePath = service.Deliverable;
+      console.log('Fetching deliverable from path:', filePath);
 
       // Fetch the actual file using the Deliverable field path
-      console.log('Fetching deliverable from path:', serviceRecord.Deliverable);
-      const fileData = await this.caspioService.getFileFromPath(serviceRecord.Deliverable).toPromise();
+      const fileData = await this.caspioService.getFileFromPath(filePath).toPromise();
 
       console.log('File data received:', {
         hasUrl: !!fileData?.url,
@@ -1782,7 +1775,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       const filename = `${service.typeName}_deliverable`;
-      const filePath = serviceRecord.Deliverable;
 
       // Check if it's a PDF
       const isPDF = filePath.toLowerCase().includes('.pdf') ||
@@ -2783,10 +2775,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async addOptionalDocument(doc: any) {
     if (!this.selectedServiceDoc) return;
 
+    // Check if document with same title already exists and generate versioned title
+    const versionedTitle = this.getVersionedTitle(doc.title, this.selectedServiceDoc);
+
     // If in link mode, add document immediately with isLink flag (no URL prompt yet)
     if (this.isAddingLink) {
       this.selectedServiceDoc.documents.push({
-        title: doc.title,
+        title: versionedTitle,
         required: doc.required,
         uploaded: false,
         templateId: doc.templateId,
@@ -2800,7 +2795,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Add document to the service's document list
     this.selectedServiceDoc.documents.push({
-      title: doc.title,
+      title: versionedTitle,
       required: doc.required,
       uploaded: false,
       templateId: doc.templateId
@@ -3069,10 +3064,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async addCustomDocument(documentName: string) {
     if (!this.selectedServiceDoc || !documentName || !documentName.trim()) return;
 
+    // Check if document with same name already exists and generate versioned title
+    const versionedTitle = this.getVersionedTitle(documentName.trim(), this.selectedServiceDoc);
+
     // Add custom document to the service's document list
     // If in link mode, mark as link document
     const newDoc: any = {
-      title: documentName.trim(),
+      title: versionedTitle,
       required: false,
       uploaded: false,
       templateId: undefined  // No template for custom documents
@@ -3823,6 +3821,45 @@ Troubleshooting:
 
   private generateInstanceId(): string {
     return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Generate a versioned title if document with same title already exists
+   * Returns: "Document #2", "Document #3", etc.
+   */
+  private getVersionedTitle(baseTitle: string, serviceDoc: any): string {
+    // Get all existing document titles in this service (both uploaded and pending)
+    const existingTitles = serviceDoc.documents.map((d: any) => d.title);
+
+    // Find all documents with titles matching the base title or versioned variants
+    const baseTitleLower = baseTitle.toLowerCase();
+    const matchingTitles = existingTitles.filter((t: string) => {
+      const titleLower = t.toLowerCase();
+      // Match exact title or title with version suffix (e.g., "Document #2")
+      return titleLower === baseTitleLower ||
+             titleLower.match(new RegExp(`^${baseTitleLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
+    });
+
+    // If no duplicates, return original title
+    if (matchingTitles.length === 0) {
+      return baseTitle;
+    }
+
+    // Find the highest version number
+    let maxVersion = 1;
+    for (const existingTitle of matchingTitles) {
+      const match = existingTitle.match(/#(\d+)$/);
+      if (match) {
+        const version = parseInt(match[1]);
+        if (version > maxVersion) {
+          maxVersion = version;
+        }
+      }
+    }
+
+    // Return title with next version number
+    const nextVersion = maxVersion + 1;
+    return `${baseTitle} #${nextVersion}`;
   }
 
   /**

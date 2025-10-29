@@ -388,12 +388,19 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 const imgWidth = originalImg.offsetWidth;
                 const imgHeight = originalImg.offsetHeight;
 
+                console.log(`[PDF] Original cover image size: ${imgWidth}x${imgHeight}`);
+
                 // Set exact dimensions on the clone, overriding object-fit behavior
                 clonedImg.style.width = imgWidth + 'px';
                 clonedImg.style.height = imgHeight + 'px';
                 clonedImg.style.maxWidth = 'none';
                 clonedImg.style.maxHeight = 'none';
-                clonedImg.style.objectFit = 'fill'; // Change from contain to fill since we're setting exact size
+                clonedImg.style.minWidth = imgWidth + 'px';
+                clonedImg.style.minHeight = imgHeight + 'px';
+                clonedImg.style.objectFit = 'fill';
+                clonedImg.style.display = 'block';
+
+                console.log(`[PDF] Cloned image styled to: ${clonedImg.style.width} x ${clonedImg.style.height}`);
               }
             }
           }
@@ -413,6 +420,14 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Wait for render
           await new Promise(resolve => setTimeout(resolve, 300));
 
+          // Log cloned image size after render for cover page
+          if (isCoverPage) {
+            const clonedImg = clone.querySelector('.property-photo-container img') as HTMLElement;
+            if (clonedImg) {
+              console.log(`[PDF] Cloned image size after render: ${clonedImg.offsetWidth}x${clonedImg.offsetHeight}`);
+            }
+          }
+
           // Capture the cloned element with explicit width (let height auto-size for cover page)
           const canvas = await html2canvas(clone, {
             scale: 2,
@@ -422,6 +437,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             logging: false,
             width: originalWidth
           });
+
+          console.log(`[PDF] Canvas size for page ${i + 1}: ${canvas.width}x${canvas.height}`);
 
           // Remove the clone
           document.body.removeChild(clone);

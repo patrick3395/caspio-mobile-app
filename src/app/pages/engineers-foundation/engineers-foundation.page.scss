@@ -3474,3 +3474,74 @@ button.room-photo-caption {
   }
 }
 
+// ========================================
+// SKELETON LOADERS FOR PHOTO THUMBNAILS
+// ========================================
+
+// Skeleton loader animation
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+// Skeleton loader container
+.skeleton-loader {
+  pointer-events: none;
+  cursor: default;
+
+  .skeleton-image {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    display: block;
+  }
+
+  .skeleton-caption {
+    width: 90px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: block;
+  }
+}
+
+// Mobile responsive skeleton sizes
+@media (max-width: 576px) {
+  .skeleton-loader {
+    .skeleton-image {
+      width: 80px !important;
+      height: 90px !important;
+    }
+
+    .skeleton-caption {
+      width: 80px !important;
+      height: 20px !important;
+    }
+  }
+}
+
+// Extra small screens
+@media (max-width: 360px) {
+  .skeleton-loader {
+    .skeleton-image {
+      width: 75px !important;
+      height: 85px !important;
+    }
+
+    .skeleton-caption {
+      width: 75px !important;
+      height: 18px !important;
+    }
+  }
+}
