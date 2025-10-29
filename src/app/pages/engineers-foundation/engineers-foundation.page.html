@@ -1223,7 +1223,7 @@
                     <!-- Top Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
                                 class="fdf-photo-button"
                                 style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1238,7 +1238,7 @@
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
@@ -1265,7 +1265,7 @@
                     <!-- Bottom Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
                                 style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1280,7 +1280,7 @@
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
@@ -1305,9 +1305,9 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                    <div class="fdf-photo-column" *ngIf="shouldShowLocationFDF(room.RoomName)" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
                                 style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1322,7 +1322,7 @@
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
@@ -1409,7 +1409,7 @@
                         <!-- Measurement Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
-                          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                          <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
                                     style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
@@ -1451,7 +1451,7 @@
                         <!-- Location Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
-                          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                          <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
                                     style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
@@ -1708,7 +1708,7 @@
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
@@ -1735,7 +1735,7 @@
                     <!-- Bottom Photo Column -->
                     <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
                                 class="fdf-photo-button"
                                 style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1750,7 +1750,7 @@
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
@@ -1775,9 +1775,9 @@
                     </div>
                     
                     <!-- Location Photo Column -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                    <div class="fdf-photo-column" *ngIf="shouldShowLocationFDF(room.RoomName)" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
                                 class="fdf-photo-button"
                                 style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
@@ -1792,7 +1792,7 @@
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
-                           style="margin-top: 12px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
@@ -1857,7 +1857,7 @@
                         <!-- Measurement Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
-                          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                          <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
                                     style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
@@ -1899,7 +1899,7 @@
                         <!-- Location Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
-                          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                          <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
                                     class="fdf-photo-button measurement-photo-btn"
                                     style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">

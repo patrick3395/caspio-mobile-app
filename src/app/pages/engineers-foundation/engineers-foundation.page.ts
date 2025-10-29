@@ -2666,7 +2666,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Trigger change detection
               this.changeDetectorRef.detectChanges();
 
-              await this.showToast('Point name updated', 'success');
               return true;
 
             } catch (error) {
@@ -2736,20 +2735,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
               // Trigger change detection to update the view
               this.changeDetectorRef.detectChanges();
-
-              await this.showToast('Point deleted', 'success');
             } catch (error) {
               console.error('Error deleting point:', error);
               await this.showToast('Failed to delete point', 'danger');
             }
           }
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
   }
-  
+
   // Ensure FDF photos structure exists for a room
   private ensureFdfPhotosStructure(roomName: string): void {
     if (!this.roomElevationData[roomName]) {
@@ -2945,7 +2943,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 this.triggerFileInput(source, { allowMultiple: false });
               }
             }
-          ]
+          ],
+          cssClass: 'custom-document-alert'
         });
         await alert.present();
         return;
@@ -4639,6 +4638,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!roomName) return false;
     // Match "Base Station" or "Base Station #2", "Base Station #3", etc.
     return roomName === 'Base Station' || roomName.startsWith('Base Station #');
+  }
+
+  // Check if a room should show Location FDF photo (Base Station or Bedroom only, not Bathroom)
+  shouldShowLocationFDF(roomName: string): boolean {
+    if (!roomName) return false;
+
+    // Always show for Base Station
+    if (this.isBaseStation(roomName)) return true;
+
+    const lowerRoomName = roomName.toLowerCase().trim();
+
+    // Check if it's a bedroom
+    const isBedroom = lowerRoomName.includes('bedroom') ||
+                      lowerRoomName.includes('bed room') ||
+                      lowerRoomName.includes('bdrm') ||
+                      lowerRoomName.includes('primary bed') ||
+                      lowerRoomName.includes('master bed') ||
+                      /\bbr\s*\d/.test(lowerRoomName) || // BR1, BR 1, etc.
+                      /\bbr\b/.test(lowerRoomName); // standalone BR
+
+    return isBedroom;
   }
 
   // Check if a room is a bedroom or bathroom (for Location field)
@@ -11698,7 +11718,8 @@ Stack: ${error?.stack}`;
                 await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
               }
             }
-          ]
+          ],
+          cssClass: 'custom-document-alert'
         });
         await alert.present();
         return;
