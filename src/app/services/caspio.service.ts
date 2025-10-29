@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, from, of, firstValueFrom } from 'rxjs';
-import { map, tap, catchError, switchMap, finalize } from 'rxjs/operators';
+import { Observable, BehaviorSubject, throwError, from, of, firstValueFrom, timer } from 'rxjs';
+import { map, tap, catchError, switchMap, finalize, retryWhen, mergeMap, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
 import { OfflineService, QueuedRequest } from './offline.service';
+import { ConnectionMonitorService } from './connection-monitor.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../utils/annotation-utils';
 
 export interface CaspioToken {
@@ -26,19 +27,27 @@ export interface CaspioAuthResponse {
 export class CaspioService {
   private tokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpirationTimer: any;
+  private tokenRefreshTimer: any;
   private imageCache = new Map<string, string>(); // Cache for loaded images
   private imageWorker: Worker | null = null;
   private imageWorkerTaskId = 0;
   private imageWorkerCallbacks = new Map<number, { resolve: (value: string) => void; reject: (reason?: any) => void }>();
-  
+
   // Request deduplication
   private pendingRequests = new Map<string, Observable<any>>();
+
+  // Token refresh management
+  private isRefreshing = false;
+  private refreshTokenSubject = new BehaviorSubject<string | null>(null);
+  private tokenExpiryTime: number = 0;
+  private debugMode = false; // Set to true to enable detailed logging
 
   constructor(
     private http: HttpClient,
     private imageCompression: ImageCompressionService,
     private cache: CacheService,
-    private offline: OfflineService
+    private offline: OfflineService,
+    private connectionMonitor: ConnectionMonitorService
   ) {
     this.loadStoredToken();
     this.offline.registerProcessor(this.processQueuedRequest.bind(this));
@@ -78,42 +87,102 @@ export class CaspioService {
   }
 
   private setToken(token: string, expiresIn: number): void {
+    const expiryTime = Date.now() + (expiresIn * 1000);
+    this.tokenExpiryTime = expiryTime;
+
     this.tokenSubject.next(token);
     localStorage.setItem('caspio_token', token);
-    localStorage.setItem('caspio_token_expiry', (Date.now() + (expiresIn * 1000)).toString());
-    
+    localStorage.setItem('caspio_token_expiry', expiryTime.toString());
+
+    if (this.debugMode) {
+      console.log('🔐 Token set:', {
+        expiresIn: expiresIn,
+        expiryTime: new Date(expiryTime).toISOString(),
+        refreshAt: new Date(Date.now() + (expiresIn * 900)).toISOString() // 90% of lifetime
+      });
+    }
+
+    // Set proactive refresh timer at 90% of token lifetime
+    this.setTokenRefreshTimer(expiresIn * 1000);
+    // Set expiration timer at 100% as backup
     this.setTokenExpirationTimer(expiresIn * 1000);
+  }
+
+  private setTokenRefreshTimer(expiresInMs: number): void {
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+    }
+
+    // Refresh at 90% of token lifetime to prevent expiration
+    const refreshTime = expiresInMs * 0.9;
+    this.tokenRefreshTimer = setTimeout(() => {
+      if (this.debugMode) {
+        console.log('⏰ Proactive token refresh triggered at 90% lifetime');
+      }
+      this.refreshToken();
+    }, refreshTime);
   }
 
   private setTokenExpirationTimer(expiresInMs: number): void {
     if (this.tokenExpirationTimer) {
       clearTimeout(this.tokenExpirationTimer);
     }
-    
+
+    // This serves as a backup if refresh somehow fails
     this.tokenExpirationTimer = setTimeout(() => {
-      this.clearToken();
+      if (this.debugMode) {
+        console.warn('⚠️ Token expired (100% lifetime) - this should not happen if refresh worked');
+      }
+      // Only clear if we're not currently refreshing
+      if (!this.isRefreshing) {
+        this.clearToken();
+      }
     }, expiresInMs);
   }
 
   private loadStoredToken(): void {
     const token = localStorage.getItem('caspio_token');
     const expiry = localStorage.getItem('caspio_token_expiry');
-    
+
     if (token && expiry && Date.now() < parseInt(expiry, 10)) {
+      const expiryTime = parseInt(expiry, 10);
+      this.tokenExpiryTime = expiryTime;
       this.tokenSubject.next(token);
-      const remainingTime = parseInt(expiry, 10) - Date.now();
+      const remainingTime = expiryTime - Date.now();
+
+      if (this.debugMode) {
+        console.log('🔓 Loaded stored token:', {
+          remainingTime: Math.round(remainingTime / 1000) + 's',
+          expiresAt: new Date(expiryTime).toISOString()
+        });
+      }
+
+      // Set both refresh and expiration timers based on remaining time
+      this.setTokenRefreshTimer(remainingTime);
       this.setTokenExpirationTimer(remainingTime);
     } else {
+      if (this.debugMode && token) {
+        console.log('🚫 Stored token expired or invalid, clearing');
+      }
       this.clearToken();
     }
   }
 
   private clearToken(): void {
+    if (this.debugMode) {
+      console.log('🗑️ Clearing token');
+    }
     this.tokenSubject.next(null);
+    this.tokenExpiryTime = 0;
     localStorage.removeItem('caspio_token');
     localStorage.removeItem('caspio_token_expiry');
     if (this.tokenExpirationTimer) {
       clearTimeout(this.tokenExpirationTimer);
+      this.tokenExpirationTimer = null;
+    }
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
     }
   }
 
@@ -129,6 +198,50 @@ export class CaspioService {
     return this.getCurrentToken() !== null;
   }
 
+  private isTokenValid(): boolean {
+    if (!this.isAuthenticated()) {
+      return false;
+    }
+    // Check if token expires in less than 5 minutes
+    const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
+    return this.tokenExpiryTime > fiveMinutesFromNow;
+  }
+
+  private refreshToken(): void {
+    // Prevent concurrent refresh attempts
+    if (this.isRefreshing) {
+      if (this.debugMode) {
+        console.log('🔄 Token refresh already in progress, skipping');
+      }
+      return;
+    }
+
+    if (this.debugMode) {
+      console.log('🔄 Starting token refresh');
+    }
+
+    this.isRefreshing = true;
+
+    this.authenticate().subscribe({
+      next: (response) => {
+        this.isRefreshing = false;
+        this.refreshTokenSubject.next(response.access_token);
+        if (this.debugMode) {
+          console.log('✅ Token refresh successful');
+        }
+      },
+      error: (error) => {
+        this.isRefreshing = false;
+        this.refreshTokenSubject.next(null);
+        if (this.debugMode) {
+          console.error('❌ Token refresh failed:', error);
+        }
+        // If refresh fails, clear the token so next request will trigger new auth
+        this.clearToken();
+      }
+    });
+  }
+
   async ensureAuthenticated(): Promise<void> {
     if (!this.isAuthenticated()) {
       await this.authenticate().toPromise();
@@ -138,10 +251,38 @@ export class CaspioService {
   // Get a valid token, authenticating if necessary
   getValidToken(): Observable<string> {
     const currentToken = this.getCurrentToken();
-    if (currentToken) {
+    if (currentToken && this.isTokenValid()) {
       return of(currentToken);
+    } else if (this.isRefreshing) {
+      // Wait for refresh to complete
+      return this.refreshTokenSubject.pipe(
+        switchMap(token => {
+          if (token) {
+            return of(token);
+          } else {
+            // Refresh failed, try full authentication
+            return this.authenticate().pipe(
+              map(response => response.access_token)
+            );
+          }
+        })
+      );
+    } else if (currentToken && !this.isTokenValid()) {
+      // Token exists but expires soon, refresh it
+      this.refreshToken();
+      return this.refreshTokenSubject.pipe(
+        switchMap(token => {
+          if (token) {
+            return of(token);
+          } else {
+            return this.authenticate().pipe(
+              map(response => response.access_token)
+            );
+          }
+        })
+      );
     } else {
-      // Need to authenticate first
+      // No token at all, authenticate
       return this.authenticate().pipe(
         map(response => response.access_token)
       );
@@ -155,13 +296,30 @@ export class CaspioService {
     return match ? match[1] : 'c2hcf092'; // Fallback to known account ID
   }
 
+  /**
+   * Get the current connection health status
+   * Useful for UI indicators or diagnostics
+   */
+  getConnectionHealth() {
+    return this.connectionMonitor.getHealth();
+  }
+
+  /**
+   * Check if connection is currently healthy
+   */
+  isConnectionHealthy(): boolean {
+    return this.connectionMonitor.isHealthy();
+  }
+
   get<T>(endpoint: string, useCache: boolean = true): Observable<T> {
     // Create a unique key for this request
     const requestKey = `GET:${endpoint}`;
-    
+
     // Check if there's already a pending request for this endpoint
     if (this.pendingRequests.has(requestKey)) {
-      console.log(`🔄 Request deduplication: reusing pending request for ${endpoint}`);
+      if (this.debugMode) {
+        console.log(`🔄 Request deduplication: reusing pending request for ${endpoint}`);
+      }
       return this.pendingRequests.get(requestKey)!;
     }
 
@@ -169,33 +327,74 @@ export class CaspioService {
     if (useCache) {
       const cachedData = this.cache.getApiResponse(endpoint);
       if (cachedData !== null) {
-        console.log(`🚀 Cache hit for ${endpoint}`);
+        if (this.debugMode) {
+          console.log(`🚀 Cache hit for ${endpoint}`);
+        }
         return of(cachedData);
       }
     }
 
-    const token = this.getCurrentToken();
-    if (!token) {
-      console.error('No authentication token available for GET request to:', endpoint);
-      return throwError(() => new Error('No authentication token available'));
-    }
+    // Use getValidToken to ensure we have a valid token (handles refresh automatically)
+    const request$ = this.getValidToken().pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+        const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+        const startTime = Date.now();
 
-    const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
-    
-    // Create the request observable
-    const request$ = this.http.get<T>(url, { headers }).pipe(
-      tap(data => {
-        // Cache the response
-        if (useCache) {
-          const cacheStrategy = this.getCacheStrategy(endpoint);
-          this.cache.setApiResponse(endpoint, null, data, cacheStrategy);
-          console.log(`💾 Cached ${endpoint} with strategy ${cacheStrategy}`);
-        }
+        return this.http.get<T>(url, { headers }).pipe(
+          // Retry with exponential backoff for network errors
+          retryWhen(errors =>
+            errors.pipe(
+              mergeMap((error, index) => {
+                const retryAttempt = index + 1;
+                const maxRetries = 3;
+
+                // Don't retry on auth errors (401, 403) or client errors (400)
+                if (error.status === 401 || error.status === 403 || error.status === 400) {
+                  if (this.debugMode) {
+                    console.error(`❌ Non-retryable error (${error.status}) for ${endpoint}`);
+                  }
+                  return throwError(() => error);
+                }
+
+                // Don't retry if we've exceeded max attempts
+                if (retryAttempt > maxRetries) {
+                  if (this.debugMode) {
+                    console.error(`❌ Max retries (${maxRetries}) exceeded for ${endpoint}`);
+                  }
+                  return throwError(() => error);
+                }
+
+                // Calculate exponential backoff: 1s, 2s, 4s
+                const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
+
+                if (this.debugMode) {
+                  console.log(`⏳ Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
+                }
+
+                return timer(delayMs);
+              })
+            )
+          ),
+          tap(data => {
+            // Record successful request
+            const responseTime = Date.now() - startTime;
+            this.connectionMonitor.recordSuccess(endpoint, responseTime);
+
+            // Cache the response
+            if (useCache) {
+              const cacheStrategy = this.getCacheStrategy(endpoint);
+              this.cache.setApiResponse(endpoint, null, data, cacheStrategy);
+              if (this.debugMode) {
+                console.log(`💾 Cached ${endpoint} with strategy ${cacheStrategy} (${responseTime}ms)`);
+              }
+            }
+          })
+        );
       }),
       finalize(() => {
         // Remove from pending requests when complete
@@ -204,21 +403,38 @@ export class CaspioService {
       catchError(error => {
         // Remove from pending requests on error
         this.pendingRequests.delete(requestKey);
-        console.error(`GET request failed for ${endpoint}:`, error);
-        console.error('GET error details:', {
+
+        // Record failed request
+        this.connectionMonitor.recordFailure(endpoint);
+
+        // Enhanced error messages
+        let errorMessage = 'Request failed';
+        if (error.status === 401) {
+          errorMessage = 'Authentication failed - invalid or expired token';
+        } else if (error.status === 403) {
+          errorMessage = 'Access forbidden - insufficient permissions';
+        } else if (error.status === 404) {
+          errorMessage = 'API endpoint not found';
+        } else if (error.status === 0) {
+          errorMessage = 'Network error - please check your connection';
+        } else if (error.status >= 500) {
+          errorMessage = 'Server error - please try again later';
+        }
+
+        console.error(`❌ GET request failed for ${endpoint}: ${errorMessage}`, {
           status: error.status,
           statusText: error.statusText,
           message: error.message,
-          url: error.url,
-          error: error.error
+          url: error.url
         });
-        return throwError(() => error);
+
+        return throwError(() => new Error(errorMessage));
       })
     );
 
     // Store the pending request
     this.pendingRequests.set(requestKey, request$);
-    
+
     return request$;
   }
 
