@@ -1566,17 +1566,27 @@ export class CaspioService {
     if (serviceId) {
       // Prepend ServiceID to Notes field: [SID:123] existing notes
       const serviceIdPrefix = `[SID:${serviceId}]`;
-      dataToSend.Notes = dataToSend.Notes 
+      dataToSend.Notes = dataToSend.Notes
         ? `${serviceIdPrefix} ${dataToSend.Notes}`
         : serviceIdPrefix;
     }
-    
-    // Remove ?response=rows as per Caspio best practices
-    return this.post<any>('/tables/Attach/records', dataToSend).pipe(
-      tap(response => {
+
+    console.log('[CaspioService.createAttachment] Creating attachment with data:', dataToSend);
+
+    // Use response=rows to get the created record back immediately
+    return this.post<any>('/tables/Attach/records?response=rows', dataToSend).pipe(
+      map(response => {
+        console.log('[CaspioService.createAttachment] Raw response:', response);
+        // With response=rows, Caspio returns {"Result": [{created record}]}
+        if (response && response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          console.log('[CaspioService.createAttachment] Returning created record:', response.Result[0]);
+          return response.Result[0]; // Return the created attachment record
+        }
+        console.log('[CaspioService.createAttachment] No Result array, returning raw response');
+        return response; // Fallback to original response
       }),
       catchError(error => {
-        console.error('? [CaspioService.createAttachment] Failed:', error);
+        console.error('❌ [CaspioService.createAttachment] Failed:', error);
         console.error('Error details:', {
           status: error?.status,
           statusText: error?.statusText,
