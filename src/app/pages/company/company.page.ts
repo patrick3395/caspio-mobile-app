@@ -8,6 +8,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { Chart, ChartConfiguration, registerables } from 'chart.js';
 
 interface StageDefinition {
   id: number;
@@ -311,6 +312,10 @@ export class CompanyPage implements OnInit, OnDestroy {
   invoiceMetrics: InvoiceTotals = { total: 0, outstanding: 0, paid: 0 };
   visibleInvoiceCount = 0;
 
+  // Metrics tab - chart data
+  revenueChart: Chart | null = null;
+  revenueChartData: { labels: string[]; values: number[] } = { labels: [], values: [] };
+
   private stageLookup = new Map<number, StageDefinition>();
   private companyNameLookup = new Map<number, string>();
   private projectDetailsLookup = new Map<number, ProjectMetadata>();
@@ -496,6 +501,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Register Chart.js components
+    Chart.register(...registerables);
+
     // Check if user is from Company ID 1
     const userStr = localStorage.getItem('currentUser');
     if (userStr) {
@@ -2809,7 +2817,8 @@ export class CompanyPage implements OnInit, OnDestroy {
           this.categorizeInvoices();
           break;
         case 'metrics':
-          // Metrics tab - placeholder for future implementation
+          this.aggregateRevenueByMonth();
+          setTimeout(() => this.renderRevenueChart(), 100);
           break;
         case 'users':
           this.applyUserFilters();
@@ -4521,6 +4530,116 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   trackByTask = (_: number, task: TaskViewModel) => task.TaskID;
 
+  aggregateRevenueByMonth() {
+    // Filter to only positive invoices (Fee > 0)
+    const positiveInvoices = this.invoices.filter(inv => (inv.Fee ?? 0) > 0);
+
+    // Group by month
+    const monthlyRevenue = new Map<string, number>();
+
+    positiveInvoices.forEach(invoice => {
+      if (!invoice.DateValue) {
+        return;
+      }
+
+      const date = invoice.DateValue;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      const currentTotal = monthlyRevenue.get(monthKey) ?? 0;
+      monthlyRevenue.set(monthKey, currentTotal + (invoice.Fee ?? 0));
+    });
+
+    // Sort by month and create labels/values arrays
+    const sortedEntries = Array.from(monthlyRevenue.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+    this.revenueChartData = {
+      labels: sortedEntries.map(([monthKey]) => {
+        const [year, month] = monthKey.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1);
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      }),
+      values: sortedEntries.map(([_, value]) => value)
+    };
+  }
+
+  renderRevenueChart() {
+    const canvas = document.getElementById('revenueChart') as HTMLCanvasElement;
+    if (!canvas) {
+      console.warn('Revenue chart canvas not found');
+      return;
+    }
+
+    // Destroy existing chart if it exists
+    if (this.revenueChart) {
+      this.revenueChart.destroy();
+      this.revenueChart = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: this.revenueChartData.labels,
+        datasets: [{
+          label: 'Revenue',
+          data: this.revenueChartData.values,
+          fill: true,
+          backgroundColor: 'rgba(59, 130, 246, 0.2)',
+          borderColor: 'rgb(59, 130, 246)',
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: 'rgb(59, 130, 246)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return `Revenue: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => {
+                return '$' + (value as number).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+              }
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    };
+
+    this.revenueChart = new Chart(ctx, config);
+  }
+
   ngOnDestroy() {
     if (this.contactSearchDebounce) {
       clearTimeout(this.contactSearchDebounce);
@@ -4529,6 +4648,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (this.companySearchDebounce) {
       clearTimeout(this.companySearchDebounce);
       this.companySearchDebounce = null;
+    }
+    if (this.revenueChart) {
+      this.revenueChart.destroy();
+      this.revenueChart = null;
     }
   }
 

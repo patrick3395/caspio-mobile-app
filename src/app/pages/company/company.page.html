@@ -760,10 +760,14 @@
         </div>
       </div>
 
-      <div class="empty-tab-state">
-        <ion-icon name="analytics-outline"></ion-icon>
-        <h3>Metrics Dashboard Coming Soon</h3>
-        <p>Key performance indicators and analytics will be displayed here.</p>
+      <div class="chart-container">
+        <div class="chart-header">
+          <h4>Revenue Over Time</h4>
+          <p>Monthly invoice revenue</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="revenueChart"></canvas>
+        </div>
       </div>
     </div>
     <div *ngIf="selectedTab === 'users'" class="tab-content users-tab">
