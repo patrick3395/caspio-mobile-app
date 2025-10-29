@@ -3559,7 +3559,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // STEP 2: Queue photo upload in background (serialized with other uploads)
       const attachId = response.AttachID;
-      const pointIdForClosure = pointIdNum; // Capture for closure
+
+      // Capture point reference for the callback closure
+      const pointNameCapture = pointName;
 
       // Add upload task to the same queue used by visual photos
       this.backgroundUploadQueue.push(async () => {
@@ -3575,42 +3577,56 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
           this.ngZone.run(async () => {
-            // Find the point and update the photo entry
-            const point = Object.values(this.roomPoints).flat().find((p: any) =>
-              p.photos?.some((ph: any) => ph.attachId === attachId)
-            );
+            // Find the point by searching through roomElevationData
+            let foundPoint: any = null;
+            let foundPhotoIndex = -1;
 
-            if (point) {
-              const photoIndex = point.photos.findIndex((ph: any) => ph.attachId === attachId);
-              if (photoIndex !== -1) {
-                const filePath = uploadResponse?.Photo || '';
-                let imageUrl = point.photos[photoIndex].url;
-
-                if (filePath) {
-                  try {
-                    const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-                    if (imageData && imageData.startsWith('data:')) {
-                      imageUrl = imageData;
+            // Search through all rooms to find the point with this attachId
+            for (const roomName of Object.keys(this.roomElevationData)) {
+              const roomData = this.roomElevationData[roomName];
+              if (roomData.elevationPoints) {
+                for (const point of roomData.elevationPoints) {
+                  if (point.photos) {
+                    const photoIndex = point.photos.findIndex((ph: any) => ph.attachId === attachId);
+                    if (photoIndex !== -1) {
+                      foundPoint = point;
+                      foundPhotoIndex = photoIndex;
+                      break;
                     }
-                  } catch (err) {
-                    console.error('Failed to load uploaded room point image:', err);
                   }
                 }
-
-                // Update photo with uploaded data - CLEAR uploading flag
-                point.photos[photoIndex] = {
-                  ...point.photos[photoIndex],
-                  Photo: filePath,
-                  url: imageUrl,
-                  thumbnailUrl: imageUrl,
-                  uploading: false  // CRITICAL: Clear the uploading flag
-                };
-
-                console.log(`[Fast Upload Room Point] UI updated, uploading flag cleared for AttachID: ${attachId}`);
-
-                // Force change detection
-                this.changeDetectorRef.detectChanges();
               }
+              if (foundPoint) break;
+            }
+
+            if (foundPoint && foundPhotoIndex !== -1) {
+              const filePath = uploadResponse?.Photo || '';
+              let imageUrl = foundPoint.photos[foundPhotoIndex].url;
+
+              if (filePath) {
+                try {
+                  const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+                  if (imageData && imageData.startsWith('data:')) {
+                    imageUrl = imageData;
+                  }
+                } catch (err) {
+                  console.error('Failed to load uploaded room point image:', err);
+                }
+              }
+
+              // Update photo with uploaded data - CLEAR uploading flag
+              foundPoint.photos[foundPhotoIndex] = {
+                ...foundPoint.photos[foundPhotoIndex],
+                Photo: filePath,
+                url: imageUrl,
+                thumbnailUrl: imageUrl,
+                uploading: false  // CRITICAL: Clear the uploading flag
+              };
+
+              console.log(`[Fast Upload Room Point] UI updated, uploading flag cleared for AttachID: ${attachId}`);
+
+              // Force change detection
+              this.changeDetectorRef.detectChanges();
             } else {
               console.warn(`[Fast Upload Room Point] Could not find photo with AttachID: ${attachId}`);
             }
