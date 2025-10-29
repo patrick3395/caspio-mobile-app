@@ -3216,14 +3216,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // CRITICAL FIX: Don't clear context immediately - let it persist for rapid captures
       // Only reset file input attributes if not continuing with camera
       if (!this.expectingCameraPhoto) {
+        // Clear any existing timer first
+        if (this.contextClearTimer) {
+          clearTimeout(this.contextClearTimer);
+        }
+
         // Reset to default state after a short delay to allow rapid captures
-        setTimeout(() => {
+        this.contextClearTimer = setTimeout(() => {
           if (this.fileInput && this.fileInput.nativeElement) {
             this.fileInput.nativeElement.removeAttribute('capture');
             this.fileInput.nativeElement.setAttribute('multiple', 'true');
           }
           // Clear context after delay to prevent interference with rapid captures
           this.currentRoomPointContext = null;
+          this.contextClearTimer = null;
         }, 500);
       }
     }
@@ -5418,18 +5424,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       ...this.expandedSections,
       [section]: !this.expandedSections[section]
     };
-    
+
     // PERFORMANCE: Mark cached values as dirty when sections change
     this.markSpacerHeightDirty();
-    
-    // CRITICAL: Detach change detection during DOM-heavy operations to prevent lag
-    this.changeDetectorRef.detach();
-    
-    // Use RAF to ensure smooth animation and re-attach change detection
-    requestAnimationFrame(() => {
-      this.changeDetectorRef.reattach();
-      this.changeDetectorRef.detectChanges();
-    });
+
+    // IMMEDIATE UPDATE: Trigger change detection immediately for responsive UI
+    // Previous detach/RAF approach caused unresponsiveness where users would
+    // double-click thinking the first click didn't register
+    this.changeDetectorRef.detectChanges();
   }
 
   // Check if Structural Systems section should be disabled
@@ -11328,17 +11330,10 @@ Stack: ${error?.stack}`;
 
   // Add photo directly from camera (structural systems)
   async addPhotoFromCamera(category: string, itemId: string) {
-    console.log(`[Camera Button] Clicked for ${category}_${itemId}`);
-
-    // DEBUG: Show popup to confirm button was clicked
-    const timestamp = new Date().toLocaleTimeString();
-    await this.showToast(`Camera button clicked at ${timestamp}`, 'primary');
-
     // CRITICAL: Clear any pending context-clearing timer from previous photo
     if (this.contextClearTimer) {
       clearTimeout(this.contextClearTimer);
       this.contextClearTimer = null;
-      console.log('[Camera Button] Cleared pending context timer');
     }
 
     this.currentUploadContext = {
@@ -11347,7 +11342,6 @@ Stack: ${error?.stack}`;
       action: 'add'
     };
 
-    console.log('[Camera Button] Triggering file input');
     this.triggerFileInput('camera', { allowMultiple: false });
   }
 
