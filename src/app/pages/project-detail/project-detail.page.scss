@@ -1314,8 +1314,14 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 4px;
       flex-wrap: wrap;
+
+      .deliverable-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
 
       .deliverable-link {
         color: $orange;
@@ -1339,6 +1345,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         --padding-end: 4px;
         height: 32px;
         width: 32px;
+        margin: 0;
 
         ion-icon {
           font-size: 20px;
@@ -1639,6 +1646,18 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         color: $gray;
         font-size: 14px;
         font-style: italic;
+      }
+
+      .modal-deliverable-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+
+        ion-button {
+          margin: 0;
+          width: 100%;
+        }
       }
 
       ion-button {

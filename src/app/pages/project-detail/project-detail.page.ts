@@ -1708,6 +1708,114 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
+  async viewDeliverableFile(service: ServiceSelection) {
+    if (!service.Deliverable) {
+      await this.showToast('No deliverable file available', 'warning');
+      return;
+    }
+
+    try {
+      const fileUrl = service.Deliverable;
+      const filename = `${service.typeName}_deliverable`;
+
+      // Check if it's a PDF
+      const isPDF = fileUrl.toLowerCase().includes('.pdf') ||
+                   fileUrl.toLowerCase().includes('application/pdf');
+
+      if (isPDF) {
+        // Use PDF viewer for PDFs
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: fileUrl,
+            fileName: filename,
+            fileType: 'pdf',
+            filePath: fileUrl
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+      } else {
+        // For images or other files, open in new tab
+        window.open(fileUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error viewing deliverable:', error);
+      await this.showToast('Failed to view deliverable', 'danger');
+    }
+  }
+
+  async deleteDeliverableFile(service: ServiceSelection) {
+    if (!service.Deliverable || !service.serviceId) {
+      return;
+    }
+
+    const confirm = await this.alertController.create({
+      header: 'Delete Deliverable',
+      message: 'Are you sure you want to delete this deliverable file?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const loading = await this.loadingController.create({
+                message: 'Deleting deliverable...'
+              });
+              await loading.present();
+
+              // Clear the Deliverable field in the Services table
+              await this.caspioService.updateService(service.serviceId!, {
+                Deliverable: ''
+              }).toPromise();
+
+              // Update local service object
+              service.Deliverable = '';
+
+              await loading.dismiss();
+              await this.showToast('Deliverable deleted successfully', 'success');
+            } catch (error) {
+              console.error('Error deleting deliverable:', error);
+              await this.showToast('Failed to delete deliverable', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    await confirm.present();
+  }
+
+  async downloadDeliverableFile(service: ServiceSelection) {
+    if (!service.Deliverable) {
+      await this.showToast('No deliverable file available', 'warning');
+      return;
+    }
+
+    try {
+      const fileUrl = service.Deliverable;
+      const filename = `${service.typeName}_deliverable`;
+
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      await this.showToast('Download started', 'success');
+    } catch (error) {
+      console.error('Error downloading deliverable:', error);
+      await this.showToast('Failed to download deliverable', 'danger');
+    }
+  }
+
   // Document management methods
   updateDocumentsList() {
     console.log('[UpdateDocs] Starting updateDocumentsList()');

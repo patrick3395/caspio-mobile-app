@@ -2327,7 +2327,7 @@ ion-content{--overflow:scroll !important;height:100%}
             --highlight-height: 0;
             // --background-hover removed for mobile optimization
             padding: 12px;
-            border-radius: 11px 11px 0 0; // Match parent (12px) with slight reduction - only top corners
+            border-radius: 11px; // All corners rounded by default (collapsed state)
             transition: all 0.3s ease;
             background: white; // Explicitly set to ensure no transparency
             overflow: hidden; // Clip corners properly
@@ -2369,7 +2369,12 @@ ion-content{--overflow:scroll !important;height:100%}
             }
           }
         }
-        
+
+        // When room is expanded, only round top corners of header
+        &.selected .room-card-header .checkbox-item {
+          border-radius: 11px 11px 0 0; // Only top corners when expanded
+        }
+
         .room-card-content {
           padding: 20px;
           background: #f8f8f8;

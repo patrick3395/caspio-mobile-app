@@ -1609,6 +1609,8 @@ export class CaspioService {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
+    console.log('[Versioning] Starting duplicate check:', { projectId, typeId, baseTitle, serviceId });
+
     try {
       // Build query to get existing documents with same ProjectID and TypeID
       const queryParams = new URLSearchParams({
@@ -1629,12 +1631,14 @@ export class CaspioService {
       });
 
       if (!response.ok) {
-        console.warn('Failed to fetch existing attachments for duplicate check:', response.statusText);
+        console.warn('[Versioning] Failed to fetch existing attachments for duplicate check:', response.statusText);
         return baseTitle; // Return original title if check fails
       }
 
       const data = await response.json();
       const existingAttachments = data.Result || [];
+      console.log('[Versioning] Found existing attachments:', existingAttachments.length);
+      console.log('[Versioning] All attachment titles:', existingAttachments.map((a: any) => a.Title));
 
       // Filter attachments for this specific service instance if serviceId provided
       const relevantAttachments = existingAttachments.filter((a: any) => {
@@ -1653,6 +1657,9 @@ export class CaspioService {
         return true;
       });
 
+      console.log('[Versioning] Relevant attachments after filtering by serviceId:', relevantAttachments.length);
+      console.log('[Versioning] Relevant attachment titles:', relevantAttachments.map((a: any) => a.Title));
+
       // Find all documents with titles matching the base title or versioned variants
       const baseTitleLower = baseTitle.toLowerCase();
       const existingTitles = relevantAttachments
@@ -1664,8 +1671,11 @@ export class CaspioService {
                  titleLower.match(new RegExp(`^${baseTitleLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
         });
 
+      console.log('[Versioning] Matching titles found:', existingTitles);
+
       // If no duplicates, return original title
       if (existingTitles.length === 0) {
+        console.log('[Versioning] No duplicates found, returning original title:', baseTitle);
         return baseTitle;
       }
 
@@ -1683,10 +1693,12 @@ export class CaspioService {
 
       // Return title with next version number
       const nextVersion = maxVersion + 1;
-      return `${baseTitle} #${nextVersion}`;
+      const versionedTitle = `${baseTitle} #${nextVersion}`;
+      console.log('[Versioning] Returning versioned title:', versionedTitle);
+      return versionedTitle;
 
     } catch (error) {
-      console.error('Error checking for duplicate document titles:', error);
+      console.error('[Versioning] Error checking for duplicate document titles:', error);
       return baseTitle; // Return original title if error occurs
     }
   }
@@ -1723,6 +1735,8 @@ export class CaspioService {
 
       // Check for duplicate document titles and add versioning (#2, #3, etc.)
       const versionedTitle = await this.getVersionedDocumentTitle(projectId, typeId, title || file.name, serviceId);
+      console.log('[Upload] Original title:', title || file.name);
+      console.log('[Upload] Versioned title to save:', versionedTitle);
 
       // The file path for the Attachment field (use root path or folder path)
       const filePath = `/${uploadResult.Name || file.name}`;
@@ -1734,6 +1748,8 @@ export class CaspioService {
         Link: file.name,
         Attachment: filePath  // Store the file path from Files API
       };
+
+      console.log('[Upload] Record data being saved:', JSON.stringify(recordData, null, 2));
 
       // Store ServiceID in Notes field with special format to tie document to specific service instance
       if (serviceId) {

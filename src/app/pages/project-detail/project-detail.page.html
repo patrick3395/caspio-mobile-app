@@ -117,12 +117,20 @@
             <!-- Deliverable (File Upload) -->
             <td class="field-cell deliverable-file-cell">
               <div class="file-upload-container">
-                <a *ngIf="hasDeliverable(service)"
-                   [href]="getDeliverableUrl(service)"
-                   target="_blank"
-                   class="deliverable-link">
-                  View File
-                </a>
+                <!-- Action buttons when file exists -->
+                <div *ngIf="hasDeliverable(service)" class="deliverable-actions">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="viewDeliverableFile(service)" title="View">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </ion-button>
+                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(service)" title="Delete">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </ion-button>
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="downloadDeliverableFile(service)" title="Download">
+                    <ion-icon name="download-outline"></ion-icon>
+                  </ion-button>
+                </div>
+
+                <!-- Upload button -->
                 <div *ngIf="!isReadOnly">
                   <input
                     #deliverableFileInput
@@ -130,7 +138,7 @@
                     style="display: none"
                     (change)="uploadDeliverableFile(service, $event)"
                     accept="*/*">
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput.click()">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput.click()" title="Upload">
                     <ion-icon name="cloud-upload-outline"></ion-icon>
                   </ion-button>
                 </div>
@@ -186,12 +194,20 @@
             <!-- Deliverable (File Upload) -->
             <td class="field-cell deliverable-file-cell">
               <div class="file-upload-container">
-                <a *ngIf="hasDeliverable(service)"
-                   [href]="getDeliverableUrl(service)"
-                   target="_blank"
-                   class="deliverable-link">
-                  View File
-                </a>
+                <!-- Action buttons when file exists -->
+                <div *ngIf="hasDeliverable(service)" class="deliverable-actions">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="viewDeliverableFile(service)" title="View">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </ion-button>
+                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(service)" title="Delete">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </ion-button>
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="downloadDeliverableFile(service)" title="Download">
+                    <ion-icon name="download-outline"></ion-icon>
+                  </ion-button>
+                </div>
+
+                <!-- Upload button -->
                 <div *ngIf="!isReadOnly">
                   <input
                     #deliverableFileInput2
@@ -199,7 +215,7 @@
                     style="display: none"
                     (change)="uploadDeliverableFile(service, $event)"
                     accept="*/*">
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput2.click()">
+                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput2.click()" title="Upload">
                     <ion-icon name="cloud-upload-outline"></ion-icon>
                   </ion-button>
                 </div>
@@ -644,16 +660,27 @@
         <div class="modal-field-group">
           <label>Deliverable</label>
           <div class="modal-file-container">
-            <a *ngIf="hasDeliverable(selectedDeliverableService)"
-               [href]="getDeliverableUrl(selectedDeliverableService)"
-               target="_blank"
-               class="modal-deliverable-link">
-              <ion-icon name="document-outline"></ion-icon>
-              View File
-            </a>
+            <!-- Action buttons when file exists -->
+            <div *ngIf="hasDeliverable(selectedDeliverableService)" class="modal-deliverable-actions">
+              <ion-button size="small" fill="outline" color="primary" (click)="viewDeliverableFile(selectedDeliverableService)">
+                <ion-icon name="eye-outline" slot="start"></ion-icon>
+                View
+              </ion-button>
+              <ion-button size="small" fill="outline" color="primary" (click)="downloadDeliverableFile(selectedDeliverableService)">
+                <ion-icon name="download-outline" slot="start"></ion-icon>
+                Download
+              </ion-button>
+              <ion-button size="small" fill="outline" color="danger" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(selectedDeliverableService)">
+                <ion-icon name="trash-outline" slot="start"></ion-icon>
+                Delete
+              </ion-button>
+            </div>
+
             <span *ngIf="!hasDeliverable(selectedDeliverableService)" class="no-file-text">
               No file uploaded
             </span>
+
+            <!-- Upload button -->
             <div *ngIf="!isReadOnly">
               <input
                 #modalDeliverableFileInput

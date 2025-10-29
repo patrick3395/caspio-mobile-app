@@ -369,6 +369,29 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Append to body (outside modal)
           document.body.appendChild(clone);
 
+          // For cover page, ensure the photo container maintains its size
+          if (isCoverPage) {
+            const originalPhotoContainer = pageElement.querySelector('.property-photo-container') as HTMLElement;
+            const clonedPhotoContainer = clone.querySelector('.property-photo-container') as HTMLElement;
+
+            if (originalPhotoContainer && clonedPhotoContainer) {
+              const containerHeight = originalPhotoContainer.offsetHeight;
+              clonedPhotoContainer.style.minHeight = containerHeight + 'px';
+              clonedPhotoContainer.style.height = containerHeight + 'px';
+
+              // Also ensure the image maintains its size
+              const originalImg = originalPhotoContainer.querySelector('img') as HTMLElement;
+              const clonedImg = clonedPhotoContainer.querySelector('img') as HTMLElement;
+
+              if (originalImg && clonedImg) {
+                clonedImg.style.maxWidth = originalImg.offsetWidth + 'px';
+                clonedImg.style.maxHeight = originalImg.offsetHeight + 'px';
+                clonedImg.style.width = 'auto';
+                clonedImg.style.height = 'auto';
+              }
+            }
+          }
+
           // Ensure all images are loaded in the clone
           const images = clone.querySelectorAll('img');
           await Promise.all(
