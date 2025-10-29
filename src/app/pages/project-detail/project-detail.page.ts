@@ -2052,8 +2052,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       };
 
       // Add back any pending documents and check if they've been uploaded
-      const pending = pendingDocs.get(serviceDocGroup.serviceId);
-      if (pending) {
+      const storedDocsForService = existingDocs.get(serviceDocGroup.serviceId);
+      if (storedDocsForService) {
+        // Get all pending documents from stored order
+        const pending = Array.from(storedDocsForService.values())
+          .filter(item => !item.doc.uploaded)
+          .map(item => item.doc);
+
         // Add all pending documents back to the list
         for (const pendingDoc of pending) {
           // Check if this pending document has now been uploaded for THIS specific service instance
