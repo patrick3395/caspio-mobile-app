@@ -1928,13 +1928,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[UpdateDocs] existingAttachments.length:', this.existingAttachments.length);
     console.log('[UpdateDocs] selectedServices.length:', this.selectedServices.length);
 
-    // Store ALL pending (non-uploaded) documents before rebuilding
-    const pendingDocs: Map<string, DocumentItem[]> = new Map();
+    // Store ALL documents (uploaded and pending) with their original order
+    const existingDocs: Map<string, Map<string, { doc: DocumentItem, order: number }>> = new Map();
     for (const serviceDoc of this.serviceDocuments) {
-      const pending = serviceDoc.documents.filter(doc => !doc.uploaded);
-      if (pending.length > 0) {
-        pendingDocs.set(serviceDoc.serviceId, pending);
-      }
+      const docMap = new Map<string, { doc: DocumentItem, order: number }>();
+      serviceDoc.documents.forEach((doc, index) => {
+        // Use title as key to match documents
+        docMap.set(doc.title, { doc, order: index });
+      });
+      existingDocs.set(serviceDoc.serviceId, docMap);
     }
 
     this.serviceDocuments = [];
@@ -2181,7 +2183,28 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
       
-      // Now that all documents are collected, set them on the service doc group
+      // Now that all documents are collected, restore original order
+      // Get the stored order for this service
+      const storedOrder = existingDocs.get(serviceDocGroup.serviceId);
+
+      if (storedOrder) {
+        // Sort documents by their original order
+        documents.sort((a, b) => {
+          const orderA = storedOrder.get(a.title)?.order ?? 999999;
+          const orderB = storedOrder.get(b.title)?.order ?? 999999;
+          return orderA - orderB;
+        });
+        console.log('[UpdateDocs] Restored original order for service:', serviceDocGroup.serviceId);
+      } else {
+        // No previous order, sort by AttachID for new services
+        documents.sort((a: any, b: any) => {
+          const idA = parseInt(a.attachId) || 999999;
+          const idB = parseInt(b.attachId) || 999999;
+          return idA - idB;
+        });
+        console.log('[UpdateDocs] Using AttachID order for new service:', serviceDocGroup.serviceId);
+      }
+
       serviceDocGroup.documents = documents;
 
       // Check for duplicate service documents before adding

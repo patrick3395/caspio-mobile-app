@@ -336,7 +336,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         try {
           // Scroll the original page into view first to ensure images are loaded
           pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Wait longer for images to load in the original before cloning
+          await new Promise(resolve => setTimeout(resolve, 800));
 
           // Clone the page element to avoid modal issues
           const clone = pageElement.cloneNode(true) as HTMLElement;
@@ -421,44 +423,44 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Ensure all images are loaded in the clone
           const images = clone.querySelectorAll('img');
           const imageCount = images.length;
-          console.log(`[PDF] Page ${i + 1} has ${imageCount} images to load`);
+          console.log(`[PDF] Page ${i + 1} has ${imageCount} images`);
 
-          // Force reload images in clone by resetting src
-          Array.from(images).forEach((img: HTMLImageElement) => {
-            const src = img.src;
-            img.src = '';
-            img.src = src;
-          });
+          // Wait for all images to load (don't force reload if already loaded)
+          let loadedCount = 0;
+          let failedCount = 0;
 
-          // Wait for all images to load
           await Promise.all(
             Array.from(images).map((img: HTMLImageElement, idx) => {
+              // Check if image is already properly loaded
               if (img.complete && img.naturalWidth > 0) {
-                console.log(`[PDF] Image ${idx + 1}/${imageCount} already loaded`);
+                loadedCount++;
                 return Promise.resolve();
               }
+
+              // If not loaded, wait for it to load
               return new Promise((resolve) => {
                 img.onload = () => {
-                  console.log(`[PDF] Image ${idx + 1}/${imageCount} loaded`);
+                  loadedCount++;
                   resolve(true);
                 };
                 img.onerror = () => {
-                  console.warn(`[PDF] Image ${idx + 1}/${imageCount} failed to load`);
+                  failedCount++;
+                  console.warn(`[PDF] Image ${idx + 1}/${imageCount} failed: ${img.src.substring(0, 100)}`);
                   resolve(true);
                 };
-                // Timeout after 5 seconds
+                // Timeout after 3 seconds per image
                 setTimeout(() => {
-                  console.warn(`[PDF] Image ${idx + 1}/${imageCount} timeout`);
+                  console.warn(`[PDF] Image ${idx + 1}/${imageCount} timeout: ${img.src.substring(0, 100)}`);
                   resolve(true);
-                }, 5000);
+                }, 3000);
               });
             })
           );
 
-          console.log(`[PDF] All images loaded for page ${i + 1}`);
+          console.log(`[PDF] Page ${i + 1}: ${loadedCount}/${imageCount} images loaded, ${failedCount} failed`);
 
           // Wait for render
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 300));
 
           // Log cloned image size after render for cover page
           if (isCoverPage) {
