@@ -49,8 +49,8 @@
           <ion-icon [name]="expandedSections['project'] ? 'chevron-up' : 'chevron-down'"></ion-icon>
         </div>
       </div>
-      
-      <div class="section-content" *ngIf="expandedSections['project']">
+
+      <div class="section-content" *ngIf="renderedSections['project']" [class.collapsed]="!expandedSections['project']">
         <!-- People -->
         <div class="info-group">
           <h3 class="group-title">
@@ -509,7 +509,7 @@
         </div>
       </div>
 
-      <div class="section-content" *ngIf="expandedSections['structural']">
+      <div class="section-content" *ngIf="renderedSections['structural']" [class.collapsed]="!expandedSections['structural']">
         <!-- Visual Assessment Location -->
         <div class="info-group">
           <div class="form-grid">
@@ -1078,7 +1078,7 @@
         </div>
       </div>
 
-      <div class="section-content" *ngIf="expandedSections['elevation']">
+      <div class="section-content" *ngIf="renderedSections['elevation']" [class.collapsed]="!expandedSections['elevation']">
         <!-- Room-based elevation measurements -->
         <div class="room-elevations-container">
           

@@ -347,6 +347,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     structural: false,  // Structural Systems collapsed by default
     elevation: false
   };
+
+  // PERFORMANCE: Track which sections have been rendered at least once
+  // Allows hybrid approach: *ngIf on first load, CSS hiding after first expansion
+  renderedSections: { [key: string]: boolean } = {
+    project: false,
+    structural: false,
+    elevation: false
+  };
   
   // Back to top button state
   showBackToTop = true; // Always show the button
@@ -5424,6 +5432,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       ...this.expandedSections,
       [section]: !this.expandedSections[section]
     };
+
+    // PERFORMANCE: Mark section as rendered on first expansion
+    // This enables hybrid rendering: *ngIf prevents initial render, CSS hides after first expansion
+    if (this.expandedSections[section] && !this.renderedSections[section]) {
+      this.renderedSections = {
+        ...this.renderedSections,
+        [section]: true
+      };
+    }
 
     // PERFORMANCE: Mark cached values as dirty when sections change
     this.markSpacerHeightDirty();

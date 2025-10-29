@@ -65,6 +65,12 @@ ion-header {
 .section-content {
   transform: translateZ(0); // Hardware acceleration
   will-change: auto; // Browser optimization
+
+  // PERFORMANCE CRITICAL: Use CSS hiding instead of *ngIf to avoid DOM recreation
+  // This keeps the DOM in place but hides it visually for instant toggling
+  &.collapsed {
+    display: none; // Completely hide and remove from layout
+  }
 }
 
 // PERFORMANCE: Targeted faster transitions to reduce lag on key elements
@@ -1793,13 +1799,19 @@ ion-content{--overflow:scroll !important;height:100%}
           border-radius: 7px; // All corners rounded by default (collapsed state)
           overflow: hidden; // Clip corners properly
 
+          // CRITICAL: Make ion-item transparent to clicks so they pass through to parent
+          // This allows clicking anywhere on the header (except checkbox) to expand/collapse
+          pointer-events: none;
+
           // Hover effect removed for mobile optimization
-          
+
           ion-checkbox {
             --size: 22px;
             --checkbox-background-checked: var(--noble-orange);
             --border-color-checked: var(--noble-orange);
             margin-right: 12px;
+            // Re-enable pointer events for checkbox so it remains clickable
+            pointer-events: auto;
           }
           
           .item-label {
@@ -1827,6 +1839,11 @@ ion-content{--overflow:scroll !important;height:100%}
             --color: var(--noble-orange);
             width: 20px;
             height: 20px;
+          }
+
+          // Re-enable pointer events for chevron icon so it remains clickable
+          ion-icon {
+            pointer-events: auto;
           }
         }
       }
@@ -2331,14 +2348,20 @@ ion-content{--overflow:scroll !important;height:100%}
             transition: all 0.3s ease;
             background: white; // Explicitly set to ensure no transparency
             overflow: hidden; // Clip corners properly
-            
+
+            // CRITICAL: Make ion-item transparent to clicks so they pass through to parent
+            // This allows clicking anywhere on the header (except checkbox) to expand/collapse
+            pointer-events: none;
+
             // Hover effect removed for mobile optimization
-            
+
             ion-checkbox {
               --size: 22px;
               --checkbox-background-checked: var(--noble-orange);
               --border-color-checked: var(--noble-orange);
               margin-right: 12px;
+              // Re-enable pointer events for checkbox so it remains clickable
+              pointer-events: auto;
             }
             
             .item-label {
@@ -2366,6 +2389,11 @@ ion-content{--overflow:scroll !important;height:100%}
               --color: var(--noble-orange);
               width: 20px;
               height: 20px;
+            }
+
+            // Re-enable pointer events for chevron icon so it remains clickable
+            ion-icon {
+              pointer-events: auto;
             }
           }
         }
