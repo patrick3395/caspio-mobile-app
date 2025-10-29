@@ -2609,7 +2609,80 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to update elevation', 'danger');
     }
   }
-  
+
+  // Edit elevation point name
+  async editElevationPointName(roomName: string, point: any) {
+    const alert = await this.alertController.create({
+      header: 'Edit Point Name',
+      inputs: [
+        {
+          name: 'pointName',
+          type: 'text',
+          value: point.name,
+          placeholder: 'Enter point name'
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: async (data) => {
+            const newName = data.pointName?.trim();
+
+            if (!newName) {
+              await this.showToast('Point name cannot be empty', 'warning');
+              return false;
+            }
+
+            if (newName === point.name) {
+              return true; // No change, just close
+            }
+
+            try {
+              // Get the point ID
+              const oldPointKey = `${roomName}_${point.name}`;
+              const pointId = this.efePointIds[oldPointKey];
+
+              if (!pointId || pointId === '__pending__') {
+                await this.showToast('Cannot edit point name at this time', 'warning');
+                return false;
+              }
+
+              // Update the point name in the database
+              const updateData = { PointName: newName };
+              await this.caspioService.updateServicesEFEPoint(pointId, updateData).toPromise();
+
+              // Update the efePointIds mapping
+              const newPointKey = `${roomName}_${newName}`;
+              this.efePointIds[newPointKey] = pointId;
+              delete this.efePointIds[oldPointKey];
+
+              // Update the local point name
+              point.name = newName;
+
+              // Trigger change detection
+              this.changeDetectorRef.detectChanges();
+
+              await this.showToast('Point name updated', 'success');
+              return true;
+
+            } catch (error) {
+              console.error('Error updating point name:', error);
+              await this.showToast('Failed to update point name', 'danger');
+              return false;
+            }
+          }
+        }
+      ],
+      cssClass: 'custom-document-alert'
+    });
+
+    await alert.present();
+  }
+
   // Delete an elevation point
   async deleteElevationPoint(roomName: string, point: any) {
     const alert = await this.alertController.create({
@@ -4475,7 +4548,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // Handle checkbox change - only for deletion (unchecking)
+  // Handle checkbox change - for both addition (checking) and deletion (unchecking)
   async handleRoomCheckboxChange(roomName: string, event: any) {
     // CRITICAL: Prevent checkbox toggles during rename operations
     if (this.renamingRooms[roomName]) {
@@ -4491,17 +4564,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     console.log('[Checkbox Change] Room:', roomName, 'Was selected:', wasSelected, 'Is checked:', isChecked);
 
-    // Only handle unchecking (deletion)
+    // Handle both checking (addition) and unchecking (deletion)
     if (wasSelected && !isChecked) {
       // User is unchecking - show delete confirmation
       await this.toggleRoomSelection(roomName, event);
     } else if (!wasSelected && isChecked) {
-      // User is checking - this should not happen since header click handles addition
-      // But if it does, revert the checkbox
-      console.log('[Checkbox] BLOCKED - Use header click to add room');
-      if (event && event.target) {
-        event.target.checked = false;
-      }
+      // User is checking - add the room
+      await this.toggleRoomSelection(roomName, event);
     }
   }
 

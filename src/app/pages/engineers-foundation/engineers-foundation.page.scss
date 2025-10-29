@@ -2053,10 +2053,16 @@ ion-content{--overflow:scroll !important;height:100%}
                   flex: 1; // Take up remaining space
                 }
 
+                .point-actions {
+                  display: flex;
+                  gap: 4px;
+                  align-items: center;
+                }
+
+                .edit-point-btn,
                 .delete-point-btn {
                   background: transparent;
                   border: none;
-                  color: var(--noble-orange);
                   cursor: pointer;
                   padding: 4px 8px;
                   border-radius: 4px;
@@ -2074,6 +2080,14 @@ ion-content{--overflow:scroll !important;height:100%}
                   &:active {
                     transform: scale(0.95);
                   }
+                }
+
+                .edit-point-btn {
+                  color: var(--ion-color-medium);
+                }
+
+                .delete-point-btn {
+                  color: var(--noble-orange);
                 }
 
                 .camera-button-primary {

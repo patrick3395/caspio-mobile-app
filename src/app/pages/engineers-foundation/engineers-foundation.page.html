@@ -1390,11 +1390,18 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
-                        <button class="delete-point-btn"
-                                (click)="deleteElevationPoint(room.RoomName, point)"
-                                title="Delete Point">
-                          <ion-icon name="trash-outline"></ion-icon>
-                        </button>
+                        <div class="point-actions">
+                          <button class="edit-point-btn"
+                                  (click)="editElevationPointName(room.RoomName, point)"
+                                  title="Edit Point Name">
+                            <ion-icon name="create-outline"></ion-icon>
+                          </button>
+                          <button class="delete-point-btn"
+                                  (click)="deleteElevationPoint(room.RoomName, point)"
+                                  title="Delete Point">
+                            <ion-icon name="trash-outline"></ion-icon>
+                          </button>
+                        </div>
                       </div>
 
                       <!-- Measurement and Location Photos -->
@@ -1503,10 +1510,11 @@
                 
                 <!-- Room-specific notes - compact -->
                 <div class="room-notes">
-                  <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
+                  <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes"
                                 rows="2"
                                 placeholder="Notes for {{ room.RoomName }}..."
                                 (ionBlur)="onRoomNotesChange(room.RoomName)"
+                                autocapitalize="sentences"
                                 style="font-size: 13px;">
                   </ion-textarea>
                 </div>
@@ -1830,11 +1838,18 @@
                     <div class="elevation-point-card" *ngFor="let point of roomElevationData[room.RoomName].elevationPoints; trackBy: trackByPointName">
                       <div class="point-header">
                         <span class="point-label" [title]="point.name">{{ point.name }}</span>
-                        <button class="delete-point-btn"
-                                (click)="deleteElevationPoint(room.RoomName, point)"
-                                title="Delete Point">
-                          <ion-icon name="trash-outline"></ion-icon>
-                        </button>
+                        <div class="point-actions">
+                          <button class="edit-point-btn"
+                                  (click)="editElevationPointName(room.RoomName, point)"
+                                  title="Edit Point Name">
+                            <ion-icon name="create-outline"></ion-icon>
+                          </button>
+                          <button class="delete-point-btn"
+                                  (click)="deleteElevationPoint(room.RoomName, point)"
+                                  title="Delete Point">
+                            <ion-icon name="trash-outline"></ion-icon>
+                          </button>
+                        </div>
                       </div>
 
                       <!-- Measurement and Location Photos -->
@@ -1943,10 +1958,11 @@
                 
                 <!-- Room-specific notes - compact -->
                 <div class="room-notes">
-                  <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes" 
+                  <ion-textarea [(ngModel)]="roomElevationData[room.RoomName].notes"
                                 rows="2"
                                 placeholder="Notes for {{ room.RoomName }}..."
                                 (ionBlur)="onRoomNotesChange(room.RoomName)"
+                                autocapitalize="sentences"
                                 style="font-size: 13px;">
                   </ion-textarea>
                 </div>
