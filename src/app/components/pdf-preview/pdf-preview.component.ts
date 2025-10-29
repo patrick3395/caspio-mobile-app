@@ -418,6 +418,44 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 clonedImg.style.display = 'block';
               }
             }
+          } else {
+            // CRITICAL FIX: For non-cover pages, fix aspect ratio for ALL images
+            // This prevents stretching in the exported PDF
+            const allImages = clone.querySelectorAll('img');
+            let fixedImageCount = 0;
+
+            allImages.forEach((img: HTMLImageElement) => {
+              // Skip if image hasn't loaded yet
+              if (!img.complete || img.naturalWidth === 0) {
+                return;
+              }
+
+              const naturalWidth = img.naturalWidth;
+              const naturalHeight = img.naturalHeight;
+              const aspectRatio = naturalWidth / naturalHeight;
+
+              // Get the current container width (respects grid layout)
+              const containerWidth = img.offsetWidth || img.parentElement?.offsetWidth || 0;
+
+              if (containerWidth > 0) {
+                // Calculate height that maintains aspect ratio
+                const correctHeight = containerWidth / aspectRatio;
+
+                // Force exact dimensions to prevent stretching
+                img.style.width = containerWidth + 'px';
+                img.style.height = correctHeight + 'px';
+                img.style.maxWidth = 'none';
+                img.style.maxHeight = 'none';
+                img.style.objectFit = 'contain';
+                img.style.display = 'block';
+
+                fixedImageCount++;
+              }
+            });
+
+            if (fixedImageCount > 0) {
+              console.log(`[PDF] Fixed aspect ratio for ${fixedImageCount} images on page ${i + 1}`);
+            }
           }
 
           // Ensure all images are loaded in the clone
