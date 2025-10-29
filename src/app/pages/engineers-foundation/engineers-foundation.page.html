@@ -1640,8 +1640,8 @@
                   </button>
                 </div>
 
-                <!-- Location Field (only for bedrooms and bathrooms) - ROOMS SECTION -->
-                <div class="location-field-container" *ngIf="isBedroomOrBathroom(room.RoomName) && !!roomElevationData[room.RoomName]">
+                <!-- Location Field (only for bedrooms, not bathrooms) - ROOMS SECTION -->
+                <div class="location-field-container" *ngIf="shouldShowLocationFDF(room.RoomName) && !!roomElevationData[room.RoomName]">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
                     Location:
                   </label>
@@ -1659,6 +1659,23 @@
                     <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Middle')">Middle</button>
                     <button type="button" class="location-btn location-delete-btn" (click)="deleteLastLocationWord(room.RoomName)">Delete</button>
                   </div>
+                </div>
+
+                <!-- Type Dropdown (only for Garage rooms) - saves to location field -->
+                <div class="location-field-container" *ngIf="isGarage(room.RoomName) && !!roomElevationData[room.RoomName]">
+                  <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+                    Type:
+                  </label>
+                  <select [(ngModel)]="roomElevationData[room.RoomName].location"
+                          (ngModelChange)="onLocationChange(room.RoomName)"
+                          class="styled-input"
+                          style="max-width: 100%;">
+                    <option value="">-- Select Type --</option>
+                    <option value="Sunken">Sunken</option>
+                    <option value="Raised Edge(s)">Raised Edge(s)</option>
+                    <option value="Sunken and Sloped">Sunken and Sloped</option>
+                    <option value="Flat Across">Flat Across</option>
+                  </select>
                 </div>
 
                 <!-- Flooring Difference Factor Section -->

@@ -4698,6 +4698,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     return result;
   }
 
+  // Check if a room is a Garage (for Type dropdown)
+  isGarage(roomName: string): boolean {
+    if (!roomName) {
+      return false;
+    }
+
+    const lowerRoomName = roomName.toLowerCase().trim();
+    const isGarage = lowerRoomName.includes('garage');
+
+    // Ensure location property is initialized if missing (Type saves to location field)
+    if (isGarage && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
+      this.roomElevationData[roomName].location = '';
+    }
+
+    return isGarage;
+  }
+
   // Add location text to the input field
   addLocationText(roomName: string, locationText: string) {
     if (!this.roomElevationData[roomName]) {

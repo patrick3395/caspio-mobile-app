@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, from, of, firstValueFrom, timer } from 'rxjs';
-import { map, tap, catchError, switchMap, finalize, retryWhen, mergeMap, take } from 'rxjs/operators';
+import { Observable, BehaviorSubject, ReplaySubject, throwError, from, of, firstValueFrom, timer } from 'rxjs';
+import { map, tap, catchError, switchMap, finalize, retryWhen, mergeMap, take, filter, shareReplay, timeout, timeoutWith } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
@@ -40,7 +40,8 @@ export class CaspioService {
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpiryTime: number = 0;
-  private debugMode = false; // Set to true to enable detailed logging
+  private debugMode = true; // TEMPORARILY ENABLED for debugging - Set to false to disable detailed logging
+  private ongoingAuthRequest: Observable<CaspioAuthResponse> | null = null;
 
   constructor(
     private http: HttpClient,
@@ -54,6 +55,14 @@ export class CaspioService {
   }
 
   authenticate(): Observable<CaspioAuthResponse> {
+    // If there's already an ongoing auth request, return it to prevent duplicates
+    if (this.ongoingAuthRequest) {
+      if (this.debugMode) {
+        console.log('🔄 Reusing ongoing authentication request');
+      }
+      return this.ongoingAuthRequest;
+    }
+
     const body = new URLSearchParams();
     body.set('grant_type', 'client_credentials');
     body.set('client_id', environment.caspio.clientId);
@@ -64,7 +73,7 @@ export class CaspioService {
       'Accept': 'application/json'
     });
 
-    return this.http.post<CaspioAuthResponse>(
+    this.ongoingAuthRequest = this.http.post<CaspioAuthResponse>(
       environment.caspio.tokenEndpoint,
       body.toString(),
       { headers }
@@ -82,8 +91,15 @@ export class CaspioService {
           error: error.error
         });
         return throwError(() => error);
-      })
+      }),
+      finalize(() => {
+        // Clear the ongoing request when complete (success or error)
+        this.ongoingAuthRequest = null;
+      }),
+      shareReplay(1)
     );
+
+    return this.ongoingAuthRequest;
   }
 
   private setToken(token: string, expiresIn: number): void {
@@ -173,6 +189,7 @@ export class CaspioService {
       console.log('🗑️ Clearing token');
     }
     this.tokenSubject.next(null);
+    this.refreshTokenSubject.next(null); // Reset refresh subject to prevent stale token caching
     this.tokenExpiryTime = 0;
     localStorage.removeItem('caspio_token');
     localStorage.removeItem('caspio_token_expiry');
@@ -225,6 +242,7 @@ export class CaspioService {
     this.authenticate().subscribe({
       next: (response) => {
         this.isRefreshing = false;
+        // Emit the new token to all waiting subscribers
         this.refreshTokenSubject.next(response.access_token);
         if (this.debugMode) {
           console.log('✅ Token refresh successful');
@@ -232,12 +250,14 @@ export class CaspioService {
       },
       error: (error) => {
         this.isRefreshing = false;
-        this.refreshTokenSubject.next(null);
         if (this.debugMode) {
           console.error('❌ Token refresh failed:', error);
+          console.log('🔄 Clearing token and resetting refresh subject');
         }
         // If refresh fails, clear the token so next request will trigger new auth
+        // This also resets refreshTokenSubject to null, preventing stale token caching
         this.clearToken();
+        // Note: Waiting subscribers will timeout after 5s and fall back to direct authentication
       }
     });
   }
@@ -251,42 +271,76 @@ export class CaspioService {
   // Get a valid token, authenticating if necessary
   getValidToken(): Observable<string> {
     const currentToken = this.getCurrentToken();
+
+    if (this.debugMode) {
+      const timeToExpiry = this.tokenExpiryTime ? Math.round((this.tokenExpiryTime - Date.now()) / 1000) : 0;
+      console.log('🔍 getValidToken() called:', {
+        hasToken: !!currentToken,
+        isValid: this.isTokenValid(),
+        isRefreshing: this.isRefreshing,
+        timeToExpiry: timeToExpiry + 's',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // If we have a valid token, return it immediately
     if (currentToken && this.isTokenValid()) {
       return of(currentToken);
-    } else if (this.isRefreshing) {
-      // Wait for refresh to complete
+    }
+
+    // If a refresh is already in progress, wait for it
+    if (this.isRefreshing) {
+      if (this.debugMode) {
+        console.log('⏳ Waiting for ongoing token refresh');
+      }
       return this.refreshTokenSubject.pipe(
-        switchMap(token => {
-          if (token) {
-            return of(token);
-          } else {
-            // Refresh failed, try full authentication
-            return this.authenticate().pipe(
-              map(response => response.access_token)
-            );
+        filter(token => token !== null), // Skip null initial value
+        take(1), // Take the first emission only
+        timeout(5000), // 5-second timeout protection
+        catchError(error => {
+          // If waiting for refresh fails or times out, fall back to direct authentication
+          if (this.debugMode) {
+            console.warn('⚠️ Token refresh wait failed or timed out, falling back to direct authentication', error.name);
           }
+          return this.authenticate().pipe(
+            map(response => response.access_token),
+            tap(token => this.setToken(token))
+          );
         })
-      );
-    } else if (currentToken && !this.isTokenValid()) {
-      // Token exists but expires soon, refresh it
-      this.refreshToken();
-      return this.refreshTokenSubject.pipe(
-        switchMap(token => {
-          if (token) {
-            return of(token);
-          } else {
-            return this.authenticate().pipe(
-              map(response => response.access_token)
-            );
-          }
-        })
-      );
-    } else {
-      // No token at all, authenticate
-      return this.authenticate().pipe(
-        map(response => response.access_token)
       );
     }
+
+    // If we have a token but it's expiring soon, refresh it
+    if (currentToken && !this.isTokenValid()) {
+      if (this.debugMode) {
+        console.log('🔄 Token expiring soon, triggering refresh');
+      }
+      this.refreshToken();
+      // Wait for the refresh to complete
+      return this.refreshTokenSubject.pipe(
+        filter(token => token !== null), // Skip null initial value
+        take(1),
+        timeout(5000), // 5-second timeout protection
+        catchError(error => {
+          // If refresh fails or times out, fall back to direct authentication
+          if (this.debugMode) {
+            console.warn('⚠️ Refresh failed or timed out, authenticating directly', error.name);
+          }
+          return this.authenticate().pipe(
+            map(response => response.access_token),
+            tap(token => this.setToken(token))
+          );
+        })
+      );
+    }
+
+    // No token at all, authenticate directly
+    if (this.debugMode) {
+      console.log('🔓 No token found, authenticating');
+    }
+    return this.authenticate().pipe(
+      map(response => response.access_token)
+    );
   }
   
   // Get the Caspio account ID from the API URL
@@ -447,37 +501,35 @@ export class CaspioService {
   }
 
   private performPost<T>(endpoint: string, data: any): Observable<T> {
-    const token = this.getCurrentToken();
-    
-    if (!token) {
-      console.error('? DEBUG [CaspioService.post]: No authentication token!');
-      return throwError(() => new Error('No authentication token available'));
-    }
+    // Use getValidToken() to ensure we have a valid token (with automatic refresh)
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        // Check if data is FormData (for file uploads)
+        const isFormData = data instanceof FormData;
 
-    // Check if data is FormData (for file uploads)
-    const isFormData = data instanceof FormData;
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      // Don't set Content-Type for FormData - let browser set it with boundary
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' })
-    });
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - let browser set it with boundary
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' })
+        });
 
-    const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
-    
-    return this.http.post<T>(url, data, { headers }).pipe(
-      tap(response => {
-        // Automatically clear cache after successful POST (create) operations
-        this.invalidateCacheForEndpoint(endpoint, 'POST');
-      }),
-      catchError(error => {
-        console.error('? DEBUG [CaspioService.post]: Request failed!');
-        console.error('URL:', url);
-        console.error('Error:', error);
-        console.error('Error status:', error?.status);
-        console.error('Error message:', error?.message);
-        console.error('Error body:', error?.error);
-        return throwError(() => error);
+        const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+
+        return this.http.post<T>(url, data, { headers }).pipe(
+          tap(response => {
+            // Automatically clear cache after successful POST (create) operations
+            this.invalidateCacheForEndpoint(endpoint, 'POST');
+          }),
+          catchError(error => {
+            console.error('? DEBUG [CaspioService.post]: Request failed!');
+            console.error('URL:', url);
+            console.error('Error:', error);
+            console.error('Error status:', error?.status);
+            console.error('Error message:', error?.message);
+            console.error('Error body:', error?.error);
+            return throwError(() => error);
+          })
+        );
       })
     );
   }
@@ -491,24 +543,29 @@ export class CaspioService {
   }
 
   private performPut<T>(endpoint: string, data: any): Observable<T> {
-    const token = this.getCurrentToken();
-    if (!token) {
-      return throwError(() => new Error('No authentication token available'));
-    }
+    // Use getValidToken() to ensure we have a valid token (with automatic refresh)
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        // Check if data is FormData (for file uploads)
+        const isFormData = data instanceof FormData;
 
-    // Check if data is FormData (for file uploads)
-    const isFormData = data instanceof FormData;
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      // Don't set Content-Type for FormData - let browser set it with boundary
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' })
-    });
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - let browser set it with boundary
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' })
+        });
 
-    return this.http.put<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers }).pipe(
-      tap(response => {
-        // Automatically clear cache after successful PUT (update) operations
-        this.invalidateCacheForEndpoint(endpoint, 'PUT');
+        return this.http.put<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers }).pipe(
+          tap(response => {
+            // Automatically clear cache after successful PUT (update) operations
+            this.invalidateCacheForEndpoint(endpoint, 'PUT');
+          }),
+          catchError(error => {
+            console.error('? DEBUG [CaspioService.put]: Request failed!');
+            console.error('Error:', error);
+            return throwError(() => error);
+          })
+        );
       })
     );
   }
@@ -522,20 +579,25 @@ export class CaspioService {
   }
 
   private performDelete<T>(endpoint: string): Observable<T> {
-    const token = this.getCurrentToken();
-    if (!token) {
-      return throwError(() => new Error('No authentication token available'));
-    }
+    // Use getValidToken() to ensure we have a valid token (with automatic refresh)
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
-
-    return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers }).pipe(
-      tap(response => {
-        // Automatically clear cache after successful DELETE operations
-        this.invalidateCacheForEndpoint(endpoint, 'DELETE');
+        return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers }).pipe(
+          tap(response => {
+            // Automatically clear cache after successful DELETE operations
+            this.invalidateCacheForEndpoint(endpoint, 'DELETE');
+          }),
+          catchError(error => {
+            console.error('? DEBUG [CaspioService.delete]: Request failed!');
+            console.error('Error:', error);
+            return throwError(() => error);
+          })
+        );
       })
     );
   }
