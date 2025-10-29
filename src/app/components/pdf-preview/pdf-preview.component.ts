@@ -369,7 +369,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Append to body (outside modal)
           document.body.appendChild(clone);
 
-          // For cover page, ensure the photo container maintains its size
+          // For cover page, ensure the photo container and image maintain their exact size
           if (isCoverPage) {
             const originalPhotoContainer = pageElement.querySelector('.property-photo-container') as HTMLElement;
             const clonedPhotoContainer = clone.querySelector('.property-photo-container') as HTMLElement;
@@ -379,15 +379,21 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
               clonedPhotoContainer.style.minHeight = containerHeight + 'px';
               clonedPhotoContainer.style.height = containerHeight + 'px';
 
-              // Also ensure the image maintains its size
+              // Set the image to its exact rendered size (not max size)
               const originalImg = originalPhotoContainer.querySelector('img') as HTMLElement;
               const clonedImg = clonedPhotoContainer.querySelector('img') as HTMLElement;
 
               if (originalImg && clonedImg) {
-                clonedImg.style.maxWidth = originalImg.offsetWidth + 'px';
-                clonedImg.style.maxHeight = originalImg.offsetHeight + 'px';
-                clonedImg.style.width = 'auto';
-                clonedImg.style.height = 'auto';
+                // Get the actual rendered dimensions of the original image
+                const imgWidth = originalImg.offsetWidth;
+                const imgHeight = originalImg.offsetHeight;
+
+                // Set exact dimensions on the clone, overriding object-fit behavior
+                clonedImg.style.width = imgWidth + 'px';
+                clonedImg.style.height = imgHeight + 'px';
+                clonedImg.style.maxWidth = 'none';
+                clonedImg.style.maxHeight = 'none';
+                clonedImg.style.objectFit = 'fill'; // Change from contain to fill since we're setting exact size
               }
             }
           }

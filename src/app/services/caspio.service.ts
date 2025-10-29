@@ -1887,6 +1887,109 @@ export class CaspioService {
     return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
   }
 
+  // Get file from Caspio using file path (for file fields like Deliverable)
+  getFileFromPath(filePath: string): Observable<any> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    console.log('[getFileFromPath] Starting with path:', filePath);
+
+    return new Observable(observer => {
+      // Ensure file path starts with /
+      if (!filePath.startsWith('/')) {
+        filePath = '/' + filePath;
+      }
+
+      console.log('[getFileFromPath] Normalized path:', filePath);
+
+      // Use the /files/path endpoint
+      const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
+      console.log('[getFileFromPath] Fetching from URL:', fileUrl);
+
+      fetch(fileUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/octet-stream'
+        }
+      })
+      .then(async fileResponse => {
+        console.log('[getFileFromPath] Response status:', fileResponse.status);
+        console.log('[getFileFromPath] Response headers:', {
+          contentType: fileResponse.headers.get('content-type'),
+          contentLength: fileResponse.headers.get('content-length')
+        });
+
+        if (!fileResponse.ok) {
+          const errorText = await fileResponse.text();
+          console.error('[getFileFromPath] Error response:', errorText);
+          throw new Error(`File fetch failed: ${fileResponse.status} - ${errorText}`);
+        }
+
+        // Get the blob
+        let blob = await fileResponse.blob();
+        console.log('[getFileFromPath] Blob received:', {
+          size: blob.size,
+          type: blob.type
+        });
+
+        // Detect MIME type from filename
+        let mimeType = blob.type;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          if (filePath.toLowerCase().endsWith('.pdf')) {
+            mimeType = 'application/pdf';
+          } else if (filePath.toLowerCase().endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (filePath.toLowerCase().endsWith('.jpg') || filePath.toLowerCase().endsWith('.jpeg')) {
+            mimeType = 'image/jpeg';
+          }
+
+          console.log('[getFileFromPath] Detected MIME type:', mimeType);
+
+          // Create new blob with correct MIME type
+          if (mimeType !== blob.type) {
+            blob = new Blob([blob], { type: mimeType });
+          }
+        }
+
+        // For PDFs, convert to base64 data URL
+        if (mimeType === 'application/pdf') {
+          console.log('[getFileFromPath] Converting PDF to data URL');
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            console.log('[getFileFromPath] Data URL created, length:', dataUrl.length);
+            observer.next({
+              url: dataUrl,
+              type: mimeType,
+              blob: blob
+            });
+            observer.complete();
+          };
+          reader.onerror = (error) => {
+            console.error('[getFileFromPath] FileReader error:', error);
+            observer.error(new Error('Failed to read file'));
+          };
+          reader.readAsDataURL(blob);
+        } else {
+          // For other files, create object URL
+          const objectUrl = URL.createObjectURL(blob);
+          console.log('[getFileFromPath] Object URL created:', objectUrl);
+          observer.next({
+            url: objectUrl,
+            type: mimeType,
+            blob: blob
+          });
+          observer.complete();
+        }
+      })
+      .catch(error => {
+        console.error('[getFileFromPath] Error:', error);
+        observer.error(error);
+      });
+    });
+  }
+
   // Get attachment with file data for display (following the working example pattern)
   getAttachmentWithImage(attachId: string): Observable<any> {
     const accessToken = this.tokenSubject.value;

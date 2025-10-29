@@ -1709,18 +1709,86 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async viewDeliverableFile(service: ServiceSelection) {
-    if (!service.Deliverable) {
+    if (!service.Deliverable || !service.serviceId) {
       await this.showToast('No deliverable file available', 'warning');
       return;
     }
 
     try {
-      const fileUrl = service.Deliverable;
+      let cancelled = false;
+
+      // Create loading alert with cancel button
+      const loading = await this.alertController.create({
+        header: 'Loading Document',
+        message: 'Loading deliverable...',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              cancelled = true;
+              return true;
+            }
+          }
+        ],
+        backdropDismiss: false,
+        cssClass: 'template-loading-alert'
+      });
+      await loading.present();
+
+      // Set up the cancel flag
+      loading.onDidDismiss().then((result) => {
+        if (result.role === 'cancel' || result.data === 'cancelled') {
+          cancelled = true;
+        }
+      });
+
+      // Fetch the service record to get the Deliverable file
+      const serviceData = await this.caspioService.getServicesByProject(this.projectId).toPromise();
+      const serviceRecord = serviceData?.find((s: any) => s.PK_ID === service.serviceId);
+
+      if (!serviceRecord || !serviceRecord.Deliverable) {
+        await loading.dismiss();
+        await this.showToast('Deliverable file not found', 'warning');
+        return;
+      }
+
+      // Fetch the actual file using the Deliverable field path
+      console.log('Fetching deliverable from path:', serviceRecord.Deliverable);
+      const fileData = await this.caspioService.getFileFromPath(serviceRecord.Deliverable).toPromise();
+
+      console.log('File data received:', {
+        hasUrl: !!fileData?.url,
+        type: fileData?.type,
+        urlLength: fileData?.url?.length,
+        urlPreview: fileData?.url?.substring(0, 100)
+      });
+
+      // Dismiss loading
+      try {
+        await loading.dismiss();
+      } catch (e) {
+        // Already dismissed
+      }
+
+      // If cancelled, return early
+      if (cancelled) {
+        return;
+      }
+
+      if (!fileData || !fileData.url) {
+        await this.showToast('Failed to load deliverable', 'danger');
+        return;
+      }
+
       const filename = `${service.typeName}_deliverable`;
+      const filePath = serviceRecord.Deliverable;
 
       // Check if it's a PDF
-      const isPDF = fileUrl.toLowerCase().includes('.pdf') ||
-                   fileUrl.toLowerCase().includes('application/pdf');
+      const isPDF = filePath.toLowerCase().includes('.pdf') ||
+                   fileData.type === 'application/pdf';
+
+      console.log('Opening file:', { filename, isPDF, fileType: fileData.type });
 
       if (isPDF) {
         // Use PDF viewer for PDFs
@@ -1728,17 +1796,28 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const modal = await this.modalController.create({
           component: DocumentViewerComponent,
           componentProps: {
-            fileUrl: fileUrl,
+            fileUrl: fileData.url,
             fileName: filename,
             fileType: 'pdf',
-            filePath: fileUrl
+            filePath: filePath
           },
           cssClass: 'fullscreen-modal'
         });
         await modal.present();
       } else {
-        // For images or other files, open in new tab
-        window.open(fileUrl, '_blank');
+        // For images or other files, use image viewer
+        const modal = await this.modalController.create({
+          component: ImageViewerComponent,
+          componentProps: {
+            images: [{
+              url: fileData.url,
+              title: filename,
+              filename: filename
+            }],
+            initialIndex: 0
+          }
+        });
+        await modal.present();
       }
     } catch (error) {
       console.error('Error viewing deliverable:', error);
@@ -2087,11 +2166,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
     
-    // If document already exists (uploaded), show confirmation popup
+    // If document already exists (uploaded), show options: Replace or Add Additional
     if (doc.uploaded && doc.attachId) {
       const confirm = await this.alertController.create({
-        header: 'Replace Document',
-        message: `Are you sure you want to replace the existing document "${doc.linkName || doc.filename || doc.title}"?`,
+        header: 'Upload Document',
+        message: `"${doc.title}" already exists. What would you like to do?`,
         cssClass: 'custom-document-alert',
         buttons: [
           {
@@ -2099,9 +2178,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             role: 'cancel'
           },
           {
-            text: 'Replace Document',
+            text: 'Replace Existing',
             handler: () => {
               this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
+              this.fileInput.nativeElement.click();
+            }
+          },
+          {
+            text: 'Add Additional',
+            handler: () => {
+              this.currentUploadContext = { serviceId, typeId, doc, action: 'additional' };
               this.fileInput.nativeElement.click();
             }
           }
