@@ -211,6 +211,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private pendingVisualCreates: { [key: string]: PendingVisualCreate } = {};
   private pendingRoomCreates: { [roomName: string]: any } = {}; // Queue room creation when offline
   private pendingPointCreates: { [key: string]: any } = {}; // Queue point creation with room dependency
+  private backgroundUploadQueue: Array<() => Promise<void>> = []; // Queue for background uploads
+  private activeUploadCount = 0;
+  private readonly maxParallelUploads = 2; // Allow 2 uploads simultaneously
   
   // Memory cleanup tracking
   private canvasCleanup: (() => void)[] = [];
@@ -9330,7 +9333,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await this.showToast('Failed to prepare photo upload', 'danger');
     }
   }
-  
+
+  // Process background upload queue with parallel uploads (max 2 at a time)
+  private async processBackgroundUploadQueue() {
+    // Process uploads while we have space and items in queue
+    while (this.activeUploadCount < this.maxParallelUploads && this.backgroundUploadQueue.length > 0) {
+      const uploadTask = this.backgroundUploadQueue.shift();
+      if (uploadTask) {
+        this.activeUploadCount++;
+
+        console.log(`[Background Upload Queue] Starting upload (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
+
+        // Fire upload without awaiting - this allows parallel processing
+        uploadTask()
+          .catch(error => {
+            console.error('[Background Upload Queue] Upload failed:', error);
+          })
+          .finally(() => {
+            this.activeUploadCount--;
+            console.log(`[Background Upload Queue] Upload completed (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
+
+            // Try to process next item in queue
+            this.processBackgroundUploadQueue();
+          });
+      }
+    }
+  }
+
   // Separate method to perform the actual upload - REFACTORED for instant record creation
   private async performVisualPhotoUpload(
     visualIdNum: number,
@@ -9367,17 +9396,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw createError;
       }
 
-      // STEP 2: Start photo upload in background (don't await)
-      // This allows rapid captures while upload happens asynchronously
+      // STEP 2: Queue photo upload in background (serialized to avoid overwhelming API)
+      // This allows rapid captures while uploads happen asynchronously ONE AT A TIME
       const attachId = response.AttachID;
 
-      // Fire and forget - upload happens in background
-      this.caspioService.updateServicesVisualsAttachPhoto(
-        attachId,
-        photo,
-        originalPhoto || undefined
-      ).toPromise()
-        .then(async (uploadResponse) => {
+      // Add upload task to queue
+      this.backgroundUploadQueue.push(async () => {
+        console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
+
+        try {
+          const uploadResponse = await this.caspioService.updateServicesVisualsAttachPhoto(
+            attachId,
+            photo,
+            originalPhoto || undefined
+          ).toPromise();
+
           console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
@@ -9423,8 +9456,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               console.warn(`[Fast Upload] Could not find photo with AttachID: ${attachId} in visualPhotos[${key}]`);
             }
           });
-        })
-        .catch(async (uploadError) => {
+        } catch (uploadError: any) {
           console.error('Photo upload failed (background):', uploadError);
 
           // If network error, queue for retry
@@ -9440,7 +9472,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               maxRetries: 3
             });
           }
-        });
+        }
+      });
+
+      // Start processing the queue (won't block - processes in background)
+      this.processBackgroundUploadQueue();
 
       // Return immediately with the created record (photo upload continues in background)
       // This allows rapid photo captures without waiting for upload
