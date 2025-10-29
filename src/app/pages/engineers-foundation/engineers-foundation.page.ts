@@ -751,6 +751,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return { attachId: response?.AttachID || response?.PK_ID, response };
     });
 
+    // Register UPLOAD_VISUAL_PHOTO_UPDATE executor (Background photo upload for existing record)
+    this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO_UPDATE', async (data: any, onProgress?: (p: number) => void) => {
+      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO_UPDATE for AttachID:', data.attachId);
+
+      // Compress the file first
+      const compressedFile = await this.imageCompression.compressImage(data.file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+
+      if (onProgress) onProgress(0.5); // 50% after compression
+
+      // Upload photo to existing record
+      const response = await this.caspioService.updateServicesVisualsAttachPhoto(
+        data.attachId,
+        compressedFile,
+        data.originalFile
+      ).toPromise();
+
+      if (onProgress) onProgress(1.0); // 100% complete
+
+      console.log('[OperationsQueue] Photo updated successfully for AttachID:', data.attachId);
+      return { response };
+    });
+
     console.log('[OperationsQueue] Operations queue initialized successfully');
   }
 
