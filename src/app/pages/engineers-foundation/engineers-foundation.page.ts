@@ -2865,6 +2865,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               handler: async () => {
                 // Delete the existing photo first
                 await this.deleteRoomPhoto(existingPhoto, roomName, point, true);
+
+                // CRITICAL: Clear any pending context-clearing timer
+                if (this.contextClearTimer) {
+                  clearTimeout(this.contextClearTimer);
+                  this.contextClearTimer = null;
+                }
+
                 // Then capture new one
                 this.currentRoomPointContext = {
                   roomName,
@@ -2882,6 +2889,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         });
         await alert.present();
         return;
+      }
+
+      // CRITICAL: Clear any pending context-clearing timer from previous photo
+      if (this.contextClearTimer) {
+        clearTimeout(this.contextClearTimer);
+        this.contextClearTimer = null;
       }
 
       this.currentRoomPointContext = {
@@ -4545,11 +4558,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     const input = this.fileInput!.nativeElement as HTMLInputElement;
-    input.value = '';
 
+    // CRITICAL: Forcefully reset input to allow rapid captures
+    // Even if previous upload is still processing in background
+    input.value = '';
+    input.disabled = false; // Ensure it's not disabled
+
+    // Use minimal delay for faster response
     setTimeout(() => {
       input.click();
-    }, 100);
+    }, 50); // Reduced from 100ms
   }
 
   private isLikelyCameraCapture(file: File): boolean {
@@ -11310,10 +11328,17 @@ Stack: ${error?.stack}`;
 
   // Add photo directly from camera (structural systems)
   async addPhotoFromCamera(category: string, itemId: string) {
+    console.log(`[Camera Button] Clicked for ${category}_${itemId}`);
+
+    // DEBUG: Show popup to confirm button was clicked
+    const timestamp = new Date().toLocaleTimeString();
+    await this.showToast(`Camera button clicked at ${timestamp}`, 'primary');
+
     // CRITICAL: Clear any pending context-clearing timer from previous photo
     if (this.contextClearTimer) {
       clearTimeout(this.contextClearTimer);
       this.contextClearTimer = null;
+      console.log('[Camera Button] Cleared pending context timer');
     }
 
     this.currentUploadContext = {
@@ -11321,6 +11346,8 @@ Stack: ${error?.stack}`;
       itemId,
       action: 'add'
     };
+
+    console.log('[Camera Button] Triggering file input');
     this.triggerFileInput('camera', { allowMultiple: false });
   }
 
