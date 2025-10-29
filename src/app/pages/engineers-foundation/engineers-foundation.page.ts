@@ -7187,17 +7187,118 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           elevationPlotData = [];
         }
       }
-      
-      // Preload primary photo if it exists (do this separately as it's optional)
-      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
-        try {
-          const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
-          if (imageData && imageData.startsWith('data:')) {
-            projectInfo.primaryPhotoBase64 = imageData;
+
+      // CRITICAL FIX: Preload primary photo (cover photo) with proper loading feedback
+      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
+        console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
+
+        // Update loading message to show we're loading the cover photo
+        if (loading) {
+          try {
+            await loading.dismiss();
+            loading = await this.alertController.create({
+              header: 'Loading Report',
+              message: 'Loading cover photo...',
+              buttons: [
+                {
+                  text: 'Cancel',
+                  handler: () => {
+                    this.isPDFGenerating = false;
+                    return true;
+                  }
+                }
+              ],
+              backdropDismiss: false,
+              cssClass: 'template-loading-alert'
+            });
+            await loading.present();
+          } catch (err) {
+            console.error('[PDF] Error updating loading message:', err);
           }
-        } catch (error) {
-          console.error('Error preloading primary photo:', error);
-          // Don't fail the whole PDF generation if photo fails
+        }
+
+        // Handle different photo formats
+        let convertedPhotoData: string | null = null;
+
+        if (projectInfo.primaryPhoto.startsWith('/')) {
+          // Caspio file path - convert to base64
+          try {
+            console.log('[PDF] Converting primary photo from Caspio path to base64...');
+            const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
+            if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+              convertedPhotoData = imageData;
+              console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
+            } else {
+              console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
+            }
+          } catch (error) {
+            console.error('[PDF] Error converting primary photo:', error);
+            // Continue without primary photo - don't fail PDF generation
+          }
+        } else if (projectInfo.primaryPhoto.startsWith('data:')) {
+          // Already base64 - use it directly
+          console.log('[PDF] Primary photo is already base64, using directly');
+          convertedPhotoData = projectInfo.primaryPhoto;
+        } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
+          // Blob URL - try to convert to base64
+          console.log('[PDF] Primary photo is blob URL, attempting to convert...');
+          try {
+            const response = await fetch(projectInfo.primaryPhoto);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            const base64 = await new Promise<string>((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            convertedPhotoData = base64;
+            console.log('[PDF] Primary photo blob converted successfully');
+          } catch (error) {
+            console.error('[PDF] Error converting blob URL:', error);
+          }
+        } else if (projectInfo.primaryPhoto.startsWith('http')) {
+          // HTTP URL - might work in web, likely to fail on mobile
+          console.warn('[PDF] Primary photo is HTTP URL (may not work on mobile):', projectInfo.primaryPhoto);
+          convertedPhotoData = projectInfo.primaryPhoto;
+        } else {
+          console.warn('[PDF] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
+        }
+
+        // Set both fields so PDF component can use either one
+        if (convertedPhotoData) {
+          projectInfo.primaryPhotoBase64 = convertedPhotoData;
+          // Also update primaryPhoto itself for compatibility with different PDF component implementations
+          projectInfo.primaryPhoto = convertedPhotoData;
+          console.log('[PDF] Primary photo ready for PDF rendering');
+        } else {
+          console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
+        }
+      } else {
+        console.log('[PDF] No primary photo available for this project');
+      }
+
+      // Update loading message to final state
+      if (loading) {
+        try {
+          await loading.dismiss();
+          loading = await this.alertController.create({
+            header: 'Loading Report',
+            message: 'Finalizing PDF preview...',
+            buttons: [
+              {
+                text: 'Cancel',
+                handler: () => {
+                  this.isPDFGenerating = false;
+                  return true;
+                }
+              }
+            ],
+            backdropDismiss: false,
+            cssClass: 'template-loading-alert'
+          });
+          await loading.present();
+        } catch (err) {
+          console.error('[PDF] Error updating loading message:', err);
         }
       }
 
