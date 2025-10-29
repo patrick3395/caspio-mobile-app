@@ -1050,9 +1050,14 @@ export class CaspioService {
     try {
       const recordData: any = {
         PointID: parseInt(pointId.toString()),
-        Annotation: photoType || '' // Use photoType as annotation
+        Annotation: '' // Empty annotation field
         // Photo field left empty - will be updated after upload
       };
+
+      // Add Type field to identify Location vs Measurement photos
+      if (photoType) {
+        recordData.Type = photoType; // "Location" or "Measurement"
+      }
 
       // Add Drawings field if we have annotation data
       if (drawingsData && drawingsData.length > 0) {

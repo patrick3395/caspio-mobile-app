@@ -2779,32 +2779,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (!point.photos || point.photos.length === 0) {
       return null;
     }
-    
-    // Look for photo with matching photoType property (new) or annotation prefix (legacy)
-    const typedPhoto = point.photos.find((photo: any) => 
-      (photo.photoType === photoType) ||
-      (photo.annotation && photo.annotation.startsWith(`${photoType}:`))
-    );
-    
-    if (typedPhoto) {
-      return typedPhoto;
-    }
-    
-    // Backward compatibility: For existing photos without type prefix or photoType property
-    // First photo without prefix = Location, second = Measurement
-    const untypedPhotos = point.photos.filter((photo: any) => 
-      !photo.photoType && (!photo.annotation || (!photo.annotation.startsWith('Location:') && !photo.annotation.startsWith('Measurement:')))
-    );
-    
-    if (untypedPhotos.length > 0) {
-      if (photoType === 'Location') {
-        return untypedPhotos[0];
-      } else if (photoType === 'Measurement' && untypedPhotos.length > 1) {
-        return untypedPhotos[1];
-      }
-    }
-    
-    return null;
+
+    // Look for photo with matching photoType property from Type field
+    const typedPhoto = point.photos.find((photo: any) => photo.photoType === photoType);
+
+    return typedPhoto || null;
   }
 
   // Capture photo for room elevation point with specific type (Location or Measurement)
@@ -3026,23 +3005,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     }
                   }
                   
-                  // Determine photoType from annotation prefix (for legacy photos)
+                  // Get photoType from Type field
+                  const photoType = photo.Type || undefined; // "Location" or "Measurement"
                   const annotation = photo.Annotation || '';
-                  let photoType = undefined;
-                  if (annotation.startsWith('Location:')) {
-                    photoType = 'Location';
-                  } else if (annotation.startsWith('Measurement:')) {
-                    photoType = 'Measurement';
-                  }
-                  
+
                   const photoResult = {
                     url: photoUrl,
                     thumbnailUrl: thumbnailUrl,
                     displayUrl: photoUrl,  // Add displayUrl for consistency
                     originalUrl: photoUrl,  // Store original for re-editing
-                    photoType: photoType,  // Store photoType for identification
-                    annotation: annotation,  // Load annotation to identify photo type (Location: or Measurement:)
-                    caption: this.extractCaptionFromAnnotation(annotation), // Extract caption without photoType prefix
+                    photoType: photoType,  // Store photoType from Type field
+                    annotation: annotation,  // Load annotation (caption text only)
+                    caption: annotation, // Use annotation as caption (no prefix needed)
                     annotations: annotationData,
                     rawDrawingsString: photo.Drawings,
                     hasAnnotations: !!annotationData,
