@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 import * as LiveUpdates from '@capacitor/live-updates';
 import { ThemeService } from './services/theme.service';
 import { PerformanceMonitorService } from './services/performance-monitor.service';
@@ -43,43 +42,50 @@ export class AppComponent {
     });
   }
 
-  private setupAppLifecycleListeners() {
+  private async setupAppLifecycleListeners() {
     if (!Capacitor.isNativePlatform()) {
       return; // Only needed for native mobile platforms
     }
 
-    // Listen for app state changes (resume/foreground)
-    App.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) {
-        // App has come to foreground/resumed
-        console.log('App resumed - validating authentication token');
+    // Dynamically import @capacitor/app only on native platforms
+    try {
+      const { App } = await import('@capacitor/app');
 
-        // Trigger token validation by calling getValidToken
-        // This will automatically refresh if the token is expired or expiring soon
-        this.caspioService.getValidToken().subscribe({
-          next: (token) => {
-            console.log('Token validated on app resume');
-          },
-          error: (error) => {
-            console.warn('Token validation failed on app resume:', error);
-          }
-        });
-      }
-    });
+      // Listen for app state changes (resume/foreground)
+      App.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
+        if (isActive) {
+          // App has come to foreground/resumed
+          console.log('App resumed - validating authentication token');
 
-    // Also listen for resume event (alternative approach for some platforms)
-    App.addListener('resume', () => {
-      console.log('App resume event - validating authentication token');
-
-      this.caspioService.getValidToken().subscribe({
-        next: (token) => {
-          console.log('Token validated on resume event');
-        },
-        error: (error) => {
-          console.warn('Token validation failed on resume event:', error);
+          // Trigger token validation by calling getValidToken
+          // This will automatically refresh if the token is expired or expiring soon
+          this.caspioService.getValidToken().subscribe({
+            next: (token) => {
+              console.log('Token validated on app resume');
+            },
+            error: (error) => {
+              console.warn('Token validation failed on app resume:', error);
+            }
+          });
         }
       });
-    });
+
+      // Also listen for resume event (alternative approach for some platforms)
+      App.addListener('resume', () => {
+        console.log('App resume event - validating authentication token');
+
+        this.caspioService.getValidToken().subscribe({
+          next: (token) => {
+            console.log('Token validated on resume event');
+          },
+          error: (error) => {
+            console.warn('Token validation failed on resume event:', error);
+          }
+        });
+      });
+    } catch (error) {
+      console.warn('Failed to load @capacitor/app plugin:', error);
+    }
   }
 
   async checkForUpdate() {

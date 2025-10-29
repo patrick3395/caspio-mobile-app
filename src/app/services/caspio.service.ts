@@ -303,8 +303,7 @@ export class CaspioService {
             console.warn('⚠️ Token refresh wait failed or timed out, falling back to direct authentication', error.name);
           }
           return this.authenticate().pipe(
-            map(response => response.access_token),
-            tap(token => this.setToken(token))
+            map(response => response.access_token)
           );
         })
       );
@@ -327,8 +326,7 @@ export class CaspioService {
             console.warn('⚠️ Refresh failed or timed out, authenticating directly', error.name);
           }
           return this.authenticate().pipe(
-            map(response => response.access_token),
-            tap(token => this.setToken(token))
+            map(response => response.access_token)
           );
         })
       );
