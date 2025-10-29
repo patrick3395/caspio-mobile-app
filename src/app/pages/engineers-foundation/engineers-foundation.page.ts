@@ -9304,7 +9304,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Separate method to perform the actual upload
+  // Separate method to perform the actual upload - REFACTORED for instant record creation
   private async performVisualPhotoUpload(
     visualIdNum: number,
     photo: File,
@@ -9319,104 +9319,97 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     try {
-      
       // Prepare the Drawings field data (annotation JSON)
-      // [v1.4.573] FIX: Only pass drawings data if annotations actually exist
-      // Passing EMPTY_COMPRESSED_ANNOTATIONS when there are no annotations causes duplicate uploads
       let drawingsData = annotationData ? JSON.stringify(annotationData) : undefined;
-      
-      // Using EXACT same approach as working Required Documents upload
+
+      // STEP 1: Create attachment record IMMEDIATELY (no file upload yet)
+      // This ensures unique AttachID is assigned instantly
       let response;
       try {
-        response = await this.caspioService.createServicesVisualsAttachWithFile(
+        response = await this.caspioService.createServicesVisualsAttachRecord(
           visualIdNum,
-          caption || '', // Use caption from photo editor
-          photo,  // Upload the photo (annotated or original)
-          drawingsData, // Pass the annotation JSON to Drawings field
-          originalPhoto || undefined // Pass original photo if we have annotations
+          caption || '',
+          drawingsData
         ).toPromise();
-      } catch (uploadError: any) {
-        console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Upload failed:', uploadError);
 
-        // If network error, queue for automatic retry
-        if (this.isRetryableError(uploadError)) {
-          console.warn('[Visual Photo Upload] Retryable error detected, queueing for retry');
-          await this.operationsQueue.enqueue({
-            type: 'UPLOAD_VISUAL_PHOTO',
-            data: {
-              visualId: visualIdNum,
-              file: photo,
-              caption: caption || '',
-              annotationData: annotationData
-            },
-            dedupeKey: 'visual_photo_' + visualIdNum + '_' + Date.now(),
-            maxRetries: 3
-          });
-        }
-        
-        // Show detailed error popup
-        const errorDetails = {
-          message: uploadError?.message || 'Unknown error',
-          status: uploadError?.status || 'N/A',
-          statusText: uploadError?.statusText || 'N/A',
-          error: uploadError?.error || {},
-          visualId: visualIdNum,
-          fileName: photo.name,
-          fileSize: photo.size,
-          hasAnnotations: !!annotationData,
-          timestamp: new Date().toISOString()
-        };
+        console.log(`[Fast Upload] Created record instantly, AttachID: ${response.AttachID}`);
 
-        // Show simple error toast instead of detailed popup
-        await this.showToast('Failed to upload photo', 'danger');
-
-//         const errorAlert = await this.alertController.create({
-//           header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Structural Systems Upload Failed',
-//           message: `
-//             <div style="text-align: left; font-size: 12px;">
-//               <strong style="color: red;">Error Details:</strong><br>
-//               Message: ${errorDetails.message}<br>
-//               Status: ${errorDetails.status}<br>
-//               Status Text: ${errorDetails.statusText}<br><br>
-//               
-//               <strong>Request Info:</strong><br>
-//               VisualID: ${errorDetails.visualId}<br>
-//               File: ${errorDetails.fileName}<br>
-//               Size: ${(errorDetails.fileSize / 1024).toFixed(2)} KB<br>
-//               Has Annotations: ${errorDetails.hasAnnotations}<br><br>
-//               
-//               <strong>API Response:</strong><br>
-//               <div style="max-height: 100px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;">
-//                 ${JSON.stringify(errorDetails.error, null, 2)}
-//               </div><br>
-//               
-//               <strong>Time:</strong> ${errorDetails.timestamp}
-//             </div>
-//           `,
-//           buttons: [
-//             {
-//               text: 'Copy Error Details',
-//               handler: () => {
-//                 const errorText = JSON.stringify(errorDetails, null, 2);
-//                 if (navigator.clipboard) {
-//                   navigator.clipboard.writeText(errorText);
-//                   this.showToast('Error details copied to clipboard', 'success');
-//                 }
-//               }
-//             },
-//             {
-//               text: 'OK',
-//               role: 'cancel'
-//             }
-//           ]
-//         });
-//         
-//         await errorAlert.present();
-        throw uploadError; // Re-throw to handle in outer catch
+      } catch (createError: any) {
+        console.error('Failed to create attachment record:', createError);
+        await this.showToast('Failed to create photo record', 'danger');
+        throw createError;
       }
-      
-      // [v1.4.388 FIX] Update photo directly in key-based storage where it was added
-      // The temp photo is stored in visualPhotos[key], not visualPhotos[actualVisualId]
+
+      // STEP 2: Start photo upload in background (don't await)
+      // This allows rapid captures while upload happens asynchronously
+      const attachId = response.AttachID;
+
+      // Fire and forget - upload happens in background
+      this.caspioService.updateServicesVisualsAttachPhoto(
+        attachId,
+        photo,
+        originalPhoto || undefined
+      ).toPromise()
+        .then(async (uploadResponse) => {
+          console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
+
+          // Update the UI with the actual uploaded photo
+          const keyPhotos = this.visualPhotos[key] || [];
+          const tempPhotoIndex = tempPhotoId
+            ? keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId)
+            : keyPhotos.findIndex((p: any) => p.AttachID === attachId);
+
+          if (tempPhotoIndex !== -1) {
+            const filePath = uploadResponse?.Photo || '';
+            let imageUrl = keyPhotos[tempPhotoIndex].url;
+
+            if (filePath) {
+              try {
+                const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+                if (imageData && imageData.startsWith('data:')) {
+                  imageUrl = imageData;
+                }
+              } catch (err) {
+                console.error('Failed to load uploaded image:', err);
+              }
+            }
+
+            // Update photo with uploaded data
+            keyPhotos[tempPhotoIndex] = {
+              ...keyPhotos[tempPhotoIndex],
+              Photo: filePath,
+              filePath: filePath,
+              url: imageUrl,
+              thumbnailUrl: imageUrl,
+              uploading: false
+            };
+
+            this.changeDetectorRef.detectChanges();
+          }
+        })
+        .catch(async (uploadError) => {
+          console.error('Photo upload failed (background):', uploadError);
+
+          // If network error, queue for retry
+          if (this.isRetryableError(uploadError)) {
+            await this.operationsQueue.enqueue({
+              type: 'UPLOAD_VISUAL_PHOTO_UPDATE',
+              data: {
+                attachId: attachId,
+                file: photo,
+                originalFile: originalPhoto
+              },
+              dedupeKey: 'visual_photo_update_' + attachId,
+              maxRetries: 3
+            });
+          }
+        });
+
+      // Return immediately with the created record (photo upload continues in background)
+      // This allows rapid photo captures without waiting for upload
+
+
+      // Update the temp photo entry with the real AttachID immediately
       const keyPhotos = this.visualPhotos[key] || [];
       let tempPhotoIndex = -1;
 
@@ -9424,96 +9417,26 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         tempPhotoIndex = keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId);
       }
 
-      if (tempPhotoIndex === -1) {
-        tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-      }
-
       if (tempPhotoIndex !== -1) {
-        // Load the actual image from API instead of keeping blob URL
-        const filePath = response?.Photo || '';
-        let imageUrl = keyPhotos[tempPhotoIndex].url; // Default to blob URL
-
-        if (filePath) {
-          try {
-            const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-            if (imageData && imageData.startsWith('data:')) {
-              imageUrl = imageData;
-            }
-          } catch (err) {
-            console.error(`[v1.4.388] Failed to load uploaded image, keeping blob URL:`, err);
-          }
-        }
-
-        // Update the temp photo with real data
+        // Update with real AttachID immediately
         keyPhotos[tempPhotoIndex] = {
           ...keyPhotos[tempPhotoIndex],
-          AttachID: response?.AttachID || response?.PK_ID || response?.id,
-          id: response?.AttachID || response?.PK_ID || response?.id,
-          Photo: filePath,
-          filePath: filePath,
-          url: imageUrl,
-          thumbnailUrl: imageUrl,
-          displayUrl: keyPhotos[tempPhotoIndex].hasAnnotations ? undefined : imageUrl,
-          originalUrl: imageUrl,
-          uploading: false // Remove uploading flag
+          AttachID: attachId,
+          id: attachId,
+          uploading: true  // Still uploading in background
         };
-        
-        // PERFORMANCE: Trigger change detection with OnPush strategy
-        this.changeDetectorRef.detectChanges();
-
-        // Also update in visualId-based storage for backward compatibility
-        const actualVisualId = String(this.visualRecordIds[key]);
-        if (actualVisualId && actualVisualId !== 'undefined') {
-          if (!this.visualPhotos[actualVisualId]) {
-            this.visualPhotos[actualVisualId] = [];
-          }
-          // Add or update the photo in visualId storage
-          const visualIdPhotos = this.visualPhotos[actualVisualId];
-          const visualIdPhotoIndex = visualIdPhotos.findIndex((p: any) => p.name === photo.name);
-          if (visualIdPhotoIndex !== -1) {
-            visualIdPhotos[visualIdPhotoIndex] = keyPhotos[tempPhotoIndex];
-          } else {
-            visualIdPhotos.push(keyPhotos[tempPhotoIndex]);
-          }
-        }
-      } else {
-        console.error(`[v1.4.388] ERROR: Could not find temp photo to update in key storage: ${key}`);
-        console.error(`  Looking for photo: ${photo.name}`);
-        console.error(`  Photos in key storage: ${keyPhotos.length}`);
-        keyPhotos.forEach((p: any, i: number) => {
-          console.error(`    Photo ${i}: ${p.name}, uploading: ${p.uploading}`);
-        });
-      }
-      
-      // No need to restore states - the UI should remain unchanged
-      
-    } catch (error) {
-      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload photo:', error);
-      
-      // [v1.4.388 FIX] Remove the failed temp photo from key-based storage where it was added
-      const keyPhotos = this.visualPhotos[key];
-      if (keyPhotos) {
-        const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-        if (tempPhotoIndex !== -1) {
-          keyPhotos.splice(tempPhotoIndex, 1);
-        }
       }
 
-      // Also remove from visualId storage if it exists there
-      const actualVisualId = String(this.visualRecordIds[key]);
-      if (actualVisualId && this.visualPhotos[actualVisualId]) {
-        const photos = this.visualPhotos[actualVisualId];
-        const tempPhotoIndex = photos.findIndex((p: any) => p.uploading === true && p.name === photo.name);
-        if (tempPhotoIndex !== -1) {
-          photos.splice(tempPhotoIndex, 1);
-        }
-      }
-      
-      if (!isBatchUpload) {
-        await this.showToast('Failed to upload photo', 'danger');
-      } else {
-        throw error; // Re-throw for batch handler to catch
-      }
+      this.changeDetectorRef.detectChanges();
+
+      // Return immediately with the created record (photo upload continues in background)
+      // This allows rapid photo captures without waiting for upload
+      return response;
+
+    } catch (error: any) {
+      console.error('[performVisualPhotoUpload] ERROR:', error);
+      await this.showToast('Failed to create photo record', 'danger');
+      throw error;
     }
   }
   

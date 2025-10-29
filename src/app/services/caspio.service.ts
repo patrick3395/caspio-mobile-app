@@ -1466,9 +1466,199 @@ export class CaspioService {
         Photo: filePath,  // Include the file path
         success: true
       };
-      
+
     } catch (error) {
       console.error('? Services_Visuals_Attach upload failed:', error);
+      throw error;
+    }
+  }
+
+  // FAST UPLOAD: Create attachment record immediately, then upload photo asynchronously
+  // Step 1: Create the record with placeholder/pending status
+  createServicesVisualsAttachRecord(visualId: number, annotation: string, drawings?: string): Observable<any> {
+    return new Observable(observer => {
+      this.createVisualsAttachRecordOnly(visualId, annotation, drawings)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async createVisualsAttachRecordOnly(visualId: number, annotation: string, drawings?: string) {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = {
+        VisualID: parseInt(visualId.toString()),
+        Annotation: annotation || '',
+        // Photo field left empty - will be updated after upload
+      };
+
+      // Add Drawings field if annotation data is provided
+      if (drawings && drawings.length > 0) {
+        let compressedDrawings = drawings;
+
+        // Compress if needed
+        if (drawings.length > 50000) {
+          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        }
+
+        // Only add if within field limit
+        if (compressedDrawings.length <= 64000) {
+          recordData.Drawings = compressedDrawings;
+        } else {
+          console.warn('Drawings data too large after compression, skipping');
+        }
+      }
+
+      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+
+      const createResponseText = await createResponse.text();
+
+      if (!createResponse.ok) {
+        console.error('Failed to create Services_Visuals_Attach record:', createResponseText);
+        throw new Error('Failed to create record: ' + createResponseText);
+      }
+
+      let createResult: any;
+      if (createResponseText.length > 0) {
+        const parsedResponse = JSON.parse(createResponseText);
+        if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
+          createResult = parsedResponse.Result[0];
+        } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
+          createResult = parsedResponse[0];
+        } else {
+          createResult = parsedResponse;
+        }
+      } else {
+        createResult = { success: true };
+      }
+
+      const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
+
+      return {
+        ...createResult,
+        AttachID: attachId,
+        success: true
+      };
+
+    } catch (error: any) {
+      console.error('[createVisualsAttachRecordOnly] ERROR:', error);
+      throw error;
+    }
+  }
+
+  // Step 2: Upload photo and update existing record
+  updateServicesVisualsAttachPhoto(attachId: number, file: File, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadAndUpdateVisualsAttachPhoto(attachId, file, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async uploadAndUpdateVisualsAttachPhoto(attachId: number, file: File, originalFile?: File) {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      let filePath = '';
+      let originalFilePath = '';
+
+      // Upload original file first if present
+      if (originalFile) {
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `visual_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+        }
+      }
+
+      // Upload main file
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `visual_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      filePath = `/${uploadResult.Name || uniqueFilename}`;
+
+      // Update the record with the photo path
+      const updateData: any = {
+        Photo: originalFilePath || filePath
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error('Failed to update Services_Visuals_Attach record:', errorText);
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      return {
+        AttachID: attachId,
+        Photo: originalFilePath || filePath,
+        success: true
+      };
+
+    } catch (error: any) {
+      console.error('[uploadAndUpdateVisualsAttachPhoto] ERROR:', error);
       throw error;
     }
   }
