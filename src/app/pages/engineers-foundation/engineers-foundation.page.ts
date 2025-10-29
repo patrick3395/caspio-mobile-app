@@ -214,6 +214,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private backgroundUploadQueue: Array<() => Promise<void>> = []; // Queue for background uploads
   private activeUploadCount = 0;
   private readonly maxParallelUploads = 2; // Allow 2 uploads simultaneously
+  private contextClearTimer: any = null; // Timer for clearing upload context
   
   // Memory cleanup tracking
   private canvasCleanup: (() => void)[] = [];
@@ -778,6 +779,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (onProgress) onProgress(1.0); // 100% complete
 
       console.log('[OperationsQueue] Photo updated successfully for AttachID:', data.attachId);
+      return { response };
+    });
+
+    // Register UPLOAD_ROOM_POINT_PHOTO_UPDATE executor (Background photo upload for existing room point record)
+    this.operationsQueue.setExecutor('UPLOAD_ROOM_POINT_PHOTO_UPDATE', async (data: any, onProgress?: (p: number) => void) => {
+      console.log('[OperationsQueue] Executing UPLOAD_ROOM_POINT_PHOTO_UPDATE for AttachID:', data.attachId);
+
+      // Compress the file first
+      const compressedFile = await this.imageCompression.compressImage(data.file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+
+      if (onProgress) onProgress(0.5); // 50% after compression
+
+      // Upload photo to existing record
+      const response = await this.caspioService.updateServicesEFEPointsAttachPhoto(
+        data.attachId,
+        compressedFile
+      ).toPromise();
+
+      if (onProgress) onProgress(1.0); // 100% complete
+
+      console.log('[OperationsQueue] Room point photo updated successfully for AttachID:', data.attachId);
       return { response };
     });
 
@@ -3132,29 +3158,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Upload in background with annotation data including photoType
         const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData, this.currentRoomPointContext.photoType)
           .then(async (response) => {
-            photoEntry.uploading = false;
-            // Store the attachment ID for annotation updates
+            // CRITICAL: Record created instantly - attachId available immediately
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
             photoEntry.hasAnnotations = !!annotatedResult.annotationData;
-            // Store the original path for URL reconstruction later
-            if (response?.Photo) {
-              photoEntry.originalPath = response.Photo;
-              
-              // Fetch the image as base64 like we do when loading
-              try {
-                const imageData = await this.caspioService.getImageFromFilesAPI(response.Photo).toPromise();
-                if (imageData && imageData.startsWith('data:')) {
-                  photoEntry.url = imageData;
-                  photoEntry.thumbnailUrl = imageData;
-                }
-              } catch (err) {
-                console.error('Error fetching uploaded image as base64:', err);
-                // Keep the blob URL as fallback
-              }
-            }
-            
-            // PERFORMANCE: Trigger change detection with OnPush strategy
-            this.changeDetectorRef.detectChanges();
+
+            console.log(`[Room Point] Record created instantly with AttachID: ${photoEntry.attachId}, photo uploading in background`);
+
+            // Note: uploading flag and photo URL will be updated by background upload callback
+            // This allows rapid photo captures without waiting for file upload
             
             uploadSuccessCount++;
             return response;
@@ -3443,10 +3454,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
            error.name === 'TimeoutError';
   }
   
-  // Perform the actual room point photo upload with annotation support
+  // Perform the actual room point photo upload with annotation support - REFACTORED for instant record creation
   private async performRoomPointPhotoUpload(pointIdNum: number, photo: File, pointName: string, annotationData: any = null, photoType?: string) {
     try {
-      
       // Process annotation data for Drawings field (same as Structural Systems)
       let drawingsData = '';
       if (annotationData && annotationData !== null) {
@@ -3530,17 +3540,104 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('Upload cancelled by user');
       } */
       
-      // Use the new two-step method that matches visual upload (debug popups removed)
-      const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
-        pointIdNum,
-        drawingsData, // Pass annotation data to Drawings field
-        photo,
-        photoType // CRITICAL: Pass photoType for Annotation field
-      ).toPromise();
-      
-      // Success popup removed for cleaner user experience
-      
-      return response;  // Return the response with AttachID
+      // STEP 1: Create attachment record IMMEDIATELY (no file upload yet)
+      // This ensures unique AttachID is assigned instantly
+      let response;
+      try {
+        response = await this.caspioService.createServicesEFEPointsAttachRecord(
+          pointIdNum,
+          drawingsData,
+          photoType
+        ).toPromise();
+
+        console.log(`[Fast Upload Room Point] Created record instantly, AttachID: ${response.AttachID}`);
+
+      } catch (createError: any) {
+        console.error('Failed to create room point attachment record:', createError);
+        throw createError;
+      }
+
+      // STEP 2: Queue photo upload in background (serialized with other uploads)
+      const attachId = response.AttachID;
+      const pointIdForClosure = pointIdNum; // Capture for closure
+
+      // Add upload task to the same queue used by visual photos
+      this.backgroundUploadQueue.push(async () => {
+        console.log(`[Fast Upload Room Point] Starting queued upload for AttachID: ${attachId}`);
+
+        try {
+          const uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(
+            attachId,
+            photo
+          ).toPromise();
+
+          console.log(`[Fast Upload Room Point] Photo uploaded for AttachID: ${attachId}`);
+
+          // CRITICAL: Run UI updates inside NgZone to ensure change detection
+          this.ngZone.run(async () => {
+            // Find the point and update the photo entry
+            const point = Object.values(this.roomPoints).flat().find((p: any) =>
+              p.photos?.some((ph: any) => ph.attachId === attachId)
+            );
+
+            if (point) {
+              const photoIndex = point.photos.findIndex((ph: any) => ph.attachId === attachId);
+              if (photoIndex !== -1) {
+                const filePath = uploadResponse?.Photo || '';
+                let imageUrl = point.photos[photoIndex].url;
+
+                if (filePath) {
+                  try {
+                    const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+                    if (imageData && imageData.startsWith('data:')) {
+                      imageUrl = imageData;
+                    }
+                  } catch (err) {
+                    console.error('Failed to load uploaded room point image:', err);
+                  }
+                }
+
+                // Update photo with uploaded data - CLEAR uploading flag
+                point.photos[photoIndex] = {
+                  ...point.photos[photoIndex],
+                  Photo: filePath,
+                  url: imageUrl,
+                  thumbnailUrl: imageUrl,
+                  uploading: false  // CRITICAL: Clear the uploading flag
+                };
+
+                console.log(`[Fast Upload Room Point] UI updated, uploading flag cleared for AttachID: ${attachId}`);
+
+                // Force change detection
+                this.changeDetectorRef.detectChanges();
+              }
+            } else {
+              console.warn(`[Fast Upload Room Point] Could not find photo with AttachID: ${attachId}`);
+            }
+          });
+        } catch (uploadError: any) {
+          console.error('Room point photo upload failed (background):', uploadError);
+
+          // If network error, queue for retry
+          if (this.isRetryableError(uploadError)) {
+            await this.operationsQueue.enqueue({
+              type: 'UPLOAD_ROOM_POINT_PHOTO_UPDATE',
+              data: {
+                attachId: attachId,
+                file: photo
+              },
+              dedupeKey: 'room_point_photo_update_' + attachId,
+              maxRetries: 3
+            });
+          }
+        }
+      });
+
+      // Start processing the queue (won't block - processes in background)
+      this.processBackgroundUploadQueue();
+
+      // Return immediately with the created record (photo upload continues in background)
+      return response;
       
     } catch (error: any) {
       console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload room point photo:', error);
@@ -9027,14 +9124,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Context will be cleared on next different action or after a delay
       // Only reset file input attributes if not continuing with camera
       if (!this.expectingCameraPhoto) {
+        // Clear any existing timer first
+        if (this.contextClearTimer) {
+          clearTimeout(this.contextClearTimer);
+        }
+
         // Reset to default state after a short delay to allow rapid captures
-        setTimeout(() => {
+        this.contextClearTimer = setTimeout(() => {
           if (this.fileInput && this.fileInput.nativeElement) {
             this.fileInput.nativeElement.removeAttribute('capture');
             this.fileInput.nativeElement.setAttribute('multiple', 'true');
           }
           // Clear context after delay to prevent interference with rapid captures
           this.currentUploadContext = null;
+          this.contextClearTimer = null;
         }, 500);
       }
     }
@@ -9175,7 +9278,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Use the ID from visualRecordIds to ensure consistency
     const actualVisualId = this.visualRecordIds[key] || visualId;
-    const isPendingVisual = !actualVisualId || actualVisualId === '__pending__';
+    // CRITICAL FIX: Don't treat temp_ IDs as pending - they're being created and will resolve
+    const isPendingVisual = !actualVisualId || actualVisualId === '__pending__' || String(actualVisualId).startsWith('temp_');
 
     // INSTANTLY show preview with object URL
     let tempId: string | undefined;
@@ -9488,6 +9592,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (tempPhotoId) {
         tempPhotoIndex = keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId);
+        console.log(`[Fast Upload] Looking for tempPhotoId: ${tempPhotoId}, found at index: ${tempPhotoIndex}`);
       }
 
       if (tempPhotoIndex !== -1) {
@@ -9496,8 +9601,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           ...keyPhotos[tempPhotoIndex],
           AttachID: attachId,
           id: attachId,
-          uploading: true  // Still uploading in background
+          uploading: true,  // Still uploading in background
+          queued: false  // CRITICAL: Clear queued flag
         };
+        console.log(`[Fast Upload] Updated photo at index ${tempPhotoIndex} with AttachID: ${attachId}`);
+      } else {
+        console.warn(`[Fast Upload] Could not find photo with tempPhotoId: ${tempPhotoId} in visualPhotos[${key}] (${keyPhotos.length} photos)`);
       }
 
       this.changeDetectorRef.detectChanges();
@@ -11185,6 +11294,12 @@ Stack: ${error?.stack}`;
 
   // Add photo directly from camera (structural systems)
   async addPhotoFromCamera(category: string, itemId: string) {
+    // CRITICAL: Clear any pending context-clearing timer from previous photo
+    if (this.contextClearTimer) {
+      clearTimeout(this.contextClearTimer);
+      this.contextClearTimer = null;
+    }
+
     this.currentUploadContext = {
       category,
       itemId,

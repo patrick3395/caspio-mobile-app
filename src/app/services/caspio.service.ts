@@ -812,6 +812,158 @@ export class CaspioService {
     }
   }
 
+  // FAST UPLOAD: Create EFE Points attachment record immediately, then upload photo asynchronously
+  // Step 1: Create the record with placeholder/pending status
+  createServicesEFEPointsAttachRecord(pointId: number, drawingsData: string, photoType?: string): Observable<any> {
+    return new Observable(observer => {
+      this.createEFEPointsAttachRecordOnly(pointId, drawingsData, photoType)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async createEFEPointsAttachRecordOnly(pointId: number, drawingsData: string, photoType?: string) {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = {
+        PointID: parseInt(pointId.toString()),
+        Annotation: photoType || '' // Use photoType as annotation
+        // Photo field left empty - will be updated after upload
+      };
+
+      // Add Drawings field if we have annotation data
+      if (drawingsData && drawingsData.length > 0) {
+        recordData.Drawings = drawingsData;
+      }
+
+      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+
+      const createResponseText = await createResponse.text();
+
+      if (!createResponse.ok) {
+        console.error('Failed to create Services_EFE_Points_Attach record:', createResponseText);
+        throw new Error('Failed to create record: ' + createResponseText);
+      }
+
+      let createResult: any;
+      if (createResponseText.length > 0) {
+        const parsedResponse = JSON.parse(createResponseText);
+        if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
+          createResult = parsedResponse.Result[0];
+        } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
+          createResult = parsedResponse[0];
+        } else {
+          createResult = parsedResponse;
+        }
+      } else {
+        createResult = { success: true };
+      }
+
+      const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
+
+      return {
+        ...createResult,
+        AttachID: attachId,
+        success: true
+      };
+
+    } catch (error: any) {
+      console.error('[createEFEPointsAttachRecordOnly] ERROR:', error);
+      throw error;
+    }
+  }
+
+  // Step 2: Upload photo and update existing EFE Points record
+  updateServicesEFEPointsAttachPhoto(attachId: number, file: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadAndUpdateEFEPointsAttachPhoto(attachId, file)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async uploadAndUpdateEFEPointsAttachPhoto(attachId: number, file: File) {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      // Upload file
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `efe_point_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const filePath = `/${uploadResult.Name || uniqueFilename}`;
+
+      // Update the record with the photo path
+      const updateData: any = {
+        Photo: filePath
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error('Failed to update Services_EFE_Points_Attach record:', errorText);
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      return {
+        AttachID: attachId,
+        Photo: filePath,
+        success: true
+      };
+
+    } catch (error: any) {
+      console.error('[uploadAndUpdateEFEPointsAttachPhoto] ERROR:', error);
+      throw error;
+    }
+  }
+
   // Legacy method for direct data posting (kept for backward compatibility)
   createServicesEFEAttach(data: any): Observable<any> {
     return this.post<any>('/tables/Services_EFE_Points_Attach/records?response=rows', data).pipe(
