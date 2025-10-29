@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -422,7 +422,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private cache: CacheService,
     private offlineService: OfflineService,
     private foundationData: EngineersFoundationDataService,
-    public operationsQueue: OperationsQueueService
+    public operationsQueue: OperationsQueueService,
+    private ngZone: NgZone
   ) {}
 
   async ngOnInit() {
@@ -9379,39 +9380,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         .then(async (uploadResponse) => {
           console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
 
-          // Update the UI with the actual uploaded photo
-          const keyPhotos = this.visualPhotos[key] || [];
-          const tempPhotoIndex = tempPhotoId
-            ? keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId)
-            : keyPhotos.findIndex((p: any) => p.AttachID === attachId);
+          // CRITICAL: Run UI updates inside NgZone to ensure change detection
+          this.ngZone.run(async () => {
+            // Update the UI with the actual uploaded photo
+            const keyPhotos = this.visualPhotos[key] || [];
 
-          if (tempPhotoIndex !== -1) {
-            const filePath = uploadResponse?.Photo || '';
-            let imageUrl = keyPhotos[tempPhotoIndex].url;
+            // Find photo by attachId (it was updated in Step 3 below)
+            const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.AttachID === attachId || p.id === attachId);
 
-            if (filePath) {
-              try {
-                const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-                if (imageData && imageData.startsWith('data:')) {
-                  imageUrl = imageData;
+            console.log(`[Fast Upload] Found photo at index ${tempPhotoIndex} for AttachID: ${attachId}`);
+
+            if (tempPhotoIndex !== -1) {
+              const filePath = uploadResponse?.Photo || '';
+              let imageUrl = keyPhotos[tempPhotoIndex].url;
+
+              if (filePath) {
+                try {
+                  const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
+                  if (imageData && imageData.startsWith('data:')) {
+                    imageUrl = imageData;
+                  }
+                } catch (err) {
+                  console.error('Failed to load uploaded image:', err);
                 }
-              } catch (err) {
-                console.error('Failed to load uploaded image:', err);
               }
+
+              // Update photo with uploaded data - CLEAR uploading flag
+              keyPhotos[tempPhotoIndex] = {
+                ...keyPhotos[tempPhotoIndex],
+                Photo: filePath,
+                filePath: filePath,
+                url: imageUrl,
+                thumbnailUrl: imageUrl,
+                uploading: false  // CRITICAL: Clear the uploading flag
+              };
+
+              console.log(`[Fast Upload] UI updated, uploading flag cleared for AttachID: ${attachId}`);
+
+              // Force change detection
+              this.changeDetectorRef.detectChanges();
+            } else {
+              console.warn(`[Fast Upload] Could not find photo with AttachID: ${attachId} in visualPhotos[${key}]`);
             }
-
-            // Update photo with uploaded data
-            keyPhotos[tempPhotoIndex] = {
-              ...keyPhotos[tempPhotoIndex],
-              Photo: filePath,
-              filePath: filePath,
-              url: imageUrl,
-              thumbnailUrl: imageUrl,
-              uploading: false
-            };
-
-            this.changeDetectorRef.detectChanges();
-          }
+          });
         })
         .catch(async (uploadError) => {
           console.error('Photo upload failed (background):', uploadError);
