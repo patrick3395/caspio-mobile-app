@@ -388,19 +388,28 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 const imgWidth = originalImg.offsetWidth;
                 const imgHeight = originalImg.offsetHeight;
 
-                console.log(`[PDF] Original cover image size: ${imgWidth}x${imgHeight}`);
+                // Get natural (source) image dimensions
+                const naturalWidth = (originalImg as HTMLImageElement).naturalWidth;
+                const naturalHeight = (originalImg as HTMLImageElement).naturalHeight;
 
-                // Set exact dimensions on the clone, overriding object-fit behavior
+                console.log(`[PDF] Original cover image rendered size: ${imgWidth}x${imgHeight}`);
+                console.log(`[PDF] Original cover image natural size: ${naturalWidth}x${naturalHeight}`);
+                console.log(`[PDF] Original cover image aspect ratio: ${(naturalWidth/naturalHeight).toFixed(2)}, rendered ratio: ${(imgWidth/imgHeight).toFixed(2)}`);
+
+                // Use the natural image dimensions to preserve aspect ratio
+                // Scale to match the rendered width
+                const scale = imgWidth / naturalWidth;
+                const scaledHeight = naturalHeight * scale;
+
+                console.log(`[PDF] Scaling image by ${scale.toFixed(2)}, target size: ${imgWidth}x${scaledHeight}`);
+
+                // Set dimensions maintaining proper aspect ratio
                 clonedImg.style.width = imgWidth + 'px';
-                clonedImg.style.height = imgHeight + 'px';
+                clonedImg.style.height = scaledHeight + 'px';
                 clonedImg.style.maxWidth = 'none';
                 clonedImg.style.maxHeight = 'none';
-                clonedImg.style.minWidth = imgWidth + 'px';
-                clonedImg.style.minHeight = imgHeight + 'px';
-                clonedImg.style.objectFit = 'fill';
+                clonedImg.style.objectFit = 'contain'; // Keep contain to preserve aspect ratio
                 clonedImg.style.display = 'block';
-
-                console.log(`[PDF] Cloned image styled to: ${clonedImg.style.width} x ${clonedImg.style.height}`);
               }
             }
           }

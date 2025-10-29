@@ -899,12 +899,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // ALWAYS bypass cache on page entry for critical user-facing data
       // This ensures users see the most recent data after mutations
       // Cache invalidation happens automatically after mutations, but this is a safety measure
-      
+
       // Use actual ProjectID from project data for querying attachments
       const projectId = this.project?.ProjectID || this.projectId;
       // Always bypass cache (useCache = false) for fresh data
       const attachments = await this.caspioService.getAttachmentsByProject(projectId, false).toPromise();
-      this.existingAttachments = attachments || [];
+
+      // Sort attachments by AttachID to maintain consistent order (oldest to newest)
+      this.existingAttachments = (attachments || []).sort((a: any, b: any) => {
+        const idA = parseInt(a.AttachID) || 0;
+        const idB = parseInt(b.AttachID) || 0;
+        return idA - idB;
+      });
+
       this.updateDocumentsList();
     } catch (error) {
       console.error('Error loading existing attachments:', error);
@@ -1868,17 +1875,45 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     try {
-      const fileUrl = service.Deliverable;
-      const filename = `${service.typeName}_deliverable`;
+      const loading = await this.loadingController.create({
+        message: 'Downloading...'
+      });
+      await loading.present();
 
-      // Create a temporary link and trigger download
+      // Fetch the file from Caspio
+      const filePath = service.Deliverable;
+      const fileData = await this.caspioService.getFileFromPath(filePath).toPromise();
+
+      await loading.dismiss();
+
+      if (!fileData || !fileData.blob) {
+        await this.showToast('Failed to download deliverable', 'danger');
+        return;
+      }
+
+      // Extract filename from path or use service name
+      let filename = filePath.split('/').pop() || `${service.typeName}_deliverable`;
+
+      // Ensure filename has extension
+      if (!filename.includes('.')) {
+        if (fileData.type === 'application/pdf') {
+          filename += '.pdf';
+        }
+      }
+
+      // Create a blob URL and trigger download
+      const blobUrl = URL.createObjectURL(fileData.blob);
       const link = document.createElement('a');
-      link.href = fileUrl;
+      link.href = blobUrl;
       link.download = filename;
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // Clean up the blob URL after a short delay
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
 
       await this.showToast('Download started', 'success');
     } catch (error) {
@@ -1950,6 +1985,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           });
 
           console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
+
+          // Sort attachments by AttachID to maintain consistent order
+          attachments.sort((a: any, b: any) => {
+            const idA = parseInt(a.AttachID) || 0;
+            const idB = parseInt(b.AttachID) || 0;
+            return idA - idB;
+          });
 
           // If there are attachments, create a document item for each one (including versioned ones)
           if (attachments.length > 0) {
@@ -2095,9 +2137,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         orphansByTitle.get(orphan.Title)?.push(orphan);
       }
-      
+
       // Add orphan documents (only truly orphaned ones)
       for (const [title, attachments] of orphansByTitle.entries()) {
+        // Sort attachments by AttachID to maintain consistent order
+        attachments.sort((a: any, b: any) => {
+          const idA = parseInt(a.AttachID) || 0;
+          const idB = parseInt(b.AttachID) || 0;
+          return idA - idB;
+        });
         // This should never happen since we already filtered by accountedTitles above
         // but double-check to be safe
         if (!accountedTitles.has(title)) {
@@ -2841,18 +2889,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async addDocumentLink(doc: any, url: string) {
     if (!this.selectedServiceDoc) return;
-    
+
     try {
+      // Check if document title needs versioning
+      const versionedTitle = this.getVersionedTitle(doc.title, this.selectedServiceDoc);
+
       // Create attachment record in Caspio
-      const attachmentData = {
+      const attachmentData: any = {
         ProjectID: this.project?.ProjectID || this.projectId,
         TypeID: parseInt(this.selectedServiceDoc.typeId),
-        Title: doc.title,
+        Title: versionedTitle,
         Link: url, // Store the URL in the Link field
-        Attachment: '' // Empty attachment field for links
+        Attachment: '', // Empty attachment field for links
+        Notes: 'Link added from mobile'
       };
-      
-      const response = await this.caspioService.createAttachment(attachmentData).toPromise();
+
+      console.log('[AddLink] Creating link attachment with data:', attachmentData);
+      console.log('[AddLink] ServiceID:', this.selectedServiceDoc.serviceId);
+
+      // Pass serviceId as second parameter to createAttachment
+      const response = await this.caspioService.createAttachment(attachmentData, this.selectedServiceDoc.serviceId).toPromise();
       
       if (response && (response.PK_ID || response.AttachID)) {
         // Reload attachments from database to ensure UI matches server state
@@ -2998,16 +3054,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!serviceDoc) return;
 
     try {
+      // Check if document title needs versioning
+      const versionedTitle = this.getVersionedTitle(doc.title, serviceDoc);
+
       // Create attachment record in Caspio
       const attachmentData = {
         ProjectID: this.project?.ProjectID || this.projectId,
         TypeID: parseInt(serviceDoc.typeId),
-        Title: doc.title,
+        Title: versionedTitle,
         Link: url, // Store the URL in the Link field
-        Attachment: '' // Empty attachment field for links
+        Attachment: '', // Empty attachment field for links
+        Notes: 'Link added from mobile'
       };
 
       console.log('[Link Create] Creating attachment:', attachmentData);
+      console.log('[Link Create] ServiceID:', serviceDoc.serviceId);
 
       const response = await this.caspioService.createAttachment(attachmentData, serviceDoc.serviceId).toPromise();
 
