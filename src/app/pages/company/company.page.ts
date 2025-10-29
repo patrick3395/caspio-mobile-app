@@ -4611,6 +4611,9 @@ export class CompanyPage implements OnInit, OnDestroy {
             callbacks: {
               label: (context) => {
                 const value = context.parsed.y;
+                if (value === null || value === undefined) {
+                  return 'Revenue: $0.00';
+                }
                 return `Revenue: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
               }
             }
@@ -4621,7 +4624,10 @@ export class CompanyPage implements OnInit, OnDestroy {
             beginAtZero: true,
             ticks: {
               callback: (value) => {
-                return '$' + (value as number).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                if (typeof value !== 'number') {
+                  return '$0';
+                }
+                return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
               }
             },
             grid: {
