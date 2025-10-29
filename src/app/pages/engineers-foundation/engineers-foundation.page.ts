@@ -7115,20 +7115,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         timestamp: Math.floor(Date.now() / 300000) // 5-minute blocks
       });
 
-      // MOBILE FIX: Clear cache on mobile to force fresh base64 data loading
+      // PERFORMANCE OPTIMIZED: Use cache on all platforms for much faster loading
+      // Cache is invalidated every 5 minutes and contains base64 data that works everywhere
       const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
-      if (isMobile) {
-        console.log('[PDF Data] Mobile platform detected - clearing PDF cache for fresh data');
-        this.cache.clear(cacheKey);
-      }
 
       let structuralSystemsData, elevationPlotData, projectInfo;
-      const cachedData = !isMobile ? this.cache.get(cacheKey) : null; // Skip cache on mobile
+      const cachedData = this.cache.get(cacheKey); // Use cache on all platforms
 
       if (cachedData) {
-        console.log('[PDF Data] Using cached PDF data (web only)');
+        console.log('[PDF Data] ⚡ Using cached PDF data - fast path!');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
+        console.log('[PDF Data] Loading fresh PDF data...');
         const startTime = Date.now();
         
         try {
@@ -7161,17 +7159,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
 
-          // Cache the prepared data (web only - mobile always gets fresh data)
-          if (!isMobile) {
-            this.cache.set(cacheKey, {
-              structuralSystemsData,
-              elevationPlotData,
-              projectInfo
-            }, this.cache.CACHE_TIMES.MEDIUM);
-            console.log('[PDF Data] Cached PDF data for web use');
-          } else {
-            console.log('[PDF Data] Skipping cache on mobile - always use fresh data');
-          }
+          // Cache the prepared data on all platforms for faster subsequent loads
+          this.cache.set(cacheKey, {
+            structuralSystemsData,
+            elevationPlotData,
+            projectInfo
+          }, this.cache.CACHE_TIMES.MEDIUM);
+          console.log('[PDF Data] Cached PDF data for reuse (5 min expiry)');
         } catch (dataError) {
           console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
@@ -7188,121 +7182,69 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
-      // CRITICAL FIX: Preload primary photo (cover photo) with proper loading feedback
-      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
-        console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
+      // PERFORMANCE OPTIMIZED: Load cover photo and PDF component in parallel
+      const [PdfPreviewComponent] = await Promise.all([
+        this.loadPdfPreview(),
+        // Load primary photo (cover photo) in parallel
+        (async () => {
+          if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
+            console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
 
-        // Update loading message to show we're loading the cover photo
-        if (loading) {
-          try {
-            await loading.dismiss();
-            loading = await this.alertController.create({
-              header: 'Loading Report',
-              message: 'Loading cover photo...',
-              buttons: [
-                {
-                  text: 'Cancel',
-                  handler: () => {
-                    this.isPDFGenerating = false;
-                    return true;
-                  }
+            let convertedPhotoData: string | null = null;
+
+            if (projectInfo.primaryPhoto.startsWith('/')) {
+              // Caspio file path - convert to base64
+              try {
+                console.log('[PDF] Converting primary photo from Caspio path to base64...');
+                const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
+                if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+                  convertedPhotoData = imageData;
+                  console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
+                } else {
+                  console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
                 }
-              ],
-              backdropDismiss: false,
-              cssClass: 'template-loading-alert'
-            });
-            await loading.present();
-          } catch (err) {
-            console.error('[PDF] Error updating loading message:', err);
-          }
-        }
-
-        // Handle different photo formats
-        let convertedPhotoData: string | null = null;
-
-        if (projectInfo.primaryPhoto.startsWith('/')) {
-          // Caspio file path - convert to base64
-          try {
-            console.log('[PDF] Converting primary photo from Caspio path to base64...');
-            const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
-            if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
-              convertedPhotoData = imageData;
-              console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
-            } else {
-              console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
-            }
-          } catch (error) {
-            console.error('[PDF] Error converting primary photo:', error);
-            // Continue without primary photo - don't fail PDF generation
-          }
-        } else if (projectInfo.primaryPhoto.startsWith('data:')) {
-          // Already base64 - use it directly
-          console.log('[PDF] Primary photo is already base64, using directly');
-          convertedPhotoData = projectInfo.primaryPhoto;
-        } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-          // Blob URL - try to convert to base64
-          console.log('[PDF] Primary photo is blob URL, attempting to convert...');
-          try {
-            const response = await fetch(projectInfo.primaryPhoto);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            const base64 = await new Promise<string>((resolve, reject) => {
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            convertedPhotoData = base64;
-            console.log('[PDF] Primary photo blob converted successfully');
-          } catch (error) {
-            console.error('[PDF] Error converting blob URL:', error);
-          }
-        } else if (projectInfo.primaryPhoto.startsWith('http')) {
-          // HTTP URL - might work in web, likely to fail on mobile
-          console.warn('[PDF] Primary photo is HTTP URL (may not work on mobile):', projectInfo.primaryPhoto);
-          convertedPhotoData = projectInfo.primaryPhoto;
-        } else {
-          console.warn('[PDF] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
-        }
-
-        // Set both fields so PDF component can use either one
-        if (convertedPhotoData) {
-          projectInfo.primaryPhotoBase64 = convertedPhotoData;
-          // Also update primaryPhoto itself for compatibility with different PDF component implementations
-          projectInfo.primaryPhoto = convertedPhotoData;
-          console.log('[PDF] Primary photo ready for PDF rendering');
-        } else {
-          console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
-        }
-      } else {
-        console.log('[PDF] No primary photo available for this project');
-      }
-
-      // Update loading message to final state
-      if (loading) {
-        try {
-          await loading.dismiss();
-          loading = await this.alertController.create({
-            header: 'Loading Report',
-            message: 'Finalizing PDF preview...',
-            buttons: [
-              {
-                text: 'Cancel',
-                handler: () => {
-                  this.isPDFGenerating = false;
-                  return true;
-                }
+              } catch (error) {
+                console.error('[PDF] Error converting primary photo:', error);
               }
-            ],
-            backdropDismiss: false,
-            cssClass: 'template-loading-alert'
-          });
-          await loading.present();
-        } catch (err) {
-          console.error('[PDF] Error updating loading message:', err);
-        }
-      }
+            } else if (projectInfo.primaryPhoto.startsWith('data:')) {
+              console.log('[PDF] Primary photo is already base64, using directly');
+              convertedPhotoData = projectInfo.primaryPhoto;
+            } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
+              console.log('[PDF] Primary photo is blob URL, attempting to convert...');
+              try {
+                const response = await fetch(projectInfo.primaryPhoto);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                const base64 = await new Promise<string>((resolve, reject) => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+                convertedPhotoData = base64;
+                console.log('[PDF] Primary photo blob converted successfully');
+              } catch (error) {
+                console.error('[PDF] Error converting blob URL:', error);
+              }
+            } else if (projectInfo.primaryPhoto.startsWith('http')) {
+              console.warn('[PDF] Primary photo is HTTP URL (may not work on mobile):', projectInfo.primaryPhoto);
+              convertedPhotoData = projectInfo.primaryPhoto;
+            } else {
+              console.warn('[PDF] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
+            }
 
-      const PdfPreviewComponent = await this.loadPdfPreview();
+            // Set both fields so PDF component can use either one
+            if (convertedPhotoData) {
+              projectInfo.primaryPhotoBase64 = convertedPhotoData;
+              projectInfo.primaryPhoto = convertedPhotoData;
+              console.log('[PDF] Primary photo ready for PDF rendering');
+            } else {
+              console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
+            }
+          } else {
+            console.log('[PDF] No primary photo available for this project');
+          }
+        })()
+      ]);
 
       // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
@@ -7333,22 +7275,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.error('[v1.4.390] Error creating modal:', modalCreateError);
         throw modalCreateError;
       }
-      
-      // Wait a moment before presenting to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+
+      // PERFORMANCE OPTIMIZED: Present modal immediately (no delay needed)
       // Present the modal with error handling
       try {
         await modal.present();
-        
-        // Dismiss loading after modal is presented
-        // Add a small delay to ensure smooth transition
+
+        // Dismiss loading immediately after modal is presented
         setTimeout(async () => {
           try {
             if (loading) await loading.dismiss();
           } catch (dismissError) {
           }
-        }, 300);
+        }, 100); // Reduced from 300ms to 100ms
         
       } catch (modalError) {
         console.error('[v1.4.338] Error presenting modal:', modalError);
@@ -13532,9 +13471,9 @@ Stack: ${error?.stack}`;
             }
           }
           
-          // MOBILE FIX: Convert images in batches to avoid memory issues
+          // PERFORMANCE OPTIMIZED: Convert images in larger batches for faster processing
           if (imagePromises.length > 0) {
-            const BATCH_SIZE = 5; // Process 5 images at a time
+            const BATCH_SIZE = 15; // Increased from 5 for better performance
             const convertedImages = [];
 
             for (let i = 0; i < imagePromises.length; i += BATCH_SIZE) {
@@ -13544,9 +13483,9 @@ Stack: ${error?.stack}`;
               const batchResults = await Promise.all(batch);
               convertedImages.push(...batchResults);
 
-              // Small delay between batches for garbage collection
+              // Minimal delay between batches (reduced from 50ms)
               if (i + BATCH_SIZE < imagePromises.length) {
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => setTimeout(resolve, 25));
               }
             }
 
@@ -13594,9 +13533,9 @@ Stack: ${error?.stack}`;
         result.push(roomResult);
       }
 
-      // Small delay between rooms for garbage collection
+      // PERFORMANCE OPTIMIZED: Minimal delay between rooms (reduced from 100ms)
       if (roomsToProcess.indexOf(roomName) < roomsToProcess.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
     }
     result.forEach(room => {
@@ -13628,15 +13567,20 @@ Stack: ${error?.stack}`;
     const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
     const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
 
-    if (isMobile) {
-      // Force refresh on mobile to avoid cached HTTP URLs
-      console.log('[PDF Photos] Mobile platform detected - bypassing cache for fresh data');
-      this.cache.clear(cacheKey);
-    } else {
-      const cachedPhotos = this.cache.get(cacheKey);
-      if (cachedPhotos) {
-        console.log('[PDF Photos] Using cached photos for visualId:', visualId);
+    // PERFORMANCE OPTIMIZED: Use cache on all platforms for faster loading
+    // Cache contains base64 data which works on both web and mobile
+    const cachedPhotos = this.cache.get(cacheKey);
+    if (cachedPhotos && cachedPhotos.length > 0) {
+      // Verify cached photos have proper base64 data
+      const allValid = cachedPhotos.every((p: any) =>
+        p.displayUrl && (p.displayUrl.startsWith('data:') || p.displayUrl.startsWith('blob:'))
+      );
+      if (allValid) {
+        console.log('[PDF Photos] Using cached photos for visualId:', visualId, '(', cachedPhotos.length, 'photos)');
         return cachedPhotos;
+      } else {
+        console.log('[PDF Photos] Cache invalid, reloading photos');
+        this.cache.clear(cacheKey);
       }
     }
 
@@ -13645,10 +13589,10 @@ Stack: ${error?.stack}`;
     const fabric = await this.fabricService.getFabric();
     console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos for visual:', visualId);
 
-    // MOBILE FIX: Process photos in batches to avoid memory issues
-    // On mobile devices, processing all photos in parallel causes crashes
-    const BATCH_SIZE = isMobile ? 3 : 5; // Smaller batch on mobile for better memory management
-    const BATCH_DELAY = isMobile ? 200 : 100; // Longer delay on mobile
+    // PERFORMANCE OPTIMIZED: Process photos in batches
+    // Increased batch sizes for faster PDF generation while maintaining stability
+    const BATCH_SIZE = isMobile ? 8 : 15; // Increased from 3/5 for better performance
+    const BATCH_DELAY = isMobile ? 50 : 25; // Reduced from 200/100 for faster processing
     const processedPhotos: any[] = [];
     let successCount = 0;
     let failureCount = 0;
