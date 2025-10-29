@@ -1985,6 +1985,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           });
 
           console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
+          if (attachments.length > 0) {
+            console.log(`[UpdateDocs] Attachment details:`, attachments.map(a => ({
+              AttachID: a.AttachID,
+              Title: a.Title,
+              Link: a.Link,
+              Attachment: a.Attachment,
+              Notes: a.Notes
+            })));
+          }
 
           // Sort attachments by AttachID to maintain consistent order
           attachments.sort((a: any, b: any) => {
@@ -2906,15 +2915,27 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[AddLink] Creating link attachment with data:', attachmentData);
       console.log('[AddLink] ServiceID:', this.selectedServiceDoc.serviceId);
+      console.log('[AddLink] Before create - existingAttachments count:', this.existingAttachments.length);
 
       // Pass serviceId as second parameter to createAttachment
       const response = await this.caspioService.createAttachment(attachmentData, this.selectedServiceDoc.serviceId).toPromise();
-      
+
+      console.log('[AddLink] Response from Caspio:', response);
+
       if (response && (response.PK_ID || response.AttachID)) {
+        console.log('[AddLink] Link created successfully, reloading attachments...');
+
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
 
+        console.log('[AddLink] After reload - existingAttachments count:', this.existingAttachments.length);
+        console.log('[AddLink] After reload - serviceDocuments:', this.serviceDocuments.map(sd => ({
+          serviceId: sd.serviceId,
+          serviceName: sd.serviceName,
+          documentCount: sd.documents.length,
+          documents: sd.documents.map(d => d.title)
+        })));
 
         await this.showToast('Link added successfully', 'success')
       } else {
@@ -3069,16 +3090,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[Link Create] Creating attachment:', attachmentData);
       console.log('[Link Create] ServiceID:', serviceDoc.serviceId);
+      console.log('[Link Create] Before create - existingAttachments count:', this.existingAttachments.length);
 
       const response = await this.caspioService.createAttachment(attachmentData, serviceDoc.serviceId).toPromise();
 
       console.log('[Link Create] Response from Caspio:', response);
 
       if (response && (response.PK_ID || response.AttachID)) {
+        console.log('[Link Create] Link created successfully, reloading attachments...');
+
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
 
+        console.log('[Link Create] After reload - existingAttachments count:', this.existingAttachments.length);
+        console.log('[Link Create] After reload - serviceDocuments:', this.serviceDocuments.map(sd => ({
+          serviceId: sd.serviceId,
+          serviceName: sd.serviceName,
+          documentCount: sd.documents.length,
+          documents: sd.documents.map(d => d.title)
+        })));
 
         this.showToast('Link added successfully', 'success');
       }

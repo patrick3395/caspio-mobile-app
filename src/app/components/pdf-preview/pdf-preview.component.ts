@@ -437,14 +437,16 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             }
           }
 
-          // Capture the cloned element with explicit width (let height auto-size for cover page)
+          // Capture the cloned element - special handling for cover page
           const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            width: originalWidth
+            width: originalWidth,
+            // Only set height for non-cover pages to prevent stretching
+            ...(isCoverPage ? {} : { height: originalHeight })
           });
 
           console.log(`[PDF] Canvas size for page ${i + 1}: ${canvas.width}x${canvas.height}`);
