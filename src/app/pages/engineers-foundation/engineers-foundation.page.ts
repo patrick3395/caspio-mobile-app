@@ -3154,21 +3154,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error('Error handling room point files:', error);
       await this.showToast('Failed to process photos', 'danger');
     } finally {
-      // Reset file input only if not continuing with camera
+      // Reset file input value to allow same file selection
+      if (this.fileInput && this.fileInput.nativeElement) {
+        this.fileInput.nativeElement.value = '';
+      }
+
+      // CRITICAL FIX: Don't clear context immediately - let it persist for rapid captures
+      // Only reset file input attributes if not continuing with camera
       if (!this.expectingCameraPhoto) {
-        if (this.fileInput && this.fileInput.nativeElement) {
-          this.fileInput.nativeElement.value = '';
-          // Restore attributes to default state
-          this.fileInput.nativeElement.setAttribute('multiple', 'true');
-          this.fileInput.nativeElement.removeAttribute('capture');
-        }
-        this.currentRoomPointContext = null;
-      } else {
-        // Keep the context if expecting more photos
-        // File input will be cleared on next selection
-        if (this.fileInput && this.fileInput.nativeElement) {
-          this.fileInput.nativeElement.value = '';
-        }
+        // Reset to default state after a short delay to allow rapid captures
+        setTimeout(() => {
+          if (this.fileInput && this.fileInput.nativeElement) {
+            this.fileInput.nativeElement.removeAttribute('capture');
+            this.fileInput.nativeElement.setAttribute('multiple', 'true');
+          }
+          // Clear context after delay to prevent interference with rapid captures
+          this.currentRoomPointContext = null;
+        }, 500);
       }
     }
   }
@@ -8939,6 +8941,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               console.error(`ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload file ${index + 1}:`, error);
               return { success: false, error };
             })
+            .finally(() => {
+              // Decrement upload counter after each upload completes
+              this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - 1);
+              if (this.uploadingPhotos[key] === 0) {
+                delete this.uploadingPhotos[key];
+              }
+            })
         );
         
         // Monitor uploads in background without blocking
@@ -8962,12 +8971,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Photos are already added with proper previews during upload
         // Removed change detection to improve performance
-        
-        // Clear upload tracking
-        this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
-        if (this.uploadingPhotos[key] === 0) {
-          delete this.uploadingPhotos[key];
-        }
 
         // Mark that changes have been made (enables Update button)
         this.markReportChanged();
@@ -8975,22 +8978,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Removed change detection to improve performance
       }
     } catch (error) {
-      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error handling files:', error);
+      console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
+
+      // Clear upload tracking on error
+      const key = `${category}_${itemId}`;
+      this.uploadingPhotos[key] = Math.max(0, (this.uploadingPhotos[key] || 0) - files.length);
+      if (this.uploadingPhotos[key] === 0) {
+        delete this.uploadingPhotos[key];
+      }
     } finally {
-      // Reset file input 
+      // Reset file input value to allow same file selection
       if (this.fileInput && this.fileInput.nativeElement) {
         this.fileInput.nativeElement.value = '';
-        // Only reset attributes if we're not continuing with camera
-        if (!this.expectingCameraPhoto) {
-          // Ensure capture attribute is removed and multiple is restored
-          this.fileInput.nativeElement.removeAttribute('capture');
-          this.fileInput.nativeElement.setAttribute('multiple', 'true');
-        }
       }
-      // Only clear context if not continuing with camera
+
+      // CRITICAL FIX: Don't clear context immediately - let it persist for rapid captures
+      // Context will be cleared on next different action or after a delay
+      // Only reset file input attributes if not continuing with camera
       if (!this.expectingCameraPhoto) {
-        this.currentUploadContext = null;
+        // Reset to default state after a short delay to allow rapid captures
+        setTimeout(() => {
+          if (this.fileInput && this.fileInput.nativeElement) {
+            this.fileInput.nativeElement.removeAttribute('capture');
+            this.fileInput.nativeElement.setAttribute('multiple', 'true');
+          }
+          // Clear context after delay to prevent interference with rapid captures
+          this.currentUploadContext = null;
+        }, 500);
       }
     }
   }

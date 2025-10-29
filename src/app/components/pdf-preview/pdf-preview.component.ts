@@ -495,19 +495,63 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Convert canvas to image
           const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-          // Add new page for all except first
-          if (i > 0) {
-            pdf.addPage();
-          }
-
           // Calculate dimensions to fit page
           const imgWidth = pageWidth;
           const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
-          // Add image to PDF
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+          // Check if content exceeds page height and needs to be split
+          if (imgHeight > pageHeight) {
+            console.log(`[PDF] Page ${i + 1} content is too tall (${imgHeight}mm > ${pageHeight}mm), splitting across multiple pages`);
 
-          console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm)`);
+            // Calculate how many PDF pages we need
+            const numPages = Math.ceil(imgHeight / pageHeight);
+            console.log(`[PDF] Splitting into ${numPages} pages`);
+
+            // Split the canvas into multiple pages
+            for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
+              // Add new page for all except first
+              if (i > 0 || pageIdx > 0) {
+                pdf.addPage();
+              }
+
+              // Calculate the source Y position in the canvas (in pixels)
+              const sourceY = (pageIdx * pageHeight * canvas.width) / imgWidth;
+              const sourceHeight = Math.min((pageHeight * canvas.width) / imgWidth, canvas.height - sourceY);
+
+              // Create a temporary canvas for this slice
+              const sliceCanvas = document.createElement('canvas');
+              sliceCanvas.width = canvas.width;
+              sliceCanvas.height = sourceHeight;
+              const sliceCtx = sliceCanvas.getContext('2d');
+
+              if (sliceCtx) {
+                // Draw the slice from the main canvas
+                sliceCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+
+                // Convert slice to image
+                const sliceImgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+
+                // Calculate the height for this slice in PDF units
+                const sliceImgHeight = (sourceHeight * pageWidth) / canvas.width;
+
+                // Add the slice to PDF
+                pdf.addImage(sliceImgData, 'JPEG', 0, 0, imgWidth, sliceImgHeight);
+
+                console.log(`[PDF] Added page ${i + 1}-${pageIdx + 1} (${imgWidth}mm x ${sliceImgHeight}mm)`);
+              }
+            }
+          } else {
+            // Content fits on one page
+            // Add new page for all except first
+            if (i > 0) {
+              pdf.addPage();
+            }
+
+            // Add image to PDF
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+
+            console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm)`);
+          }
 
         } catch (pageError) {
           console.error(`[PDF] Error processing page ${i + 1}:`, pageError);

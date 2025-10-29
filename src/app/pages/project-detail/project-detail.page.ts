@@ -3103,14 +3103,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!serviceDoc) return;
 
     try {
-      // Check if document title needs versioning
-      const versionedTitle = this.getVersionedTitle(doc.title, serviceDoc);
+      // DON'T apply versioning here - this is for adding a link to an EXISTING document
+      // The document already has its proper title (possibly with version number)
+      // Versioning is only applied when adding NEW documents via "Add Document" modal
 
       // Create attachment record in Caspio
       const attachmentData = {
         ProjectID: this.project?.ProjectID || this.projectId,
         TypeID: parseInt(serviceDoc.typeId),
-        Title: versionedTitle,
+        Title: doc.title, // Use the existing document title as-is
         Link: url, // Store the URL in the Link field
         Attachment: '', // Empty attachment field for links
         Notes: 'Link added from mobile'
