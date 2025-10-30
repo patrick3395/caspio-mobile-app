@@ -315,6 +315,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   // Metrics tab - chart data
   revenueChart: Chart | null = null;
   revenueChartData: { labels: string[]; values: number[] } = { labels: [], values: [] };
+  projectsByTypeChart: Chart | null = null;
+  projectsByTypeData: { labels: string[]; completedCounts: number[]; totalRevenue: number[] } = { labels: [], completedCounts: [], totalRevenue: [] };
+
+  // Projects data
+  projects: any[] = [];
 
   private stageLookup = new Map<number, StageDefinition>();
   private companyNameLookup = new Map<number, string>();
@@ -598,7 +603,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' }),
         this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
         this.fetchTableRecords('Offers', { 'q.orderBy': 'CompanyID', 'q.limit': '2000' }),
@@ -614,6 +619,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.populateStageDefinitions(stageRecords);
       this.populateCommunicationTypes(communicationRecords);
       this.populateProjectLookup(projectRecords);
+      this.projects = projectRecords; // Store projects for metrics aggregation
       this.populateTypeLookup(typeRecords);
       this.populateServicesLookup(servicesRecords);
       this.populateOffersLookup(offersRecords);
@@ -2818,7 +2824,11 @@ export class CompanyPage implements OnInit, OnDestroy {
           break;
         case 'metrics':
           this.aggregateRevenueByMonth();
-          setTimeout(() => this.renderRevenueChart(), 100);
+          this.aggregateProjectsByType();
+          setTimeout(() => {
+            this.renderRevenueChart();
+            this.renderProjectsByTypeChart();
+          }, 100);
           break;
         case 'users':
           this.applyUserFilters();
@@ -4646,6 +4656,181 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.revenueChart = new Chart(ctx, config);
   }
 
+  aggregateProjectsByType() {
+    // Filter projects: exclude CompanyID 1
+    const filteredProjects = this.projects.filter(project => {
+      const companyId = project.CompanyID !== undefined && project.CompanyID !== null ? Number(project.CompanyID) : null;
+      return companyId !== 1;
+    });
+
+    // Group by TypeName
+    const typeGroups = new Map<string, { completedCount: number; totalRevenue: number }>();
+
+    filteredProjects.forEach(project => {
+      const offersId = project.OffersID !== undefined && project.OffersID !== null ? Number(project.OffersID) : null;
+      const statusId = project.StatusID !== undefined && project.StatusID !== null ? Number(project.StatusID) : null;
+      const fee = project.Fee !== undefined && project.Fee !== null ? Number(project.Fee) : 0;
+
+      // Get TypeName from OffersID -> TypeID -> TypeName
+      let typeName = 'Unspecified';
+      if (offersId !== null) {
+        const typeId = this.offersLookup.get(offersId);
+        if (typeId !== undefined && typeId !== null) {
+          const foundTypeName = this.typeIdToNameLookup.get(typeId);
+          if (foundTypeName) {
+            typeName = foundTypeName;
+          }
+        }
+      }
+
+      // Initialize group if doesn't exist
+      if (!typeGroups.has(typeName)) {
+        typeGroups.set(typeName, { completedCount: 0, totalRevenue: 0 });
+      }
+
+      const group = typeGroups.get(typeName)!;
+
+      // Count completed projects (StatusID === 2)
+      if (statusId === 2) {
+        group.completedCount++;
+      }
+
+      // Add to total revenue
+      group.totalRevenue += fee;
+    });
+
+    // Sort by type name and create arrays
+    const sortedEntries = Array.from(typeGroups.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+    this.projectsByTypeData = {
+      labels: sortedEntries.map(([typeName]) => typeName),
+      completedCounts: sortedEntries.map(([_, data]) => data.completedCount),
+      totalRevenue: sortedEntries.map(([_, data]) => data.totalRevenue)
+    };
+  }
+
+  renderProjectsByTypeChart() {
+    const canvas = document.getElementById('projectsByTypeChart') as HTMLCanvasElement;
+    if (!canvas) {
+      console.warn('Projects by type chart canvas not found');
+      return;
+    }
+
+    // Destroy existing chart if it exists
+    if (this.projectsByTypeChart) {
+      this.projectsByTypeChart.destroy();
+      this.projectsByTypeChart = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: this.projectsByTypeData.labels,
+        datasets: [
+          {
+            label: 'Completed Projects',
+            data: this.projectsByTypeData.completedCounts,
+            backgroundColor: 'rgba(16, 185, 129, 0.6)',
+            borderColor: 'rgb(16, 185, 129)',
+            borderWidth: 2,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Total Revenue',
+            data: this.projectsByTypeData.totalRevenue,
+            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 2,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = context.parsed.y;
+                if (value === null || value === undefined) {
+                  return label + ': 0';
+                }
+                if (context.datasetIndex === 1) {
+                  return label + ': $' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+                return label + ': ' + value;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Completed Projects'
+            },
+            ticks: {
+              callback: (value) => {
+                if (typeof value !== 'number') {
+                  return '0';
+                }
+                return value.toString();
+              }
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Revenue ($)'
+            },
+            grid: {
+              drawOnChartArea: false
+            },
+            ticks: {
+              callback: (value) => {
+                if (typeof value !== 'number') {
+                  return '$0';
+                }
+                return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+              }
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    };
+
+    this.projectsByTypeChart = new Chart(ctx, config);
+  }
+
   ngOnDestroy() {
     if (this.contactSearchDebounce) {
       clearTimeout(this.contactSearchDebounce);
@@ -4658,6 +4843,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (this.revenueChart) {
       this.revenueChart.destroy();
       this.revenueChart = null;
+    }
+    if (this.projectsByTypeChart) {
+      this.projectsByTypeChart.destroy();
+      this.projectsByTypeChart = null;
     }
   }
 
