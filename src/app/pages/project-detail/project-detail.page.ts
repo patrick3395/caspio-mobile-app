@@ -379,62 +379,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[ProjectDetail] ✅ Found finalized state in history:', { finalizedServiceId, finalizedDate });
 
+      // CRITICAL: Clear the static cache to force fresh data load
+      // The mutation tracker clears API cache but not this component's static cache
+      console.log('[ProjectDetail] Clearing static cache for this project');
+      ProjectDetailPage.detailStateCache.delete(this.projectId);
+
       // Store for later - will apply after services are loaded
       this.pendingFinalizedServiceId = finalizedServiceId;
       console.log('[ProjectDetail] Set pendingFinalizedServiceId from history:', this.pendingFinalizedServiceId);
 
-      // If services are already loaded, apply immediately
-      if (this.selectedServices.length > 0) {
-        console.log('[ProjectDetail] Services already loaded, applying immediately');
-        console.log('[ProjectDetail] Looking for serviceId:', finalizedServiceId, 'Type:', typeof finalizedServiceId);
-        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
-          serviceId: s.serviceId,
-          serviceIdType: typeof s.serviceId,
-          typeName: s.typeName,
-          ReportFinalized: s.ReportFinalized,
-          Status: s.Status
-        })));
-
-        // Try both string and number comparison
-        const service = this.selectedServices.find(s =>
-          s.serviceId === finalizedServiceId ||
-          s.serviceId === String(finalizedServiceId) ||
-          String(s.serviceId) === String(finalizedServiceId)
-        );
-
-        if (service) {
-          console.log('[ProjectDetail] ✅ Found service, updating finalized status:', service.typeName);
-          console.log('[ProjectDetail] Service BEFORE update:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
-
-          // Update both ReportFinalized flag and Status
-          service.ReportFinalized = true;
-          service.Status = 'Finalized';
-          service.StatusDateTime = finalizedDate;
-
-          console.log('[ProjectDetail] Service AFTER update:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
-
-          // Force change detection multiple times to ensure UI updates
-          this.changeDetectorRef.detectChanges();
-          setTimeout(() => {
-            this.changeDetectorRef.detectChanges();
-            console.log('[ProjectDetail] Change detection triggered (delayed)');
-          }, 100);
-
-          this.pendingFinalizedServiceId = null;
-          console.log('[ProjectDetail] ✅ Finalized flag applied successfully');
-        } else {
-          console.warn('[ProjectDetail] ❌ Service not found with serviceId:', finalizedServiceId);
-          console.warn('[ProjectDetail] Tried matching against:', this.selectedServices.map(s => s.serviceId));
-
-          // Service not found in cache - reload from server
-          console.log('[ProjectDetail] Reloading project data from server...');
-          await this.loadProject();
-        }
-      } else {
-        console.log('[ProjectDetail] ⏳ Services not loaded yet, reloading from server...');
-        // Services not loaded - need to reload from server
-        await this.loadProject();
-      }
+      // ALWAYS force a reload to get fresh data from server
+      // This ensures we have the latest status and all service data
+      console.log('[ProjectDetail] Force reloading project data from server...');
+      this.loadProject();
     } else {
       console.log('[ProjectDetail] No finalized state found in history');
     }

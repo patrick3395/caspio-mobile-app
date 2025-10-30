@@ -5050,16 +5050,17 @@ export class CompanyPage implements OnInit, OnDestroy {
                      record.type !== undefined && record.type !== null ? Number(record.type) : null;
 
       // Debug specific records
-      if (offersId === 1099 || offersId === 1189) {
+      if (offersId === 1099 || offersId === 1189 || offersId === 1346) {
         console.log(`Found OffersID ${offersId}:`, {
           raw: record,
           parsedOffersId: offersId,
           parsedTypeId: typeId,
           allKeys: Object.keys(record),
-          TypeID: record.TypeID,
-          Type_ID: record.Type_ID,
-          Type: record.Type,
-          type: record.type
+          'record.OffersID': record.OffersID,
+          'record.PK_ID': record.PK_ID,
+          'record.TypeID': record.TypeID,
+          'record.Type_ID': record.Type_ID,
+          'record.Type': record.Type
         });
       }
 
@@ -5072,6 +5073,11 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     console.log('offersLookup populated with', this.offersLookup.size, 'entries');
     console.log('Sample offersLookup entries:', Array.from(this.offersLookup.entries()).slice(0, 5));
+
+    // Check specific OffersIDs
+    console.log('Lookup check for OffersID 1099:', this.offersLookup.get(1099));
+    console.log('Lookup check for OffersID 1189:', this.offersLookup.get(1189));
+    console.log('Lookup check for OffersID 1346:', this.offersLookup.get(1346));
   }
 
   private normalizeCompanyRecord(raw: any): CompanyRecord {
