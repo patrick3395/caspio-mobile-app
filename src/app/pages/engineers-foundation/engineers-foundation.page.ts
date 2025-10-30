@@ -6807,16 +6807,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await loading.dismiss();
 
       // Show success message
-      const successMessage = isFirstFinalization 
-        ? 'Report finalized successfully' 
+      const successMessage = isFirstFinalization
+        ? 'Report finalized successfully'
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
       // Navigate back using Location.back() to avoid route activation conflicts
       console.log('[EngFoundation] Navigating back to project detail...');
-      
+
+      // Pass finalized state to project-detail page via history state
+      const state = {
+        finalizedServiceId: this.serviceId,
+        finalizedDate: currentDateTime
+      };
+      console.log('[EngFoundation] Passing state to history:', state);
+
       // Use setTimeout to ensure toast is shown before navigation
       setTimeout(() => {
+        // Update history state before going back
+        window.history.replaceState(
+          { ...window.history.state, ...state },
+          ''
+        );
         this.location.back();
       }, 500);
 

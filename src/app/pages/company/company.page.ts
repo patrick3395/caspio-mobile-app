@@ -5032,15 +5032,34 @@ export class CompanyPage implements OnInit, OnDestroy {
   private populateOffersLookup(records: any[]) {
     this.offersLookup.clear();
 
+    console.log('=== Populating Offers Lookup ===');
+    console.log('Total Offers records:', records.length);
+    console.log('First 3 Offers records:', records.slice(0, 3));
+
     records.forEach(record => {
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
                        (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
       const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
 
+      // Debug specific record
+      if (offersId === 1099) {
+        console.log('Found OffersID 1099:', {
+          raw: record,
+          parsedOffersId: offersId,
+          parsedTypeId: typeId,
+          allKeys: Object.keys(record)
+        });
+      }
+
       if (offersId !== null && typeId !== null) {
         this.offersLookup.set(offersId, typeId);
+      } else if (offersId !== null) {
+        console.log(`Offers record ${offersId} missing TypeID:`, record);
       }
     });
+
+    console.log('offersLookup populated with', this.offersLookup.size, 'entries');
+    console.log('Sample offersLookup entries:', Array.from(this.offersLookup.entries()).slice(0, 5));
   }
 
   private normalizeCompanyRecord(raw: any): CompanyRecord {
