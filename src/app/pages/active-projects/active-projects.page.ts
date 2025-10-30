@@ -6,7 +6,7 @@ import { IonicDeployService } from '../../services/ionic-deploy.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
-import { MutationTrackingService, EntityType } from '../../services/mutation-tracking.service';
+import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
 import { forkJoin, Subscription } from 'rxjs';
 
 @Component({
@@ -73,7 +73,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     }
 
     // Subscribe to project mutations to auto-refresh when projects are modified
-    this.mutationSubscription = this.mutationTracker.getMutations().subscribe(mutation => {
+    this.mutationSubscription = this.mutationTracker.mutations.subscribe((mutation: Mutation) => {
       if (mutation.entityType === EntityType.PROJECT) {
         console.log('[ActiveProjects] Project mutation detected, invalidating cache');
         // Reset cache timer so next ionViewWillEnter will reload
