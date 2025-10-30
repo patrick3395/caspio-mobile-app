@@ -4673,6 +4673,14 @@ export class CompanyPage implements OnInit, OnDestroy {
       return companyId !== 1;
     });
 
+    console.log('=== Projects by Type Aggregation Debug ===');
+    console.log('Total filtered projects:', filteredProjects.length);
+    console.log('servicesByProjectLookup size:', this.servicesByProjectLookup.size);
+    console.log('servicesLookup size:', this.servicesLookup.size);
+    console.log('offersLookup size:', this.offersLookup.size);
+    console.log('typeIdToNameLookup size:', this.typeIdToNameLookup.size);
+    console.log('Sample typeIdToNameLookup entries:', Array.from(this.typeIdToNameLookup.entries()).slice(0, 5));
+
     // Group by TypeName
     const typeGroups = new Map<string, { completedCount: number; totalRevenue: number }>();
 
@@ -4684,14 +4692,26 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Get TypeName - try multiple approaches (same logic as getServiceName)
       let typeName = 'Unspecified';
+      let debugInfo: any = {
+        projectId,
+        offersId,
+        statusId,
+        fee
+      };
 
       // First, try to get service name from project's services (Services table)
       if (projectId !== null) {
         const serviceIds = this.servicesByProjectLookup.get(projectId);
+        debugInfo.serviceIds = serviceIds;
+
         if (serviceIds && serviceIds.length > 0) {
           const typeId = this.servicesLookup.get(serviceIds[0]);
+          debugInfo.typeIdFromServices = typeId;
+
           if (typeId !== null && typeId !== undefined) {
             const foundTypeName = this.typeIdToNameLookup.get(typeId);
+            debugInfo.typeNameFromServices = foundTypeName;
+
             if (foundTypeName) {
               typeName = foundTypeName;
             }
@@ -4702,12 +4722,21 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Second, try OffersID if still unspecified
       if (typeName === 'Unspecified' && offersId !== null) {
         const typeId = this.offersLookup.get(offersId);
+        debugInfo.typeIdFromOffers = typeId;
+
         if (typeId !== undefined && typeId !== null) {
           const foundTypeName = this.typeIdToNameLookup.get(typeId);
+          debugInfo.typeNameFromOffers = foundTypeName;
+
           if (foundTypeName) {
             typeName = foundTypeName;
           }
         }
+      }
+
+      // Log only if still unspecified
+      if (typeName === 'Unspecified') {
+        console.log('Project categorized as Unspecified:', debugInfo);
       }
 
       // Initialize group if doesn't exist
@@ -4729,6 +4758,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Sort by type name and create arrays
     const sortedEntries = Array.from(typeGroups.entries())
       .sort((a, b) => a[0].localeCompare(b[0]));
+
+    console.log('=== Final Category Summary ===');
+    sortedEntries.forEach(([typeName, data]) => {
+      console.log(`${typeName}: ${data.completedCount} completed, $${data.totalRevenue.toFixed(2)} revenue`);
+    });
 
     this.projectsByTypeData = {
       labels: sortedEntries.map(([typeName]) => typeName),
