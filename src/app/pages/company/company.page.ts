@@ -4541,22 +4541,32 @@ export class CompanyPage implements OnInit, OnDestroy {
   trackByTask = (_: number, task: TaskViewModel) => task.TaskID;
 
   aggregateRevenueByMonth() {
-    // Filter to only positive invoices (Fee > 0)
-    const positiveInvoices = this.invoices.filter(inv => (inv.Fee ?? 0) > 0);
+    // Filter projects: Fee > 0 and exclude CompanyID 1
+    const filteredProjects = this.projects.filter(project => {
+      const fee = project.Fee !== undefined && project.Fee !== null ? Number(project.Fee) : 0;
+      const companyId = project.CompanyID !== undefined && project.CompanyID !== null ? Number(project.CompanyID) : null;
+      return fee > 0 && companyId !== 1;
+    });
 
     // Group by month
     const monthlyRevenue = new Map<string, number>();
 
-    positiveInvoices.forEach(invoice => {
-      if (!invoice.DateValue) {
+    filteredProjects.forEach(project => {
+      const dateStr = project.Date;
+      if (!dateStr) {
         return;
       }
 
-      const date = invoice.DateValue;
+      const date = this.toDate(dateStr);
+      if (!date) {
+        return;
+      }
+
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       const currentTotal = monthlyRevenue.get(monthKey) ?? 0;
-      monthlyRevenue.set(monthKey, currentTotal + (invoice.Fee ?? 0));
+      const fee = project.Fee !== undefined && project.Fee !== null ? Number(project.Fee) : 0;
+      monthlyRevenue.set(monthKey, currentTotal + fee);
     });
 
     // Sort by month and create labels/values arrays
@@ -4667,13 +4677,30 @@ export class CompanyPage implements OnInit, OnDestroy {
     const typeGroups = new Map<string, { completedCount: number; totalRevenue: number }>();
 
     filteredProjects.forEach(project => {
+      const projectId = project.ProjectID !== undefined && project.ProjectID !== null ? Number(project.ProjectID) : null;
       const offersId = project.OffersID !== undefined && project.OffersID !== null ? Number(project.OffersID) : null;
       const statusId = project.StatusID !== undefined && project.StatusID !== null ? Number(project.StatusID) : null;
       const fee = project.Fee !== undefined && project.Fee !== null ? Number(project.Fee) : 0;
 
-      // Get TypeName from OffersID -> TypeID -> TypeName
+      // Get TypeName - try multiple approaches (same logic as getServiceName)
       let typeName = 'Unspecified';
-      if (offersId !== null) {
+
+      // First, try to get service name from project's services (Services table)
+      if (projectId !== null) {
+        const serviceIds = this.servicesByProjectLookup.get(projectId);
+        if (serviceIds && serviceIds.length > 0) {
+          const typeId = this.servicesLookup.get(serviceIds[0]);
+          if (typeId !== null && typeId !== undefined) {
+            const foundTypeName = this.typeIdToNameLookup.get(typeId);
+            if (foundTypeName) {
+              typeName = foundTypeName;
+            }
+          }
+        }
+      }
+
+      // Second, try OffersID if still unspecified
+      if (typeName === 'Unspecified' && offersId !== null) {
         const typeId = this.offersLookup.get(offersId);
         if (typeId !== undefined && typeId !== null) {
           const foundTypeName = this.typeIdToNameLookup.get(typeId);
