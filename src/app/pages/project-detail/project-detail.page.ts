@@ -388,14 +388,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.pendingFinalizedServiceId = finalizedServiceId;
       console.log('[ProjectDetail] Set pendingFinalizedServiceId from history:', this.pendingFinalizedServiceId);
 
+      // Clear ALL caches for this project to force fresh server fetch
+      console.log('[ProjectDetail] Clearing all project caches...');
+      this.foundationData.clearAllCaches();
+
       // ALWAYS force a reload to get fresh data from server
       // This ensures we have the latest status and all service data
       console.log('[ProjectDetail] Force reloading project data from server...');
-      this.loadProject();
+      await this.loadProject();
+      console.log('[ProjectDetail] Reload complete, data should be fresh');
     } else {
       console.log('[ProjectDetail] No finalized state found in history');
     }
-    
+
     console.log('[ProjectDetail] ========== ionViewWillEnter END ==========');
   }
 
@@ -405,22 +410,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async loadProject() {
     if (!this.caspioService.isAuthenticated()) {
-      this.caspioService.authenticate().subscribe({
-        next: () => {
-          this.fetchProjectOptimized();
-        },
-        error: (error) => {
-          this.error = 'Authentication failed';
-          console.error('❌ DEBUG: Authentication error:', error);
-          console.error('Error details:', {
-            status: error?.status,
-            message: error?.message,
-            error: error?.error
-          });
-        }
+      return new Promise<void>((resolve, reject) => {
+        this.caspioService.authenticate().subscribe({
+          next: async () => {
+            await this.fetchProjectOptimized();
+            resolve();
+          },
+          error: (error) => {
+            this.error = 'Authentication failed';
+            console.error('❌ DEBUG: Authentication error:', error);
+            console.error('Error details:', {
+              status: error?.status,
+              message: error?.message,
+              error: error?.error
+            });
+            reject(error);
+          }
+        });
       });
     } else {
-      this.fetchProjectOptimized();
+      await this.fetchProjectOptimized();
     }
   }
 

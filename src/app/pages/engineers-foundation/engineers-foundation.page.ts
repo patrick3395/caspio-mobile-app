@@ -6627,8 +6627,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     });
 
     // Check required visual items across all categories
-    // Skip if Structural Systems status is "Provided in Home Inspection Report"
-    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
+    // Skip if Structural Systems status is "Provided in Property Inspection Report"
+    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Property Inspection Report';
 
     if (!skipStructuralSystems) {
       for (const category of this.visualCategories) {
@@ -6790,6 +6790,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
       console.log('[EngFoundation] API Response:', response);
 
+      // CRITICAL: Clear all caches so project-detail page loads fresh data
+      console.log('[EngFoundation] Clearing all caches for project:', this.projectId);
+      this.cache.clearProjectRelatedCaches(this.projectId);
+      this.cache.clearByPattern('projects_active');
+      this.cache.clearByPattern('projects_all');
+
       // Update local state
       this.serviceData.StatusDateTime = currentDateTime;
       this.serviceData.Status = 'Finalized';
@@ -6873,8 +6879,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     // Check required visual items across all categories
-    // Skip if Structural Systems status is "Provided in Home Inspection Report"
-    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
+    // Skip if Structural Systems status is "Provided in Property Inspection Report"
+    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Property Inspection Report';
 
     if (!skipStructuralSystems) {
       for (const category of this.visualCategories) {

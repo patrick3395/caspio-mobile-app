@@ -606,7 +606,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '10000' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
