@@ -6818,22 +6818,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
-      // Navigate back to project detail with state
-      console.log('[EngFoundation] Navigating back to project detail...');
+      // BULLETPROOF: Store finalized info in localStorage for project-detail to pick up
+      console.log('[EngFoundation] Storing finalized service info for navigation');
       console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
-      // Use setTimeout to ensure toast is shown before navigation
+      const navigationData = {
+        finalizedServiceId: this.serviceId,
+        finalizedDate: currentDateTime,
+        projectId: this.projectId,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
+      console.log('[EngFoundation] Stored navigation data:', navigationData);
+
+      // Navigate back using location.back() - simple and reliable
+      console.log('[EngFoundation] Navigating back...');
       setTimeout(() => {
-        // Use Router.navigate instead of location.back() to properly pass state
-        // CRITICAL: Route is '/project/:id' NOT '/project-detail/:id'
-        this.router.navigate(['/project', this.projectId], {
-          state: {
-            finalizedServiceId: this.serviceId,
-            finalizedDate: currentDateTime
-          },
-          replaceUrl: true // Replace current history entry to mimic back behavior
-        });
-      }, 500);
+        this.location.back();
+      }, 300);
 
     } catch (error) {
       console.error('Error finalizing report:', error);

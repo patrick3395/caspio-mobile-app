@@ -5649,8 +5649,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     while (hasMoreRecords) {
       const paginatedParams = {
         ...params,
-        'q.limit': pageSize.toString(),
-        'q.pageNumber': pageIndex.toString()
+        'q.pageSize': pageSize.toString(),
+        'q.pageIndex': pageIndex.toString()
       };
 
       const records = await this.fetchTableRecords(tableName, paginatedParams);

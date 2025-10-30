@@ -9,6 +9,7 @@ import { ImageCompressionService } from '../../services/image-compression.servic
 import { EngineersFoundationDataService } from '../engineers-foundation/engineers-foundation-data.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { firstValueFrom } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { MutationTrackingService, MutationType } from '../../services/mutation-tracking.service';
@@ -283,26 +284,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
 
-    // Check for finalized service from navigation state
-    const navigation = this.router.getCurrentNavigation();
-    if (navigation?.extras?.state) {
-      const finalizedServiceId = navigation.extras.state['finalizedServiceId'];
-      const finalizedDate = navigation.extras.state['finalizedDate'];
-
-      console.log('[ProjectDetail ngOnInit] Navigation state received:', { finalizedServiceId, finalizedDate });
-
-      if (finalizedServiceId) {
-        // Store for later - will apply after services are loaded
-        this.pendingFinalizedServiceId = finalizedServiceId;
-        console.log('[ProjectDetail ngOnInit] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
-
-        // CRITICAL: Clear caches to force fresh data load
-        console.log('[ProjectDetail ngOnInit] Clearing all caches for finalized service');
-        ProjectDetailPage.detailStateCache.delete(this.projectId);
-        // Don't restore from cache if we have a finalized service
-      }
-    }
-
     // Check for add-service mode
     this.route.queryParams.subscribe(params => {
       if (params['mode'] === 'add-service') {
@@ -312,21 +293,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     });
 
     if (this.projectId) {
-      // If we have a pending finalized service, ALWAYS force a fresh load
-      if (this.pendingFinalizedServiceId) {
-        console.log('[ProjectDetail ngOnInit] Force loading fresh data due to finalized service');
+      // Try to restore from cache first
+      const restoredFromCache = this.restoreStateFromCache();
+      if (!restoredFromCache) {
+        // No cache, load from server
         this.loadProject();
       } else {
-        // Try to restore from cache only if no finalized service
-        const restoredFromCache = this.restoreStateFromCache();
-        if (!restoredFromCache) {
-          this.loadProject();
-        } else {
-          // Ensure loading indicators are cleared when restoring cached state
-          this.loading = false;
-          this.loadingServices = false;
-          this.loadingDocuments = false;
-        }
+        // Ensure loading indicators are cleared when restoring cached state
+        this.loading = false;
+        this.loadingServices = false;
+        this.loadingDocuments = false;
       }
     } else {
       console.error('❌ DEBUG: No projectId provided!');
@@ -339,36 +315,50 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[ProjectDetail] Current selectedServices count:', this.selectedServices.length);
     console.log('[ProjectDetail] Current pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
 
-    // Check for finalized service from history state (works after navigation completes)
-    const historyState = window.history.state;
-    console.log('[ProjectDetail] History state:', historyState);
+    // BULLETPROOF: Check localStorage for finalized service info
+    const storedData = localStorage.getItem('pendingFinalizedService');
+    console.log('[ProjectDetail] Stored navigation data:', storedData);
 
-    if (historyState?.finalizedServiceId) {
-      const finalizedServiceId = historyState.finalizedServiceId;
-      const finalizedDate = historyState.finalizedDate;
+    if (storedData) {
+      try {
+        const navigationData = JSON.parse(storedData);
+        console.log('[ProjectDetail] Parsed navigation data:', navigationData);
 
-      console.log('[ProjectDetail] ✅ Found finalized state in history:', { finalizedServiceId, finalizedDate });
+        // Check if this data is for this project and is recent (within 10 seconds)
+        const age = Date.now() - navigationData.timestamp;
+        console.log('[ProjectDetail] Navigation data age:', age, 'ms');
 
-      // CRITICAL: Clear the static cache to force fresh data load
-      // The mutation tracker clears API cache but not this component's static cache
-      console.log('[ProjectDetail] Clearing static cache for this project');
-      ProjectDetailPage.detailStateCache.delete(this.projectId);
+        if (navigationData.projectId === this.projectId && age < 10000) {
+          console.log('[ProjectDetail] ✅ Valid finalized service data found!');
 
-      // Store for later - will apply after services are loaded
-      this.pendingFinalizedServiceId = finalizedServiceId;
-      console.log('[ProjectDetail] Set pendingFinalizedServiceId from history:', this.pendingFinalizedServiceId);
+          // Clear the localStorage item immediately so we don't process it again
+          localStorage.removeItem('pendingFinalizedService');
 
-      // Clear ALL caches for this project to force fresh server fetch
-      console.log('[ProjectDetail] Clearing all project caches...');
-      this.foundationData.clearAllCaches();
+          // Store for later - will apply after services are loaded
+          this.pendingFinalizedServiceId = navigationData.finalizedServiceId;
+          console.log('[ProjectDetail] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
 
-      // ALWAYS force a reload to get fresh data from server
-      // This ensures we have the latest status and all service data
-      console.log('[ProjectDetail] Force reloading project data from server...');
-      await this.loadProject();
-      console.log('[ProjectDetail] Reload complete, data should be fresh');
+          // CRITICAL: Clear ALL caches to force fresh data load
+          console.log('[ProjectDetail] Clearing static cache for this project');
+          ProjectDetailPage.detailStateCache.delete(this.projectId);
+
+          console.log('[ProjectDetail] Clearing all project caches...');
+          this.foundationData.clearAllCaches();
+
+          // FORCE a complete reload from server
+          console.log('[ProjectDetail] Force reloading project data from server...');
+          await this.loadProject();
+          console.log('[ProjectDetail] ✅ Reload complete, data should be fresh');
+        } else {
+          console.log('[ProjectDetail] Navigation data is stale or for different project, ignoring');
+          localStorage.removeItem('pendingFinalizedService');
+        }
+      } catch (e) {
+        console.error('[ProjectDetail] Error parsing navigation data:', e);
+        localStorage.removeItem('pendingFinalizedService');
+      }
     } else {
-      console.log('[ProjectDetail] No finalized state found in history');
+      console.log('[ProjectDetail] No stored navigation data found');
     }
 
     console.log('[ProjectDetail] ========== ionViewWillEnter END ==========');
@@ -436,10 +426,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const parallelStartTime = performance.now();
 
+      // If we have a pending finalized service, force fresh data for Services table
+      const servicesPromise = this.pendingFinalizedServiceId
+        ? this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID=${actualProjectId}`, false).pipe(
+            map((response: any) => response.Result || [])
+          ).toPromise()
+        : this.caspioService.getServicesByProject(actualProjectId).toPromise();
+
       const promises = [
         this.caspioService.getOffersByCompany('1').toPromise(),
         this.caspioService.getServiceTypes().toPromise(),
-        this.caspioService.getServicesByProject(actualProjectId).toPromise(),
+        servicesPromise, // Use the conditional promise
         this.caspioService.getAttachTemplates().toPromise(),
         this.caspioService.getAttachmentsByProject(actualProjectId).toPromise()
       ];
