@@ -606,10 +606,37 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchAllTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '1000' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
+
+      // Fetch additional Offers pages if needed (up to 5 pages = 5000 records)
+      if (offersRecords.length === 1000) {
+        console.log('Fetching additional Offers records...');
+        for (let pageIndex = 2; pageIndex <= 5; pageIndex++) {
+          try {
+            const additionalOffers = await this.fetchTableRecords('Offers', {
+              'q.select': 'PK_ID,OffersID,TypeID',
+              'q.limit': '1000',
+              'q.pageSize': '1000',
+              'q.pageIndex': pageIndex.toString()
+            });
+            if (additionalOffers && additionalOffers.length > 0) {
+              offersRecords.push(...additionalOffers);
+              console.log(`Fetched page ${pageIndex} of Offers: ${additionalOffers.length} records (total: ${offersRecords.length})`);
+              if (additionalOffers.length < 1000) {
+                break; // No more pages
+              }
+            } else {
+              break; // No more records
+            }
+          } catch (e) {
+            console.error(`Error fetching Offers page ${pageIndex}:`, e);
+            break;
+          }
+        }
+      }
 
       // Check if user cancelled during data fetch
       if (cancelled) {

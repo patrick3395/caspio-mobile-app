@@ -99,7 +99,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   // Track last load time for smart caching
   private lastLoadTime: number = 0;
-  private readonly CACHE_VALIDITY_MS = 30000; // 30 seconds
+  private readonly CACHE_VALIDITY_MS = 30000; // 30 seconds - balanced performance
+  // Note: Cache is auto-invalidated by mutation tracking when changes occur
+  // Users can also pull-to-refresh or click refresh button for instant updates
 
   ionViewWillEnter() {
     // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
@@ -716,11 +718,28 @@ URL Attempted: ${imgUrl}`;
     this.router.navigate(['/new-project']);
   }
 
-  async refreshProjects() {
+  async refreshProjects(event?: any) {
     // Force cache invalidation on manual refresh
     this.lastLoadTime = 0;
     this.servicesCache = {};
-    await this.checkForUpdates();
+
+    // Clear all caches to ensure fresh data from server
+    console.log('[ActiveProjects] Manual refresh - clearing all caches');
+    this.projectsService.clearProjectCache();
+
+    try {
+      await this.checkForUpdates();
+    } finally {
+      // Complete the refresher if called from pull-to-refresh
+      if (event) {
+        event.target.complete();
+      }
+    }
+  }
+
+  async handlePullRefresh(event: any) {
+    console.log('[ActiveProjects] Pull-to-refresh triggered');
+    await this.refreshProjects(event);
   }
 
   async checkForUpdates() {

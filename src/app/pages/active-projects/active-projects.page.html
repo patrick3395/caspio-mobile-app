@@ -32,6 +32,13 @@
 </ion-header>
 
 <ion-content class="projects-content">
+  <!-- Pull to refresh -->
+  <ion-refresher slot="fixed" (ionRefresh)="handlePullRefresh($event)">
+    <ion-refresher-content
+      pullingText="Pull to refresh projects..."
+      refreshingText="Refreshing...">
+    </ion-refresher-content>
+  </ion-refresher>
 
   <div class="projects-container">
     <!-- Search bar -->
