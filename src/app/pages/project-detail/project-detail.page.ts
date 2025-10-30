@@ -282,7 +282,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
-    const restoredFromCache = this.restoreStateFromCache();
 
     // Check for finalized service from navigation state
     const navigation = this.router.getCurrentNavigation();
@@ -290,12 +289,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const finalizedServiceId = navigation.extras.state['finalizedServiceId'];
       const finalizedDate = navigation.extras.state['finalizedDate'];
 
-      console.log('[ProjectDetail] Navigation state received:', { finalizedServiceId, finalizedDate });
+      console.log('[ProjectDetail ngOnInit] Navigation state received:', { finalizedServiceId, finalizedDate });
 
       if (finalizedServiceId) {
         // Store for later - will apply after services are loaded
         this.pendingFinalizedServiceId = finalizedServiceId;
-        console.log('[ProjectDetail] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
+        console.log('[ProjectDetail ngOnInit] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
+
+        // CRITICAL: Clear caches to force fresh data load
+        console.log('[ProjectDetail ngOnInit] Clearing all caches for finalized service');
+        ProjectDetailPage.detailStateCache.delete(this.projectId);
+        // Don't restore from cache if we have a finalized service
       }
     }
 
@@ -308,54 +312,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     });
 
     if (this.projectId) {
-      if (!restoredFromCache) {
+      // If we have a pending finalized service, ALWAYS force a fresh load
+      if (this.pendingFinalizedServiceId) {
+        console.log('[ProjectDetail ngOnInit] Force loading fresh data due to finalized service');
         this.loadProject();
       } else {
-        // Ensure loading indicators are cleared when restoring cached state
-        this.loading = false;
-        this.loadingServices = false;
-        this.loadingDocuments = false;
-        
-        // CRITICAL FIX: Apply pending finalized service flag if data was restored from cache
-        // Without this, the finalized flag won't be applied when returning from engineers-foundation
-        if (this.pendingFinalizedServiceId && this.selectedServices.length > 0) {
-          console.log('[ProjectDetail ngOnInit] ✅ Cache restored, applying finalized flag');
-          console.log('[ProjectDetail ngOnInit] Looking for serviceId:', this.pendingFinalizedServiceId, 'Type:', typeof this.pendingFinalizedServiceId);
-          console.log('[ProjectDetail ngOnInit] Available services:', this.selectedServices.map(s => ({
-            serviceId: s.serviceId,
-            typeName: s.typeName,
-            ReportFinalized: s.ReportFinalized
-          })));
-          
-          const service = this.selectedServices.find(s =>
-            s.serviceId === this.pendingFinalizedServiceId ||
-            s.serviceId === String(this.pendingFinalizedServiceId) ||
-            String(s.serviceId) === String(this.pendingFinalizedServiceId)
-          );
-
-          if (service) {
-            console.log('[ProjectDetail ngOnInit] ✅ Found service:', service.typeName);
-            console.log('[ProjectDetail ngOnInit] Service BEFORE:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
-
-            // Update ReportFinalized flag and Status
-            service.ReportFinalized = true;
-            service.Status = 'Finalized';
-
-            console.log('[ProjectDetail ngOnInit] Service AFTER:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
-
-            // Force change detection
-            this.changeDetectorRef.detectChanges();
-            setTimeout(() => {
-              this.changeDetectorRef.detectChanges();
-              console.log('[ProjectDetail ngOnInit] Change detection triggered (delayed)');
-            }, 100);
-
-            console.log('[ProjectDetail ngOnInit] ✅ Finalized flag applied successfully');
-          } else {
-            console.warn('[ProjectDetail ngOnInit] ❌ Service not found with serviceId:', this.pendingFinalizedServiceId);
-            console.warn('[ProjectDetail ngOnInit] Available serviceIds:', this.selectedServices.map(s => s.serviceId));
-          }
-          this.pendingFinalizedServiceId = null;
+        // Try to restore from cache only if no finalized service
+        const restoredFromCache = this.restoreStateFromCache();
+        if (!restoredFromCache) {
+          this.loadProject();
+        } else {
+          // Ensure loading indicators are cleared when restoring cached state
+          this.loading = false;
+          this.loadingServices = false;
+          this.loadingDocuments = false;
         }
       }
     } else {
@@ -526,8 +496,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         projectProjectID: projectData?.ProjectID,
         actualProjectId,
         servicesCount: servicesData?.length || 0,
+        pendingFinalizedServiceId: this.pendingFinalizedServiceId,
         servicesData: servicesData
       });
+
+      // CRITICAL DEBUG: Check if we have any services at all
+      if (!servicesData || servicesData.length === 0) {
+        console.error('❌ [ProjectDetail] NO SERVICES RETURNED FROM DATABASE!');
+        console.error('[ProjectDetail] Project ID queried:', actualProjectId);
+      }
 
       // Process existing services
       this.selectedServices = (servicesData || []).map((service: any) => {

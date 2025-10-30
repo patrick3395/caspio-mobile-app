@@ -6818,24 +6818,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
-      // Navigate back using Location.back() to avoid route activation conflicts
+      // Navigate back to project detail with state
       console.log('[EngFoundation] Navigating back to project detail...');
-
-      // Pass finalized state to project-detail page via history state
-      const state = {
-        finalizedServiceId: this.serviceId,
-        finalizedDate: currentDateTime
-      };
-      console.log('[EngFoundation] Passing state to history:', state);
+      console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       // Use setTimeout to ensure toast is shown before navigation
       setTimeout(() => {
-        // Update history state before going back
-        window.history.replaceState(
-          { ...window.history.state, ...state },
-          ''
-        );
-        this.location.back();
+        // Use Router.navigate instead of location.back() to properly pass state
+        // CRITICAL: Route is '/project/:id' NOT '/project-detail/:id'
+        this.router.navigate(['/project', this.projectId], {
+          state: {
+            finalizedServiceId: this.serviceId,
+            finalizedDate: currentDateTime
+          },
+          replaceUrl: true // Replace current history entry to mimic back behavior
+        });
       }, 500);
 
     } catch (error) {

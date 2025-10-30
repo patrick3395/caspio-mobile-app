@@ -606,7 +606,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '10000' }),
+        this.fetchAllTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
@@ -5636,5 +5636,40 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     const response = await firstValueFrom(this.http.get<any>(url, { headers }));
     return response?.Result ?? [];
+  }
+
+  private async fetchAllTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {
+    const allRecords: any[] = [];
+    let pageIndex = 1;
+    const pageSize = 1000;
+    let hasMoreRecords = true;
+
+    console.log(`Fetching all records from ${tableName} with pagination...`);
+
+    while (hasMoreRecords) {
+      const paginatedParams = {
+        ...params,
+        'q.limit': pageSize.toString(),
+        'q.pageNumber': pageIndex.toString()
+      };
+
+      const records = await this.fetchTableRecords(tableName, paginatedParams);
+
+      if (records && records.length > 0) {
+        allRecords.push(...records);
+        console.log(`Fetched page ${pageIndex} of ${tableName}: ${records.length} records (total so far: ${allRecords.length})`);
+
+        if (records.length < pageSize) {
+          hasMoreRecords = false;
+        } else {
+          pageIndex++;
+        }
+      } else {
+        hasMoreRecords = false;
+      }
+    }
+
+    console.log(`Finished fetching ${tableName}: ${allRecords.length} total records`);
+    return allRecords;
   }
 }
