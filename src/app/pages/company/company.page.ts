@@ -5064,9 +5064,13 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (records.length > 0) {
       console.log('First record keys:', Object.keys(records[0]));
       console.log('First 3 Offers records:', records.slice(0, 3));
+      console.log('Last 3 Offers records:', records.slice(-3));
     }
 
-    records.forEach(record => {
+    let skippedCount = 0;
+    let addedCount = 0;
+
+    records.forEach((record, index) => {
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
                        (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
 
@@ -5078,27 +5082,26 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Debug specific records
       if (offersId === 1099 || offersId === 1189 || offersId === 1346) {
-        console.log(`Found OffersID ${offersId}:`, {
+        console.log(`Found OffersID ${offersId} at index ${index}:`, {
           raw: record,
           parsedOffersId: offersId,
           parsedTypeId: typeId,
-          allKeys: Object.keys(record),
-          'record.OffersID': record.OffersID,
-          'record.PK_ID': record.PK_ID,
-          'record.TypeID': record.TypeID,
-          'record.Type_ID': record.Type_ID,
-          'record.Type': record.Type
+          'record.TypeID': record.TypeID
         });
       }
 
       if (offersId !== null && typeId !== null) {
         this.offersLookup.set(offersId, typeId);
-      } else if (offersId !== null) {
-        console.log(`Offers record ${offersId} missing TypeID:`, record);
+        addedCount++;
+      } else {
+        skippedCount++;
+        if (skippedCount <= 5) {
+          console.log(`Skipping record ${index}: OffersID=${offersId}, TypeID=${typeId}`, record);
+        }
       }
     });
 
-    console.log('offersLookup populated with', this.offersLookup.size, 'entries');
+    console.log(`offersLookup populated with ${this.offersLookup.size} unique entries (added: ${addedCount}, skipped: ${skippedCount})`);
     console.log('Sample offersLookup entries:', Array.from(this.offersLookup.entries()).slice(0, 5));
 
     // Check specific OffersIDs

@@ -328,8 +328,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const age = Date.now() - navigationData.timestamp;
         console.log('[ProjectDetail] Navigation data age:', age, 'ms');
 
-        if (navigationData.projectId === this.projectId && age < 10000) {
+        if (age < 10000) {
           console.log('[ProjectDetail] ✅ Valid finalized service data found!');
+
+          // CRITICAL: Check if we're on the CORRECT project page
+          if (navigationData.projectId !== this.projectId) {
+            console.warn('[ProjectDetail] ⚠️ Navigation data is for project', navigationData.projectId, 'but we are on project', this.projectId);
+            console.log('[ProjectDetail] Navigating to CORRECT project:', navigationData.projectId);
+
+            // Don't clear localStorage yet - let the correct project page handle it
+            // Navigate to the correct project
+            this.router.navigate(['/project', navigationData.projectId]);
+            return;
+          }
 
           // Clear the localStorage item immediately so we don't process it again
           localStorage.removeItem('pendingFinalizedService');
@@ -350,7 +361,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           await this.loadProject();
           console.log('[ProjectDetail] ✅ Reload complete, data should be fresh');
         } else {
-          console.log('[ProjectDetail] Navigation data is stale or for different project, ignoring');
+          console.log('[ProjectDetail] Navigation data is stale, ignoring');
           localStorage.removeItem('pendingFinalizedService');
         }
       } catch (e) {
