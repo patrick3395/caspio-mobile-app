@@ -363,7 +363,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  ionViewWillEnter() {
+  async ionViewWillEnter() {
     console.log('[ProjectDetail] ========== ionViewWillEnter START ==========');
     console.log('[ProjectDetail] Checking for finalized state...');
     console.log('[ProjectDetail] Current selectedServices count:', this.selectedServices.length);
