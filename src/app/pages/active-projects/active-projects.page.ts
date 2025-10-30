@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -6,7 +6,8 @@ import { IonicDeployService } from '../../services/ionic-deploy.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
-import { forkJoin } from 'rxjs';
+import { MutationTrackingService, EntityType } from '../../services/mutation-tracking.service';
+import { forkJoin, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-active-projects',
@@ -14,7 +15,7 @@ import { forkJoin } from 'rxjs';
   styleUrls: ['./active-projects.page.scss'],
   standalone: false
 })
-export class ActiveProjectsPage implements OnInit {
+export class ActiveProjectsPage implements OnInit, OnDestroy {
   projects: Project[] = [];
   filteredProjects: Project[] = [];
   displayedProjects: Project[] = []; // Projects currently shown
@@ -23,15 +24,16 @@ export class ActiveProjectsPage implements OnInit {
   currentUser: any = null;
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
   searchTerm = '';
-  
+
   // Lazy loading configuration
   private readonly INITIAL_LOAD = 20; // Initial number of projects to show
   private readonly LOAD_MORE = 10; // Number of projects to load on scroll
   private currentIndex = 0;
-  
+
   // Services cache - now stores array of service objects with status
   private servicesCache: { [projectId: string]: Array<{shortCode: string, status: string}> } = {};
   private serviceTypes: any[] = [];
+  private mutationSubscription?: Subscription;
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -55,7 +57,8 @@ export class ActiveProjectsPage implements OnInit {
     private route: ActivatedRoute,
     private alertController: AlertController,
     public platform: PlatformDetectionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private mutationTracker: MutationTrackingService
   ) {}
 
   ngOnInit() {
@@ -68,7 +71,16 @@ export class ActiveProjectsPage implements OnInit {
         console.error('Error parsing user data:', e);
       }
     }
-    
+
+    // Subscribe to project mutations to auto-refresh when projects are modified
+    this.mutationSubscription = this.mutationTracker.getMutations().subscribe(mutation => {
+      if (mutation.entityType === EntityType.PROJECT) {
+        console.log('[ActiveProjects] Project mutation detected, invalidating cache');
+        // Reset cache timer so next ionViewWillEnter will reload
+        this.lastLoadTime = 0;
+      }
+    });
+
     // Subscribe to query params to handle refresh
     this.route.queryParams.subscribe(params => {
       if (params['refresh']) {
@@ -76,6 +88,13 @@ export class ActiveProjectsPage implements OnInit {
       }
     });
     this.checkAuthAndLoadProjects();
+  }
+
+  ngOnDestroy() {
+    // Clean up subscription
+    if (this.mutationSubscription) {
+      this.mutationSubscription.unsubscribe();
+    }
   }
 
   // Track last load time for smart caching
@@ -545,6 +564,10 @@ export class ActiveProjectsPage implements OnInit {
       // Remove from displayed list
       this.projects = this.projects.filter(p => p.PK_ID !== project.PK_ID);
       this.applySearchFilter();
+
+      // CRITICAL: Reset cache timer so data will reload on next view entry
+      // This ensures deleted projects don't reappear when navigating back
+      this.lastLoadTime = 0;
 
       await loading.dismiss();
 

@@ -5034,20 +5034,32 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     console.log('=== Populating Offers Lookup ===');
     console.log('Total Offers records:', records.length);
-    console.log('First 3 Offers records:', records.slice(0, 3));
+    if (records.length > 0) {
+      console.log('First record keys:', Object.keys(records[0]));
+      console.log('First 3 Offers records:', records.slice(0, 3));
+    }
 
     records.forEach(record => {
       const offersId = record.OffersID !== undefined && record.OffersID !== null ? Number(record.OffersID) :
                        (record.PK_ID !== undefined && record.PK_ID !== null ? Number(record.PK_ID) : null);
-      const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
 
-      // Debug specific record
-      if (offersId === 1099) {
-        console.log('Found OffersID 1099:', {
+      // Try multiple possible field names for TypeID
+      const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) :
+                     record.Type_ID !== undefined && record.Type_ID !== null ? Number(record.Type_ID) :
+                     record.Type !== undefined && record.Type !== null ? Number(record.Type) :
+                     record.type !== undefined && record.type !== null ? Number(record.type) : null;
+
+      // Debug specific records
+      if (offersId === 1099 || offersId === 1189) {
+        console.log(`Found OffersID ${offersId}:`, {
           raw: record,
           parsedOffersId: offersId,
           parsedTypeId: typeId,
-          allKeys: Object.keys(record)
+          allKeys: Object.keys(record),
+          TypeID: record.TypeID,
+          Type_ID: record.Type_ID,
+          Type: record.Type,
+          type: record.type
         });
       }
 
