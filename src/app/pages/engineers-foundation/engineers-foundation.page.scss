@@ -3363,15 +3363,16 @@ button.room-photo-caption {
 
     // Gray styling when required fields are not filled
     &.incomplete {
-      background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-      box-shadow: 0 4px 20px rgba(108, 117, 125, 0.3);
+      background: #e9ecef;
+      color: #adb5bd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       cursor: pointer;
 
       // Hover effect removed for mobile optimization
 
       &:active {
         transform: translateY(0);
-        box-shadow: 0 4px 20px rgba(108, 117, 125, 0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       }
     }
 

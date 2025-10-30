@@ -606,7 +606,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.orderBy': 'CompanyID', 'q.limit': '2000' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '2000' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
@@ -4685,42 +4685,19 @@ export class CompanyPage implements OnInit, OnDestroy {
     const typeGroups = new Map<string, { completedCount: number; totalRevenue: number }>();
 
     filteredProjects.forEach(project => {
-      const projectId = project.ProjectID !== undefined && project.ProjectID !== null ? Number(project.ProjectID) : null;
       const offersId = project.OffersID !== undefined && project.OffersID !== null ? Number(project.OffersID) : null;
       const statusId = project.StatusID !== undefined && project.StatusID !== null ? Number(project.StatusID) : null;
       const fee = project.Fee !== undefined && project.Fee !== null ? Number(project.Fee) : 0;
 
-      // Get TypeName - try multiple approaches (same logic as getServiceName)
+      // Get TypeName: Projects.OffersID → Offers.TypeID → Type.TypeName
       let typeName = 'Unspecified';
       let debugInfo: any = {
-        projectId,
         offersId,
         statusId,
         fee
       };
 
-      // First, try to get service name from project's services (Services table)
-      if (projectId !== null) {
-        const serviceIds = this.servicesByProjectLookup.get(projectId);
-        debugInfo.serviceIds = serviceIds;
-
-        if (serviceIds && serviceIds.length > 0) {
-          const typeId = this.servicesLookup.get(serviceIds[0]);
-          debugInfo.typeIdFromServices = typeId;
-
-          if (typeId !== null && typeId !== undefined) {
-            const foundTypeName = this.typeIdToNameLookup.get(typeId);
-            debugInfo.typeNameFromServices = foundTypeName;
-
-            if (foundTypeName) {
-              typeName = foundTypeName;
-            }
-          }
-        }
-      }
-
-      // Second, try OffersID if still unspecified
-      if (typeName === 'Unspecified' && offersId !== null) {
+      if (offersId !== null) {
         const typeId = this.offersLookup.get(offersId);
         debugInfo.typeIdFromOffers = typeId;
 

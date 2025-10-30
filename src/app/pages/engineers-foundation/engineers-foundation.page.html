@@ -2005,7 +2005,6 @@
     <div class="finalize-button-container">
       <button class="finalize-button"
               [class.incomplete]="!canFinalizeReport()"
-              [disabled]="!canFinalizeReport()"
               (click)="finalizeReport()">
         <ion-icon name="checkmark-circle-outline"></ion-icon>
         <span>{{ isReportFinalized() ? 'Update' : 'Finalize Report' }}</span>
