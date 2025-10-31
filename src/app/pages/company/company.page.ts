@@ -606,7 +606,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
         this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
         this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.limit': '1000' }),
+        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID', 'q.orderBy': 'OffersID', 'q.limit': '1000' }),
         this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
@@ -618,6 +618,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           try {
             const additionalOffers = await this.fetchTableRecords('Offers', {
               'q.select': 'PK_ID,OffersID,TypeID',
+              'q.orderBy': 'OffersID',
               'q.limit': '1000',
               'q.pageSize': '1000',
               'q.pageIndex': pageIndex.toString()
@@ -5101,13 +5102,21 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
     });
 
+    // Get OffersID range
+    const offersIds = Array.from(this.offersLookup.keys());
+    const minOffersId = Math.min(...offersIds);
+    const maxOffersId = Math.max(...offersIds);
+
     console.log(`offersLookup populated with ${this.offersLookup.size} unique entries (added: ${addedCount}, skipped: ${skippedCount})`);
+    console.log(`OffersID range: ${minOffersId} to ${maxOffersId}`);
     console.log('Sample offersLookup entries:', Array.from(this.offersLookup.entries()).slice(0, 5));
+    console.log('Last 5 offersLookup entries:', Array.from(this.offersLookup.entries()).slice(-5));
 
     // Check specific OffersIDs
     console.log('Lookup check for OffersID 1099:', this.offersLookup.get(1099));
     console.log('Lookup check for OffersID 1189:', this.offersLookup.get(1189));
     console.log('Lookup check for OffersID 1346:', this.offersLookup.get(1346));
+    console.log('Lookup check for OffersID 1288:', this.offersLookup.get(1288));
   }
 
   private normalizeCompanyRecord(raw: any): CompanyRecord {

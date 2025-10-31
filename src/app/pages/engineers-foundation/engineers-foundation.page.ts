@@ -6818,8 +6818,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
-      // BULLETPROOF: Store finalized info in localStorage for project-detail to pick up
-      console.log('[EngFoundation] Storing finalized service info for navigation');
+      // Navigate DIRECTLY to the correct project page
+      console.log('[EngFoundation] Navigating to project detail...');
       console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       const navigationData = {
@@ -6831,10 +6831,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
       console.log('[EngFoundation] Stored navigation data:', navigationData);
 
-      // Navigate back using location.back() - simple and reliable
-      console.log('[EngFoundation] Navigating back...');
+      // CRITICAL: Navigate DIRECTLY to the project page (not location.back())
+      // This ensures we ALWAYS go to the correct project
+      console.log('[EngFoundation] Navigating to /project/' + this.projectId);
       setTimeout(() => {
-        this.location.back();
+        this.navController.navigateBack(['/project', this.projectId]);
       }, 300);
 
     } catch (error) {
