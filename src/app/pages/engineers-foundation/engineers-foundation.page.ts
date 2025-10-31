@@ -6818,7 +6818,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : 'Report updated successfully';
       await this.showToast(successMessage, 'success');
 
-      // Navigate DIRECTLY to the correct project page
+      // Navigate back to project detail
       console.log('[EngFoundation] Navigating to project detail...');
       console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
@@ -6831,11 +6831,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
       console.log('[EngFoundation] Stored navigation data:', navigationData);
 
-      // CRITICAL: Navigate DIRECTLY to the project page (not location.back())
-      // This ensures we ALWAYS go to the correct project
-      console.log('[EngFoundation] Navigating to /project/' + this.projectId);
+      // Use different navigation for web vs mobile
+      console.log('[EngFoundation] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
       setTimeout(() => {
-        this.navController.navigateBack(['/project', this.projectId]);
+        if (this.platform.isWeb()) {
+          // Web: Use location.back() to avoid outlet activation error
+          console.log('[EngFoundation] Web: Using location.back()');
+          this.location.back();
+        } else {
+          // Mobile: Use NavController for proper stack management
+          console.log('[EngFoundation] Mobile: Using navController.navigateBack()');
+          this.navController.navigateBack(['/project', this.projectId]);
+        }
       }, 300);
 
     } catch (error) {

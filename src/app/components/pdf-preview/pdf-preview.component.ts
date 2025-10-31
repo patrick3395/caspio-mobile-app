@@ -334,6 +334,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         console.log(`[PDF] Processing page ${i + 1}/${pages.length}`);
 
         try {
+          // Extract text content from the page BEFORE converting to image
+          const textContent = this.extractTextFromElement(pageElement);
+          console.log(`[PDF] Extracted ${textContent.length} text elements from page ${i + 1}`);
+
           // Scroll the original page into view first to ensure images are loaded
           pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
 
@@ -575,7 +579,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 // Add the slice to PDF
                 pdf.addImage(sliceImgData, 'JPEG', 0, 0, imgWidth, sliceImgHeight);
 
-                console.log(`[PDF] Added page ${i + 1}-${pageIdx + 1} (${imgWidth}mm x ${sliceImgHeight}mm)`);
+                // Add text layer for this slice (proportional to the slice)
+                const sliceRatio = pageIdx / numPages;
+                const sliceTextContent = this.filterTextForSlice(textContent, sliceRatio, 1 / numPages, imgHeight);
+                this.addTextLayer(pdf, sliceTextContent, pageWidth, sliceImgHeight);
+
+                console.log(`[PDF] Added page ${i + 1}-${pageIdx + 1} (${imgWidth}mm x ${sliceImgHeight}mm) with text layer`);
               }
             }
           } else {
@@ -588,7 +597,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             // Add image to PDF
             pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
 
-            console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm)`);
+            // Add invisible text layer for text extraction (OCR-like functionality)
+            this.addTextLayer(pdf, textContent, pageWidth, imgHeight);
+
+            console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm) with text layer`);
           }
 
         } catch (pageError) {
@@ -1807,6 +1819,111 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   private checkAndDismissLoading() {
     // Placeholder method to check and dismiss loading if needed
     // Can be implemented later if loading state management is required
+  }
+
+  /**
+   * Extracts text content from an HTML element along with position information
+   * This allows us to create a searchable text layer in the PDF
+   */
+  private extractTextFromElement(element: HTMLElement): Array<{text: string, x: number, y: number, fontSize: number}> {
+    const textElements: Array<{text: string, x: number, y: number, fontSize: number}> = [];
+    const elementRect = element.getBoundingClientRect();
+
+    // Recursively extract text from all text nodes
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      const textContent = node.textContent?.trim();
+      if (textContent && textContent.length > 0) {
+        const parent = node.parentElement;
+        if (parent) {
+          const rect = parent.getBoundingClientRect();
+          const computedStyle = window.getComputedStyle(parent);
+          const fontSize = parseFloat(computedStyle.fontSize) || 12;
+
+          // Calculate position relative to the page element
+          const relativeX = rect.left - elementRect.left;
+          const relativeY = rect.top - elementRect.top;
+
+          textElements.push({
+            text: textContent,
+            x: relativeX,
+            y: relativeY,
+            fontSize: fontSize
+          });
+        }
+      }
+    }
+
+    return textElements;
+  }
+
+  /**
+   * Adds an invisible text layer to the PDF page for text extraction
+   * The text is rendered in white (invisible on white background) but still extractable
+   */
+  private addTextLayer(
+    pdf: any,
+    textContent: Array<{text: string, x: number, y: number, fontSize: number}>,
+    pageWidth: number,
+    pageHeight: number
+  ): void {
+    // Combine all text into a single block for better extraction
+    // This is more reliable than trying to position each piece of text
+    const allText = textContent.map(item => item.text).join(' ');
+
+    if (allText.length === 0) {
+      return; // No text to add
+    }
+
+    // Set text to white (invisible on white background but extractable by PDF readers)
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(1); // Very small font size so it doesn't interfere visually
+
+    // Add all text at the top-left corner of the page
+    // This makes it extractable but doesn't interfere with the visual appearance
+    const margin = 0.1; // Very small margin
+    const textWidth = pageWidth - (margin * 2);
+
+    try {
+      // Split text into lines that fit the page width
+      const lines = pdf.splitTextToSize(allText, textWidth);
+
+      // Add the text (it will be white on white, so invisible)
+      pdf.text(lines, margin, margin);
+
+      console.log(`[PDF] Added ${allText.length} characters of extractable text to page`);
+    } catch (err) {
+      console.warn('[PDF] Failed to add text layer:', err);
+    }
+
+    // Reset text color for any subsequent visible text
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  /**
+   * Filters text content for a specific slice when page is split
+   */
+  private filterTextForSlice(
+    textContent: Array<{text: string, x: number, y: number, fontSize: number}>,
+    sliceStart: number,
+    sliceHeight: number,
+    totalHeight: number
+  ): Array<{text: string, x: number, y: number, fontSize: number}> {
+    const startY = sliceStart * totalHeight;
+    const endY = (sliceStart + sliceHeight) * totalHeight;
+
+    return textContent
+      .filter(item => item.y >= startY && item.y < endY)
+      .map(item => ({
+        ...item,
+        y: item.y - startY // Adjust Y position relative to slice
+      }));
   }
 }
 

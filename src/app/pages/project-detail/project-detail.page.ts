@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonModal, ToastController, AlertController, LoadingController, ModalController, ViewWillEnter } from '@ionic/angular';
@@ -266,6 +267,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
     private http: HttpClient,
@@ -334,12 +336,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // CRITICAL: Check if we're on the CORRECT project page
           if (navigationData.projectId !== this.projectId) {
             console.warn('[ProjectDetail] ⚠️ Navigation data is for project', navigationData.projectId, 'but we are on project', this.projectId);
-            console.log('[ProjectDetail] Navigating to CORRECT project:', navigationData.projectId);
+            console.log('[ProjectDetail] Updating to CORRECT project:', navigationData.projectId);
 
-            // Don't clear localStorage yet - let the correct project page handle it
-            // Navigate to the correct project
-            this.router.navigate(['/project', navigationData.projectId]);
-            return;
+            // Update projectId to load the correct project's data
+            this.projectId = navigationData.projectId;
+
+            // Update the browser URL without going through Angular Router (avoids outlet error)
+            this.location.replaceState('/project/' + navigationData.projectId);
+
+            // Clear the static cache for the NEW project
+            ProjectDetailPage.detailStateCache.delete(this.projectId);
+
+            // Continue with the loading process below
+            console.log('[ProjectDetail] Updated projectId to', this.projectId, ', continuing with load...');
           }
 
           // Clear the localStorage item immediately so we don't process it again

@@ -611,29 +611,37 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
 
-      // Fetch additional Offers pages if needed (up to 20 pages = 20000 records)
+      // Fetch additional Offers in chunks using WHERE clauses
       if (offersRecords.length === 1000) {
-        console.log('Fetching additional Offers records...');
-        for (let pageIndex = 2; pageIndex <= 20; pageIndex++) {
+        console.log('Fetching additional Offers records using range queries...');
+        const lastOffersId = offersRecords[offersRecords.length - 1]?.OffersID || 0;
+        let currentMaxId = lastOffersId;
+
+        for (let chunk = 1; chunk <= 10; chunk++) {
           try {
+            const minId = currentMaxId + 1;
+            const maxId = currentMaxId + 1000;
+
             const additionalOffers = await this.fetchTableRecords('Offers', {
               'q.select': 'PK_ID,OffersID,TypeID',
+              'q.where': `OffersID>=${minId} AND OffersID<=${maxId}`,
               'q.orderBy': 'OffersID',
-              'q.limit': '1000',
-              'q.pageSize': '1000',
-              'q.pageIndex': pageIndex.toString()
+              'q.limit': '1000'
             });
+
             if (additionalOffers && additionalOffers.length > 0) {
               offersRecords.push(...additionalOffers);
-              console.log(`Fetched page ${pageIndex} of Offers: ${additionalOffers.length} records (total: ${offersRecords.length})`);
+              console.log(`Fetched Offers ${minId}-${maxId}: ${additionalOffers.length} records (total: ${offersRecords.length})`);
+              currentMaxId = maxId;
+
               if (additionalOffers.length < 1000) {
-                break; // No more pages
+                break; // No more records in this range
               }
             } else {
               break; // No more records
             }
           } catch (e) {
-            console.error(`Error fetching Offers page ${pageIndex}:`, e);
+            console.error(`Error fetching Offers chunk ${chunk}:`, e);
             break;
           }
         }
