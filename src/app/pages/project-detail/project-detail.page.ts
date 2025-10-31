@@ -356,10 +356,28 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log('[ProjectDetail] Clearing all project caches...');
           this.foundationData.clearAllCaches();
 
+          // WEB FIX: Clear pending requests to prevent deduplication issues
+          console.log('[ProjectDetail] Clearing pending requests to prevent deduplication...');
+          this.caspioService.clearPendingRequests();
+
           // FORCE a complete reload from server
           console.log('[ProjectDetail] Force reloading project data from server...');
           await this.loadProject();
           console.log('[ProjectDetail] ✅ Reload complete, data should be fresh');
+
+          // WEB FIX: Force multiple change detections for web browsers
+          if (this.platform.isWeb()) {
+            console.log('[ProjectDetail] Web platform detected, forcing change detection...');
+            this.changeDetectorRef.detectChanges();
+            setTimeout(() => {
+              this.changeDetectorRef.detectChanges();
+              console.log('[ProjectDetail] Second change detection complete');
+            }, 100);
+            setTimeout(() => {
+              this.changeDetectorRef.detectChanges();
+              console.log('[ProjectDetail] Third change detection complete');
+            }, 500);
+          }
         } else {
           console.log('[ProjectDetail] Navigation data is stale, ignoring');
           localStorage.removeItem('pendingFinalizedService');
@@ -438,8 +456,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const parallelStartTime = performance.now();
 
       // If we have a pending finalized service, force fresh data for Services table
+      // Add cache-busting timestamp to prevent request deduplication
       const servicesPromise = this.pendingFinalizedServiceId
-        ? this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID=${actualProjectId}`, false).pipe(
+        ? this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID=${actualProjectId}&_t=${Date.now()}`, false).pipe(
             map((response: any) => response.Result || [])
           ).toPromise()
         : this.caspioService.getServicesByProject(actualProjectId).toPromise();

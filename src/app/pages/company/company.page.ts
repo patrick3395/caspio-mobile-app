@@ -611,10 +611,10 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
       ]);
 
-      // Fetch additional Offers pages if needed (up to 5 pages = 5000 records)
+      // Fetch additional Offers pages if needed (up to 20 pages = 20000 records)
       if (offersRecords.length === 1000) {
         console.log('Fetching additional Offers records...');
-        for (let pageIndex = 2; pageIndex <= 5; pageIndex++) {
+        for (let pageIndex = 2; pageIndex <= 20; pageIndex++) {
           try {
             const additionalOffers = await this.fetchTableRecords('Offers', {
               'q.select': 'PK_ID,OffersID,TypeID',
