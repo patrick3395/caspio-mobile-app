@@ -7210,7 +7210,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Now show the main loading indicator for PDF preparation
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: 'Preparing your PDF report...',
+        message: '<div class="loading-spinner-container"><ion-spinner name="crescent"></ion-spinner><p>Preparing your PDF report...</p></div>',
         buttons: [
           {
             text: 'Cancel',
@@ -12779,6 +12779,7 @@ Stack: ${error?.stack}`;
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
+        message: '<div class="loading-spinner-container"><ion-spinner name="crescent"></ion-spinner><p>Please wait...</p></div>',
         buttons: [
           {
             text: 'Cancel',

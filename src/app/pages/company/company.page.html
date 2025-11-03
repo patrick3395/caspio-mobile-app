@@ -2,6 +2,16 @@
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar">
     <ion-title>{{ isCompanyOne ? 'Noble Management' : 'Company' }}</ion-title>
+    <ion-buttons slot="end">
+      <button
+        type="button"
+        class="toolbar-btn"
+        (click)="logout()"
+        aria-label="Log out"
+      >
+        <ion-icon name="log-out-outline"></ion-icon>
+      </button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 

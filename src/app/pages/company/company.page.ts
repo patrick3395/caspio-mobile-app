@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { environment } from '../../../environments/environment';
@@ -502,7 +503,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     private toastController: ToastController,
     private alertController: AlertController,
     private modalController: ModalController,
-    private http: HttpClient
+    private http: HttpClient,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -5718,5 +5720,33 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     console.log(`Finished fetching ${tableName}: ${allRecords.length} total records`);
     return allRecords;
+  }
+
+  async logout() {
+    const alert = await this.alertController.create({
+      header: 'Confirm Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Logout',
+          handler: () => {
+            // Clear auth data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('caspio_token');
+            localStorage.removeItem('caspio_token_expiry');
+
+            // Navigate to login
+            this.router.navigate(['/login']);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 }
