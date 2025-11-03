@@ -2917,55 +2917,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
-      // Check if this photo type already exists
-      const existingPhoto = this.getPointPhotoByType(point, photoType);
-      if (existingPhoto) {
-        const alert = await this.alertController.create({
-          header: 'Replace Photo',
-          message: `A ${photoType} photo already exists for this point. Replace it?`,
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel'
-            },
-            {
-              text: 'Replace',
-              handler: async () => {
-                // Delete the existing photo first
-                await this.deleteRoomPhoto(existingPhoto, roomName, point, true);
-
-                // CRITICAL: Clear any pending context-clearing timer
-                if (this.contextClearTimer) {
-                  clearTimeout(this.contextClearTimer);
-                  this.contextClearTimer = null;
-                }
-
-                // Then capture new one
-                this.currentRoomPointContext = {
-                  roomName,
-                  point,
-                  pointId,
-                  roomId,
-                  photoType  // Store the photo type
-                };
-                // Set flag to skip annotation for elevation plot photos
-                this.skipElevationAnnotation = true;
-                this.triggerFileInput(source, { allowMultiple: false });
-              }
-            }
-          ],
-          cssClass: 'custom-document-alert'
-        });
-        await alert.present();
-        return;
-      }
-
       // CRITICAL: Clear any pending context-clearing timer from previous photo
       if (this.contextClearTimer) {
         clearTimeout(this.contextClearTimer);
         this.contextClearTimer = null;
       }
 
+      // Always allow adding new photos - no replacement prompt needed
       this.currentRoomPointContext = {
         roomName,
         point,
@@ -11758,31 +11716,7 @@ Stack: ${error?.stack}`;
         }
       }
 
-      // Check if this photo type already exists
-      const existingPhoto = this.getPointPhotoByType(point, photoType);
-      if (existingPhoto) {
-        const alert = await this.alertController.create({
-          header: 'Replace Photo',
-          message: `A ${photoType} photo already exists for this point. Replace it?`,
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel'
-            },
-            {
-              text: 'Replace',
-              handler: async () => {
-                await this.deleteRoomPhoto(existingPhoto, roomName, point, true);
-                await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
-              }
-            }
-          ],
-          cssClass: 'custom-document-alert'
-        });
-        await alert.present();
-        return;
-      }
-
+      // Always allow adding new photos - no replacement prompt needed
       await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
 
     } catch (error: any) {
@@ -11814,12 +11748,8 @@ Stack: ${error?.stack}`;
           point.photos = [];
         }
 
-        // Check if we should replace an existing photo of this type
-        const existingPhotoIndex = point.photos.findIndex((p: any) =>
-          (p.photoType === photoType) ||
-          (p.annotation && p.annotation.startsWith(`${photoType}:`))
-        );
-
+        // Always add photos as new entries - do NOT replace existing photos
+        // Each photo should have a unique attachId and be stored separately
         const photoEntry: any = {
           url: photoUrl,
           thumbnailUrl: photoUrl,
@@ -11830,14 +11760,13 @@ Stack: ${error?.stack}`;
           file: file,
           originalFile: undefined,
           annotationData: null,
-          attachId: null
+          attachId: null,
+          timestamp: Date.now()  // Add timestamp to make each photo unique
         };
 
-        if (existingPhotoIndex >= 0) {
-          point.photos[existingPhotoIndex] = photoEntry;
-        } else {
-          point.photos.push(photoEntry);
-        }
+        // Always add as new photo - never replace
+        point.photos.push(photoEntry);
+        point.photoCount = point.photos.length;
 
         this.changeDetectorRef.detectChanges();
 
@@ -11861,11 +11790,13 @@ Stack: ${error?.stack}`;
           const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
           const filePath = `/${uploadedFileName}`;
 
-          // Create attachment record with correct field name
+          // Create attachment record with correct field names including Type and Drawings
           const attachData = {
             PointID: parseInt(pointId),
             Photo: filePath,  // Use "Photo" field, not "FilePath"
-            Annotation: '' // Initialize as blank (user can add caption later)
+            Annotation: '', // Initialize as blank (user can add caption later)
+            Type: photoType, // CRITICAL: Include Type field so photo loads correctly
+            Drawings: EMPTY_COMPRESSED_ANNOTATIONS  // CRITICAL: Include Drawings field for consistency
           };
 
           const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();

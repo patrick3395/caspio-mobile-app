@@ -57,6 +57,46 @@ ion-content {
   }
 }
 
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--noble-orange);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:hover,
+  &:focus {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+    outline: none;
+  }
+
+  &:active {
+    transform: scale(0.95);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  &.primary {
+    background: var(--noble-white);
+    color: var(--noble-orange);
+    border-color: transparent;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+}
+
 .page-shell {
   display: flex;
   flex-direction: column;
