@@ -3199,14 +3199,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (!point.photos) {
           point.photos = [];
         }
-        
-        // Check if we should replace an existing photo of this type
-        // Look for photos by photoType property (new) or annotation prefix (legacy)
-        const existingPhotoIndex = point.photos.findIndex((p: any) => 
-          (p.photoType === this.currentRoomPointContext.photoType) ||
-          (p.annotation && p.annotation.startsWith(`${this.currentRoomPointContext.photoType}:`))
-        );
-        
+
+        // Always add photos as new entries - do NOT replace existing photos
+        // Each photo should have a unique attachId and be stored separately
         const photoEntry: any = {
           url: photoUrl,
           thumbnailUrl: photoUrl,
@@ -3217,16 +3212,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           file: annotatedResult.file,
           originalFile: annotatedResult.originalFile,
           annotationData: annotatedResult.annotationData,
-          attachId: null  // Initialize attachId property
+          attachId: null,  // Initialize attachId property - will be set after record creation
+          timestamp: Date.now()  // Add timestamp to make each photo unique
         };
-        
-        if (existingPhotoIndex >= 0) {
-          // Replace existing photo of this type
-          point.photos[existingPhotoIndex] = photoEntry;
-        } else {
-          // Add new photo
-          point.photos.push(photoEntry);
-        }
+
+        // Always add as new photo - never replace
+        point.photos.push(photoEntry);
         point.photoCount = point.photos.length;
         
         // PERFORMANCE: Trigger change detection with OnPush strategy
