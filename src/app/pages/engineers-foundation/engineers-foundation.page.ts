@@ -109,7 +109,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Note: Removed memoization caches - direct lookups are already fast enough
   // and proper unique cache keys were causing complexity issues
   
-  private templateLoader?: HTMLIonAlertElement;
+  private templateLoader?: HTMLIonLoadingElement;
   private _loggedPhotoKeys?: Set<string>; // Track which photo keys have been logged to reduce console spam
   private templateLoaderPresented = false;
   private templateLoadStart = 0;
@@ -7083,7 +7083,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       } else {
       }
 
-    let loading: any = null;
+    let loading: HTMLIonLoadingElement | null = null;
     try {
       // CRITICAL FIX: Wait for photo hydration and pending saves before generating PDF
       // This ensures all images are loaded and form data is synchronized
@@ -7091,9 +7091,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Step 1: Wait for photo hydration if in progress
       if (this.photoHydrationPromise) {
         console.log('[PDF] Waiting for photo hydration to complete...');
-        loading = await this.alertController.create({
-          header: 'Loading Photos',
-          message: 'Waiting for photos to load...',
+        loading = await this.loadingController.create({
+          message: 'Loading Photos - Waiting for photos to load...',
+          spinner: 'crescent',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7115,9 +7115,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const savingKeys = Object.keys(this.savingItems).filter(key => this.savingItems[key]);
       if (savingKeys.length > 0) {
         console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
-        loading = await this.alertController.create({
-          header: 'Saving Changes',
-          message: `Saving ${savingKeys.length} pending change${savingKeys.length > 1 ? 's' : ''}...`,
+        loading = await this.loadingController.create({
+          message: `Saving Changes - Saving ${savingKeys.length} pending change${savingKeys.length > 1 ? 's' : ''}...`,
+          spinner: 'crescent',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7145,9 +7145,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (hasPendingVisuals || hasPendingPhotos) {
         console.log('[PDF] Processing pending items before PDF generation');
-        loading = await this.alertController.create({
-          header: 'Syncing Data',
-          message: 'Uploading pending items...',
+        loading = await this.loadingController.create({
+          message: 'Syncing Data - Uploading pending items...',
+          spinner: 'crescent',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7166,21 +7166,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       // Now show the main loading indicator for PDF preparation
-      loading = await this.alertController.create({
-        header: 'Loading Report',
-        message: '<div class="loading-spinner-container"><ion-spinner name="crescent"></ion-spinner><p>Preparing your PDF report...</p></div>',
-        buttons: [
-          {
-            text: 'Cancel',
-            handler: () => {
-              this.isPDFGenerating = false;
-              return true;
-            }
-          }
-        ],
-        backdropDismiss: false,
+      loading = await this.loadingController.create({
+        message: 'Loading Report - Preparing your PDF report...',
+        spinner: 'crescent',
+        backdropDismiss: true,
         cssClass: 'template-loading-alert'
       });
+
+      // Handle backdrop dismiss (user cancellation)
+      loading.onDidDismiss().then(() => {
+        this.isPDFGenerating = false;
+      });
+
       await loading.present();
     } catch (loadingError) {
       console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
@@ -12704,23 +12701,21 @@ Stack: ${error?.stack}`;
     }
 
     this.templateLoadStart = Date.now();
-    console.log('[presentTemplateLoader] Creating alert controller...');
+    console.log('[presentTemplateLoader] Creating loading controller...');
 
     try {
-      // Create loading popup with cancel button
-      this.templateLoader = await this.alertController.create({
-        header: message,
-        message: '<div class="loading-spinner-container"><ion-spinner name="crescent"></ion-spinner><p>Please wait...</p></div>',
-        buttons: [
-          {
-            text: 'Cancel',
-            handler: async () => {
-              await this.handleLoadingCancel();
-            }
-          }
-        ],
-        backdropDismiss: false,
+      // Create loading popup with animated spinner
+      this.templateLoader = await this.loadingController.create({
+        message: message,
+        spinner: 'crescent',
+        backdropDismiss: true,
         cssClass: 'template-loading-alert'
+      });
+
+      // Handle backdrop dismiss (user cancellation)
+      this.templateLoader.onDidDismiss().then(async () => {
+        this.templateLoaderPresented = false;
+        await this.handleLoadingCancel();
       });
 
       if (this.templateLoader) {
