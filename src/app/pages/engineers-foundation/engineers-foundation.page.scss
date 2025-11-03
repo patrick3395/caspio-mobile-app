@@ -3591,12 +3591,13 @@ button.room-photo-caption {
 
 // Animated CSS spinner for loading alerts
 .template-loading-alert {
-  .spinner-container {
+  .alert-message {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 20px 0;
     min-height: 60px;
+    position: relative;
 
     &::before {
       content: '';
@@ -3607,10 +3608,6 @@ button.room-photo-caption {
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-  }
-
-  .alert-message {
-    text-align: center;
   }
 }
 

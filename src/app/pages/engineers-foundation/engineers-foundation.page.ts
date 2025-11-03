@@ -1573,9 +1573,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     this.roomElevationData[roomName].fdfPhotos = fdfPhotos;
                   }
                 }
-                
-                // Load existing room points for this room
-                this.loadExistingRoomPoints(roomId, roomName);
+
+                // Load existing room points for this room - AWAIT to ensure points load before UI renders
+                await this.loadExistingRoomPoints(roomId, roomName);
               }
             }
 
@@ -7099,7 +7099,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('[PDF] Waiting for photo hydration to complete...');
         loading = await this.alertController.create({
           header: 'Loading Photos',
-          message: '<div class="spinner-container"></div>',
+          message: ' ',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7123,7 +7123,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
         loading = await this.alertController.create({
           header: 'Saving Changes',
-          message: '<div class="spinner-container"></div>',
+          message: ' ',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7153,7 +7153,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('[PDF] Processing pending items before PDF generation');
         loading = await this.alertController.create({
           header: 'Syncing Data',
-          message: '<div class="spinner-container"></div>',
+          message: ' ',
           backdropDismiss: false,
           cssClass: 'template-loading-alert'
         });
@@ -7174,7 +7174,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Now show the main loading indicator for PDF preparation
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: '<div class="spinner-container"></div>',
+        message: ' ',
         buttons: [
           {
             text: 'Cancel',
