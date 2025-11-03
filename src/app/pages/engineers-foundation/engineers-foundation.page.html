@@ -1408,16 +1408,25 @@
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
+                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                            Measurement
+                            <ion-spinner *ngIf="isPointPending(room.RoomName, point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                          </div>
                           <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1450,16 +1459,25 @@
 
                         <!-- Location Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
+                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                            Location
+                            <ion-spinner *ngIf="isPointPending(room.RoomName, point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                          </div>
                           <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1873,16 +1891,25 @@
                       <div style="margin-top: 10px; display: flex; gap: 8px;">
                         <!-- Measurement Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Measurement</div>
+                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                            Measurement
+                            <ion-spinner *ngIf="isPointPending(room.RoomName, point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                          </div>
                           <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Measurement', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>
@@ -1915,16 +1942,25 @@
 
                         <!-- Location Photo Container -->
                         <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">Location</div>
+                          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                            Location
+                            <ion-spinner *ngIf="isPointPending(room.RoomName, point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                          </div>
                           <div style="display: flex; gap: 6px; margin-bottom: 2px;">
                             <button (click)="capturePointPhotoCamera(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
                               <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                             </button>
                             <button (click)="capturePointPhotoGallery(room.RoomName, point, 'Location', $event)"
+                                    [disabled]="!isPointReady(room.RoomName, point)"
                                     class="fdf-photo-button measurement-photo-btn"
-                                    style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                                    [style.opacity]="isPointReady(room.RoomName, point) ? '1' : '0.4'"
+                                    [style.cursor]="isPointReady(room.RoomName, point) ? 'pointer' : 'not-allowed'"
+                                    style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                               <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                             </button>
                           </div>

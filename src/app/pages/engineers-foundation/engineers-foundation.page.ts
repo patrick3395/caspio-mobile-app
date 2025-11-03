@@ -2884,6 +2884,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
+      // Check if point is currently being created
+      if (this.pointCreationStatus[pointKey] === 'pending' || this.pointCreationStatus[pointKey] === 'retrying') {
+        await this.showToast('Point is being created. Please wait a moment.', 'info');
+        return;
+      }
+
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // If offline, cannot proceed
         if (this.manualOffline) {
@@ -2904,6 +2910,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
           pointId = createResponse.PointID || createResponse.PK_ID;
           this.efePointIds[pointKey] = pointId;
+          this.pointCreationStatus[pointKey] = 'created'; // Update status
           console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
         } else {
           throw new Error('Failed to create point record - no PointID returned');
