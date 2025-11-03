@@ -33,7 +33,8 @@
       "Bash(grep:*)",
       "Bash(git fetch:*)",
       "Read(///**)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
