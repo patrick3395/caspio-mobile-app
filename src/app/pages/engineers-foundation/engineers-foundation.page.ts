@@ -2987,14 +2987,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (elevationPoint) {
               // Get photo count for this point - use the correct PointID
               const actualPointId = point.PointID || pointId;
+              console.log(`[Load Photos] Loading photos for point ${point.PointName}, PointID: ${actualPointId}`);
               const photos = await this.foundationData.getEFEAttachments(actualPointId);
+              console.log(`[Load Photos] Found ${photos?.length || 0} photos for point ${point.PointName}`);
               if (photos && photos.length > 0) {
                 elevationPoint.photoCount = photos.length;
-                
+
                 // Process photos SEQUENTIALLY to avoid cache issues
                 const processedPhotos = [];
                 for (let photoIndex = 0; photoIndex < photos.length; photoIndex++) {
                   const photo = photos[photoIndex];
+                  console.log(`[Load Photos] Photo ${photoIndex + 1}: AttachID=${photo.AttachID}, Type=${photo.Type}, Photo=${photo.Photo}`);
                   const photoPath = photo.Photo || '';
                   let photoUrl = '';
                   let thumbnailUrl = '';
@@ -3067,10 +3070,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     filePath: photoPath,  // Keep for compatibility
                     name: `Photo ${photoIndex + 1}`
                   };
-                  
+
+                  console.log(`[Load Photos] Processed photo ${photoIndex + 1}: photoType=${photoType}, hasUrl=${!!photoUrl}, attachId=${photoResult.attachId}`);
                   processedPhotos.push(photoResult);
                 }
-                
+
+                console.log(`[Load Photos] Setting ${processedPhotos.length} photos for point ${point.PointName}`);
                 elevationPoint.photos = processedPhotos;
               }
             }
@@ -5096,7 +5101,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const newPoint = {
               name: pointName,
               photoCount: 0,
-              photos: []
+              photos: [],
+              isCustom: true  // Mark as custom point for proper loading
             };
 
             this.roomElevationData[roomName].elevationPoints.push(newPoint);
@@ -11799,27 +11805,38 @@ Stack: ${error?.stack}`;
             Drawings: EMPTY_COMPRESSED_ANNOTATIONS  // CRITICAL: Include Drawings field for consistency
           };
 
+          console.log(`[Gallery Upload] Saving photo with data:`, { PointID: attachData.PointID, Photo: attachData.Photo, Type: attachData.Type });
           const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();
+          console.log(`[Gallery Upload] Response:`, attachResponse);
 
           // Handle the Result array structure
           const createdRecord = attachResponse?.Result?.[0] || attachResponse;
 
+          console.log(`[Gallery Upload] Created record:`, createdRecord);
           if (createdRecord && createdRecord.AttachID) {
             photoEntry.attachId = createdRecord.AttachID;
             photoEntry.AttachID = createdRecord.AttachID;
             photoEntry.filePath = filePath;
+            console.log(`[Gallery Upload] AttachID assigned: ${createdRecord.AttachID}, fetching image...`);
 
             const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
             if (imageData && imageData.startsWith('data:')) {
               photoEntry.url = imageData;
               photoEntry.thumbnailUrl = imageData;
               URL.revokeObjectURL(photoUrl);
+              console.log(`[Gallery Upload] Image loaded successfully, length: ${imageData.length}`);
+            } else {
+              console.warn(`[Gallery Upload] Failed to load image data for ${filePath}`);
             }
+          } else {
+            console.error(`[Gallery Upload] No AttachID in response!`, createdRecord);
           }
 
           photoEntry.uploading = false;
+          point.photoCount = point.photos.length;
           this.changeDetectorRef.detectChanges();
           this.markReportChanged();
+          console.log(`[Gallery Upload] Upload complete. Point now has ${point.photoCount} photos.`);
 
         } catch (uploadError) {
           console.error('Error uploading gallery photo:', uploadError);
@@ -12710,7 +12727,7 @@ Stack: ${error?.stack}`;
       // Create loading popup with cancel button
       this.templateLoader = await this.alertController.create({
         header: message,
-        message: '<div class="spinner-container"></div>',
+        message: ' ',
         buttons: [
           {
             text: 'Cancel',
