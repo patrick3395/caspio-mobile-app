@@ -1984,6 +1984,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const query = `EFEID=${roomId}`;
 
       await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+
+      // Mark that changes have been made (enables Update button)
+      this.markReportChanged();
     } catch (error) {
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
@@ -4775,6 +4778,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       console.log(`Location saved for ${roomName}:`, location);
+
+      // Mark that changes have been made (enables Update button)
+      this.markReportChanged();
     } catch (error) {
       console.error('Error saving location:', error);
       await this.showToast('Failed to save location', 'danger');
@@ -6593,6 +6599,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async finalizeReport() {
+    // CRITICAL: If report is finalized and no changes made, show message
+    if (this.isReportFinalized() && !this.hasChangesAfterLastFinalization) {
+      const alert = await this.alertController.create({
+        header: 'No Changes to Update',
+        message: 'There are no changes to update. Make changes to the report to enable the Update button.',
+        cssClass: 'finalize-alert',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
     const incompleteAreas: string[] = [];
 
     // Check required Project Information fields
@@ -6777,8 +6795,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Update the Services table
       const currentDateTime = new Date().toISOString();
       const updateData: any = {
-        StatusDateTime: currentDateTime,  // Always update to track when report was last modified
-        Status: 'Finalized'  // Set to Finalized so services table shows orange button
+        StatusDateTime: currentDateTime,  // Always update timestamp to track when report was last modified
+        Status: isFirstFinalization ? 'Finalized' : 'Updated'  // Finalized first time, Updated after
       };
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
@@ -6798,7 +6816,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Update local state
       this.serviceData.StatusDateTime = currentDateTime;
-      this.serviceData.Status = 'Finalized';
+      this.serviceData.Status = isFirstFinalization ? 'Finalized' : 'Updated';
       this.serviceData.ReportFinalized = true;
 
       // Reset change tracking - button should be grayed out until next change
@@ -12897,6 +12915,9 @@ Stack: ${error?.stack}`;
     if (value === 'Other') {
       return; // Don't save yet - wait for inline input
     }
+
+    // Mark that changes have been made (enables Update button)
+    this.markReportChanged();
 
     // Update the project data
     if (this.projectData) {
