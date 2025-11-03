@@ -34,7 +34,10 @@
       "Bash(git fetch:*)",
       "Read(///**)",
       "Bash(sed:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "ask": []

@@ -1348,54 +1348,6 @@
                   </div>
                 </div>
 
-                <!-- Location Photos Section for Base Station -->
-                <div class="fdf-photos-container" *ngIf="isBaseStation(room.RoomName)" style="margin-top: 10px;">
-                  <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">Location Photo:</div>
-                  <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap;">
-                    <!-- Location Photo Column for Base Station -->
-                    <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9; max-width: 33.333%;">
-                      <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-                      <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-                        <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
-                                class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                          <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
-                        </button>
-                        <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
-                                class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                          <ion-icon name="images" style="font-size: 28px;"></ion-icon>
-                        </button>
-                      </div>
-                      <!-- Location Photo Thumbnail -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
-                           [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
-                           style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
-                             width="90" height="90"
-                             (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
-                             alt="Location"
-                             [class.has-annotations]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdHasAnnotations">
-                        <div class="upload-indicator" *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading">
-                          <ion-spinner name="crescent" color="light"></ion-spinner>
-                        </div>
-                        <button class="delete-btn"
-                                *ngIf="!roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
-                                (click)="deleteFDFPhoto(room.RoomName, 'Threshold', $event); $event.stopPropagation()"
-                                title="Delete">
-                          <ion-icon name="close"></ion-icon>
-                        </button>
-                        <!-- Caption text underneath Location photo -->
-                        <button
-                          class="room-photo-caption"
-                          (click)="openFDFCaptionPopup(room.RoomName, 'Threshold'); $event.stopPropagation()">
-                          {{ getFdfPhotoCaption(room.RoomName, 'Threshold') || 'Caption' }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <!-- Location Field for Base Station (above Measurements) -->
                 <div class="location-field-container" *ngIf="isBaseStation(room.RoomName) && !!roomElevationData[room.RoomName]" style="margin-top: 15px;">
                   <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
