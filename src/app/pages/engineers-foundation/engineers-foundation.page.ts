@@ -1320,6 +1320,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               fdf: '', // Initialize FDF with empty for "-- Select --"
               location: ''
             };
+            
+            // NOTE: Don't mark points as 'pending' here - these are just template definitions
+            // Points will be marked as 'pending' when room is actually selected/created
           }
         });
         
@@ -2885,22 +2888,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // If room is pending or has temporary ID, cannot take photos yet
+      // ROBUSTNESS: If room is pending or has temporary ID, cannot take photos yet
       if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
+        await this.showToast('Room is still being created. Please wait a moment and try again.', 'warning');
         return;
       }
 
       // Get or create point ID
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
+      const pointStatus = this.pointCreationStatus[pointKey];
 
-      // Check if point is currently being created
-      if (this.pointCreationStatus[pointKey] === 'pending' || this.pointCreationStatus[pointKey] === 'retrying') {
-        await this.showToast('Point is being created. Please wait a moment.', 'info');
+      // ROBUSTNESS: Check if point is currently being created
+      if (pointStatus === 'pending' || pointStatus === 'retrying') {
+        await this.showToast(`"${point.name}" is being created. Please wait a moment.`, 'info');
         return;
       }
 
+      // ROBUSTNESS: Check if point creation failed previously
+      if (pointStatus === 'failed') {
+        await this.showToast(`"${point.name}" creation failed. Tap "Retry" to create it before taking photos.`, 'warning');
+        return;
+      }
+
+      // ROBUSTNESS: If point doesn't exist or has temporary ID, try to create it on-demand
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // If offline, cannot proceed
         if (this.manualOffline) {
@@ -2908,23 +2919,44 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
 
-        // Point doesn't exist yet or has temporary ID - create it on-demand
+        // Point doesn't exist yet or has temporary ID - create it on-demand with better error handling
         console.log(`[Photo Capture] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
+        
+        // Mark as pending during creation
+        this.pointCreationStatus[pointKey] = 'pending';
+        this.changeDetectorRef.detectChanges();
 
-        const pointData = {
-          EFEID: parseInt(roomId),
-          PointName: point.name
-        };
-        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+        try {
+          const pointData = {
+            EFEID: parseInt(roomId),
+            PointName: point.name
+          };
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
-        // Use PointID from response, NOT PK_ID!
-        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-          pointId = createResponse.PointID || createResponse.PK_ID;
-          this.efePointIds[pointKey] = pointId;
-          this.pointCreationStatus[pointKey] = 'created'; // Update status
-          console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
-        } else {
-          throw new Error('Failed to create point record - no PointID returned');
+          // Use PointID from response, NOT PK_ID!
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            this.pointCreationStatus[pointKey] = 'created'; // Update status
+            console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
+          } else {
+            throw new Error('Failed to create point record - no PointID returned');
+          }
+        } catch (createError: any) {
+          // ROBUSTNESS: Mark as failed and provide helpful error message
+          this.pointCreationStatus[pointKey] = 'failed';
+          this.pointCreationErrors[pointKey] = createError.message || 'Failed to create point';
+          this.changeDetectorRef.detectChanges();
+          
+          // Provide user-friendly error message based on error type
+          if (createError.status === 0 || createError.name === 'TimeoutError') {
+            await this.showToast('Network error - check your connection and try again', 'danger');
+          } else if (createError.status >= 500) {
+            await this.showToast('Server error - please try again in a moment', 'danger');
+          } else {
+            await this.showToast(`Could not create "${point.name}". Please check your connection and try again.`, 'danger');
+          }
+          return; // Exit - don't proceed with photo capture
         }
       }
 
@@ -4132,8 +4164,33 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isPointReady(roomName: string, point: any): boolean {
     const pointKey = `${roomName}_${point.name}`;
     const status = this.pointCreationStatus[pointKey];
-    // Point is ready if it's created, or if no status tracking yet (for backward compatibility)
-    return status === 'created' || status === undefined;
+    const pointId = this.efePointIds[pointKey];
+    
+    // ROBUSTNESS FIX: Point is ready ONLY if:
+    // 1. Status is explicitly 'created', OR
+    // 2. Status is undefined BUT we have a valid (non-temp) pointId, OR
+    // 3. Status is undefined AND pointId is undefined (legacy room - will create on-demand)
+    
+    if (status === 'created') {
+      return true; // Explicitly created
+    }
+    
+    if (status === 'pending' || status === 'retrying' || status === 'failed') {
+      return false; // Explicitly not ready
+    }
+    
+    // Status is undefined - check pointId for backward compatibility
+    if (!pointId) {
+      return true; // No pointId - will create on-demand (legacy behavior)
+    }
+    
+    // Has pointId - check if it's temporary
+    const pointIdStr = String(pointId);
+    if (pointIdStr === '__pending__' || pointIdStr.startsWith('temp_')) {
+      return false; // Temp ID means point is being created
+    }
+    
+    return true; // Valid pointId, no status tracking (legacy room)
   }
 
   isPointPending(roomName: string, point: any): boolean {
@@ -4961,6 +5018,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               photos: [],  // Initialize photos array
               photoCount: 0
             });
+            
+            // ROBUSTNESS FIX: Immediately mark point as 'pending' so camera button is disabled
+            // This prevents race condition where user clicks camera before point creation completes
+            const pointKey = `${roomName}_${pointName}`;
+            this.pointCreationStatus[pointKey] = 'pending';
           }
         }
         
