@@ -303,6 +303,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private lockedScrollY = 0;
   private lockedScrollX = 0;
   private scrollCheckInterval: any = null;
+  private preClickScrollY = 0;
+  private preClickScrollX = 0;
 
   // FDF dropdown options from Services_EFE_Drop table - mapped by room name
   fdfOptions: string[] = [];
@@ -11341,20 +11343,28 @@ Stack: ${error?.stack}`;
   }
 
 
+  // Save scroll position on mousedown (BEFORE click event processes)
+  saveScrollBeforePhotoClick(event: Event): void {
+    this.preClickScrollY = window.scrollY;
+    this.preClickScrollX = window.scrollX;
+    console.log('[MOUSEDOWN] Saved scroll BEFORE click processing - Y:', this.preClickScrollY);
+  }
+
   // View photo - open viewer with integrated annotation
   async viewPhoto(photo: any, category: string, itemId: string, event?: Event) {
     // CRITICAL: Prevent default and stop propagation FIRST
     if (event) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
     }
     
     try {
-      // CRITICAL: Save scroll position IMMEDIATELY before ANY processing
-      // This prevents the position from being lost before modal presents
-      this.lockedScrollY = window.scrollY;
-      this.lockedScrollX = window.scrollX;
-      console.log('[viewPhoto] Saved scroll position IMMEDIATELY - Y:', this.lockedScrollY);
+      // CRITICAL: Use pre-click scroll position (saved on mousedown)
+      this.lockedScrollY = this.preClickScrollY || window.scrollY;
+      this.lockedScrollX = this.preClickScrollX || window.scrollX;
+      console.log('[viewPhoto] Using scroll position from mousedown - Y:', this.lockedScrollY);
+      console.log('[viewPhoto] Current window.scrollY:', window.scrollY);
       
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
