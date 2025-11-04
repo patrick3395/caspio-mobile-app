@@ -503,7 +503,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private unlockScroll(): void {
-    console.log('[SCROLL LOCK] Unlocking scroll - restoring to Y:', this.lockedScrollY);
+    console.log('═══════════════════════════════════════════');
+    console.log('[SCROLL LOCK] UNLOCKING - About to restore to Y:', this.lockedScrollY);
+    console.log('[SCROLL LOCK] Current scroll Y:', window.scrollY);
+    console.log('═══════════════════════════════════════════');
     
     // Stop monitoring
     this.scrollLockActive = false;
@@ -513,11 +516,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.scrollCheckInterval = null;
     }
     
-    // Restore original position one final time
-    setTimeout(() => {
-      console.log('[SCROLL LOCK] Final restore to Y:', this.lockedScrollY);
-      window.scrollTo(this.lockedScrollX, this.lockedScrollY);
-    }, 50);
+    // Restore original position MULTIPLE times to fight browser behavior
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        console.log(`[SCROLL LOCK] Restore attempt ${i+1} - Setting to Y:`, this.lockedScrollY, 'Current Y:', window.scrollY);
+        window.scrollTo(this.lockedScrollX, this.lockedScrollY);
+      }, i * 10);
+    }
   }
 
   async ngOnInit() {
@@ -6824,9 +6829,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Uses Status table lookup to check if current status matches Finalized, Updated, or Under Review
    */
   isReportFinalized(): boolean {
-    const result = this.isStatusAnyOf(['Finalized', 'Updated', 'Under Review']);
-    console.log('[isReportFinalized] Current Status:', this.serviceData?.Status, 'Result:', result);
-    return result;
+    return this.isStatusAnyOf(['Finalized', 'Updated', 'Under Review']);
   }
 
   /**
@@ -6835,18 +6838,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   canFinalizeReport(): boolean {
     // First check: all required fields must be filled
     if (!this.areAllRequiredFieldsFilled()) {
-      console.log('[canFinalizeReport] Required fields not filled');
       return false;
     }
 
     // If report has been finalized/updated before, only enable if changes have been made
     if (this.isReportFinalized()) {
-      console.log('[canFinalizeReport] Report is finalized, hasChanges:', this.hasChangesAfterLastFinalization);
       return this.hasChangesAfterLastFinalization;
     }
 
     // For initial finalization, enable if required fields are filled
-    console.log('[canFinalizeReport] First finalization - enabled');
     return true;
   }
 
@@ -11347,7 +11347,12 @@ Stack: ${error?.stack}`;
   saveScrollBeforePhotoClick(event: Event): void {
     this.preClickScrollY = window.scrollY;
     this.preClickScrollX = window.scrollX;
-    console.log('[MOUSEDOWN] Saved scroll BEFORE click processing - Y:', this.preClickScrollY);
+    console.log('═══════════════════════════════════════════');
+    console.log('[MOUSEDOWN] Saved scroll BEFORE click - Y:', this.preClickScrollY);
+    console.log('[MOUSEDOWN] document.documentElement.scrollTop:', document.documentElement.scrollTop);
+    console.log('[MOUSEDOWN] document.body.scrollTop:', document.body.scrollTop);
+    console.log('[MOUSEDOWN] pageYOffset:', window.pageYOffset);
+    console.log('═══════════════════════════════════════════');
   }
 
   // View photo - open viewer with integrated annotation

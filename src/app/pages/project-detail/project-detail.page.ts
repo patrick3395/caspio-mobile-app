@@ -131,6 +131,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   selectedDeliverableService: ServiceSelection | null = null;
   isDeliverableModalOpen = false;
   isCompanyOne = false; // Track if this is CompanyID = 1
+  
+  // Track changes since last submission (by serviceId)
+  changesAfterSubmission: { [serviceId: string]: boolean } = {};
 
   // For modal
   selectedServiceDoc: ServiceDocumentGroup | null = null;
@@ -611,6 +614,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             service.Status = 'Finalized';
           }
 
+          // Mark that changes have been made (for Re-Submit button)
+          if (service.serviceId) {
+            this.changesAfterSubmission[service.serviceId] = true;
+            console.log('[ProjectDetail] Report finalized/updated - marked changes for re-submit');
+          }
+
           console.log('[ProjectDetail] Service AFTER:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
           this.changeDetectorRef.detectChanges();
         } else {
@@ -859,6 +868,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (service) {
           console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
+          
+          // Mark that changes have been made (for Re-Submit button)
+          if (service.serviceId) {
+            this.changesAfterSubmission[service.serviceId] = true;
+            console.log('[ProjectDetail] Report finalized - marked changes for re-submit');
+          }
+          
           this.changeDetectorRef.detectChanges();
         } else {
           console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
@@ -1391,6 +1407,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const typeShort = service.typeShort?.toUpperCase() || '';
     const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
     const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
+
+    // If already submitted (Status = "Under Review"), only enable if changes have been made
+    if (service.Status === 'Under Review') {
+      const hasChanges = this.changesAfterSubmission[service.serviceId || ''] === true;
+      console.log(`[SubmitButton] ${service.typeName} already submitted. Has changes: ${hasChanges}`);
+      return hasChanges;
+    }
 
     // For EFE reports, enable if ReportFinalized is true (works for both initial submission and updates)
     if (service.ReportFinalized) {
@@ -2430,6 +2453,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Cache was automatically cleared by CaspioService, so this gets fresh data
           await this.loadExistingAttachments();
 
+          // Mark that changes have been made (for Re-Submit button)
+          if (serviceId) {
+            this.changesAfterSubmission[serviceId] = true;
+            console.log('[Document Upload] Marked changes for serviceId:', serviceId);
+          }
         }
       } else if (action === 'replace' && doc.attachId) {
         // Show loading for replace action
@@ -2445,6 +2473,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
 
+        // Mark that changes have been made (for Re-Submit button)
+        if (serviceId) {
+          this.changesAfterSubmission[serviceId] = true;
+          console.log('[Document Replace] Marked changes for serviceId:', serviceId);
+        }
       }
       
       // UI updated by reloading from database after successful mutation
@@ -5190,6 +5223,12 @@ Time: ${debugInfo.timestamp}
       service.Status = 'Under Review';
       service.StatusEng = 'Submitted';
       service.StatusDateTime = submittedDateTime;
+
+      // Reset change tracking - button should be grayed out until next change
+      if (service.serviceId) {
+        this.changesAfterSubmission[service.serviceId] = false;
+        console.log('[Submit Report] Reset changesAfterSubmission to false');
+      }
 
       await loading.dismiss();
       await this.showToast(`${service.typeName} report submitted successfully`, 'success');
