@@ -1401,6 +1401,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.selectedServices.filter(s => s.offersId === offersId);
   }
 
+  // Check if service has been submitted before
+  hasBeenSubmitted(service: ServiceSelection): boolean {
+    return service.Status === 'Under Review';
+  }
+
   // Check if submit button should be enabled (orange) for a service
   isSubmitButtonEnabled(service: ServiceSelection): boolean {
     const typeName = service.typeName?.toLowerCase() || '';
@@ -1409,7 +1414,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
 
     // If already submitted (Status = "Under Review"), only enable if changes have been made
-    if (service.Status === 'Under Review') {
+    if (this.hasBeenSubmitted(service)) {
       const hasChanges = this.changesAfterSubmission[service.serviceId || ''] === true;
       console.log(`[SubmitButton] ${service.typeName} already submitted. Has changes: ${hasChanges}`);
       return hasChanges;
@@ -1704,7 +1709,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const updateData: any = {};
       updateData[fieldName] = value;
 
+      // If StatusEng is being changed to "Complete", also update Status to "Complete"
+      if (fieldName === 'StatusEng' && value === 'Complete') {
+        updateData.Status = 'Complete';
+        console.log('[Deliverables] StatusEng changed to Complete, also updating Status to Complete');
+      }
+
       await this.caspioService.updateService(service.serviceId, updateData).toPromise();
+      
+      // Update local service object
+      service[fieldName] = value;
+      if (fieldName === 'StatusEng' && value === 'Complete') {
+        service.Status = 'Complete';
+      }
+      
       // Silent update - no toast notification
     } catch (error) {
       console.error(`Error updating ${fieldName}:`, error);

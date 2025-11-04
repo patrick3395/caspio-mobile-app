@@ -446,7 +446,7 @@
                   class="submit-report-btn"
                   [class.finalized]="isSubmitButtonEnabled(service)"
                   (click)="handleSubmitClick(service)">
-                  {{ service.Status === 'Under Review' ? 'Re-Submit' : 'Submit' }}
+                  {{ hasBeenSubmitted(service) ? 'Re-Submit' : 'Submit' }}
                 </button>
                 <div *ngIf="service.Status === 'Under Review' && service.StatusDateTime" class="submitted-note">
                   Submitted {{ service.StatusDateTime | date:'short' }}

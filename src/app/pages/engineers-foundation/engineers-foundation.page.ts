@@ -476,27 +476,36 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private lockScroll(): void {
-    // Save current scroll position
-    this.lockedScrollY = window.scrollY;
-    this.lockedScrollX = window.scrollX;
+    // CRITICAL: Get scroll from ion-content, NOT window!
+    const ionContent = document.querySelector('ion-content');
+    const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll') || 
+                          ionContent?.querySelector('.inner-scroll') || 
+                          document.documentElement;
+    
+    this.lockedScrollY = (scrollElement as any)?.scrollTop || window.scrollY;
+    this.lockedScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
     this.scrollLockActive = true;
     
     console.log('[SCROLL LOCK] Locked at Y:', this.lockedScrollY, 'X:', this.lockedScrollX);
     
-    // Start monitoring and forcing scroll position
+    // Start monitoring and forcing scroll position on BOTH window and ion-content
     if (this.scrollCheckInterval) {
       clearInterval(this.scrollCheckInterval);
     }
     
     this.scrollCheckInterval = setInterval(() => {
       if (this.scrollLockActive) {
-        const currentY = window.scrollY;
-        const currentX = window.scrollX;
+        const currentY = (scrollElement as any)?.scrollTop || window.scrollY;
+        const currentX = (scrollElement as any)?.scrollLeft || window.scrollX;
         
-        // If scroll position changed, force it back
+        // If scroll position changed, force it back on BOTH
         if (currentY !== this.lockedScrollY || currentX !== this.lockedScrollX) {
           console.log('[SCROLL LOCK] Forcing scroll back from Y:', currentY, 'to Y:', this.lockedScrollY);
           window.scrollTo(this.lockedScrollX, this.lockedScrollY);
+          if (scrollElement) {
+            (scrollElement as any).scrollTop = this.lockedScrollY;
+            (scrollElement as any).scrollLeft = this.lockedScrollX;
+          }
         }
       }
     }, 10); // Check every 10ms
@@ -505,7 +514,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private unlockScroll(): void {
     console.log('═══════════════════════════════════════════');
     console.log('[SCROLL LOCK] UNLOCKING - About to restore to Y:', this.lockedScrollY);
-    console.log('[SCROLL LOCK] Current scroll Y:', window.scrollY);
+    
+    // Get ion-content scroll element
+    const ionContent = document.querySelector('ion-content');
+    const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll') || 
+                          ionContent?.querySelector('.inner-scroll') || 
+                          document.documentElement;
+    
+    console.log('[SCROLL LOCK] Current window.scrollY:', window.scrollY);
+    console.log('[SCROLL LOCK] Current ion-content scrollTop:', (scrollElement as any)?.scrollTop);
     console.log('═══════════════════════════════════════════');
     
     // Stop monitoring
@@ -516,11 +533,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.scrollCheckInterval = null;
     }
     
-    // Restore original position MULTIPLE times to fight browser behavior
+    // Restore original position MULTIPLE times on BOTH window and ion-content
     for (let i = 0; i < 5; i++) {
       setTimeout(() => {
-        console.log(`[SCROLL LOCK] Restore attempt ${i+1} - Setting to Y:`, this.lockedScrollY, 'Current Y:', window.scrollY);
+        const currentY = window.scrollY;
+        const ionY = (scrollElement as any)?.scrollTop || 0;
+        console.log(`[SCROLL LOCK] Restore attempt ${i+1} - Target Y: ${this.lockedScrollY}, window.scrollY: ${currentY}, ion-content scrollTop: ${ionY}`);
+        
         window.scrollTo(this.lockedScrollX, this.lockedScrollY);
+        if (scrollElement) {
+          (scrollElement as any).scrollTop = this.lockedScrollY;
+          (scrollElement as any).scrollLeft = this.lockedScrollX;
+        }
       }, i * 10);
     }
   }
@@ -11345,13 +11369,21 @@ Stack: ${error?.stack}`;
 
   // Save scroll position on mousedown (BEFORE click event processes)
   saveScrollBeforePhotoClick(event: Event): void {
-    this.preClickScrollY = window.scrollY;
-    this.preClickScrollX = window.scrollX;
+    // CRITICAL: Get scroll from ion-content, NOT window!
+    const ionContent = document.querySelector('ion-content');
+    const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll') || 
+                          ionContent?.querySelector('.inner-scroll') || 
+                          document.documentElement;
+    
+    this.preClickScrollY = (scrollElement as any)?.scrollTop || window.scrollY;
+    this.preClickScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
+    
     console.log('═══════════════════════════════════════════');
     console.log('[MOUSEDOWN] Saved scroll BEFORE click - Y:', this.preClickScrollY);
+    console.log('[MOUSEDOWN] window.scrollY:', window.scrollY);
+    console.log('[MOUSEDOWN] ion-content scrollTop:', (scrollElement as any)?.scrollTop);
     console.log('[MOUSEDOWN] document.documentElement.scrollTop:', document.documentElement.scrollTop);
-    console.log('[MOUSEDOWN] document.body.scrollTop:', document.body.scrollTop);
-    console.log('[MOUSEDOWN] pageYOffset:', window.pageYOffset);
+    console.log('[MOUSEDOWN] Scroll element:', scrollElement?.tagName || scrollElement?.className);
     console.log('═══════════════════════════════════════════');
   }
 

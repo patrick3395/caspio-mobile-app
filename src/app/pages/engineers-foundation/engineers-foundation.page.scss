@@ -341,6 +341,19 @@ ion-content{
 html, body {
   scroll-behavior: auto !important;
 }
+
+// CRITICAL: Prevent Ionic from manipulating scroll when modals open/close
+body.modal-open,
+html.modal-open {
+  overflow: visible !important;
+  position: static !important;
+  top: auto !important;
+  width: auto !important;
+}
+
+ion-app.modal-open {
+  overflow: visible !important;
+}
 .photo-upload-dialog {
   .alert-wrapper {
     animation: none !important; // Remove animation for instant appearance
