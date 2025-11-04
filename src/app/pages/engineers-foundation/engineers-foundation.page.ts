@@ -1574,8 +1574,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                 }
 
-                // Load existing room points for this room - AWAIT to ensure points load before UI renders
-                await this.loadExistingRoomPoints(roomId, roomName);
+                // Load existing room points for this room in background
+                this.loadExistingRoomPoints(roomId, roomName);
               }
             }
 
@@ -2968,6 +2968,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // If this point doesn't exist in the template, it's a custom point - add it
             if (!elevationPoint) {
+              console.log(`[Load Points] Adding custom point: ${point.PointName} to room ${roomName}`);
               elevationPoint = {
                 name: point.PointName,
                 value: '',
@@ -2977,6 +2978,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 isCustom: true  // Mark as custom point
               };
               this.roomElevationData[roomName].elevationPoints.push(elevationPoint);
+
+              // CRITICAL: Trigger change detection immediately so custom point shows in UI
+              this.ngZone.run(() => {
+                this.changeDetectorRef.detectChanges();
+              });
             }
             
             // Ensure photos array exists
@@ -3077,11 +3083,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
                 console.log(`[Load Photos] Setting ${processedPhotos.length} photos for point ${point.PointName}`);
                 elevationPoint.photos = processedPhotos;
+
+                // CRITICAL: Trigger change detection so photos appear in UI on mobile
+                this.ngZone.run(() => {
+                  this.changeDetectorRef.detectChanges();
+                });
               }
             }
           }
         }
       }
+
+      // Final change detection after all points loaded
+      this.ngZone.run(() => {
+        this.changeDetectorRef.detectChanges();
+      });
     } catch (error) {
       console.error('Error loading room points:', error);
     }
