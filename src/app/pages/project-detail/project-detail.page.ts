@@ -1623,6 +1623,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const response = await this.caspioService.get<any>('/tables/Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
+        console.log('[Status Table] Loaded status options:', this.statusOptions);
+        console.log('[Status Table] Sample record structure:', this.statusOptions[0]);
+        
+        // Verify "Created" exists
+        const createdRecord = this.statusOptions.find((s: any) => s.Status_Client === 'Created');
+        console.log('[Status Table] "Created" record found:', createdRecord);
+        
+        // Verify "In Progress" exists
+        const inProgressRecord = this.statusOptions.find((s: any) => s.Status_Client === 'In Progress');
+        console.log('[Status Table] "In Progress" record found:', inProgressRecord);
       }
     } catch (error) {
       console.error('Error loading status options:', error);
@@ -1631,12 +1641,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Helper method to get Status_Admin value by Status_Client lookup
   getStatusAdminByClient(statusClient: string): string {
+    console.log(`[Status Lookup] Looking for Status_Client: "${statusClient}"`);
+    console.log(`[Status Lookup] Available options:`, this.statusOptions);
+    
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
+    console.log(`[Status Lookup] Found record:`, statusRecord);
+    
     if (statusRecord && statusRecord.Status_Admin) {
+      console.log(`[Status Lookup] Returning Status_Admin: "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     // Fallback to StatusClient if Status_Admin not found
     console.warn(`[Status] Status_Admin not found for Status_Client "${statusClient}", using Status_Client as fallback`);
+    console.warn(`[Status] This means StatusEng will be set to "${statusClient}" instead of a Status_Admin value`);
     return statusClient;
   }
 

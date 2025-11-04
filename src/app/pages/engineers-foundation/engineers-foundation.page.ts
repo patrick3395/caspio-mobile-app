@@ -448,21 +448,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private setupGlobalScrollLock(): void {
+    console.log('[SCROLL LOCK] Setting up global scroll lock');
+    
     // Listen for when modals/alerts are about to open
     document.addEventListener('ionModalWillPresent', () => {
+      console.log('[SCROLL LOCK] ionModalWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     document.addEventListener('ionAlertWillPresent', () => {
+      console.log('[SCROLL LOCK] ionAlertWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     // Listen for when modals/alerts close
     document.addEventListener('ionModalDidDismiss', () => {
+      console.log('[SCROLL LOCK] ionModalDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
     
     document.addEventListener('ionAlertDidDismiss', () => {
+      console.log('[SCROLL LOCK] ionAlertDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
   }
@@ -472,6 +478,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.lockedScrollY = window.scrollY;
     this.lockedScrollX = window.scrollX;
     this.scrollLockActive = true;
+    
+    console.log('[SCROLL LOCK] Locked at Y:', this.lockedScrollY, 'X:', this.lockedScrollX);
     
     // Start monitoring and forcing scroll position
     if (this.scrollCheckInterval) {
@@ -485,6 +493,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // If scroll position changed, force it back
         if (currentY !== this.lockedScrollY || currentX !== this.lockedScrollX) {
+          console.log('[SCROLL LOCK] Forcing scroll back from Y:', currentY, 'to Y:', this.lockedScrollY);
           window.scrollTo(this.lockedScrollX, this.lockedScrollY);
         }
       }
@@ -492,6 +501,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private unlockScroll(): void {
+    console.log('[SCROLL LOCK] Unlocking scroll - restoring to Y:', this.lockedScrollY);
+    
     // Stop monitoring
     this.scrollLockActive = false;
     
@@ -502,8 +513,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Restore original position one final time
     setTimeout(() => {
+      console.log('[SCROLL LOCK] Final restore to Y:', this.lockedScrollY);
       window.scrollTo(this.lockedScrollX, this.lockedScrollY);
-    }, 0);
+    }, 50);
   }
 
   async ngOnInit() {
