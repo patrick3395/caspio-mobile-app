@@ -39,6 +39,7 @@ interface ServiceSelection {
   Deliverable?: string; // File URL
   EngNotes?: string;
   InspectorNotes?: string;
+  [key: string]: any; // Index signature to allow dynamic property access
 }
 
 interface DocumentItem {

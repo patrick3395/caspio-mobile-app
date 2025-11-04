@@ -6703,7 +6703,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const alert = await this.alertController.create({
         header: 'No Changes to Update',
         message: 'There are no changes to update. Make changes to the report to enable the Update button.',
-        cssClass: 'finalize-alert',
+        cssClass: 'custom-document-alert',
         buttons: ['OK']
       });
       await alert.present();
@@ -6805,7 +6805,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const alert = await this.alertController.create({
         header: 'Incomplete Required Fields',
         message: `The following required fields are not complete:\n\n${incompleteAreas.map(area => `• ${area}`).join('\n')}`,
-        cssClass: 'finalize-alert',
+        cssClass: 'custom-document-alert',
         buttons: ['OK']
       });
       await alert.present();
@@ -6821,7 +6821,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const alert = await this.alertController.create({
         header: headerText,
         message: messageText,
-        cssClass: 'finalize-alert',
+        cssClass: 'custom-document-alert',
         buttons: [
           {
             text: 'Cancel',
