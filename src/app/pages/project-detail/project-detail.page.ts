@@ -1112,15 +1112,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         })}`);
       }
 
+      // Get StatusAdmin value for "In Progress" from Status table
+      const inProgressStatus = this.getStatusAdminByClient("In Progress");
+      
       const serviceData = {
         ProjectID: projectIdToUse, // Use actual ProjectID from project (the numeric ProjectID field)
         TypeID: offer.TypeID,
         DateOfInspection: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for date input
-        Status: "In Progress" // Set default status when service is added
+        Status: inProgressStatus, // Set status to "In Progress" (using StatusAdmin from Status table)
+        StatusEng: "Created" // Set StatusEng to "Created" when service is first created
       };
 
       console.log('🔧 Creating service with data:', {
         serviceData,
+        statusMapping: { StatusClient: "In Progress", StatusAdmin: inProgressStatus },
         projectPK_ID: this.project?.PK_ID,
         projectProjectID: this.project?.ProjectID,
         routeProjectId: this.projectId,
@@ -1602,6 +1607,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     } catch (error) {
       console.error('Error loading status options:', error);
     }
+  }
+
+  // Helper method to get StatusAdmin value by StatusClient lookup
+  getStatusAdminByClient(statusClient: string): string {
+    const statusRecord = this.statusOptions.find(s => s.StatusClient === statusClient);
+    if (statusRecord && statusRecord.StatusAdmin) {
+      return statusRecord.StatusAdmin;
+    }
+    // Fallback to StatusClient if StatusAdmin not found
+    console.warn(`[Status] StatusAdmin not found for StatusClient "${statusClient}", using StatusClient as fallback`);
+    return statusClient;
   }
 
   // Deliverables methods (for CompanyID = 1)

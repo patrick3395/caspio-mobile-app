@@ -1210,9 +1210,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.serviceData = serviceResponse;
 
         // Set ReportFinalized flag based on Status field
-        // Check using Status table lookup (StatusAdmin values) or direct string match for backwards compatibility
-        const isFinalizedStatus = this.isStatusAnyOf(['Finalized', 'Updated']);
-        this.serviceData.ReportFinalized = isFinalizedStatus;
+        if (serviceResponse.Status === 'Finalized' || serviceResponse.Status === 'Updated') {
+          this.serviceData.ReportFinalized = true;
+        } else {
+          this.serviceData.ReportFinalized = false;
+        }
 
         // Initialize change tracking - no changes yet since we just loaded from database
         this.hasChangesAfterLastFinalization = false;
@@ -1322,9 +1324,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               fdf: '', // Initialize FDF with empty for "-- Select --"
               location: ''
             };
-            
-            // NOTE: Don't mark points as 'pending' here - these are just template definitions
-            // Points will be marked as 'pending' when room is actually selected/created
           }
         });
         
@@ -1793,7 +1792,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Keep default options on error
     }
   }
-  
+
   // Load status options from Status table
   async loadStatusOptions() {
     try {
@@ -2268,9 +2267,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // Save scroll position before opening modal (for both mobile and web)
-      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
-
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
         componentProps: {
@@ -2285,10 +2281,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
 
       await modal.present();
-      await modal.onDidDismiss();
-
-      // Restore scroll position IMMEDIATELY and synchronously to prevent jump
-      window.scrollTo(0, scrollPosition);
     } catch (error) {
       console.error(`[FDF Photos] Error opening photo viewer for ${roomName} ${photoType}:`, error);
       await this.showToast('Failed to open photo viewer', 'danger');
@@ -2440,11 +2432,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
 
-      // Restore scroll if user cancels (no data returned)
+      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
+      window.scrollTo(0, scrollPosition);
+
       if (!data) {
-        // Restore IMMEDIATELY to prevent jump
-        window.scrollTo(0, scrollPosition);
-        return;
+        return; // User cancelled, scroll already restored above
       }
 
       if (data && data.annotatedBlob) {
@@ -2939,30 +2931,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // ROBUSTNESS: If room is pending or has temporary ID, cannot take photos yet
+      // If room is pending or has temporary ID, cannot take photos yet
       if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is still being created. Please wait a moment and try again.', 'warning');
+        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
         return;
       }
 
       // Get or create point ID
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
-      const pointStatus = this.pointCreationStatus[pointKey];
 
-      // ROBUSTNESS: Check if point is currently being created
-      if (pointStatus === 'pending' || pointStatus === 'retrying') {
-        await this.showToast(`"${point.name}" is being created. Please wait a moment.`, 'info');
+      // Check if point is currently being created
+      if (this.pointCreationStatus[pointKey] === 'pending' || this.pointCreationStatus[pointKey] === 'retrying') {
+        await this.showToast('Point is being created. Please wait a moment.', 'info');
         return;
       }
 
-      // ROBUSTNESS: Check if point creation failed previously
-      if (pointStatus === 'failed') {
-        await this.showToast(`"${point.name}" creation failed. Tap "Retry" to create it before taking photos.`, 'warning');
-        return;
-      }
-
-      // ROBUSTNESS: If point doesn't exist or has temporary ID, try to create it on-demand
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // If offline, cannot proceed
         if (this.manualOffline) {
@@ -2970,44 +2954,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           return;
         }
 
-        // Point doesn't exist yet or has temporary ID - create it on-demand with better error handling
+        // Point doesn't exist yet or has temporary ID - create it on-demand
         console.log(`[Photo Capture] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
-        
-        // Mark as pending during creation
-        this.pointCreationStatus[pointKey] = 'pending';
-        this.changeDetectorRef.detectChanges();
 
-        try {
-          const pointData = {
-            EFEID: parseInt(roomId),
-            PointName: point.name
-          };
-          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+        const pointData = {
+          EFEID: parseInt(roomId),
+          PointName: point.name
+        };
+        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
-          // Use PointID from response, NOT PK_ID!
-          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-            pointId = createResponse.PointID || createResponse.PK_ID;
-            this.efePointIds[pointKey] = pointId;
-            this.pointCreationStatus[pointKey] = 'created'; // Update status
-            console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
-          } else {
-            throw new Error('Failed to create point record - no PointID returned');
-          }
-        } catch (createError: any) {
-          // ROBUSTNESS: Mark as failed and provide helpful error message
-          this.pointCreationStatus[pointKey] = 'failed';
-          this.pointCreationErrors[pointKey] = createError.message || 'Failed to create point';
-          this.changeDetectorRef.detectChanges();
-          
-          // Provide user-friendly error message based on error type
-          if (createError.status === 0 || createError.name === 'TimeoutError') {
-            await this.showToast('Network error - check your connection and try again', 'danger');
-          } else if (createError.status >= 500) {
-            await this.showToast('Server error - please try again in a moment', 'danger');
-          } else {
-            await this.showToast(`Could not create "${point.name}". Please check your connection and try again.`, 'danger');
-          }
-          return; // Exit - don't proceed with photo capture
+        // Use PointID from response, NOT PK_ID!
+        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+          pointId = createResponse.PointID || createResponse.PK_ID;
+          this.efePointIds[pointKey] = pointId;
+          this.pointCreationStatus[pointKey] = 'created'; // Update status
+          console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
+        } else {
+          throw new Error('Failed to create point record - no PointID returned');
         }
       }
 
@@ -4215,33 +4178,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isPointReady(roomName: string, point: any): boolean {
     const pointKey = `${roomName}_${point.name}`;
     const status = this.pointCreationStatus[pointKey];
-    const pointId = this.efePointIds[pointKey];
-    
-    // ROBUSTNESS FIX: Point is ready ONLY if:
-    // 1. Status is explicitly 'created', OR
-    // 2. Status is undefined BUT we have a valid (non-temp) pointId, OR
-    // 3. Status is undefined AND pointId is undefined (legacy room - will create on-demand)
-    
-    if (status === 'created') {
-      return true; // Explicitly created
-    }
-    
-    if (status === 'pending' || status === 'retrying' || status === 'failed') {
-      return false; // Explicitly not ready
-    }
-    
-    // Status is undefined - check pointId for backward compatibility
-    if (!pointId) {
-      return true; // No pointId - will create on-demand (legacy behavior)
-    }
-    
-    // Has pointId - check if it's temporary
-    const pointIdStr = String(pointId);
-    if (pointIdStr === '__pending__' || pointIdStr.startsWith('temp_')) {
-      return false; // Temp ID means point is being created
-    }
-    
-    return true; // Valid pointId, no status tracking (legacy room)
+    // Point is ready if it's created, or if no status tracking yet (for backward compatibility)
+    return status === 'created' || status === undefined;
   }
 
   isPointPending(roomName: string, point: any): boolean {
@@ -5069,11 +5007,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               photos: [],  // Initialize photos array
               photoCount: 0
             });
-            
-            // ROBUSTNESS FIX: Immediately mark point as 'pending' so camera button is disabled
-            // This prevents race condition where user clicks camera before point creation completes
-            const pointKey = `${roomName}_${pointName}`;
-            this.pointCreationStatus[pointKey] = 'pending';
           }
         }
         
@@ -6021,6 +5954,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // PERFORMANCE OPTIMIZED: Track which accordions are expanded
   onAccordionChange(event: any) {
+    // OPTIMIZATION: Reduce scroll manipulation frequency
+    const currentScrollY = window.scrollY;
+    let needsScrollRestore = false;
+
     // Check if the accordion state actually changed to avoid unnecessary operations
     const newValue = event.detail.value;
     const newExpandedAccordions = newValue
@@ -6030,11 +5967,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Only proceed if there's an actual change
     if (JSON.stringify(this.expandedAccordions.sort()) !== JSON.stringify(newExpandedAccordions.sort())) {
       this.expandedAccordions = newExpandedAccordions;
+      needsScrollRestore = true;
       this.markSpacerHeightDirty(); // Mark cache as dirty
     }
 
-    // REMOVED: Scroll restoration removed entirely to prevent conflicts with modal scroll handling
-    // The accordion opening/closing does NOT need to manipulate scroll - let the browser handle it naturally
+    // OPTIMIZATION: Only restore scroll if there was actually a change (mobile only - skip on webapp)
+    if (needsScrollRestore && !this.platform.isWeb()) {
+      console.log('[SCROLL DEBUG] Restoring scroll position (mobile only):', currentScrollY);
+      // Use RAF for smoother scroll restoration
+      requestAnimationFrame(() => {
+        if (Math.abs(window.scrollY - currentScrollY) > 5) { // Only restore if scroll changed significantly
+          window.scrollTo(0, currentScrollY);
+        }
+      });
+    } else if (needsScrollRestore && this.platform.isWeb()) {
+      console.log('[SCROLL DEBUG] Skipping scroll restoration for webapp');
+    }
   }
   
   onRoomAccordionChange(event: any) {
@@ -6526,11 +6474,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await modal.present();
       const { data } = await modal.onDidDismiss();
       
-      // Restore scroll if user cancels (no data returned)
+      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
+      window.scrollTo(0, scrollPosition);
+      
       if (!data) {
-        // Restore IMMEDIATELY to prevent jump
-        window.scrollTo(0, scrollPosition);
-        return;
+        return; // User cancelled, scroll already restored above
       }
       
       if (data && data.annotatedBlob) {
@@ -6586,11 +6534,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // Trigger change detection for UI update
+        // [WEBAPP FIX] Prevent scroll jumping during change detection
+        const currentScroll = window.scrollY;
+        
+        // Trigger change detection and force UI refresh for annotations
         this.changeDetectorRef.detectChanges();
         
-        // Restore scroll IMMEDIATELY to prevent jump
-        window.scrollTo(0, scrollPosition);
+        // [WEBAPP FIX] Immediately restore scroll after first change detection
+        if (this.platform.isWeb()) {
+          window.scrollTo(0, currentScroll);
+        }
+        
+        // Additional UI update - force template refresh for annotation visibility
+        setTimeout(() => {
+          const scrollBeforeUpdate = window.scrollY;
+          this.changeDetectorRef.detectChanges();
+          
+          // [WEBAPP FIX] Restore scroll after second change detection
+          if (this.platform.isWeb()) {
+            window.scrollTo(0, scrollBeforeUpdate);
+          }
+        }, 100);
       }
       
     } catch (error) {
@@ -6880,14 +6844,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       const updateData: any = {
         StatusDateTime: currentDateTime,  // Always update timestamp to track when report was last modified
-        Status: statusAdminValue,  // Use StatusAdmin value from Status table
-        StatusEng: statusAdminValue  // Update StatusEng to match Status
+        Status: statusAdminValue  // Use StatusAdmin value from Status table
+        // NOTE: StatusEng is NOT updated - it remains as "Created" (set when service was first created)
       };
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
       console.log('[EngFoundation] ProjectId:', this.projectId);
       console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
       console.log('[EngFoundation] StatusClient:', statusClientValue, '-> StatusAdmin:', statusAdminValue);
+      console.log('[EngFoundation] StatusEng will NOT be updated (remains as "Created")');
       console.log('[EngFoundation] Update data:', updateData);
 
       // Update the Services table using PK_ID (this.serviceId is actually PK_ID)
@@ -6903,7 +6868,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Update local state
       this.serviceData.StatusDateTime = currentDateTime;
       this.serviceData.Status = statusAdminValue;
-      this.serviceData.StatusEng = statusAdminValue;
       this.serviceData.ReportFinalized = true;
 
       // Reset change tracking - button should be grayed out until next change
@@ -11270,12 +11234,11 @@ Stack: ${error?.stack}`;
       await modal.present();
       const { data } = await modal.onDidDismiss();
 
+      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
+      window.scrollTo(0, scrollPosition);
+
       if (!data) {
-        // Restore scroll if user cancels
-        // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
-        // Restore IMMEDIATELY to prevent jump
-        window.scrollTo(0, scrollPosition);
-        return;
+        return; // User cancelled, scroll already restored above
       }
 
       const annotatedBlob = data.blob || data.annotatedBlob;
@@ -11343,11 +11306,9 @@ Stack: ${error?.stack}`;
         updateTargetPhoto(this.visualPhotos[key]);
       }
 
-      // Trigger change detection for UI update
+      // Trigger change detection to update UI
       this.changeDetectorRef.detectChanges();
-      
-      // Restore scroll IMMEDIATELY to prevent jump
-      window.scrollTo(0, scrollPosition);
+      // Note: Scroll already restored immediately after modal.onDidDismiss() at line ~11240
 
     } catch (error) {
       console.error('Error in quickAnnotate:', error);
@@ -11444,6 +11405,10 @@ Stack: ${error?.stack}`;
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
 
+      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
+      // This prevents Ionic/browser from scrolling to top during modal dismiss animation
+      window.scrollTo(0, scrollPosition);
+
       if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
         const annotatedFile = new File([data.annotatedBlob], photoName, { type: 'image/jpeg' });
@@ -11537,21 +11502,14 @@ Stack: ${error?.stack}`;
             
             // Success toast removed per user request
 
-            // Trigger change detection for annotation visibility
+            // Trigger change detection to update UI
             this.changeDetectorRef.detectChanges();
-            
-            // Restore scroll IMMEDIATELY to prevent jump
-            window.scrollTo(0, scrollPosition);
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
         }
-      } else {
-        // Restore scroll if user cancels (no data returned)
-        // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
-        // Restore IMMEDIATELY to prevent jump
-        window.scrollTo(0, scrollPosition);
       }
+      // Note: Scroll already restored immediately after modal.onDidDismiss() at line ~11424
 
     } catch (error) {
       console.error('Error viewing photo:', error);
