@@ -323,8 +323,8 @@
                 </span>
                 <button type="button"
                         class="help-icon-button"
-                        (click)="openHelp(5, 'First Foundation Type Help'); $event.preventDefault(); $event.stopPropagation();"
-                        title="First Foundation Type Help"
+                        (click)="openHelp(5, 'First Foundation Type'); $event.preventDefault(); $event.stopPropagation();"
+                        title="First Foundation Type"
                         aria-label="First Foundation Type Help">
                   <ion-icon name="information-circle-outline"></ion-icon>
                 </button>
@@ -357,8 +357,8 @@
                 </span>
                 <button type="button"
                         class="help-icon-button"
-                        (click)="openHelp(4, 'Secondary Foundation Help'); $event.preventDefault(); $event.stopPropagation();"
-                        title="Secondary Foundation Help"
+                        (click)="openHelp(4, 'Secondary Foundation'); $event.preventDefault(); $event.stopPropagation();"
+                        title="Secondary Foundation"
                         aria-label="Secondary Foundation Help">
                   <ion-icon name="information-circle-outline"></ion-icon>
                 </button>
@@ -1193,8 +1193,8 @@
                 <div class="room-section-delimiter" *ngIf="!isBaseStation(room.RoomName)">
                   <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
-                          (click)="openHelp(1, 'FDF Help')"
-                          title="FDF Help"
+                          (click)="openHelp(1, 'FDF')"
+                          title="FDF"
                           style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
                     <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                   </button>
@@ -1375,8 +1375,8 @@
                   <div class="delimiter-actions">
                     <button type="button"
                             [attr.data-help-id]="isBaseStation(room.RoomName) ? 2 : 3"
-                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help')"
-                            [title]="isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help'"
+                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location' : 'Elevation Measurements')"
+                            [title]="isBaseStation(room.RoomName) ? 'Base Station Location' : 'Elevation Measurements'"
                             [attr.aria-label]="isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help'"
                             style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
                       <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
@@ -1700,8 +1700,8 @@
                 <div class="room-section-delimiter">
                   <span class="delimiter-label">Flooring Difference Factor</span>
                   <button type="button"
-                          (click)="openHelp(1, 'FDF Help')"
-                          title="FDF Help"
+                          (click)="openHelp(1, 'FDF')"
+                          title="FDF"
                           style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
                     <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                   </button>
@@ -1859,8 +1859,8 @@
                   <div class="delimiter-actions">
                     <button type="button"
                             [attr.data-help-id]="isBaseStation(room.RoomName) ? 2 : 3"
-                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location Help' : 'Elevation Measurements Help')"
-                            title="Elevation Help"
+                            (click)="openHelp(isBaseStation(room.RoomName) ? 2 : 3, isBaseStation(room.RoomName) ? 'Base Station Location' : 'Elevation Measurements')"
+                            title="Elevation Measurements"
                             style="background: transparent; border: none; padding: 4px; cursor: pointer;">
                       <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
                     </button>

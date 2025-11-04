@@ -99,11 +99,32 @@ interface HelpItem {
     </ion-content>
   `,
   styles: [`
+    ion-header ion-toolbar {
+      --min-height: auto;
+      height: auto;
+      min-height: 56px;
+    }
+    
+    ion-header ion-toolbar ion-title {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      text-align: center !important;
+      font-size: 16px !important;
+      line-height: 1.3 !important;
+      padding: 8px 50px !important; // Space for close button
+      max-height: none !important;
+      height: auto !important;
+      display: block !important;
+    }
+    
     .help-modal-title {
       font-size: 16px !important;
       white-space: normal !important;
       overflow: visible !important;
       text-overflow: clip !important;
+      text-align: center !important;
+      line-height: 1.3 !important;
     }
 
     .help-modal-content {

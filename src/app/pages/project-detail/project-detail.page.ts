@@ -1620,6 +1620,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return statusClient;
   }
 
+  // Helper method to get StatusClient value by StatusAdmin lookup (for display)
+  getStatusClientByAdmin(statusAdmin: string): string {
+    if (!statusAdmin) {
+      return '';
+    }
+    const statusRecord = this.statusOptions.find(s => s.StatusAdmin === statusAdmin);
+    if (statusRecord && statusRecord.StatusClient) {
+      return statusRecord.StatusClient;
+    }
+    // Fallback to StatusAdmin if StatusClient not found (or if it's a legacy value)
+    // This handles backwards compatibility with old hardcoded values
+    return statusAdmin;
+  }
+
   // Deliverables methods (for CompanyID = 1)
   async updateDeliverableField(service: ServiceSelection, fieldName: string, value: string) {
     if (!service.serviceId || this.isReadOnly) {

@@ -338,7 +338,7 @@
           <!-- Status in Top Right Corner -->
           <div *ngIf="service.Status" class="report-status-container">
             <span class="report-status">
-              {{ service.Status }}
+              {{ getStatusClientByAdmin(service.Status) }}
             </span>
             <span *ngIf="service.StatusDateTime" class="status-datetime">
               {{ service.StatusDateTime | date:'short' }}
