@@ -1118,20 +1118,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         })}`);
       }
 
-      // Get StatusAdmin value for "In Progress" from Status table
+      // Get StatusAdmin values from Status table
       const inProgressStatus = this.getStatusAdminByClient("In Progress");
+      const createdStatus = this.getStatusAdminByClient("Created");
       
       const serviceData = {
         ProjectID: projectIdToUse, // Use actual ProjectID from project (the numeric ProjectID field)
         TypeID: offer.TypeID,
         DateOfInspection: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for date input
         Status: inProgressStatus, // Set status to "In Progress" (using StatusAdmin from Status table)
-        StatusEng: "Created" // Set StatusEng to "Created" when service is first created
+        StatusEng: createdStatus // Set StatusEng to "Created" (using StatusAdmin from Status table)
       };
 
       console.log('🔧 Creating service with data:', {
         serviceData,
-        statusMapping: { StatusClient: "In Progress", StatusAdmin: inProgressStatus },
+        statusMapping: { 
+          Status: { StatusClient: "In Progress", StatusAdmin: inProgressStatus },
+          StatusEng: { StatusClient: "Created", StatusAdmin: createdStatus }
+        },
         projectPK_ID: this.project?.PK_ID,
         projectProjectID: this.project?.ProjectID,
         routeProjectId: this.projectId,
@@ -1159,10 +1163,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         typeIconUrl: offer.TypeIconUrl || '',  // Include the pre-loaded base64 icon
         dateOfInspection: serviceData.DateOfInspection,
         ReportFinalized: false,  // New services are not finalized
-        Status: serviceData.Status,  // Include Status that was set during creation
-        StatusEng: serviceData.StatusEng,  // Include StatusEng that was set during creation
+        Status: serviceData.Status,  // StatusAdmin value for "In Progress"
+        StatusEng: serviceData.StatusEng,  // StatusAdmin value for "Created"
         StatusDateTime: new Date().toISOString()  // Set current timestamp
       };
+      
+      console.log('✅ Local selection object created with:', {
+        serviceId: selection.serviceId,
+        Status: selection.Status,
+        StatusEng: selection.StatusEng,
+        StatusDateTime: selection.StatusDateTime
+      });
       
       this.selectedServices.push(selection);
       this.updateDocumentsList();

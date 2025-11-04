@@ -33,7 +33,7 @@
   </div>
 </ion-header>
 
-<ion-content>
+<ion-content [scrollEvents]="false">
   <div class="template-container" [class.has-banner]="manualOffline">
 
     <!-- Project Information Section (Shared across all services) -->
@@ -140,11 +140,13 @@
                 <ion-icon name="calendar-outline"></ion-icon>
                 Year Built<span class="required">*</span>
               </label>
-              <input type="text" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
+              <input type="tel" [(ngModel)]="projectData.YearBuilt" name="YearBuilt"
                      (ngModelChange)="onYearBuiltChange($event)"
                      (blur)="formatYearBuilt()"
                      placeholder="e.g., 1985"
                      maxlength="4"
+                     pattern="[0-9]*"
+                     inputmode="numeric"
                      required
                      class="styled-input">
             </div>
@@ -1360,11 +1362,8 @@
                          placeholder="Enter or select location"
                          style="max-width: 100%; margin-bottom: 8px;">
                   <div class="location-buttons">
-                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Back')">Back</button>
-                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Front')">Front</button>
-                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Left')">Left</button>
-                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Right')">Right</button>
-                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Middle')">Middle</button>
+                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Entry')">Entry</button>
+                    <button type="button" class="location-btn" (click)="addLocationText(room.RoomName, 'Middle of Home')">Middle of Home</button>
                     <button type="button" class="location-btn location-delete-btn" (click)="deleteLastLocationWord(room.RoomName)">Delete</button>
                   </div>
                 </div>

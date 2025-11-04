@@ -327,7 +327,20 @@ ion-toolbar.template-toolbar {
   }
 }
 
-ion-content{--overflow:scroll !important;height:100%}
+ion-content{
+  --overflow:scroll !important;
+  height:100%;
+  scroll-behavior: auto !important; // Prevent smooth scrolling animations
+}
+
+// CRITICAL: Prevent any auto-scrolling behavior
+* {
+  scroll-behavior: auto !important; // Disable smooth scroll everywhere
+}
+
+html, body {
+  scroll-behavior: auto !important;
+}
 .photo-upload-dialog {
   .alert-wrapper {
     animation: none !important; // Remove animation for instant appearance

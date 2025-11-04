@@ -120,13 +120,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private structuralWidthRaf?: number;
 
   private restoreScrollPosition(target: number, attempts = 3): void {
-    if (attempts <= 0) {
-      return;
-    }
-    requestAnimationFrame(() => {
-      window.scrollTo(0, target);
-      this.restoreScrollPosition(target, attempts - 1);
-    });
+    // DISABLED: No auto-scrolling per user request
+    return;
   }
 
   private getValidAttachIdFromPhoto(photo: any): string | null {
@@ -2432,11 +2427,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
 
-      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
-      window.scrollTo(0, scrollPosition);
+      // DISABLED: No auto-scrolling per user request
+      // window.scrollTo(0, scrollPosition);
 
       if (!data) {
-        return; // User cancelled, scroll already restored above
+        return; // User cancelled
       }
 
       if (data && data.annotatedBlob) {
@@ -5875,18 +5870,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   scrollToSection(section: string) {
-    // Find the section header element
-    const sectionElement = document.querySelector(`.section-header[data-section="${section}"]`);
-    if (sectionElement) {
-      // Scroll to the element with smooth behavior and a small offset from the top
-      sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      
-      // Optionally collapse the section after scrolling
-      setTimeout(() => {
-        this.expandedSections[section] = false;
-        this.markSpacerHeightDirty();
-      }, 500);
-    }
+    // DISABLED: No auto-scrolling per user request
+    return;
   }
   
   // PERFORMANCE OPTIMIZED: Cache spacer height to avoid repeated calculations
@@ -5919,34 +5904,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private scrollThrottleTimeout: any = null;
   
   scrollToCurrentSectionTop() {
-    // CRITICAL: Throttle scroll operations to prevent excessive calls
-    if (this.scrollThrottleTimeout) {
-      clearTimeout(this.scrollThrottleTimeout);
-    }
-    
-    this.scrollThrottleTimeout = setTimeout(() => {
-      this.performOptimizedScroll();
-    }, 100); // Throttle to 100ms max frequency
+    // DISABLED: No auto-scrolling per user request
+    return;
   }
   
   private performOptimizedScroll() {
-    // SIMPLIFIED: Removed heavy DOM calculations for performance
-    // Just scroll to the first expanded section without complex position calculations
-    const expandedSection = Object.keys(this.expandedSections).find(key => this.expandedSections[key]);
-    
-    if (expandedSection) {
-      const sectionElement = document.querySelector(`[data-section="${expandedSection}"]`);
-      if (sectionElement) {
-        sectionElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start',
-          inline: 'nearest'
-        });
-      }
-    } else {
-      // No sections expanded, scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    // DISABLED: No auto-scrolling per user request
+    return;
   }
   
   
@@ -5971,18 +5935,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.markSpacerHeightDirty(); // Mark cache as dirty
     }
 
-    // OPTIMIZATION: Only restore scroll if there was actually a change (mobile only - skip on webapp)
-    if (needsScrollRestore && !this.platform.isWeb()) {
-      console.log('[SCROLL DEBUG] Restoring scroll position (mobile only):', currentScrollY);
-      // Use RAF for smoother scroll restoration
-      requestAnimationFrame(() => {
-        if (Math.abs(window.scrollY - currentScrollY) > 5) { // Only restore if scroll changed significantly
-          window.scrollTo(0, currentScrollY);
-        }
-      });
-    } else if (needsScrollRestore && this.platform.isWeb()) {
-      console.log('[SCROLL DEBUG] Skipping scroll restoration for webapp');
-    }
+    // DISABLED: No auto-scrolling per user request
+    // All scroll restoration removed
   }
   
   onRoomAccordionChange(event: any) {
@@ -6474,11 +6428,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await modal.present();
       const { data } = await modal.onDidDismiss();
       
-      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
-      window.scrollTo(0, scrollPosition);
+      // DISABLED: No auto-scrolling per user request
+      // window.scrollTo(0, scrollPosition);
       
       if (!data) {
-        return; // User cancelled, scroll already restored above
+        return; // User cancelled
       }
       
       if (data && data.annotatedBlob) {
@@ -6534,27 +6488,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // [WEBAPP FIX] Prevent scroll jumping during change detection
-        const currentScroll = window.scrollY;
-        
-        // Trigger change detection and force UI refresh for annotations
+        // Trigger change detection to update UI
         this.changeDetectorRef.detectChanges();
         
-        // [WEBAPP FIX] Immediately restore scroll after first change detection
-        if (this.platform.isWeb()) {
-          window.scrollTo(0, currentScroll);
-        }
-        
-        // Additional UI update - force template refresh for annotation visibility
-        setTimeout(() => {
-          const scrollBeforeUpdate = window.scrollY;
-          this.changeDetectorRef.detectChanges();
-          
-          // [WEBAPP FIX] Restore scroll after second change detection
-          if (this.platform.isWeb()) {
-            window.scrollTo(0, scrollBeforeUpdate);
-          }
-        }, 100);
+        // DISABLED: No auto-scrolling per user request - removed all scroll manipulation
       }
       
     } catch (error) {
@@ -6599,11 +6536,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const allMissing = [...missingProjectFields, ...missingServiceFields];
       await this.showToast(`Please fill in all required fields: ${allMissing.join(', ')}`, 'warning');
       
-      // Scroll to Project Information section if there are missing fields
-      const projectSection = document.querySelector('.section-card');
-      if (projectSection) {
-        projectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      // DISABLED: No auto-scrolling per user request
+      // Removed scroll to Project Information section
       return;
     }
 
@@ -9181,21 +9115,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         });
       }
 
-      // Add Yes/No radio buttons for the answer
-      inputs.push({
-        name: 'answer',
-        type: 'radio',
-        label: 'Yes',
-        value: 'Yes',
-        checked: item.answer === 'Yes'
-      });
-      inputs.push({
-        name: 'answer',
-        type: 'radio',
-        label: 'No',
-        value: 'No',
-        checked: item.answer === 'No'
-      });
+      // Radio buttons removed - Yes/No answer handled separately in UI
     } else if (item.answerType === 2) {
       // Dropdown from Services_Visuals_Drop
       const options = this.visualDropdownOptions[item.templateId] || [];
@@ -9249,17 +9169,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         {
           text: 'Save',
           handler: (data) => {
-            // For AnswerType 1 (Yes/No), validate answer field instead of description
+            // For AnswerType 1 (Yes/No), only validate title field
             if (item.answerType === 1) {
-              if (item.required && (!data.title || !data.answer)) {
-                this.showToast('Please fill in all required fields', 'warning');
+              if (item.required && !data.title) {
+                this.showToast('Please fill in the title field', 'warning');
                 return false;
               }
 
               // Update the item with new values
-              if (data.title !== item.name || data.answer !== item.answer) {
+              if (data.title !== item.name) {
                 item.name = data.title;
-                item.answer = data.answer;
                 this.saveTemplate(); // Auto-save the changes
                 // Success toast removed per user request
               }
@@ -11250,11 +11169,11 @@ Stack: ${error?.stack}`;
       await modal.present();
       const { data } = await modal.onDidDismiss();
 
-      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
-      window.scrollTo(0, scrollPosition);
+      // DISABLED: No auto-scrolling per user request
+      // window.scrollTo(0, scrollPosition);
 
       if (!data) {
-        return; // User cancelled, scroll already restored above
+        return; // User cancelled
       }
 
       const annotatedBlob = data.blob || data.annotatedBlob;
@@ -11418,12 +11337,10 @@ Stack: ${error?.stack}`;
 
       await modal.present();
 
-      // Handle annotated photo returned from annotator
+      // Handle annotated photo returned from annotator  
       const { data } = await modal.onDidDismiss();
 
-      // CRITICAL: Restore scroll IMMEDIATELY after modal closes, before ANY other processing
-      // This prevents Ionic/browser from scrolling to top during modal dismiss animation
-      window.scrollTo(0, scrollPosition);
+      // DISABLED: No auto-scrolling per user request - removed ALL scroll manipulation
 
       if (data && data.annotatedBlob) {
         // Update the existing photo instead of creating new
@@ -11461,64 +11378,49 @@ Stack: ${error?.stack}`;
             );
             
             if (photoIndex !== -1 && this.visualPhotos[key]) {
-              // CRITICAL FIX: Store original URL before updating display
-              if (!this.visualPhotos[key][photoIndex].originalUrl) {
-                // Save the original URL on first annotation
-                this.visualPhotos[key][photoIndex].originalUrl = this.visualPhotos[key][photoIndex].url;
-              }
-              
-              // Update ONLY the display URL with annotated version for preview
-              // NOTE: Blob URLs are temporary and won't persist across page reloads
+              // CRITICAL FIX: Create NEW photo object for immutable update (OnPush optimization)
+              // This prevents full component re-render and scroll jumping
               const newUrl = URL.createObjectURL(data.annotatedBlob);
-              this.visualPhotos[key][photoIndex].displayUrl = newUrl;
+              const currentPhoto = this.visualPhotos[key][photoIndex];
               
-              // Keep thumbnailUrl as base64 if it exists and is valid
-              // Only update if it's placeholder, blob, or undefined
-              const currentThumbnail = this.visualPhotos[key][photoIndex].thumbnailUrl;
+              // Keep thumbnailUrl logic
+              const currentThumbnail = currentPhoto.thumbnailUrl;
               const isPlaceholder = currentThumbnail === this.photoPlaceholder || currentThumbnail?.includes('photo-placeholder');
               const isBlob = currentThumbnail?.startsWith('blob:');
               const isValidBase64 = currentThumbnail?.startsWith('data:');
               
+              let updatedThumbnail = currentThumbnail;
               if (!currentThumbnail || isPlaceholder || isBlob || !isValidBase64) {
-                // If we have a valid base64 url, keep it; otherwise use blob
-                const validUrl = this.visualPhotos[key][photoIndex].url;
+                const validUrl = currentPhoto.url;
                 if (validUrl && validUrl.startsWith('data:')) {
-                  // Keep the existing valid base64 thumbnailUrl
-                  this.visualPhotos[key][photoIndex].thumbnailUrl = validUrl;
+                  updatedThumbnail = validUrl;
                 } else {
-                  // Use blob URL temporarily
-                  this.visualPhotos[key][photoIndex].thumbnailUrl = newUrl;
+                  updatedThumbnail = newUrl;
                 }
               }
-              // If thumbnailUrl already has valid base64 data, keep it
               
-              this.visualPhotos[key][photoIndex].hasAnnotations = true;
+              // Create NEW photo object (immutable update for OnPush)
+              this.visualPhotos[key][photoIndex] = {
+                ...currentPhoto,
+                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+                displayUrl: newUrl,
+                thumbnailUrl: updatedThumbnail,
+                hasAnnotations: true,
+                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+                annotations: annotationsData || currentPhoto.annotations,
+                rawDrawingsString: annotationsData 
+                  ? (typeof annotationsData === 'object' ? JSON.stringify(annotationsData) : annotationsData)
+                  : currentPhoto.rawDrawingsString
+              };
               
-              // DO NOT overwrite the url field with blob URL - keep original base64/file path
-              // The displayUrl will show the annotated version
-
-              // Update caption if provided
-              if (data.caption !== undefined) {
-                this.visualPhotos[key][photoIndex].caption = data.caption;
-                this.visualPhotos[key][photoIndex].Annotation = data.caption;
-              }
-
-              // Store annotations in the photo object
-              if (annotationsData) {
-                this.visualPhotos[key][photoIndex].annotations = annotationsData;
-                // CRITICAL FIX: Also update rawDrawingsString so annotations persist on re-edit
-                // The updatePhotoAttachment method saves to Drawings field, so we need to mirror that here
-                if (typeof annotationsData === 'object') {
-                  this.visualPhotos[key][photoIndex].rawDrawingsString = JSON.stringify(annotationsData);
-                } else {
-                  this.visualPhotos[key][photoIndex].rawDrawingsString = annotationsData;
-                }
-              }
+              // Create NEW array reference for OnPush change detection
+              this.visualPhotos[key] = [...this.visualPhotos[key]];
             }
             
             // Success toast removed per user request
 
-            // Trigger change detection to update UI
+            // Trigger change detection to update UI (OnPush will detect new array reference)
             this.changeDetectorRef.detectChanges();
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
