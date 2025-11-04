@@ -1152,7 +1152,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         typeIcon: offer.TypeIcon || '',
         typeIconUrl: offer.TypeIconUrl || '',  // Include the pre-loaded base64 icon
         dateOfInspection: serviceData.DateOfInspection,
-        ReportFinalized: false  // New services are not finalized
+        ReportFinalized: false,  // New services are not finalized
+        Status: serviceData.Status,  // Include Status that was set during creation
+        StatusEng: serviceData.StatusEng,  // Include StatusEng that was set during creation
+        StatusDateTime: new Date().toISOString()  // Set current timestamp
       };
       
       this.selectedServices.push(selection);

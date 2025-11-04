@@ -103,6 +103,8 @@ interface HelpItem {
       --min-height: auto;
       height: auto;
       min-height: 56px;
+      display: flex !important;
+      align-items: center !important;
     }
     
     ion-header ion-toolbar ion-title {
@@ -115,7 +117,9 @@ interface HelpItem {
       padding: 8px 50px !important; // Space for close button
       max-height: none !important;
       height: auto !important;
-      display: block !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
     
     .help-modal-title {
@@ -125,6 +129,9 @@ interface HelpItem {
       text-overflow: clip !important;
       text-align: center !important;
       line-height: 1.3 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
 
     .help-modal-content {
