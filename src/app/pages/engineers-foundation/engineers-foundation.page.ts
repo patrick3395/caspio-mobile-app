@@ -7267,6 +7267,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         buttons: [
           {
             text: 'Cancel',
+            role: 'cancel',
             handler: () => {
               this.isPDFGenerating = false;
               return true;
@@ -7277,6 +7278,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         cssClass: 'template-loading-alert'
       });
       await loading.present();
+      
+      // CRITICAL: Check if user clicked cancel before continuing
+      const { role } = await loading.onDidDismiss();
+      if (role === 'cancel') {
+        console.log('[PDF] User cancelled PDF generation');
+        this.isPDFGenerating = false;
+        // Re-enable the PDF button
+        const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
+        if (pdfBtn) {
+          if (pdfBtn instanceof HTMLButtonElement) {
+            pdfBtn.disabled = false;
+          }
+          pdfBtn.style.pointerEvents = 'auto';
+          pdfBtn.style.opacity = '1';
+        }
+        return; // Exit early - don't generate PDF
+      }
     } catch (loadingError) {
       console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
       // Continue without loading indicator
@@ -9221,17 +9239,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     const alert = await this.alertController.create({
       header: 'Edit Statement' + (item.required ? ' (Required)' : ''),
-      cssClass: 'text-editor-modal',
+      cssClass: 'custom-document-alert',
       inputs: inputs,
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'editor-cancel-btn'
+          role: 'cancel'
         },
         {
           text: 'Save',
-          cssClass: 'editor-save-btn',
           handler: (data) => {
             // For AnswerType 1 (Yes/No), validate answer field instead of description
             if (item.answerType === 1) {
@@ -12675,7 +12691,9 @@ Stack: ${error?.stack}`;
       displayUrl: undefined,
       originalUrl: undefined,
       filePath,
-      hasPhoto: !!filePath
+      hasPhoto: !!filePath,
+      uploading: false,  // CRITICAL: Explicitly set to false to match newly uploaded photos
+      queued: false      // CRITICAL: Explicitly set to false to match newly uploaded photos
     };
   }
 

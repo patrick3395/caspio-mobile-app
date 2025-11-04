@@ -367,7 +367,7 @@
                 <select [(ngModel)]="serviceData.SecondFoundationType" name="SecondFoundationType"
                         (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
                         class="styled-input">
-                  <option value="">None</option>
+                  <option value="">-- None --</option>
                   <option *ngFor="let option of secondFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
                 </select>
                 <!-- Custom input for "Other" option -->
@@ -422,7 +422,7 @@
                 <select [(ngModel)]="serviceData.ThirdFoundationType" name="ThirdFoundationType"
                         (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                         class="styled-input">
-                  <option value="">None</option>
+                  <option value="">-- None --</option>
                   <option *ngFor="let option of thirdFoundationTypeOptions; trackBy: trackByOption" [value]="option">{{ option }}</option>
                 </select>
                 <!-- Custom input for "Other" option -->

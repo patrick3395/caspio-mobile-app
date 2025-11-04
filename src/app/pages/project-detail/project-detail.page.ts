@@ -547,12 +547,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
         
         // Debug logging for status and datetime
-        if (service.Status) {
-          console.log('[ProjectDetail] Service Status Data:', {
+        if (service.Status || service.StatusEng) {
+          console.log('[ProjectDetail] Service Status/StatusEng Data:', {
             typeName: offer?.TypeName,
             Status: service.Status,
+            StatusEng: service.StatusEng,
             StatusDateTime: service.StatusDateTime,
-            rawService: service
+            rawServiceFields: {
+              PK_ID: service.PK_ID,
+              Status: service.Status,
+              StatusEng: service.StatusEng,
+              StatusDateTime: service.StatusDateTime
+            }
           });
         }
         
@@ -569,8 +575,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusDateTime: service.StatusDateTime || '',
-          // Deliverables fields - preload StatusEng with Status if not set
-          StatusEng: service.StatusEng || service.Status || '',
+          // Deliverables fields - use StatusEng from database (should be "Created")
+          StatusEng: service.StatusEng || '',  // Don't fallback to Status - show what's actually in StatusEng field
           Deliverable: service.Deliverable || '',
           EngNotes: service.EngNotes || '',
           InspectorNotes: service.InspectorNotes || ''
