@@ -307,6 +307,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
   
+  // Status options from Status table
+  statusOptions: any[] = [];
+  
   // Services dropdown options from Services_Drop table
   weatherConditionsOptions: string[] = [];
   outdoorTemperatureOptions: string[] = [];
@@ -494,7 +497,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadFDFOptions(),
         this.loadProjectDropdownOptions(),
         this.loadServicesDropdownOptions(),
-        this.loadVisualDropdownOptions()
+        this.loadVisualDropdownOptions(),
+        this.loadStatusOptions()
       ]);
       console.log('[ngOnInit] Promise.all completed');
       
@@ -1206,11 +1210,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.serviceData = serviceResponse;
 
         // Set ReportFinalized flag based on Status field
-        if (serviceResponse.Status === 'Finalized' || serviceResponse.Status === 'Updated') {
-          this.serviceData.ReportFinalized = true;
-        } else {
-          this.serviceData.ReportFinalized = false;
-        }
+        // Check using Status table lookup (StatusAdmin values) or direct string match for backwards compatibility
+        const isFinalizedStatus = this.isStatusAnyOf(['Finalized', 'Updated']);
+        this.serviceData.ReportFinalized = isFinalizedStatus;
 
         // Initialize change tracking - no changes yet since we just loaded from database
         this.hasChangesAfterLastFinalization = false;
@@ -1792,6 +1794,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Load status options from Status table
+  async loadStatusOptions() {
+    try {
+      const response = await this.caspioService.get<any>('/tables/Status/records').toPromise();
+      if (response && response.Result) {
+        this.statusOptions = response.Result;
+        console.log('[Status] Loaded status options:', this.statusOptions);
+      }
+    } catch (error) {
+      console.error('Error loading status options:', error);
+    }
+  }
+
+  // Helper method to get StatusAdmin value by StatusClient lookup
+  getStatusAdminByClient(statusClient: string): string {
+    const statusRecord = this.statusOptions.find(s => s.StatusClient === statusClient);
+    if (statusRecord && statusRecord.StatusAdmin) {
+      return statusRecord.StatusAdmin;
+    }
+    // Fallback to StatusClient if StatusAdmin not found
+    console.warn(`[Status] StatusAdmin not found for StatusClient "${statusClient}", using StatusClient as fallback`);
+    return statusClient;
+  }
+
+  // Helper method to check if current status matches any of the given StatusClient values
+  isStatusAnyOf(statusClientValues: string[]): boolean {
+    if (!this.serviceData?.Status) {
+      return false;
+    }
+    // Check if current Status matches any StatusAdmin values for the given StatusClient values
+    for (const clientValue of statusClientValues) {
+      const statusRecord = this.statusOptions.find(s => s.StatusClient === clientValue);
+      if (statusRecord && statusRecord.StatusAdmin === this.serviceData.Status) {
+        return true;
+      }
+      // Also check direct match with StatusClient (for backwards compatibility)
+      if (this.serviceData.Status === clientValue) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
   // Load FDF options from Services_EFE_Drop table
   async loadFDFOptions() {
     try {
@@ -2242,10 +2287,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       await modal.present();
       await modal.onDidDismiss();
 
-      // Restore scroll position after modal closes
-      setTimeout(() => {
-        window.scrollTo(0, scrollPosition);
-      }, 50);
+      // Restore scroll position IMMEDIATELY and synchronously to prevent jump
+      window.scrollTo(0, scrollPosition);
     } catch (error) {
       console.error(`[FDF Photos] Error opening photo viewer for ${roomName} ${photoType}:`, error);
       await this.showToast('Failed to open photo viewer', 'danger');
@@ -2399,9 +2442,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Restore scroll if user cancels (no data returned)
       if (!data) {
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore IMMEDIATELY to prevent jump
+        window.scrollTo(0, scrollPosition);
         return;
       }
 
@@ -5979,10 +6021,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // PERFORMANCE OPTIMIZED: Track which accordions are expanded
   onAccordionChange(event: any) {
-    // OPTIMIZATION: Reduce scroll manipulation frequency
-    const currentScrollY = window.scrollY;
-    let needsScrollRestore = false;
-
     // Check if the accordion state actually changed to avoid unnecessary operations
     const newValue = event.detail.value;
     const newExpandedAccordions = newValue
@@ -5992,22 +6030,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Only proceed if there's an actual change
     if (JSON.stringify(this.expandedAccordions.sort()) !== JSON.stringify(newExpandedAccordions.sort())) {
       this.expandedAccordions = newExpandedAccordions;
-      needsScrollRestore = true;
       this.markSpacerHeightDirty(); // Mark cache as dirty
     }
 
-    // OPTIMIZATION: Only restore scroll if there was actually a change (mobile only - skip on webapp)
-    if (needsScrollRestore && !this.platform.isWeb()) {
-      console.log('[SCROLL DEBUG] Restoring scroll position (mobile only):', currentScrollY);
-      // Use RAF for smoother scroll restoration
-      requestAnimationFrame(() => {
-        if (Math.abs(window.scrollY - currentScrollY) > 5) { // Only restore if scroll changed significantly
-          window.scrollTo(0, currentScrollY);
-        }
-      });
-    } else if (needsScrollRestore && this.platform.isWeb()) {
-      console.log('[SCROLL DEBUG] Skipping scroll restoration for webapp');
-    }
+    // REMOVED: Scroll restoration removed entirely to prevent conflicts with modal scroll handling
+    // The accordion opening/closing does NOT need to manipulate scroll - let the browser handle it naturally
   }
   
   onRoomAccordionChange(event: any) {
@@ -6501,9 +6528,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Restore scroll if user cancels (no data returned)
       if (!data) {
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore IMMEDIATELY to prevent jump
+        window.scrollTo(0, scrollPosition);
         return;
       }
       
@@ -6563,10 +6589,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Trigger change detection for UI update
         this.changeDetectorRef.detectChanges();
         
-        // Single scroll restoration after brief delay to allow DOM updates
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore scroll IMMEDIATELY to prevent jump
+        window.scrollTo(0, scrollPosition);
       }
       
     } catch (error) {
@@ -6808,11 +6832,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   /**
    * Check if report has been finalized (shows "Update" button text)
+   * Uses Status table lookup to check if current status matches Finalized, Updated, or Under Review
    */
   isReportFinalized(): boolean {
-    const result = this.serviceData?.Status === 'Finalized' ||
-                   this.serviceData?.Status === 'Updated' ||
-                   this.serviceData?.Status === 'Under Review';
+    const result = this.isStatusAnyOf(['Finalized', 'Updated', 'Under Review']);
     console.log('[isReportFinalized] Current Status:', this.serviceData?.Status, 'Result:', result);
     return result;
   }
@@ -6839,9 +6862,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async markReportAsFinalized() {
-    const isFirstFinalization = this.serviceData.Status !== 'Finalized' &&
-                                 this.serviceData.Status !== 'Updated' &&
-                                 this.serviceData.Status !== 'Under Review';
+    // Check if this is first finalization by looking up status values from Status table
+    const isFirstFinalization = !this.isStatusAnyOf(['Finalized', 'Updated', 'Under Review']);
     
     const loading = await this.loadingController.create({
       message: isFirstFinalization ? 'Finalizing report...' : 'Updating report...'
@@ -6851,14 +6873,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Update the Services table
       const currentDateTime = new Date().toISOString();
+      
+      // Get appropriate StatusAdmin value from Status table
+      const statusClientValue = isFirstFinalization ? 'Finalized' : 'Updated';
+      const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
+      
       const updateData: any = {
         StatusDateTime: currentDateTime,  // Always update timestamp to track when report was last modified
-        Status: isFirstFinalization ? 'Finalized' : 'Updated'  // Finalized first time, Updated after
+        Status: statusAdminValue,  // Use StatusAdmin value from Status table
+        StatusEng: statusAdminValue  // Update StatusEng to match Status
       };
 
       console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
       console.log('[EngFoundation] ProjectId:', this.projectId);
       console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
+      console.log('[EngFoundation] StatusClient:', statusClientValue, '-> StatusAdmin:', statusAdminValue);
       console.log('[EngFoundation] Update data:', updateData);
 
       // Update the Services table using PK_ID (this.serviceId is actually PK_ID)
@@ -6873,7 +6902,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Update local state
       this.serviceData.StatusDateTime = currentDateTime;
-      this.serviceData.Status = isFirstFinalization ? 'Finalized' : 'Updated';
+      this.serviceData.Status = statusAdminValue;
+      this.serviceData.StatusEng = statusAdminValue;
       this.serviceData.ReportFinalized = true;
 
       // Reset change tracking - button should be grayed out until next change
@@ -11243,9 +11273,8 @@ Stack: ${error?.stack}`;
       if (!data) {
         // Restore scroll if user cancels
         // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore IMMEDIATELY to prevent jump
+        window.scrollTo(0, scrollPosition);
         return;
       }
 
@@ -11317,10 +11346,8 @@ Stack: ${error?.stack}`;
       // Trigger change detection for UI update
       this.changeDetectorRef.detectChanges();
       
-      // Single scroll restoration after brief delay to allow DOM updates
-      setTimeout(() => {
-        window.scrollTo(0, scrollPosition);
-      }, 50);
+      // Restore scroll IMMEDIATELY to prevent jump
+      window.scrollTo(0, scrollPosition);
 
     } catch (error) {
       console.error('Error in quickAnnotate:', error);
@@ -11513,10 +11540,8 @@ Stack: ${error?.stack}`;
             // Trigger change detection for annotation visibility
             this.changeDetectorRef.detectChanges();
             
-            // Single scroll restoration after brief delay to allow DOM updates
-            setTimeout(() => {
-              window.scrollTo(0, scrollPosition);
-            }, 50);
+            // Restore scroll IMMEDIATELY to prevent jump
+            window.scrollTo(0, scrollPosition);
           } catch (error) {
             await this.showToast('Failed to update photo', 'danger');
           }
@@ -11524,9 +11549,8 @@ Stack: ${error?.stack}`;
       } else {
         // Restore scroll if user cancels (no data returned)
         // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
-        setTimeout(() => {
-          window.scrollTo(0, scrollPosition);
-        }, 50);
+        // Restore IMMEDIATELY to prevent jump
+        window.scrollTo(0, scrollPosition);
       }
 
     } catch (error) {
