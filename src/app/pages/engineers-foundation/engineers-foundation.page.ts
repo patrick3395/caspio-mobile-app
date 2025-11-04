@@ -298,6 +298,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Operations queue UI state
   showOperationsDetail = false;
 
+  // Global scroll lock to prevent ANY scroll jumping on webapp
+  private scrollLockActive = false;
+  private lockedScrollY = 0;
+  private lockedScrollX = 0;
+  private scrollCheckInterval: any = null;
+
   // FDF dropdown options from Services_EFE_Drop table - mapped by room name
   fdfOptions: string[] = [];
   roomFdfOptions: { [roomName: string]: string[] } = {};
@@ -434,7 +440,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private foundationData: EngineersFoundationDataService,
     public operationsQueue: OperationsQueueService,
     private ngZone: NgZone
-  ) {}
+  ) {
+    // CRITICAL FIX: Setup scroll lock mechanism on webapp only
+    if (typeof window !== 'undefined') {
+      this.setupGlobalScrollLock();
+    }
+  }
+
+  private setupGlobalScrollLock(): void {
+    // Listen for when modals/alerts are about to open
+    document.addEventListener('ionModalWillPresent', () => {
+      this.lockScroll();
+    });
+    
+    document.addEventListener('ionAlertWillPresent', () => {
+      this.lockScroll();
+    });
+    
+    // Listen for when modals/alerts close
+    document.addEventListener('ionModalDidDismiss', () => {
+      this.unlockScroll();
+    });
+    
+    document.addEventListener('ionAlertDidDismiss', () => {
+      this.unlockScroll();
+    });
+  }
+
+  private lockScroll(): void {
+    // Save current scroll position
+    this.lockedScrollY = window.scrollY;
+    this.lockedScrollX = window.scrollX;
+    this.scrollLockActive = true;
+    
+    // Start monitoring and forcing scroll position
+    if (this.scrollCheckInterval) {
+      clearInterval(this.scrollCheckInterval);
+    }
+    
+    this.scrollCheckInterval = setInterval(() => {
+      if (this.scrollLockActive) {
+        const currentY = window.scrollY;
+        const currentX = window.scrollX;
+        
+        // If scroll position changed, force it back
+        if (currentY !== this.lockedScrollY || currentX !== this.lockedScrollX) {
+          window.scrollTo(this.lockedScrollX, this.lockedScrollY);
+        }
+      }
+    }, 10); // Check every 10ms
+  }
+
+  private unlockScroll(): void {
+    // Stop monitoring
+    this.scrollLockActive = false;
+    
+    if (this.scrollCheckInterval) {
+      clearInterval(this.scrollCheckInterval);
+      this.scrollCheckInterval = null;
+    }
+    
+    // Restore original position one final time
+    setTimeout(() => {
+      window.scrollTo(this.lockedScrollX, this.lockedScrollY);
+    }, 0);
+  }
 
   async ngOnInit() {
     console.log('[ngOnInit] ========== START ==========');
@@ -938,6 +1008,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngOnDestroy() {
+    // Clean up scroll lock
+    if (this.scrollCheckInterval) {
+      clearInterval(this.scrollCheckInterval);
+      this.scrollCheckInterval = null;
+    }
+    this.scrollLockActive = false;
+
     // Unsubscribe from all observables
     this.subscriptions.unsubscribe();
 
@@ -1801,29 +1878,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // Helper method to get StatusAdmin value by StatusClient lookup
+  // Helper method to get Status_Admin value by Status_Client lookup
   getStatusAdminByClient(statusClient: string): string {
-    const statusRecord = this.statusOptions.find(s => s.StatusClient === statusClient);
-    if (statusRecord && statusRecord.StatusAdmin) {
-      return statusRecord.StatusAdmin;
+    const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
+    if (statusRecord && statusRecord.Status_Admin) {
+      return statusRecord.Status_Admin;
     }
-    // Fallback to StatusClient if StatusAdmin not found
-    console.warn(`[Status] StatusAdmin not found for StatusClient "${statusClient}", using StatusClient as fallback`);
+    // Fallback to Status_Client if Status_Admin not found
+    console.warn(`[Status] Status_Admin not found for Status_Client "${statusClient}", using Status_Client as fallback`);
     return statusClient;
   }
 
-  // Helper method to check if current status matches any of the given StatusClient values
+  // Helper method to check if current status matches any of the given Status_Client values
   isStatusAnyOf(statusClientValues: string[]): boolean {
     if (!this.serviceData?.Status) {
       return false;
     }
-    // Check if current Status matches any StatusAdmin values for the given StatusClient values
+    // Check if current Status matches any Status_Admin values for the given Status_Client values
     for (const clientValue of statusClientValues) {
-      const statusRecord = this.statusOptions.find(s => s.StatusClient === clientValue);
-      if (statusRecord && statusRecord.StatusAdmin === this.serviceData.Status) {
+      const statusRecord = this.statusOptions.find(s => s.Status_Client === clientValue);
+      if (statusRecord && statusRecord.Status_Admin === this.serviceData.Status) {
         return true;
       }
-      // Also check direct match with StatusClient (for backwards compatibility)
+      // Also check direct match with Status_Client (for backwards compatibility)
       if (this.serviceData.Status === clientValue) {
         return true;
       }

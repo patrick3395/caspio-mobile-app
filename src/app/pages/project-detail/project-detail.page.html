@@ -108,8 +108,8 @@
                 (ngModelChange)="updateDeliverableField(service, 'StatusEng', service.StatusEng || '')"
                 [disabled]="isReadOnly">
                 <option value="">Select status...</option>
-                <option *ngFor="let status of statusOptions" [value]="status.StatusAdmin">
-                  {{ status.StatusClient }}
+                <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
+                  {{ status.Status_Client }}
                 </option>
               </select>
             </td>
@@ -650,8 +650,8 @@
             (ngModelChange)="updateDeliverableField(selectedDeliverableService, 'StatusEng', selectedDeliverableService.StatusEng || '')"
             [disabled]="isReadOnly">
             <option value="">Select status...</option>
-            <option *ngFor="let status of statusOptions" [value]="status.StatusAdmin">
-              {{ status.StatusClient }}
+            <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
+              {{ status.Status_Client }}
             </option>
           </select>
         </div>

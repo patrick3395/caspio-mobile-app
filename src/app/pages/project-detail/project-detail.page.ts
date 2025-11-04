@@ -1629,27 +1629,27 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  // Helper method to get StatusAdmin value by StatusClient lookup
+  // Helper method to get Status_Admin value by Status_Client lookup
   getStatusAdminByClient(statusClient: string): string {
-    const statusRecord = this.statusOptions.find(s => s.StatusClient === statusClient);
-    if (statusRecord && statusRecord.StatusAdmin) {
-      return statusRecord.StatusAdmin;
+    const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
+    if (statusRecord && statusRecord.Status_Admin) {
+      return statusRecord.Status_Admin;
     }
-    // Fallback to StatusClient if StatusAdmin not found
-    console.warn(`[Status] StatusAdmin not found for StatusClient "${statusClient}", using StatusClient as fallback`);
+    // Fallback to StatusClient if Status_Admin not found
+    console.warn(`[Status] Status_Admin not found for Status_Client "${statusClient}", using Status_Client as fallback`);
     return statusClient;
   }
 
-  // Helper method to get StatusClient value by StatusAdmin lookup (for display)
+  // Helper method to get Status_Client value by Status_Admin lookup (for display)
   getStatusClientByAdmin(statusAdmin: string): string {
     if (!statusAdmin) {
       return '';
     }
-    const statusRecord = this.statusOptions.find(s => s.StatusAdmin === statusAdmin);
-    if (statusRecord && statusRecord.StatusClient) {
-      return statusRecord.StatusClient;
+    const statusRecord = this.statusOptions.find(s => s.Status_Admin === statusAdmin);
+    if (statusRecord && statusRecord.Status_Client) {
+      return statusRecord.Status_Client;
     }
-    // Fallback to StatusAdmin if StatusClient not found (or if it's a legacy value)
+    // Fallback to Status_Admin if Status_Client not found (or if it's a legacy value)
     // This handles backwards compatibility with old hardcoded values
     return statusAdmin;
   }
