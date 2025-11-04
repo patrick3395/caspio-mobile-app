@@ -442,7 +442,7 @@ ion-content{--overflow:scroll !important;height:100%}
   background: #f9f9f9;
   min-height: 100%;
   overflow: visible;
-  padding-bottom: 80px; // Add extra padding for fixed bottom sync control bar
+  padding-bottom: 120px; // Increased padding for mobile sync control bar to ensure finalize button is accessible (was 80px)
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -3331,7 +3331,7 @@ button.room-photo-caption {
 .finalize-button-container {
   text-align: center;
   padding: 30px 20px;
-  margin-bottom: 20px;
+  margin-bottom: 100px; // Increased to account for mobile sync control bar (was 20px)
 
   .finalize-button {
     background: linear-gradient(135deg, var(--noble-orange) 0%, #ff7645 100%);
