@@ -2359,6 +2359,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const existingCaption = this.getFdfPhotoCaption(roomName, photoType);
       console.log(`[FDF DEBUG] Existing caption for ${photoType}:`, existingCaption);
 
+      // Save scroll position before opening modal (for both mobile and web)
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
       // Open annotation modal
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
@@ -2381,6 +2384,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Handle annotated photo returned from annotator
       const { data } = await modal.onDidDismiss();
+
+      // Restore scroll if user cancels (no data returned)
+      if (!data) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+        }, 50);
+        return;
+      }
 
       if (data && data.annotatedBlob) {
         // Get annotation data
@@ -4406,8 +4417,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.changeDetectorRef.reattach();
             this.changeDetectorRef.detectChanges();
             console.log('[Rename Room] Re-attached change detection and updated UI');
-            
-            await this.showToast(`Room renamed to "${newRoomName}"`, 'success');
+
+            // Toast removed per user request
             return true;
           }
         }
@@ -6394,6 +6405,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log(`[MEASUREMENT DEBUG] Raw caption:`, rawCaption);
       console.log(`[MEASUREMENT DEBUG] Cleaned caption:`, existingCaption);
 
+      // Save scroll position before opening modal (for both mobile and web)
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
       // Open annotation modal directly (matching Structural Systems)
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
@@ -6413,6 +6427,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       await modal.present();
       const { data } = await modal.onDidDismiss();
+      
+      // Restore scroll if user cancels (no data returned)
+      if (!data) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+        }, 50);
+        return;
+      }
       
       if (data && data.annotatedBlob) {
         // Update the photo with new annotations
@@ -11108,8 +11130,8 @@ Stack: ${error?.stack}`;
 
       const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
       const photoName = latestPhoto.name || 'Photo';
-      // Save scroll position before opening modal (only for mobile)
-      const scrollPosition = this.platform.isWeb() ? 0 : (window.scrollY || document.documentElement.scrollTop);
+      // Save scroll position before opening modal (for both mobile and web)
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
       let existingAnnotations: any = null;
       const annotationSources = [
@@ -11162,10 +11184,11 @@ Stack: ${error?.stack}`;
       const { data } = await modal.onDidDismiss();
 
       if (!data) {
-        // Restore scroll if user cancels (mobile only)
-        if (!this.platform.isWeb()) {
-          this.restoreScrollPosition(scrollPosition);
-        }
+        // Restore scroll if user cancels
+        // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+        }, 50);
         return;
       }
 
@@ -11311,8 +11334,8 @@ Stack: ${error?.stack}`;
         }
       }
       
-      // Save scroll position before opening modal (only for mobile)
-      const scrollPosition = this.platform.isWeb() ? 0 : (window.scrollY || document.documentElement.scrollTop);
+      // Save scroll position before opening modal (for both mobile and web)
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
       // Get existing caption from photo object
       const existingCaption = photo.caption || photo.Annotation || '';
@@ -11469,13 +11492,11 @@ Stack: ${error?.stack}`;
           }
         }
       } else {
-        // Restore scroll if user cancels (no data returned) - mobile only
-        // Skip scroll restoration on webapp to prevent unwanted autoscrolling
-        if (!this.platform.isWeb()) {
-          setTimeout(() => {
-            this.restoreScrollPosition(scrollPosition);
-          }, 200);
-        }
+        // Restore scroll if user cancels (no data returned)
+        // Fixed v1.4.xxx: Also restore scroll on web to prevent jumping to top of section
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+        }, 50);
       }
 
     } catch (error) {
