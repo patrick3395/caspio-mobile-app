@@ -108,8 +108,10 @@ ion-header {
         margin: 0 !important;
       }
 
-      &:hover {
-        background: rgba(241, 90, 39, 0.9) !important;
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          background: rgba(241, 90, 39, 0.9) !important;
+        }
       }
 
       &:active {
@@ -215,10 +217,12 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
   transition: all 0.2s ease;
   white-space: nowrap;
 
-  &:hover {
-    background: var(--ion-color-primary-shade);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--ion-color-primary-shade);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
   }
 
   &:active {
@@ -276,11 +280,13 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
     cursor: pointer;
     background: $white;
     transition: background 0.2s ease;
-    
-    &:hover {
-      background: $light-gray;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: $light-gray;
+      }
     }
-    
+
     &.selected {
       background: $white;
       border-bottom: 1px solid $border;
@@ -487,10 +493,12 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
           opacity: 0.8; // Increased from 0.6 to make it look more clickable
 
           // Gray button hover effect
-          &:not(.finalized):hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+          @media (hover: hover) and (pointer: fine) {
+            &:not(.finalized):hover {
+              opacity: 0.9;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            }
           }
 
           &.finalized {
@@ -498,10 +506,12 @@ h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
             cursor: pointer;
             opacity: 1;
 
-            &:hover {
-              background: rgba(241, 90, 39, 0.9);
-              transform: translateY(-1px);
-              box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+            @media (hover: hover) and (pointer: fine) {
+              &:hover {
+                background: rgba(241, 90, 39, 0.9);
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+              }
             }
 
             &:active {
@@ -567,12 +577,14 @@ ion-modal {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         transition: all 0.2s ease;
         cursor: pointer;
-        
-        &:hover {
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          transform: translateY(-1px);
+
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+          }
         }
-        
+
         ion-label {
           margin: 14px 0 !important;
           white-space: normal !important; // Allow text wrapping
@@ -842,11 +854,13 @@ ion-modal {
     --box-shadow: none;
     opacity: 0.8;
     transition: opacity 0.2s;
-    
-    &:hover {
-      opacity: 1;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        opacity: 1;
+      }
     }
-    
+
     ion-icon {
       font-size: 16px;
       margin-right: 4px;
@@ -867,11 +881,13 @@ ion-modal {
     --box-shadow: none;
     opacity: 0.8;
     transition: opacity 0.2s;
-    
-    &:hover {
-      opacity: 1;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        opacity: 1;
+      }
     }
-    
+
     ion-icon {
       font-size: 16px;
       margin-right: 4px;
@@ -946,7 +962,9 @@ ion-modal {
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
 .template-bar{position:relative;min-height:100px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
-&:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}
+@media (hover: hover) and (pointer: fine) {
+  &:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}
+}
 // Mobile-only: Increase height for better text wrapping
 @media (max-width: 768px) {
   min-height:110px;
@@ -1187,8 +1205,10 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         border-bottom: none;
       }
 
-      &:hover {
-        background: rgba(241, 90, 39, 0.02);
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          background: rgba(241, 90, 39, 0.02);
+        }
       }
 
       td {
@@ -1335,8 +1355,10 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         border-radius: 4px;
         transition: background 0.2s ease;
 
-        &:hover {
-          background: rgba(241, 90, 39, 0.1);
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            background: rgba(241, 90, 39, 0.1);
+          }
         }
       }
 
