@@ -688,7 +688,7 @@
                               <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
                                    width="90" height="90"
                                    [alt]="photo.name"
-                                   (click)="viewPhoto(photo, category, item.id)"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
                               <div class="upload-indicator" *ngIf="photo.uploading">
@@ -857,7 +857,7 @@
                               <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
                                    width="90" height="90"
                                    [alt]="photo.name"
-                                   (click)="viewPhoto(photo, category, item.id)"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
                               <div class="upload-indicator" *ngIf="photo.uploading">
@@ -1026,7 +1026,7 @@
                               <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
                                    width="90" height="90"
                                    [alt]="photo.name"
-                                   (click)="viewPhoto(photo, category, item.id)"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
                               <div class="upload-indicator" *ngIf="photo.uploading">

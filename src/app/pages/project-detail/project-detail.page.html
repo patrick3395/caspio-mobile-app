@@ -109,7 +109,7 @@
                 [disabled]="isReadOnly">
                 <option value="">Select status...</option>
                 <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
-                  {{ status.Status_Client }}
+                  {{ status.Status_Admin }}
                 </option>
               </select>
             </td>
@@ -338,7 +338,7 @@
           <!-- Status in Top Right Corner -->
           <div *ngIf="service.Status" class="report-status-container">
             <span class="report-status">
-              {{ getStatusClientByAdmin(service.Status) }}
+              {{ service.Status }}
             </span>
             <span *ngIf="service.StatusDateTime" class="status-datetime">
               {{ service.StatusDateTime | date:'short' }}
@@ -651,7 +651,7 @@
             [disabled]="isReadOnly">
             <option value="">Select status...</option>
             <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
-              {{ status.Status_Client }}
+              {{ status.Status_Admin }}
             </option>
           </select>
         </div>

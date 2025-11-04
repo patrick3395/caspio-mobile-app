@@ -11342,8 +11342,20 @@ Stack: ${error?.stack}`;
 
 
   // View photo - open viewer with integrated annotation
-  async viewPhoto(photo: any, category: string, itemId: string) {
+  async viewPhoto(photo: any, category: string, itemId: string, event?: Event) {
+    // CRITICAL: Prevent default and stop propagation FIRST
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     try {
+      // CRITICAL: Save scroll position IMMEDIATELY before ANY processing
+      // This prevents the position from being lost before modal presents
+      this.lockedScrollY = window.scrollY;
+      this.lockedScrollX = window.scrollX;
+      console.log('[viewPhoto] Saved scroll position IMMEDIATELY - Y:', this.lockedScrollY);
+      
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
       const latestPhoto = this.getLatestPhotoRecord(visualId, key, photo);
@@ -11396,9 +11408,6 @@ Stack: ${error?.stack}`;
           }
         }
       }
-      
-      // Save scroll position before opening modal (for both mobile and web)
-      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
 
       // Get existing caption from photo object
       const existingCaption = photo.caption || photo.Annotation || '';

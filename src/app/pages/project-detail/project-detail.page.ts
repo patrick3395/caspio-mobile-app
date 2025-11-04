@@ -5091,7 +5091,9 @@ Time: ${debugInfo.timestamp}
     let header = 'Submit Not Available';
 
     // If service is already "Under Review", button is grayed because no changes have been made
-    if (service.Status === 'Under Review') {
+    // Check using Status_Admin value from Status table
+    const underReviewStatus = this.getStatusAdminByClient("Under Review");
+    if (service.Status === underReviewStatus) {
       header = 'Update Not Available';
       message = 'There have been no changes to the project so there is no need to update the submission.';
     }
@@ -5172,11 +5174,22 @@ Time: ${debugInfo.timestamp}
       // Get current date/time in ISO format
       const submittedDateTime = new Date().toISOString();
 
-      // Update Status to "Under Review" and save submission date in Caspio Services table
+      // Get Status_Admin values from Status table
+      const underReviewStatus = this.getStatusAdminByClient("Under Review");
+      const submittedStatus = this.getStatusAdminByClient("Submitted");
+
+      // Update Status to "Under Review" and StatusEng to "Submitted" in Caspio Services table
       const updateData = {
-        Status: 'Under Review',
+        Status: underReviewStatus,        // Status_Admin for "Under Review"
+        StatusEng: submittedStatus,       // Status_Admin for "Submitted"
         StatusDateTime: submittedDateTime
       };
+
+      console.log('[Submit Report] Update data:', {
+        Status: { StatusClient: "Under Review", StatusAdmin: underReviewStatus },
+        StatusEng: { StatusClient: "Submitted", StatusAdmin: submittedStatus },
+        StatusDateTime: submittedDateTime
+      });
 
       await this.caspioService.put(
         `/tables/Services/records?q.where=PK_ID='${service.serviceId}'`,
@@ -5184,7 +5197,8 @@ Time: ${debugInfo.timestamp}
       ).toPromise();
 
       // Update local service object
-      service.Status = 'Under Review';
+      service.Status = underReviewStatus;
+      service.StatusEng = submittedStatus;
       service.StatusDateTime = submittedDateTime;
 
       await loading.dismiss();
