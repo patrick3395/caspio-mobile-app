@@ -2242,39 +2242,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', source: 'camera' | 'library' | 'system' = 'system') {
-    let roomId = this.efeRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
-    }
-
-    // Wait for room creation to complete if it's in progress
-    if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-      console.log(`[FDF Photo] Waiting for room ${roomName} to finish being created...`);
-      
-      // Wait up to 10 seconds for room creation
-      const maxWaitTime = 10000;
-      const checkInterval = 200;
-      const startTime = Date.now();
-      
-      while (Date.now() - startTime < maxWaitTime) {
-        roomId = this.efeRecordIds[roomName];
-        
-        if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
-          console.log(`[FDF Photo] Room ${roomName} is now ready with ID: ${roomId}`);
-          break;
-        }
-        
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-      }
-      
-      // Check if we timed out
-      roomId = this.efeRecordIds[roomName];
-      if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is still being created. Please try again in a moment.', 'warning');
-        return;
-      }
     }
 
     try {
@@ -3076,76 +3047,57 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     try {
       let roomId = this.efeRecordIds[roomName];
-      if (!roomId) {
-        await this.showToast('Please save the room first', 'warning');
-        return;
-      }
-
-      // LAZY LOADING: Wait for room ID to be ready if it's temporary or pending
-      if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        console.log(`[Photo Capture] Room ID not ready (${roomId}), waiting for room creation...`);
-        
-        // Wait for room creation with timeout
-        const maxWaitTime = 10000; // 10 seconds max
-        const checkInterval = 100; // Check every 100ms
-        const startTime = Date.now();
-        
-        while ((roomId === '__pending__' || String(roomId).startsWith('temp_')) && 
-               (Date.now() - startTime) < maxWaitTime) {
-          // Wait a bit before checking again
-          await new Promise(resolve => setTimeout(resolve, checkInterval));
-          
-          // Get the latest room ID from the mapping
-          roomId = this.efeRecordIds[roomName];
-          
-          if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
-            console.log(`[Photo Capture] Room ID now ready: ${roomId}`);
-            break;
-          }
-        }
-        
-        // Final check after wait loop
-        if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-          console.error(`[Photo Capture] Timeout waiting for room ID for ${roomName}`);
-          await this.showToast('Room creation taking longer than expected. Please try again.', 'warning');
-          return;
-        }
-      }
+      // Allow photo capture even if room is not loaded - it will queue up
 
       // Get or create point ID
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
-      // Check if point is currently being created
-      if (this.pointCreationStatus[pointKey] === 'pending' || this.pointCreationStatus[pointKey] === 'retrying') {
-        await this.showToast('Point is being created. Please wait a moment.', 'info');
-        return;
-      }
+      // Allow photo capture even if point is being created or not yet created - it will queue up
+      // The handleRoomPointFileSelect function will handle the lazy upload when point/room is ready
 
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
-        // If offline, cannot proceed
+        // If offline, mark point as pending for later creation
         if (this.manualOffline) {
-          await this.showToast('Please enable Auto-Save to take photos', 'warning');
-          return;
-        }
+          console.log(`[Photo Capture] Offline mode - marking point as pending: ${point.name}`);
+          this.efePointIds[pointKey] = '__pending__';
+          pointId = '__pending__';
+        } 
+        // If room is also pending or doesn't exist, mark point as pending
+        else if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+          console.log(`[Photo Capture] Room not ready - marking point as pending: ${point.name}`);
+          // Queue the point creation for when room is ready
+          if (!this.pendingPointCreates[pointKey]) {
+            this.pendingPointCreates[pointKey] = {
+              roomName,
+              pointName: point.name,
+              dependsOnRoom: roomName
+            };
+          }
+          this.efePointIds[pointKey] = '__pending__';
+          pointId = '__pending__';
+        } 
+        // Room is ready, create point now
+        else {
+          console.log(`[Photo Capture] Creating point on-demand: ${point.name}`);
 
-        // Point doesn't exist yet or has temporary ID - create it on-demand
-        console.log(`[Photo Capture] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
+          const pointData = {
+            EFEID: parseInt(roomId),
+            PointName: point.name
+          };
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
-        const pointData = {
-          EFEID: parseInt(roomId),
-          PointName: point.name
-        };
-        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-
-        // Use PointID from response, NOT PK_ID!
-        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-          pointId = createResponse.PointID || createResponse.PK_ID;
-          this.efePointIds[pointKey] = pointId;
-          this.pointCreationStatus[pointKey] = 'created'; // Update status
-          console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
-        } else {
-          throw new Error('Failed to create point record - no PointID returned');
+          // Use PointID from response, NOT PK_ID!
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            this.pointCreationStatus[pointKey] = 'created'; // Update status
+            console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
+          } else {
+            console.warn(`[Photo Capture] Failed to create point, will queue as pending`);
+            this.efePointIds[pointKey] = '__pending__';
+            pointId = '__pending__';
+          }
         }
       }
 
@@ -11872,39 +11824,10 @@ Stack: ${error?.stack}`;
 
   // Take FDF photo from gallery
   async takeFDFPhotoGallery(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
-    let roomId = this.efeRecordIds[roomName];
+    const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
-    }
-
-    // Wait for room creation to complete if it's in progress
-    if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-      console.log(`[FDF Photo Gallery] Waiting for room ${roomName} to finish being created...`);
-      
-      // Wait up to 10 seconds for room creation
-      const maxWaitTime = 10000;
-      const checkInterval = 200;
-      const startTime = Date.now();
-      
-      while (Date.now() - startTime < maxWaitTime) {
-        roomId = this.efeRecordIds[roomName];
-        
-        if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
-          console.log(`[FDF Photo Gallery] Room ${roomName} is now ready with ID: ${roomId}`);
-          break;
-        }
-        
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-      }
-      
-      // Check if we timed out
-      roomId = this.efeRecordIds[roomName];
-      if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is still being created. Please try again in a moment.', 'warning');
-        return;
-      }
     }
 
     try {
@@ -11954,41 +11877,52 @@ Stack: ${error?.stack}`;
 
     try {
       const roomId = this.efeRecordIds[roomName];
-      if (!roomId) {
-        await this.showToast('Please save the room first', 'warning');
-        return;
-      }
-
-      if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
-        return;
-      }
+      // Allow photo capture even if room is not loaded - it will queue up
 
       // Get or create point ID
       const pointKey = `${roomName}_${point.name}`;
       let pointId = this.efePointIds[pointKey];
 
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
+        // If offline, mark point as pending for later creation
         if (this.manualOffline) {
-          await this.showToast('Please enable Auto-Save to take photos', 'warning');
-          return;
-        }
+          console.log(`[Gallery Photo] Offline mode - marking point as pending: ${point.name}`);
+          this.efePointIds[pointKey] = '__pending__';
+          pointId = '__pending__';
+        } 
+        // If room is also pending or doesn't exist, mark point as pending
+        else if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+          console.log(`[Gallery Photo] Room not ready - marking point as pending: ${point.name}`);
+          // Queue the point creation for when room is ready
+          if (!this.pendingPointCreates[pointKey]) {
+            this.pendingPointCreates[pointKey] = {
+              roomName,
+              pointName: point.name,
+              dependsOnRoom: roomName
+            };
+          }
+          this.efePointIds[pointKey] = '__pending__';
+          pointId = '__pending__';
+        } 
+        // Room is ready, create point now
+        else {
+          console.log(`[Gallery Photo] Creating point on-demand: ${point.name}`);
 
-        // Point doesn't exist yet or has temporary ID - create it on-demand
-        console.log(`[Gallery Photo] Creating point on-demand: ${point.name} (current ID: ${pointId})`);
+          const pointData = {
+            EFEID: parseInt(roomId),
+            PointName: point.name
+          };
+          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
-        const pointData = {
-          EFEID: parseInt(roomId),
-          PointName: point.name
-        };
-        const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-
-        if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-          pointId = createResponse.PointID || createResponse.PK_ID;
-          this.efePointIds[pointKey] = pointId;
-          console.log(`[Gallery Photo] Created point ${point.name} with ID ${pointId}`);
-        } else {
-          throw new Error('Failed to create point record - no PointID returned');
+          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+            pointId = createResponse.PointID || createResponse.PK_ID;
+            this.efePointIds[pointKey] = pointId;
+            console.log(`[Gallery Photo] Created point ${point.name} with ID ${pointId}`);
+          } else {
+            console.warn(`[Gallery Photo] Failed to create point, will queue as pending`);
+            this.efePointIds[pointKey] = '__pending__';
+            pointId = '__pending__';
+          }
         }
       }
 
