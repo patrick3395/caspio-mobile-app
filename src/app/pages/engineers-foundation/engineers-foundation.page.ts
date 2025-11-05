@@ -3057,48 +3057,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // The handleRoomPointFileSelect function will handle the lazy upload when point/room is ready
 
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
-        // If offline, mark point as pending for later creation
-        if (this.manualOffline) {
-          console.log(`[Photo Capture] Offline mode - marking point as pending: ${point.name}`);
-          this.efePointIds[pointKey] = '__pending__';
-          pointId = '__pending__';
-        } 
-        // If room is also pending or doesn't exist, mark point as pending
-        else if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-          console.log(`[Photo Capture] Room not ready - marking point as pending: ${point.name}`);
-          // Queue the point creation for when room is ready
-          if (!this.pendingPointCreates[pointKey]) {
-            this.pendingPointCreates[pointKey] = {
-              roomName,
-              pointName: point.name,
-              dependsOnRoom: roomName
-            };
-          }
-          this.efePointIds[pointKey] = '__pending__';
-          pointId = '__pending__';
-        } 
-        // Room is ready, create point now
-        else {
-          console.log(`[Photo Capture] Creating point on-demand: ${point.name}`);
-
-          const pointData = {
-            EFEID: parseInt(roomId),
-            PointName: point.name
+        // ALWAYS mark point as pending and queue it - never try to create immediately
+        // This prevents errors when room is saving or point creation would fail
+        console.log(`[Photo Capture] Marking point as pending for lazy creation: ${point.name}`);
+        
+        // Queue the point creation - it will be created when needed by lazy upload
+        if (!this.pendingPointCreates[pointKey]) {
+          this.pendingPointCreates[pointKey] = {
+            roomName,
+            pointName: point.name,
+            dependsOnRoom: roomName
           };
-          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-
-          // Use PointID from response, NOT PK_ID!
-          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-            pointId = createResponse.PointID || createResponse.PK_ID;
-            this.efePointIds[pointKey] = pointId;
-            this.pointCreationStatus[pointKey] = 'created'; // Update status
-            console.log(`[Photo Capture] Created point ${point.name} with ID ${pointId}`);
-          } else {
-            console.warn(`[Photo Capture] Failed to create point, will queue as pending`);
-            this.efePointIds[pointKey] = '__pending__';
-            pointId = '__pending__';
-          }
         }
+        
+        // Mark as pending - lazyUploadPhotoToRoomPoint will handle creation
+        this.efePointIds[pointKey] = '__pending__';
+        pointId = '__pending__';
       }
 
       // CRITICAL: Clear any pending context-clearing timer from previous photo
@@ -3409,12 +3383,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           })
           .catch((err) => {
             console.error(`Failed to upload photo ${i + 1}:`, err);
-            // Remove failed photo from UI
-            const index = point.photos.indexOf(photoEntry);
-            if (index > -1) {
-              point.photos.splice(index, 1);
-              point.photoCount = point.photos.length;
-            }
+            // Don't remove photo - mark as queued so user can see it and it can retry
+            photoEntry.uploading = false;
+            photoEntry.queued = true;
+            this.changeDetectorRef.detectChanges();
           });
         
         uploadPromises.push(uploadPromise);
@@ -3422,15 +3394,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Don't wait for uploads - monitor them in background (like Structural Systems)
       Promise.all(uploadPromises).then(results => {
-        // Only show toast if there were failures
-        if (uploadSuccessCount === 0 && results.length > 0) {
-          this.showToast('Failed to upload photos', 'danger');
-        }
+        // Don't show error toasts - photos will be marked as queued/failed in UI
+        // Users can see the status and uploads will retry automatically
+        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful`);
       });
       
     } catch (error) {
       console.error('Error handling room point files:', error);
-      await this.showToast('Failed to process photos', 'danger');
+      // Don't show error toast - let photos queue and retry automatically
     } finally {
       // Reset file input value to allow same file selection
       if (this.fileInput && this.fileInput.nativeElement) {
@@ -3480,23 +3451,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
              !isNaN(parseInt(id, 10));
     };
     
-    // If point ID is not valid, wait for it to be created
+    // If point ID is not valid, wait for it to be created or create it ourselves
     if (!isValidPointId(pointId)) {
       console.log(`[Lazy Upload] Point ID not ready (${pointId}), waiting for creation...`);
       
       // Wait for point creation with timeout
-      const maxWaitTime = 10000; // 10 seconds max
+      const maxWaitTime = 5000; // 5 seconds max wait
       const checkInterval = 100; // Check every 100ms
       const startTime = Date.now();
       
       while (!isValidPointId(pointId) && (Date.now() - startTime) < maxWaitTime) {
-        // Check if point is currently being created
-        const status = this.pointCreationStatus[pointKey];
-        
-        if (status === 'failed') {
-          throw new Error(`Point creation failed for ${point.name}`);
-        }
-        
         // Wait a bit before checking again
         await new Promise(resolve => setTimeout(resolve, checkInterval));
         
@@ -3509,23 +3473,131 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Final check after wait loop
+      // If still not ready after waiting, try to create it ourselves
       if (!isValidPointId(pointId)) {
-        console.error(`[Lazy Upload] Timeout waiting for point ID for ${pointKey}`);
-        throw new Error(`Point creation timeout for ${point.name}. Please try again.`);
+        console.log(`[Lazy Upload] Point still pending after wait, attempting to create it now for ${pointKey}`);
+        
+        // First need to wait for room to be ready
+        const roomId = this.efeRecordIds[roomName];
+        if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+          console.log(`[Lazy Upload] Room not ready, waiting for room...`);
+          
+          let currentRoomId = roomId;
+          const roomStartTime = Date.now();
+          const roomMaxWait = 5000;
+          
+          while ((!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) && 
+                 (Date.now() - roomStartTime) < roomMaxWait) {
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+            currentRoomId = this.efeRecordIds[roomName];
+          }
+          
+          if (!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) {
+            console.warn(`[Lazy Upload] Room still not ready after wait, marking photo as queued`);
+            // Mark photo as queued, not uploading
+            if (photoEntry) {
+              photoEntry.uploading = false;
+              photoEntry.queued = true;
+            }
+            this.changeDetectorRef.detectChanges();
+            return null; // Don't throw error, just return null
+          }
+          
+          // Room is now ready, try to create point
+          try {
+            const pointData = {
+              EFEID: parseInt(currentRoomId),
+              PointName: point.name
+            };
+            const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+            
+            if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+              pointId = createResponse.PointID || createResponse.PK_ID;
+              this.efePointIds[pointKey] = pointId;
+              this.pointCreationStatus[pointKey] = 'created';
+              console.log(`[Lazy Upload] Successfully created point ${point.name} with ID ${pointId}`);
+              
+              // Remove from pending queue
+              delete this.pendingPointCreates[pointKey];
+            } else {
+              throw new Error('No PointID in response');
+            }
+          } catch (error) {
+            console.error(`[Lazy Upload] Failed to create point:`, error);
+            // Mark photo as queued for retry
+            if (photoEntry) {
+              photoEntry.uploading = false;
+              photoEntry.queued = true;
+            }
+            this.changeDetectorRef.detectChanges();
+            return null; // Don't throw error
+          }
+        } else {
+          // Room is ready, create point
+          try {
+            const pointData = {
+              EFEID: parseInt(roomId),
+              PointName: point.name
+            };
+            const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+            
+            if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
+              pointId = createResponse.PointID || createResponse.PK_ID;
+              this.efePointIds[pointKey] = pointId;
+              this.pointCreationStatus[pointKey] = 'created';
+              console.log(`[Lazy Upload] Successfully created point ${point.name} with ID ${pointId}`);
+              
+              // Remove from pending queue
+              delete this.pendingPointCreates[pointKey];
+            } else {
+              throw new Error('No PointID in response');
+            }
+          } catch (error) {
+            console.error(`[Lazy Upload] Failed to create point:`, error);
+            // Mark photo as queued for retry
+            if (photoEntry) {
+              photoEntry.uploading = false;
+              photoEntry.queued = true;
+            }
+            this.changeDetectorRef.detectChanges();
+            return null; // Don't throw error
+          }
+        }
+      }
+      
+      // Final validation
+      if (!isValidPointId(pointId)) {
+        console.warn(`[Lazy Upload] Could not get valid point ID, marking photo as queued`);
+        if (photoEntry) {
+          photoEntry.uploading = false;
+          photoEntry.queued = true;
+        }
+        this.changeDetectorRef.detectChanges();
+        return null; // Don't throw error
       }
     }
     
     console.log(`[Lazy Upload] Proceeding with upload for ${pointKey}, pointId: ${pointId}`);
     
-    // Now upload with the valid point ID
-    return this.uploadPhotoToRoomPointFromFile(
-      pointId, 
-      annotatedResult.file, 
-      point.name, 
-      annotatedResult.annotationData, 
-      this.currentRoomPointContext.photoType
-    );
+    // Now upload with the valid point ID - wrap in try-catch to prevent error popups
+    try {
+      return await this.uploadPhotoToRoomPointFromFile(
+        pointId, 
+        annotatedResult.file, 
+        point.name, 
+        annotatedResult.annotationData, 
+        this.currentRoomPointContext.photoType
+      );
+    } catch (error) {
+      console.error(`[Lazy Upload] Photo upload failed:`, error);
+      // Mark photo as failed/queued
+      if (photoEntry) {
+        photoEntry.uploading = false;
+        photoEntry.failed = true;
+      }
+      this.changeDetectorRef.detectChanges();
+      return null; // Don't throw error, return null
+    }
   }
   
   // Helper method to capture photo using native file input (DEPRECATED - kept for legacy)
@@ -11884,46 +11956,22 @@ Stack: ${error?.stack}`;
       let pointId = this.efePointIds[pointKey];
 
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
-        // If offline, mark point as pending for later creation
-        if (this.manualOffline) {
-          console.log(`[Gallery Photo] Offline mode - marking point as pending: ${point.name}`);
-          this.efePointIds[pointKey] = '__pending__';
-          pointId = '__pending__';
-        } 
-        // If room is also pending or doesn't exist, mark point as pending
-        else if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-          console.log(`[Gallery Photo] Room not ready - marking point as pending: ${point.name}`);
-          // Queue the point creation for when room is ready
-          if (!this.pendingPointCreates[pointKey]) {
-            this.pendingPointCreates[pointKey] = {
-              roomName,
-              pointName: point.name,
-              dependsOnRoom: roomName
-            };
-          }
-          this.efePointIds[pointKey] = '__pending__';
-          pointId = '__pending__';
-        } 
-        // Room is ready, create point now
-        else {
-          console.log(`[Gallery Photo] Creating point on-demand: ${point.name}`);
-
-          const pointData = {
-            EFEID: parseInt(roomId),
-            PointName: point.name
+        // ALWAYS mark point as pending and queue it - never try to create immediately
+        // This prevents errors when room is saving or point creation would fail
+        console.log(`[Gallery Photo] Marking point as pending for lazy creation: ${point.name}`);
+        
+        // Queue the point creation - it will be created when needed by lazy upload
+        if (!this.pendingPointCreates[pointKey]) {
+          this.pendingPointCreates[pointKey] = {
+            roomName,
+            pointName: point.name,
+            dependsOnRoom: roomName
           };
-          const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-
-          if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-            pointId = createResponse.PointID || createResponse.PK_ID;
-            this.efePointIds[pointKey] = pointId;
-            console.log(`[Gallery Photo] Created point ${point.name} with ID ${pointId}`);
-          } else {
-            console.warn(`[Gallery Photo] Failed to create point, will queue as pending`);
-            this.efePointIds[pointKey] = '__pending__';
-            pointId = '__pending__';
-          }
         }
+        
+        // Mark as pending - gallery photo handler will use lazy upload mechanism
+        this.efePointIds[pointKey] = '__pending__';
+        pointId = '__pending__';
       }
 
       // Always allow adding new photos - no replacement prompt needed
@@ -11932,8 +11980,7 @@ Stack: ${error?.stack}`;
     } catch (error: any) {
       if (error !== 'User cancelled photos app' && error?.message !== 'User cancelled photos app') {
         console.error('Error in capturePointPhotoGallery:', error);
-        const errorMsg = error?.message || 'Unknown error';
-        await this.showToast(`Failed to select photo: ${errorMsg}`, 'danger');
+        // Don't show error toast - let photos queue and retry automatically
       }
     }
   }
@@ -11982,82 +12029,34 @@ Stack: ${error?.stack}`;
 
         this.changeDetectorRef.detectChanges();
 
-        // Upload the photo
-        try {
-          const compressedFile = await this.imageCompression.compressImage(file);
-          const uploadFormData = new FormData();
-          const fileName = `EFE_${roomName}_${point.name}_${photoType}_${Date.now()}.jpg`;
-          uploadFormData.append('file', compressedFile, fileName);
+        // Use the same lazy upload mechanism as camera photos
+        const annotatedResult = {
+          file: file,
+          annotationData: null,
+          originalFile: undefined,
+          caption: ''
+        };
 
-          const token = await firstValueFrom(this.caspioService.getValidToken());
-          const account = this.caspioService.getAccountID();
-
-          const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-            method: 'PUT',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: uploadFormData
-          });
-
-          const uploadResult = await uploadResponse.json();
-          const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
-          const filePath = `/${uploadedFileName}`;
-
-          // Create attachment record with correct field names including Type and Drawings
-          const attachData = {
-            PointID: parseInt(pointId),
-            Photo: filePath,  // Use "Photo" field, not "FilePath"
-            Annotation: '', // Initialize as blank (user can add caption later)
-            Type: photoType, // CRITICAL: Include Type field so photo loads correctly
-            Drawings: EMPTY_COMPRESSED_ANNOTATIONS  // CRITICAL: Include Drawings field for consistency
-          };
-
-          console.log(`[Gallery Upload] Saving photo with data:`, { PointID: attachData.PointID, Photo: attachData.Photo, Type: attachData.Type });
-          const attachResponse: any = await this.caspioService.post('/tables/LPS_Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();
-          console.log(`[Gallery Upload] Response:`, attachResponse);
-
-          // Handle the Result array structure
-          const createdRecord = attachResponse?.Result?.[0] || attachResponse;
-
-          console.log(`[Gallery Upload] Created record:`, createdRecord);
-          if (createdRecord && createdRecord.AttachID) {
-            photoEntry.attachId = createdRecord.AttachID;
-            photoEntry.AttachID = createdRecord.AttachID;
-            photoEntry.filePath = filePath;
-            console.log(`[Gallery Upload] AttachID assigned: ${createdRecord.AttachID}, fetching image...`);
-
-            const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-            if (imageData && imageData.startsWith('data:')) {
-              photoEntry.url = imageData;
-              photoEntry.thumbnailUrl = imageData;
-              URL.revokeObjectURL(photoUrl);
-              console.log(`[Gallery Upload] Image loaded successfully, length: ${imageData.length}`);
-            } else {
-              console.warn(`[Gallery Upload] Failed to load image data for ${filePath}`);
+        // Upload using lazy mechanism that handles pending points/rooms
+        this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry)
+          .then((response) => {
+            if (response) {
+              photoEntry.attachId = response?.AttachID || response?.PK_ID;
+              console.log(`[Gallery Photo] Upload successful with AttachID: ${photoEntry.attachId}`);
             }
-          } else {
-            console.error(`[Gallery Upload] No AttachID in response!`, createdRecord);
-          }
-
-          photoEntry.uploading = false;
-          point.photoCount = point.photos.length;
-          this.changeDetectorRef.detectChanges();
-          this.markReportChanged();
-          console.log(`[Gallery Upload] Upload complete. Point now has ${point.photoCount} photos.`);
-
-        } catch (uploadError) {
-          console.error('Error uploading gallery photo:', uploadError);
-          photoEntry.uploading = false;
-          await this.showToast('Failed to upload photo', 'danger');
-          const photoIndex = point.photos.indexOf(photoEntry);
-          if (photoIndex >= 0) {
-            point.photos.splice(photoIndex, 1);
-          }
-          this.changeDetectorRef.detectChanges();
-        }
+          })
+          .catch((err) => {
+            console.error('Gallery photo upload failed:', err);
+            // Don't show error toast - mark as queued for retry
+            photoEntry.uploading = false;
+            photoEntry.queued = true;
+            this.changeDetectorRef.detectChanges();
+          });
       }
     } catch (error) {
       if (error !== 'User cancelled photos app') {
-        throw error;
+        console.error('Error in selectAndProcessGalleryPhotoForPoint:', error);
+        // Don't throw - let photos queue and retry automatically
       }
     }
   }
