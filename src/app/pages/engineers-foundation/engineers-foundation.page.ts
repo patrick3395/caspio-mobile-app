@@ -823,20 +823,34 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         drawingsData = EMPTY_COMPRESSED_ANNOTATIONS;
       }
 
-      if (onProgress) onProgress(0.5); // 50% before upload
+      if (onProgress) onProgress(0.5); // 50% before record creation
 
-      // Upload the photo
-      const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
+      // STEP 1: Create attachment record immediately (to get AttachID)
+      const createResponse = await this.caspioService.createServicesEFEPointsAttachRecord(
         parseInt(pointId, 10),
         drawingsData,
-        compressedFile,
         data.photoType
+      ).toPromise();
+
+      const attachId = createResponse?.AttachID || createResponse?.PK_ID;
+      if (!attachId) {
+        throw new Error('No AttachID returned from record creation');
+      }
+
+      console.log(`[OperationsQueue] Record created with AttachID: ${attachId}`);
+
+      if (onProgress) onProgress(0.7); // 70% after record creation
+
+      // STEP 2: Upload the actual file to the record
+      const uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(
+        attachId,
+        compressedFile
       ).toPromise();
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Photo uploaded successfully:', response?.AttachID);
-      return { attachId: response?.AttachID || response?.PK_ID, response };
+      console.log('[OperationsQueue] Photo file uploaded for AttachID:', attachId);
+      return { attachId, response: uploadResponse };
     });
 
     // Register CREATE_VISUAL executor (Structural Systems)
@@ -3415,29 +3429,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // LAZY LOADING: Wait for point ID to be ready before uploading
         const uploadPromise = this.waitForPointIdAndUpload(
-          roomName, 
-          point, 
-          pointId, 
-          annotatedResult, 
+          roomName,
+          point,
+          pointId,
+          annotatedResult,
           photoEntry
         )
           .then(async (response) => {
-            // CRITICAL: Record created instantly - attachId available immediately
+            // Check if photo was queued (response is null) vs uploaded immediately (response has data)
+            if (response === null) {
+              // Photo was queued - it will upload later via operations queue
+              // Keep uploading: true flag (already set on photoEntry)
+              // attachId will be set by queue's onSuccess callback
+              console.log(`[Room Point] Photo queued for later upload`);
+              return null;
+            }
+
+            // Photo uploaded immediately - record created instantly
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
+            photoEntry.uploading = false; // Clear uploading flag for immediate uploads
             photoEntry.hasAnnotations = !!annotatedResult.annotationData;
 
-            console.log(`[Room Point] Record created instantly with AttachID: ${photoEntry.attachId}, photo uploading in background`);
+            console.log(`[Room Point] Record created instantly with AttachID: ${photoEntry.attachId}`);
 
-            // Note: uploading flag and photo URL will be updated by background upload callback
-            // This allows rapid photo captures without waiting for file upload
-            
             uploadSuccessCount++;
             return response;
           })
           .catch((err) => {
             console.error(`Failed to upload photo ${i + 1}:`, err);
-            // Photo is marked as queued by waitForPointIdAndUpload
-            // It will be retried later
+            // Photo failed - mark as error
+            photoEntry.uploading = false;
+            photoEntry.error = true;
           });
         
         uploadPromises.push(uploadPromise);
