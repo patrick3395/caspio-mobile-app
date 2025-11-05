@@ -737,7 +737,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (realRoomId && !realRoomId.startsWith('temp_') && realRoomId !== '__pending__') {
           efeid = parseInt(realRoomId);
           console.log(`[OperationsQueue] Resolved real room ID for ${data.roomName}: ${efeid}`);
+        } else if (data.EFEID === 0 || !data.EFEID) {
+          // Room ID not ready yet and we have no valid EFEID - throw error to retry
+          throw new Error(`Room ID not ready for ${data.roomName} (current: ${realRoomId})`);
         }
+      }
+
+      // Validate EFEID
+      if (!efeid || efeid === 0 || isNaN(efeid)) {
+        throw new Error(`Invalid EFEID for point ${data.PointName}: ${efeid}`);
       }
 
       const pointData = {
@@ -4127,11 +4135,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // If selecting, check if room already exists before creating
     if (isSelected) {
-      // Check if we already have a record ID for this room
-      if (this.efeRecordIds[roomName] && this.efeRecordIds[roomName] !== '__pending__') {
+      // Check if we already have a REAL record ID for this room (not temp or pending)
+      const existingRoomId = this.efeRecordIds[roomName];
+      if (existingRoomId &&
+          existingRoomId !== '__pending__' &&
+          !existingRoomId.startsWith('temp_')) {
         this.selectedRooms[roomName] = true;
         this.expandedRooms[roomName] = false;
-        return; // Room already exists, just update UI state
+        return; // Room already exists with real ID, just update UI state
       }
 
       // Validate ServiceID
@@ -4241,12 +4252,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const pointOpId = await this.operationsQueue.enqueue({
         type: 'CREATE_POINT',
         data: {
-          EFEID: parseInt(roomId),
+          EFEID: roomId.startsWith('temp_') ? 0 : parseInt(roomId), // Use 0 for temp IDs, executor will resolve real ID from roomName
           PointName: point.name,
           roomName: roomName // Pass room name for ID resolution
         },
         dependencies: [roomOpId], // Wait for room to be created
-        dedupeKey: `point_${roomId}_${point.name}`,
+        dedupeKey: `point_${roomName}_${point.name}`, // Use roomName instead of roomId for consistent deduping
         maxRetries: 3,
         onSuccess: (result: any) => {
           console.log(`[Point Queue] Success for ${point.name}:`, result.pointId);
@@ -4403,12 +4414,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const pointOpId = await this.operationsQueue.enqueue({
       type: 'CREATE_POINT',
       data: {
-        EFEID: parseInt(roomId.replace(/^temp_/, '')) || 0, // Will be resolved by executor when room is ready
+        EFEID: roomId.startsWith('temp_') ? 0 : parseInt(roomId), // Use 0 for temp IDs, executor will resolve real ID from roomName
         PointName: pointName,
         roomName: roomName // Pass room name so executor can get the real room ID
       },
       dependencies: dependencies,
-      dedupeKey: `point_${roomId}_${pointName}`,
+      dedupeKey: `point_${roomName}_${pointName}`, // Use roomName for consistent deduping
       maxRetries: 3,
       onSuccess: (result: any) => {
         console.log(`[Ensure Point] Point ${pointName} created successfully with ID ${result.pointId}`);
