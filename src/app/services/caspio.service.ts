@@ -2119,8 +2119,8 @@ export class CaspioService {
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
-  
-  // Type methods
+
+  // LPS_Type methods
   getType(typeId: string): Observable<any> {
     // First try TypeID field
     return this.get<any>(`/tables/LPS_Type/records?q.where=TypeID=${typeId}`).pipe(
@@ -3152,7 +3152,7 @@ export class CaspioService {
     );
   }
 
-  // Types table methods
+  // LPS_Type table methods
   getTypes(): Observable<any[]> {
     return this.get<any>('/tables/LPS_Type/records').pipe(
       map(response => response.Result || []),

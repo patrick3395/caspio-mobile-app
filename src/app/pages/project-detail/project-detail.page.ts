@@ -26,7 +26,7 @@ interface ServiceSelection {
   typeId: string;
   typeName: string;
   typeShort?: string; // Short code like EIR, EFE, DCR, etc.
-  typeIcon?: string; // Icon path from Types table
+  typeIcon?: string; // Icon path from LPS_Type table
   typeIconUrl?: string; // Base64 data URL for the icon
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
@@ -3454,14 +3454,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Navigate immediately - remove all blocking checks
     if (isHUDTemplate) {
-      const url = `/hud-template/${this.projectId}/${service.serviceId}`;
+      const url = `/hud/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
 
       // Use Angular router; fallback to direct navigation with query param if needed
-      this.router.navigate(['hud-template', this.projectId, service.serviceId], extras).catch(error => {
+      this.router.navigate(['hud', this.projectId, service.serviceId], extras).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
         const finalUrl = openPdf ? `${url}?openPdf=1` : url;
         window.location.assign(finalUrl);
