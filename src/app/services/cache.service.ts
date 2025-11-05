@@ -338,7 +338,7 @@ export class CacheService {
     this.clearTableCache('LPS_Services_EFE');
     this.clearTableCache('LPS_Services_EFE_Points');
     this.clearTableCache('LPS_Services_EFE_Points_Attach');
-    this.clearTableCache('Service_EFE');
+    this.clearTableCache('LPS_Service_EFE');
   }
 
   /**

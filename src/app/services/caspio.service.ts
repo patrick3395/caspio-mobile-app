@@ -3218,16 +3218,16 @@ export class CaspioService {
 
   private getCacheStrategy(endpoint: string): keyof typeof this.cache.CACHE_TIMES {
     // Immutable data - long cache (24 hours)
-    if (endpoint.includes('/tables/LPS_Type/records') || endpoint.includes('/tables/ServiceTypes')) {
+    if (endpoint.includes('/tables/LPS_Type/records') || endpoint.includes('/tables/LPS_ServiceTypes')) {
       return 'SERVICE_TYPES';
     }
-    if (endpoint.includes('/tables/Services_Visuals_Templates') || 
-        endpoint.includes('/tables/Services_EFE_Templates') ||
-        endpoint.includes('/tables/Attach_Templates') ||
-        endpoint.includes('/tables/Templates')) {
+    if (endpoint.includes('/tables/LPS_Services_Visuals_Templates') ||
+        endpoint.includes('/tables/LPS_Services_EFE_Templates') ||
+        endpoint.includes('/tables/LPS_Attach_Templates') ||
+        endpoint.includes('/tables/LPS_Templates')) {
       return 'TEMPLATES';
     }
-    if (endpoint.includes('/tables/States')) {
+    if (endpoint.includes('/tables/LPS_States')) {
       return 'STATES';
     }
     if (endpoint.includes('/tables/LPS_Offers/records')) {
@@ -3261,7 +3261,7 @@ export class CaspioService {
     }
     
     // User data - medium cache
-    if (endpoint.includes('/tables/Users') || endpoint.includes('/tables/Companies')) {
+    if (endpoint.includes('/tables/LPS_Users') || endpoint.includes('/tables/LPS_Companies')) {
       return 'USER_DATA';
     }
     
@@ -3294,24 +3294,24 @@ export class CaspioService {
     this.cache.clearTableCache(tableName);
     
     // Clear related caches based on table relationships
-    if (tableName === 'Services') {
+    if (tableName === 'LPS_Services') {
       // When Services change, also clear related service tables
-      this.cache.clearTableCache('Services_Visuals');
-      this.cache.clearTableCache('Services_Visuals_Attach');
-      this.cache.clearTableCache('Services_EFE');
-      this.cache.clearTableCache('Services_EFE_Points');
-      this.cache.clearTableCache('Service_EFE');
-      this.cache.clearTableCache('Projects'); // Projects list may need refresh
-    } else if (tableName === 'Attach') {
+      this.cache.clearTableCache('LPS_Services_Visuals');
+      this.cache.clearTableCache('LPS_Services_Visuals_Attach');
+      this.cache.clearTableCache('LPS_Services_EFE');
+      this.cache.clearTableCache('LPS_Services_EFE_Points');
+      this.cache.clearTableCache('LPS_Service_EFE');
+      this.cache.clearTableCache('LPS_Projects'); // Projects list may need refresh
+    } else if (tableName === 'LPS_Attach') {
       // When attachments change, projects may need refresh
-      this.cache.clearTableCache('Projects');
-    } else if (tableName === 'Projects') {
+      this.cache.clearTableCache('LPS_Projects');
+    } else if (tableName === 'LPS_Projects') {
       // When projects change, clear related data
-      this.cache.clearTableCache('Services');
-      this.cache.clearTableCache('Attach');
-    } else if (tableName.startsWith('Services_')) {
+      this.cache.clearTableCache('LPS_Services');
+      this.cache.clearTableCache('LPS_Attach');
+    } else if (tableName.startsWith('LPS_Services_')) {
       // Any services-related table change should clear Services cache
-      this.cache.clearTableCache('Services');
+      this.cache.clearTableCache('LPS_Services');
     }
   }
 
@@ -3339,10 +3339,10 @@ export class CaspioService {
     console.log('[CaspioService] Clearing Services-related cache entries', projectId ? `for project: ${projectId}` : '');
     
     // Clear Services-related template caches
-    this.cache.clearByPattern('Services_Visuals');
-    this.cache.clearByPattern('Services_EFE');
-    this.cache.clearByPattern('Services_EFE_Points');
-    this.cache.clearByPattern('Services_Visuals_Attach');
+    this.cache.clearByPattern('LPS_Services_Visuals');
+    this.cache.clearByPattern('LPS_Services_EFE');
+    this.cache.clearByPattern('LPS_Services_EFE_Points');
+    this.cache.clearByPattern('LPS_Services_Visuals_Attach');
     
     // Clear the main Services table cache for specific project if provided
     if (projectId) {
@@ -3360,7 +3360,7 @@ export class CaspioService {
    */
   public clearAttachmentsCache(projectId?: string): void {
     console.log('[CaspioService] Clearing Attachments cache entries', projectId ? `for project: ${projectId}` : '');
-    this.cache.clearByPattern('Attach/records');
+    this.cache.clearByPattern('LPS_Attach/records');
     
     // Clear the main Attach table cache for specific project if provided
     if (projectId) {

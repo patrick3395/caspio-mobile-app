@@ -279,9 +279,9 @@ export class MutationTrackingService {
     console.log('[MutationTracker] Clearing document caches');
 
     // Clear attachment tables
-    this.cache.clearTableCache('Attach');
-    this.cache.clearTableCache('Services_Visuals_Attach');
-    this.cache.clearTableCache('Services_EFE_Points_Attach');
+    this.cache.clearTableCache('LPS_Attach');
+    this.cache.clearTableCache('LPS_Services_Visuals_Attach');
+    this.cache.clearTableCache('LPS_Services_EFE_Points_Attach');
 
     if (mutation.projectId) {
       this.cache.clearByPattern(`ProjectID=${mutation.projectId}`);
