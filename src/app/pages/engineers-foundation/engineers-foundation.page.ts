@@ -292,6 +292,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   pointCreationStatus: { [key: string]: 'pending' | 'created' | 'failed' | 'retrying' } = {}; // Track point creation status
   pointCreationErrors: { [key: string]: string } = {}; // Track error messages for failed points
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
+  roomOperationIds: { [roomName: string]: string } = {}; // Track queued room operation IDs
+  pointOperationIds: { [pointKey: string]: string } = {}; // Track queued point operation IDs
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
 
@@ -727,7 +729,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Register CREATE_POINT executor
     this.operationsQueue.setExecutor('CREATE_POINT', async (data: any) => {
       console.log('[OperationsQueue] Executing CREATE_POINT:', data.PointName);
-      const response = await this.caspioService.createServicesEFEPoint(data).toPromise();
+
+      // If roomName is provided, get the real room ID (in case it was temp when queued)
+      let efeid = data.EFEID;
+      if (data.roomName) {
+        const realRoomId = this.efeRecordIds[data.roomName];
+        if (realRoomId && !realRoomId.startsWith('temp_') && realRoomId !== '__pending__') {
+          efeid = parseInt(realRoomId);
+          console.log(`[OperationsQueue] Resolved real room ID for ${data.roomName}: ${efeid}`);
+        }
+      }
+
+      const pointData = {
+        EFEID: efeid,
+        PointName: data.PointName
+      };
+
+      const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
 
       if (!response) {
         throw new Error('No response from createServicesEFEPoint');
@@ -746,6 +764,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Register UPLOAD_PHOTO executor
     this.operationsQueue.setExecutor('UPLOAD_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
       console.log('[OperationsQueue] Executing UPLOAD_PHOTO for point:', data.pointId);
+
+      // Resolve pointId if it's a pointKey (roomName_pointName format)
+      let pointId = data.pointId;
+      if (data.roomName && data.pointName) {
+        const pointKey = `${data.roomName}_${data.pointName}`;
+        const realPointId = this.efePointIds[pointKey];
+        if (realPointId && !realPointId.startsWith('temp_') && realPointId !== '__pending__') {
+          pointId = realPointId;
+          console.log(`[OperationsQueue] Resolved real point ID for ${pointKey}: ${pointId}`);
+        } else {
+          throw new Error(`Point ID not ready for ${pointKey}`);
+        }
+      }
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -786,7 +817,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Upload the photo
       const response = await this.caspioService.createServicesEFEPointsAttachWithFile(
-        parseInt(data.pointId, 10),
+        parseInt(pointId, 10),
         drawingsData,
         compressedFile,
         data.photoType
@@ -1113,6 +1144,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.expandedRooms = {};
     this.efeRecordIds = {};
     this.savingRooms = {};
+    this.roomOperationIds = {};
+    this.pointOperationIds = {};
 
     // Clear pending operations
     this.formData = {};
@@ -3440,154 +3473,111 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // LAZY LOADING: Wait for point ID to be ready and then upload photo
+  // QUEUE-BASED UPLOAD: Queue photo upload with proper dependencies on room and point creation
   private async waitForPointIdAndUpload(
-    roomName: string, 
-    point: any, 
-    initialPointId: string, 
+    roomName: string,
+    point: any,
+    initialPointId: string,
     annotatedResult: { file: File; annotationData?: any; originalFile?: File; caption?: string },
     photoEntry: any
   ): Promise<any> {
     const pointKey = `${roomName}_${point.name}`;
-    let pointId = initialPointId;
-    
-    console.log(`[Lazy Upload] Starting for ${pointKey}, initial pointId: ${pointId}`);
-    
-    // Check if point ID is valid
+
+    console.log(`[Photo Queue] Starting queue for ${pointKey}`);
+
+    // Check if point ID is already valid (point exists)
     const isValidPointId = (id: string) => {
-      return id && 
-             id !== '__pending__' && 
-             !String(id).startsWith('temp_') && 
+      return id &&
+             id !== '__pending__' &&
+             !String(id).startsWith('temp_') &&
              !isNaN(parseInt(id, 10));
     };
-    
-    // If point ID is not valid, wait for it to be created or create it ourselves
-    if (!isValidPointId(pointId)) {
-      console.log(`[Lazy Upload] Point ID not ready (${pointId}), waiting for creation...`);
-      
-      // Wait for point creation with timeout
-      const maxWaitTime = 15000; // 15 seconds max wait for point
-      const checkInterval = 200; // Check every 200ms
-      const startTime = Date.now();
-      
-      while (!isValidPointId(pointId) && (Date.now() - startTime) < maxWaitTime) {
-        // Wait a bit before checking again
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-        
-        // Get the latest point ID from the mapping
-        pointId = this.efePointIds[pointKey];
-        
-        if (isValidPointId(pointId)) {
-          console.log(`[Lazy Upload] Point ID now ready: ${pointId}`);
-          break;
-        }
-      }
-      
-      // If still not ready after waiting, try to create it ourselves
-      if (!isValidPointId(pointId)) {
-        console.log(`[Lazy Upload] Point still pending after wait, attempting to create it now for ${pointKey}`);
-        
-        // First need to wait for room to be ready
-        const roomId = this.efeRecordIds[roomName];
-        if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-          console.log(`[Lazy Upload] Room not ready, waiting for room...`);
-          
-          let currentRoomId = roomId;
-          const roomStartTime = Date.now();
-          const roomMaxWait = 15000; // 15 seconds max wait for room
-          
-          while ((!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) && 
-                 (Date.now() - roomStartTime) < roomMaxWait) {
-            await new Promise(resolve => setTimeout(resolve, checkInterval));
-            currentRoomId = this.efeRecordIds[roomName];
-          }
-          
-          if (!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) {
-            console.log(`[Lazy Upload] Room still not ready after ${roomMaxWait}ms wait - will continue retrying`);
-            // Keep photo in uploading state - it will be retried when room is ready
-            // photoEntry stays with uploading: true (showing spinner)
-            return null; // Return null to indicate queued, not failed
-          }
-          
-          // Room is now ready, try to create point
-          try {
-            const pointData = {
-              EFEID: parseInt(currentRoomId),
-              PointName: point.name
-            };
-            const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-            
-            if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-              pointId = createResponse.PointID || createResponse.PK_ID;
-              this.efePointIds[pointKey] = pointId;
-              this.pointCreationStatus[pointKey] = 'created';
-              console.log(`[Lazy Upload] Successfully created point ${point.name} with ID ${pointId}`);
-              
-              // Remove from pending queue
-              delete this.pendingPointCreates[pointKey];
-            } else {
-              throw new Error('No PointID in response');
-            }
-          } catch (error) {
-            console.error(`[Lazy Upload] Failed to create point after room wait:`, error);
-            // Keep photo in uploading state - it will be retried later
-            // photoEntry stays with uploading: true (showing spinner)
-            return null; // Return null to indicate queued, not failed
-          }
-        } else {
-          // Room is ready, create point
-          try {
-            const pointData = {
-              EFEID: parseInt(roomId),
-              PointName: point.name
-            };
-            const createResponse = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-            
-            if (createResponse && (createResponse.PointID || createResponse.PK_ID)) {
-              pointId = createResponse.PointID || createResponse.PK_ID;
-              this.efePointIds[pointKey] = pointId;
-              this.pointCreationStatus[pointKey] = 'created';
-              console.log(`[Lazy Upload] Successfully created point ${point.name} with ID ${pointId}`);
-              
-              // Remove from pending queue
-              delete this.pendingPointCreates[pointKey];
-            } else {
-              throw new Error('No PointID in response');
-            }
-          } catch (error) {
-            console.error(`[Lazy Upload] Failed to create point (room was ready):`, error);
-            // Keep photo in uploading state - it will be retried later
-            // photoEntry stays with uploading: true (showing spinner)
-            return null; // Return null to indicate queued, not failed
-          }
-        }
-      }
-      
-      // Final validation
-      if (!isValidPointId(pointId)) {
-        console.log(`[Lazy Upload] Could not get valid point ID after all attempts - will retry later`);
-        // Keep photo in uploading state - it will be retried later
-        // photoEntry stays with uploading: true (showing spinner)
-        return null; // Return null to indicate queued, not failed
+
+    // If point already exists with valid ID, upload immediately
+    if (isValidPointId(initialPointId)) {
+      console.log(`[Photo Queue] Point ${pointKey} already exists with ID ${initialPointId}, uploading immediately`);
+      try {
+        return await this.uploadPhotoToRoomPointFromFile(
+          initialPointId,
+          annotatedResult.file,
+          point.name,
+          annotatedResult.annotationData,
+          this.currentRoomPointContext.photoType
+        );
+      } catch (error) {
+        console.error(`[Photo Queue] Immediate upload failed:`, error);
+        return null;
       }
     }
-    
-    console.log(`[Lazy Upload] Proceeding with upload for ${pointKey}, pointId: ${pointId}`);
-    
-    // Now upload with the valid point ID - wrap in try-catch to prevent error popups
+
+    // Point doesn't exist yet - need to queue room → point → photo cascade
+    console.log(`[Photo Queue] Point ${pointKey} not ready, queuing cascade...`);
+
     try {
-      return await this.uploadPhotoToRoomPointFromFile(
-        pointId, 
-        annotatedResult.file, 
-        point.name, 
-        annotatedResult.annotationData, 
-        this.currentRoomPointContext.photoType
-      );
+      // Step 1: Ensure room is queued/created
+      const roomOpId = await this.ensureRoomQueued(roomName);
+      if (!roomOpId) {
+        console.error(`[Photo Queue] Failed to queue room ${roomName}`);
+        return null;
+      }
+
+      // Step 2: Ensure point is queued/created with dependency on room
+      const pointOpId = await this.ensurePointQueued(roomName, point.name, roomOpId);
+      if (!pointOpId) {
+        console.error(`[Photo Queue] Failed to queue point ${pointKey}`);
+        return null;
+      }
+
+      // Step 3: Queue photo upload with dependency on point
+      // Compress the file first
+      const compressedFile = await this.imageCompression.compressImage(annotatedResult.file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+
+      console.log(`[Photo Queue] Queuing photo upload for ${pointKey} with dependencies: room=${roomOpId}, point=${pointOpId}`);
+
+      await this.operationsQueue.enqueue({
+        type: 'UPLOAD_PHOTO',
+        data: {
+          pointId: pointKey, // Use pointKey initially, executor will resolve to real pointId
+          roomName: roomName,
+          pointName: point.name,
+          file: compressedFile,
+          pointNameDisplay: point.name,
+          annotationData: annotatedResult.annotationData,
+          photoType: this.currentRoomPointContext.photoType
+        },
+        dependencies: [pointOpId], // Wait for point to be created
+        dedupeKey: `photo_${pointKey}_${this.currentRoomPointContext.photoType}_${Date.now()}`,
+        maxRetries: 3,
+        onSuccess: (result: any) => {
+          console.log(`[Photo Queue] Photo uploaded successfully for ${pointKey}: ${result.attachId}`);
+          photoEntry.attachId = result.attachId;
+          photoEntry.uploading = false;
+          photoEntry.hasAnnotations = !!annotatedResult.annotationData;
+          this.changeDetectorRef.detectChanges();
+        },
+        onError: (error: any) => {
+          console.error(`[Photo Queue] Photo upload failed for ${pointKey}:`, error);
+          photoEntry.uploading = false;
+          photoEntry.error = true;
+          this.changeDetectorRef.detectChanges();
+        },
+        onProgress: (percent: number) => {
+          photoEntry.uploadProgress = percent;
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+
+      // Return null to indicate queued (not failed, not immediately successful)
+      console.log(`[Photo Queue] Photo successfully queued for ${pointKey}`);
+      return null;
+
     } catch (error) {
-      console.error(`[Lazy Upload] Photo upload failed:`, error);
-      // Keep photo in uploading state - it will be retried later
-      // photoEntry stays with uploading: true (showing spinner)
-      return null; // Return null to indicate queued, not failed
+      console.error(`[Photo Queue] Error queuing cascade for ${pointKey}:`, error);
+      return null;
     }
   }
   
@@ -4202,6 +4192,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.selectedRooms[roomName] = false;
           this.expandedRooms[roomName] = false;
           delete this.efeRecordIds[roomName];
+          delete this.roomOperationIds[roomName];
           this.savingRooms[roomName] = false;
 
           if (event && event.target) {
@@ -4213,6 +4204,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       });
 
+      // Store operation ID for tracking
+      this.roomOperationIds[roomName] = roomOpId;
       console.log(`[Room Queue] Queued room creation for ${roomName}, operation ID: ${roomOpId}`);
     }
   }
@@ -4244,11 +4237,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.pointCreationStatus[pointKey] = 'pending';
 
       // Queue point creation
-      await this.operationsQueue.enqueue({
+      const pointOpId = await this.operationsQueue.enqueue({
         type: 'CREATE_POINT',
         data: {
           EFEID: parseInt(roomId),
-          PointName: point.name
+          PointName: point.name,
+          roomName: roomName // Pass room name for ID resolution
         },
         dependencies: [roomOpId], // Wait for room to be created
         dedupeKey: `point_${roomId}_${point.name}`,
@@ -4259,7 +4253,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.pointCreationStatus[pointKey] = 'created';
           delete this.pointCreationErrors[pointKey];
           this.changeDetectorRef.detectChanges();
-          
+
           // Retry any queued photos for this point
           this.retryQueuedPhotosForPoint(roomName, point);
         },
@@ -4267,12 +4261,181 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.error(`[Point Queue] Failed for ${point.name}:`, error);
           this.pointCreationStatus[pointKey] = 'failed';
           this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+          delete this.pointOperationIds[pointKey];
           this.changeDetectorRef.detectChanges();
         }
       });
+
+      // Store operation ID for tracking
+      this.pointOperationIds[pointKey] = pointOpId;
     }
 
     this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Ensure room is queued/created - returns room operation ID for dependencies
+   * This method is idempotent - safe to call multiple times for same room
+   */
+  private async ensureRoomQueued(roomName: string): Promise<string | null> {
+    // Check if room already exists with valid ID
+    const existingRoomId = this.efeRecordIds[roomName];
+    if (existingRoomId && !existingRoomId.startsWith('temp_') && existingRoomId !== '__pending__') {
+      console.log(`[Ensure Room] Room ${roomName} already exists with ID ${existingRoomId}`);
+      return this.roomOperationIds[roomName] || null; // Return existing operation ID if available
+    }
+
+    // Check if room creation is already queued
+    if (this.roomOperationIds[roomName]) {
+      console.log(`[Ensure Room] Room ${roomName} already queued with operation ${this.roomOperationIds[roomName]}`);
+      return this.roomOperationIds[roomName];
+    }
+
+    // Validate ServiceID
+    const serviceIdNum = parseInt(this.serviceId, 10);
+    if (!this.serviceId || isNaN(serviceIdNum)) {
+      console.error(`[Ensure Room] Invalid ServiceID: ${this.serviceId}`);
+      await this.showToast(`Error: Invalid ServiceID`, 'danger');
+      return null;
+    }
+
+    // Build room data
+    const roomData: any = {
+      ServiceID: serviceIdNum,
+      RoomName: roomName
+    };
+
+    // Include TemplateID to link back to template
+    if (this.roomElevationData[roomName]?.templateId) {
+      roomData.TemplateID = this.roomElevationData[roomName].templateId;
+    }
+
+    // Include FDF, Notes, and Location if they exist
+    if (this.roomElevationData[roomName]) {
+      if (this.roomElevationData[roomName].fdf) roomData.FDF = this.roomElevationData[roomName].fdf;
+      if (this.roomElevationData[roomName].notes) roomData.Notes = this.roomElevationData[roomName].notes;
+      if (this.roomElevationData[roomName].location) roomData.Location = this.roomElevationData[roomName].location;
+    }
+
+    // Optimistic UI: Mark room as selected and saving
+    this.selectedRooms[roomName] = true;
+    this.expandedRooms[roomName] = true;
+    this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+    this.savingRooms[roomName] = true;
+    this.changeDetectorRef.detectChanges();
+
+    console.log(`[Ensure Room] Queuing room creation for ${roomName}`);
+
+    // Queue room creation
+    const roomOpId = await this.operationsQueue.enqueue({
+      type: 'CREATE_ROOM',
+      data: roomData,
+      dedupeKey: `room_${serviceIdNum}_${roomName}`,
+      maxRetries: 3,
+      onSuccess: (result: any) => {
+        console.log(`[Ensure Room] Room ${roomName} created successfully with ID ${result.roomId}`);
+        this.efeRecordIds[roomName] = result.roomId;
+        this.savingRooms[roomName] = false;
+        this.changeDetectorRef.detectChanges();
+
+        // Chain point creation for predefined points
+        this.queuePointCreation(roomName, result.roomId, roomOpId);
+      },
+      onError: (error: any) => {
+        console.error(`[Ensure Room] Failed to create room ${roomName}:`, error);
+        this.savingRooms[roomName] = false;
+        this.showToast(`Failed to create room "${roomName}". It will retry automatically.`, 'warning');
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+
+    // Store operation ID for tracking
+    this.roomOperationIds[roomName] = roomOpId;
+    console.log(`[Ensure Room] Room ${roomName} queued with operation ID ${roomOpId}`);
+
+    return roomOpId;
+  }
+
+  /**
+   * Ensure point is queued/created - returns point operation ID for dependencies
+   * This method is idempotent - safe to call multiple times for same point
+   */
+  private async ensurePointQueued(roomName: string, pointName: string, roomOpId: string | null): Promise<string | null> {
+    const pointKey = `${roomName}_${pointName}`;
+
+    // Check if point already exists with valid ID
+    const existingPointId = this.efePointIds[pointKey];
+    if (existingPointId && !existingPointId.startsWith('temp_') && existingPointId !== '__pending__') {
+      console.log(`[Ensure Point] Point ${pointName} already exists with ID ${existingPointId}`);
+      return this.pointOperationIds[pointKey] || null;
+    }
+
+    // Check if point creation is already queued
+    if (this.pointOperationIds[pointKey]) {
+      console.log(`[Ensure Point] Point ${pointName} already queued with operation ${this.pointOperationIds[pointKey]}`);
+      return this.pointOperationIds[pointKey];
+    }
+
+    // Get room ID - it might be temp or real
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId) {
+      console.error(`[Ensure Point] No room ID found for ${roomName}`);
+      return null;
+    }
+
+    // If room ID is still temp, we need to wait for room operation to complete
+    const dependencies: string[] = [];
+    if (roomOpId) {
+      dependencies.push(roomOpId);
+      console.log(`[Ensure Point] Point ${pointName} will depend on room operation ${roomOpId}`);
+    }
+
+    // Optimistic: assign temp ID
+    this.efePointIds[pointKey] = `temp_${Date.now()}_${Math.random()}`;
+    this.pointCreationStatus[pointKey] = 'pending';
+    this.changeDetectorRef.detectChanges();
+
+    console.log(`[Ensure Point] Queuing point creation for ${pointName} in room ${roomName}`);
+
+    // Queue point creation with dependency on room
+    const pointOpId = await this.operationsQueue.enqueue({
+      type: 'CREATE_POINT',
+      data: {
+        EFEID: parseInt(roomId.replace(/^temp_/, '')) || 0, // Will be resolved by executor when room is ready
+        PointName: pointName,
+        roomName: roomName // Pass room name so executor can get the real room ID
+      },
+      dependencies: dependencies,
+      dedupeKey: `point_${roomId}_${pointName}`,
+      maxRetries: 3,
+      onSuccess: (result: any) => {
+        console.log(`[Ensure Point] Point ${pointName} created successfully with ID ${result.pointId}`);
+        this.efePointIds[pointKey] = result.pointId;
+        this.pointCreationStatus[pointKey] = 'created';
+        delete this.pointCreationErrors[pointKey];
+        this.changeDetectorRef.detectChanges();
+
+        // Retry any queued photos for this point
+        if (this.roomElevationData[roomName]?.elevationPoints) {
+          const point = this.roomElevationData[roomName].elevationPoints.find((p: any) => p.name === pointName);
+          if (point) {
+            this.retryQueuedPhotosForPoint(roomName, point);
+          }
+        }
+      },
+      onError: (error: any) => {
+        console.error(`[Ensure Point] Failed to create point ${pointName}:`, error);
+        this.pointCreationStatus[pointKey] = 'failed';
+        this.pointCreationErrors[pointKey] = error.message || 'Failed to create point';
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+
+    // Store operation ID for tracking
+    this.pointOperationIds[pointKey] = pointOpId;
+    console.log(`[Ensure Point] Point ${pointName} queued with operation ID ${pointOpId}`);
+
+    return pointOpId;
   }
 
   // Pre-create all elevation points for a room to eliminate lag when taking photos
