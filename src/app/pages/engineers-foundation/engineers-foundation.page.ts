@@ -3392,11 +3392,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Don't wait for uploads - monitor them in background (like Structural Systems)
       Promise.all(uploadPromises).then(results => {
-        const queuedCount = results.filter(r => r === null).length;
-        if (queuedCount > 0) {
-          this.showToast(`${queuedCount} photo(s) queued. They will upload when the room and point are ready.`, 'info');
+        const stillUploadingCount = results.filter(r => r === null).length;
+        if (stillUploadingCount > 0) {
+          this.showToast(`${stillUploadingCount} photo(s) still uploading. They will finish when the room and point are ready.`, 'info');
         }
-        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful, ${queuedCount} queued`);
+        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful, ${stillUploadingCount} still uploading`);
       });
       
     } catch (error) {
@@ -3493,13 +3493,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           
           if (!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) {
-            console.log(`[Lazy Upload] Room still not ready after ${roomMaxWait}ms wait - queuing photo`);
-            // Mark photo as queued - it will be retried when room is ready
-            if (photoEntry) {
-              photoEntry.uploading = false;
-              photoEntry.queued = true;
-            }
-            this.changeDetectorRef.detectChanges();
+            console.log(`[Lazy Upload] Room still not ready after ${roomMaxWait}ms wait - will continue retrying`);
+            // Keep photo in uploading state - it will be retried when room is ready
+            // photoEntry stays with uploading: true (showing spinner)
             return null; // Return null to indicate queued, not failed
           }
           
@@ -3524,12 +3520,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
           } catch (error) {
             console.error(`[Lazy Upload] Failed to create point after room wait:`, error);
-            // Mark photo as queued - it will be retried later
-            if (photoEntry) {
-              photoEntry.uploading = false;
-              photoEntry.queued = true;
-            }
-            this.changeDetectorRef.detectChanges();
+            // Keep photo in uploading state - it will be retried later
+            // photoEntry stays with uploading: true (showing spinner)
             return null; // Return null to indicate queued, not failed
           }
         } else {
@@ -3554,12 +3546,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
           } catch (error) {
             console.error(`[Lazy Upload] Failed to create point (room was ready):`, error);
-            // Mark photo as queued - it will be retried later
-            if (photoEntry) {
-              photoEntry.uploading = false;
-              photoEntry.queued = true;
-            }
-            this.changeDetectorRef.detectChanges();
+            // Keep photo in uploading state - it will be retried later
+            // photoEntry stays with uploading: true (showing spinner)
             return null; // Return null to indicate queued, not failed
           }
         }
@@ -3567,13 +3555,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Final validation
       if (!isValidPointId(pointId)) {
-        console.log(`[Lazy Upload] Could not get valid point ID after all attempts - queuing photo`);
-        // Mark photo as queued - it will be retried later
-        if (photoEntry) {
-          photoEntry.uploading = false;
-          photoEntry.queued = true;
-        }
-        this.changeDetectorRef.detectChanges();
+        console.log(`[Lazy Upload] Could not get valid point ID after all attempts - will retry later`);
+        // Keep photo in uploading state - it will be retried later
+        // photoEntry stays with uploading: true (showing spinner)
         return null; // Return null to indicate queued, not failed
       }
     }
@@ -3591,12 +3575,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       );
     } catch (error) {
       console.error(`[Lazy Upload] Photo upload failed:`, error);
-      // Mark photo as queued - it will be retried later
-      if (photoEntry) {
-        photoEntry.uploading = false;
-        photoEntry.queued = true;
-      }
-      this.changeDetectorRef.detectChanges();
+      // Keep photo in uploading state - it will be retried later
+      // photoEntry stays with uploading: true (showing spinner)
       return null; // Return null to indicate queued, not failed
     }
   }
@@ -8109,17 +8089,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private async retryQueuedPhotosForPoint(roomName: string, point: any): Promise<void> {
     if (!point.photos || point.photos.length === 0) return;
     
-    const queuedPhotos = point.photos.filter((photo: any) => photo.queued && photo.file);
-    if (queuedPhotos.length === 0) return;
+    // Find photos that are still uploading (no attachId yet) and have a file to upload
+    const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
+    if (uploadingPhotos.length === 0) return;
     
-    console.log(`[Retry Queue] Found ${queuedPhotos.length} queued photos for ${roomName} - ${point.name}, retrying now...`);
+    console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}, retrying now...`);
     
-    for (const photoEntry of queuedPhotos) {
+    for (const photoEntry of uploadingPhotos) {
       try {
-        // Mark as uploading again
-        photoEntry.queued = false;
-        photoEntry.uploading = true;
-        this.changeDetectorRef.detectChanges();
+        // Photo is already in uploading state, just retry the upload
         
         // Get current IDs
         const roomId = this.efeRecordIds[roomName];
@@ -8154,9 +8132,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Called after rooms and points have been created
    */
   private async retryQueuedPhotos(): Promise<void> {
-    console.log('[Retry Queue] Checking for queued photos to retry...');
+    console.log('[Retry Queue] Checking for uploading photos to retry...');
     
-    // Find all queued photos across all rooms
+    // Find all uploading photos across all rooms
     for (const roomName of Object.keys(this.roomElevationData)) {
       const roomData = this.roomElevationData[roomName];
       if (!roomData || !roomData.elevationPoints) continue;
@@ -8164,18 +8142,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       for (const point of roomData.elevationPoints) {
         if (!point.photos || point.photos.length === 0) continue;
         
-        // Find photos that are queued
-        const queuedPhotos = point.photos.filter((photo: any) => photo.queued && photo.file);
+        // Find photos that are still uploading (no attachId yet)
+        const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
         
-        if (queuedPhotos.length > 0) {
-          console.log(`[Retry Queue] Found ${queuedPhotos.length} queued photos for ${roomName} - ${point.name}`);
+        if (uploadingPhotos.length > 0) {
+          console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}`);
           
-          for (const photoEntry of queuedPhotos) {
+          for (const photoEntry of uploadingPhotos) {
             try {
-              // Mark as uploading again
-              photoEntry.queued = false;
-              photoEntry.uploading = true;
-              this.changeDetectorRef.detectChanges();
+              // Photo is already in uploading state, just retry the upload
               
               // Get current IDs
               const roomId = this.efeRecordIds[roomName];
@@ -12162,9 +12137,9 @@ Stack: ${error?.stack}`;
           })
           .catch((err) => {
             console.error('Gallery photo upload failed:', err);
-            // Photo is marked as queued by waitForPointIdAndUpload
-            // Show a toast to let user know it will retry
-            this.showToast('Photo queued. It will upload when the room and point are ready.', 'info');
+            // Photo stays in uploading state by waitForPointIdAndUpload
+            // Show a toast to let user know it's still uploading
+            this.showToast('Photo still uploading. It will finish when the room and point are ready.', 'info');
           });
       }
     } catch (error) {
