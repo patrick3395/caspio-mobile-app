@@ -1103,8 +1103,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Parse multi-select fields
       this.parseInAttendanceField();
-      this.parseSecondFoundationRoomsField();
-      this.parseThirdFoundationRoomsField();
+      // Removed parseSecondFoundationRoomsField() and parseThirdFoundationRoomsField() - methods deleted
 
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
@@ -1200,8 +1199,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
 
         this.loadCustomValuesIntoDropdowns();
         this.parseInAttendanceField();
-        this.parseSecondFoundationRoomsField();
-        this.parseThirdFoundationRoomsField();
+        // Removed parseSecondFoundationRoomsField() and parseThirdFoundationRoomsField() - methods deleted
       } else {
         console.warn('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No service response received');
       }
@@ -1760,10 +1758,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
 
     const result = isBedroom || isBathroom;
 
-    // Ensure location property is initialized if missing
-    if (result && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
-      this.roomElevationData[roomName].location = '';
-    }
+    // Removed roomElevationData reference - property deleted
+    // if (result && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
+    //   this.roomElevationData[roomName].location = '';
+    // }
 
     return result;
   }
@@ -1777,10 +1775,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     const lowerRoomName = roomName.toLowerCase().trim();
     const isGarage = lowerRoomName.includes('garage');
 
-    // Ensure location property is initialized if missing (Type saves to location field)
-    if (isGarage && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
-      this.roomElevationData[roomName].location = '';
-    }
+    // Removed roomElevationData reference - property deleted
+    // if (isGarage && this.roomElevationData[roomName] && !this.roomElevationData[roomName].hasOwnProperty('location')) {
+    //   this.roomElevationData[roomName].location = '';
+    // }
 
     return isGarage;
   }
@@ -2566,24 +2564,25 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         return Math.round((completedRequired / totalRequired) * 100);
 
       case 'elevation':
+        // Removed elevation completion calculation - selectedRooms property deleted
         // Base Station is required for 100% completion
-        const baseStationSelected = this.selectedRooms['Base Station'] === true;
+        // const baseStationSelected = this.selectedRooms['Base Station'] === true;
 
         // Check if we have at least one other room selected (besides Base Station)
-        const otherRoomsSelected = Object.keys(this.selectedRooms).filter(
-          room => room !== 'Base Station' && this.selectedRooms[room] === true
-        ).length > 0;
+        // const otherRoomsSelected = Object.keys(this.selectedRooms).filter(
+        //   room => room !== 'Base Station' && this.selectedRooms[room] === true
+        // ).length > 0;
 
         // Calculate completion: Base Station is 50%, having at least one other room is another 50%
-        let elevationCompletion = 0;
-        if (baseStationSelected) {
-          elevationCompletion = 50;
-          if (otherRoomsSelected) {
-            elevationCompletion = 100;
-          }
-        }
+        // let elevationCompletion = 0;
+        // if (baseStationSelected) {
+        //   elevationCompletion = 50;
+        //   if (otherRoomsSelected) {
+        //     elevationCompletion = 100;
+        //   }
+        // }
 
-        return elevationCompletion;
+        return 0; // Returning 0 until elevation tracking is reimplemented
 
       default:
         return 0;
@@ -2787,21 +2786,22 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
+    // Removed elevation plot validation - selectedRooms and roomElevationData properties deleted
     // Check Base Station requirement for elevation plot
-    const baseStationSelected = this.selectedRooms['Base Station'] === true;
-    if (!baseStationSelected) {
-      incompleteAreas.push('Elevation Plot: Base Station (required)');
-    }
+    // const baseStationSelected = this.selectedRooms['Base Station'] === true;
+    // if (!baseStationSelected) {
+    //   incompleteAreas.push('Elevation Plot: Base Station (required)');
+    // }
 
     // Check that all selected rooms (except Base Station) have FDF answered
-    for (const roomName in this.selectedRooms) {
-      if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
-        const roomData = this.roomElevationData[roomName];
-        if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
-          incompleteAreas.push(`Elevation Plot - ${roomName}: FDF (Flooring Difference Factor) required`);
-        }
-      }
-    }
+    // for (const roomName in this.selectedRooms) {
+    //   if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
+    //     const roomData = this.roomElevationData[roomName];
+    //     if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
+    //       incompleteAreas.push(`Elevation Plot - ${roomName}: FDF (Flooring Difference Factor) required`);
+    //     }
+    //   }
+    // }
 
     // Show results
     if (incompleteAreas.length > 0) {
@@ -3040,21 +3040,22 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
+    // Removed elevation plot validation - selectedRooms and roomElevationData properties deleted
     // Check Base Station requirement for elevation plot
-    const baseStationSelected = this.selectedRooms['Base Station'] === true;
-    if (!baseStationSelected) {
-      return false;
-    }
+    // const baseStationSelected = this.selectedRooms['Base Station'] === true;
+    // if (!baseStationSelected) {
+    //   return false;
+    // }
 
     // Check that all selected rooms (except Base Station) have FDF answered
-    for (const roomName in this.selectedRooms) {
-      if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
-        const roomData = this.roomElevationData[roomName];
-        if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
-          return false;
-        }
-      }
-    }
+    // for (const roomName in this.selectedRooms) {
+    //   if (this.selectedRooms[roomName] === true && !this.isBaseStation(roomName)) {
+    //     const roomData = this.roomElevationData[roomName];
+    //     if (!roomData || !roomData.fdf || roomData.fdf === '' || roomData.fdf === '-- Select --') {
+    //       return false;
+    //     }
+    //   }
+    // }
 
     // All required fields are filled
     return true;
@@ -3387,10 +3388,8 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
               console.error('[v1.4.338] Error in prepareStructuralSystemsData:', err);
               return []; // Return empty array instead of failing
             }),
-            this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.338] Error in prepareElevationPlotData:', err);
-              return []; // Return empty array instead of failing
-            })
+            // Removed prepareElevationPlotData() - method deleted
+            Promise.resolve([]) // Return empty array as placeholder
           ]);
           
           projectInfo = projectData;
@@ -3821,7 +3820,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
 
     // If turning auto-save back ON, process ALL pending items
     if (wasOffline && !newState) {
-      this.processPendingRoomsAndPoints();
+      // Removed processPendingRoomsAndPoints() - method deleted
       this.processAllPendingVisuals();
     }
     // No toast needed - button state is self-explanatory
@@ -3894,66 +3893,67 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
    * Called periodically by the retry interval
    */
   private async retryStuckPhotos(): Promise<void> {
+    // Removed - roomElevationData, efeRecordIds, efePointIds properties deleted
     // Find all photos that are uploading but don't have an attachId
-    let foundStuckPhotos = false;
-    
-    for (const roomName of Object.keys(this.roomElevationData)) {
-      const roomData = this.roomElevationData[roomName];
-      if (!roomData || !roomData.elevationPoints) continue;
-      
-      for (const point of roomData.elevationPoints) {
-        if (!point.photos || point.photos.length === 0) continue;
-        
-        // Find photos that are stuck (uploading but no attachId)
-        const stuckPhotos = point.photos.filter((photo: any) => 
-          photo.uploading && !photo.attachId && photo.file
-        );
-        
-        if (stuckPhotos.length > 0) {
-          foundStuckPhotos = true;
-          console.log(`[Photo Retry] Found ${stuckPhotos.length} stuck photos for ${roomName} - ${point.name}`);
-          
-          // Check if room and point are ready now
-          const roomId = this.efeRecordIds[roomName];
-          const pointKey = `${roomName}_${point.name}`;
-          const pointId = this.efePointIds[pointKey];
-          
-          // Only retry if room and point are ready
-          if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_') &&
-              pointId && pointId !== '__pending__' && !String(pointId).startsWith('temp_')) {
-            
-            console.log(`[Photo Retry] Room and point are ready, retrying ${stuckPhotos.length} photos`);
-            
-            for (const photoEntry of stuckPhotos) {
-              try {
-                const annotatedResult = {
-                  file: photoEntry.file,
-                  annotationData: photoEntry.annotationData || null,
-                  originalFile: photoEntry.originalFile,
-                  caption: photoEntry.caption || ''
-                };
-                
-                const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
-                
-                if (response) {
-                  photoEntry.attachId = response?.AttachID || response?.PK_ID;
-                  console.log(`[Photo Retry] ✓ Retry successful, AttachID: ${photoEntry.attachId}`);
-                }
-              } catch (error) {
-                console.error(`[Photo Retry] Retry failed:`, error);
-                // Will retry again on next interval
-              }
-            }
-          } else {
-            console.log(`[Photo Retry] Room/point not ready yet - waiting (roomId: ${roomId}, pointId: ${pointId})`);
-          }
-        }
-      }
-    }
-    
-    if (!foundStuckPhotos) {
-      console.log('[Photo Retry] No stuck photos found');
-    }
+    // let foundStuckPhotos = false;
+
+    // for (const roomName of Object.keys(this.roomElevationData)) {
+    //   const roomData = this.roomElevationData[roomName];
+    //   if (!roomData || !roomData.elevationPoints) continue;
+    //
+    //   for (const point of roomData.elevationPoints) {
+    //     if (!point.photos || point.photos.length === 0) continue;
+    //
+    //     // Find photos that are stuck (uploading but no attachId)
+    //     const stuckPhotos = point.photos.filter((photo: any) =>
+    //       photo.uploading && !photo.attachId && photo.file
+    //     );
+    //
+    //     if (stuckPhotos.length > 0) {
+    //       foundStuckPhotos = true;
+    //       console.log(`[Photo Retry] Found ${stuckPhotos.length} stuck photos for ${roomName} - ${point.name}`);
+    //
+    //       // Check if room and point are ready now
+    //       const roomId = this.efeRecordIds[roomName];
+    //       const pointKey = `${roomName}_${point.name}`;
+    //       const pointId = this.efePointIds[pointKey];
+    //
+    //       // Only retry if room and point are ready
+    //       if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_') &&
+    //           pointId && pointId !== '__pending__' && !String(pointId).startsWith('temp_')) {
+    //
+    //         console.log(`[Photo Retry] Room and point are ready, retrying ${stuckPhotos.length} photos`);
+    //
+    //         for (const photoEntry of stuckPhotos) {
+    //           try {
+    //             const annotatedResult = {
+    //               file: photoEntry.file,
+    //               annotationData: photoEntry.annotationData || null,
+    //               originalFile: photoEntry.originalFile,
+    //               caption: photoEntry.caption || ''
+    //             };
+    //
+    //             const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
+    //
+    //             if (response) {
+    //               photoEntry.attachId = response?.AttachID || response?.PK_ID;
+    //               console.log(`[Photo Retry] ✓ Retry successful, AttachID: ${photoEntry.attachId}`);
+    //             }
+    //           } catch (error) {
+    //             console.error(`[Photo Retry] Retry failed:`, error);
+    //             // Will retry again on next interval
+    //           }
+    //         }
+    //       } else {
+    //         console.log(`[Photo Retry] Room/point not ready yet - waiting (roomId: ${roomId}, pointId: ${pointId})`);
+    //       }
+    //     }
+    //   }
+    // }
+
+    // if (!foundStuckPhotos) {
+    //   console.log('[Photo Retry] No stuck photos found');
+    // }
   }
 
   /**
@@ -3965,57 +3965,58 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
    * Called after rooms and points have been created
    */
   private async retryQueuedPhotos(): Promise<void> {
-    console.log('[Retry Queue] Checking for uploading photos to retry...');
-    
+    // Removed - roomElevationData, efeRecordIds, efePointIds properties deleted
+    // console.log('[Retry Queue] Checking for uploading photos to retry...');
+
     // Find all uploading photos across all rooms
-    for (const roomName of Object.keys(this.roomElevationData)) {
-      const roomData = this.roomElevationData[roomName];
-      if (!roomData || !roomData.elevationPoints) continue;
-      
-      for (const point of roomData.elevationPoints) {
-        if (!point.photos || point.photos.length === 0) continue;
-        
-        // Find photos that are still uploading (no attachId yet)
-        const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
-        
-        if (uploadingPhotos.length > 0) {
-          console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}`);
-          
-          for (const photoEntry of uploadingPhotos) {
-            try {
-              // Photo is already in uploading state, just retry the upload
-              
-              // Get current IDs
-              const roomId = this.efeRecordIds[roomName];
-              const pointKey = `${roomName}_${point.name}`;
-              const pointId = this.efePointIds[pointKey];
-              
-              console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
-              
-              // Retry upload
-              const annotatedResult = {
-                file: photoEntry.file,
-                annotationData: photoEntry.annotationData || null,
-                originalFile: photoEntry.originalFile,
-                caption: photoEntry.caption || ''
-              };
-              
-              const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
-              
-              if (response) {
-                photoEntry.attachId = response?.AttachID || response?.PK_ID;
-                console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}`);
-              }
-            } catch (error) {
-              console.error(`[Retry Queue] Failed to retry photo:`, error);
-              // Photo will remain queued for next retry
-            }
-          }
-        }
-      }
-    }
-    
-    console.log('[Retry Queue] Retry complete');
+    // for (const roomName of Object.keys(this.roomElevationData)) {
+    //   const roomData = this.roomElevationData[roomName];
+    //   if (!roomData || !roomData.elevationPoints) continue;
+    //
+    //   for (const point of roomData.elevationPoints) {
+    //     if (!point.photos || point.photos.length === 0) continue;
+    //
+    //     // Find photos that are still uploading (no attachId yet)
+    //     const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
+    //
+    //     if (uploadingPhotos.length > 0) {
+    //       console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}`);
+    //
+    //       for (const photoEntry of uploadingPhotos) {
+    //         try {
+    //           // Photo is already in uploading state, just retry the upload
+    //
+    //           // Get current IDs
+    //           const roomId = this.efeRecordIds[roomName];
+    //           const pointKey = `${roomName}_${point.name}`;
+    //           const pointId = this.efePointIds[pointKey];
+    //
+    //           console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
+    //
+    //           // Retry upload
+    //           const annotatedResult = {
+    //             file: photoEntry.file,
+    //             annotationData: photoEntry.annotationData || null,
+    //             originalFile: photoEntry.originalFile,
+    //             caption: photoEntry.caption || ''
+    //           };
+    //
+    //           const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
+    //
+    //           if (response) {
+    //             photoEntry.attachId = response?.AttachID || response?.PK_ID;
+    //             console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}`);
+    //           }
+    //         } catch (error) {
+    //           console.error(`[Retry Queue] Failed to retry photo:`, error);
+    //           // Photo will remain queued for next retry
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    // console.log('[Retry Queue] Retry complete');
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
@@ -5279,24 +5280,25 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     
+    // Removed FDF photo and room point context checks - properties and methods deleted
     // Check if this is for FDF photos
-    if (this.currentFDFPhotoContext) {
-      // Handle single FDF photo
-      if (files.length > 0) {
-        await this.processFDFPhoto(files[0]);
-      }
-      // Clear file input
-      if (this.fileInput && this.fileInput.nativeElement) {
-        this.fileInput.nativeElement.value = '';
-      }
-      return;
-    }
-    
+    // if (this.currentFDFPhotoContext) {
+    //   // Handle single FDF photo
+    //   if (files.length > 0) {
+    //     await this.processFDFPhoto(files[0]);
+    //   }
+    //   // Clear file input
+    //   if (this.fileInput && this.fileInput.nativeElement) {
+    //     this.fileInput.nativeElement.value = '';
+    //   }
+    //   return;
+    // }
+
     // Check if this is for room points or visuals
-    if (this.currentRoomPointContext) {
-      await this.handleRoomPointFileSelect(files);
-      return;
-    }
+    // if (this.currentRoomPointContext) {
+    //   await this.handleRoomPointFileSelect(files);
+    //   return;
+    // }
     
     if (!this.currentUploadContext) return;
     

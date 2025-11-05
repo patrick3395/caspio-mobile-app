@@ -384,35 +384,6 @@
               </div>
             </div>
 
-            <!-- Second Foundation Rooms - Multi-Select -->
-            <div class="form-group" [class.filled]="secondFoundationRoomsSelections && secondFoundationRoomsSelections.length > 0"
-                 *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
-              <label>
-                <ion-icon name="home-outline"></ion-icon>
-                Second Foundation Rooms
-              </label>
-              <div class="multi-select-container-inline">
-                <div class="multi-select-options-inline">
-                  <div class="option-item-inline" *ngFor="let option of secondFoundationRoomsOptions; trackBy: trackByOption">
-                    <ion-checkbox
-                      [checked]="isSecondFoundationRoomsSelected(option)"
-                      (ionChange)="onSecondFoundationRoomsToggle(option, $event)">
-                    </ion-checkbox>
-                    <ion-label>{{ option }}</ion-label>
-                  </div>
-                </div>
-                <!-- Custom input for "Other" option -->
-                <div class="other-input-container" *ngIf="isSecondFoundationRoomsSelected('Other')">
-                  <input type="text"
-                         [(ngModel)]="secondFoundationRoomsOtherValue"
-                         (blur)="onSecondFoundationRoomsOtherChange()"
-                         (click)="$event.stopPropagation()"
-                         placeholder="Please specify..."
-                         class="styled-input other-input">
-                </div>
-              </div>
-            </div>
-
             <!-- Third Foundation Type -->
             <div class="form-group" [class.filled]="serviceData.ThirdFoundationType"
                  *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
@@ -434,35 +405,6 @@
                          (blur)="onThirdFoundationTypeOtherChange()"
                          (click)="$event.stopPropagation()"
                          placeholder="Please specify foundation type..."
-                         class="styled-input other-input">
-                </div>
-              </div>
-            </div>
-
-            <!-- Third Foundation Rooms - Multi-Select -->
-            <div class="form-group" [class.filled]="thirdFoundationRoomsSelections && thirdFoundationRoomsSelections.length > 0"
-                 *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None' && serviceData.ThirdFoundationType !== ''">
-              <label>
-                <ion-icon name="home-outline"></ion-icon>
-                Third Foundation Rooms
-              </label>
-              <div class="multi-select-container-inline">
-                <div class="multi-select-options-inline">
-                  <div class="option-item-inline" *ngFor="let option of thirdFoundationRoomsOptions; trackBy: trackByOption">
-                    <ion-checkbox
-                      [checked]="isThirdFoundationRoomsSelected(option)"
-                      (ionChange)="onThirdFoundationRoomsToggle(option, $event)">
-                    </ion-checkbox>
-                    <ion-label>{{ option }}</ion-label>
-                  </div>
-                </div>
-                <!-- Custom input for "Other" option -->
-                <div class="other-input-container" *ngIf="isThirdFoundationRoomsSelected('Other')">
-                  <input type="text"
-                         [(ngModel)]="thirdFoundationRoomsOtherValue"
-                         (blur)="onThirdFoundationRoomsOtherChange()"
-                         (click)="$event.stopPropagation()"
-                         placeholder="Please specify..."
                          class="styled-input other-input">
                 </div>
               </div>
