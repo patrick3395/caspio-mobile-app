@@ -3517,15 +3517,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     console.log(`[Photo Queue] Starting queue for ${pointKey}`);
 
-    // Check if point ID is already valid (point exists)
-    const isValidPointId = (id: string) => {
-      return id &&
-             id !== '__pending__' &&
-             !String(id).startsWith('temp_') &&
-             !isNaN(parseInt(id, 10));
+    // Check if point ID is already valid (point exists and is created in Caspio)
+    const isValidPointId = (id: string | number) => {
+      if (!id) return false;
+      const idStr = String(id);
+      // Point must exist in our mapping, not be temp/pending, and be a valid number
+      if (idStr === '__pending__' || idStr.startsWith('temp_')) return false;
+      const numId = typeof id === 'number' ? id : parseInt(idStr, 10);
+      if (isNaN(numId)) return false;
+
+      // Also verify the point is marked as 'created' in our status tracking
+      const status = this.pointCreationStatus[pointKey];
+      return status === 'created' || status === undefined; // undefined = legacy/already existed
     };
 
-    // If point already exists with valid ID, upload immediately
+    // If point already exists with valid ID AND is fully created, upload immediately
     if (isValidPointId(initialPointId)) {
       console.log(`[Photo Queue] Point ${pointKey} already exists with ID ${initialPointId}, uploading immediately`);
       try {
@@ -3540,22 +3546,23 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
       } catch (error) {
         console.error(`[Photo Queue] Immediate upload failed:`, error);
-        return null;
+        return null; // Failed permanently, don't queue
       }
     }
 
-    // Point doesn't exist yet - need to queue room → point → photo cascade
-    console.log(`[Photo Queue] Point ${pointKey} not ready, queuing cascade...`);
+    // Point doesn't exist yet OR is being created - queue room → point → photo cascade
+    // This ensures we NEVER try to create attachment record before point is ready
+    console.log(`[Photo Queue] Point ${pointKey} not ready (status: ${this.pointCreationStatus[pointKey]}), queuing cascade...`);
 
     try {
-      // Step 1: Ensure room is queued/created
+      // Step 1: Ensure room is queued/created (idempotent)
       const roomOpId = await this.ensureRoomQueued(roomName);
       if (!roomOpId) {
         console.error(`[Photo Queue] Failed to queue room ${roomName}`);
         return null;
       }
 
-      // Step 2: Ensure point is queued/created with dependency on room
+      // Step 2: Ensure point is queued/created with dependency on room (idempotent)
       const pointOpId = await this.ensurePointQueued(roomName, point.name, roomOpId);
       if (!pointOpId) {
         console.error(`[Photo Queue] Failed to queue point ${pointKey}`);
@@ -3563,6 +3570,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       // Step 3: Queue photo upload with dependency on point
+      // IMPORTANT: This will only execute after point is created, so Step 1 (record creation) will work
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(annotatedResult.file, {
         maxSizeMB: 0.8,
