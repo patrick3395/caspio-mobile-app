@@ -1773,7 +1773,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.thirdFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
       this.secondFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
       this.thirdFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-      this.ownerOccupantInterviewOptions = ['Yes', 'No', 'Not Available', 'Other'];
+      this.ownerOccupantInterviewOptions = [
+        'Owner/occupant not available for discussion',
+        'Owner/occupant not aware of any previous foundation work',
+        'Owner/occupant provided the information documented in Support Documents',
+        'Owner/occupant is aware of previous work and will email documents asap',
+        'Other'
+      ];
       
       // Load from Services_Drop table
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
@@ -3374,8 +3380,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
-        // Upload in background with annotation data including photoType
-        const uploadPromise = this.uploadPhotoToRoomPointFromFile(pointId, annotatedResult.file, point.name, annotatedResult.annotationData, this.currentRoomPointContext.photoType)
+        // LAZY LOADING: Wait for point ID to be ready before uploading
+        const uploadPromise = this.waitForPointIdAndUpload(
+          roomName, 
+          point, 
+          pointId, 
+          annotatedResult, 
+          photoEntry
+        )
           .then(async (response) => {
             // CRITICAL: Record created instantly - attachId available immediately
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
@@ -3439,6 +3451,75 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }, 500);
       }
     }
+  }
+  
+  // LAZY LOADING: Wait for point ID to be ready and then upload photo
+  private async waitForPointIdAndUpload(
+    roomName: string, 
+    point: any, 
+    initialPointId: string, 
+    annotatedResult: { file: File; annotationData?: any; originalFile?: File; caption?: string },
+    photoEntry: any
+  ): Promise<any> {
+    const pointKey = `${roomName}_${point.name}`;
+    let pointId = initialPointId;
+    
+    console.log(`[Lazy Upload] Starting for ${pointKey}, initial pointId: ${pointId}`);
+    
+    // Check if point ID is valid
+    const isValidPointId = (id: string) => {
+      return id && 
+             id !== '__pending__' && 
+             !String(id).startsWith('temp_') && 
+             !isNaN(parseInt(id, 10));
+    };
+    
+    // If point ID is not valid, wait for it to be created
+    if (!isValidPointId(pointId)) {
+      console.log(`[Lazy Upload] Point ID not ready (${pointId}), waiting for creation...`);
+      
+      // Wait for point creation with timeout
+      const maxWaitTime = 10000; // 10 seconds max
+      const checkInterval = 100; // Check every 100ms
+      const startTime = Date.now();
+      
+      while (!isValidPointId(pointId) && (Date.now() - startTime) < maxWaitTime) {
+        // Check if point is currently being created
+        const status = this.pointCreationStatus[pointKey];
+        
+        if (status === 'failed') {
+          throw new Error(`Point creation failed for ${point.name}`);
+        }
+        
+        // Wait a bit before checking again
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+        
+        // Get the latest point ID from the mapping
+        pointId = this.efePointIds[pointKey];
+        
+        if (isValidPointId(pointId)) {
+          console.log(`[Lazy Upload] Point ID now ready: ${pointId}`);
+          break;
+        }
+      }
+      
+      // Final check after wait loop
+      if (!isValidPointId(pointId)) {
+        console.error(`[Lazy Upload] Timeout waiting for point ID for ${pointKey}`);
+        throw new Error(`Point creation timeout for ${point.name}. Please try again.`);
+      }
+    }
+    
+    console.log(`[Lazy Upload] Proceeding with upload for ${pointKey}, pointId: ${pointId}`);
+    
+    // Now upload with the valid point ID
+    return this.uploadPhotoToRoomPointFromFile(
+      pointId, 
+      annotatedResult.file, 
+      point.name, 
+      annotatedResult.annotationData, 
+      this.currentRoomPointContext.photoType
+    );
   }
   
   // Helper method to capture photo using native file input (DEPRECATED - kept for legacy)
@@ -6929,12 +7010,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[EngFoundation] Report finalized successfully');
 
       await loading.dismiss();
-
-      // Show success message
-      const successMessage = isFirstFinalization
-        ? 'Report finalized successfully'
-        : 'Report updated successfully';
-      await this.showToast(successMessage, 'success');
 
       // Navigate back to project detail
       console.log('[EngFoundation] Navigating to project detail...');

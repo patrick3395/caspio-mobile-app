@@ -576,7 +576,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
-          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
+          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusDateTime: service.StatusDateTime || '',
           // Deliverables fields - use StatusEng from database (should be "Created")
@@ -610,9 +610,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // Update ReportFinalized flag and Status (Status already loaded from DB, but ensure consistency)
           service.ReportFinalized = true;
-          // Only update Status if it's not already set by the server data
-          if (!service.Status || service.Status !== 'Finalized') {
-            service.Status = 'Finalized';
+          // Preserve 'Under Review' status if already submitted, otherwise set to 'Finalized'
+          if (service.Status !== 'Under Review') {
+            if (!service.Status || service.Status !== 'Finalized') {
+              service.Status = 'Finalized';
+            }
           }
 
           // Mark that changes have been made (for Re-Submit button)
@@ -839,7 +841,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeShort: offer?.TypeShort || '',
           typeIcon: offer?.TypeIcon || '',
           dateOfInspection: service.DateOfInspection || new Date().toISOString(),
-          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.ReportFinalized || false,
+          ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusDateTime: service.StatusDateTime || '',
           // Deliverables fields - preload StatusEng with Status if not set
