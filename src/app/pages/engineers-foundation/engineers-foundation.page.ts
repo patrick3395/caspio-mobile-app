@@ -303,6 +303,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private lockedScrollY = 0;
   private lockedScrollX = 0;
   private scrollCheckInterval: any = null;
+  private photoRetryInterval: any = null;
   private preClickScrollY = 0;
   private preClickScrollX = 0;
 
@@ -561,6 +562,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Initialize operations queue and register executors
     await this.initializeOperationsQueue();
+    
+    // Start periodic retry for stuck uploading photos
+    this.startPhotoRetryInterval();
 
     this.isOnline = this.offlineService.isOnline();
     this.manualOffline = this.offlineService.isManualOffline();
@@ -1057,6 +1061,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.scrollCheckInterval = null;
     }
     this.scrollLockActive = false;
+    
+    // Clean up photo retry interval
+    if (this.photoRetryInterval) {
+      clearInterval(this.photoRetryInterval);
+      this.photoRetryInterval = null;
+    }
 
     // Unsubscribe from all observables
     this.subscriptions.unsubscribe();
@@ -8079,6 +8089,90 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error) {
       console.error('[v1.4.504] Error processing pending rooms and points:', error);
       await this.showToast('Some items failed to sync', 'danger');
+    }
+  }
+
+  /**
+   * Start interval to periodically retry photos that are stuck uploading
+   */
+  private startPhotoRetryInterval(): void {
+    // Clear any existing interval
+    if (this.photoRetryInterval) {
+      clearInterval(this.photoRetryInterval);
+    }
+    
+    // Check every 10 seconds for photos that need retry
+    this.photoRetryInterval = setInterval(() => {
+      this.retryStuckPhotos();
+    }, 10000); // 10 seconds
+    
+    console.log('[Photo Retry] Periodic retry interval started (every 10 seconds)');
+  }
+
+  /**
+   * Check for and retry photos that are stuck uploading
+   * Called periodically by the retry interval
+   */
+  private async retryStuckPhotos(): Promise<void> {
+    // Find all photos that are uploading but don't have an attachId
+    let foundStuckPhotos = false;
+    
+    for (const roomName of Object.keys(this.roomElevationData)) {
+      const roomData = this.roomElevationData[roomName];
+      if (!roomData || !roomData.elevationPoints) continue;
+      
+      for (const point of roomData.elevationPoints) {
+        if (!point.photos || point.photos.length === 0) continue;
+        
+        // Find photos that are stuck (uploading but no attachId)
+        const stuckPhotos = point.photos.filter((photo: any) => 
+          photo.uploading && !photo.attachId && photo.file
+        );
+        
+        if (stuckPhotos.length > 0) {
+          foundStuckPhotos = true;
+          console.log(`[Photo Retry] Found ${stuckPhotos.length} stuck photos for ${roomName} - ${point.name}`);
+          
+          // Check if room and point are ready now
+          const roomId = this.efeRecordIds[roomName];
+          const pointKey = `${roomName}_${point.name}`;
+          const pointId = this.efePointIds[pointKey];
+          
+          // Only retry if room and point are ready
+          if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_') &&
+              pointId && pointId !== '__pending__' && !String(pointId).startsWith('temp_')) {
+            
+            console.log(`[Photo Retry] Room and point are ready, retrying ${stuckPhotos.length} photos`);
+            
+            for (const photoEntry of stuckPhotos) {
+              try {
+                const annotatedResult = {
+                  file: photoEntry.file,
+                  annotationData: photoEntry.annotationData || null,
+                  originalFile: photoEntry.originalFile,
+                  caption: photoEntry.caption || ''
+                };
+                
+                const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
+                
+                if (response) {
+                  photoEntry.attachId = response?.AttachID || response?.PK_ID;
+                  console.log(`[Photo Retry] ✓ Retry successful, AttachID: ${photoEntry.attachId}`);
+                }
+              } catch (error) {
+                console.error(`[Photo Retry] Retry failed:`, error);
+                // Will retry again on next interval
+              }
+            }
+          } else {
+            console.log(`[Photo Retry] Room/point not ready yet - waiting (roomId: ${roomId}, pointId: ${pointId})`);
+          }
+        }
+      }
+    }
+    
+    if (!foundStuckPhotos) {
+      console.log('[Photo Retry] No stuck photos found');
     }
   }
 
