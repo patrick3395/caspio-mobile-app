@@ -72,7 +72,7 @@ export class ProjectsService {
   ) {}
 
   getProjectTableDefinition(): Observable<any> {
-    return this.caspioService.get('/tables/Projects/definition');
+    return this.caspioService.get('/tables/LPS_Projects/definition');
   }
 
   /**
@@ -110,7 +110,7 @@ export class ProjectsService {
     }
     
     // Fetch projects with StatusID = 1 (Active) and optionally filter by CompanyID
-    return this.caspioService.get<any>(`/tables/Projects/records?q.where=${whereClause}`).pipe(
+    return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`).pipe(
       map(response => response.Result || []),
       tap(projects => {
         // Cache the results for 5 minutes
@@ -121,7 +121,7 @@ export class ProjectsService {
 
   getAllProjects(companyId?: number): Observable<Project[]> {
     // Build the URL with optional CompanyID filter
-    let url = '/tables/Projects/records';
+    let url = '/tables/LPS_Projects/records';
     if (companyId) {
       url += `?q.where=CompanyID%3D${companyId}`;
     }
@@ -138,7 +138,7 @@ export class ProjectsService {
       return of(cached);
     }
 
-    return this.caspioService.get<any>(`/tables/Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
+    return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
       map(response => response.Result && response.Result[0] || {}),
       tap(project => {
         if (project && Object.keys(project).length > 0) {
@@ -261,7 +261,7 @@ export class ProjectsService {
         });
         
         // Add response=rows to get the created record back
-        return this.http.post<any>(`${this.apiBaseUrl}/tables/Projects/records?response=rows`, caspioData, { 
+        return this.http.post<any>(`${this.apiBaseUrl}/tables/LPS_Projects/records?response=rows`, caspioData, { 
           headers,
           observe: 'response' // Get full response to check status
         }).pipe(
@@ -458,7 +458,7 @@ export class ProjectsService {
       switchMap(() => {
         const account = this.caspioService.getAccountID();
         const token = this.caspioService.getCurrentToken();
-        const url = `https://${account}.caspio.com/rest/v2/tables/Projects/records?q.where=PK_ID=${projectId}`;
+        const url = `https://${account}.caspio.com/rest/v2/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
 
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${token}`,
@@ -498,7 +498,7 @@ export class ProjectsService {
       switchMap(() => {
         const account = this.caspioService.getAccountID();
         const token = this.caspioService.getCurrentToken();
-        const url = `https://${account}.caspio.com/rest/v2/tables/Projects/records?q.where=PK_ID=${projectId}`;
+        const url = `https://${account}.caspio.com/rest/v2/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
 
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${token}`,
@@ -561,21 +561,21 @@ export class ProjectsService {
 
   // Get offers for a company
   getOffers(companyId: number): Observable<any[]> {
-    return this.caspioService.get<any>(`/tables/Offers/records?q.where=CompanyID%3D${companyId}`).pipe(
+    return this.caspioService.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID%3D${companyId}`).pipe(
       map(response => response.Result || [])
     );
   }
 
   // Get service types
   getServiceTypes(): Observable<any[]> {
-    return this.caspioService.get<any>('/tables/Type/records').pipe(
+    return this.caspioService.get<any>('/tables/LPS_Type/records').pipe(
       map(response => response.Result || [])
     );
   }
 
   // Get states from Caspio States table
   getStates(): Observable<any[]> {
-    return this.caspioService.get<any>('/tables/States/records').pipe(
+    return this.caspioService.get<any>('/tables/LPS_States/records').pipe(
       map(response => {
         return response.Result || [];
       })
@@ -584,7 +584,7 @@ export class ProjectsService {
 
   // Get services for a specific project
   getServicesByProjectId(projectId: string): Observable<any[]> {
-    return this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID='${projectId}'`).pipe(
+    return this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID='${projectId}'`).pipe(
       map(response => response.Result || [])
     );
   }

@@ -57,7 +57,7 @@ export class ServiceEfeService {
             const actualProjectId = projectData.Result[0].ProjectID;
             
             // Now check for Service_EFE record using the actual ProjectID
-            return this.http.get<any>(`${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ProjectID=${actualProjectId}`, { headers }).pipe(
+            return this.http.get<any>(`${this.apiBaseUrl}/tables/LPS_Service_EFE/records?q.where=ProjectID=${actualProjectId}`, { headers }).pipe(
               map(response => {
                 if (response.Result && response.Result.length > 0) {
                   return {
@@ -96,7 +96,7 @@ export class ServiceEfeService {
             
             const data = { ProjectID: actualProjectId };
             
-            return this.http.post<ServiceEFE>(`${this.apiBaseUrl}/tables/Service_EFE/records`, data, { 
+            return this.http.post<ServiceEFE>(`${this.apiBaseUrl}/tables/LPS_Service_EFE/records`, data, { 
               headers,
               observe: 'response' 
             }).pipe(
@@ -131,7 +131,7 @@ export class ServiceEfeService {
         updateData[fieldName] = value;
         
         return this.http.put<any>(
-          `${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`,
+          `${this.apiBaseUrl}/tables/LPS_Service_EFE/records?q.where=ServiceID=${serviceId}`,
           updateData,
           { headers }
         ).pipe(
@@ -205,7 +205,7 @@ export class ServiceEfeService {
     return from(this.caspioService.ensureAuthenticated()).pipe(
       switchMap(() => {
         const headers = this.getAuthHeaders();
-        return this.http.get<any>(`${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`, { headers }).pipe(
+        return this.http.get<any>(`${this.apiBaseUrl}/tables/LPS_Service_EFE/records?q.where=ServiceID=${serviceId}`, { headers }).pipe(
           map(response => {
             if (response.Result && response.Result.length > 0) {
               return response.Result[0];
@@ -224,7 +224,7 @@ export class ServiceEfeService {
         const headers = this.getAuthHeaders();
         
         return this.http.put<any>(
-          `${this.apiBaseUrl}/tables/Service_EFE/records?q.where=ServiceID=${serviceId}`,
+          `${this.apiBaseUrl}/tables/LPS_Service_EFE/records?q.where=ServiceID=${serviceId}`,
           updates,
           { headers }
         ).pipe(

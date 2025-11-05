@@ -682,7 +682,7 @@ export class CaspioService {
 
   getOfferById(offersId: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      this.get(`/tables/Offers/records?q.where=PK_ID=${offersId}`).subscribe({
+      this.get(`/tables/LPS_Offers/records?q.where=PK_ID=${offersId}`).subscribe({
         next: (response: any) => {
           if (response && response.Result && response.Result.length > 0) {
             resolve(response.Result[0]);
@@ -701,21 +701,21 @@ export class CaspioService {
   // Service Types methods
   getServiceTypes(): Observable<any[]> {
     // Don't specify fields - let it return all available fields to avoid errors if Icon doesn't exist
-    return this.get<any>('/tables/Type/records').pipe(
+    return this.get<any>('/tables/LPS_Type/records').pipe(
       map(response => response.Result || [])
     );
   }
 
   // Offers methods
   getOffersByCompany(companyId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Offers/records?q.where=CompanyID=${companyId}`).pipe(
+    return this.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${companyId}`).pipe(
       map(response => response.Result || [])
     );
   }
 
   // Services table methods
   getServicesByProject(projectId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Services/records?q.where=ProjectID=${projectId}`).pipe(
+    return this.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}`).pipe(
       map(response => {
         return response.Result || [];
       }),
@@ -728,7 +728,7 @@ export class CaspioService {
 
   createService(serviceData: any): Observable<any> {
     // Add response=rows to get the created record back immediately
-    return this.post<any>('/tables/Services/records?response=rows', serviceData).pipe(
+    return this.post<any>('/tables/LPS_Services/records?response=rows', serviceData).pipe(
       map(response => {
         // With response=rows, Caspio returns {"Result": [{created record}]}
         if (response && response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
@@ -746,19 +746,19 @@ export class CaspioService {
   }
 
   deleteService(serviceId: string): Observable<any> {
-    return this.delete<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`);
+    return this.delete<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`);
   }
 
   // Attach Templates methods
   getAttachTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Attach_Templates/records').pipe(
+    return this.get<any>('/tables/LPS_Attach_Templates/records').pipe(
       map(response => response.Result || [])
     );
   }
 
   // Services Visuals Templates methods
   getServicesVisualsTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Visuals_Templates/records').pipe(
+    return this.get<any>('/tables/LPS_Services_Visuals_Templates/records').pipe(
       map(response => response.Result || [])
     );
   }
@@ -767,7 +767,7 @@ export class CaspioService {
   getServicesVisualsTemplatesByTypeId(typeId: number): Observable<any[]> {
     // Use Caspio's query parameter to filter by TypeID
     const query = `TypeID=${typeId}`;
-    return this.get<any>(`/tables/Services_Visuals_Templates/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/LPS_Services_Visuals_Templates/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         return response.Result || [];
       }),
@@ -780,7 +780,7 @@ export class CaspioService {
 
   // Services EFE Templates methods - simplified
   getServicesEFETemplates(): Observable<any[]> {
-    return this.get<any>('/tables/Services_EFE_Templates/records').pipe(
+    return this.get<any>('/tables/LPS_Services_EFE_Templates/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('EFE templates error:', error);
@@ -793,7 +793,7 @@ export class CaspioService {
   getServicesEFE(serviceId: string): Observable<any[]> {
     const query = `ServiceID=${serviceId}`;
     // Add limit parameter to ensure we get all records (Caspio default might be limited)
-    return this.get<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}&q.limit=1000`).pipe(
+    return this.get<any>(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}&q.limit=1000`).pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Services EFE error:', error);
@@ -805,7 +805,7 @@ export class CaspioService {
   // Get Services_EFE_Points for a specific EFE
   getServicesEFEPoints(efeId: string): Observable<any[]> {
     const query = `EFEID=${efeId}`;
-    return this.get<any>(`/tables/Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/LPS_Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Services EFE Points error:', error);
@@ -817,7 +817,7 @@ export class CaspioService {
   // Check if a specific point exists for an EFE
   checkEFEPointExists(efeId: string, pointName: string): Observable<any> {
     const query = `EFEID=${efeId} AND PointName='${pointName}'`;
-    return this.get<any>(`/tables/Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/LPS_Services_EFE_Points/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         const results = response.Result || [];
         return results.length > 0 ? results[0] : null;
@@ -838,7 +838,7 @@ export class CaspioService {
     }
     // Build query for multiple PointIDs using OR
     const query = idArray.map(id => `PointID=${id}`).join(' OR ');
-    return this.get<any>(`/tables/Services_EFE_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.get<any>(`/tables/LPS_Services_EFE_Points_Attach/records?q.where=${encodeURIComponent(query)}`).pipe(
       map(response => {
         const results = response.Result || [];
         results.forEach((photo: any, index: number) => {
@@ -853,7 +853,7 @@ export class CaspioService {
   }
 
   createServicesEFE(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_EFE/records?response=rows', data).pipe(
+    return this.post<any>('/tables/LPS_Services_EFE/records?response=rows', data).pipe(
       map(response => {
         // Handle various response formats
         if (!response) {
@@ -874,7 +874,7 @@ export class CaspioService {
   // Delete a Services_EFE record
   deleteServicesEFE(efeId: string): Observable<any> {
     const query = `EFEID=${efeId}`;
-    return this.delete<any>(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
+    return this.delete<any>(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
       tap(response => {
       }),
       catchError(error => {
@@ -886,12 +886,12 @@ export class CaspioService {
   
   // Update Services_EFE record
   updateServicesEFE(efeId: string, data: any): Observable<any> {
-    return this.put<any>(`/tables/Services_EFE/records?q.where=PK_ID=${efeId}`, data);
+    return this.put<any>(`/tables/LPS_Services_EFE/records?q.where=PK_ID=${efeId}`, data);
   }
 
   // Update Services_EFE record by EFEID (for FDF annotations/drawings)
   updateServicesEFEByEFEID(efeId: string, data: any): Observable<any> {
-    const url = `/tables/Services_EFE/records?q.where=EFEID=${efeId}`;
+    const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
         console.log('Services EFE updated:', response);
@@ -905,7 +905,7 @@ export class CaspioService {
   
   // Get Services_EFE_Drop for dropdown options
   getServicesEFEDrop(): Observable<any[]> {
-    return this.get<any>('/tables/Services_EFE_Drop/records').pipe(
+    return this.get<any>('/tables/LPS_Services_EFE_Drop/records').pipe(
       map(response => {
         if (response && response.Result) {
           return response.Result;
@@ -917,7 +917,7 @@ export class CaspioService {
   
   // Get Services_Visuals_Drop for dropdown options
   getServicesVisualsDrop(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Visuals_Drop/records').pipe(
+    return this.get<any>('/tables/LPS_Services_Visuals_Drop/records').pipe(
       map(response => {
         if (response && response.Result) {
           return response.Result;
@@ -929,7 +929,7 @@ export class CaspioService {
   
   // Get Services_Drop for dropdown options (Weather Conditions, Temperature, etc.)
   getServicesDrop(): Observable<any[]> {
-    return this.get<any>('/tables/Services_Drop/records').pipe(
+    return this.get<any>('/tables/LPS_Services_Drop/records').pipe(
       map(response => {
         if (response && response.Result) {
           return response.Result;
@@ -941,7 +941,7 @@ export class CaspioService {
   
   // Get Projects_Drop for dropdown options
   getProjectsDrop(): Observable<any[]> {
-    return this.get<any>('/tables/Projects_Drop/records').pipe(
+    return this.get<any>('/tables/LPS_Projects_Drop/records').pipe(
       map(response => {
         if (response && response.Result) {
           return response.Result;
@@ -953,7 +953,7 @@ export class CaspioService {
   
   // Create Services_EFE_Points record
   createServicesEFEPoint(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_EFE_Points/records?response=rows', data).pipe(
+    return this.post<any>('/tables/LPS_Services_EFE_Points/records?response=rows', data).pipe(
       map(response => {
         if (!response) {
           return {};
@@ -972,7 +972,7 @@ export class CaspioService {
   
   // Update Services_EFE_Points record
   updateServicesEFEPoint(pointId: string, data: any): Observable<any> {
-    const url = `/tables/Services_EFE_Points/records?q.where=PointID=${pointId}`;
+    const url = `/tables/LPS_Services_EFE_Points/records?q.where=PointID=${pointId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
       }),
@@ -985,7 +985,7 @@ export class CaspioService {
   
   // Delete Services_EFE_Points record
   deleteServicesEFEPoint(pointId: string): Observable<any> {
-    const url = `/tables/Services_EFE_Points/records?q.where=PointID=${pointId}`;
+    const url = `/tables/LPS_Services_EFE_Points/records?q.where=PointID=${pointId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
       }),
@@ -1061,7 +1061,7 @@ export class CaspioService {
         recordData.Drawings = drawingsData;
       }
       
-      const createUrl = `${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?response=rows`;
+      const createUrl = `${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`;
       const createResponse = await fetch(createUrl, {
         method: 'POST',
         headers: {
@@ -1124,7 +1124,7 @@ export class CaspioService {
         recordData.Drawings = drawingsData;
       }
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -1218,7 +1218,7 @@ export class CaspioService {
         Photo: filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -1247,7 +1247,7 @@ export class CaspioService {
 
   // Legacy method for direct data posting (kept for backward compatibility)
   createServicesEFEAttach(data: any): Observable<any> {
-    return this.post<any>('/tables/Services_EFE_Points_Attach/records?response=rows', data).pipe(
+    return this.post<any>('/tables/LPS_Services_EFE_Points_Attach/records?response=rows', data).pipe(
       map(response => {
         if (!response) {
           return {};
@@ -1274,7 +1274,7 @@ export class CaspioService {
   // Update Services_EFE_Points_Attach record (for caption/annotation updates)
   updateServicesEFEPointsAttach(attachId: string, data: any): Observable<any> {
     
-    const url = `/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
       }),
@@ -1288,7 +1288,7 @@ export class CaspioService {
   // Delete Services_EFE_Points_Attach record
   deleteServicesEFEPointsAttach(attachId: string): Observable<any> {
     
-    const url = `/tables/Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.delete<any>(url).pipe(
       tap(response => {
       }),
@@ -1302,7 +1302,7 @@ export class CaspioService {
   // Services Visuals methods (for saving selected items)
   createServicesVisual(visualData: any): Observable<any> {
     // Use response=rows to get the created record back immediately
-    return this.post<any>('/tables/Services_Visuals/records?response=rows', visualData).pipe(
+    return this.post<any>('/tables/LPS_Services_Visuals/records?response=rows', visualData).pipe(
       tap(response => {
         // With response=rows, the actual record is in Result array
         if (response && response.Result && response.Result.length > 0) {
@@ -1324,7 +1324,7 @@ export class CaspioService {
   
   // Update Services_Visuals record
   updateServicesVisual(visualId: string, visualData: any): Observable<any> {
-    const url = `/tables/Services_Visuals/records?q.where=VisualID=${visualId}`;
+    const url = `/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`;
     return this.put<any>(url, visualData).pipe(
       tap(response => {
       }),
@@ -1336,7 +1336,7 @@ export class CaspioService {
   }
   
   getServiceById(serviceId: string): Observable<any> {
-    return this.get<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`).pipe(
+    return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => {
         const result = response.Result;
         return result && result.length > 0 ? result[0] : null;
@@ -1346,18 +1346,18 @@ export class CaspioService {
   
   getServicesVisualsByServiceId(serviceId: string): Observable<any[]> {
     // Add limit parameter to ensure we get all records (Caspio default might be limited)
-    return this.get<any>(`/tables/Services_Visuals/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+    return this.get<any>(`/tables/LPS_Services_Visuals/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
       map(response => response.Result || [])
     );
   }
   
   deleteServicesVisual(visualId: string): Observable<any> {
-    return this.delete<any>(`/tables/Services_Visuals/records?q.where=PK_ID=${visualId}`);
+    return this.delete<any>(`/tables/LPS_Services_Visuals/records?q.where=PK_ID=${visualId}`);
   }
   
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
-    return this.post<any>('/tables/Service_Visuals_Attach/records', attachData).pipe(
+    return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(
       tap(response => {
       }),
       catchError(error => {
@@ -1377,7 +1377,7 @@ export class CaspioService {
         // Photo field will be uploaded in step 2
       };
       
-      this.post<any>('/tables/Service_Visuals_Attach/records', attachData).subscribe({
+      this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).subscribe({
         next: (createResponse) => {
           
           const attachId = createResponse.PK_ID || createResponse.id;
@@ -1392,7 +1392,7 @@ export class CaspioService {
           const formData = new FormData();
           formData.append('Photo', photo, photo.name);
           
-          const updateUrl = `/tables/Service_Visuals_Attach/records?q.where=PK_ID=${attachId}`;
+          const updateUrl = `/tables/LPS_Service_Visuals_Attach/records?q.where=PK_ID=${attachId}`;
           
           this.put<any>(updateUrl, formData).subscribe({
             next: (uploadResponse) => {
@@ -1419,14 +1419,14 @@ export class CaspioService {
   }
   
   getServiceVisualsAttachByVisualId(visualId: string): Observable<any[]> {
-    return this.get<any>(`/tables/Services_Visuals_Attach/records?q.where=VisualID=${visualId}`).pipe(
+    return this.get<any>(`/tables/LPS_Services_Visuals_Attach/records?q.where=VisualID=${visualId}`).pipe(
       map(response => response.Result || [])
     );
   }
   
   // Update Services_Visuals_Attach record (for caption/annotation updates)
   updateServicesVisualsAttach(attachId: string, data: any): Observable<any> {
-    const url = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data);
   }
   
@@ -1450,7 +1450,7 @@ export class CaspioService {
       }
       
       const API_BASE_URL = environment.caspio.apiBaseUrl;
-      const endpoint = `/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
+      const endpoint = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
       const fullUrl = `${API_BASE_URL}${endpoint}`;
       
       // Use fetch directly like the CREATE operation does
@@ -1507,7 +1507,7 @@ export class CaspioService {
   
   // Delete Services_Visuals_Attach record
   deleteServiceVisualsAttach(attachId: string): Observable<any> {
-    return this.delete<any>(`/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
+    return this.delete<any>(`/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
   }
   
   // Upload file to Caspio Files API
@@ -1562,14 +1562,14 @@ export class CaspioService {
   // Get image from Caspio Files API
   // Get attachments by project ID and type ID
   getAttachmentsByProjectAndType(projectId: string, typeId: number): Observable<any[]> {
-    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}%20AND%20TypeID=${typeId}`).pipe(
+    return this.get<any>(`/tables/LPS_Attach/records?q.where=ProjectID=${projectId}%20AND%20TypeID=${typeId}`).pipe(
       map(response => response.Result || [])
     );
   }
   
   // Get single attachment by ID
   getAttachment(attachId: string): Observable<any> {
-    return this.get<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`).pipe(
+    return this.get<any>(`/tables/LPS_Attach/records?q.where=AttachID=${attachId}`).pipe(
       map(response => {
         if (response && response.Result && response.Result.length > 0) {
           return response.Result[0];
@@ -1858,7 +1858,7 @@ export class CaspioService {
         }
       }
       
-      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -1949,7 +1949,7 @@ export class CaspioService {
         }
       }
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2069,7 +2069,7 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2102,7 +2102,7 @@ export class CaspioService {
 
   // Get unique categories from Services_Visuals_Templates
   getServicesVisualsCategories(): Observable<string[]> {
-    return this.get<any>('/tables/Services_Visuals_Templates/records').pipe(
+    return this.get<any>('/tables/LPS_Services_Visuals_Templates/records').pipe(
       map(response => {
         const templates = response.Result || [];
         // Extract unique categories
@@ -2115,7 +2115,7 @@ export class CaspioService {
 
   // Project methods
   getProject(projectId: string): Observable<any> {
-    return this.get<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`).pipe(
+    return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
@@ -2123,11 +2123,11 @@ export class CaspioService {
   // Type methods
   getType(typeId: string): Observable<any> {
     // First try TypeID field
-    return this.get<any>(`/tables/Type/records?q.where=TypeID=${typeId}`).pipe(
+    return this.get<any>(`/tables/LPS_Type/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null),
       catchError(error => {
         // If TypeID fails, try PK_ID as fallback
-        return this.get<any>(`/tables/Type/records?q.where=PK_ID=${typeId}`).pipe(
+        return this.get<any>(`/tables/LPS_Type/records?q.where=PK_ID=${typeId}`).pipe(
           map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
         );
       })
@@ -2135,19 +2135,19 @@ export class CaspioService {
   }
 
   updateProject(projectId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Projects/records?q.where=PK_ID=${projectId}`, updateData);
+    return this.put<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`, updateData);
   }
   
   // Service methods
   getService(serviceId: string): Observable<any> {
     // Services table uses PK_ID as primary key, not ServiceID
-    return this.get<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`).pipe(
+    return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
   
   updateService(serviceId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Services/records?q.where=PK_ID=${serviceId}`, updateData).pipe(
+    return this.put<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`, updateData).pipe(
       tap(response => {
       }),
       catchError(error => {
@@ -2161,10 +2161,10 @@ export class CaspioService {
     console.log('[CaspioService.updateServiceByServiceId] Request details:', {
       serviceId,
       updateData,
-      url: `/tables/Services/records?q.where=ServiceID=${serviceId}`
+      url: `/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
     });
     
-    return this.put<any>(`/tables/Services/records?q.where=ServiceID=${serviceId}`, updateData).pipe(
+    return this.put<any>(`/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`, updateData).pipe(
       tap(response => {
         console.log('✓ [CaspioService.updateServiceByServiceId] Service updated successfully');
         console.log('[CaspioService.updateServiceByServiceId] Response:', response);
@@ -2178,7 +2178,7 @@ export class CaspioService {
 
   // Attach (Attachments) table methods
   getAttachmentsByProject(projectId: string, useCache: boolean = true): Observable<any[]> {
-    return this.get<any>(`/tables/Attach/records?q.where=ProjectID=${projectId}`, useCache).pipe(
+    return this.get<any>(`/tables/LPS_Attach/records?q.where=ProjectID=${projectId}`, useCache).pipe(
       map(response => response.Result || [])
     );
   }
@@ -2197,7 +2197,7 @@ export class CaspioService {
     console.log('[CaspioService.createAttachment] Creating attachment with data:', dataToSend);
 
     // Use response=rows to get the created record back immediately
-    return this.post<any>('/tables/Attach/records?response=rows', dataToSend).pipe(
+    return this.post<any>('/tables/LPS_Attach/records?response=rows', dataToSend).pipe(
       map(response => {
         console.log('[CaspioService.createAttachment] Raw response:', response);
         // With response=rows, Caspio returns {"Result": [{created record}]}
@@ -2255,7 +2255,7 @@ export class CaspioService {
         })
       });
 
-      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?${queryParams}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2392,7 +2392,7 @@ export class CaspioService {
           : serviceIdPrefix;
       }
       
-      const createResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?response=rows`, {
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?response=rows`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2486,7 +2486,7 @@ export class CaspioService {
       
       // Step 2: Update the Attach record with new file path and name
       const updateResponse = await fetch(
-        `${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`,
+        `${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`,
         {
           method: 'PUT',
           headers: {
@@ -2513,11 +2513,11 @@ export class CaspioService {
   }
 
   updateAttachment(attachId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`, updateData);
+    return this.put<any>(`/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, updateData);
   }
 
   deleteAttachment(attachId: string): Observable<any> {
-    return this.delete<any>(`/tables/Attach/records?q.where=AttachID=${attachId}`);
+    return this.delete<any>(`/tables/LPS_Attach/records?q.where=AttachID=${attachId}`);
   }
 
   // Get file from Caspio using file path (for file fields like Deliverable)
@@ -2630,7 +2630,7 @@ export class CaspioService {
     
     return new Observable(observer => {
       // First get the record to find the file path in the Attachment field
-      fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+      fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2777,7 +2777,7 @@ export class CaspioService {
               
               // Try alternate method if path-based methods fail
               try {
-                const altUrl = `${API_BASE_URL}/tables/Attach/records/${attachId}/files/Attachment`;
+                const altUrl = `${API_BASE_URL}/tables/LPS_Attach/records/${attachId}/files/Attachment`;
                 
                 const altResponse = await fetch(altUrl, {
                   method: 'GET',
@@ -2873,7 +2873,7 @@ export class CaspioService {
         Link: uniqueFilename
       };
       
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2914,7 +2914,7 @@ export class CaspioService {
         Notes: JSON.stringify(annotationData)
       };
       
-      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2941,7 +2941,7 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2979,7 +2979,7 @@ export class CaspioService {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
     
-    fetch(`${API_BASE_URL}/tables/Attach/records?q.where=AttachID=${attachId}`, {
+    fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -3062,7 +3062,7 @@ export class CaspioService {
         };
 
         return this.http.get<any>(
-          `${environment.caspio.apiBaseUrl}/tables/Users/records`,
+          `${environment.caspio.apiBaseUrl}/tables/LPS_Users/records`,
           { headers, params }
         ).pipe(
           map(response => {
@@ -3115,7 +3115,7 @@ export class CaspioService {
 
         // Get ALL users without any WHERE clause
         return this.http.get<any>(
-          `${environment.caspio.apiBaseUrl}/tables/Users/records`,
+          `${environment.caspio.apiBaseUrl}/tables/LPS_Users/records`,
           { headers }
         ).pipe(
           map(response => {
@@ -3133,7 +3133,7 @@ export class CaspioService {
 
   // Files table methods
   getFiles(): Observable<any[]> {
-    return this.get<any>('/tables/Files/records').pipe(
+    return this.get<any>('/tables/LPS_Files/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Failed to get files:', error);
@@ -3143,7 +3143,7 @@ export class CaspioService {
   }
 
   getFilesByType(typeId: number): Observable<any[]> {
-    return this.get<any>(`/tables/Files/records?q.where=TypeID=${typeId}`).pipe(
+    return this.get<any>(`/tables/LPS_Files/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Failed to get files by type:', error);
@@ -3154,7 +3154,7 @@ export class CaspioService {
 
   // Types table methods
   getTypes(): Observable<any[]> {
-    return this.get<any>('/tables/Type/records').pipe(
+    return this.get<any>('/tables/LPS_Type/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Failed to get types:', error);
@@ -3165,7 +3165,7 @@ export class CaspioService {
 
   // Help table methods
   getHelpById(helpId: number): Observable<any> {
-    const endpoint = `/tables/Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
+    const endpoint = `/tables/LPS_Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
 
     return this.get<any>(endpoint).pipe(
       map(response => {
@@ -3186,7 +3186,7 @@ export class CaspioService {
 
   // Get help items by HelpID
   getHelpItemsByHelpId(helpId: number): Observable<any[]> {
-    const endpoint = `/tables/Help_Items/records?q.select=HelpID,ItemType,Item&q.where=HelpID%3D${helpId}`;
+    const endpoint = `/tables/LPS_Help_Items/records?q.select=HelpID,ItemType,Item&q.where=HelpID%3D${helpId}`;
 
     return this.get<any>(endpoint).pipe(
       map(response => {
@@ -3202,7 +3202,7 @@ export class CaspioService {
 
   // Get help images by HelpID
   getHelpImagesByHelpId(helpId: number): Observable<any[]> {
-    const endpoint = `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
+    const endpoint = `/tables/LPS_Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
 
     return this.get<any>(endpoint).pipe(
       map(response => {
@@ -3218,7 +3218,7 @@ export class CaspioService {
 
   private getCacheStrategy(endpoint: string): keyof typeof this.cache.CACHE_TIMES {
     // Immutable data - long cache (24 hours)
-    if (endpoint.includes('/tables/Type/records') || endpoint.includes('/tables/ServiceTypes')) {
+    if (endpoint.includes('/tables/LPS_Type/records') || endpoint.includes('/tables/ServiceTypes')) {
       return 'SERVICE_TYPES';
     }
     if (endpoint.includes('/tables/Services_Visuals_Templates') || 
@@ -3230,28 +3230,28 @@ export class CaspioService {
     if (endpoint.includes('/tables/States')) {
       return 'STATES';
     }
-    if (endpoint.includes('/tables/Offers/records')) {
+    if (endpoint.includes('/tables/LPS_Offers/records')) {
       return 'STATIC_DATA';
     }
     
     // Mutable data - short cache (1-2 minutes)
-    if (endpoint.includes('/tables/Attach/records')) {
+    if (endpoint.includes('/tables/LPS_Attach/records')) {
       return 'SHORT';
     }
-    if (endpoint.includes('/tables/Services/records')) {
+    if (endpoint.includes('/tables/LPS_Services/records')) {
       return 'SHORT';
     }
-    if (endpoint.includes('/tables/Services_Visuals/records') || 
-        endpoint.includes('/tables/Services_Visuals_Attach/records')) {
+    if (endpoint.includes('/tables/LPS_Services_Visuals/records') || 
+        endpoint.includes('/tables/LPS_Services_Visuals_Attach/records')) {
       return 'SHORT';
     }
-    if (endpoint.includes('/tables/Services_EFE/records') || 
-        endpoint.includes('/tables/Services_EFE_Points/records') ||
-        endpoint.includes('/tables/Services_EFE_Points_Attach/records') ||
-        endpoint.includes('/tables/Service_EFE/records')) {
+    if (endpoint.includes('/tables/LPS_Services_EFE/records') || 
+        endpoint.includes('/tables/LPS_Services_EFE_Points/records') ||
+        endpoint.includes('/tables/LPS_Services_EFE_Points_Attach/records') ||
+        endpoint.includes('/tables/LPS_Service_EFE/records')) {
       return 'SHORT';
     }
-    if (endpoint.includes('/tables/Projects/records')) {
+    if (endpoint.includes('/tables/LPS_Projects/records')) {
       return 'PROJECT_LIST'; // 2 minutes
     }
     
@@ -3346,7 +3346,7 @@ export class CaspioService {
     
     // Clear the main Services table cache for specific project if provided
     if (projectId) {
-      const endpoint = `/tables/Services/records?q.where=ProjectID=${projectId}`;
+      const endpoint = `/tables/LPS_Services/records?q.where=ProjectID=${projectId}`;
       const cacheKey = this.cache.getApiCacheKey(endpoint, null);
       this.cache.clear(cacheKey);
       console.log('🗑️ Cleared Services table cache for project:', projectId);
@@ -3364,7 +3364,7 @@ export class CaspioService {
     
     // Clear the main Attach table cache for specific project if provided
     if (projectId) {
-      const endpoint = `/tables/Attach/records?q.where=ProjectID=${projectId}`;
+      const endpoint = `/tables/LPS_Attach/records?q.where=ProjectID=${projectId}`;
       const cacheKey = this.cache.getApiCacheKey(endpoint, null);
       this.cache.clear(cacheKey);
       console.log('🗑️ Cleared Attach table cache for project:', projectId);
@@ -3379,7 +3379,7 @@ export class CaspioService {
    * Get invoices by company ID
    */
   getInvoicesByCompany(companyId: string | number): Observable<any[]> {
-    return this.get<any>(`/tables/Invoices/records?q.where=CompanyID=${companyId}`).pipe(
+    return this.get<any>(`/tables/LPS_Invoices/records?q.where=CompanyID=${companyId}`).pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('Failed to get invoices:', error);
@@ -3392,7 +3392,7 @@ export class CaspioService {
    * Get single invoice by ID
    */
   getInvoiceById(invoiceId: string | number): Observable<any> {
-    return this.get<any>(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`).pipe(
+    return this.get<any>(`/tables/LPS_Invoices/records?q.where=InvoiceID=${invoiceId}`).pipe(
       map(response => {
         if (response && response.Result && response.Result.length > 0) {
           return response.Result[0];
@@ -3426,7 +3426,7 @@ export class CaspioService {
                         `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
                         `Status: ${paymentData.status}`;
 
-    return this.put<any>(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`, {
+    return this.put<any>(`/tables/LPS_Invoices/records?q.where=InvoiceID=${invoiceId}`, {
       Paid: paymentData.amount,
       PaymentProcessor: 'PayPal',
       InvoiceNotes: paymentNotes,

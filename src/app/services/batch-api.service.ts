@@ -142,9 +142,9 @@ export class BatchApiService {
     attachments: any[];
   }> {
     const requests = {
-      project: this.caspioService.get(`/tables/Projects/records?q.where=PK_ID='${projectId}'`),
-      services: this.caspioService.get(`/tables/Services/records?q.where=ProjectID='${projectId}'`),
-      attachments: this.caspioService.get(`/tables/Attach/records?q.where=ProjectID='${projectId}'`)
+      project: this.caspioService.get(`/tables/LPS_Projects/records?q.where=PK_ID='${projectId}'`),
+      services: this.caspioService.get(`/tables/LPS_Services/records?q.where=ProjectID='${projectId}'`),
+      attachments: this.caspioService.get(`/tables/LPS_Attach/records?q.where=ProjectID='${projectId}'`)
     };
     
     return forkJoin(requests).pipe(

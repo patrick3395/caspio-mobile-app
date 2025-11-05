@@ -311,14 +311,14 @@ export class CacheService {
     this.clearByPattern(`ProjectID=${projectId}`);
     
     // Clear related tables
-    this.clearTableCache('Projects');
-    this.clearTableCache('Services');
-    this.clearTableCache('Attach');
-    this.clearTableCache('Services_Visuals');
-    this.clearTableCache('Services_Visuals_Attach');
-    this.clearTableCache('Services_EFE');
-    this.clearTableCache('Services_EFE_Points');
-    this.clearTableCache('Services_EFE_Points_Attach');
+    this.clearTableCache('LPS_Projects');
+    this.clearTableCache('LPS_Services');
+    this.clearTableCache('LPS_Attach');
+    this.clearTableCache('LPS_Services_Visuals');
+    this.clearTableCache('LPS_Services_Visuals_Attach');
+    this.clearTableCache('LPS_Services_EFE');
+    this.clearTableCache('LPS_Services_EFE_Points');
+    this.clearTableCache('LPS_Services_EFE_Points_Attach');
   }
 
   /**
@@ -332,12 +332,12 @@ export class CacheService {
     this.clearByPattern(`ServiceID=${serviceId}`);
 
     // Clear related tables
-    this.clearTableCache('Services');
-    this.clearTableCache('Services_Visuals');
-    this.clearTableCache('Services_Visuals_Attach');
-    this.clearTableCache('Services_EFE');
-    this.clearTableCache('Services_EFE_Points');
-    this.clearTableCache('Services_EFE_Points_Attach');
+    this.clearTableCache('LPS_Services');
+    this.clearTableCache('LPS_Services_Visuals');
+    this.clearTableCache('LPS_Services_Visuals_Attach');
+    this.clearTableCache('LPS_Services_EFE');
+    this.clearTableCache('LPS_Services_EFE_Points');
+    this.clearTableCache('LPS_Services_EFE_Points_Attach');
     this.clearTableCache('Service_EFE');
   }
 

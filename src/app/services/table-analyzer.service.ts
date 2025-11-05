@@ -8,18 +8,18 @@ import { map, catchError } from 'rxjs/operators';
 })
 export class TableAnalyzerService {
   private tables = [
-    'Companies',
-    'Invoices', 
-    'Offers',
-    'Projects',
-    'Service_EFE',
-    'Service_EFE_Rooms',
-    'Service_EFE_Rooms_Templates',
-    'Service_EFE_Visuals',
-    'Service_EFE_Visuals_Templates',
-    'Service_HUD',
-    'States',
-    'Type'
+    'LPS_Companies',
+    'LPS_Invoices',
+    'LPS_Offers',
+    'LPS_Projects',
+    'LPS_Service_EFE',
+    'LPS_Service_EFE_Rooms',
+    'LPS_Service_EFE_Rooms_Templates',
+    'LPS_Service_EFE_Visuals',
+    'LPS_Service_EFE_Visuals_Templates',
+    'LPS_Service_HUD',
+    'LPS_States',
+    'LPS_Type'
   ];
 
   constructor(private caspioService: CaspioService) {}
@@ -80,17 +80,17 @@ export class TableAnalyzerService {
             // Try to identify the referenced table
             let referencedTable = '';
             if (field.Name.includes('Company') || field.Name.includes('company')) {
-              referencedTable = 'Companies';
+              referencedTable = 'LPS_Companies';
             } else if (field.Name.includes('Project') || field.Name.includes('project')) {
-              referencedTable = 'Projects';
+              referencedTable = 'LPS_Projects';
             } else if (field.Name.includes('Invoice') || field.Name.includes('invoice')) {
-              referencedTable = 'Invoices';
+              referencedTable = 'LPS_Invoices';
             } else if (field.Name.includes('Offer') || field.Name.includes('offer')) {
-              referencedTable = 'Offers';
+              referencedTable = 'LPS_Offers';
             } else if (field.Name.includes('State') || field.Name.includes('state')) {
-              referencedTable = 'States';
+              referencedTable = 'LPS_States';
             } else if (field.Name.includes('Type') || field.Name.includes('type')) {
-              referencedTable = 'Type';
+              referencedTable = 'LPS_Type';
             }
 
             if (referencedTable) {

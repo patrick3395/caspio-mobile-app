@@ -537,7 +537,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Load users from the Users table filtered by the current user's CompanyID
       const response = await firstValueFrom(
-        this.caspioService.get<any>(`/tables/Users/records?q.where=CompanyID=${this.currentUserCompanyId}`)
+        this.caspioService.get<any>(`/tables/LPS_Users/records?q.where=CompanyID=${this.currentUserCompanyId}`)
       );
 
       if (response && response.Result) {
@@ -863,7 +863,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API
       await firstValueFrom(
-        this.caspioService.put(`/tables/Contacts/records?q.where=ContactID=${this.editingContact.ContactID}`, payload)
+        this.caspioService.put(`/tables/LPS_Contacts/records?q.where=ContactID=${this.editingContact.ContactID}`, payload)
       );
 
       // Update the contact in the local array
@@ -939,7 +939,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Delete via Caspio API
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Contacts/records?q.where=ContactID=${contact.ContactID}`)
+        this.caspioService.delete(`/tables/LPS_Contacts/records?q.where=ContactID=${contact.ContactID}`)
       );
 
       // Remove from local contacts array
@@ -1015,7 +1015,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       };
 
       await firstValueFrom(
-        this.caspioService.put(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`, payload)
+        this.caspioService.put(`/tables/LPS_Invoices/records?q.where=InvoiceID=${invoiceId}`, payload)
       );
 
       // Reload invoices data
@@ -1080,7 +1080,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
 
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Invoices/records?q.where=InvoiceID=${invoiceId}`)
+        this.caspioService.delete(`/tables/LPS_Invoices/records?q.where=InvoiceID=${invoiceId}`)
       );
 
       // Reload invoices data
@@ -1161,7 +1161,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       console.log('Creating invoice with payload:', payload);
 
       await firstValueFrom(
-        this.caspioService.post('/tables/Invoices/records', payload)
+        this.caspioService.post('/tables/LPS_Invoices/records', payload)
       );
 
       // Reload invoices data
@@ -1389,7 +1389,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the company via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Companies/records', payload)
+        this.caspioService.post('/tables/LPS_Companies/records', payload)
       );
 
       console.log('Company created successfully:', response);
@@ -1502,7 +1502,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the contact via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Contacts/records', payload)
+        this.caspioService.post('/tables/LPS_Contacts/records', payload)
       );
 
       console.log('Contact created successfully:', response);
@@ -1635,7 +1635,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the user via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Users/records', payload)
+        this.caspioService.post('/tables/LPS_Users/records', payload)
       );
 
       console.log('User created successfully:', response);
@@ -1760,7 +1760,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the meeting via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Meetings/records', payload)
+        this.caspioService.post('/tables/LPS_Meetings/records', payload)
       );
 
       console.log('Meeting created successfully:', response);
@@ -1870,7 +1870,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the communication via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Touch/records', payload)
+        this.caspioService.post('/tables/LPS_Touch/records', payload)
       );
 
       console.log('Communication created successfully:', response);
@@ -2020,7 +2020,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
-        this.caspioService.put(`/tables/Touch/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
+        this.caspioService.put(`/tables/LPS_Touch/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
       );
 
       console.log('Communication updated successfully:', response);
@@ -2100,7 +2100,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       console.log('Deleting communication with PK_ID:', communication.PK_ID);
 
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Touch/records?q.where=PK_ID=${communication.PK_ID}`)
+        this.caspioService.delete(`/tables/LPS_Touch/records?q.where=PK_ID=${communication.PK_ID}`)
       );
 
       console.log('Communication deleted successfully');
@@ -2250,7 +2250,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
-        this.caspioService.put(`/tables/Meeting/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
+        this.caspioService.put(`/tables/LPS_Meeting/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
       );
 
       console.log('Meeting updated successfully:', response);
@@ -2330,7 +2330,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       console.log('Deleting meeting with PK_ID:', meeting.PK_ID);
 
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Meeting/records?q.where=PK_ID=${meeting.PK_ID}`)
+        this.caspioService.delete(`/tables/LPS_Meeting/records?q.where=PK_ID=${meeting.PK_ID}`)
       );
 
       console.log('Meeting deleted successfully');
@@ -2459,7 +2459,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the task via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/Tasks/records', payload)
+        this.caspioService.post('/tables/LPS_Tasks/records', payload)
       );
 
       console.log('Task created successfully:', response);
@@ -2591,7 +2591,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Update via Caspio API
       await firstValueFrom(
         this.caspioService.put(
-          `/tables/Tasks/records?q.where=TaskID=${this.editingTask.TaskID}`,
+          `/tables/LPS_Tasks/records?q.where=TaskID=${this.editingTask.TaskID}`,
           payload
         )
       );
@@ -2671,7 +2671,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Delete via Caspio API
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Tasks/records?q.where=TaskID=${task.TaskID}`)
+        this.caspioService.delete(`/tables/LPS_Tasks/records?q.where=TaskID=${task.TaskID}`)
       );
 
       // Remove from local tasks array
@@ -2751,7 +2751,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Delete via Caspio API
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Company/records?q.where=CompanyID=${company.CompanyID}`)
+        this.caspioService.delete(`/tables/LPS_Company/records?q.where=CompanyID=${company.CompanyID}`)
       );
 
       // Remove from local companies array
@@ -3271,7 +3271,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       await firstValueFrom(
         this.caspioService.put(
-          '/tables/Tasks/records?q.where=TaskID=' + task.TaskID,
+          '/tables/LPS_Tasks/records?q.where=TaskID=' + task.TaskID,
           payload
         )
       );
@@ -3954,7 +3954,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       };
 
       await firstValueFrom(
-        this.caspioService.put(`/tables/Users/records?q.where=UserID=${userId}`, payload)
+        this.caspioService.put(`/tables/LPS_Users/records?q.where=UserID=${userId}`, payload)
       );
 
       // Update the user in the local array
@@ -4079,7 +4079,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API
       await firstValueFrom(
-        this.caspioService.put(`/tables/Users/records?q.where=UserID=${userId}`, payload)
+        this.caspioService.put(`/tables/LPS_Users/records?q.where=UserID=${userId}`, payload)
       );
 
       // Update the user in the local array
@@ -4167,7 +4167,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Delete via Caspio API
       await firstValueFrom(
-        this.caspioService.delete(`/tables/Users/records?q.where=UserID=${userId}`)
+        this.caspioService.delete(`/tables/LPS_Users/records?q.where=UserID=${userId}`)
       );
 
       // Remove from local array
@@ -4449,7 +4449,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Update via Caspio API
       const response = await firstValueFrom(
         this.caspioService.put(
-          `/tables/Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
+          `/tables/LPS_Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
           payload
         )
       );
@@ -4533,7 +4533,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         };
 
         return firstValueFrom(
-          this.caspioService.put(`/tables/Offers/records?q.where=OffersID=${offerId}`, payload)
+          this.caspioService.put(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`, payload)
         ).catch(error => {
           console.error(`Error updating offer ${offerId}:`, error);
           // Don't throw - continue with other offers

@@ -416,11 +416,11 @@ export class HelpModalComponent implements OnInit {
   }
 
   private getHelpEndpoint(helpId: number): string {
-    return `/tables/Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
+    return `/tables/LPS_Help/records?q.select=HelpID,Title,Comment&q.where=HelpID%3D${helpId}`;
   }
 
   private getHelpImagesEndpoint(helpId: number): string {
-    return `/tables/Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
+    return `/tables/LPS_Help_Images/records?q.select=HelpID,HelpImage&q.where=HelpID%3D${helpId}`;
   }
 
   private addDebugMessage(label: string, value: any) {

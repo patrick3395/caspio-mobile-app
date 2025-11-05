@@ -1911,7 +1911,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load status options from Status table
   async loadStatusOptions() {
     try {
-      const response = await this.caspioService.get<any>('/tables/Status/records').toPromise();
+      const response = await this.caspioService.get<any>('/tables/LPS_Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
         console.log('[Status] Loaded status options:', this.statusOptions);
@@ -2145,7 +2145,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const updateData = { FDF: fdfValue };
       const query = `EFEID=${roomId}`;
 
-      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
 
       // Mark that changes have been made (enables Update button)
       this.markReportChanged();
@@ -2215,7 +2215,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const updateData = { FDF: customValue };
               const query = `EFEID=${roomId}`;
 
-              await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+              await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
 
               // Update local data - this will now show the custom value in the dropdown
               this.roomElevationData[roomName].fdf = customValue;
@@ -2318,7 +2318,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       updateData[columnName] = filePath;
       
       const query = `EFEID=${roomId}`;
-      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
       // Store the photo data in local state
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`] = filePath;
@@ -4925,7 +4925,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       const query = `EFEID=${roomId}`;
 
-      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       console.log(`Location saved for ${roomName}:`, location);
 
       // Mark that changes have been made (enables Update button)
@@ -6191,7 +6191,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const updateData = { Notes: notes };
         const query = `EFEID=${roomId}`;
         
-        await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+        await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
         // Don't show toast for notes to avoid interrupting user typing
       } catch (error) {
         console.error('Error updating room notes:', error);
@@ -11918,7 +11918,7 @@ Stack: ${error?.stack}`;
           };
 
           console.log(`[Gallery Upload] Saving photo with data:`, { PointID: attachData.PointID, Photo: attachData.Photo, Type: attachData.Type });
-          const attachResponse: any = await this.caspioService.post('/tables/Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();
+          const attachResponse: any = await this.caspioService.post('/tables/LPS_Services_EFE_Points_Attach/records?response=rows', attachData).toPromise();
           console.log(`[Gallery Upload] Response:`, attachResponse);
 
           // Handle the Result array structure
@@ -13480,7 +13480,7 @@ Stack: ${error?.stack}`;
         try {
           // Get the room record to fetch FDF photo paths
           const query = `EFEID=${roomId}`;
-          const roomResponse = await this.caspioService.get(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).toPromise();
+          const roomResponse = await this.caspioService.get(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`).toPromise();
           const roomRecords = (roomResponse as any)?.Result || [];
 
           if (roomRecords && roomRecords.length > 0) {

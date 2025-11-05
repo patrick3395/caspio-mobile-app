@@ -940,7 +940,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const updateData = { FDF: fdfValue };
       const query = `EFEID=${roomId}`;
       
-      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
     } catch (error) {
       console.error('Error updating FDF:', error);
       await this.showToast('Failed to update FDF', 'danger');
@@ -1014,7 +1014,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       updateData[columnName] = filePath;
       
       const query = `EFEID=${roomId}`;
-      await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
       
       // Store the photo URL in local state for display
       if (!this.roomElevationData[roomName].fdfPhotos) {
@@ -1244,7 +1244,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 updateData[columnName] = null;
                 
                 const query = `EFEID=${roomId}`;
-                await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+                await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
               }
               
               // Clear from local state
@@ -3173,7 +3173,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         const updateData = { Notes: notes };
         const query = `EFEID=${roomId}`;
         
-        await this.caspioService.put(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+        await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
         // Don't show toast for notes to avoid interrupting user typing
       } catch (error) {
         console.error('Error updating room notes:', error);
@@ -7710,7 +7710,7 @@ Stack: ${error?.stack}`;
         try {
           // Get the room record to fetch FDF photo paths
           const query = `EFEID=${roomId}`;
-          const roomResponse = await this.caspioService.get(`/tables/Services_EFE/records?q.where=${encodeURIComponent(query)}`).toPromise();
+          const roomResponse = await this.caspioService.get(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`).toPromise();
           const roomRecords = (roomResponse as any)?.Result || [];
 
           if (roomRecords && roomRecords.length > 0) {

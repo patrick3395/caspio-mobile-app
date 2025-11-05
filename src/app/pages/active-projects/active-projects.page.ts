@@ -234,7 +234,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // Build OR query: ProjectID='1' OR ProjectID='2' OR ...
     const whereClause = projectIds.map(id => `ProjectID='${id}'`).join(' OR ');
 
-    this.caspioService.get(`/tables/Services/records?q.where=${encodeURIComponent(whereClause)}`).subscribe({
+    this.caspioService.get(`/tables/LPS_Services/records?q.where=${encodeURIComponent(whereClause)}`).subscribe({
       next: (response: any) => {
         const allServices = response?.Result || [];
         const elapsed = performance.now() - startTime;

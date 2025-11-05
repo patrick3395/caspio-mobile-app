@@ -152,7 +152,7 @@ export class AllProjectsPage implements OnInit {
       const projectId = project.ProjectID;
       
       if (projectId) {
-        this.caspioService.get(`/tables/Services/records?q.where=ProjectID='${projectId}'`).subscribe({
+        this.caspioService.get(`/tables/LPS_Services/records?q.where=ProjectID='${projectId}'`).subscribe({
           next: (response: any) => {
             const services = response?.Result || [];
             

@@ -471,7 +471,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If we have a pending finalized service, force fresh data for Services table
       // Add cache-busting timestamp to prevent request deduplication
       const servicesPromise = this.pendingFinalizedServiceId
-        ? this.caspioService.get<any>(`/tables/Services/records?q.where=ProjectID=${actualProjectId}&_t=${Date.now()}`, false).pipe(
+        ? this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${actualProjectId}&_t=${Date.now()}`, false).pipe(
             map((response: any) => response.Result || [])
           ).toPromise()
         : this.caspioService.getServicesByProject(actualProjectId).toPromise();
@@ -485,7 +485,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       ];
 
       // Always load Status table for deliverables
-      promises.push(this.caspioService.get<any>('/tables/Status/records').toPromise());
+      promises.push(this.caspioService.get<any>('/tables/LPS_Status/records').toPromise());
 
       const results = await Promise.allSettled(promises);
 
@@ -1056,7 +1056,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (projectPkId) {
           try {
             // Try using ProjectID in WHERE clause instead of PK_ID
-            const updateUrl = `/tables/Projects/records?q.where=ProjectID=${projectId}`;
+            const updateUrl = `/tables/LPS_Projects/records?q.where=ProjectID=${projectId}`;
             const updateData = { 
               StatusID: 1  // Integer 1
             };
@@ -1649,7 +1649,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async loadStatusOptions() {
     try {
-      const response = await this.caspioService.get<any>('/tables/Status/records').toPromise();
+      const response = await this.caspioService.get<any>('/tables/LPS_Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
         console.log('[Status Table] Loaded status options:', this.statusOptions);
@@ -3967,7 +3967,7 @@ Troubleshooting:
 
       // 1. Check project information completion
       const serviceData: any = await this.caspioService.get(
-        `/tables/Services/records?q.where=PK_ID=${service.serviceId}`
+        `/tables/LPS_Services/records?q.where=PK_ID=${service.serviceId}`
       ).toPromise();
 
       if (serviceData?.ResultSet?.[0]) {
@@ -3990,7 +3990,7 @@ Troubleshooting:
 
       // 2. Check structural systems completion
       const visualsData: any = await this.caspioService.get(
-        `/tables/Services_Visuals/records?q.where=ServiceID=${service.serviceId}`
+        `/tables/LPS_Services_Visuals/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
       if (visualsData?.ResultSet && visualsData.ResultSet.length > 0) {
@@ -4002,7 +4002,7 @@ Troubleshooting:
 
       // 3. Check elevation plot completion
       const roomsData: any = await this.caspioService.get(
-        `/tables/Services_EFE/records?q.where=ServiceID=${service.serviceId}`
+        `/tables/LPS_Services_EFE/records?q.where=ServiceID=${service.serviceId}`
       ).toPromise();
 
       if (roomsData?.ResultSet && roomsData.ResultSet.length > 0) {
@@ -4284,7 +4284,7 @@ Troubleshooting:
         <strong>Attachment:</strong> [File: ${file.name}, ${file.size} bytes, ${file.type}]<br><br>
         <strong>Context (not sent to table):</strong><br>
         <strong>ServiceID:</strong> ${serviceId}<br>
-        <strong>API Endpoint:</strong> /tables/Attach/records?response=rows<br>
+        <strong>API Endpoint:</strong> /tables/LPS_Attach/records?response=rows<br>
         <strong>Method:</strong> Two-step upload (JSON then File)
       `,
       buttons: [
@@ -5234,7 +5234,7 @@ Time: ${debugInfo.timestamp}
       console.log('[Submit Report] Updating Services table:', updateData);
 
       await this.caspioService.put(
-        `/tables/Services/records?q.where=PK_ID='${service.serviceId}'`,
+        `/tables/LPS_Services/records?q.where=PK_ID='${service.serviceId}'`,
         updateData
       ).toPromise();
 
