@@ -4183,9 +4183,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.efeRecordIds[roomName] = result.roomId;
           this.savingRooms[roomName] = false;
           this.changeDetectorRef.detectChanges();
-
-          // Chain point creation as dependent operations
-          this.queuePointCreation(roomName, result.roomId, roomOpId);
         },
         onError: (error: any) => {
           console.error(`[Room Queue] Failed for ${roomName}:`, error);
@@ -4207,6 +4204,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Store operation ID for tracking
       this.roomOperationIds[roomName] = roomOpId;
       console.log(`[Room Queue] Queued room creation for ${roomName}, operation ID: ${roomOpId}`);
+
+      // IMMEDIATELY queue point creation with dependency on room (don't wait for room to finish)
+      // This makes points appear in queue right away, though they won't execute until room completes
+      this.queuePointCreation(roomName, this.efeRecordIds[roomName], roomOpId);
     }
   }
 
@@ -4337,9 +4338,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.efeRecordIds[roomName] = result.roomId;
         this.savingRooms[roomName] = false;
         this.changeDetectorRef.detectChanges();
-
-        // Chain point creation for predefined points
-        this.queuePointCreation(roomName, result.roomId, roomOpId);
       },
       onError: (error: any) => {
         console.error(`[Ensure Room] Failed to create room ${roomName}:`, error);
@@ -4352,6 +4350,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Store operation ID for tracking
     this.roomOperationIds[roomName] = roomOpId;
     console.log(`[Ensure Room] Room ${roomName} queued with operation ID ${roomOpId}`);
+
+    // IMMEDIATELY queue point creation with dependency on room (don't wait for room to finish)
+    // This makes points appear in queue right away for predefined template points
+    this.queuePointCreation(roomName, this.efeRecordIds[roomName], roomOpId);
 
     return roomOpId;
   }
@@ -4609,8 +4611,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isPointReady(roomName: string, point: any): boolean {
     const pointKey = `${roomName}_${point.name}`;
     const status = this.pointCreationStatus[pointKey];
-    // Point is ready if it's created, or if no status tracking yet (for backward compatibility)
-    return status === 'created' || status === undefined;
+    // Point is ready for photo capture if:
+    // - It's created (best case - immediate upload)
+    // - It's pending (will queue photo with dependencies)
+    // - No status yet (backward compatibility - will queue with dependencies)
+    // Only block if failed
+    return status !== 'failed';
   }
 
   isPointPending(roomName: string, point: any): boolean {
