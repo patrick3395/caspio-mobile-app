@@ -3529,12 +3529,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (isValidPointId(initialPointId)) {
       console.log(`[Photo Queue] Point ${pointKey} already exists with ID ${initialPointId}, uploading immediately`);
       try {
+        // Get photoType from photoEntry (stored when photo was captured)
+        const photoType = photoEntry.photoType;
         return await this.uploadPhotoToRoomPointFromFile(
           initialPointId,
           annotatedResult.file,
           point.name,
           annotatedResult.annotationData,
-          this.currentRoomPointContext.photoType
+          photoType
         );
       } catch (error) {
         console.error(`[Photo Queue] Immediate upload failed:`, error);
@@ -3570,6 +3572,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       console.log(`[Photo Queue] Queuing photo upload for ${pointKey} with dependencies: room=${roomOpId}, point=${pointOpId}`);
 
+      // Get photoType from photoEntry (stored when photo was captured)
+      const photoType = photoEntry.photoType;
+
       await this.operationsQueue.enqueue({
         type: 'UPLOAD_PHOTO',
         data: {
@@ -3579,10 +3584,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           file: compressedFile,
           pointNameDisplay: point.name,
           annotationData: annotatedResult.annotationData,
-          photoType: this.currentRoomPointContext.photoType
+          photoType: photoType
         },
         dependencies: [pointOpId], // Wait for point to be created
-        dedupeKey: `photo_${pointKey}_${this.currentRoomPointContext.photoType}_${Date.now()}`,
+        dedupeKey: `photo_${pointKey}_${photoType}_${Date.now()}`,
         maxRetries: 3,
         onSuccess: (result: any) => {
           console.log(`[Photo Queue] Photo uploaded successfully for ${pointKey}: ${result.attachId}`);
