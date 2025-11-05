@@ -268,7 +268,20 @@ ion-action-sheet {
   }
 }
 
-// Textarea cursor color and highlight
+// Input and Textarea cursor color and highlight
+ion-input {
+  caret-color: #000 !important;
+  --color: #000;
+  --highlight-color-focused: #000 !important;
+  --highlight-color-valid: #000 !important;
+  --highlight-color-invalid: #000 !important;
+}
+
+// Target native input element inside ion-input
+ion-input input {
+  caret-color: #000 !important;
+}
+
 ion-textarea {
   caret-color: #000 !important;
   --color: #000;

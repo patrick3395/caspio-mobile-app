@@ -146,9 +146,9 @@
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 50px #f8f9fa inset !important;
+    -webkit-box-shadow: 0 0 0 50px transparent inset !important;
     -webkit-text-fill-color: #333 !important;
-    background-color: #f8f9fa !important;
+    background-color: transparent !important;
     background-clip: content-box !important;
     transition: background-color 5000s ease-in-out 0s !important;
   }
@@ -158,10 +158,16 @@
   ion-input input:-webkit-autofill:hover,
   ion-input input:-webkit-autofill:focus,
   ion-input input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 50px #f8f9fa inset !important;
+    -webkit-box-shadow: 0 0 0 50px transparent inset !important;
     -webkit-text-fill-color: #333 !important;
-    background-color: #f8f9fa !important;
+    background-color: transparent !important;
     transition: background-color 5000s ease-in-out 0s !important;
+  }
+
+  // Additional targeting for regular input state
+  ion-input input {
+    background-color: transparent !important;
+    background: transparent !important;
   }
 
   .visibility-toggle {

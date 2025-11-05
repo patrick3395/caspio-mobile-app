@@ -2242,10 +2242,39 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', source: 'camera' | 'library' | 'system' = 'system') {
-    const roomId = this.efeRecordIds[roomName];
+    let roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
+    }
+
+    // Wait for room creation to complete if it's in progress
+    if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+      console.log(`[FDF Photo] Waiting for room ${roomName} to finish being created...`);
+      
+      // Wait up to 10 seconds for room creation
+      const maxWaitTime = 10000;
+      const checkInterval = 200;
+      const startTime = Date.now();
+      
+      while (Date.now() - startTime < maxWaitTime) {
+        roomId = this.efeRecordIds[roomName];
+        
+        if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
+          console.log(`[FDF Photo] Room ${roomName} is now ready with ID: ${roomId}`);
+          break;
+        }
+        
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+      }
+      
+      // Check if we timed out
+      roomId = this.efeRecordIds[roomName];
+      if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+        await this.showToast('Room is still being created. Please try again in a moment.', 'warning');
+        return;
+      }
     }
 
     try {
@@ -3046,16 +3075,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
-      const roomId = this.efeRecordIds[roomName];
+      let roomId = this.efeRecordIds[roomName];
       if (!roomId) {
         await this.showToast('Please save the room first', 'warning');
         return;
       }
 
-      // If room is pending or has temporary ID, cannot take photos yet
+      // LAZY LOADING: Wait for room ID to be ready if it's temporary or pending
       if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
-        await this.showToast('Room is being created. Please wait a moment and try again.', 'warning');
-        return;
+        console.log(`[Photo Capture] Room ID not ready (${roomId}), waiting for room creation...`);
+        
+        // Wait for room creation with timeout
+        const maxWaitTime = 10000; // 10 seconds max
+        const checkInterval = 100; // Check every 100ms
+        const startTime = Date.now();
+        
+        while ((roomId === '__pending__' || String(roomId).startsWith('temp_')) && 
+               (Date.now() - startTime) < maxWaitTime) {
+          // Wait a bit before checking again
+          await new Promise(resolve => setTimeout(resolve, checkInterval));
+          
+          // Get the latest room ID from the mapping
+          roomId = this.efeRecordIds[roomName];
+          
+          if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
+            console.log(`[Photo Capture] Room ID now ready: ${roomId}`);
+            break;
+          }
+        }
+        
+        // Final check after wait loop
+        if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+          console.error(`[Photo Capture] Timeout waiting for room ID for ${roomName}`);
+          await this.showToast('Room creation taking longer than expected. Please try again.', 'warning');
+          return;
+        }
       }
 
       // Get or create point ID
@@ -11818,10 +11872,39 @@ Stack: ${error?.stack}`;
 
   // Take FDF photo from gallery
   async takeFDFPhotoGallery(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
-    const roomId = this.efeRecordIds[roomName];
+    let roomId = this.efeRecordIds[roomName];
     if (!roomId) {
       await this.showToast('Please save the room first', 'warning');
       return;
+    }
+
+    // Wait for room creation to complete if it's in progress
+    if (roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+      console.log(`[FDF Photo Gallery] Waiting for room ${roomName} to finish being created...`);
+      
+      // Wait up to 10 seconds for room creation
+      const maxWaitTime = 10000;
+      const checkInterval = 200;
+      const startTime = Date.now();
+      
+      while (Date.now() - startTime < maxWaitTime) {
+        roomId = this.efeRecordIds[roomName];
+        
+        if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_')) {
+          console.log(`[FDF Photo Gallery] Room ${roomName} is now ready with ID: ${roomId}`);
+          break;
+        }
+        
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+      }
+      
+      // Check if we timed out
+      roomId = this.efeRecordIds[roomName];
+      if (!roomId || roomId === '__pending__' || String(roomId).startsWith('temp_')) {
+        await this.showToast('Room is still being created. Please try again in a moment.', 'warning');
+        return;
+      }
     }
 
     try {
