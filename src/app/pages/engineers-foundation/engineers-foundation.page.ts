@@ -3476,9 +3476,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Don't wait for uploads - monitor them in background (like Structural Systems)
       Promise.all(uploadPromises).then(results => {
         const stillUploadingCount = results.filter(r => r === null).length;
-        if (stillUploadingCount > 0) {
-          this.showToast(`${stillUploadingCount} photo(s) still uploading. They will finish when the room and point are ready.`, 'info');
-        }
+        // Removed banner notification - user can see spinner on photo instead
         console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful, ${stillUploadingCount} still uploading`);
       });
       
