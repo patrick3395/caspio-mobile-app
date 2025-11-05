@@ -3383,10 +3383,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           })
           .catch((err) => {
             console.error(`Failed to upload photo ${i + 1}:`, err);
-            // Don't remove photo - mark as queued so user can see it and it can retry
-            photoEntry.uploading = false;
-            photoEntry.queued = true;
-            this.changeDetectorRef.detectChanges();
+            // Photo is marked as queued by waitForPointIdAndUpload
+            // It will be retried later
           });
         
         uploadPromises.push(uploadPromise);
@@ -3394,9 +3392,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // Don't wait for uploads - monitor them in background (like Structural Systems)
       Promise.all(uploadPromises).then(results => {
-        // Don't show error toasts - photos will be marked as queued/failed in UI
-        // Users can see the status and uploads will retry automatically
-        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful`);
+        const queuedCount = results.filter(r => r === null).length;
+        if (queuedCount > 0) {
+          this.showToast(`${queuedCount} photo(s) queued. They will upload when the room and point are ready.`, 'info');
+        }
+        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful, ${queuedCount} queued`);
       });
       
     } catch (error) {
@@ -3456,8 +3456,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log(`[Lazy Upload] Point ID not ready (${pointId}), waiting for creation...`);
       
       // Wait for point creation with timeout
-      const maxWaitTime = 5000; // 5 seconds max wait
-      const checkInterval = 100; // Check every 100ms
+      const maxWaitTime = 15000; // 15 seconds max wait for point
+      const checkInterval = 200; // Check every 200ms
       const startTime = Date.now();
       
       while (!isValidPointId(pointId) && (Date.now() - startTime) < maxWaitTime) {
@@ -3484,7 +3484,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           let currentRoomId = roomId;
           const roomStartTime = Date.now();
-          const roomMaxWait = 5000;
+          const roomMaxWait = 15000; // 15 seconds max wait for room
           
           while ((!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) && 
                  (Date.now() - roomStartTime) < roomMaxWait) {
@@ -3493,14 +3493,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           
           if (!currentRoomId || currentRoomId === '__pending__' || String(currentRoomId).startsWith('temp_')) {
-            console.warn(`[Lazy Upload] Room still not ready after wait, marking photo as queued`);
-            // Mark photo as queued, not uploading
+            console.log(`[Lazy Upload] Room still not ready after ${roomMaxWait}ms wait - queuing photo`);
+            // Mark photo as queued - it will be retried when room is ready
             if (photoEntry) {
               photoEntry.uploading = false;
               photoEntry.queued = true;
             }
             this.changeDetectorRef.detectChanges();
-            return null; // Don't throw error, just return null
+            return null; // Return null to indicate queued, not failed
           }
           
           // Room is now ready, try to create point
@@ -3523,14 +3523,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               throw new Error('No PointID in response');
             }
           } catch (error) {
-            console.error(`[Lazy Upload] Failed to create point:`, error);
-            // Mark photo as queued for retry
+            console.error(`[Lazy Upload] Failed to create point after room wait:`, error);
+            // Mark photo as queued - it will be retried later
             if (photoEntry) {
               photoEntry.uploading = false;
               photoEntry.queued = true;
             }
             this.changeDetectorRef.detectChanges();
-            return null; // Don't throw error
+            return null; // Return null to indicate queued, not failed
           }
         } else {
           // Room is ready, create point
@@ -3553,27 +3553,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               throw new Error('No PointID in response');
             }
           } catch (error) {
-            console.error(`[Lazy Upload] Failed to create point:`, error);
-            // Mark photo as queued for retry
+            console.error(`[Lazy Upload] Failed to create point (room was ready):`, error);
+            // Mark photo as queued - it will be retried later
             if (photoEntry) {
               photoEntry.uploading = false;
               photoEntry.queued = true;
             }
             this.changeDetectorRef.detectChanges();
-            return null; // Don't throw error
+            return null; // Return null to indicate queued, not failed
           }
         }
       }
       
       // Final validation
       if (!isValidPointId(pointId)) {
-        console.warn(`[Lazy Upload] Could not get valid point ID, marking photo as queued`);
+        console.log(`[Lazy Upload] Could not get valid point ID after all attempts - queuing photo`);
+        // Mark photo as queued - it will be retried later
         if (photoEntry) {
           photoEntry.uploading = false;
           photoEntry.queued = true;
         }
         this.changeDetectorRef.detectChanges();
-        return null; // Don't throw error
+        return null; // Return null to indicate queued, not failed
       }
     }
     
@@ -3590,13 +3591,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       );
     } catch (error) {
       console.error(`[Lazy Upload] Photo upload failed:`, error);
-      // Mark photo as failed/queued
+      // Mark photo as queued - it will be retried later
       if (photoEntry) {
         photoEntry.uploading = false;
-        photoEntry.failed = true;
+        photoEntry.queued = true;
       }
       this.changeDetectorRef.detectChanges();
-      return null; // Don't throw error, return null
+      return null; // Return null to indicate queued, not failed
     }
   }
   
@@ -4268,6 +4269,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           this.pointCreationStatus[pointKey] = 'created';
           delete this.pointCreationErrors[pointKey];
           this.changeDetectorRef.detectChanges();
+          
+          // Retry any queued photos for this point
+          this.retryQueuedPhotosForPoint(roomName, point);
         },
         onError: (error: any) => {
           console.error(`[Point Queue] Failed for ${point.name}:`, error);
@@ -8085,14 +8089,125 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
 
+      // Step 3: Retry any queued photos now that rooms and points are ready
+      await this.retryQueuedPhotos();
+
       if (roomNames.length > 0 || pointKeys.length > 0) {
-        await this.showToast('Queued rooms and points created successfully', 'success');
+        await this.showToast('Queued items processed successfully', 'success');
       }
 
     } catch (error) {
       console.error('[v1.4.504] Error processing pending rooms and points:', error);
       await this.showToast('Some items failed to sync', 'danger');
     }
+  }
+
+  /**
+   * Retry queued photos for a specific point
+   * Called immediately when a point is successfully created
+   */
+  private async retryQueuedPhotosForPoint(roomName: string, point: any): Promise<void> {
+    if (!point.photos || point.photos.length === 0) return;
+    
+    const queuedPhotos = point.photos.filter((photo: any) => photo.queued && photo.file);
+    if (queuedPhotos.length === 0) return;
+    
+    console.log(`[Retry Queue] Found ${queuedPhotos.length} queued photos for ${roomName} - ${point.name}, retrying now...`);
+    
+    for (const photoEntry of queuedPhotos) {
+      try {
+        // Mark as uploading again
+        photoEntry.queued = false;
+        photoEntry.uploading = true;
+        this.changeDetectorRef.detectChanges();
+        
+        // Get current IDs
+        const roomId = this.efeRecordIds[roomName];
+        const pointKey = `${roomName}_${point.name}`;
+        const pointId = this.efePointIds[pointKey];
+        
+        console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
+        
+        // Retry upload
+        const annotatedResult = {
+          file: photoEntry.file,
+          annotationData: photoEntry.annotationData || null,
+          originalFile: photoEntry.originalFile,
+          caption: photoEntry.caption || ''
+        };
+        
+        const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
+        
+        if (response) {
+          photoEntry.attachId = response?.AttachID || response?.PK_ID;
+          console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}, AttachID: ${photoEntry.attachId}`);
+        }
+      } catch (error) {
+        console.error(`[Retry Queue] Failed to retry photo for ${roomName} - ${point.name}:`, error);
+        // Photo will remain queued for next batch retry
+      }
+    }
+  }
+
+  /**
+   * Retry all queued photos for room points
+   * Called after rooms and points have been created
+   */
+  private async retryQueuedPhotos(): Promise<void> {
+    console.log('[Retry Queue] Checking for queued photos to retry...');
+    
+    // Find all queued photos across all rooms
+    for (const roomName of Object.keys(this.roomElevationData)) {
+      const roomData = this.roomElevationData[roomName];
+      if (!roomData || !roomData.elevationPoints) continue;
+      
+      for (const point of roomData.elevationPoints) {
+        if (!point.photos || point.photos.length === 0) continue;
+        
+        // Find photos that are queued
+        const queuedPhotos = point.photos.filter((photo: any) => photo.queued && photo.file);
+        
+        if (queuedPhotos.length > 0) {
+          console.log(`[Retry Queue] Found ${queuedPhotos.length} queued photos for ${roomName} - ${point.name}`);
+          
+          for (const photoEntry of queuedPhotos) {
+            try {
+              // Mark as uploading again
+              photoEntry.queued = false;
+              photoEntry.uploading = true;
+              this.changeDetectorRef.detectChanges();
+              
+              // Get current IDs
+              const roomId = this.efeRecordIds[roomName];
+              const pointKey = `${roomName}_${point.name}`;
+              const pointId = this.efePointIds[pointKey];
+              
+              console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
+              
+              // Retry upload
+              const annotatedResult = {
+                file: photoEntry.file,
+                annotationData: photoEntry.annotationData || null,
+                originalFile: photoEntry.originalFile,
+                caption: photoEntry.caption || ''
+              };
+              
+              const response = await this.waitForPointIdAndUpload(roomName, point, pointId, annotatedResult, photoEntry);
+              
+              if (response) {
+                photoEntry.attachId = response?.AttachID || response?.PK_ID;
+                console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}`);
+              }
+            } catch (error) {
+              console.error(`[Retry Queue] Failed to retry photo:`, error);
+              // Photo will remain queued for next retry
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('[Retry Queue] Retry complete');
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
@@ -12047,10 +12162,9 @@ Stack: ${error?.stack}`;
           })
           .catch((err) => {
             console.error('Gallery photo upload failed:', err);
-            // Don't show error toast - mark as queued for retry
-            photoEntry.uploading = false;
-            photoEntry.queued = true;
-            this.changeDetectorRef.detectChanges();
+            // Photo is marked as queued by waitForPointIdAndUpload
+            // Show a toast to let user know it will retry
+            this.showToast('Photo queued. It will upload when the room and point are ready.', 'info');
           });
       }
     } catch (error) {
