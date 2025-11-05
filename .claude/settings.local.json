@@ -37,7 +37,14 @@
       "Bash(git reset:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(md5sum:*)",
+      "Bash(__NEW_LINE__ echo \"=== VERIFICATION OF RETAINED STYLES ===\")",
+      "Bash(__NEW_LINE__ echo \"Checking for project-details styles...\")",
+      "Bash(__NEW_LINE__ echo \"Checking for PDF button styles...\")",
+      "Bash(__NEW_LINE__ echo \"Checking for button styles...\")",
+      "Bash(__NEW_LINE__ echo \"Checking for section-card styles...\")",
+      "Bash(__NEW_LINE__ echo \"\")"
     ],
     "deny": [],
     "ask": []

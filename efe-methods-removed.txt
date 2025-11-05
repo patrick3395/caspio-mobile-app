@@ -1,0 +1,154 @@
+EFE (Elevation Plot) Methods Removed from hud.page.ts
+======================================================
+
+Date: 2025-11-05
+Original file: 14,528 lines
+Cleaned file: 9,414 lines
+Lines removed: 5,114 (35.2% reduction)
+Total methods removed: 91
+
+BACKUP LOCATION:
+/mnt/c/Users/Owner/Caspio/src/app/pages/hud/hud.page.ts.backup
+
+METHODS REMOVED:
+================
+
+Room Selection & Management (18 methods):
+- trackByRoomName
+- toggleRoomSelection
+- isRoomSelected
+- isRoomSaving
+- getSelectedRooms
+- getRoomIndex
+- moveRoomUp
+- moveRoomDown
+- renameRoom
+- removeRoom
+- onRoomSelectionChange
+- isRoomExpanded
+- toggleRoomExpanded
+- handleRoomExpandClick
+- handleRoomLabelClick
+- handleRoomHeaderClick
+- handleRoomCheckboxChange
+- onRoomAccordionChange
+
+Room Templates & Data Loading (5 methods):
+- loadRoomTemplates
+- loadExistingRoomPoints
+- showAddRoomDialog
+- addRoomTemplate
+- addBaseStation
+
+Elevation Point Management (17 methods):
+- trackByPointName
+- addElevationPoint
+- addCustomPoint
+- onElevationChange
+- editElevationPointName
+- deleteElevationPoint
+- createElevationPointsForRoom
+- getPointStatus
+- isPointReady
+- isPointPending
+- isPointFailed
+- getPointError
+- retryPointCreation
+- onElevationPointChange
+- getPointPhotoByType
+- getRoomMaxDifferential
+- prepareElevationPlotData
+
+Point Photo Management (13 methods):
+- capturePointPhoto
+- capturePointPhotoCamera
+- capturePointPhotoGallery
+- takePhotoForElevationPoint
+- processRoomPointPhoto
+- uploadPhotoToRoomPoint
+- uploadPhotoToRoomPointFromFile
+- performRoomPointPhotoUpload
+- viewRoomPhoto
+- viewElevationPhoto
+- saveRoomPhotoCaption
+- deleteRoomPhoto
+- updateRoomPointPhotoAttachment
+
+FDF (Flooring Difference Factor) Methods (13 methods):
+- loadFDFOptions
+- getFDFOptionsForRoom
+- onFDFChange
+- showFDFOtherPopup
+- takeFDFPhoto
+- takeFDFPhotoCamera
+- takeFDFPhotoGallery
+- processFDFPhoto
+- viewFDFPhoto
+- annotateFDFPhoto
+- deleteFDFPhoto
+- shouldShowLocationFDF
+- shouldShowFDFPhotos
+
+Room Notes & Location (2 methods):
+- onRoomNotesChange
+- showRoomLocationFDFPopup
+
+Queue & Pending Operations (8 methods):
+- queuePointCreation
+- ensureRoomQueued
+- ensurePointQueued
+- waitForPointIdAndUpload
+- handleRoomPointFileSelect
+- processPendingRoomsAndPoints
+- retryQueuedPhotosForPoint
+- selectAndProcessGalleryPhotoForPoint
+
+Foundation Rooms (Second) (5 methods):
+- isSecondFoundationRoomsSelected
+- onSecondFoundationRoomsToggle
+- onSecondFoundationRoomsOtherChange
+- saveSecondFoundationRoomsSelections
+- parseSecondFoundationRoomsField
+
+Foundation Rooms (Third) (5 methods):
+- isThirdFoundationRoomsSelected
+- onThirdFoundationRoomsToggle
+- onThirdFoundationRoomsOtherChange
+- saveThirdFoundationRoomsSelections
+- parseThirdFoundationRoomsField
+
+Caption Management (5 methods):
+- saveRoomPointCaption
+- saveFDFCaption
+- openFDFCaptionPopup
+- openRoomPointCaptionPopup
+- openRoomPhotoCaptionPopup
+
+Utility Methods (1 method):
+- getRoomPhotos
+
+PRESERVED METHODS:
+==================
+
+The following methods were PRESERVED as requested:
+- All Visual-related methods (loadVisualCategories, onVisualChange, takePhotoForVisual, etc.)
+- All PDF-related methods
+- All project-related methods
+- General camera/photo methods used by Visuals
+
+NEXT STEPS:
+===========
+
+The file still contains references to the removed methods (method calls).
+These will need to be addressed separately:
+- Remove calls to loadRoomTemplates() in ngOnInit
+- Remove calls to loadFDFOptions()
+- Remove EFE-related UI components from the template
+- Remove EFE-related properties and imports
+- Update any conditional logic that references removed methods
+
+NOTE: The TypeScript file may now have compilation errors due to:
+1. Missing method implementations
+2. Unused imports
+3. Unused properties/variables
+4. References to removed methods in other parts of the code
