@@ -3909,8 +3909,9 @@ Troubleshooting:
       startsWithSlash: o.TypeIcon?.startsWith('/')
     })));
 
+    // Filter for offers with TypeIcon (filenames or paths - getImageFromFilesAPI handles both)
     const offersWithIcons = this.availableOffers
-      .filter(offer => offer.TypeIcon && offer.TypeIcon.startsWith('/'));
+      .filter(offer => offer.TypeIcon && offer.TypeIcon.trim() !== '');
 
     console.log(`🎨 [Icon Loading] Found ${offersWithIcons.length} offers with valid icon paths`);
 

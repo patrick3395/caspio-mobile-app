@@ -454,29 +454,8 @@
       </div>
 
       <div class="section-content" *ngIf="renderedSections['structural']" [class.collapsed]="!expandedSections['structural']">
-        <!-- Visual Assessment Location -->
-        <div class="info-group">
-          <div class="form-grid">
-            <div class="form-group full-width" [class.filled]="serviceData.StructuralSystemsStatus">
-              <label>
-                Where will you provide the Visuals<span class="required">*</span>
-              </label>
-              <p class="field-description">
-                If you are providing the visuals in the inspection report select "Provided in Property Inspection Report"
-              </p>
-              <select #structuralStatusSelect
-                      [(ngModel)]="serviceData.StructuralSystemsStatus"
-                      (ngModelChange)="onStructuralSystemsStatusChange($event)"
-                      class="styled-input">
-                <option value="">-- Select --</option>
-                <option value="Provided in Property Inspection Report">Provided in Property Inspection Report</option>
-                <option value="Completed Here">Completed Here</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <!-- Visual Categories from Services_Visuals_Templates - Only show when Completed Here -->
-        <div class="categories-container" *ngIf="visualCategories.length > 0 && serviceData.StructuralSystemsStatus === 'Completed Here'">
+        <!-- Visual Categories from Services_HUD_Templates -->
+        <div class="categories-container" *ngIf="visualCategories.length > 0">
           
           <!-- Category Accordion -->
           <ion-accordion-group #visualAccordionGroup multiple="true" (ionChange)="onAccordionChange($event)">

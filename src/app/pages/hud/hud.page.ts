@@ -90,8 +90,7 @@ interface PendingHudCreate {
 export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('structuralStatusSelect') structuralStatusSelect?: ElementRef<HTMLSelectElement>;
-  
+
   projectId: string = '';
   serviceId: string = '';
   projectData: any = null;
@@ -102,10 +101,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
-  
+
   // Note: Removed memoization caches - direct lookups are already fast enough
   // and proper unique cache keys were causing complexity issues
-  
+
   private templateLoader?: HTMLIonAlertElement;
   private _loggedPhotoKeys?: Set<string>; // Track which photo keys have been logged to reduce console spam
   private templateLoaderPresented = false;
@@ -113,8 +112,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   private readonly templateLoaderMinDuration = 1000;
   private photoHydrationPromise: Promise<void> | null = null;
   private waitingForPhotoHydration = false;
-  private structuralStatusMirror?: HTMLSpanElement;
-  private structuralWidthRaf?: number;
 
   private restoreScrollPosition(target: number, attempts = 3): void {
     // DISABLED: No auto-scrolling per user request
@@ -968,16 +965,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // Clear thumbnail cache
     this.thumbnailCache.clear();
 
-    // Clean up DOM elements
-    if (this.structuralWidthRaf) {
-      cancelAnimationFrame(this.structuralWidthRaf);
-      this.structuralWidthRaf = undefined;
-    }
-    if (this.structuralStatusMirror?.parentElement) {
-      this.structuralStatusMirror.parentElement.removeChild(this.structuralStatusMirror);
-    }
-    this.structuralStatusMirror = undefined;
-
     // Clear template loader
     if (this.templateLoader) {
       this.templateLoader.dismiss();
@@ -1181,12 +1168,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('[LoadService] Service Status:', this.serviceData.Status);
         console.log('[LoadService] ReportFinalized:', this.serviceData.ReportFinalized);
 
-        // Map database column StructStat to UI property StructuralSystemsStatus
-        if (serviceResponse.StructStat) {
-          this.serviceData.StructuralSystemsStatus = serviceResponse.StructStat;
-        } else {
-          this.serviceData.StructuralSystemsStatus = '';
-        }
+        // StructStat field removed from HUD template
         
         // TypeID loaded from service data
         
@@ -1222,7 +1204,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         ThirdFoundationType: this.serviceData.ThirdFoundationType || '',
         ThirdFoundationRooms: this.serviceData.ThirdFoundationRooms || '',
         OwnerOccupantInterview: this.serviceData.OwnerOccupantInterview || '',
-        StructuralSystemsStatus: this.serviceData.StructuralSystemsStatus || '',
         Notes: this.serviceData.Notes || '',
         Status: '',
         ReportFinalized: false
@@ -1929,10 +1910,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
             );
 
             if (matchingTemplate) {
-              // CRITICAL FIX: Use VisualID (unique record ID) for key to ensure each visual gets unique photos
-              const visualId = visual.VisualID || visual.PK_ID || visual.id;
+              // CRITICAL FIX: Use HUDID (unique record ID) for key to ensure each visual gets unique photos
+              const visualId = visual.HUDID || visual.PK_ID || visual.id;
               const key = visual.Category + "_" + visualId;
-              console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visualId);
+              console.log('[Visual Load] Marking visual as selected:', key, 'HUDID:', visualId);
               this.selectedItems[key] = true;
               this.visualRecordIds[key] = String(visualId);
               console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
@@ -2068,7 +2049,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
                   
                   // Add the new instance to the array
                   items.push(newItem);
-                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with VisualID ${visualId}`);
+                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with HUDID ${visualId}`);
                 }
               };
 
@@ -2123,24 +2104,8 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Check if Structural Systems section should be disabled
-  isStructuralSystemsDisabled(): boolean {
-    return this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report';
-  }
-
   // PERFORMANCE FIX: Dedicated handler for Structural Systems header click
-  // Ensures header is clickable anywhere except the dropdown
   onStructuralHeaderClick(event: Event): void {
-    // Don't toggle if disabled
-    if (this.isStructuralSystemsDisabled()) {
-      return;
-    }
-    
-    // Check if click came from the dropdown (shouldn't happen due to stopPropagation, but safety check)
-    const target = event.target as HTMLElement;
-    if (target.tagName === 'SELECT' || target.closest('select') || target.closest('.structural-status-subtitle')) {
-      return; // Don't toggle if clicking on dropdown
-    }
-    
     // Toggle the section
     this.toggleSection('structural');
   }
@@ -2341,89 +2306,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // Handle Structural Systems status change
-  onStructuralSystemsStatusChange(value: string) {
-
-    // Store in local serviceData with the UI property name
-    this.serviceData.StructuralSystemsStatus = value;
-
-    // No need to collapse section - it's always visible now
-    // Just trigger change detection for conditional content visibility
-    this.changeDetectorRef.detectChanges();
-
-    // Save to Services table using the correct database column name "StructStat"
-    this.autoSaveServiceField('StructStat', value);
-  }
-
-  private queueStructuralStatusWidthUpdate(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (this.structuralWidthRaf) {
-      cancelAnimationFrame(this.structuralWidthRaf);
-    }
-    this.structuralWidthRaf = requestAnimationFrame(() => {
-      this.structuralWidthRaf = undefined;
-      this.updateStructuralStatusWidth();
-    });
-  }
-
-  private updateStructuralStatusWidth(): void {
-    const selectEl = this.structuralStatusSelect?.nativeElement;
-    if (!selectEl || typeof window === 'undefined') {
-      return;
-    }
-
-    const computed = window.getComputedStyle(selectEl);
-    const mirror = this.ensureStructuralStatusMirror(computed);
-
-    const selectedOption = selectEl.selectedOptions?.[0] ?? selectEl.options[selectEl.selectedIndex];
-    const fallbackText = selectEl.options.length > 0 ? selectEl.options[0].text : 'Select Status';
-    const labelText = (selectedOption?.text ?? fallbackText ?? '').trim() || fallbackText;
-    mirror.textContent = labelText;
-
-    const paddingLeft = parseFloat(computed.paddingLeft || '0');
-    const paddingRight = parseFloat(computed.paddingRight || '0');
-    const extraSpace = paddingLeft + paddingRight + 36;
-    const desiredWidth = mirror.getBoundingClientRect().width + extraSpace;
-    const minWidth = 170;
-    const maxWidth = 240;
-    const containerWidth = selectEl.parentElement?.clientWidth ?? maxWidth;
-    const availableWidth = Math.max(minWidth, Math.min(containerWidth, maxWidth));
-    const finalWidth = Math.min(Math.max(desiredWidth, minWidth), availableWidth);
-
-    selectEl.style.whiteSpace = 'normal';
-    selectEl.style.lineHeight = '1.35';
-    selectEl.style.width = `${finalWidth}px`;
-    selectEl.style.minWidth = `${minWidth}px`;
-    selectEl.style.maxWidth = `${availableWidth}px`;
-  }
-
-  private ensureStructuralStatusMirror(computed: CSSStyleDeclaration): HTMLSpanElement {
-    if (!this.structuralStatusMirror || !document.body.contains(this.structuralStatusMirror)) {
-      this.structuralStatusMirror = document.createElement('span');
-      Object.assign(this.structuralStatusMirror.style, {
-        position: 'absolute',
-        visibility: 'hidden',
-        whiteSpace: 'pre-line',
-        pointerEvents: 'none',
-        opacity: '0',
-        zIndex: '-1'
-      });
-      document.body.appendChild(this.structuralStatusMirror);
-    }
-
-    const mirror = this.structuralStatusMirror;
-    mirror.style.font = computed.font || `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
-    mirror.style.fontSize = computed.fontSize;
-    mirror.style.fontFamily = computed.fontFamily;
-    mirror.style.fontWeight = computed.fontWeight;
-    mirror.style.letterSpacing = computed.letterSpacing;
-    mirror.style.whiteSpace = 'pre-line';
-
-    return mirror;
-  }
-
   scrollToSection(section: string) {
     // DISABLED: No auto-scrolling per user request
     return;
@@ -2508,11 +2390,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // Calculate completion percentage based on filled fields
     switch(section) {
       case 'structural':
-        // If status is "Provided in Home Inspection Report", section is considered 100% complete
-        if (this.serviceData.StructuralSystemsStatus === 'Provided in Home Inspection Report') {
-          return 100;
-        }
-
         // Count all required items across all categories
         let totalRequired = 0;
         let completedRequired = 0;
@@ -2649,7 +2526,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // Validate all required Project Information fields
     const requiredProjectFields = ['ClientName', 'InspectorName',
                                     'YearBuilt', 'SquareFeet', 'TypeOfBuilding', 'Style'];
-    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature', 'StructuralSystemsStatus'];
+    const requiredServiceFields = ['InAttendance', 'OccupancyFurnishings', 'WeatherConditions', 'OutdoorTemperature'];
 
     const missingProjectFields = requiredProjectFields.filter(field => !this.projectData[field]);
     const missingServiceFields = requiredServiceFields.filter(field => !this.serviceData[field]);
@@ -2735,8 +2612,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       'InAttendance': 'In Attendance',
       'OccupancyFurnishings': 'Occupancy/Furnishings',
       'WeatherConditions': 'Weather Conditions',
-      'OutdoorTemperature': 'Outdoor Temperature',
-      'StructuralSystemsStatus': 'Structural Systems Status'
+      'OutdoorTemperature': 'Outdoor Temperature'
     };
 
     Object.entries(requiredServiceFields).forEach(([field, label]) => {
@@ -2746,11 +2622,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     });
 
     // Check required visual items across all categories
-    // Skip if Structural Systems status is "Provided in Property Inspection Report"
-    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Property Inspection Report';
-
-    if (!skipStructuralSystems) {
-      for (const category of this.visualCategories) {
+    for (const category of this.visualCategories) {
         if (!this.organizedData[category]) continue;
 
         const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
@@ -2784,7 +2656,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       }
-    }
 
     // Removed elevation plot validation - selectedRooms and roomElevationData properties deleted
     // Check Base Station requirement for elevation plot
@@ -2990,8 +2861,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       'InAttendance': 'In Attendance',
       'OccupancyFurnishings': 'Occupancy/Furnishings',
       'WeatherConditions': 'Weather Conditions',
-      'OutdoorTemperature': 'Outdoor Temperature',
-      'StructuralSystemsStatus': 'Structural Systems Status'
+      'OutdoorTemperature': 'Outdoor Temperature'
     };
 
     for (const field of Object.keys(requiredServiceFields)) {
@@ -3001,11 +2871,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Check required visual items across all categories
-    // Skip if Structural Systems status is "Provided in Property Inspection Report"
-    const skipStructuralSystems = this.serviceData.StructuralSystemsStatus === 'Provided in Property Inspection Report';
-
-    if (!skipStructuralSystems) {
-      for (const category of this.visualCategories) {
+    for (const category of this.visualCategories) {
         if (!this.organizedData[category]) continue;
 
         const sections: ('comments' | 'limitations' | 'deficiencies')[] = ['comments', 'limitations', 'deficiencies'];
@@ -3038,7 +2904,6 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       }
-    }
 
     // Removed elevation plot validation - selectedRooms and roomElevationData properties deleted
     // Check Base Station requirement for elevation plot
@@ -3781,10 +3646,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       const response = await this.caspioService.createServicesHUD(visualData).toPromise();
 
       if (Array.isArray(response) && response.length > 0) {
-        visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+        visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
       } else if (response && typeof response === 'object') {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+          visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
         } else {
           visualId = String(response.HUDID || response.PK_ID || response.id || '');
         }
@@ -4150,8 +4015,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       'InAttendance',
       'OccupancyFurnishings',
       'WeatherConditions',
-      'OutdoorTemperature',
-      'StructuralSystemsStatus'
+      'OutdoorTemperature'
     ];
 
     let totalRequired = requiredProjectFields.length + requiredServiceFields.length;
@@ -4711,7 +4575,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
             v.Name === template.Name
           );
           if (exists) {
-            const existingId = exists.VisualID || exists.PK_ID || exists.id;
+            const existingId = exists.HUDID || exists.PK_ID || exists.id;
             this.visualRecordIds[key] = String(existingId);
             localStorage.setItem(recordKey, String(existingId));
             await this.processPendingPhotoUploadsForKey(key);
@@ -5637,19 +5501,19 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       const visualIdNum = parseInt(actualVisualId, 10);
       
       if (isNaN(visualIdNum)) {
-        throw new Error(`Invalid VisualID: ${actualVisualId}`);
+        throw new Error(`Invalid HUDID: ${actualVisualId}`);
       }
-      
+
       // Prepare debug information
       const allVisualIds = Object.entries(this.visualRecordIds)
         .map(([k, v]) => `${k}: ${v}`)
         .join('<br>');
-      
+
       // Prepare the data that will be sent
       const dataToSend = {
         table: 'Services_HUD_Attach',
         fields: {
-          VisualID: visualIdNum,
+          HUDID: visualIdNum,
           Annotation: caption || '', // Use caption from photo editor
           Photo: `[File: ${uploadFile.name}]`
         },
@@ -5660,7 +5524,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         },
         process: [
           '1. Upload file to Files API',
-          '2. Create record with VisualID and Annotation (without Photo)',
+          '2. Create record with HUDID and Annotation (without Photo)',
           '3. Update record with Photo field containing file path'
         ],
         debug: {
@@ -6182,14 +6046,14 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
         const response = await this.caspioService.createServicesHUD(visualData).toPromise();
 
-        // Extract VisualID using the SAME logic as line 4744-4754
+        // Extract HUDID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
 
         if (Array.isArray(response) && response.length > 0) {
-          visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+          visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
         } else if (response && typeof response === 'object') {
           if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-            visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+            visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
           } else {
             visualId = String(response.HUDID || response.PK_ID || response.id || '');
           }
@@ -6198,7 +6062,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         }
 
         if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
-          throw new Error('No VisualID returned from server');
+          throw new Error('No HUDID returned from server');
         }
         
         // Add to local data structure
@@ -6385,16 +6249,16 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         
         // Determine which array to add to based on kind
         const kindKey = kind.toLowerCase() + 's'; // comments, limitations, deficiencies
-        
-        // Use VisualID from response, NOT PK_ID
-        const visualId = response?.VisualID || response?.PK_ID || Date.now().toString();
+
+        // Use HUDID from response, NOT PK_ID
+        const visualId = response?.HUDID || response?.PK_ID || Date.now().toString();
         const customItem = {
           id: visualId.toString(), // Convert to string for consistency
           name: name,
           text: text,
           isCustom: true
         };
-        
+
         if (kindKey === 'comments') {
           this.organizedData[category].comments.push(customItem);
         } else if (kindKey === 'limitations') {
@@ -6402,10 +6266,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
           this.organizedData[category].deficiencies.push(customItem);
         }
-        
-        // Store the visual ID for photo uploads - use VisualID from response!
+
+        // Store the visual ID for photo uploads - use HUDID from response!
         const key = `${category}_${customItem.id}`;
-        this.visualRecordIds[key] = String(response?.VisualID || response?.PK_ID || customItem.id);
+        this.visualRecordIds[key] = String(response?.HUDID || response?.PK_ID || customItem.id);
         
         // Mark as selected (use selectedItems, not selectedVisuals)
         this.selectedItems[key] = true;
@@ -7582,60 +7446,18 @@ Stack: ${error?.stack}`;
     this.triggerFileInput('camera', { allowMultiple: false });
   }
 
-  // Add photo from gallery (structural systems)
+  // Add photo from gallery (structural systems) - SUPPORTS MULTIPLE SELECTIONS
   async addPhotoFromGallery(category: string, itemId: string) {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Photos
-      });
+    // Set upload context
+    this.currentUploadContext = {
+      category,
+      itemId,
+      action: 'add'
+    };
 
-      if (image.webPath) {
-        // Convert the image to a File object
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-        // Set context and process the file
-        this.currentUploadContext = {
-          category,
-          itemId,
-          action: 'add'
-        };
-
-        // Get or create visual ID
-        const key = `${category}_${itemId}`;
-        let visualId = this.visualRecordIds[key];
-
-        if (!visualId) {
-          await this.saveVisualSelection(category, itemId);
-          visualId = this.visualRecordIds[key];
-        }
-
-        if (visualId) {
-          // Process the file (no annotation for gallery selections)
-          const processedFile = {
-            file: file,
-            annotationData: null,
-            originalFile: undefined,
-            caption: ''
-          };
-
-          // Upload the photo
-          await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
-          this.markReportChanged();
-        }
-
-        this.currentUploadContext = null;
-      }
-    } catch (error) {
-      if (error !== 'User cancelled photos app') {
-        console.error('Error selecting photo from gallery:', error);
-        await this.showToast('Failed to select photo', 'danger');
-      }
-    }
+    // Trigger file input with multiple selection enabled
+    // This allows users to select multiple photos from their gallery at once
+    this.triggerFileInput('system', { allowMultiple: true });
   }
 
   // Take FDF photo directly from camera
@@ -7856,15 +7678,15 @@ Stack: ${error?.stack}`;
       extractedId = 'Will generate temp ID';
     } else if (Array.isArray(response) && response.length > 0) {
       responseType = 'Array Response';
-      visualIdFromResponse = response[0].VisualID || 'Not found';
+      visualIdFromResponse = response[0].HUDID || 'Not found';
       pkId = response[0].PK_ID || 'Not found';
-      extractedId = response[0].VisualID || response[0].PK_ID || response[0].id || 'Not found in array';
+      extractedId = response[0].HUDID || response[0].PK_ID || response[0].id || 'Not found in array';
     } else if (response && typeof response === 'object') {
       if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
         responseType = 'Object with Result array';
-        visualIdFromResponse = response.Result[0].VisualID || 'Not found';
+        visualIdFromResponse = response.Result[0].HUDID || 'Not found';
         pkId = response.Result[0].PK_ID || 'Not found';
-        extractedId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
+        extractedId = response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
       } else {
         responseType = 'Direct Object';
         visualIdFromResponse = response.HUDID || 'Not found';
@@ -7875,14 +7697,14 @@ Stack: ${error?.stack}`;
       responseType = 'Direct ID';
       extractedId = response;
     }
-    
+
     // Get all existing visuals for comparison
     let existingVisuals: Array<{id: any, name: string, category: string}> = [];
     try {
       const visuals = await this.hudData.getVisualsByService(this.serviceId);
       if (visuals && Array.isArray(visuals)) {
         existingVisuals = visuals.map(v => ({
-          id: v.VisualID || v.PK_ID || v.id,
+          id: v.HUDID || v.PK_ID || v.id,
           name: v.Name,
           category: v.Category
         }));
@@ -7950,7 +7772,7 @@ Stack: ${error?.stack}`;
         );
         
         if (ourVisual) {
-          const visualId = ourVisual.VisualID || ourVisual.PK_ID || ourVisual.id;
+          const visualId = ourVisual.HUDID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
@@ -8563,7 +8385,7 @@ Stack: ${error?.stack}`;
       if (categoryData.comments) {
         categoryData.comments.forEach((comment: any, index: number) => {
           // Use comment.id which is the template PK_ID
-          const visualId = comment.id || comment.VisualID;
+          const visualId = comment.id || comment.HUDID;
           const isSelected = this.isCommentSelected(category, visualId);
           if (isSelected) {
             // Get the actual visual record ID for photo fetching
@@ -8618,7 +8440,7 @@ Stack: ${error?.stack}`;
       if (categoryData.limitations) {
         categoryData.limitations.forEach((limitation: any, index: number) => {
           // Use limitation.id which is the template PK_ID
-          const visualId = limitation.id || limitation.VisualID;
+          const visualId = limitation.id || limitation.HUDID;
           if (this.isLimitationSelected(category, visualId)) {
             // Get the actual visual record ID for photo fetching
             const recordKey = `${category}_${visualId}`;
@@ -8672,7 +8494,7 @@ Stack: ${error?.stack}`;
       if (categoryData.deficiencies) {
         categoryData.deficiencies.forEach((deficiency: any, index: number) => {
           // Use deficiency.id which is the template PK_ID
-          const visualId = deficiency.id || deficiency.VisualID;
+          const visualId = deficiency.id || deficiency.HUDID;
           if (this.isDeficiencySelected(category, visualId)) {
             // Get the actual visual record ID for photo fetching
             const recordKey = `${category}_${visualId}`;
@@ -9078,13 +8900,13 @@ Stack: ${error?.stack}`;
       
       // Fetch all attachments in parallel for better performance
       const attachmentPromises = visuals
-        .filter(visual => visual.VisualID)
-        .map(visual => 
-          this.hudData.getVisualAttachments(visual.VisualID)
-            .then(attachments => ({ visualId: visual.VisualID, attachments }))
+        .filter(visual => visual.HUDID)
+        .map(visual =>
+          this.hudData.getVisualAttachments(visual.HUDID)
+            .then(attachments => ({ visualId: visual.HUDID, attachments }))
             .catch(error => {
-              console.error(`Error fetching attachments for visual ${visual.VisualID}:`, error);
-              return { visualId: visual.VisualID, attachments: [] };
+              console.error(`Error fetching attachments for visual ${visual.HUDID}:`, error);
+              return { visualId: visual.HUDID, attachments: [] };
             })
         );
       
@@ -9130,7 +8952,7 @@ Stack: ${error?.stack}`;
       
       // Also update visuals in organized data if needed
       for (const visual of visuals) {
-        if (visual.VisualID) {
+        if (visual.HUDID) {
           this.updateVisualInOrganizedData(visual);
         }
       }
@@ -9154,9 +8976,9 @@ Stack: ${error?.stack}`;
     
     // Check if this visual already exists in our organized data
     let found = false;
-    
+
     if (kind === 'comment' && this.organizedData[category].comments) {
-      const existing = this.organizedData[category].comments.find((c: any) => c.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].comments.find((c: any) => c.HUDID === visual.HUDID);
       if (existing) {
         // Update with database values
         existing.Text = visual.Text || existing.Text;
@@ -9164,24 +8986,24 @@ Stack: ${error?.stack}`;
         found = true;
       }
     } else if (kind === 'limitation' && this.organizedData[category].limitations) {
-      const existing = this.organizedData[category].limitations.find((l: any) => l.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].limitations.find((l: any) => l.HUDID === visual.HUDID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
         found = true;
       }
     } else if (kind === 'deficiency' && this.organizedData[category].deficiencies) {
-      const existing = this.organizedData[category].deficiencies.find((d: any) => d.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].deficiencies.find((d: any) => d.HUDID === visual.HUDID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
         found = true;
       }
     }
-    
+
     // If not found in organized data but exists in database, mark it as selected
-    if (!found && visual.VisualID) {
-      const key = `${category}-${kind}-${visual.VisualID}`;
+    if (!found && visual.HUDID) {
+      const key = `${category}-${kind}-${visual.HUDID}`;
       if (this.selectedItems) {
         this.selectedItems[key] = true;
       }
