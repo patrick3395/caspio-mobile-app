@@ -2908,6 +2908,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               this.efePointIds[newPointKey] = pointId;
               delete this.efePointIds[oldPointKey];
 
+              // Copy status to new key
+              this.pointCreationStatus[newPointKey] = this.pointCreationStatus[oldPointKey];
+              delete this.pointCreationStatus[oldPointKey];
+
               // Update the local point name
               point.name = newName;
 
@@ -3181,10 +3185,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Use PointID as the primary ID field, fallback to PK_ID
           const pointId = point.PointID || point.PK_ID;
           const pointKey = `${roomName}_${point.PointName}`;
-          
+
           // Store the point ID for future reference
           this.efePointIds[pointKey] = pointId;
-          
+
+          // Mark point as created (since it exists in database)
+          this.pointCreationStatus[pointKey] = 'created';
+
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
             let elevationPoint = this.roomElevationData[roomName].elevationPoints.find(
@@ -3526,9 +3533,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const numId = typeof id === 'number' ? id : parseInt(idStr, 10);
       if (isNaN(numId)) return false;
 
-      // Also verify the point is marked as 'created' in our status tracking
+      // CRITICAL: Only allow immediate upload if point is explicitly marked as 'created'
+      // If status is undefined or 'pending', queue it to be safe
       const status = this.pointCreationStatus[pointKey];
-      return status === 'created' || status === undefined; // undefined = legacy/already existed
+      if (status !== 'created') {
+        console.log(`[Photo Queue] Point ${pointKey} has ID ${id} but status is '${status}' - will queue`);
+        return false;
+      }
+
+      return true;
     };
 
     // If point already exists with valid ID AND is fully created, upload immediately
@@ -5688,6 +5701,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   dependsOnRoom: roomName // Track dependency
                 };
                 this.efePointIds[pointKey] = '__pending__';
+                this.pointCreationStatus[pointKey] = 'pending';
                 // Trigger change detection after setting pending state
                 this.changeDetectorRef.detectChanges();
               } else {
@@ -5701,6 +5715,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   if (response && (response.PointID || response.PK_ID)) {
                     const pointId = response.PointID || response.PK_ID;
                     this.efePointIds[pointKey] = pointId;
+                    this.pointCreationStatus[pointKey] = 'created';
                     // Trigger change detection after database save
                     this.changeDetectorRef.detectChanges();
                   }
@@ -8291,6 +8306,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (response && (response.PointID || response.PK_ID)) {
                 const pointId = response.PointID || response.PK_ID;
                 this.efePointIds[pointKey] = pointId;
+                this.pointCreationStatus[pointKey] = 'created';
                 delete this.pendingPointCreates[pointKey];
               }
             } catch (error) {
