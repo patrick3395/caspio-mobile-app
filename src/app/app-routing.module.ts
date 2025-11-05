@@ -46,6 +46,12 @@ const routes: Routes = [
     data: { preload: false }
   },
   {
+    path: 'hud/:projectId/:serviceId',
+    loadComponent: () => import('./pages/hud/hud.page').then( m => m.HudPage),
+    canActivate: [AuthGuard],
+    data: { preload: false }
+  },
+  {
     path: 'hud-template/:projectId/:serviceId',
     loadComponent: () => import('./pages/hud-template/hud-template.page').then( m => m.HudTemplatePage),
     canActivate: [AuthGuard],

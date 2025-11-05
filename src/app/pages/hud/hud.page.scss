@@ -1,0 +1,2185 @@
+﻿// Brand Colors and Header Styling - Match Active Projects exactly
+ion-header {
+  ion-toolbar {
+    --background: var(--noble-orange);
+    --border-width: 0;
+    --padding-start: 16px;
+    --padding-end: 16px;
+
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+  }
+}
+
+// Mobile header styles now handled by global.scss - no page-specific overrides needed
+
+// Back Button with Orange Circle and White Arrow
+#eng-back-btn {
+  background: var(--noble-orange) !important;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin-left: 8px !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 10000 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  border: none !important;
+  outline: none !important;
+
+  ion-icon {
+    color: white !important;
+    font-size: 24px !important;
+    pointer-events: none !important; // Prevent icon from blocking clicks
+  }
+
+  // Hover effect removed for mobile optimization
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+  }
+}
+
+// PERFORMANCE OPTIMIZATION: Hardware-accelerated transitions for smooth section toggles
+.section-card {
+  transform: translateZ(0); // Hardware acceleration
+  backface-visibility: hidden; // Prevent flickering
+  will-change: auto; // Let browser optimize
+}
+
+.section-content {
+  transform: translateZ(0); // Hardware acceleration
+  will-change: auto; // Browser optimization
+
+  // PERFORMANCE CRITICAL: Use CSS hiding instead of *ngIf to avoid DOM recreation
+  // This keeps the DOM in place but hides it visually for instant toggling
+  &.collapsed {
+    display: none; // Completely hide and remove from layout
+  }
+}
+
+// CRITICAL: Optimize accordion transitions specifically
+ion-accordion {
+  --transition: 0.15s ease-out; // Faster accordion animation
+}
+
+ion-toolbar.template-toolbar {
+  --padding-start: max(12px, calc((100vw - 1400px) / 2 + 12px));
+  --padding-end: max(12px, calc((100vw - 1400px) / 2 + 12px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .toolbar-title {
+    margin: 0 auto;
+    text-align: center;
+    font-weight: 600;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .finalized-check-icon {
+      color: var(--noble-orange);
+      font-size: 22px;
+      animation: checkmarkFadeIn 0.5s ease-in-out;
+    }
+  }
+
+  .template-toolbar-actions {
+    margin-left: auto;
+  }
+}
+
+@keyframes checkmarkFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.template-toolbar-actions {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.template-toolbar-actions button {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 8px 8px 8px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.template-toolbar-actions button ion-icon {
+  font-size: 24px;
+}
+
+// Auto-Sync OFF Warning Banner - Fixed at top
+.offline-warning-banner-fixed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #6c757d;
+  color: white;
+  padding: 10px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+
+  ion-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .warning-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    strong {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    span {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+  }
+
+  .enable-sync-btn {
+    background: white;
+    color: #6c757d;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    // Hover effect removed for mobile optimization
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
+// Add top padding to template container when banner is shown
+.template-container.has-banner {
+  padding-top: 0;
+}
+
+// PDF Header Button
+.pdf-header-button {
+  background: transparent;
+  border: none;
+  color: var(--ion-color-primary-contrast);
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer !important;
+  font-size: 14px;
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+
+  ion-icon {
+    font-size: 20px;
+    pointer-events: none !important; // Ensure icon doesn't block clicks
+  }
+
+  span {
+    pointer-events: none !important; // Ensure text doesn't block clicks
+  }
+
+  // Hover effect removed for mobile optimization
+
+  &:active {
+    opacity: 0.8;
+    background: rgba(255,255,255,0.3);
+  }
+}
+
+.item-text{font-size:13px !important;line-height:1.5 !important;max-height:39px !important;overflow:hidden !important;text-overflow:ellipsis !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;word-break:break-word;position:relative;transition:padding-right 0.3s ease;
+  &.text-with-camera{padding-right:45px;
+    &::after{content:'';position:absolute;right:40px;bottom:0;width:30px;height:20px;background:linear-gradient(to right, transparent, white 70%);pointer-events:none}
+  }
+}
+
+.answer-type-1-container{padding:12px;background:#fff;border-radius:8px;margin-bottom:12px;border:1px solid #e0e0e0;cursor:pointer;transition:all 0.2s ease;
+  // Hover effect removed for mobile optimization
+  .item-header{margin-bottom:8px;
+    .item-name{font-size:15px;font-weight:600;color:#333;margin:0;
+      .required-indicator{color:var(--noble-orange);font-weight:bold;margin-left:4px}
+    }
+  }
+  .item-text-wrapper{margin-bottom:12px;
+    .item-text{margin:0;color:#666}
+  }
+  .dropdown-container{display:flex;align-items:center;gap:10px;
+    .saving-spinner{--color:var(--noble-orange);width:20px;height:20px}
+  }
+}
+
+ion-content{
+  --overflow:scroll !important;
+  height:100%;
+  scroll-behavior: auto !important; // Prevent smooth scrolling animations
+}
+
+// CRITICAL: Prevent any auto-scrolling behavior
+* {
+  scroll-behavior: auto !important; // Disable smooth scroll everywhere
+}
+
+html, body {
+  scroll-behavior: auto !important;
+}
+
+// CRITICAL: Prevent Ionic from manipulating scroll when modals open/close
+body.modal-open,
+html.modal-open {
+  overflow: visible !important;
+  position: static !important;
+  top: auto !important;
+  width: auto !important;
+}
+
+ion-app.modal-open {
+  overflow: visible !important;
+}
+.photo-upload-dialog {
+  .alert-wrapper {
+    animation: none !important; // Remove animation for instant appearance
+  }
+  
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9998;
+  }
+}
+
+.offline-banner {
+  display: none; // Removed - not needed
+  align-items: center;
+  gap: 12px;
+  background: rgba(241, 90, 39, 0.1);
+  border: 1px solid var(--noble-orange);
+  color: var(--noble-orange);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+  ion-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .offline-text {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .enable-sync-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--noble-orange);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    ion-icon {
+      font-size: 18px;
+    }
+
+    // Hover effect removed for mobile optimization
+  }
+}
+
+.sync-control-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+  z-index: 100000;
+  pointer-events: auto;
+
+  .offline-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    color: var(--noble-orange);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+
+    ion-icon {
+      font-size: 32px;
+      pointer-events: none;
+    }
+
+    // Hover effect removed for mobile optimization
+
+    &[aria-pressed='true'] {
+      color: var(--ion-color-medium);
+
+      // Hover effect removed for mobile optimization
+    }
+  }
+}
+
+.template-container {
+  padding: 12px;
+  background: #f9f9f9;
+  min-height: 100%;
+  overflow: visible;
+  padding-bottom: 120px; // Increased padding for mobile sync control bar to ensure finalize button is accessible (was 80px)
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.save-status {
+  display: none; // Disabled - no save status banner needed
+  position: fixed;
+  top: 70px;
+  right: 24px;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  backdrop-filter: blur(10px);
+  animation: slideIn 0.3s ease;
+  
+  &.info {
+    background: rgba(255, 248, 245, 0.95);
+    color: var(--noble-orange);
+    border: 2px solid var(--noble-orange);
+  }
+  
+  &.success {
+    background: rgba(240, 255, 244, 0.95);
+    color: #28a745;
+    border: 2px solid #28a745;
+  }
+  
+  &.error {
+    background: rgba(255, 240, 240, 0.95);
+    color: #dc3545;
+    border: 2px solid #dc3545;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// Form Controls
+.form-group {
+  position: relative;
+  margin-bottom: 20px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--noble-gray);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    ion-icon {
+      font-size: 18px;
+      color: var(--noble-orange);
+    }
+
+    .required {
+      color: var(--noble-orange);
+      font-size: 12px;
+      margin-left: 1px;
+      vertical-align: super;
+      position: relative;
+      top: -2px;
+    }
+
+    // Help icon button styling - matches Elevation Plot icons exactly
+    .help-icon-button {
+      background: transparent !important;
+      border: none !important;
+      padding: 2px !important;
+      margin-left: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      ion-icon {
+        font-size: 18px;
+        color: var(--ion-color-primary);
+      }
+
+      // Hover effect removed for mobile optimization
+
+      &:active {
+        background: transparent !important;
+      }
+
+      &:focus {
+        outline: none;
+        background: transparent !important;
+      }
+    }
+  }
+  
+  .styled-input {
+    width: 100%;
+    max-width: 100%; // Ensure it never exceeds container
+    padding: 12px 16px;
+    border: 2px solid #e8e8e8;
+    border-radius: 8px;
+    font-size: 15px;
+    background: white;
+    color: #333;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box; // Include padding and border in width calculation
+    
+    // Hover effect removed for mobile optimization
+    
+    &:focus {
+      outline: none;
+      border-color: var(--noble-orange);
+      box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.15);
+      transform: translateY(-1px);
+    }
+    
+    &::placeholder {
+      color: #b0b0b0;
+      font-size: 14px;
+    }
+  }
+  
+  select.styled-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  .field-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-left: 3px solid var(--noble-orange);
+    border-radius: 4px;
+    font-size: 13px;
+    color: #666;
+    line-height: 1.5;
+
+    ion-icon {
+      font-size: 16px;
+      color: var(--noble-orange);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+  }
+
+  .field-description {
+    margin-top: -4px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #666;
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.5;
+  }
+  
+  &.filled {
+    .styled-input {
+      background: #ffffff;
+      border-color: #ddd;
+      color: #000000;
+    }
+
+    // Ensure dropdown arrow persists after selection
+    select.styled-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-color: #ffffff;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    label {
+      color: #000000;
+
+      ion-icon {
+        color: #000000;
+      }
+    }
+  }
+  
+  // Invalid state styling for required fields
+  .styled-input:required.ng-invalid.ng-touched {
+    border-color: #ff4444;
+    background: #fff5f5;
+  }
+
+  // Container for dropdown with "Other" option - visually groups them together
+  .dropdown-with-other-container {
+    background: #f8f9fa;
+    border: 2px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.3s ease;
+
+    // When "Other" is selected, keep light gray styling
+    &.has-other {
+      border-color: #d0d0d0;
+      background: #f8f9fa;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    // Remove border-radius from select inside container so it fits nicely
+    select.styled-input {
+      border-radius: 8px;
+    }
+
+    // "Other" input container styling
+    .other-input-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #d0d0d0;
+
+      .other-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        font-size: 15px;
+        background: white;
+        color: #333;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+          border-color: var(--noble-orange);
+          box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.15);
+          transform: translateY(-1px);
+        }
+
+        &::placeholder {
+          color: #b0b0b0;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Sections
+.section-card {
+  background: white;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: none;
+  overflow: visible;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform: translateZ(0); // Hardware acceleration
+  backface-visibility: hidden; // Prevent flickering
+  will-change: transform;
+  
+  // Hover effect removed for mobile optimization
+  
+  // Structural Systems specific styles
+  &.structural-section {
+    margin-bottom: 12px; // Match standard section spacing
+    
+    .visual-item-container {
+      position: relative; // Make container relative for absolute positioning
+      
+      ion-item.checkbox-item.with-camera {
+        position: relative;
+        padding-bottom: 60px; // Much more padding to prevent overlap with text
+        min-height: 110px; // Increased minimum height for proper spacing
+
+        &:not(.has-photos) {
+          .item-label {
+            .item-text.text-with-camera,
+            .item-text-wrapper .item-text.text-with-camera {
+              padding-right: 32px;
+
+              &::after {
+                right: 26px;
+                width: 18px;
+              }
+            }
+          }
+        }
+
+        &.has-photos {
+          .item-label {
+            .item-text.text-with-camera,
+            .item-text-wrapper .item-text.text-with-camera {
+              padding-right: 45px;
+
+              &::after {
+                right: 40px;
+                width: 30px;
+              }
+            }
+          }
+        }
+      }
+      
+      // Position camera button relative to the container, near the orange border
+      .camera-button-structural {
+        position: absolute;
+        bottom: 8px; // Close to bottom orange border
+        right: 8px; // Close to right orange border
+        background: var(--noble-orange);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 12px;
+        z-index: 10; // Higher z-index to ensure it's above other elements
+        
+        // Halo effect - white glow to blur text underneath
+        box-shadow: 
+          0 0 0 4px rgba(255, 255, 255, 0.9),  // White halo ring
+          0 0 12px 6px rgba(255, 255, 255, 0.8), // Blurred white glow
+          0 2px 8px rgba(0,0,0,0.15); // Depth shadow
+        backdrop-filter: blur(4px); // Blur the background text
+        -webkit-backdrop-filter: blur(4px); // Safari support
+        
+        ion-icon {
+          font-size: 16px;
+        }
+        
+        .photo-badge {
+          background: white;
+          color: var(--noble-orange);
+          border-radius: 10px;
+          padding: 0 5px;
+          font-size: 10px;
+          font-weight: bold;
+          min-width: 16px;
+          text-align: center;
+        }
+        
+        // Hover effect removed for mobile optimization
+        
+        &:active {
+          transform: scale(0.95);
+        }
+      }
+      
+      // When item is selected, ensure proper spacing for the border
+      &.selected {
+        padding-bottom: 4px; // Small padding to accommodate camera button
+        
+        .camera-button-structural {
+          // Animation for camera button appearance
+          animation: fadeInScale 0.3s ease;
+        }
+      }
+      
+      .item-label {
+        // Container for the text with strict height control
+        position: relative;
+        width: 100%;
+        padding-right: 0; // Remove extra padding since button is absolutely positioned
+        padding-bottom: 8px; // Add some bottom padding to separate from camera button
+        
+        h3 {
+          margin: 0 0 4px 0; // Small margin between name and text
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+          
+          .required-indicator {
+            color: var(--noble-orange);
+            margin-left: 4px;
+            font-weight: normal;
+          }
+        }
+        
+        // Wrapper div to control exact height
+        .item-text-wrapper {
+          position: relative;
+          height: 39px; // Exactly 2 lines: 13px * 1.5 * 2 = 39px
+          max-height: 39px;
+          overflow: hidden;
+          display: block;
+          
+          .item-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.5;
+            font-size: 13px;
+            color: #666;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            // Remove webkit-box to avoid any issues
+            word-wrap: break-word;
+            
+            // Apply trailing effect when camera is shown
+            &.text-with-camera {
+              padding-right: 45px;
+            }
+          }
+          
+          // Aggressive masking overlay
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 13px; // Half line height to ensure coverage
+            background: white; // Solid white to cut off any bleed
+            pointer-events: none;
+            z-index: 1;
+          }
+        }
+        
+        // For items without wrapper, apply same rules
+        .item-text:not(.wrapped) {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.23;
+          font-size: 13px;
+          color: #666;
+          margin: 0;
+          padding: 0;
+          max-height: 32px;
+          position: relative;
+        }
+      }
+    }
+  }
+  
+  .section-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    border-bottom: 2px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    // Hover effect removed for mobile optimization
+    
+    .section-info {
+      flex: 1;
+      
+      .section-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: color 0.3s ease;
+        
+        ion-icon {
+          font-size: 24px;
+          color: var(--noble-orange);
+          transition: color 0.3s ease;
+        }
+        
+        &.complete {
+          color: #28a745;
+          
+          ion-icon {
+            color: #28a745;
+          }
+        }
+      }
+      
+      .section-description {
+        font-size: 13px;
+        color: var(--noble-gray);
+        margin-top: 4px;
+        opacity: 0.8;
+      }
+    }
+    
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      .completion-badge {
+        background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+        color: #666;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 35px;
+        text-align: center;
+        
+        &.complete {
+          background: linear-gradient(135deg, #28a745 0%, #20c047 100%);
+          color: white;
+        }
+      }
+      
+      ion-icon {
+        font-size: 24px;
+        color: #999;
+        transition: transform 0.3s ease;
+      }
+    }
+  }
+  
+  &.expanded .section-header .section-toggle ion-icon {
+    transform: rotate(180deg);
+  }
+}
+
+.section-content {
+    padding: 16px;
+    background: white;
+    overflow: visible;
+    
+    .info-group {
+      padding: 24px;
+      background: white;
+      border-bottom: 1px solid #f5f5f5;
+      
+      &:first-child {
+        padding-top: 10px;
+      }
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .group-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--noble-gray);
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--noble-orange);
+        
+        ion-icon {
+          color: var(--noble-orange);
+          font-size: 20px;
+        }
+      }
+      
+      .form-grid {
+        display: grid;
+        gap: 20px;
+        
+        &.three-col {
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          
+          @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+          }
+        }
+        
+        &.two-col {
+          grid-template-columns: repeat(2, 1fr);
+          
+          @media (max-width: 991px) {
+            grid-template-columns: 1fr;
+          }
+        }
+        
+        .full-width {
+          grid-column: 1 / -1;
+        }
+      }
+    }
+  }
+
+// Categories
+  .categories-container {
+    margin-top: 10px;
+    overflow: visible; // CRITICAL: Allow delete buttons to show outside
+  
+  .categories-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 3px solid var(--noble-orange);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    &:before {
+      content: 'ðŸ“‹';
+      font-size: 24px;
+    }
+  }
+  
+  ion-accordion-group {
+    // Disable auto-scroll when accordion opens
+    scroll-behavior: auto !important;
+    overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
+
+    ion-accordion {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: visible !important;
+      scroll-margin: 0 !important;
+
+      // Force accordion content to always expand downward
+      display: block !important;
+      position: relative !important;
+
+      // Ensure content slot expands below the header
+      [slot="content"] {
+        position: relative !important;
+        top: 0 !important;
+        transform-origin: top !important;
+        overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
+      }
+      
+      // Also target the internal accordion container
+      .accordion-content {
+        overflow: visible !important;
+      }
+      
+      ion-item[slot="header"] {
+        --background: #f9f9f9;
+        --color: #333;
+        --padding-top: 12px;
+        --padding-bottom: 12px;
+        --padding-start: 16px;
+        --padding-end: 16px;
+        border-radius: 7px 7px 7px 7px; // All corners rounded by default (collapsed state)
+        overflow: hidden; // Clip corners properly
+
+        // Hover effect removed for mobile optimization
+      }
+
+      // When accordion is in expanding/expanded state, only round top corners of header
+      &[class*="expand"] ion-item[slot="header"],
+      &.accordion-expanding ion-item[slot="header"],
+      &.accordion-expanded ion-item[slot="header"] {
+        border-radius: 7px 7px 0 0; // Only top corners when expanded
+      }
+      
+      .category-content {
+        background: white;
+        padding: 20px;
+        overflow: hidden; // Clip corners properly to prevent white hue at bottom corners
+        border-radius: 0 0 7px 7px; // Match header approach - round bottom corners to align with parent (8px)
+        
+        .type-section {
+          margin-bottom: 20px;
+          overflow: visible; // CRITICAL: Allow delete buttons to show outside
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          .type-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--noble-gray);
+            margin-bottom: 12px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+            border-radius: 8px;
+            border-left: 4px solid var(--noble-orange);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            .add-visual-btn {
+              background: var(--noble-orange);
+              color: white;
+              border: none;
+              border-radius: 50%;
+              width: 28px;
+              height: 28px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              
+              ion-icon {
+                font-size: 20px;
+              }
+              
+              // Hover effect removed for mobile optimization
+              
+              &:active {
+                transform: scale(0.95);
+              }
+            }
+          }
+          
+          .no-items-message {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            font-style: italic;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
+            margin-bottom: 12px;
+          }
+          
+          .template-item {
+            margin-bottom: 12px;
+            overflow: visible; // CRITICAL: Allow delete buttons to show outside
+            
+            .visual-item-container {
+              position: relative;
+              border-radius: 12px;
+              transition: all 0.3s ease;
+              display: block;
+              width: 100%;
+              margin-bottom: 12px;
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
+
+              &.selected {
+                border: 2px solid #000000;
+                box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
+                background: transparent; // Changed from gradient to prevent corner fading
+                border-radius: 12px 12px 0 0; // Only round top corners to prevent clipping delete buttons
+
+                .checkbox-item {
+                  border-color: transparent;
+                  --background: #f8f8f8;
+                  background: #f8f8f8 !important; // Solid color instead of gradient to prevent corner fading
+                }
+              }
+            }
+            
+            .checkbox-item {
+              --background: white;
+              --inner-border-width: 0;
+              --border-width: 0;
+              --highlight-height: 0;
+              // --background-hover removed for mobile optimization
+              padding: 12px;
+              border-radius: 9px; // Reduced from 11px to create more clearance from parent (12px) to eliminate corner overlap
+              transition: all 0.3s ease;
+              border: none; // Remove border to prevent light hue over parent container border in corners
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
+              background: white; // Explicitly set to ensure no transparency
+              
+              // Hover effect removed for mobile optimization
+              
+              ion-checkbox {
+                --size: 22px;
+                --checkbox-background-checked: var(--noble-orange);
+                --border-color-checked: var(--noble-orange);
+                margin-right: 12px;
+              }
+              
+              .item-label {
+                flex: 1;
+                
+                h3 {
+                  font-size: 15px;
+                  font-weight: 600;
+                  color: #333;
+                  margin-bottom: 4px;
+                  
+                  .required-indicator {
+                    color: var(--noble-orange);
+                    font-weight: bold;
+                    margin-left: 4px;
+                  }
+                  
+                  .answer-type-badge {
+                    font-size: 11px;
+                    font-weight: normal;
+                    color: #7f8c8d;
+                    margin-left: 8px;
+                    padding: 2px 6px;
+                    background: #ecf0f1;
+                    border-radius: 4px;
+                  }
+                }
+                
+                // Answer select dropdown styling
+                .answer-select {
+                  --padding-start: 10px;
+                  --padding-end: 10px;
+                  --padding-top: 8px;
+                  --padding-bottom: 8px;
+                  min-width: 120px;
+                  font-size: 14px;
+                  
+                  &.select-multiple {
+                    max-width: 200px;
+                  }
+                }
+                
+                .item-text {
+                  font-size: 13px;
+                  color: var(--noble-gray);
+                  line-height: 1.5;
+                  max-height: 39px; // Exactly 2 lines: 13px * 1.5 * 2 = 39px
+                  overflow: hidden; // Changed from visible to hidden
+                  text-overflow: ellipsis;
+                  display: -webkit-box;
+                  -webkit-line-clamp: 2;
+                  -webkit-box-orient: vertical;
+                  pointer-events: none; // Prevent text from being clickable
+                }
+              }
+            }
+            
+            // Multi-select container styling - moved to correct level
+            .multi-select-container {
+              margin-bottom: 4px; // Reduced from 10px to 4px for more condensed spacing
+              border: 1px solid #f0f0f0;
+              border-radius: 8px;
+              background: white;
+              transition: all 0.3s ease;
+              overflow: visible; // Prevent corner clipping
+
+              // Hover effect removed for mobile optimization
+
+              // Remove border from checkbox-item when inside multi-select
+              .checkbox-item {
+                --background: white;
+                --inner-border-width: 0;
+                --border-width: 0;
+                --highlight-height: 0;
+                border: none !important;
+                border-radius: 8px 8px 0 0;
+                padding: 10px 12px 6px 12px !important; // Reduced padding: less top/bottom
+                background: white; // Explicitly set to ensure no transparency
+
+                // Hover effect removed for mobile optimization
+
+                .item-label {
+                  h3 {
+                    margin-bottom: 0 !important; // Remove bottom margin on title in multi-select
+                  }
+
+                  .item-text-wrapper {
+                    display: none; // Hide description text in multi-select to reduce whitespace
+                  }
+                }
+              }
+
+              .multi-select-options {
+                padding-left: 16px;
+                padding-right: 12px;
+                padding-top: 4px; // Reduced top padding to minimize gap between title and options
+                padding-bottom: 8px;
+                background: white;
+                border-top: 1px solid #f0f0f0;
+                margin-top: 0;
+                margin-right: 0;
+                border-radius: 0 0 8px 8px;
+
+                .option-item {
+                  --background: transparent;
+                  --padding-start: 8px;
+                  font-size: 14px;
+
+                  ion-checkbox {
+                    --size: 18px;
+                    margin-right: 10px;
+                  }
+                }
+              }
+
+              .no-options-message {
+                padding: 12px 16px;
+                color: #666;
+                font-style: italic;
+                font-size: 14px;
+              }
+
+              // "Other" custom input field
+              .other-input-container {
+                padding: 8px 16px 12px; // Reduced top/bottom padding for more condensed spacing
+                background: white;
+
+                .other-input {
+                  width: 100%;
+                  padding: 10px 12px;
+                  border: 1px solid #ddd;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  transition: border-color 0.2s;
+
+                  &:focus {
+                    outline: none;
+                    border-color: var(--noble-orange);
+                  }
+
+                  &::placeholder {
+                    color: #999;
+                    font-style: italic;
+                  }
+                }
+              }
+            }
+            
+            // Image preview section
+            .image-preview-section {
+              padding: 12px; // Increased padding to give space for delete buttons at edges
+              background: #f8f8f8;
+              border-top: 1px solid #e0e0e0;
+              border-radius: 0 0 12px 12px;
+              clear: both; // Clear any floats
+              display: block; // Ensure block display
+              width: 100%; // Full width
+              overflow: visible; // CRITICAL: Allow delete buttons to show outside
+              
+              .upload-status {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 12px;
+                background: rgba(241, 90, 39, 0.1);
+                border-radius: 8px;
+                margin-bottom: 12px;
+                color: var(--noble-orange);
+                font-size: 14px;
+                
+                ion-spinner {
+                  --color: var(--noble-orange);
+                  width: 20px;
+                  height: 20px;
+                }
+              }
+              
+              .image-preview-container {
+                display: flex;
+                gap: 12px; // Match elevation plot gap
+                flex-wrap: wrap;
+                align-items: flex-start;
+                min-height: 0; // Remove minimum height requirement
+                overflow: visible; // CRITICAL: Allow delete buttons to show outside container
+                
+                .no-photos-message {
+                  display: none; // Hide the no photos message since we removed the button
+                  width: 100%;
+                  padding: 20px;
+                  text-align: center;
+                  color: #999;
+                  background: rgba(0, 0, 0, 0.03);
+                  border-radius: 8px;
+                  border: 2px dashed #ddd;
+                  
+                  ion-icon {
+                    font-size: 32px;
+                    color: #ccc;
+                    margin-bottom: 8px;
+                  }
+                  
+                  p {
+                    margin: 0;
+                    font-size: 14px;
+                    color: #888;
+                  }
+                }
+                
+                // EXACT Elevation Plot styling applied to Structural Systems
+                .image-preview.structural-photo-preview {
+                  // STANDARDIZED container positioning - EXACT match to Elevation Plot
+                  position: relative !important;
+                  width: 90px !important;
+                  min-height: 90px !important; // Minimum height for photo, allows expansion for caption
+                  display: inline-block !important;
+                  vertical-align: top !important;
+                  overflow: visible !important; // CRITICAL: Must be visible for delete button to show outside
+                  margin: 4px !important;
+                  padding-bottom: 35px !important; // CONSISTENT space for caption input field - EXACT match
+                  background: transparent !important; // No visible background
+                  flex-shrink: 0;
+                  
+                  &.uploading img {
+                    opacity: 0.6;
+                  }
+                  
+                  .upload-indicator {
+                    position: absolute;
+                    top: 45px; // Center on image (90px / 2)
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 10;
+                    
+                    ion-spinner {
+                      --color: var(--noble-orange);
+                    }
+                  }
+                  
+                  img {
+                    width: 90px !important;
+                    height: 90px !important;
+                    border-radius: 20px !important;
+                    object-fit: cover !important;
+                    display: block !important;
+                    border: 2px solid #ddd !important;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    background: #f5f5f5;
+                    // NO margin-bottom - caption goes in padding-bottom space
+                    
+                    // Hover effect removed for mobile optimization
+                    
+                    // Removed orange border for annotated photos - keep consistent styling
+                    // &.has-annotations {
+                    //   border-color: var(--noble-orange) !important;
+                    // }
+                  }
+                  
+                  // Clean delete button styling - EXACT match to Elevation Plot
+                  .delete-btn {
+                    position: absolute !important;
+                    top: 4px !important;  // Positioned inside container to prevent cutoff
+                    right: 4px !important;
+                    width: 22px !important;  // Smaller size
+                    height: 22px !important; // Smaller size
+                    border-radius: 50% !important;
+                    background: white !important; // White background
+                    border: 2px solid #333333 !important; // Black border
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    z-index: 1000 !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; // Subtle shadow
+                    transition: all 0.2s ease !important;
+                    padding: 0 !important;
+                    
+                    ion-icon {
+                      font-size: 12px !important; // Smaller icon - EXACT match
+                      color: #333333 !important; // Black color
+                      font-weight: 600 !important;
+                    }
+                    
+                    // Hover effect removed for mobile optimization
+                    
+                    &:active {
+                      transform: scale(1.0) !important;
+                    }
+                  }
+                }
+                
+                .image-preview {
+                  position: relative;
+                  width: 60px; // Match elevation plot size
+                  min-width: 60px;
+                  height: auto; // Auto height to fit content
+                  min-height: 60px;
+                  display: inline-block; // Ensure proper layout
+                  vertical-align: top;
+                  flex-shrink: 0; // Prevent shrinking
+                  
+                  &.uploading img {
+                    opacity: 0.6;
+                  }
+                  
+                  .upload-indicator {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    z-index: 10;
+                    
+                    ion-spinner {
+                      --color: var(--noble-orange);
+                    }
+                  }
+                  
+                  img {
+                    width: 60px; // Match elevation plot size
+                    height: 60px; // Match elevation plot size
+                    aspect-ratio: 1 / 1;
+                    object-fit: cover;
+                    border-radius: 8px;
+                    border: 2px solid #ddd;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: block; // Ensure proper display
+                    background: #f5f5f5; // Background color in case image doesn't load
+                    
+                    // Hover effect removed for mobile optimization
+                    
+                    &[src=""],
+                    &:not([src]) {
+                      // If no src, show a background
+                      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+                      &::after {
+                        content: "ðŸ“·";
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        font-size: 24px;
+                      }
+                    }
+                  }
+                  
+                  .annotate-btn {
+                    display: none !important; // Hide annotation button completely
+                  }
+                  
+                  .annotation-indicator {
+                    display: none !important; // Hide annotation indicators completely
+                    pointer-events: none; // Ensure they can't block clicks
+                  }
+                  
+                  // Removed orange border for annotated photos - keep consistent styling
+                  // &.annotated img {
+                  //   border: 2px solid #F15A27;
+                  // }
+                  
+                  .delete-btn {
+                    position: absolute;
+                    top: 2px;
+                    right: 2px;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: white; // White background
+                    border: 2px solid #333333; // Black border
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    padding: 0;
+                    z-index: 10;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    
+                    ion-icon {
+                      font-size: 10px; // Smaller icon
+                      color: #333333; // Black color
+                      font-weight: 600;
+                    }
+                    
+                    // Hover effect removed for mobile optimization
+                    
+                    &:active {
+                      transform: scale(1.0);
+                    }
+                  }
+                }
+                
+                .add-more-btn {
+                  width: 60px; // Match elevation plot size
+                  height: 60px; // Match elevation plot size
+                  border: 2px dashed #ccc;
+                  border-radius: 8px;
+                  background: white;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 2px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  flex-shrink: 0; // Prevent shrinking
+                  
+                  ion-icon {
+                    font-size: 20px;
+                    color: var(--noble-orange);
+                  }
+                  
+                  span {
+                    font-size: 10px;
+                    color: #666;
+                  }
+                  
+                  // Hover effect removed for mobile optimization
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Elevation
+.subsection-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--noble-gray);
+  margin-bottom: 15px;
+  padding-left: 10px;
+  border-left: 3px solid var(--noble-orange);
+}
+
+.subsection-header {
+  font-size: 17px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--noble-orange);
+}
+
+// Back-to-Top Button (in footer)
+.floating-back-to-top {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--noble-orange, #f15a27);
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  // Hide on web platform - using platform-specific class
+  &.hide-on-web {
+    display: none !important;
+  }
+}
+
+// Global rule to hide any floating back-to-top buttons on web
+@media (min-width: 768px) {
+  .floating-back-to-top,
+  button[class*="floating"],
+  button[class*="back-to-top"] {
+    display: none !important;
+  }
+}
+
+// Continue with the original floating button styles
+.floating-back-to-top {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
+  ion-icon {
+    font-size: 32px;
+    color: var(--noble-orange, #f15a27);
+    pointer-events: none;
+  }
+
+  // Hover effect removed for mobile optimization
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// Removed loading animations - photos now load instantly in parallel
+
+// Global help icon button styling - matches Elevation Plot icons exactly
+.help-icon-button {
+  background: transparent !important;
+  border: none !important;
+  padding: 2px !important;
+  margin-left: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  ion-icon {
+    font-size: 18px;
+    color: var(--ion-color-primary);
+  }
+
+  // Hover effect removed for mobile optimization
+
+  &:active {
+    background: transparent !important;
+  }
+
+  &:focus {
+    outline: none;
+    background: transparent !important;
+  }
+}
+
+// Custom alert styling for "Other" value entry popup
+::ng-deep .custom-other-alert {
+  .alert-button-group {
+    display: flex !important;
+    justify-content: space-around !important;
+    padding: 0 !important;
+    
+    button {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      flex: 1 !important;
+      margin: 0 4px !important;
+      
+      .alert-button-inner {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      
+      .button-inner {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      
+      span {
+        display: block !important;
+        text-align: center !important;
+        width: 100% !important;
+      }
+    }
+  }
+}
+
+// MOBILE-SPECIFIC FDF PHOTO SIZING - Fit 3 photos on one line
+// Target mobile devices (phones) specifically
+@media (max-width: 768px) {
+
+  // FIXED sizing for mobile - match Structural Systems exactly
+  .image-preview-section {
+    padding: 4px !important;
+    overflow: visible !important; // Allow delete buttons to show
+  }
+  
+  .image-preview-section .image-preview-container {
+    gap: 4px !important;
+    justify-content: flex-start; // Align items to start
+    overflow: visible !important; // Allow delete buttons to show
+  }
+  
+  // CRITICAL FIX: Use FIXED width for Structural Systems (80px on mobile)
+  .image-preview-section .image-preview.structural-photo-preview {
+    position: relative !important;
+    width: 80px !important; // Fixed width to match debug output
+    max-width: 80px !important;
+    min-width: 80px !important;
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
+    padding-top: 8px !important;
+    padding-bottom: 0 !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    
+    img {
+      width: 80px !important;
+      height: 90px !important; // Maintain aspect ratio
+    }
+  }
+}
+
+// EXTRA SMALL MOBILE DEVICES - Even more compact for very small screens
+@media (max-width: 480px) {
+  
+  // FIXED sizing for extra small mobile - match Structural Systems
+  .image-preview-section {
+    padding: 3px !important;
+    overflow: visible !important; // Allow delete buttons to show
+  }
+  
+  .image-preview-section .image-preview-container {
+    gap: 3px !important;
+    justify-content: flex-start;
+    overflow: visible !important; // Allow delete buttons to show
+  }
+  
+  // CRITICAL FIX: Use FIXED width for Structural Systems on small phones
+  .image-preview-section .image-preview.structural-photo-preview {
+    position: relative !important;
+    width: 75px !important; // Fixed width for small screens
+    max-width: 75px !important;
+    min-width: 75px !important;
+    flex-shrink: 0;
+    flex-grow: 0;
+    margin: 0 !important;
+    padding-top: 7px !important;
+    padding-bottom: 0 !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    
+    img {
+      width: 75px !important;
+      height: 85px !important;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+}
+
+// In Attendance Multi-Select Inline Styling
+.multi-select-container-inline {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  
+  .multi-select-options-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    
+    .option-item-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: var(--noble-orange);
+        --border-color-checked: var(--noble-orange);
+        margin: 0;
+      }
+      
+      ion-label {
+        font-size: 14px;
+        color: #333;
+        margin: 0;
+      }
+    }
+  }
+  
+  .other-input-container {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+  }
+}
+
+// Finalize Report Button
+.finalize-button-container {
+  text-align: center;
+  padding: 30px 20px;
+  margin-bottom: 100px; // Increased to account for mobile sync control bar (was 20px)
+
+  .finalize-button {
+    background: linear-gradient(135deg, var(--noble-orange) 0%, #ff7645 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(241, 90, 39, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    ion-icon {
+      font-size: 28px;
+    }
+
+    // Hover effect removed for mobile optimization
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 20px rgba(241, 90, 39, 0.3);
+    }
+
+    // Gray styling when required fields are not filled
+    &.incomplete {
+      background: #e9ecef;
+      color: #adb5bd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+
+      // Hover effect removed for mobile optimization
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+    }
+
+    @media (max-width: 768px) {
+      width: 100%;
+      max-width: 400px;
+      padding: 14px 30px;
+      margin: 0 auto;
+      justify-content: center;
+      font-size: 16px;
+
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
+}
+
+// Finalize Alert Styling - Compact design for mobile
+::ng-deep .finalize-alert {
+  .alert-wrapper {
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-width: 400px; // Reduced from 600px for mobile
+    width: 90vw; // Responsive width
+  }
+
+  .alert-head {
+    padding: 20px 20px 12px; // Reduced padding
+    text-align: center;
+
+    h2 {
+      font-size: 18px; // Reduced from 22px
+      font-weight: 700;
+      color: #333;
+      margin: 0;
+    }
+  }
+
+  .alert-message {
+    padding: 8px 20px 20px; // Reduced padding
+    font-size: 13px; // Reduced from 14px
+    line-height: 1.5; // Tighter line height
+    color: #666;
+    white-space: pre-line;
+    max-height: 300px; // Reduced from 400px
+    overflow-y: auto;
+    text-align: left;
+  }
+
+  .alert-button-group {
+    padding: 0 20px 20px; // Reduced padding
+    display: flex;
+    gap: 12px; // Reduced gap
+    justify-content: center;
+    border-top: none;
+
+    button {
+      flex: 1;
+      max-width: 140px; // Reduced from 200px
+      min-width: 100px; // Reduced from 140px
+      background: #f5f5f5;
+      border: 2px solid var(--noble-orange);
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 14px; // Reduced from 15px
+      padding: 12px 20px; // Reduced padding
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333;
+      transition: all 0.2s ease;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .button-inner,
+      span {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+      }
+
+      // Hover effect removed for mobile optimization
+
+      &:active {
+        transform: translateY(0);
+      }
+
+      &[role="cancel"] {
+        color: #333;
+      }
+
+      &:not([role="cancel"]) {
+        color: #333;
+      }
+    }
+  }
+}
+
+// In Attendance Multi-Select Inline Styling
+.multi-select-container-inline {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  
+  .multi-select-options-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    
+    .option-item-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: var(--noble-orange);
+        --border-color-checked: var(--noble-orange);
+        margin: 0;
+      }
+      
+      ion-label {
+        font-size: 14px;
+        color: #333;
+        margin: 0;
+      }
+    }
+  }
+  
+  .other-input-container {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+  }
+}
+
+// ========================================
+// SKELETON LOADERS FOR PHOTO THUMBNAILS
+// ========================================
+
+// Skeleton loader animation
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+// Skeleton loader container
+.skeleton-loader {
+  pointer-events: none;
+  cursor: default;
+
+  .skeleton-image {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    display: block;
+  }
+
+  .skeleton-caption {
+    width: 90px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: block;
+  }
+}
+
+// Mobile responsive skeleton sizes
+@media (max-width: 576px) {
+  .skeleton-loader {
+    .skeleton-image {
+      width: 80px !important;
+      height: 90px !important;
+    }
+
+    .skeleton-caption {
+      width: 80px !important;
+      height: 20px !important;
+    }
+  }
+}
+
+// Extra small screens
+@media (max-width: 360px) {
+  .skeleton-loader {
+    .skeleton-image {
+      width: 75px !important;
+      height: 85px !important;
+    }
+
+    .skeleton-caption {
+      width: 75px !important;
+      height: 18px !important;
+    }
+  }
+}
+
+// Animated CSS spinner for loading alerts
+.template-loading-alert {
+  // Target the Ionic alert message wrapper
+  .alert-wrapper {
+    .alert-message {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      padding: 30px 0 !important;
+      min-height: 80px !important;
+      position: relative !important;
+
+      &::before {
+        content: '' !important;
+        display: block !important;
+        width: 48px !important;
+        height: 48px !important;
+        border: 4px solid rgba(56, 128, 255, 0.2) !important;
+        border-top-color: #3880ff !important;
+        border-radius: 50% !important;
+        animation: template-spinner-spin 0.8s linear infinite !important;
+      }
+    }
+  }
+}
+
+@keyframes template-spinner-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
