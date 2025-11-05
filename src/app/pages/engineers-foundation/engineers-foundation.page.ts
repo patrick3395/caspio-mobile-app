@@ -780,11 +780,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (data.roomName && data.pointName) {
         const pointKey = `${data.roomName}_${data.pointName}`;
         const realPointId = this.efePointIds[pointKey];
-        if (realPointId && !realPointId.startsWith('temp_') && realPointId !== '__pending__') {
+        const pointIdStr = String(realPointId || ''); // Convert to string for checking
+        if (realPointId && !pointIdStr.startsWith('temp_') && realPointId !== '__pending__') {
           pointId = realPointId;
           console.log(`[OperationsQueue] Resolved real point ID for ${pointKey}: ${pointId}`);
         } else {
-          throw new Error(`Point ID not ready for ${pointKey}`);
+          throw new Error(`Point ID not ready for ${pointKey} (current: ${realPointId})`);
         }
       }
 
