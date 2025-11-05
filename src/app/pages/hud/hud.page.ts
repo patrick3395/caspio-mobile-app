@@ -681,16 +681,16 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // Register CREATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('CREATE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing CREATE_VISUAL:', data.Name);
-      const response = await this.caspioService.createServicesVisual(data).toPromise();
+      const response = await this.caspioService.createServicesHUD(data).toPromise();
 
       if (!response) {
         throw new Error('No response from createServicesVisual');
       }
 
-      const visualId = response.VisualID || response.PK_ID || response.id;
+      const visualId = response.HUDID || response.PK_ID || response.id;
       if (!visualId) {
-        console.error('[OperationsQueue] No VisualID in response:', response);
-        throw new Error('VisualID not found in response');
+        console.error('[OperationsQueue] No HUDID in response:', response);
+        throw new Error('HUDID not found in response');
       }
 
       console.log('[OperationsQueue] Visual created successfully:', visualId);
@@ -701,7 +701,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     this.operationsQueue.setExecutor('UPDATE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing UPDATE_VISUAL:', data.visualId);
       const { visualId, updateData } = data;
-      const response = await this.caspioService.updateServicesVisual(visualId, updateData).toPromise();
+      const response = await this.caspioService.updateServicesHUD(visualId, updateData).toPromise();
       console.log('[OperationsQueue] Visual updated successfully');
       return { response };
     });
@@ -709,7 +709,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // Register DELETE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('DELETE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing DELETE_VISUAL:', data.visualId);
-      await this.caspioService.deleteServicesVisual(data.visualId).toPromise();
+      await this.caspioService.deleteServicesHUD(data.visualId).toPromise();
       console.log('[OperationsQueue] Visual deleted successfully');
       return { success: true };
     });
@@ -747,7 +747,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Upload the photo
       // Function signature: (visualId, annotation, file, drawings?, originalFile?)
-      const response = await this.caspioService.createServicesVisualsAttachWithFile(
+      const response = await this.caspioService.createServicesHUDAttachWithFile(
         parseInt(data.visualId, 10),
         data.caption || '',
         compressedFile,
@@ -774,7 +774,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       if (onProgress) onProgress(0.5); // 50% after compression
 
       // Upload photo to existing record
-      const response = await this.caspioService.updateServicesVisualsAttachPhoto(
+      const response = await this.caspioService.updateServicesHUDAttachPhoto(
         data.attachId,
         compressedFile,
         data.originalFile
@@ -1789,12 +1789,12 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   // v1.4.65 compatibility - addElevationPoint alias
   async loadVisualCategories() {
     try {
-      // Get all templates - filter by TypeID = 1 for Foundation Evaluation
-      const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
-      
-      // Filter templates for TypeID = 1 (Foundation Evaluation)
-      this.visualTemplates = (allTemplates || []).filter(template => template.TypeID === 1);
-      
+      // Get all HUD templates from LPS_Services_HUD_Templates table
+      const allTemplates = await this.caspioService.getServicesHUDTemplates().toPromise();
+
+      // Use all HUD templates (no TypeID filter needed - HUD has its own dedicated table)
+      this.visualTemplates = allTemplates || [];
+
       // Extract unique categories in order they appear
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
@@ -3778,7 +3778,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     let visualId: string | null = null;
 
     try {
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+      const response = await this.caspioService.createServicesHUD(visualData).toPromise();
 
       if (Array.isArray(response) && response.length > 0) {
         visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
@@ -3786,7 +3786,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
           visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
         } else {
-          visualId = String(response.VisualID || response.PK_ID || response.id || '');
+          visualId = String(response.HUDID || response.PK_ID || response.id || '');
         }
       } else if (response) {
         visualId = String(response);
@@ -4939,7 +4939,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
           };
           
           try {
-            await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+            await this.caspioService.updateServicesHUD(existingVisualId, updateData).toPromise();
             
             // Show success debug
             const successAlert = await this.alertController.create({
@@ -5025,7 +5025,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
           const updateData = {
             Answers: ''
           };
-          await this.caspioService.updateServicesVisual(existingVisualId, updateData).toPromise();
+          await this.caspioService.updateServicesHUD(existingVisualId, updateData).toPromise();
           
           const clearAlert = await this.alertController.create({
             header: 'CLEARED ANSWERS',
@@ -5786,7 +5786,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       // This ensures unique AttachID is assigned instantly
       let response;
       try {
-        response = await this.caspioService.createServicesVisualsAttachRecord(
+        response = await this.caspioService.createServicesHUDAttachRecord(
           visualIdNum,
           caption || '',
           drawingsData
@@ -5809,7 +5809,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
 
         try {
-          const uploadResponse = await this.caspioService.updateServicesVisualsAttachPhoto(
+          const uploadResponse = await this.caspioService.updateServicesHUDAttachPhoto(
             attachId,
             photo,
             originalPhoto || undefined
@@ -6180,7 +6180,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       // Online mode - proceed with API call
       try {
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
 
         // Extract VisualID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
@@ -6191,7 +6191,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
           if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
             visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
           } else {
-            visualId = String(response.VisualID || response.PK_ID || response.id || '');
+            visualId = String(response.HUDID || response.PK_ID || response.id || '');
           }
         } else if (response) {
           visualId = String(response);
@@ -6342,7 +6342,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       await loading.present();
       
       try {
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
         
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
@@ -7658,7 +7658,7 @@ Stack: ${error?.stack}`;
         Annotation: photo.caption || ''  // Save caption or empty string
       };
 
-      await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
+      await this.caspioService.updateServicesHUDAttach(photo.AttachID, updateData).toPromise();
 
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';
@@ -7867,9 +7867,9 @@ Stack: ${error?.stack}`;
         extractedId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
       } else {
         responseType = 'Direct Object';
-        visualIdFromResponse = response.VisualID || 'Not found';
+        visualIdFromResponse = response.HUDID || 'Not found';
         pkId = response.PK_ID || 'Not found';
-        extractedId = response.VisualID || response.PK_ID || response.id || 'Not found in object';
+        extractedId = response.HUDID || response.PK_ID || response.id || 'Not found in object';
       }
     } else {
       responseType = 'Direct ID';

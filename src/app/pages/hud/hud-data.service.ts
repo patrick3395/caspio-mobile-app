@@ -64,7 +64,7 @@ export class HudDataService {
     }
     console.log('[HUD Data] Loading existing HUD records for ServiceID:', serviceId);
     const hudRecords = await this.resolveWithCache(this.hudCache, serviceId, () =>
-      firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
+      firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId))
     );
     console.log('[HUD Data] API returned HUD records:', hudRecords.length, 'records');
     if (hudRecords.length > 0) {
@@ -79,7 +79,7 @@ export class HudDataService {
     }
     const key = String(hudId);
     return this.resolveWithCache(this.hudAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(String(hudId)))
+      firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(String(hudId)))
     );
   }
 

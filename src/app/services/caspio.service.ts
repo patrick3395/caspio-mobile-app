@@ -788,6 +788,17 @@ export class CaspioService {
       })
     );
   }
+
+  // Services HUD Templates methods
+  getServicesHUDTemplates(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_HUD_Templates/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('HUD templates error:', error);
+        return of([]);
+      })
+    );
+  }
   
   // Services EFE methods
   getServicesEFE(serviceId: string): Observable<any[]> {
@@ -1354,7 +1365,170 @@ export class CaspioService {
   deleteServicesVisual(visualId: string): Observable<any> {
     return this.delete<any>(`/tables/LPS_Services_Visuals/records?q.where=PK_ID=${visualId}`);
   }
-  
+
+  // Services HUD methods (for HUD template records)
+  createServicesHUD(hudData: any): Observable<any> {
+    return this.post<any>('/tables/LPS_Services_HUD/records?response=rows', hudData).pipe(
+      tap(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          console.log('✅ HUD record created:', response.Result[0]);
+        }
+      }),
+      map(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Services_HUD:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateServicesHUD(hudId: string, hudData: any): Observable<any> {
+    const url = `/tables/LPS_Services_HUD/records?q.where=HUDID=${hudId}`;
+    return this.put<any>(url, hudData).pipe(
+      catchError(error => {
+        console.error('❌ Failed to update Services_HUD:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getServicesHUDByServiceId(serviceId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  deleteServicesHUD(hudId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_HUD/records?q.where=PK_ID=${hudId}`);
+  }
+
+  // Services_HUD_Attach methods (for HUD photos)
+  getServiceHUDAttachByHUDId(hudId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_HUD_Attach/records?q.where=HUDID=${hudId}`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  createServicesHUDAttachWithFile(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadHUDAttachWithFilesAPI(hudId, annotation, file, drawings, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
+    // Similar to uploadVisualsAttachWithFilesAPI but for HUD table
+    const token = await firstValueFrom(this.getValidToken());
+    const formData = new FormData();
+    formData.append('HUDID', hudId.toString());
+    formData.append('Annotation', annotation || '');
+    if (drawings) {
+      formData.append('Drawings', drawings);
+    }
+    formData.append('Photo', file, file.name);
+
+    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`HUD attach upload failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  updateServicesHUDAttach(attachId: string, data: any): Observable<any> {
+    const url = `/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data);
+  }
+
+  updateServicesHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadAndUpdateHUDAttachPhoto(attachId, file, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async uploadAndUpdateHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
+    const token = await firstValueFrom(this.getValidToken());
+    const formData = new FormData();
+    formData.append('Photo', file, file.name);
+
+    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`HUD attach photo update failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  createServicesHUDAttachRecord(hudId: number, annotation: string, drawings?: string): Observable<any> {
+    return new Observable(observer => {
+      this.createHUDAttachRecordOnly(hudId, annotation, drawings)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async createHUDAttachRecordOnly(hudId: number, annotation: string, drawings?: string): Promise<any> {
+    const token = await firstValueFrom(this.getValidToken());
+    const payload = {
+      HUDID: hudId,
+      Annotation: annotation || '',
+      Drawings: drawings || ''
+    };
+
+    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HUD attach record creation failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.Result && result.Result.length > 0 ? result.Result[0] : result;
+  }
+
+  deleteServicesHUDAttach(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`);
+  }
+
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
     return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(
