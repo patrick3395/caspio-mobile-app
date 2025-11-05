@@ -5189,6 +5189,7 @@ Time: ${debugInfo.timestamp}
 
     // Show confirmation alert
     const alert = await this.alertController.create({
+      cssClass: 'custom-document-alert',
       header: 'Submit Report',
       message: `Are you sure you want to submit the finalized ${service.typeName} report?`,
       buttons: [

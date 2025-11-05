@@ -5679,9 +5679,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       'Content-Type': 'application/json'
     });
 
+    // Normalize table name to include LPS_ prefix if not already present
+    const normalizedTableName = tableName.startsWith('LPS_') ? tableName : `LPS_${tableName}`;
+
     const searchParams = new URLSearchParams(params);
     const query = searchParams.toString();
-    const url = `${environment.caspio.apiBaseUrl}/tables/${tableName}/records${query ? `?${query}` : ''}`;
+    const url = `${environment.caspio.apiBaseUrl}/tables/${normalizedTableName}/records${query ? `?${query}` : ''}`;
 
     const response = await firstValueFrom(this.http.get<any>(url, { headers }));
     return response?.Result ?? [];

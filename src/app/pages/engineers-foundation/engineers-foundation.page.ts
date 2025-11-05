@@ -11838,9 +11838,11 @@ Stack: ${error?.stack}`;
       await this.selectAndProcessGalleryPhotoForPoint(roomName, point, pointId, roomId, photoType);
 
     } catch (error: any) {
-      console.error('Error in capturePointPhotoGallery:', error);
-      const errorMsg = error?.message || 'Unknown error';
-      await this.showToast(`Failed to select photo: ${errorMsg}`, 'danger');
+      if (error !== 'User cancelled photos app' && error?.message !== 'User cancelled photos app') {
+        console.error('Error in capturePointPhotoGallery:', error);
+        const errorMsg = error?.message || 'Unknown error';
+        await this.showToast(`Failed to select photo: ${errorMsg}`, 'danger');
+      }
     }
   }
 

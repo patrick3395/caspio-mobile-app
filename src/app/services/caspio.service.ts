@@ -3448,6 +3448,6 @@ export class CaspioService {
    */
   public clearInvoicesCache(): void {
     console.log('[CaspioService] Clearing Invoices cache entries');
-    this.cache.clearByPattern('Invoices/records');
+    this.cache.clearByPattern('LPS_Invoices/records');
   }
 }
