@@ -1430,6 +1430,7 @@ export class CaspioService {
   private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
     // Similar to uploadVisualsAttachWithFilesAPI but for HUD table
     const token = await firstValueFrom(this.getValidToken());
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
     const formData = new FormData();
     formData.append('HUDID', hudId.toString());
     formData.append('Annotation', annotation || '');
@@ -1438,7 +1439,7 @@ export class CaspioService {
     }
     formData.append('Photo', file, file.name);
 
-    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records`, {
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -1471,10 +1472,11 @@ export class CaspioService {
 
   private async uploadAndUpdateHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
     const token = await firstValueFrom(this.getValidToken());
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
     const formData = new FormData();
     formData.append('Photo', file, file.name);
 
-    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -1502,13 +1504,14 @@ export class CaspioService {
 
   private async createHUDAttachRecordOnly(hudId: number, annotation: string, drawings?: string): Promise<any> {
     const token = await firstValueFrom(this.getValidToken());
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
     const payload = {
       HUDID: hudId,
       Annotation: annotation || '',
       Drawings: drawings || ''
     };
 
-    const response = await fetch(`${this.baseURL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

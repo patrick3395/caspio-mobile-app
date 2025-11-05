@@ -517,15 +517,28 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (statuses && statuses.status === 'rejected') console.error('Failed to load statuses:', statuses.reason);
 
       // Process offers and types
+      console.log('🔍 [Type Icons] Types data from LPS_Type table:', typesData?.map((t: any) => ({
+        PK_ID: t.PK_ID,
+        TypeID: t.TypeID,
+        TypeName: t.TypeName,
+        Icon: t.Icon
+      })));
+
       this.availableOffers = (offersData || []).map((offer: any) => {
         const type = (typesData || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
-        return {
+        const result = {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
           TypeIconUrl: ''  // Will be loaded asynchronously
         };
+
+        if (type) {
+          console.log(`🔍 [Type Icons] Mapped offer ${offer.TypeID} -> TypeIcon: "${type?.Icon}"`);
+        }
+
+        return result;
       });
 
       // [v1.4.498] PERFORMANCE FIX: Load icon images in parallel with other processing
@@ -3888,29 +3901,46 @@ Troubleshooting:
 
   async loadIconImages() {
     // PERFORMANCE FIX: Load all icon images in parallel instead of sequentially
-    const iconPromises = this.availableOffers
-      .filter(offer => offer.TypeIcon && offer.TypeIcon.startsWith('/'))
-      .map(async (offer) => {
+    console.log('🎨 [Icon Loading] Starting icon load process');
+    console.log('🎨 [Icon Loading] Available offers:', this.availableOffers.map(o => ({
+      TypeName: o.TypeName,
+      TypeIcon: o.TypeIcon,
+      hasIcon: !!o.TypeIcon,
+      startsWithSlash: o.TypeIcon?.startsWith('/')
+    })));
+
+    const offersWithIcons = this.availableOffers
+      .filter(offer => offer.TypeIcon && offer.TypeIcon.startsWith('/'));
+
+    console.log(`🎨 [Icon Loading] Found ${offersWithIcons.length} offers with valid icon paths`);
+
+    const iconPromises = offersWithIcons.map(async (offer) => {
         try {
+          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}: ${offer.TypeIcon}`);
           const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL
             offer.TypeIconUrl = imageData;
+            console.log(`✅ [Icon Loading] Successfully loaded icon for ${offer.TypeName}`);
 
             // Update any existing services that use this offer
             this.selectedServices.forEach(service => {
               if (service.typeId === offer.TypeID) {
                 service.typeIconUrl = imageData;
+                console.log(`✅ [Icon Loading] Updated service ${service.typeName} with icon`);
               }
             });
+          } else {
+            console.warn(`⚠️ [Icon Loading] Invalid image data for ${offer.TypeName}:`, imageData?.substring(0, 50));
           }
         } catch (error) {
-          console.error(`Failed to load icon for ${offer.TypeName}:`, error);
+          console.error(`❌ [Icon Loading] Failed to load icon for ${offer.TypeName}:`, error);
         }
       });
 
     // Wait for all icons to load in parallel
     await Promise.all(iconPromises);
+    console.log('🎨 [Icon Loading] Icon loading complete');
   }
 
   getIconUrl(iconPath: string): string {
