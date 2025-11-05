@@ -734,8 +734,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       let efeid = data.EFEID;
       if (data.roomName) {
         const realRoomId = this.efeRecordIds[data.roomName];
-        if (realRoomId && !realRoomId.startsWith('temp_') && realRoomId !== '__pending__') {
-          efeid = parseInt(realRoomId);
+        const roomIdStr = String(realRoomId || ''); // Convert to string for checking
+
+        if (realRoomId && !roomIdStr.startsWith('temp_') && realRoomId !== '__pending__') {
+          efeid = typeof realRoomId === 'number' ? realRoomId : parseInt(realRoomId);
           console.log(`[OperationsQueue] Resolved real room ID for ${data.roomName}: ${efeid}`);
         } else if (data.EFEID === 0 || !data.EFEID) {
           // Room ID not ready yet and we have no valid EFEID - throw error to retry
@@ -4137,9 +4139,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (isSelected) {
       // Check if we already have a REAL record ID for this room (not temp or pending)
       const existingRoomId = this.efeRecordIds[roomName];
+      const roomIdStr = String(existingRoomId || ''); // Convert to string for checking
       if (existingRoomId &&
           existingRoomId !== '__pending__' &&
-          !existingRoomId.startsWith('temp_')) {
+          !roomIdStr.startsWith('temp_')) {
         this.selectedRooms[roomName] = true;
         this.expandedRooms[roomName] = false;
         return; // Room already exists with real ID, just update UI state
@@ -4239,7 +4242,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const pointKey = `${roomName}_${point.name}`;
 
       // Skip if point already exists
-      if (this.efePointIds[pointKey] && !this.efePointIds[pointKey].startsWith('temp_')) {
+      const existingPointId = this.efePointIds[pointKey];
+      const pointIdStr = String(existingPointId || ''); // Convert to string for checking
+      if (existingPointId && !pointIdStr.startsWith('temp_')) {
         console.log(`[Point Queue] Point ${point.name} already exists, skipping`);
         continue;
       }
@@ -4249,10 +4254,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.pointCreationStatus[pointKey] = 'pending';
 
       // Queue point creation
+      const roomIdStr = String(roomId || ''); // Convert to string for checking
       const pointOpId = await this.operationsQueue.enqueue({
         type: 'CREATE_POINT',
         data: {
-          EFEID: roomId.startsWith('temp_') ? 0 : parseInt(roomId), // Use 0 for temp IDs, executor will resolve real ID from roomName
+          EFEID: roomIdStr.startsWith('temp_') ? 0 : (typeof roomId === 'number' ? roomId : parseInt(roomId)), // Use 0 for temp IDs, executor will resolve real ID from roomName
           PointName: point.name,
           roomName: roomName // Pass room name for ID resolution
         },
@@ -4292,7 +4298,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private async ensureRoomQueued(roomName: string): Promise<string | null> {
     // Check if room already exists with valid ID
     const existingRoomId = this.efeRecordIds[roomName];
-    if (existingRoomId && !existingRoomId.startsWith('temp_') && existingRoomId !== '__pending__') {
+    const roomIdStr = String(existingRoomId || ''); // Convert to string for checking
+    if (existingRoomId && !roomIdStr.startsWith('temp_') && existingRoomId !== '__pending__') {
       console.log(`[Ensure Room] Room ${roomName} already exists with ID ${existingRoomId}`);
       return this.roomOperationIds[roomName] || null; // Return existing operation ID if available
     }
@@ -4378,7 +4385,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Check if point already exists with valid ID
     const existingPointId = this.efePointIds[pointKey];
-    if (existingPointId && !existingPointId.startsWith('temp_') && existingPointId !== '__pending__') {
+    const pointIdStr = String(existingPointId || ''); // Convert to string for checking
+    if (existingPointId && !pointIdStr.startsWith('temp_') && existingPointId !== '__pending__') {
       console.log(`[Ensure Point] Point ${pointName} already exists with ID ${existingPointId}`);
       return this.pointOperationIds[pointKey] || null;
     }
@@ -4411,10 +4419,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log(`[Ensure Point] Queuing point creation for ${pointName} in room ${roomName}`);
 
     // Queue point creation with dependency on room
+    const roomIdStr = String(roomId || ''); // Convert to string for checking
     const pointOpId = await this.operationsQueue.enqueue({
       type: 'CREATE_POINT',
       data: {
-        EFEID: roomId.startsWith('temp_') ? 0 : parseInt(roomId), // Use 0 for temp IDs, executor will resolve real ID from roomName
+        EFEID: roomIdStr.startsWith('temp_') ? 0 : (typeof roomId === 'number' ? roomId : parseInt(roomId)), // Use 0 for temp IDs, executor will resolve real ID from roomName
         PointName: pointName,
         roomName: roomName // Pass room name so executor can get the real room ID
       },
