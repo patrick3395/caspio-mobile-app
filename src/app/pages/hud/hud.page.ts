@@ -5562,7 +5562,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
             <strong>Table:</strong> ${dataToSend.table}<br><br>
             
             <strong>Fields to Send:</strong><br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ HUDID: <strong style="color: red;">${dataToSend.fields.HUDID}</strong> (Integer)<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo: Will store file path after upload<br><br>
             
@@ -6221,16 +6221,16 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
               </div><br>
               
               <strong style="color: blue;">Key Fields:</strong><br>
-              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID (PRIMARY): <strong style="color: green;">${response?.VisualID || 'NOT FOUND'}</strong><br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ HUDID (PRIMARY): <strong style="color: green;">${response?.HUDID || 'NOT FOUND'}</strong><br>
               ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ PK_ID: ${response?.PK_ID || 'N/A'}<br>
               ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ServiceID: ${response?.ServiceID || 'N/A'}<br>
               ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Category: ${response?.Category || 'N/A'}<br>
               ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Kind: ${response?.Kind || 'N/A'}<br>
               ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Name: ${response?.Name || 'N/A'}<br><br>
-              
+
               <strong>Will be stored as:</strong><br>
-              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Key: ${category}_${response?.VisualID || response?.PK_ID || Date.now()}<br>
-              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID for photos: <strong style="color: green;">${response?.VisualID || response?.PK_ID || 'MISSING!'}</strong>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Key: ${category}_${response?.HUDID || response?.PK_ID || Date.now()}<br>
+              ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ HUDID for photos: <strong style="color: green;">${response?.HUDID || response?.PK_ID || 'MISSING!'}</strong>
             </div>
           `,
           cssClass: 'debug-alert-wide',
