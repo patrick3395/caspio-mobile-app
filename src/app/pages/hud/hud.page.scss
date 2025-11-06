@@ -1277,11 +1277,12 @@ ion-app.modal-open {
 
                 .item-label {
                   h3 {
-                    margin-bottom: 0 !important; // Remove bottom margin on title in multi-select
+                    margin-bottom: 6px !important; // Add bottom margin for spacing between title and text
                   }
 
                   .item-text-wrapper {
-                    display: none; // Hide description text in multi-select to reduce whitespace
+                    display: block !important; // Show description text above options
+                    margin-bottom: 8px !important; // Add spacing between text and options
                   }
                 }
               }

@@ -4507,8 +4507,13 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       if (index > -1) {
         item.selectedOptions.splice(index, 1);
       }
+
+      // Clear otherValue when "Other" is deselected
+      if (option === 'Other') {
+        item.otherValue = '';
+      }
     }
-    
+
     // Update the text field and save
     await this.onMultiSelectChange(category, item);
   }

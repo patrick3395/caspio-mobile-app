@@ -780,23 +780,27 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
-          TypeIcon: type?.Icon || ''
+          TypeIcon: type?.Icon || '',
+          TypeIconUrl: ''  // Will be loaded by loadIconImages()
         };
         return result;
       });
-      
+
       // Sort alphabetically with "Other" at the bottom
       this.availableOffers = processedOffers.sort((a: any, b: any) => {
         const nameA = a.TypeName.toLowerCase();
         const nameB = b.TypeName.toLowerCase();
-        
+
         // Put "Other" at the bottom
         if (nameA === 'other') return 1;
         if (nameB === 'other') return -1;
-        
+
         // Otherwise sort alphabetically
         return nameA.localeCompare(nameB);
       });
+
+      // Load icon images after offers are processed
+      await this.loadIconImages();
     } catch (error) {
       console.error('❌ Error loading offers - Full details:', error);
       console.error('Error type:', typeof error);
@@ -853,6 +857,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeName: offer?.TypeName || offer?.Service_Name || 'Service',
           typeShort: offer?.TypeShort || '',
           typeIcon: offer?.TypeIcon || '',
+          typeIconUrl: offer?.TypeIconUrl || '',  // Include the loaded icon URL
           dateOfInspection: service.DateOfInspection || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
@@ -3917,7 +3922,7 @@ Troubleshooting:
 
     const iconPromises = offersWithIcons.map(async (offer) => {
         try {
-          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}: ${offer.TypeIcon}`);
+          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}: "${offer.TypeIcon}"`);
           const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL
@@ -3935,7 +3940,9 @@ Troubleshooting:
             console.warn(`⚠️ [Icon Loading] Invalid image data for ${offer.TypeName}:`, imageData?.substring(0, 50));
           }
         } catch (error) {
-          console.error(`❌ [Icon Loading] Failed to load icon for ${offer.TypeName}:`, error);
+          console.warn(`⚠️ [Icon Loading] Icon file not found for ${offer.TypeName} (${offer.TypeIcon}) - skipping. Error:`, error);
+          // Don't fail the entire process - just skip this icon
+          offer.TypeIconUrl = ''; // Explicitly set to empty so we know it was attempted
         }
       });
 
