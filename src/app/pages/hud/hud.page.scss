@@ -1283,6 +1283,17 @@ ion-app.modal-open {
                   .item-text-wrapper {
                     display: block !important; // Show description text above options
                     margin-bottom: 8px !important; // Add spacing between text and options
+                    max-height: none !important; // Remove height restriction to show full text
+                    overflow: visible !important; // Show all content
+
+                    .item-text {
+                      max-height: none !important; // Remove height restriction
+                      overflow: visible !important; // Show all content
+                      -webkit-line-clamp: unset !important; // Remove line clamp
+                      display: block !important; // Change from -webkit-box to block
+                      text-overflow: clip !important; // Don't use ellipsis
+                      white-space: normal !important; // Allow text to wrap
+                    }
                   }
                 }
               }
@@ -1482,31 +1493,6 @@ ion-app.modal-open {
                     
                     &:active {
                       transform: scale(1.0) !important;
-                    }
-                  }
-
-                  // Caption button styling - centered below photo
-                  .room-photo-caption {
-                    position: absolute !important;
-                    bottom: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    width: 90px !important;
-                    padding: 4px 2px !important;
-                    font-size: 11px !important;
-                    color: #666 !important;
-                    background: transparent !important;
-                    border: none !important;
-                    cursor: pointer !important;
-                    text-align: center !important; // Center the caption text
-                    white-space: nowrap !important;
-                    overflow: hidden !important;
-                    text-overflow: ellipsis !important;
-                    display: block !important;
-
-                    &:hover {
-                      color: var(--noble-orange) !important;
-                      text-decoration: underline !important;
                     }
                   }
                 }
@@ -2142,6 +2128,30 @@ ion-app.modal-open {
     border-radius: 6px;
     margin-top: 8px;
     display: block;
+  }
+}
+
+// Caption button styling - centered below photos
+.room-photo-caption {
+  width: 90px !important;
+  font-size: 11px !important;
+  padding: 4px 2px !important;
+  max-width: 90px !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  margin: 4px auto 0 auto !important;
+  display: block !important;
+  color: #666 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  &:hover {
+    color: var(--noble-orange) !important;
+    text-decoration: underline !important;
   }
 }
 

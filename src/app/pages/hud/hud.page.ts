@@ -4511,6 +4511,8 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       // Clear otherValue when "Other" is deselected
       if (option === 'Other') {
         item.otherValue = '';
+        // Trigger change detection to hide the input field immediately
+        this.changeDetectorRef.detectChanges();
       }
     }
 

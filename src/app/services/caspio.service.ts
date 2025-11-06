@@ -1893,18 +1893,22 @@ export class CaspioService {
 
   getImageFromFilesAPI(filePath: string): Observable<string> {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+
     // IMPORTANT: Cache disabled to prevent duplication
     // DO NOT use normalized/lowercase paths
-    
+
     // Use getValidToken to ensure fresh token
     return this.getValidToken().pipe(
       switchMap(accessToken => new Observable<string>(observer => {
         // Clean the file path - use exact path, no normalization
         const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-        
+        const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+
+        console.log(`📥 [Files API] Fetching icon: "${filePath}" -> cleanPath: "${cleanPath}"`);
+        console.log(`📥 [Files API] Full URL: ${fullUrl}`);
+
         // Fetch from Files API
-        fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
+        fetch(fullUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -1913,8 +1917,10 @@ export class CaspioService {
         })
       .then(response => {
         if (!response.ok) {
+          console.error(`❌ [Files API] Failed to fetch "${cleanPath}": ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
+        console.log(`✅ [Files API] Successfully fetched "${cleanPath}"`);
         return response.blob();
       })
       .then(blob => this.convertBlobToDataUrl(blob))
