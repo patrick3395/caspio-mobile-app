@@ -1471,22 +1471,92 @@ export class CaspioService {
   }
 
   private async uploadAndUpdateHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
-    const token = await firstValueFrom(this.getValidToken());
+    const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const formData = new FormData();
-    formData.append('Photo', file, file.name);
 
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    });
+    try {
+      let filePath = '';
+      let originalFilePath = '';
 
-    if (!response.ok) {
-      throw new Error(`HUD attach photo update failed: ${response.statusText}`);
+      // Upload original file first if present
+      if (originalFile) {
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `hud_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+        }
+      }
+
+      // Upload main file to Files API
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `hud_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      filePath = `/${uploadResult.Name || uniqueFilename}`;
+
+      // Update the HUD attach record with the photo path
+      const updateData: any = {
+        Photo: originalFilePath || filePath
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error('Failed to update Services_HUD_Attach record:', errorText);
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      return {
+        AttachID: attachId,
+        Photo: originalFilePath || filePath,
+        OriginalPhoto: originalFilePath
+      };
+
+    } catch (error) {
+      console.error('Error in uploadAndUpdateHUDAttachPhoto:', error);
+      throw error;
     }
-
-    return await response.json();
   }
 
   createServicesHUDAttachRecord(hudId: number, annotation: string, drawings?: string): Observable<any> {
