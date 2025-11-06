@@ -937,7 +937,19 @@ export class CaspioService {
       })
     );
   }
-  
+
+  // Get Services_HUD_Drop for dropdown options
+  getServicesHUDDrop(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_HUD_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+
   // Get Services_Drop for dropdown options (Weather Conditions, Temperature, etc.)
   getServicesDrop(): Observable<any[]> {
     return this.get<any>('/tables/LPS_Services_Drop/records').pipe(

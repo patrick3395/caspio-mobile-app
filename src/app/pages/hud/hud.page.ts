@@ -1412,10 +1412,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
   
   // Load FDF options from Services_EFE_Drop table
     
-  // Load dropdown options for visual templates from Services_HUD_Drop table
+  // Load dropdown options for visual templates from LPS_Services_HUD_Drop table
   async loadVisualDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+      const dropdownData = await this.caspioService.getServicesHUDDrop().toPromise();
       
       console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
@@ -1804,7 +1804,14 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         
         // Get all templates for this category
         const categoryTemplates = this.visualTemplates.filter(t => t.Category === category);
-        
+
+        // Sort by OrderID within category (lowest OrderID first)
+        categoryTemplates.sort((a, b) => {
+          const orderA = a.OrderID || 0;
+          const orderB = b.OrderID || 0;
+          return orderA - orderB;
+        });
+
         // Organize templates by Type
         categoryTemplates.forEach(template => {
           // Log template details for AnswerType 2 items
