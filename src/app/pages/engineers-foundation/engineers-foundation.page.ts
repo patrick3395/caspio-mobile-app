@@ -2481,8 +2481,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  // Helper method to convert File to base64 string
-  private async convertFileToBase64(file: File): Promise<string> {
+  // Helper method to convert File or Blob to base64 string
+  private async convertFileToBase64(file: File | Blob): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e: any) => {
