@@ -2361,12 +2361,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
+      // CRITICAL: Clear any pending context-clearing timer from previous FDF photo
+      // This prevents race conditions when taking multiple FDF photos quickly
+      if (this.contextClearTimerFDF) {
+        clearTimeout(this.contextClearTimerFDF);
+        this.contextClearTimerFDF = null;
+        console.log('[FDF Queue] Cleared existing context timer for new photo');
+      }
+
       // Set context for FDF photo
       this.currentFDFPhotoContext = {
         roomName,
         photoType,
         roomId
       };
+
+      console.log(`[FDF Queue] Context set for ${roomName} ${photoType}`);
 
       this.triggerFileInput(source, { allowMultiple: false });
 
@@ -2381,11 +2391,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // REFACTORED: Process FDF photo with robust queuing system
   async processFDFPhoto(file: File) {
     if (!this.currentFDFPhotoContext) {
-      console.error('[FDF Queue] No FDF photo context');
+      console.error('[FDF Queue] No FDF photo context - photo rejected');
+      await this.showToast('Photo context lost. Please try again.', 'warning');
       return;
     }
 
-    const { roomName, photoType, roomId } = this.currentFDFPhotoContext;
+    // Capture context immediately to avoid race conditions
+    const capturedContext = { ...this.currentFDFPhotoContext };
+    const { roomName, photoType, roomId } = capturedContext;
     const photoKey = photoType.toLowerCase();
     const tempId = `fdf_${roomName}_${photoType}_${Date.now()}`;
 
@@ -2397,11 +2410,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomElevationData[roomName].fdfPhotos = {};
       }
 
+      // Check if this photo type is already uploading
+      if (this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] === true) {
+        console.warn(`[FDF Queue] ${photoType} photo is already uploading for ${roomName}. Allowing new upload to replace it.`);
+        // Allow it but log it - the new photo will replace the old one
+      }
+
       // Set uploading flag to show loading spinner IMMEDIATELY
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = true;
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
 
-      // Create blob URL for instant preview
+      // Revoke old blob URL if it exists (prevent memory leaks)
+      const oldUrl = this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+      if (oldUrl && oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl);
+        console.log(`[FDF Queue] Revoked old blob URL for ${photoType}`);
+      }
+
+      // Create new blob URL for instant preview
       const blobUrl = URL.createObjectURL(file);
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
 
@@ -2426,8 +2452,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Start upload process (queues if room not ready, uploads immediately if room ready)
       // This runs in background - we don't await it
-      this.waitForRoomIdAndUploadFDF(roomName, photoType, file, tempId).catch(error => {
-        console.error(`[FDF Queue] Upload process failed for ${roomName} ${photoType}:`, error);
+      this.waitForRoomIdAndUploadFDF(roomName, photoType, file, tempId).then(() => {
+        console.log(`[FDF Queue] ✅ Upload process completed successfully for ${roomName} ${photoType}`);
+      }).catch(error => {
+        console.error(`[FDF Queue] ❌ Upload process failed for ${roomName} ${photoType}:`, error);
 
         // Show error toast
         this.showToast(`Failed to upload ${photoType} photo: ${error.message}`, 'danger');
@@ -2437,6 +2465,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           const index = this.pendingFDFUploads[roomName].findIndex(p => p.tempId === tempId);
           if (index !== -1) {
             this.pendingFDFUploads[roomName].splice(index, 1);
+            console.log(`[FDF Queue] Removed failed upload from queue. Remaining: ${this.pendingFDFUploads[roomName].length}`);
           }
         }
       });
@@ -5886,11 +5915,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 location: ''
               };
             }
-            
+
             if (!this.roomElevationData[roomName].elevationPoints) {
               this.roomElevationData[roomName].elevationPoints = [];
             }
-            
+
             // Add the new point
             const newPoint = {
               name: pointName,
@@ -5904,7 +5933,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Trigger change detection to show the new measurement immediately
             this.changeDetectorRef.detectChanges();
 
-            // Create the point in the database if room is already saved
+            // Create the point in the database asynchronously (don't block alert dismissal)
             const roomId = this.efeRecordIds[roomName];
             if (roomId) {
               const pointKey = `${roomName}_${pointName}`;
@@ -5921,36 +5950,40 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 // Trigger change detection after setting pending state
                 this.changeDetectorRef.detectChanges();
               } else {
-                try {
-                  const pointData = {
-                    EFEID: parseInt(roomId),
-                    PointName: pointName
-                  };
+                // Run database creation in background without blocking alert dismissal
+                (async () => {
+                  try {
+                    const pointData = {
+                      EFEID: parseInt(roomId),
+                      PointName: pointName
+                    };
 
-                  const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-                  if (response && (response.PointID || response.PK_ID)) {
-                    const pointId = response.PointID || response.PK_ID;
-                    this.efePointIds[pointKey] = pointId;
-                    this.pointCreationStatus[pointKey] = 'created';
-                    // Trigger change detection after database save
+                    const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+                    if (response && (response.PointID || response.PK_ID)) {
+                      const pointId = response.PointID || response.PK_ID;
+                      this.efePointIds[pointKey] = pointId;
+                      this.pointCreationStatus[pointKey] = 'created';
+                      // Trigger change detection after database save
+                      this.changeDetectorRef.detectChanges();
+                    }
+                  } catch (error) {
+                    console.error('Error creating custom point:', error);
+                    await this.showToast('Failed to create point', 'danger');
+                    // Remove from UI if creation failed
+                    const index = this.roomElevationData[roomName].elevationPoints.findIndex(
+                      (p: any) => p.name === pointName
+                    );
+                    if (index > -1) {
+                      this.roomElevationData[roomName].elevationPoints.splice(index, 1);
+                    }
+                    // Trigger change detection after removing failed point
                     this.changeDetectorRef.detectChanges();
                   }
-                } catch (error) {
-                  console.error('Error creating custom point:', error);
-                  await this.showToast('Failed to create point', 'danger');
-                  // Remove from UI if creation failed
-                  const index = this.roomElevationData[roomName].elevationPoints.findIndex(
-                    (p: any) => p.name === pointName
-                  );
-                  if (index > -1) {
-                    this.roomElevationData[roomName].elevationPoints.splice(index, 1);
-                  }
-                  // Trigger change detection after removing failed point
-                  this.changeDetectorRef.detectChanges();
-                  return false;
-                }
+                })();
               }
             }
+
+            // Dismiss alert immediately after adding point locally
             return true;
           }
         }
