@@ -48,6 +48,16 @@ interface PendingPhotoUpload {
   caption?: string; // Caption from photo editor
 }
 
+interface PendingFDFUpload {
+  file: File;
+  photoType: 'Top' | 'Bottom' | 'Threshold';
+  roomName: string;
+  roomId: string;
+  timestamp: number;
+  tempId: string;
+  annotationData?: any;
+  caption?: string;
+}
 
 function hasAnnotationObjects(data: any): boolean {
   if (!data) {
@@ -210,7 +220,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private activeUploadCount = 0;
   private readonly maxParallelUploads = 2; // Allow 2 uploads simultaneously
   private contextClearTimer: any = null; // Timer for clearing upload context
-  
+  private contextClearTimerFDF: any = null; // Timer for clearing FDF upload context
+  private pendingFDFUploads: { [roomName: string]: PendingFDFUpload[] } = {}; // Queue for FDF photo uploads
+
   // Memory cleanup tracking
   private canvasCleanup: (() => void)[] = [];
   private timers: any[] = [];
@@ -985,6 +997,38 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       console.log('[OperationsQueue] Room point photo updated successfully for AttachID:', data.attachId);
       return { response };
+    });
+
+    // FDF Photo Upload Executor
+    this.operationsQueue.setExecutor('UPLOAD_FDF_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
+      console.log('[OperationsQueue] Executing UPLOAD_FDF_PHOTO for room:', data.roomName, 'photoType:', data.photoType);
+
+      const { roomName, photoType, file, tempId } = data;
+
+      // Double-check room is ready
+      if (!this.isRoomReadyForFDF(roomName)) {
+        throw new Error(`Room ${roomName} is not ready for FDF photo upload`);
+      }
+
+      if (onProgress) onProgress(0.1); // 10% - starting upload
+
+      // Upload the photo
+      const result = await this.uploadFDFPhotoToRoom(roomName, photoType, file);
+
+      if (onProgress) onProgress(1.0); // 100% complete
+
+      console.log('[OperationsQueue] FDF photo uploaded successfully:', result);
+
+      // Remove from pending queue
+      if (this.pendingFDFUploads[roomName]) {
+        const index = this.pendingFDFUploads[roomName].findIndex(p => p.tempId === tempId);
+        if (index !== -1) {
+          this.pendingFDFUploads[roomName].splice(index, 1);
+          console.log('[OperationsQueue] Removed FDF photo from queue. Remaining:', this.pendingFDFUploads[roomName].length);
+        }
+      }
+
+      return result;
     });
 
     console.log('[OperationsQueue] Operations queue initialized successfully');
@@ -2334,119 +2378,97 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Process FDF photo after file selection
+  // REFACTORED: Process FDF photo with robust queuing system
   async processFDFPhoto(file: File) {
     if (!this.currentFDFPhotoContext) {
-      console.error('No FDF photo context');
+      console.error('[FDF Queue] No FDF photo context');
       return;
     }
-    
+
     const { roomName, photoType, roomId } = this.currentFDFPhotoContext;
     const photoKey = photoType.toLowerCase();
-    
+    const tempId = `fdf_${roomName}_${photoType}_${Date.now()}`;
+
+    console.log(`[FDF Queue] Processing photo: ${roomName} ${photoType}, tempId: ${tempId}`);
+
     try {
       // Initialize fdfPhotos structure if needed
       if (!this.roomElevationData[roomName].fdfPhotos) {
         this.roomElevationData[roomName].fdfPhotos = {};
       }
-      
-      // Set uploading flag to show loading spinner
+
+      // Set uploading flag to show loading spinner IMMEDIATELY
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = true;
-      
-      // Compress the image if needed
-      const compressedFile = await this.imageCompression.compressImage(file);
-      
-      // Create a blob URL from the compressed file for immediate display preview
-      const blobUrl = URL.createObjectURL(compressedFile);
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+
+      // Create blob URL for instant preview
+      const blobUrl = URL.createObjectURL(file);
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
-      
+
       // Trigger change detection to show preview with loading spinner
       this.changeDetectorRef.detectChanges();
-      
-      // Upload to Caspio Files API
-      const uploadFormData = new FormData();
-      const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
-      uploadFormData.append('file', compressedFile, fileName);
-      
-      const token = await firstValueFrom(this.caspioService.getValidToken());
-      const account = this.caspioService.getAccountID();
-      
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: uploadFormData
-      });
-      
-      const uploadResult = await uploadResponse.json();
 
-      // [v1.4.402] FDF Photo Fix: Handle API response structure properly
-      // The Files API returns {"Name": "filename.jpg"} or {"Result": {"Name": "filename.jpg"}}
-      const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
-      const filePath = `/${uploadedFileName}`;
-      
-      // Update the appropriate column in Services_EFE
-      const columnName = `FDFPhoto${photoType}`;
-      const updateData: any = {};
-      updateData[columnName] = filePath;
-      
-      const query = `EFEID=${roomId}`;
-      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-      
-      // Store the photo data in local state
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`] = filePath;
-      
-      // Initialize caption and drawings fields for new photos (following measurement photo pattern)
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
-
-      // FIXED: Convert compressed file to base64 directly instead of fetching from server
-      // This matches the proven Measurement/Location photo flow and prevents hanging
-      try {
-        const base64Image = await this.convertFileToBase64(compressedFile);
-        if (base64Image && base64Image.startsWith('data:')) {
-          // Replace blob URL with base64 for permanent storage
-          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = base64Image;
-          this.roomElevationData[roomName].fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
-
-          // Revoke the blob URL since we have base64 now
-          URL.revokeObjectURL(blobUrl);
-
-          console.log(`[FDF Photo] ${photoType} converted to base64 successfully`);
-        } else {
-          console.warn(`[FDF Photo] ${photoType} - Invalid base64 conversion, keeping blob URL`);
-        }
-      } catch (err) {
-        console.error(`[FDF Photo] ${photoType} - Error converting to base64, keeping blob URL:`, err);
-        // Keep the blob URL since base64 conversion failed
+      // Add to pending queue
+      if (!this.pendingFDFUploads[roomName]) {
+        this.pendingFDFUploads[roomName] = [];
       }
 
-      // FIXED: Clear uploading flag immediately after upload completes
-      // This prevents the photo from being stuck in "uploading" state
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
-      
-      // Trigger change detection to hide loading spinner
-      this.changeDetectorRef.detectChanges();
+      this.pendingFDFUploads[roomName].push({
+        file,
+        photoType,
+        roomName,
+        roomId,
+        timestamp: Date.now(),
+        tempId
+      });
+
+      console.log(`[FDF Queue] Added to queue: ${roomName} ${photoType}. Queue size: ${this.pendingFDFUploads[roomName].length}`);
+
+      // Start upload process (queues if room not ready, uploads immediately if room ready)
+      // This runs in background - we don't await it
+      this.waitForRoomIdAndUploadFDF(roomName, photoType, file, tempId).catch(error => {
+        console.error(`[FDF Queue] Upload process failed for ${roomName} ${photoType}:`, error);
+
+        // Show error toast
+        this.showToast(`Failed to upload ${photoType} photo: ${error.message}`, 'danger');
+
+        // Remove from queue
+        if (this.pendingFDFUploads[roomName]) {
+          const index = this.pendingFDFUploads[roomName].findIndex(p => p.tempId === tempId);
+          if (index !== -1) {
+            this.pendingFDFUploads[roomName].splice(index, 1);
+          }
+        }
+      });
 
     } catch (error: any) {
-      console.error(`[v1.4.402] Error processing FDF ${photoType} photo:`, error);
+      console.error(`[FDF Queue] Error processing FDF ${photoType} photo:`, error);
       const errorMsg = error?.message || error?.toString() || 'Unknown error';
-      await this.showToast(`Failed to save FDF ${photoType} photo: ${errorMsg}`, 'danger');
-      
+      await this.showToast(`Failed to process ${photoType} photo: ${errorMsg}`, 'danger');
+
       // Clear uploading flag on error
       if (this.roomElevationData[roomName]?.fdfPhotos) {
         this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
-        // Also clear the photo if upload failed
         delete this.roomElevationData[roomName].fdfPhotos[photoKey];
         delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
       }
-      
-      // Trigger change detection to update UI
+
       this.changeDetectorRef.detectChanges();
     } finally {
-      // Clear context
-      this.currentFDFPhotoContext = null;
+      // CRITICAL: Use delayed context clearing to allow rapid successive captures
+      // Clear any existing timer first
+      if (this.contextClearTimerFDF) {
+        clearTimeout(this.contextClearTimerFDF);
+        this.contextClearTimerFDF = null;
+      }
+
+      // Set new timer - context will be cleared after 500ms
+      // This allows user to quickly take multiple FDF photos without context being lost
+      this.contextClearTimerFDF = setTimeout(() => {
+        this.currentFDFPhotoContext = null;
+        this.contextClearTimerFDF = null;
+        console.log('[FDF Queue] Context cleared after delay');
+      }, 500);
     }
   }
   
@@ -2494,6 +2516,181 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  // Check if room is ready for FDF photo upload
+  private isRoomReadyForFDF(roomName: string): boolean {
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId) {
+      console.log(`[FDF Queue] Room not ready: No roomId for ${roomName}`);
+      return false;
+    }
+
+    const idStr = String(roomId);
+    if (idStr === '__pending__' || idStr.startsWith('temp_')) {
+      console.log(`[FDF Queue] Room not ready: ${roomName} has temp/pending ID: ${idStr}`);
+      return false;
+    }
+
+    const numId = typeof roomId === 'number' ? roomId : parseInt(idStr, 10);
+    if (isNaN(numId)) {
+      console.log(`[FDF Queue] Room not ready: Invalid numeric ID for ${roomName}: ${roomId}`);
+      return false;
+    }
+
+    console.log(`[FDF Queue] Room ready: ${roomName} with ID: ${numId}`);
+    return true;
+  }
+
+  // Upload FDF photo to room (called when room is ready)
+  private async uploadFDFPhotoToRoom(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', file: File): Promise<any> {
+    console.log(`[FDF Upload] Starting upload for ${roomName} ${photoType}`);
+
+    const roomId = this.efeRecordIds[roomName];
+    if (!roomId || !this.isRoomReadyForFDF(roomName)) {
+      throw new Error(`Room ${roomName} not ready for upload`);
+    }
+
+    const photoKey = photoType.toLowerCase();
+
+    try {
+      // Compress the image
+      const compressedFile = await this.imageCompression.compressImage(file);
+      console.log(`[FDF Upload] Compressed ${photoType} image`);
+
+      // Upload to Caspio Files API
+      const uploadFormData = new FormData();
+      const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
+      uploadFormData.append('file', compressedFile, fileName);
+
+      const token = await firstValueFrom(this.caspioService.getValidToken());
+      const account = this.caspioService.getAccountID();
+
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadFormData
+      });
+
+      const uploadResult = await uploadResponse.json();
+      const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
+      const filePath = `/${uploadedFileName}`;
+
+      console.log(`[FDF Upload] Uploaded to Files API: ${filePath}`);
+
+      // Update the room record with file path
+      const columnName = `FDFPhoto${photoType}`;
+      const updateData: any = {};
+      updateData[columnName] = filePath;
+
+      const query = `EFEID=${roomId}`;
+      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+
+      console.log(`[FDF Upload] Updated room record`);
+
+      // Convert to base64 for display
+      const base64Image = await this.convertFileToBase64(compressedFile);
+
+      // Update local state
+      if (!this.roomElevationData[roomName].fdfPhotos) {
+        this.roomElevationData[roomName].fdfPhotos = {};
+      }
+
+      this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Path`] = filePath;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = base64Image;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+
+      console.log(`[FDF Upload] Completed ${roomName} ${photoType}`);
+
+      return { filePath, base64Image };
+    } catch (error) {
+      console.error(`[FDF Upload] Error uploading ${roomName} ${photoType}:`, error);
+      throw error;
+    }
+  }
+
+  // Wait for room ID and upload FDF photo (with queuing)
+  private async waitForRoomIdAndUploadFDF(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', file: File, tempId: string): Promise<void> {
+    console.log(`[FDF Queue] Processing ${roomName} ${photoType}, tempId: ${tempId}`);
+
+    // Check if room is ready immediately
+    if (this.isRoomReadyForFDF(roomName)) {
+      console.log(`[FDF Queue] Room ready, uploading immediately`);
+      try {
+        await this.uploadFDFPhotoToRoom(roomName, photoType, file);
+
+        // Clear uploading flag
+        const photoKey = photoType.toLowerCase();
+        if (this.roomElevationData[roomName]?.fdfPhotos) {
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+        }
+
+        this.changeDetectorRef.detectChanges();
+      } catch (error) {
+        console.error(`[FDF Queue] Upload failed:`, error);
+
+        // Clear uploading flag and photo on error
+        const photoKey = photoType.toLowerCase();
+        if (this.roomElevationData[roomName]?.fdfPhotos) {
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+          delete this.roomElevationData[roomName].fdfPhotos[photoKey];
+          delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+        }
+
+        this.changeDetectorRef.detectChanges();
+        throw error;
+      }
+      return;
+    }
+
+    // Room not ready - queue the upload
+    console.log(`[FDF Queue] Room not ready, queuing upload`);
+
+    // Ensure room is queued for creation
+    const roomOpId = await this.ensureRoomQueued(roomName);
+
+    if (!roomOpId) {
+      throw new Error(`Failed to queue room: ${roomName}`);
+    }
+
+    // Queue the photo upload with dependency on room creation
+    await this.operationsQueue.enqueue({
+      type: 'UPLOAD_FDF_PHOTO',
+      data: { roomName, photoType, file, tempId },
+      dependencies: [roomOpId],
+      onSuccess: (result: any) => {
+        console.log(`[FDF Queue] Upload succeeded via queue:`, result);
+
+        // Update UI
+        const photoKey = photoType.toLowerCase();
+        if (this.roomElevationData[roomName]?.fdfPhotos) {
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+        }
+
+        this.changeDetectorRef.detectChanges();
+      },
+      onError: (error: any) => {
+        console.error(`[FDF Queue] Upload failed via queue:`, error);
+
+        // Clear uploading flag and photo on error
+        const photoKey = photoType.toLowerCase();
+        if (this.roomElevationData[roomName]?.fdfPhotos) {
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
+          delete this.roomElevationData[roomName].fdfPhotos[photoKey];
+          delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+        }
+
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+
+    console.log(`[FDF Queue] Upload queued for ${roomName} ${photoType}`);
   }
 
   private async resolveFdfPhotoUrl(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold'): Promise<string | null> {
