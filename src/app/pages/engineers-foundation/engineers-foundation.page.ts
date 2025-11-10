@@ -2401,24 +2401,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
 
-      // Then try to load from Caspio for permanent storage
+      // FIXED: Convert compressed file to base64 directly instead of fetching from server
+      // This matches the proven Measurement/Location photo flow and prevents hanging
       try {
-        const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
-        if (imageData && imageData.startsWith('data:')) {
+        const base64Image = await this.convertFileToBase64(compressedFile);
+        if (base64Image && base64Image.startsWith('data:')) {
           // Replace blob URL with base64 for permanent storage
-          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = imageData;
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = base64Image;
+          this.roomElevationData[roomName].fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
 
           // Revoke the blob URL since we have base64 now
           URL.revokeObjectURL(blobUrl);
+
+          console.log(`[FDF Photo] ${photoType} converted to base64 successfully`);
         } else {
-          console.warn(`[v1.4.421] FDF ${photoType} - Invalid base64 data, keeping blob URL`);
+          console.warn(`[FDF Photo] ${photoType} - Invalid base64 conversion, keeping blob URL`);
         }
       } catch (err) {
-        console.error(`[v1.4.421] FDF ${photoType} - Error loading base64, keeping blob URL:`, err);
-        // Keep the blob URL since base64 failed
+        console.error(`[FDF Photo] ${photoType} - Error converting to base64, keeping blob URL:`, err);
+        // Keep the blob URL since base64 conversion failed
       }
-      
-      // Clear uploading flag - upload complete
+
+      // FIXED: Clear uploading flag immediately after upload completes
+      // This prevents the photo from being stuck in "uploading" state
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
       
       // Trigger change detection to hide loading spinner
@@ -2474,6 +2479,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.error(`[FDF Photos] Error opening photo viewer for ${roomName} ${photoType}:`, error);
       await this.showToast('Failed to open photo viewer', 'danger');
     }
+  }
+
+  // Helper method to convert File to base64 string
+  private async convertFileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const base64Image = e.target.result;
+        resolve(base64Image);
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   private async resolveFdfPhotoUrl(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold'): Promise<string | null> {
