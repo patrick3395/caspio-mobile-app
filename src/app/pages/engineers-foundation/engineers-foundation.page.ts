@@ -756,6 +756,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.operationsQueue.setExecutor('CREATE_POINT', async (data: any) => {
       console.log('[OperationsQueue] Executing CREATE_POINT:', data.PointName);
 
+      // Check if this is a synthetic operation (point already exists)
+      if (data._synthetic) {
+        const pointKey = `${data.roomName}_${data.PointName}`;
+        const existingPointId = this.efePointIds[pointKey];
+        console.log(`[OperationsQueue] Synthetic CREATE_POINT - point already exists with ID ${existingPointId}`);
+        return { pointId: existingPointId, response: { PointID: existingPointId }, _synthetic: true };
+      }
+
       // If roomName is provided, get the real room ID (in case it was temp when queued)
       let efeid = data.EFEID;
       if (data.roomName) {
@@ -853,11 +861,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (onProgress) onProgress(0.5); // 50% before record creation
 
       // STEP 1: Create attachment record immediately (to get AttachID)
-      // Retry up to 5 times with exponential backoff for database commit delays
+      // Retry up to 8 times with exponential backoff for database commit delays
       let createResponse: any;
       let attachId: any;
       let lastError: any;
-      const maxRetries = 5;
+      const maxRetries = 8;
+
+      // CRITICAL: Add initial delay before first attempt
+      // Point dependency ensures it's created, but DB transaction may still be committing
+      // Shorter delay for points created via background (have had more time)
+      // Longer delay for points created via queue (just completed)
+      const initialDelay = 1000; // 1 second - balance between speed and safety
+      console.log(`[OperationsQueue] Waiting ${initialDelay}ms for point ${pointId} database commit before upload...`);
+      await new Promise(resolve => setTimeout(resolve, initialDelay));
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -884,7 +900,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Check if this is a foreign key constraint error (point doesn't exist yet)
           if (errorMsg.includes('Incorrect value') && errorMsg.includes('PointID')) {
             if (attempt < maxRetries) {
-              const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff: 1s, 2s, 4s, 5s, 5s
+              // Exponential backoff with higher cap: 2s, 4s, 8s, 10s, 10s, 10s, 10s
+              const delay = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
               console.log(`[OperationsQueue] Point ${pointId} not committed yet, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
               await new Promise(resolve => setTimeout(resolve, delay));
               continue; // Retry
@@ -4845,7 +4862,37 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const pointIdStr = String(existingPointId || ''); // Convert to string for checking
     if (existingPointId && !pointIdStr.startsWith('temp_') && existingPointId !== '__pending__') {
       console.log(`[Ensure Point] Point ${pointName} already exists with ID ${existingPointId}`);
-      return this.pointOperationIds[pointKey] || null;
+
+      // If point was created outside queue (via createElevationPointsForRoom),
+      // create a synthetic completed operation so dependencies work correctly
+      if (!this.pointOperationIds[pointKey]) {
+        console.log(`[Ensure Point] Point ${pointName} was created outside queue, creating synthetic operation`);
+        const syntheticOpId = await this.operationsQueue.enqueue({
+          type: 'CREATE_POINT',
+          data: {
+            EFEID: 0, // Dummy data, won't be executed
+            PointName: pointName,
+            roomName: roomName,
+            _synthetic: true // Mark as synthetic
+          },
+          dependencies: [],
+          dedupeKey: `point_${roomName}_${pointName}`,
+          maxRetries: 0, // Don't retry
+          onSuccess: () => {
+            // Already created, just mark complete
+            console.log(`[Ensure Point] Synthetic operation completed for ${pointName}`);
+          }
+        });
+
+        // Store operation ID for tracking
+        this.pointOperationIds[pointKey] = syntheticOpId;
+
+        // The synthetic operation will execute immediately and return the existing point ID
+        // No need to manually mark it complete - it will complete through normal queue processing
+        return syntheticOpId;
+      }
+
+      return this.pointOperationIds[pointKey];
     }
 
     // Check if point creation is already queued
@@ -7266,6 +7313,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async viewElevationPhoto(photo: any, roomName?: string, point?: any) {
     
     try {
+      // Check if photo is still uploading
+      if (photo.uploading) {
+        await this.showToast('Photo is still uploading, please wait...', 'warning');
+        return;
+      }
+
       // Validate photo has an ID
       if (!photo.attachId && !photo.AttachID && !photo.id) {
         console.error('Photo missing AttachID:', photo);
