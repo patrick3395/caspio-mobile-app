@@ -309,6 +309,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   roomNotesDebounce: { [roomName: string]: any } = {}; // Track note update debounce timers
   currentRoomPointCapture: any = null; // Store current capture context
 
+  // Local photo cache for optimistic UI - stores photos immediately while upload is queued
+  private localPhotoCache = new Map<string, {
+    file: File;
+    base64: string;
+    timestamp: number;
+    roomName: string;
+    pointName: string;
+    photoIndex: number;
+  }>();
+
   // Operations queue UI state
   showOperationsDetail = false;
 
@@ -576,7 +586,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Initialize operations queue and register executors
     await this.initializeOperationsQueue();
-    
+
+    // Clean up old local photo cache entries
+    this.cleanupLocalPhotoCache();
+
     // Start periodic retry for stuck uploading photos
     this.startPhotoRetryInterval();
 
@@ -3563,10 +3576,71 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 console.log(`[Load Photos] Setting ${processedPhotos.length} photos for point ${point.PointName}`);
                 elevationPoint.photos = processedPhotos;
 
+                // Merge locally cached photos that are still uploading
+                const cachedPhotosForPoint: any[] = [];
+                for (const [cacheKey, cachedPhoto] of this.localPhotoCache.entries()) {
+                  if (cachedPhoto.roomName === roomName && cachedPhoto.pointName === point.PointName) {
+                    // Check if this photo is already in the processedPhotos (upload completed)
+                    const alreadyUploaded = processedPhotos.some(p =>
+                      p.attachId && cachedPhoto.timestamp && Math.abs(p.timestamp - cachedPhoto.timestamp) < 5000
+                    );
+
+                    if (!alreadyUploaded) {
+                      // Photo is still uploading - add it to the display
+                      cachedPhotosForPoint.push({
+                        url: cachedPhoto.base64,
+                        thumbnailUrl: cachedPhoto.base64,
+                        displayUrl: cachedPhoto.base64,
+                        uploading: true,
+                        isLocal: true,
+                        cacheKey: cacheKey,
+                        timestamp: cachedPhoto.timestamp,
+                        name: `Uploading...`
+                      });
+                      console.log(`[Local Cache] Merged cached photo into display: ${cacheKey}`);
+                    }
+                  }
+                }
+
+                if (cachedPhotosForPoint.length > 0) {
+                  elevationPoint.photos = [...processedPhotos, ...cachedPhotosForPoint];
+                  elevationPoint.photoCount = elevationPoint.photos.length;
+                  console.log(`[Local Cache] Added ${cachedPhotosForPoint.length} cached photos to point ${point.PointName}`);
+                }
+
                 // CRITICAL: Trigger change detection so photos appear in UI on mobile
                 this.ngZone.run(() => {
                   this.changeDetectorRef.detectChanges();
                 });
+              } else {
+                // No Caspio photos yet - check for locally cached photos
+                const cachedPhotosForPoint: any[] = [];
+                for (const [cacheKey, cachedPhoto] of this.localPhotoCache.entries()) {
+                  if (cachedPhoto.roomName === roomName && cachedPhoto.pointName === point.PointName) {
+                    cachedPhotosForPoint.push({
+                      url: cachedPhoto.base64,
+                      thumbnailUrl: cachedPhoto.base64,
+                      displayUrl: cachedPhoto.base64,
+                      uploading: true,
+                      isLocal: true,
+                      cacheKey: cacheKey,
+                      timestamp: cachedPhoto.timestamp,
+                      name: `Uploading...`
+                    });
+                    console.log(`[Local Cache] Added cached photo to empty point: ${cacheKey}`);
+                  }
+                }
+
+                if (cachedPhotosForPoint.length > 0) {
+                  elevationPoint.photos = cachedPhotosForPoint;
+                  elevationPoint.photoCount = cachedPhotosForPoint.length;
+                  console.log(`[Local Cache] Point ${point.PointName} has ${cachedPhotosForPoint.length} cached photos (no Caspio photos yet)`);
+
+                  // Trigger change detection
+                  this.ngZone.run(() => {
+                    this.changeDetectorRef.detectChanges();
+                  });
+                }
               }
             }
           }
@@ -3677,7 +3751,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Always add as new photo - never replace
         point.photos.push(photoEntry);
         point.photoCount = point.photos.length;
-        
+
+        // Store in local photo cache for optimistic UI (immediate display while upload is queued)
+        try {
+          const base64 = await this.convertFileToBase64(annotatedResult.file);
+          const cacheKey = `${roomName}_${point.name}_${photoEntry.timestamp}`;
+          this.localPhotoCache.set(cacheKey, {
+            file: annotatedResult.file,
+            base64: base64,
+            timestamp: photoEntry.timestamp,
+            roomName: roomName,
+            pointName: point.name,
+            photoIndex: point.photos.length - 1
+          });
+          photoEntry.isLocal = true; // Mark as locally cached
+          photoEntry.cacheKey = cacheKey; // Store cache key for later cleanup
+          console.log(`[Local Cache] Stored photo: ${cacheKey}`);
+        } catch (err) {
+          console.error('[Local Cache] Failed to cache photo:', err);
+          // Continue without cache - photo will still upload normally
+        }
+
         // PERFORMANCE: Trigger change detection with OnPush strategy
         this.changeDetectorRef.detectChanges();
         
@@ -3703,6 +3797,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             photoEntry.attachId = response?.AttachID || response?.PK_ID;
             photoEntry.uploading = false; // Clear uploading flag for immediate uploads
             photoEntry.hasAnnotations = !!annotatedResult.annotationData;
+
+            // Clean up local cache now that upload is complete
+            if (photoEntry.cacheKey && this.localPhotoCache.has(photoEntry.cacheKey)) {
+              this.localPhotoCache.delete(photoEntry.cacheKey);
+              photoEntry.isLocal = false;
+              console.log(`[Local Cache] Removed cached photo after immediate upload: ${photoEntry.cacheKey}`);
+            }
 
             console.log(`[Room Point] Record created instantly with AttachID: ${photoEntry.attachId}`);
 
@@ -3860,6 +3961,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           photoEntry.attachId = result.attachId;
           photoEntry.uploading = false;
           photoEntry.hasAnnotations = !!annotatedResult.annotationData;
+
+          // Clean up local cache now that upload is complete
+          if (photoEntry.cacheKey && this.localPhotoCache.has(photoEntry.cacheKey)) {
+            this.localPhotoCache.delete(photoEntry.cacheKey);
+            photoEntry.isLocal = false;
+            console.log(`[Local Cache] Removed cached photo after upload: ${photoEntry.cacheKey}`);
+          }
+
           this.changeDetectorRef.detectChanges();
         },
         onError: (error: any) => {
@@ -8584,17 +8693,42 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   /**
    * Start interval to periodically retry photos that are stuck uploading
    */
+  /**
+   * Clean up local photo cache entries older than 24 hours
+   * Called on page initialization to prevent cache from growing indefinitely
+   */
+  private cleanupLocalPhotoCache(): void {
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    let cleanedCount = 0;
+
+    for (const [cacheKey, cachedPhoto] of this.localPhotoCache.entries()) {
+      const age = now - cachedPhoto.timestamp;
+      if (age > maxAge) {
+        this.localPhotoCache.delete(cacheKey);
+        cleanedCount++;
+        console.log(`[Local Cache] Cleaned up old cached photo (age: ${Math.round(age / 1000 / 60)} min): ${cacheKey}`);
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`[Local Cache] Cleanup complete: removed ${cleanedCount} old cache entries`);
+    } else {
+      console.log('[Local Cache] Cleanup complete: no old cache entries found');
+    }
+  }
+
   private startPhotoRetryInterval(): void {
     // Clear any existing interval
     if (this.photoRetryInterval) {
       clearInterval(this.photoRetryInterval);
     }
-    
+
     // Check every 10 seconds for photos that need retry
     this.photoRetryInterval = setInterval(() => {
       this.retryStuckPhotos();
     }, 10000); // 10 seconds
-    
+
     console.log('[Photo Retry] Periodic retry interval started (every 10 seconds)');
   }
 
