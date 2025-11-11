@@ -115,7 +115,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   expectingCameraPhoto: boolean = false; // Track if we're expecting a camera photo
   private readonly photoPlaceholder = 'assets/img/photo-placeholder.svg';
   private thumbnailCache = new Map<string, Promise<string | null>>();
-  
+
+  // [PERFORMANCE] Dual-quality image system for slow connections
+  private blobUrlCache = new Map<string, string>(); // Maps cache key → blob URL
+  private fullQualityCache = new Map<string, Promise<Blob>>(); // Maps cache key → full quality blob promise
+  private activeBlobUrls = new Set<string>(); // Track active blob URLs for cleanup
+
   // Note: Removed memoization caches - direct lookups are already fast enough
   // and proper unique cache keys were causing complexity issues
   
@@ -1278,6 +1283,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Clear thumbnail cache
     this.thumbnailCache.clear();
+
+    // [PERFORMANCE] Clean up all blob URLs
+    this.revokeAllBlobUrls();
+    this.fullQualityCache.clear();
 
     // Clean up DOM elements
     if (this.structuralWidthRaf) {
@@ -12489,9 +12498,39 @@ Stack: ${error?.stack}`;
       }
 
       photo = latestPhoto;
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+
+      // [PERFORMANCE] Load full quality if currently showing low-quality thumbnail
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      if (photo.isLowQuality && !photo.fullQualityLoaded) {
+        console.log(`📸 [viewPhoto] Loading full quality for AttachID ${attachId}...`);
+        const loadingToast = await this.toastController.create({
+          message: 'Loading full quality...',
+          duration: 30000,
+          position: 'bottom'
+        });
+        await loadingToast.present();
+
+        try {
+          const fullQualityUrl = await this.fetchFullQualityPhoto(photo.filePath || photo.Photo, attachId);
+          if (fullQualityUrl) {
+            // Update photo record with full quality
+            photo.url = fullQualityUrl;
+            photo.originalUrl = fullQualityUrl;
+            photo.displayUrl = fullQualityUrl;
+            photo.fullQualityLoaded = true;
+            photo.isLowQuality = false;
+            imageUrl = fullQualityUrl;
+            console.log(`✅ [viewPhoto] Full quality loaded for AttachID ${attachId}`);
+          }
+        } catch (error) {
+          console.error('Failed to load full quality:', error);
+        } finally {
+          await loadingToast.dismiss();
+        }
+      }
+
       const photoName = photo.name || 'Photo';
-      
+
       // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
       // The originalUrl is set during loadExistingPhotos
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
@@ -13615,7 +13654,8 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Load existing photos for visuals - FIXED TO PREVENT DUPLICATION
+  // [PERFORMANCE] Load existing photos with priority-based lazy loading
+  // Hybrid approach: visible photos load immediately, off-screen photos load in background
   async loadExistingPhotos() {
     const startTime = performance.now();
 
@@ -13639,24 +13679,104 @@ Stack: ${error?.stack}`;
     await Promise.all(countPromises);
     this.changeDetectorRef.detectChanges(); // Show skeleton loaders
 
-    // [PHOTO FIX] Load photos using unique VisualID-based keys
-    // Each visual record now has its own unique key, preventing photo cross-contamination
-    const loadPromises = Object.keys(this.visualRecordIds).map(key => {
+    // [PERFORMANCE] Priority-based loading: visible first, then background
+    const visibleKeys: string[] = [];
+    const backgroundKeys: string[] = [];
+
+    Object.keys(this.visualRecordIds).forEach(key => {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
 
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
+        // Extract category from key (format: "category_templateId")
+        const category = key.split('_')[0];
+
+        // Check if this category is currently expanded/visible
+        if (this.expandedCategories[category] || this.expandedSections[category]) {
+          visibleKeys.push(key);
+        } else {
+          backgroundKeys.push(key);
+        }
       }
-      return Promise.resolve();
     });
 
-    // Wait for all photos to load in parallel
-    await Promise.all(loadPromises);
+    console.log(`📸 [Performance] Loading ${visibleKeys.length} visible items first, queuing ${backgroundKeys.length} for background`);
 
-    const elapsed = performance.now() - startTime;
-    console.log(`[PHOTO FIX] Loaded photos for ${Object.keys(this.visualRecordIds).length} items in ${elapsed.toFixed(0)}ms`);
-    this.changeDetectorRef.detectChanges(); // Single change detection after all photos loaded
+    // P1: Load visible photos immediately (high priority)
+    const visiblePromises = visibleKeys.map(key => {
+      const rawVisualId = this.visualRecordIds[key];
+      const visualId = String(rawVisualId);
+      return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
+    });
+
+    await Promise.all(visiblePromises);
+
+    const visibleElapsed = performance.now() - startTime;
+    console.log(`📸 [Performance] Loaded ${visibleKeys.length} visible items in ${visibleElapsed.toFixed(0)}ms`);
+    this.changeDetectorRef.detectChanges(); // Update UI with visible photos
+
+    // P2/P3: Queue background photos for idle-time loading
+    if (backgroundKeys.length > 0) {
+      this.queueBackgroundPhotoLoading(backgroundKeys);
+    }
+
+    const totalElapsed = performance.now() - startTime;
+    console.log(`📸 [Performance] Initial load complete in ${totalElapsed.toFixed(0)}ms (${backgroundKeys.length} items queued for background)`);
+  }
+
+  // [PERFORMANCE] Queue background photo loading using requestIdleCallback
+  private queueBackgroundPhotoLoading(keys: string[]): void {
+    let currentIndex = 0;
+
+    const loadNextBatch = () => {
+      // Load in batches of 3 to avoid overwhelming the browser
+      const batchSize = 3;
+      const batch = keys.slice(currentIndex, currentIndex + batchSize);
+
+      if (batch.length === 0) {
+        console.log(`📸 [Background] All background photos loaded`);
+        return;
+      }
+
+      const batchPromises = batch.map(key => {
+        const rawVisualId = this.visualRecordIds[key];
+        const visualId = String(rawVisualId);
+        return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
+      });
+
+      Promise.all(batchPromises).then(() => {
+        this.changeDetectorRef.detectChanges();
+        currentIndex += batchSize;
+
+        // Schedule next batch
+        if (currentIndex < keys.length) {
+          if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(() => loadNextBatch(), { timeout: 2000 });
+          } else {
+            // Fallback for browsers without requestIdleCallback
+            setTimeout(() => loadNextBatch(), 100);
+          }
+        }
+      }).catch(error => {
+        console.error(`📸 [Background] Failed to load batch:`, error);
+        currentIndex += batchSize;
+        // Continue with next batch even if this one fails
+        if (currentIndex < keys.length) {
+          if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(() => loadNextBatch(), { timeout: 2000 });
+          } else {
+            setTimeout(() => loadNextBatch(), 100);
+          }
+        }
+      });
+    };
+
+    // Start background loading
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(() => loadNextBatch(), { timeout: 1000 });
+    } else {
+      setTimeout(() => loadNextBatch(), 100);
+    }
   }
   
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
@@ -13778,13 +13898,17 @@ Stack: ${error?.stack}`;
         // CRITICAL FIX: Fetch photo using AttachID as unique identifier
         // Multiple photos can have the same filename, so we must use AttachID
         const attachId = record.AttachID || record.id || record.PK_ID;
-        const imageData = await this.fetchPhotoBase64(record.filePath, attachId);
 
-        if (imageData) {
-          record.url = imageData;
-          record.originalUrl = imageData;
-          record.thumbnailUrl = imageData;
-          record.displayUrl = imageData;  // Always set displayUrl, regardless of annotations
+        // [PERFORMANCE] Load low-quality thumbnail first for fast display
+        const thumbnailUrl = await this.fetchPhotoThumbnail(record.filePath, attachId);
+
+        if (thumbnailUrl) {
+          record.url = thumbnailUrl;
+          record.originalUrl = thumbnailUrl;
+          record.thumbnailUrl = thumbnailUrl;
+          record.displayUrl = thumbnailUrl;
+          record.isLowQuality = true; // Mark as low quality
+          record.fullQualityLoaded = false;
         } else {
           record.thumbnailUrl = this.photoPlaceholder;
           record.displayUrl = this.photoPlaceholder;
@@ -13794,6 +13918,134 @@ Stack: ${error?.stack}`;
 
     await Promise.all(workers);
     this.changeDetectorRef.detectChanges();
+  }
+
+  // [PERFORMANCE] Compress blob to specified quality level
+  // Used to create low-quality thumbnails for fast initial display
+  private async compressBlobToQuality(blob: Blob, quality: number, maxSizeMB: number): Promise<Blob> {
+    try {
+      // Convert blob to File object for compression library
+      const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: maxSizeMB,
+        maxWidthOrHeight: 1280, // Keep same dimensions
+        quality: quality,
+        fileType: 'image/jpeg'
+      });
+
+      return compressedFile;
+    } catch (error) {
+      console.error('Failed to compress blob:', error);
+      return blob; // Return original if compression fails
+    }
+  }
+
+  // [PERFORMANCE] Create and track blob URL
+  private createBlobUrl(blob: Blob, cacheKey: string): string {
+    // Check if we already have a blob URL for this key
+    if (this.blobUrlCache.has(cacheKey)) {
+      return this.blobUrlCache.get(cacheKey)!;
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
+    this.blobUrlCache.set(cacheKey, blobUrl);
+    this.activeBlobUrls.add(blobUrl);
+
+    return blobUrl;
+  }
+
+  // [PERFORMANCE] Clean up a single blob URL
+  private revokeBlobUrl(cacheKey: string): void {
+    const blobUrl = this.blobUrlCache.get(cacheKey);
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      this.blobUrlCache.delete(cacheKey);
+      this.activeBlobUrls.delete(blobUrl);
+    }
+  }
+
+  // [PERFORMANCE] Clean up all blob URLs (call on destroy)
+  private revokeAllBlobUrls(): void {
+    this.activeBlobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.activeBlobUrls.clear();
+    this.blobUrlCache.clear();
+  }
+
+  // [PERFORMANCE] Fetch low-quality thumbnail (fast initial display)
+  private async fetchPhotoThumbnail(photoPath: string, attachId?: string | number): Promise<string | null> {
+    if (!photoPath || typeof photoPath !== 'string') {
+      return Promise.resolve(null);
+    }
+
+    const cacheKey = attachId ? `attachId_${attachId}` : photoPath;
+    const thumbnailKey = `${cacheKey}_thumb`;
+
+    // Check if thumbnail already exists in cache
+    if (this.blobUrlCache.has(thumbnailKey)) {
+      return this.blobUrlCache.get(thumbnailKey)!;
+    }
+
+    try {
+      // Fetch original blob
+      const blob = await firstValueFrom(this.caspioService.getImageBlobFromFilesAPI(photoPath));
+
+      // Compress to low quality (0.35 quality, ~150KB max)
+      const lowQualityBlob = await this.compressBlobToQuality(blob, 0.35, 0.15);
+
+      // Create blob URL for thumbnail
+      const thumbnailUrl = this.createBlobUrl(lowQualityBlob, thumbnailKey);
+
+      // Store full quality blob promise for later use
+      this.fullQualityCache.set(cacheKey, Promise.resolve(blob));
+
+      console.log(`📸 [Thumbnail] Loaded low-quality thumbnail for ${attachId}: ${(lowQualityBlob.size / 1024).toFixed(0)}KB (original: ${(blob.size / 1024).toFixed(0)}KB)`);
+
+      return thumbnailUrl;
+    } catch (error) {
+      console.error(`Failed to load thumbnail for AttachID ${attachId}:`, error);
+      return null;
+    }
+  }
+
+  // [PERFORMANCE] Fetch full-quality image (called when photo clicked)
+  private async fetchFullQualityPhoto(photoPath: string, attachId?: string | number): Promise<string | null> {
+    if (!photoPath || typeof photoPath !== 'string') {
+      return Promise.resolve(null);
+    }
+
+    const cacheKey = attachId ? `attachId_${attachId}` : photoPath;
+    const fullQualityKey = `${cacheKey}_full`;
+
+    // Check if full quality already loaded
+    if (this.blobUrlCache.has(fullQualityKey)) {
+      return this.blobUrlCache.get(fullQualityKey)!;
+    }
+
+    try {
+      // Check if we already have the full quality blob cached
+      let blob: Blob;
+      if (this.fullQualityCache.has(cacheKey)) {
+        blob = await this.fullQualityCache.get(cacheKey)!;
+      } else {
+        // Fetch if not cached
+        blob = await firstValueFrom(this.caspioService.getImageBlobFromFilesAPI(photoPath));
+        this.fullQualityCache.set(cacheKey, Promise.resolve(blob));
+      }
+
+      // Compress to standard quality (0.8 quality, 0.8MB max - matches upload settings)
+      const fullQualityBlob = await this.compressBlobToQuality(blob, 0.8, 0.8);
+
+      // Create blob URL
+      const fullQualityUrl = this.createBlobUrl(fullQualityBlob, fullQualityKey);
+
+      console.log(`📸 [Full Quality] Loaded full-quality photo for ${attachId}: ${(fullQualityBlob.size / 1024).toFixed(0)}KB`);
+
+      return fullQualityUrl;
+    } catch (error) {
+      console.error(`Failed to load full quality photo for AttachID ${attachId}:`, error);
+      return null;
+    }
   }
 
   private fetchPhotoBase64(photoPath: string, attachId?: string | number): Promise<string | null> {

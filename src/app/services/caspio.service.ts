@@ -1936,6 +1936,45 @@ export class CaspioService {
     );
   }
 
+  // [PERFORMANCE] New method to return blob directly without base64 conversion
+  // Eliminates 33% bandwidth overhead from base64 encoding
+  getImageBlobFromFilesAPI(filePath: string): Observable<Blob> {
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    return this.getValidToken().pipe(
+      switchMap(accessToken => new Observable<Blob>(observer => {
+        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+        const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+
+        console.log(`📥 [Files API Blob] Fetching: "${cleanPath}"`);
+
+        fetch(fullUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/octet-stream'
+          }
+        })
+        .then(response => {
+          if (!response.ok) {
+            console.error(`❌ [Files API Blob] Failed to fetch "${cleanPath}": ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
+          console.log(`✅ [Files API Blob] Successfully fetched "${cleanPath}"`);
+          return response.blob();
+        })
+        .then(blob => {
+          observer.next(blob);
+          observer.complete();
+        })
+        .catch(error => {
+          console.error('Error fetching image blob:', error);
+          observer.error(error);
+        });
+      }))
+    );
+  }
+
   private convertBlobToDataUrl(blob: Blob): Promise<string> {
     const worker = this.ensureImageWorker();
     if (!worker) {
